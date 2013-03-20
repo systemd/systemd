@@ -50,8 +50,7 @@ enum bus_state {
         BUS_OPENING,
         BUS_AUTHENTICATING,
         BUS_HELLO,
-        BUS_RUNNING,
-        BUS_CLOSED
+        BUS_RUNNING
 };
 
 struct sd_bus {
@@ -60,7 +59,7 @@ struct sd_bus {
         int fd;
         int message_version;
         bool can_fds:1;
-        bool send_hello:1;
+        bool sent_hello:1;
 
         void *rbuffer;
         size_t rbuffer_size;
@@ -99,3 +98,9 @@ struct sd_bus {
         size_t auth_size;
         char *auth_uid;
 };
+
+static inline void bus_unrefp(sd_bus **b) {
+        sd_bus_unref(*b);
+}
+
+#define _cleanup_bus_unref_ __attribute__((cleanup(bus_unrefp)))

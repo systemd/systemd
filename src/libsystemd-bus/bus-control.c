@@ -107,7 +107,6 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
 
 int sd_bus_list_names(sd_bus *bus, char ***l) {
         _cleanup_bus_message_unref_ sd_bus_message *m1 = NULL, *reply1 = NULL, *m2 = NULL, *reply2 = NULL;
-        _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **x = NULL;
         int r;
 
@@ -144,17 +143,17 @@ int sd_bus_list_names(sd_bus *bus, char ***l) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(reply1, "as", &a);
-        if (r < 0)
+        r = bus_message_read_strv_extend(reply1, &x);
+        if (r < 0) {
+                strv_free(x);
                 return r;
+        }
 
-        r = sd_bus_message_read(reply2, "as", &b);
-        if (r < 0)
+        r = bus_message_read_strv_extend(reply2, &x);
+        if (r < 0) {
+                strv_free(x);
                 return r;
-
-        x = strv_merge(a, b);
-        if (!x)
-                return -ENOMEM;
+        }
 
         *l = strv_uniq(x);
         return 0;
@@ -162,6 +161,7 @@ int sd_bus_list_names(sd_bus *bus, char ***l) {
 
 int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        const char *found;
         int r;
 
         if (!bus)
@@ -187,7 +187,21 @@ int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
         if (r < 0)
                 return r;
 
-        return sd_bus_message_read(reply, "s", owner);
+        r = sd_bus_message_read(reply, "s", &found);
+        if (r < 0)
+                return r;
+
+        if (owner) {
+                char *t;
+
+                t = strdup(found);
+                if (!t)
+                        return -ENOMEM;
+
+                *owner = t;
+        }
+
+        return 0;
 }
 
 int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
@@ -245,7 +259,7 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
                         "org.freedesktop.DBus",
                         "/",
                         "org.freedesktop.DBus",
-                        "GetConnectionUnixUser",
+                        "GetConnectionUnixProcessID",
                         &m);
         if (r < 0)
                 return r;

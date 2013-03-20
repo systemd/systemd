@@ -86,6 +86,8 @@ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *format, ...)
 }
 
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
+        char *x, *y = NULL;
+
         if (!dest)
                 return 0;
         if (bus_error_is_dirty(dest))
@@ -93,27 +95,21 @@ int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
         if (!sd_bus_error_is_set(e))
                 return 0;
 
-        if (e->need_free) {
-                char *x, *y = NULL;
+        x = strdup(e->name);
+        if (!x)
+                return -ENOMEM;
 
-                x = strdup(e->name);
-                if (!x)
+        if (e->message) {
+                y = strdup(e->message);
+                if (!y) {
+                        free(x);
                         return -ENOMEM;
-
-                if (e->message) {
-                        y = strdup(e->message);
-                        if (!y) {
-                                free(x);
-                                return -ENOMEM;
-                        }
                 }
+        }
 
-                dest->name = x;
-                dest->message = y;
-                dest->need_free = true;
-        } else
-                *dest = *e;
-
+        dest->name = x;
+        dest->message = y;
+        dest->need_free = true;
         return 0;
 }
 

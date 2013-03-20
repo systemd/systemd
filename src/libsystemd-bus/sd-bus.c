@@ -39,6 +39,7 @@
 
 static void bus_free(sd_bus *b) {
         struct filter_callback *f;
+        unsigned i;
 
         assert(b);
 
@@ -46,9 +47,17 @@ static void bus_free(sd_bus *b) {
                 close_nointr_nofail(b->fd);
 
         free(b->rbuffer);
-        free(b->rqueue);
-        free(b->wqueue);
         free(b->unique_name);
+        free(b->auth_uid);
+        free(b->address);
+
+        for (i = 0; i < b->rqueue_size; i++)
+                sd_bus_message_unref(b->rqueue[i]);
+        free(b->rqueue);
+
+        for (i = 0; i < b->wqueue_size; i++)
+                sd_bus_message_unref(b->wqueue[i]);
+        free(b->wqueue);
 
         hashmap_free_free(b->reply_callbacks);
 
@@ -122,24 +131,19 @@ static int bus_send_hello(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        return 0;
+        bus->sent_hello = true;
+        return r;
 }
 
 static int bus_start_running(sd_bus *bus) {
-        int r;
-
         assert(bus);
 
-        if (bus->send_hello) {
+        if (bus->sent_hello) {
                 bus->state = BUS_HELLO;
-
-                r = bus_send_hello(bus);
-                if (r < 0)
-                        return r;
+                return 0;
         }
 
         bus->state = BUS_RUNNING;
-
         return 0;
 }
 
@@ -154,7 +158,7 @@ static int parse_address_key(const char **p, const char *key, char **value) {
         assert(value);
 
         l = strlen(key);
-        if (!strncmp(*p, key, l) != 0)
+        if (strncmp(*p, key, l) != 0)
                 return 0;
 
         if ((*p)[l] != '=')
@@ -164,7 +168,7 @@ static int parse_address_key(const char **p, const char *key, char **value) {
                 return -EINVAL;
 
         a = *p + l + 1;
-        while (*a != ';' && *a != 0) {
+        while (*a != ',' && *a != 0) {
                 char c, *t;
 
                 if (*a == '%') {
@@ -182,12 +186,14 @@ static int parse_address_key(const char **p, const char *key, char **value) {
                                 return y;
                         }
 
-                        a += 3;
                         c = (char) ((x << 4) | y);
-                } else
+                        a += 3;
+                } else {
                         c = *a;
+                        a++;
+                }
 
-                t = realloc(r, n + 1);
+                t = realloc(r, n + 2);
                 if (!t) {
                         free(r);
                         return -ENOMEM;
@@ -196,6 +202,16 @@ static int parse_address_key(const char **p, const char *key, char **value) {
                 r = t;
                 r[n++] = c;
         }
+
+        if (!r) {
+                r = strdup("");
+                if (!r)
+                        return -ENOMEM;
+        } else
+                r[n] = 0;
+
+        if (*a == ',')
+                a++;
 
         *p = a;
         *value = r;
@@ -206,7 +222,10 @@ static void skip_address_key(const char **p) {
         assert(p);
         assert(*p);
 
-        *p += strcspn(*p, ";");
+        *p += strcspn(*p, ",");
+
+        if (**p == ',')
+                (*p) ++;
 }
 
 static int bus_parse_next_address(sd_bus *b) {
@@ -231,7 +250,7 @@ static int bus_parse_next_address(sd_bus *b) {
                 _cleanup_free_ char *path = NULL, *abstract = NULL;
 
                 p = a + 5;
-                while (*p != 0 && *p != ';') {
+                while (*p != 0) {
                         r = parse_address_key(&p, "guid", &guid);
                         if (r < 0)
                                 return r;
@@ -272,13 +291,13 @@ static int bus_parse_next_address(sd_bus *b) {
                 } else if (abstract) {
                         size_t l;
 
-                        l = strlen(path);
+                        l = strlen(abstract);
                         if (l > sizeof(b->sockaddr.un.sun_path) - 1)
                                 return -E2BIG;
 
                         b->sockaddr.un.sun_family = AF_UNIX;
                         b->sockaddr.un.sun_path[0] = 0;
-                        strncpy(b->sockaddr.un.sun_path+1, path, sizeof(b->sockaddr.un.sun_path)-1);
+                        strncpy(b->sockaddr.un.sun_path+1, abstract, sizeof(b->sockaddr.un.sun_path)-1);
                         b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
                 }
 
@@ -287,7 +306,7 @@ static int bus_parse_next_address(sd_bus *b) {
                 struct addrinfo hints, *result;
 
                 p = a + 4;
-                while (*p != 0 && *p != ';') {
+                while (*p != 0) {
                         r = parse_address_key(&p, "guid", &guid);
                         if (r < 0)
                                 return r;
@@ -409,7 +428,7 @@ static int bus_auth_verify(sd_bus *b) {
         if (!e)
                 return 0;
 
-        f = memmem(e, b->rbuffer_size - (e - (char*) b->rbuffer), "\r\n", 2);
+        f = memmem(e + 2, b->rbuffer_size - (e - (char*) b->rbuffer) - 2, "\r\n", 2);
         if (!f)
                 return 0;
 
@@ -423,7 +442,7 @@ static int bus_auth_verify(sd_bus *b) {
                 int x, y;
 
                 x = unhexchar(((char*) b->rbuffer)[3 + i]);
-                y = unhexchar(((char*) b->rbuffer)[3 + i + 2]);
+                y = unhexchar(((char*) b->rbuffer)[3 + i + 1]);
 
                 if (x < 0 || y < 0)
                         return -EINVAL;
@@ -446,6 +465,8 @@ static int bus_auth_verify(sd_bus *b) {
                 memmove(b->rbuffer, f + 2, b->rbuffer_size);
         }
 
+        b->rbuffer_size = 0;
+
         r = bus_start_running(b);
         if (r < 0)
                 return r;
@@ -459,6 +480,7 @@ static int bus_read_auth(sd_bus *b) {
         size_t n;
         ssize_t k;
         int r;
+        void *p;
 
         assert(b);
 
@@ -467,6 +489,11 @@ static int bus_read_auth(sd_bus *b) {
                 return r;
 
         n = MAX(3 + 32 + 2 + sizeof("AGREE_UNIX_FD") - 1 + 2, b->rbuffer_size * 2);
+        p = realloc(b->rbuffer, n);
+        if (!p)
+                return -ENOMEM;
+
+        b->rbuffer = p;
 
         zero(iov);
         iov.iov_base = (uint8_t*) b->rbuffer + b->rbuffer_size;
@@ -490,7 +517,7 @@ static int bus_read_auth(sd_bus *b) {
 }
 
 static int bus_start_auth(sd_bus *b) {
-        static const char auth_prefix[] = "\0AUTH_EXTERNAL ";
+        static const char auth_prefix[] = "\0AUTH EXTERNAL ";
         static const char auth_suffix[] = "\r\nNEGOTIATE_UNIX_FD\r\nBEGIN\r\n";
 
         char text[20 + 1]; /* enough space for a 64bit integer plus NUL */
@@ -570,25 +597,25 @@ int sd_bus_open_system(sd_bus **ret) {
                 r = sd_bus_open_address(e, &b);
                 if (r < 0)
                         return r;
+        } else {
+                b = bus_new();
+                if (!b)
+                        return -ENOMEM;
 
-                b->send_hello = true;
-                *ret = b;
-                return r;
+                b->sockaddr.un.sun_family = AF_UNIX;
+                strncpy(b->sockaddr.un.sun_path, "/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
+                b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + sizeof("/run/dbus/system_bus_socket") - 1;
+
+                r = bus_start_connect(b);
+                if (r < 0) {
+                        bus_free(b);
+                        return r;
+                }
         }
 
-        b = bus_new();
-        if (!b)
-                return -ENOMEM;
-
-        b->send_hello = true;
-
-        b->sockaddr.un.sun_family = AF_UNIX;
-        strncpy(b->sockaddr.un.sun_path, "/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
-        b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + sizeof("/run/dbus/system_bus_socket") - 1;
-
-        r = bus_start_connect(b);
+        r = bus_send_hello(b);
         if (r < 0) {
-                bus_free(b);
+                sd_bus_unref(b);
                 return r;
         }
 
@@ -610,33 +637,33 @@ int sd_bus_open_user(sd_bus **ret) {
                 r = sd_bus_open_address(e, &b);
                 if (r < 0)
                         return r;
+        } else {
+                e = getenv("XDG_RUNTIME_DIR");
+                if (!e)
+                        return -ENOENT;
 
-                b->send_hello = true;
-                *ret = b;
-                return r;
+                l = strlen(e);
+                if (l + 4 > sizeof(b->sockaddr.un.sun_path))
+                        return -E2BIG;
+
+                b = bus_new();
+                if (!b)
+                        return -ENOMEM;
+
+                b->sockaddr.un.sun_family = AF_UNIX;
+                memcpy(mempcpy(b->sockaddr.un.sun_path, e, l), "/bus", 4);
+                b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + l + 4;
+
+                r = bus_start_connect(b);
+                if (r < 0) {
+                        bus_free(b);
+                        return r;
+                }
         }
 
-        e = getenv("XDG_RUNTIME_DIR");
-        if (!e)
-                return -ENOENT;
-
-        l = strlen(e);
-        if (l + 4 > sizeof(b->sockaddr.un.sun_path))
-                return -E2BIG;
-
-        b = bus_new();
-        if (!b)
-                return -ENOMEM;
-
-        b->send_hello = true;
-
-        b->sockaddr.un.sun_family = AF_UNIX;
-        memcpy(mempcpy(b->sockaddr.un.sun_path, e, l), "/bus", 4);
-        b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + l + 4;
-
-        r = bus_start_connect(b);
+        r = bus_send_hello(b);
         if (r < 0) {
-                bus_free(b);
+                sd_bus_unref(b);
                 return r;
         }
 
@@ -747,6 +774,8 @@ int sd_bus_can_send(sd_bus *bus, char type) {
 
         if (!bus)
                 return -EINVAL;
+        if (bus->state != BUS_RUNNING && bus->state != BUS_HELLO)
+                return -EAGAIN;
 
         if (type == SD_BUS_TYPE_UNIX_FD)
                 return bus->can_fds;
@@ -756,6 +785,9 @@ int sd_bus_can_send(sd_bus *bus, char type) {
 
 static int bus_seal_message(sd_bus *b, sd_bus_message *m) {
         assert(m);
+
+        if (m->header->version > b->message_version)
+                return -EPERM;
 
         if (m->sealed)
                 return 0;
@@ -773,6 +805,7 @@ static int message_write(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         assert(bus);
         assert(m);
         assert(idx);
+        assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
         n = m->n_iovec * sizeof(struct iovec);
         iov = alloca(n);
@@ -792,7 +825,7 @@ static int message_write(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         *idx += (size_t) k;
         iovec_advance(iov, &j, *idx);
 
-        return j > m->n_iovec;
+        return j >= m->n_iovec;
 }
 
 static int message_read_need(sd_bus *bus, size_t *need) {
@@ -801,8 +834,9 @@ static int message_read_need(sd_bus *bus, size_t *need) {
 
         assert(bus);
         assert(need);
+        assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
-        if (bus->rbuffer_size <= sizeof(struct bus_header)) {
+        if (bus->rbuffer_size < sizeof(struct bus_header)) {
                 *need = sizeof(struct bus_header);
                 return 0;
         }
@@ -818,9 +852,9 @@ static int message_read_need(sd_bus *bus, size_t *need) {
                 a = be32toh(a);
                 b = be32toh(b);
         } else
-                return -EIO;
+                return -EBADMSG;
 
-        *need = sizeof(struct bus_header) + ALIGN_TO(a, 8) + b;
+        *need = sizeof(struct bus_header) + ALIGN_TO(b, 8) + a;
         return 0;
 }
 
@@ -832,6 +866,7 @@ static int message_make(sd_bus *bus, size_t size, sd_bus_message **m) {
         assert(bus);
         assert(m);
         assert(bus->rbuffer_size >= size);
+        assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
         if (bus->rbuffer_size > size) {
                 b = memdup((const uint8_t*) bus->rbuffer + size, bus->rbuffer_size - size);
@@ -850,12 +885,6 @@ static int message_make(sd_bus *bus, size_t size, sd_bus_message **m) {
         bus->rbuffer = b;
         bus->rbuffer_size -= size;
 
-        r = bus_message_parse(t);
-        if (r < 0) {
-                sd_bus_message_unref(t);
-                return r;
-        }
-
         *m = t;
         return 1;
 }
@@ -870,6 +899,7 @@ static int message_read(sd_bus *bus, sd_bus_message **m) {
 
         assert(bus);
         assert(m);
+        assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
         r = message_read_need(bus, &need);
         if (r < 0)
@@ -881,6 +911,8 @@ static int message_read(sd_bus *bus, sd_bus_message **m) {
         b = realloc(bus->rbuffer, need);
         if (!b)
                 return -ENOMEM;
+
+        bus->rbuffer = b;
 
         zero(iov);
         iov.iov_base = (uint8_t*) bus->rbuffer + bus->rbuffer_size;
@@ -910,6 +942,7 @@ static int dispatch_wqueue(sd_bus *bus) {
         int r, c = 0;
 
         assert(bus);
+        assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
         if (bus->fd < 0)
                 return -ENOTCONN;
@@ -951,6 +984,7 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
 
         assert(bus);
         assert(m);
+        assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
         if (bus->fd < 0)
                 return -ENOTCONN;
@@ -983,8 +1017,6 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
-        if (m->header->version > bus->message_version)
-                return -EPERM;
 
         r = bus_seal_message(bus, m);
         if (r < 0)
@@ -995,7 +1027,7 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         if (m->dont_send && !serial)
                 return 0;
 
-        if (bus->wqueue_size <= 0) {
+        if ((bus->state == BUS_RUNNING || bus->state == BUS_HELLO) && bus->wqueue_size <= 0) {
                 size_t idx = 0;
 
                 r = message_write(bus, m, &idx);
@@ -1057,14 +1089,20 @@ int sd_bus_send_with_reply(
 
         if (!bus)
                 return -EINVAL;
-        if (!bus->fd < 0)
+        if (bus->fd < 0)
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
         if (!callback)
                 return -EINVAL;
-        if (!m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
                 return -EINVAL;
+        if (m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return -EINVAL;
+
+        r = hashmap_ensure_allocated(&bus->reply_callbacks, uint64_hash_func, uint64_compare_func);
+        if (r < 0)
+                return r;
 
         r = bus_seal_message(bus, m);
         if (r < 0)
@@ -1111,6 +1149,30 @@ int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial) {
         return 1;
 }
 
+static int ensure_running(sd_bus *bus) {
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_is_running(bus);
+        if (r != 0)
+                return r;
+
+        for (;;) {
+                r = sd_bus_process(bus, NULL);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_is_running(bus);
+                if (r != 0)
+                        return r;
+
+                r = sd_bus_wait(bus, (uint64_t) -1);
+                if (r < 0)
+                        return r;
+        }
+}
+
 int sd_bus_send_with_reply_and_block(
                 sd_bus *bus,
                 sd_bus_message *m,
@@ -1125,14 +1187,20 @@ int sd_bus_send_with_reply_and_block(
 
         if (!bus)
                 return -EINVAL;
-        if (!bus->fd < 0)
+        if (bus->fd < 0)
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
-        if (!m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
                 return -EINVAL;
-        if (sd_bus_error_is_dirty(error))
+        if (m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return -EINVAL;
+        if (bus_error_is_dirty(error))
+                return -EINVAL;
+
+        r = ensure_running(bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_send(bus, m, &serial);
         if (r < 0)
@@ -1162,6 +1230,9 @@ int sd_bus_send_with_reply_and_block(
                 if (r < 0)
                         return r;
                 if (r > 0) {
+                        /* bus_message_dump(incoming); */
+                        /* sd_bus_message_rewind(incoming, true); */
+
                         if (incoming->reply_serial == serial) {
                                 /* Found a match! */
 
@@ -1223,7 +1294,7 @@ int sd_bus_get_fd(sd_bus *bus) {
                 return -EINVAL;
 
         if (bus->fd < 0)
-                return -EINVAL;
+                return -ENOTCONN;
 
         return bus->fd;
 }
@@ -1233,13 +1304,19 @@ int sd_bus_get_events(sd_bus *bus) {
 
         if (!bus)
                 return -EINVAL;
-
         if (bus->fd < 0)
-                return -EINVAL;
+                return -ENOTCONN;
 
         if (bus->state == BUS_OPENING)
                 flags |= POLLOUT;
-        else if (bus->state == BUS_RUNNING || bus->state == BUS_HELLO) {
+        else if (bus->state == BUS_AUTHENTICATING) {
+
+                if (bus->auth_index < ELEMENTSOF(bus->auth_iovec))
+                        flags |= POLLOUT;
+
+                flags |= POLLIN;
+
+        } else if (bus->state == BUS_RUNNING || bus->state == BUS_HELLO) {
                 if (bus->rqueue_size <= 0)
                         flags |= POLLIN;
                 if (bus->wqueue_size > 0)
@@ -1250,7 +1327,6 @@ int sd_bus_get_events(sd_bus *bus) {
 }
 
 int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
-        sd_bus_message *m;
         int r;
 
         if (!bus)
@@ -1270,7 +1346,7 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
                         return -errno;
 
                 if (p.revents & (POLLOUT|POLLERR|POLLHUP)) {
-                        int error;
+                        int error = 0;
                         socklen_t slen = sizeof(error);
 
                         r = getsockopt(bus->fd, SOL_SOCKET, SO_ERROR, &error, &slen);
@@ -1297,13 +1373,14 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
                         return r;
 
                 r = bus_read_auth(bus);
-                if (r <= 0)
+                if (r < 0)
                         return r;
 
-                return bus_start_running(bus);
+                return 0;
 
         } else if (bus->state == BUS_RUNNING || bus->state == BUS_HELLO) {
                 struct filter_callback *l;
+                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
 
                 r = dispatch_wqueue(bus);
                 if (r < 0)
@@ -1321,31 +1398,40 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
                                 r = c->callback(bus, m, c->userdata);
                                 free(c);
 
-                                if (r != 0) {
-                                        sd_bus_message_unref(m);
+                                if (r != 0)
                                         return r < 0 ? r : 0;
-                                }
                         }
                 }
 
                 LIST_FOREACH(callbacks, l, bus->filter_callbacks) {
                         r = l->callback(bus, m, l->userdata);
-                        if (r != 0) {
-                                sd_bus_message_unref(m);
+                        if (r != 0)
                                 return r < 0 ? r : 0;
-                        }
                 }
 
                 if (ret) {
                         *ret = m;
+                        m = NULL;
                         return 1;
                 }
 
-                sd_bus_message_unref(m);
+                if (sd_bus_message_is_method_call(m, NULL, NULL)) {
+                        const sd_bus_error e = SD_BUS_ERROR_INIT_CONST("org.freedesktop.DBus.Error.UnknownObject", "Unknown object.");
+                        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+
+                        r = sd_bus_message_new_method_error(bus, m, &e, &reply);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_send(bus, reply, NULL);
+                        if (r < 0)
+                                return r;
+                }
+
                 return 0;
         }
 
-        return -ENOTSUP;
+        assert_not_reached("Unknown state");
 }
 
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
@@ -1356,7 +1442,10 @@ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
         if (!bus)
                 return -EINVAL;
         if (bus->fd < 0)
-                return -ECONNREFUSED;
+                return -ENOTCONN;
+
+        if (bus->rqueue_size > 0)
+                return 0;
 
         e = sd_bus_get_events(bus);
         if (e < 0)
@@ -1368,7 +1457,7 @@ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
 
         r = ppoll(&p, 1, timeout_usec == (uint64_t) -1 ? NULL : timespec_store(&ts, timeout_usec), NULL);
         if (r < 0)
-                return -EINVAL;
+                return -errno;
 
         return r;
 }
@@ -1381,7 +1470,11 @@ int sd_bus_flush(sd_bus *bus) {
         if (bus->fd < 0)
                 return -ENOTCONN;
 
-        if (bus->state == BUS_RUNNING && bus->wqueue_size <= 0)
+        r = ensure_running(bus);
+        if (r < 0)
+                return r;
+
+        if (bus->wqueue_size <= 0)
                 return 0;
 
         for (;;) {
@@ -1389,7 +1482,7 @@ int sd_bus_flush(sd_bus *bus) {
                 if (r < 0)
                         return r;
 
-                if (bus->state == BUS_RUNNING && bus->wqueue_size <= 0)
+                if (bus->wqueue_size <= 0)
                         return 0;
 
                 r = sd_bus_wait(bus, (uint64_t) -1);

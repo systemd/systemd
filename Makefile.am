@@ -1654,12 +1654,19 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-type.c \
 	src/libsystemd-bus/bus-type.h
 
+libsystemd_bus_la_LIBADD =  \
+	libsystemd-id128-internal.la
+
 noinst_LTLIBRARIES += \
         libsystemd-bus.la
 
 noinst_tests += \
 	test-bus-marshal \
-	test-bus-signature
+	test-bus-signature \
+	test-bus-chat
+
+noinst_PROGRAMS += \
+	busctl
 
 test_bus_marshal_SOURCES = \
 	src/libsystemd-bus/test-bus-marshal.c
@@ -1679,6 +1686,25 @@ test_bus_signature_SOURCES = \
 	src/libsystemd-bus/test-bus-signature.c
 
 test_bus_signature_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la
+
+test_bus_chat_SOURCES = \
+	src/libsystemd-bus/test-bus-chat.c
+
+test_bus_chat_CFLAGS = \
+	$(AM_CFLAGS) \
+	-pthread
+
+test_bus_chat_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la \
+	libsystemd-id128-internal.la
+
+busctl_SOURCES = \
+	src/libsystemd-bus/busctl.c
+
+busctl_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la
 

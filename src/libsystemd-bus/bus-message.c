@@ -23,6 +23,7 @@
 
 #include "util.h"
 #include "utf8.h"
+#include "strv.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -322,6 +323,8 @@ int sd_bus_message_new_signal(
         if (!t)
                 return -ENOMEM;
 
+        t->header->flags |= SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
+
         r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_PATH, SD_BUS_TYPE_OBJECT_PATH, path, &t->path);
         if (r < 0)
                 goto fail;
@@ -409,6 +412,7 @@ static int message_new_reply(
         if (!t)
                 return -ENOMEM;
 
+        t->header->flags |= SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_serial = BUS_MESSAGE_SERIAL(call);
 
         r = message_append_field_uint32(t, SD_BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_serial);
@@ -424,6 +428,7 @@ static int message_new_reply(
         t->dont_send = !!(call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED);
 
         *m = t;
+        return 0;
 
 fail:
         message_free(t);
@@ -1891,7 +1896,7 @@ eof:
         return 0;
 }
 
-int sd_bus_message_rewind(sd_bus_message *m, bool complete) {
+int sd_bus_message_rewind(sd_bus_message *m, int complete) {
         struct bus_container *c;
 
         if (!m)
@@ -2424,6 +2429,10 @@ static int message_parse_fields(sd_bus_message *m) {
                 break;
         }
 
+        /* Try to read the error message, but if we can't it's a non-issue */
+        if (m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+                sd_bus_message_read(m, "s", &m->error.message);
+
         return 0;
 }
 
@@ -2721,6 +2730,37 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
 
         *buffer = p;
         *sz = total;
+
+        return 0;
+}
+
+int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
+        int r;
+
+        assert(m);
+        assert(l);
+
+        r = sd_bus_message_enter_container(m, 'a', "s");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const char *s;
+
+                r = sd_bus_message_read_basic(m, 's', &s);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = strv_extend(l, s);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
 
         return 0;
 }

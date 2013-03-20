@@ -4,6 +4,7 @@
 /ata_id
 /bootctl
 /build-aux
+/busctl
 /cdrom_id
 /collect
 /gtk-doc.make
@@ -82,6 +83,7 @@
 /tags
 /test-bus-marshal
 /test-bus-signature
+/test-bus-chat
 /test-calendarspec
 /test-catalog
 /test-cgroup

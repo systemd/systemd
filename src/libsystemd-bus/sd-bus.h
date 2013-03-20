@@ -32,6 +32,12 @@
  * - make unix fd passing work
  * - add page donation logic
  * - api for appending/reading fixed arrays
+ * - always verify container depth
+ * - implement method timeout logic
+ * - implicitly set no_reply when a message-call is sent an the serial number ignored
+ * - reduce number of ppoll()s if we can avoid it
+ * - handle NULL strings nicer when appending
+ * - merge busctl into systemctl or so?
  */
 
 typedef struct sd_bus sd_bus;
@@ -117,7 +123,7 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_exit_container(sd_bus_message *m);
 int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents);
-int sd_bus_message_rewind(sd_bus_message *m, bool complete);
+int sd_bus_message_rewind(sd_bus_message *m, int complete);
 
 /* Bus management */
 
@@ -133,7 +139,8 @@ int sd_bus_remove_match(sd_bus *bus, const char *match);
 
 /* Error structures */
 
-#define SD_BUS_ERROR_INIT (NULL, NULL, 0)
+#define SD_BUS_ERROR_INIT {NULL, NULL, 0}
+#define SD_BUS_ERROR_INIT_CONST(name, message) {(name), (message), 0}
 
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *format, ...);
