@@ -568,7 +568,7 @@ err:
  * Murmurhash is under the MIT license.
  *
  */
-static unsigned int murmur_hash2(const char *key, int len, unsigned int seed)
+static unsigned int murmur_hash2(const char *key, size_t len, unsigned int seed)
 {
         /*
          *  'm' and 'r' are mixing constants generated offline.
@@ -583,17 +583,18 @@ static unsigned int murmur_hash2(const char *key, int len, unsigned int seed)
         /* mix 4 bytes at a time into the hash */
         const unsigned char * data = (const unsigned char *)key;
 
-        while(len >= 4) {
-                unsigned int k = *(unsigned int *)data;
+        while(len >= sizeof(unsigned int)) {
+                unsigned int k;
 
+                memcpy(&k, data, sizeof(k));
                 k *= m;
                 k ^= k >> r;
                 k *= m;
                 h *= m;
                 h ^= k;
 
-                data += 4;
-                len -= 4;
+                data += sizeof(k);
+                len -= sizeof(k);
         }
 
         /* handle the last few bytes of the input array */
