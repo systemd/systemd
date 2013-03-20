@@ -26,7 +26,6 @@
 Subject: The Journal has been started
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The system journal process has been starting up, opened the journal
 files for writing and is now ready to process requests.
@@ -35,7 +34,6 @@ files for writing and is now ready to process requests.
 Subject: The Journal has been stopped
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The system journal process has shut down and closed all currently
 active journal files.
@@ -45,7 +43,6 @@ Subject: Messages from a service have been suppressed
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: man:journald.conf(5)
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 A service has logged too many messages within a time period. Messages
 from the service have been dropped.
@@ -61,7 +58,6 @@ RateLimitInterval= and RateLimitBurst= in
 Subject: Journal messages have been missed
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Kernel messages have been lost as the journal system has been unable
 to process them quickly enough.
@@ -71,7 +67,6 @@ Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) dumped core
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: man:core(5)
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Process @COREDUMP_PID@ (@COREDUMP_COMM@) crashed and dumped core.
 
@@ -83,7 +78,6 @@ Subject: Speicherabbild für Prozess @COREDUMP_PID@ (@COREDUMP_COMM) generiert
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: man:core(5)
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Prozess @COREDUMP_PID@ (@COREDUMP_COMM@) ist abgebrochen worden und
 ein Speicherabbild wurde generiert.
@@ -96,7 +90,6 @@ Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 A new session with the ID @SESSION_ID@ has been created for the user @USER_ID@.
 
@@ -107,7 +100,6 @@ Subject: A session @SESSION_ID@ has been terminated
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 A session with the ID @SESSION_ID@ has been terminated.
 
@@ -116,7 +108,6 @@ Subject: A new seat @SEAT_ID@ is now available
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 A new seat @SEAT_ID@ has been configured and is now available.
 
@@ -125,7 +116,6 @@ Subject: A seat @SEAT_ID@ has now been removed
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 A seat @SEAT_ID@ has been removed and is no longer available.
 
@@ -133,7 +123,6 @@ A seat @SEAT_ID@ has been removed and is no longer available.
 Subject: Time change
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The system clock has been changed to @REALTIME@ microseconds after January 1st, 1970.
 
@@ -141,7 +130,6 @@ The system clock has been changed to @REALTIME@ microseconds after January 1st, 
 Subject: Zeitänderung
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Die System-Zeit wurde geändert auf @REALTIME@ Mikrosekunden nach dem 1. Januar 1970.
 
@@ -149,7 +137,6 @@ Die System-Zeit wurde geändert auf @REALTIME@ Mikrosekunden nach dem 1. Januar 
 Subject: Time zone change to @TIMEZONE@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The system time zone has been changed to @TIMEZONE@.
 
@@ -157,7 +144,6 @@ The system time zone has been changed to @TIMEZONE@.
 Subject: System start-up is now complete
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 All system services necessary queued for starting at boot have been
 successfully started. Note that this does not mean that the machine is
@@ -173,7 +159,6 @@ Userspace start-up required @USERSPACE_USEC@ microseconds.
 Subject: System sleep state @SLEEP@ entered
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The system has now entered the @SLEEP@ sleep state.
 
@@ -181,7 +166,6 @@ The system has now entered the @SLEEP@ sleep state.
 Subject: System sleep state @SLEEP@ left
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The system has now left the @SLEEP@ sleep state.
 
@@ -189,7 +173,6 @@ The system has now left the @SLEEP@ sleep state.
 Subject: System shutdown initiated
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Systemd shutdown has been initiated. The shutdown has now begun and
 all system services are terminated and all file systems unmounted.
@@ -198,7 +181,6 @@ all system services are terminated and all file systems unmounted.
 Subject: Unit @UNIT@ has begun with start-up
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Unit @UNIT@ has begun starting up.
 
@@ -206,7 +188,6 @@ Unit @UNIT@ has begun starting up.
 Subject: Unit @UNIT@ has finished start-up
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Unit @UNIT@ has finished starting up.
 
@@ -216,7 +197,6 @@ The start-up result is @RESULT@.
 Subject: Unit @UNIT@ has begun shutting down
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Unit @UNIT@ has begun shutting down.
 
