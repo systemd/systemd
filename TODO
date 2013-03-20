@@ -49,6 +49,9 @@ Features:
   - Use for seamless upgrades, by running the new server before stopping the
     old.
 
+* after all byte-wise realloc() is slow, even on glibc, so i guess we
+  need manual exponential loops after all
+
 * BootLoaderSpec: drop allowing ext234 for $BOOT. Clarify that the
   kernel has to be in $BOOT. Clarify that the boot loader should be
   installed to the ESP. Define a way how an installer can figure out
