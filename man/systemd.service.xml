@@ -302,7 +302,9 @@
                                 argument must be an absolute path
                                 name.</para>
 
-                                <para>When
+                                <para>When <varname>Type</varname> is
+                                not <option>oneshot</option>, only one
+                                command may be given. When
                                 <varname>Type=oneshot</varname> is
                                 used, more than one command may be
                                 specified. Multiple command lines may
@@ -316,18 +318,21 @@
                                 for compatibility with parsers
                                 suitable for XDG
                                 <filename>.desktop</filename> files.
-                                The commands are invoked one by one
-                                sequentially in the order they appear
-                                in the unit file.  When
-                                <varname>Type</varname> is not
-                                <option>oneshot</option>, only one
-                                command may be given. Lone semicolons
-                                may be escaped as
+                                Lone semicolons may be escaped as
                                 '<literal>\;</literal>'. If the empty
                                 string is assigned to this option the
                                 list of commands to start is reset,
                                 prior assignments of this option will
                                 have no effect.</para>
+
+                                <para>If more than one command is
+                                specified, the commands are invoked
+                                one by one sequentially in the order
+                                they appear in the unit file. If one
+                                of the commands fails (and is not
+                                prefixed with '<literal>-</literal>'),
+                                other lines are not executed and the
+                                unit is considered failed.</para>
 
                                 <para>Unless
                                 <varname>Type=forking</varname> is
@@ -343,9 +348,8 @@
                                 line (i.e. the program to execute) may
                                 not include specifiers.</para>
 
-                                <para>On top of that basic environment
-                                variable substitution is
-                                supported. Use
+                                <para>Basic environment variable
+                                substitution is supported. Use
                                 <literal>${FOO}</literal> as part of a
                                 word, or as a word of its own on the
                                 command line, in which case it will be
@@ -357,8 +361,8 @@
                                 word on the command line, in which
                                 case it will be replaced by the value
                                 of the environment variable split up
-                                at whitespace, resulting in zero or more
-                                arguments. Note that the first
+                                at whitespace, resulting in zero or
+                                more arguments. Note that the first
                                 argument (i.e. the program to execute)
                                 may not be a variable, since it must
                                 be a literal and absolute path
@@ -386,13 +390,14 @@
                                 lines. If shell command lines are to
                                 be used they need to be passed
                                 explicitly to a shell implementation
-                                of some kind. Example:
-                                <literal>ExecStart=/bin/sh -c 'dmesg | tac'</literal></para>
+                                of some kind. Example:</para>
+                                <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'
+                                </programlisting>
 
                                 <para>For services run by a user
                                 instance of systemd the special
                                 environment variable
-                                <literal>MANAGERPID</literal> is set
+                                <varname>$MANAGERPID</varname> is set
                                 to the PID of the systemd
                                 instance.</para>
                                 </listitem>
@@ -410,6 +415,11 @@
                                 that multiple command lines are allowed
                                 and the commands are executed one
                                 after the other, serially.</para>
+
+                                <para>If any of those commands (not
+                                prefixed with '<literal>-</literal>')
+                                fail, the rest are not executed and
+                                the unit is considered failed.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -425,14 +435,17 @@
                                 optional. Specifier and environment
                                 variable substitution is supported
                                 here following the same scheme as for
-                                <varname>ExecStart=</varname>. One
-                                additional special environment
-                                variables is set: if known
-                                <literal>$MAINPID</literal> is set to
+                                <varname>ExecStart=</varname>.</para>
+
+                                <para>One additional special
+                                environment variables is set: if known
+                                <varname>$MAINPID</varname> is set to
                                 the main process of the daemon, and
                                 may be used for command lines like the
-                                following: <command>/bin/kill -HUP
-                                $MAINPID</command>.</para></listitem>
+                                following:</para>
+
+                                <programlisting>/bin/kill -HUP $MAINPID</programlisting>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -456,7 +469,7 @@
                                 service stop is requested. Specifier
                                 and environment variable substitution
                                 is supported (including
-                                <literal>$MAINPID</literal>, see
+                                <varname>$MAINPID</varname>, see
                                 above).</para></listitem>
                         </varlistentry>
 
