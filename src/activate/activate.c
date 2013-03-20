@@ -164,7 +164,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
         return count;
 }
 
-static int launch(char* name, char **argv, char **environ, int fds) {
+static int launch(char* name, char **argv, char **env, int fds) {
         unsigned n_env = 0, length;
         char **envp = NULL, **s;
         static const char* tocopy[] = {"TERM=", "PATH=", "USER=", "HOME="};
@@ -182,14 +182,14 @@ static int launch(char* name, char **argv, char **environ, int fds) {
                         char _cleanup_free_ *p = strappend(*s, "=");
                         if (!p)
                                 return log_oom();
-                        envp[n_env] = strv_find_prefix(environ, p);
+                        envp[n_env] = strv_find_prefix(env, p);
                         if (envp[n_env])
                                 n_env ++;
                 }
         }
 
         for (i = 0; i < ELEMENTSOF(tocopy); i++) {
-                envp[n_env] = strv_find_prefix(environ, tocopy[i]);
+                envp[n_env] = strv_find_prefix(env, tocopy[i]);
                 if (envp[n_env])
                         n_env ++;
         }
@@ -208,7 +208,7 @@ static int launch(char* name, char **argv, char **environ, int fds) {
         return -errno;
 }
 
-static int launch1(const char* child, char** argv, char **environ, int fd) {
+static int launch1(const char* child, char** argv, char **env, int fd) {
         pid_t parent_pid, child_pid;
         int r;
 
