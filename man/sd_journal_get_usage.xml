@@ -64,12 +64,12 @@
                 <title>Description</title>
 
                 <para><function>sd_journal_get_usage()</function>
-                determines the total disk space currently used up by
-                journal files. If
-                <literal>SD_JOURNAL_LOCAL_ONLY</literal> has been
-                passed when opening the journal files this value will
-                only reflect the size of journal files of the local
-                host, otherwise of all hosts.</para>
+                determines the total disk space currently used by
+                journal files (in bytes). If
+                <literal>SD_JOURNAL_LOCAL_ONLY</literal> was passed
+                when opening the journal this value will only reflect
+                the size of journal files of the local host, otherwise
+                of all hosts.</para>
         </refsect1>
 
         <refsect1>

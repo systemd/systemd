@@ -130,12 +130,12 @@ PyDoc_STRVAR(Reader_fileno__doc__,
              "See man:sd_journal_get_fd(3).");
 static PyObject* Reader_fileno(Reader *self, PyObject *args)
 {
-    int r;
-    r = sd_journal_get_fd(self->j);
-    set_error(r, NULL, NULL);
-    if (r < 0)
+    int fd;
+    fd = sd_journal_get_fd(self->j);
+    set_error(fd, NULL, NULL);
+    if (fd < 0)
         return NULL;
-    return long_FromLong(r);
+    return long_FromLong(fd);
 }
 
 
@@ -168,6 +168,29 @@ static PyObject* Reader_close(Reader *self, PyObject *args)
     sd_journal_close(self->j);
     self->j = NULL;
     Py_RETURN_NONE;
+}
+
+
+PyDoc_STRVAR(Reader_get_usage__doc__,
+             "get_usage() -> int\n\n"
+             "Returns the total disk space currently used by journal"
+             "files (in bytes). If `SD_JOURNAL_LOCAL_ONLY` was"
+             "passed when opening the journal this value will only reflect"
+             "the size of journal files of the local host, otherwise"
+             "of all hosts.\n\n"
+             "This method invokes sd_journal_get_usage().\n"
+             "See man:sd_journal_get_usage(3).");
+static PyObject* Reader_get_usage(Reader *self, PyObject *args)
+{
+    int r;
+    uint64_t bytes;
+
+    r = sd_journal_get_usage(self->j, &bytes);
+    if (set_error(r, NULL, NULL))
+        return NULL;
+
+    assert_cc(sizeof(unsigned long long) == sizeof(bytes));
+    return PyLong_FromUnsignedLongLong(bytes);
 }
 
 
@@ -770,9 +793,9 @@ static PyMethodDef Reader_methods[] = {
     {"fileno",          (PyCFunction) Reader_fileno, METH_NOARGS, Reader_fileno__doc__},
     {"reliable_fd",     (PyCFunction) Reader_reliable_fd, METH_NOARGS, Reader_reliable_fd__doc__},
     {"close",           (PyCFunction) Reader_close, METH_NOARGS, Reader_close__doc__},
+    {"get_usage",       (PyCFunction) Reader_get_usage, METH_NOARGS, Reader_get_usage__doc__},
     {"__enter__",       (PyCFunction) Reader___enter__, METH_NOARGS, Reader___enter____doc__},
     {"__exit__",        (PyCFunction) Reader___exit__, METH_VARARGS, Reader___exit____doc__},
-    {"close",           (PyCFunction) Reader_close, METH_NOARGS, Reader_close__doc__},
     {"get_next",        (PyCFunction) Reader_get_next, METH_VARARGS, Reader_get_next__doc__},
     {"get_previous",    (PyCFunction) Reader_get_previous, METH_VARARGS, Reader_get_previous__doc__},
     {"add_match",       (PyCFunction) Reader_add_match, METH_VARARGS|METH_KEYWORDS, Reader_add_match__doc__},
