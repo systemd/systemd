@@ -26,7 +26,8 @@
 
 #include "syscall-list.h"
 
-const struct syscall_name *lookup_syscall(register const char *str, register unsigned int len);
+static const struct syscall_name* lookup_syscall(register const char *str,
+                                                 register unsigned int len);
 
 #include "syscall-to-name.h"
 #include "syscall-from-name.h"

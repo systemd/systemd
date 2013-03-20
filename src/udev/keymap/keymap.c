@@ -36,7 +36,7 @@
 #include <linux/limits.h>
 #include <linux/input.h>
 
-const struct key* lookup_key (const char *str, unsigned int len);
+static const struct key* lookup_key (const char *str, unsigned int len);
 
 #include "keys-from-name.h"
 #include "keys-to-name.h"
