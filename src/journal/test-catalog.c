@@ -36,7 +36,9 @@ int main(int argc, char *argv[]) {
 
         assert_se(catalog_update() >= 0);
 
-        assert_se(catalog_list(stdout) >= 0);
+        assert_se(catalog_list(stdout, true) >= 0);
+
+        assert_se(catalog_list(stdout, false) >= 0);
 
         assert_se(catalog_get(SD_MESSAGE_COREDUMP, &text) >= 0);
 

@@ -90,6 +90,7 @@ static enum {
         ACTION_VERIFY,
         ACTION_DISK_USAGE,
         ACTION_LIST_CATALOG,
+        ACTION_DUMP_CATALOG,
         ACTION_UPDATE_CATALOG
 } arg_action = ACTION_SHOW;
 
@@ -131,6 +132,7 @@ static int help(void) {
                "     --disk-usage        Show total disk usage\n"
                "  -F --field=FIELD       List all values a certain field takes\n"
                "     --list-catalog      Show message IDs of all entries in the message catalog\n"
+               "     --dump-catalog      Show entries in the message catalog\n"
                "     --update-catalog    Update the message catalog database\n"
 #ifdef HAVE_GCRYPT
                "     --setup-keys        Generate new FSS key pair\n"
@@ -159,6 +161,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UNTIL,
                 ARG_USER_UNIT,
                 ARG_LIST_CATALOG,
+                ARG_DUMP_CATALOG,
                 ARG_UPDATE_CATALOG
         };
 
@@ -193,6 +196,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "field",        required_argument, NULL, 'F'              },
                 { "catalog",      no_argument,       NULL, 'x'              },
                 { "list-catalog", no_argument,       NULL, ARG_LIST_CATALOG },
+                { "dump-catalog", no_argument,       NULL, ARG_DUMP_CATALOG },
                 { "update-catalog",no_argument,      NULL, ARG_UPDATE_CATALOG },
                 { "reverse",      no_argument,       NULL, 'r'              },
                 { NULL,           0,                 NULL, 0                }
@@ -443,6 +447,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LIST_CATALOG:
                         arg_action = ACTION_LIST_CATALOG;
+                        break;
+
+                case ARG_DUMP_CATALOG:
+                        arg_action = ACTION_DUMP_CATALOG;
                         break;
 
                 case ARG_UPDATE_CATALOG:
@@ -918,8 +926,13 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_action == ACTION_LIST_CATALOG)  {
-                r = catalog_list(stdout);
+        if (arg_action == ACTION_LIST_CATALOG ||
+            arg_action == ACTION_DUMP_CATALOG)  {
+                bool oneline = arg_action == ACTION_LIST_CATALOG;
+                if (optind < argc)
+                        r = catalog_list_items(stdout, oneline, argv + optind);
+                else
+                        r = catalog_list(stdout, oneline);
                 if (r < 0)
                         log_error("Failed to list catalog: %s", strerror(-r));
                 goto finish;

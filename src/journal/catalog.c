@@ -551,7 +551,23 @@ static char *find_header(const char *s, const char *header) {
         }
 }
 
-int catalog_list(FILE *f) {
+static void dump_catalog_entry(FILE *f, sd_id128_t id, const char *s, bool oneline) {
+        if (oneline) {
+                _cleanup_free_ char *subject = NULL, *defined_by = NULL;
+
+                subject = find_header(s, "Subject:");
+                defined_by = find_header(s, "Defined-By:");
+
+                fprintf(f, SD_ID128_FORMAT_STR " %s: %s\n",
+                        SD_ID128_FORMAT_VAL(id),
+                        strna(defined_by), strna(subject));
+        } else
+                fprintf(f, "-- " SD_ID128_FORMAT_STR "\n%s\n",
+                        SD_ID128_FORMAT_VAL(id), s);
+}
+
+
+int catalog_list(FILE *f, bool oneline) {
         _cleanup_close_ int fd = -1;
         void *p = NULL;
         struct stat st;
@@ -571,17 +587,13 @@ int catalog_list(FILE *f) {
 
         for (n = 0; n < le64toh(h->n_items); n++) {
                 const char *s;
-                _cleanup_free_ char *subject = NULL, *defined_by = NULL;
 
                 if (last_id_set && sd_id128_equal(last_id, items[n].id))
                         continue;
 
                 assert_se(s = find_id(p, items[n].id));
 
-                subject = find_header(s, "Subject:");
-                defined_by = find_header(s, "Defined-By:");
-
-                fprintf(f, SD_ID128_FORMAT_STR " %s: %s\n", SD_ID128_FORMAT_VAL(items[n].id), strna(defined_by), strna(subject));
+                dump_catalog_entry(f, items[n].id, s, oneline);
 
                 last_id_set = true;
                 last_id = items[n].id;
@@ -590,4 +602,38 @@ int catalog_list(FILE *f) {
         munmap(p, st.st_size);
 
         return 0;
+}
+
+int catalog_list_items(FILE *f, bool oneline, char **items) {
+        char **item;
+        int r = 0;
+
+        STRV_FOREACH(item, items) {
+                sd_id128_t id;
+                int k;
+                char _cleanup_free_ *msg = NULL;
+
+                k = sd_id128_from_string(*item, &id);
+                if (k < 0) {
+                        log_error("Failed to parse id128 '%s': %s",
+                                  *item, strerror(-r));
+                        if (r < 0)
+                                r = k;
+                        continue;
+                }
+
+                k = catalog_get(id, &msg);
+                if (k < 0) {
+                        log_full(k == -ENOENT ? LOG_NOTICE : LOG_ERR,
+                                 "Failed to retrieve catalog entry for '%s': %s",
+                                  *item, strerror(-r));
+                        if (r < 0)
+                                r = k;
+                        continue;
+                }
+
+                dump_catalog_entry(f, id, msg, oneline);
+        }
+
+        return r;
 }

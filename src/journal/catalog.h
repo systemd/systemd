@@ -21,8 +21,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 #include "sd-id128.h"
 
 int catalog_update(void);
 int catalog_get(sd_id128_t id, char **data);
-int catalog_list(FILE *f);
+int catalog_list(FILE *f, bool oneline);
+int catalog_list_items(FILE *f, bool oneline, char **items);

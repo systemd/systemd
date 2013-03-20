@@ -49,7 +49,9 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>journalctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">MATCHES</arg></command>
+                        <command>journalctl</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="opt" rep="repeat">MATCHES</arg>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -479,12 +481,39 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--list-catalog</option></term>
+                                <term><option>--list-catalog
+                                <optional><replaceable>ID128...</replaceable></optional>
+                                </option></term>
 
                                 <listitem><para>List the contents of
                                 the message catalog, as table of
                                 message IDs plus their short
-                                description strings.</para></listitem>
+                                description strings.</para>
+
+                                <para>If any
+                                <replaceable>ID128</replaceable>s are
+                                specified, only those entries are shown.
+                                </para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--dump-catalog
+                                <optional><replaceable>ID128...</replaceable></optional>
+                                </option></term>
+
+                                <listitem><para>Show the contents of
+                                the message catalog, with entries
+                                separated by a line consisting of two
+                                dashes and the id (the format is the
+                                same as <filename>.catalog</filename>
+                                files.</para>
+
+                                <para>If any
+                                <replaceable>ID128</replaceable>s are
+                                specified, only those entries are shown.
+                                </para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
