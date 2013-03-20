@@ -5553,7 +5553,6 @@ int on_ac_power(void) {
         for (;;) {
                 struct dirent *de;
                 union dirent_storage buf;
-                _cleanup_free_ char *p = NULL;
                 _cleanup_close_ int fd = -1, device = -1;
                 char contents[6];
                 ssize_t n;

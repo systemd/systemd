@@ -54,7 +54,7 @@ PyDoc_STRVAR(get_boot__doc__,
 static PyObject* make_uuid(sd_id128_t id) {
         PyObject _cleanup_Py_DECREF_
                 *uuid = NULL, *UUID = NULL, *bytes = NULL,
-                *args = NULL, *kwargs = NULL, *obj = NULL;
+                *args = NULL, *kwargs = NULL;
 
         uuid = PyImport_ImportModule("uuid");
         if (!uuid)

@@ -596,7 +596,7 @@ static int add_this_boot(sd_journal *j) {
 }
 
 static int add_unit(sd_journal *j) {
-        _cleanup_free_ char *m = NULL, *u = NULL;
+        _cleanup_free_ char *u = NULL;
         int r;
 
         assert(j);
