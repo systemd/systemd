@@ -978,7 +978,7 @@ _udevadm_test-builtin(){
     if (( CURRENT == 2 )); then
     _arguments \
         '--help[Print help text]' \
-        '*::builtins:(blkid btrfs firmware hwdb input_id kmod path_id usb_id uaccess)'
+        '*::builtins:(blkid btrfs hwdb input_id kmod path_id usb_id uaccess)'
     elif  (( CURRENT == 3 )); then
         _arguments \
             '--help[Print help text]' \
