@@ -51,10 +51,10 @@ def _convert_source_monotonic(s):
     return _datetime.timedelta(microseconds=int(s))
 
 def _convert_realtime(t):
-    return _datetime.datetime.fromtimestamp(t / 1E6)
+    return _datetime.datetime.fromtimestamp(t / 1000000)
 
 def _convert_timestamp(s):
-    return _datetime.datetime.fromtimestamp(int(s) / 1E6)
+    return _datetime.datetime.fromtimestamp(int(s) / 1000000)
 
 if _sys.version_info >= (3,):
     def _convert_uuid(s):
@@ -209,6 +209,17 @@ class Reader(_Reader):
         return set(self._convert_field(field, value)
             for value in super(Reader, self).query_unique(field))
 
+    def wait(self, timeout=None):
+        """Wait for a change in the journal. `timeout` is the maximum
+        time in seconds to wait, or None, to wait forever.
+
+        Returns one of NOP (no change), APPEND (new entries have been
+        added to the end of the journal), or INVALIDATE (journal files
+        have been added or removed).
+        """
+        us = -1 if timeout is None else int(timeout * 1000000)
+        return super(Reader, self).wait(timeout)
+
     def seek_realtime(self, realtime):
         """Seek to a matching journal entry nearest to `realtime` time.
 
@@ -216,8 +227,8 @@ class Reader(_Reader):
         or datetime.datetime instance.
         """
         if isinstance(realtime, _datetime.datetime):
-            realtime = float(realtime.strftime("%s.%f"))
-        return super(Reader, self).seek_realtime(realtime)
+            realtime = float(realtime.strftime("%s.%f")) * 1000000
+        return super(Reader, self).seek_realtime(int(realtime))
 
     def seek_monotonic(self, monotonic, bootid=None):
         """Seek to a matching journal entry nearest to `monotonic` time.
@@ -229,6 +240,7 @@ class Reader(_Reader):
         """
         if isinstance(monotonic, _datetime.timedelta):
             monotonic = monotonic.totalseconds()
+        monotonic = int(monotonic * 1000000)
         if isinstance(bootid, _uuid.UUID):
             bootid = bootid.get_hex()
         return super(Reader, self).seek_monotonic(monotonic, bootid)

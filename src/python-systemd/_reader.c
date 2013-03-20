@@ -499,21 +499,14 @@ static PyObject* Reader_seek_tail(Reader *self, PyObject *args)
 PyDoc_STRVAR(Reader_seek_realtime__doc__,
              "seek_realtime(realtime) -> None\n\n"
              "Seek to nearest matching journal entry to `realtime`. Argument\n"
-             "`realtime` can must be an integer unix timestamp.");
+             "`realtime` in specified in seconds.");
 static PyObject* Reader_seek_realtime(Reader *self, PyObject *args)
 {
-    double timedouble;
     uint64_t timestamp;
     int r;
 
-    if (!PyArg_ParseTuple(args, "d:_Reader.seek_realtime", &timedouble))
+    if (!PyArg_ParseTuple(args, "K:seek_realtime", &timestamp))
         return NULL;
-
-    timestamp = (uint64_t) (timedouble * 1.0E6);
-    if ((int64_t) timestamp < 0LL) {
-        PyErr_SetString(PyExc_ValueError, "Time must be a positive integer");
-        return NULL;
-    }
 
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_seek_realtime_usec(self->j, timestamp);
@@ -527,26 +520,18 @@ static PyObject* Reader_seek_realtime(Reader *self, PyObject *args)
 PyDoc_STRVAR(Reader_seek_monotonic__doc__,
              "seek_monotonic(monotonic[, bootid]) -> None\n\n"
              "Seek to nearest matching journal entry to `monotonic`. Argument\n"
-             "`monotonic` is an timestamp from boot in seconds.\n"
+             "`monotonic` is an timestamp from boot in microseconds.\n"
              "Argument `bootid` is a string representing which boot the\n"
              "monotonic time is reference to. Defaults to current bootid.");
 static PyObject* Reader_seek_monotonic(Reader *self, PyObject *args)
 {
-    double timedouble;
     char *bootid = NULL;
     uint64_t timestamp;
     sd_id128_t id;
     int r;
 
-    if (!PyArg_ParseTuple(args, "d|z:_Reader.seek_monotonic", &timedouble, &bootid))
+    if (!PyArg_ParseTuple(args, "K|z:seek_monotonic", &timestamp, &bootid))
         return NULL;
-
-    timestamp = (uint64_t) (timedouble * 1.0E6);
-
-    if ((int64_t) timestamp < 0LL) {
-        PyErr_SetString(PyExc_ValueError, "Time must be positive number");
-        return NULL;
-    }
 
     if (bootid) {
         r = sd_id128_from_string(bootid, &id);
@@ -565,6 +550,7 @@ static PyObject* Reader_seek_monotonic(Reader *self, PyObject *args)
     Py_END_ALLOW_THREADS
     if (set_error(r, NULL, NULL))
         return NULL;
+
     Py_RETURN_NONE;
 }
 
@@ -572,23 +558,22 @@ static PyObject* Reader_seek_monotonic(Reader *self, PyObject *args)
 PyDoc_STRVAR(Reader_wait__doc__,
              "wait([timeout]) -> state change (integer)\n\n"
              "Wait for a change in the journal. Argument `timeout` specifies\n"
-             "the maximum number of seconds to wait before returning\n"
-             "regardless of wheter the journal has changed. If `timeout` is not given\n"
-             "or is 0, then block forever.\n"
+             "the maximum number of microseconds to wait before returning\n"
+             "regardless of wheter the journal has changed. If `timeout` is -1,\n"
+             "then block forever.\n\n"
              "Will return constants: NOP if no change; APPEND if new\n"
              "entries have been added to the end of the journal; and\n"
              "INVALIDATE if journal files have been added or removed.");
-static PyObject* Reader_wait(Reader *self, PyObject *args, PyObject *keywds)
+static PyObject* Reader_wait(Reader *self, PyObject *args)
 {
     int r;
-    int64_t timeout = 0LL;
+    int64_t timeout;
 
-    if (!PyArg_ParseTuple(args, "|L:_Reader.wait", &timeout))
+    if (!PyArg_ParseTuple(args, "|L:wait", &timeout))
         return NULL;
 
     Py_BEGIN_ALLOW_THREADS
-    r = sd_journal_wait(self->j,
-                        timeout == 0 ? (uint64_t) -1 : timeout * 1E6);
+    r = sd_journal_wait(self->j, timeout);
     Py_END_ALLOW_THREADS
     if (set_error(r, NULL, NULL) < 0)
         return NULL;
