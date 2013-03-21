@@ -762,7 +762,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 continue;
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
-                                                r = unit_add_name(u, m);
+                                                r = unit_merge_by_name(u, m);
                                         else
                                                 /* NB: SysV targets
                                                  * which are provided
