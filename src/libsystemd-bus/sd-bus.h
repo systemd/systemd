@@ -33,11 +33,14 @@
  * - add page donation logic
  * - api for appending/reading fixed arrays
  * - always verify container depth
- * - implement method timeout logic
  * - implicitly set no_reply when a message-call is sent an the serial number ignored
- * - reduce number of ppoll()s if we can avoid it
  * - handle NULL strings nicer when appending
  * - merge busctl into systemctl or so?
+ * - add object handlers
+ * - add peer message handlers
+ * - verify object paths
+ * - when reading a message, verify its size
+ * - add limits to wqueue and rqueue alike
  */
 
 typedef struct sd_bus sd_bus;
@@ -49,7 +52,7 @@ typedef struct {
         int need_free;
 } sd_bus_error;
 
-typedef int (*sd_message_handler_t)(sd_bus *bus, sd_bus_message *m, void *userdata);
+typedef int (*sd_message_handler_t)(sd_bus *bus, int ret, sd_bus_message *m, void *userdata);
 
 /* Connections */
 
@@ -62,6 +65,7 @@ void sd_bus_close(sd_bus *bus);
 sd_bus *sd_bus_ref(sd_bus *bus);
 sd_bus *sd_bus_unref(sd_bus *bus);
 
+int sd_bus_is_open(sd_bus *bus);
 int sd_bus_is_running(sd_bus *bus);
 int sd_bus_can_send(sd_bus *bus, char type);
 
@@ -72,6 +76,7 @@ int sd_bus_send_with_reply_and_block(sd_bus *bus, sd_bus_message *m, uint64_t us
 
 int sd_bus_get_fd(sd_bus *bus);
 int sd_bus_get_events(sd_bus *bus);
+int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec);
 int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);

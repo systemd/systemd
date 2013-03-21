@@ -26,6 +26,7 @@
 #include <netinet/in.h>
 
 #include "hashmap.h"
+#include "prioq.h"
 #include "list.h"
 #include "util.h"
 
@@ -37,6 +38,7 @@ struct reply_callback {
         void *userdata;
         usec_t timeout;
         uint64_t serial;
+        unsigned prioq_idx;
 };
 
 struct filter_callback {
@@ -75,6 +77,7 @@ struct sd_bus {
 
         char *unique_name;
 
+        Prioq *reply_callbacks_prioq;
         Hashmap *reply_callbacks;
         LIST_HEAD(struct filter_callback, filter_callbacks);
 
@@ -97,6 +100,7 @@ struct sd_bus {
         unsigned auth_index;
         size_t auth_size;
         char *auth_uid;
+        usec_t auth_timeout;
 };
 
 static inline void bus_unrefp(sd_bus **b) {
@@ -104,3 +108,5 @@ static inline void bus_unrefp(sd_bus **b) {
 }
 
 #define _cleanup_bus_unref_ __attribute__((cleanup(bus_unrefp)))
+
+#define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))

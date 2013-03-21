@@ -27,3 +27,5 @@ int bus_error_to_errno(const sd_bus_error *e);
 int bus_error_from_errno(sd_bus_error *e, int error);
 
 bool bus_error_is_dirty(sd_bus_error *e);
+
+const char *bus_error_message(const sd_bus_error *e, int error);

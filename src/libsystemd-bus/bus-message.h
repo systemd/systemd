@@ -87,6 +87,7 @@ struct sd_bus_message {
 
         struct iovec iovec[4];
         unsigned n_iovec;
+        size_t size;
 
         char *peeked_signature;
 };

@@ -59,7 +59,7 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send_with_reply_and_block(bus, m, (uint64_t) -1, NULL, &reply);
+        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
         if (r < 0)
                 return r;
 
@@ -94,7 +94,7 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send_with_reply_and_block(bus, m, (uint64_t) -1, NULL, &reply);
+        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
         if (r < 0)
                 return r;
 
@@ -135,11 +135,11 @@ int sd_bus_list_names(sd_bus *bus, char ***l) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send_with_reply_and_block(bus, m1, (uint64_t) -1, NULL, &reply1);
+        r = sd_bus_send_with_reply_and_block(bus, m1, 0, NULL, &reply1);
         if (r < 0)
                 return r;
 
-        r = sd_bus_send_with_reply_and_block(bus, m2, (uint64_t) -1, NULL, &reply2);
+        r = sd_bus_send_with_reply_and_block(bus, m2, 0, NULL, &reply2);
         if (r < 0)
                 return r;
 
@@ -183,7 +183,7 @@ int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send_with_reply_and_block(bus, m, (uint64_t) -1, NULL, &reply);
+        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
         if (r < 0)
                 return r;
 
@@ -230,7 +230,7 @@ int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send_with_reply_and_block(bus, m, (uint64_t) -1, NULL, &reply);
+        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
         if (r < 0)
                 return r;
 
@@ -268,7 +268,7 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send_with_reply_and_block(bus, m, (uint64_t) -1, NULL, &reply);
+        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
         if (r < 0)
                 return r;
 
@@ -306,7 +306,7 @@ int sd_bus_add_match(sd_bus *bus, const char *match) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send_with_reply_and_block(bus, m, (uint64_t) -1, NULL, &reply);
+        return sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
 }
 
 int sd_bus_remove_match(sd_bus *bus, const char *match) {
@@ -332,5 +332,5 @@ int sd_bus_remove_match(sd_bus *bus, const char *match) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send_with_reply_and_block(bus, m, (uint64_t) -1, NULL, &reply);
+        return sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
 }

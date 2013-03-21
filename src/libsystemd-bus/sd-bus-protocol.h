@@ -26,8 +26,6 @@
 
 /* Types of message */
 
-#define SD_BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
-
 enum {
         _SD_BUS_MESSAGE_TYPE_INVALID = 0,
         SD_BUS_MESSAGE_TYPE_METHOD_CALL,

@@ -37,6 +37,8 @@
 
 #define WQUEUE_MAX 128
 
+static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
+
 static void bus_free(sd_bus *b) {
         struct filter_callback *f;
         unsigned i;
@@ -60,6 +62,7 @@ static void bus_free(sd_bus *b) {
         free(b->wqueue);
 
         hashmap_free_free(b->reply_callbacks);
+        prioq_free(b->reply_callbacks_prioq);
 
         while ((f = b->filter_callbacks)) {
                 LIST_REMOVE(struct filter_callback, callbacks, b->filter_callbacks, f);
@@ -91,11 +94,15 @@ static sd_bus* bus_new(void) {
         return r;
 };
 
-static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata) {
+static int hello_callback(sd_bus *bus, int error, sd_bus_message *reply, void *userdata) {
         const char *s;
         int r;
 
         assert(bus);
+
+        if (error != 0)
+                return -error;
+
         assert(reply);
 
         bus->state = BUS_RUNNING;
@@ -127,7 +134,7 @@ static int bus_send_hello(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send_with_reply(bus, m, hello_callback, NULL, (uint64_t) -1, NULL);
+        r = sd_bus_send_with_reply(bus, m, hello_callback, NULL, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -140,11 +147,11 @@ static int bus_start_running(sd_bus *bus) {
 
         if (bus->sent_hello) {
                 bus->state = BUS_HELLO;
-                return 0;
+                return 1;
         }
 
         bus->state = BUS_RUNNING;
-        return 0;
+        return 1;
 }
 
 static int parse_address_key(const char **p, const char *key, char **value) {
@@ -402,6 +409,9 @@ static int bus_write_auth(sd_bus *b) {
         if (b->auth_index >= ELEMENTSOF(b->auth_iovec))
                 return 0;
 
+        if (b->auth_timeout == 0)
+                b->auth_timeout = now(CLOCK_MONOTONIC) + BUS_DEFAULT_TIMEOUT;
+
         zero(mh);
         mh.msg_iov = b->auth_iovec + b->auth_index;
         mh.msg_iovlen = ELEMENTSOF(b->auth_iovec) - b->auth_index;
@@ -460,12 +470,8 @@ static int bus_auth_verify(sd_bus *b) {
                 (f - e == sizeof("\r\nAGREE_UNIX_FD") - 1) &&
                 memcmp(e + 2, "AGREE_UNIX_FD", sizeof("AGREE_UNIX_FD") - 1) == 0;
 
-        if (f + 2 > (char*) b->rbuffer + b->rbuffer_size) {
-                b->rbuffer_size -= (f - (char*) b->rbuffer);
-                memmove(b->rbuffer, f + 2, b->rbuffer_size);
-        }
-
-        b->rbuffer_size = 0;
+        b->rbuffer_size -= (f + 2 - (char*) b->rbuffer);
+        memmove(b->rbuffer, f + 2, b->rbuffer_size);
 
         r = bus_start_running(b);
         if (r < 0)
@@ -513,7 +519,7 @@ static int bus_read_auth(sd_bus *b) {
         if (r != 0)
                 return r;
 
-        return 0;
+        return 1;
 }
 
 static int bus_start_auth(sd_bus *b) {
@@ -558,12 +564,12 @@ static int bus_start_connect(sd_bus *b) {
                         if (r < 0)
                                 return r;
                         if (r == 0)
-                                return b->last_connect_error ? b->last_connect_error : -ECONNREFUSED;
+                                return b->last_connect_error ? -b->last_connect_error : -ECONNREFUSED;
                 }
 
                 b->fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (b->fd < 0) {
-                        b->last_connect_error = -errno;
+                        b->last_connect_error = errno;
                         zero(b->sockaddr);
                         continue;
                 }
@@ -571,9 +577,9 @@ static int bus_start_connect(sd_bus *b) {
                 r = connect(b->fd, &b->sockaddr.sa, b->sockaddr_size);
                 if (r < 0) {
                         if (errno == EINPROGRESS)
-                                return 0;
+                                return 1;
 
-                        b->last_connect_error = -errno;
+                        b->last_connect_error = errno;
                         close_nointr_nofail(b->fd);
                         b->fd = -1;
                         zero(b->sockaddr);
@@ -760,6 +766,13 @@ sd_bus *sd_bus_unref(sd_bus *bus) {
         return NULL;
 }
 
+int sd_bus_is_open(sd_bus *bus) {
+        if (!bus)
+                return -EINVAL;
+
+        return bus->fd >= 0;
+}
+
 int sd_bus_is_running(sd_bus *bus) {
         if (!bus)
                 return -EINVAL;
@@ -807,6 +820,9 @@ static int message_write(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         assert(idx);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
+        if (*idx >= m->size)
+                return 0;
+
         n = m->n_iovec * sizeof(struct iovec);
         iov = alloca(n);
         memcpy(iov, m->iovec, n);
@@ -820,12 +836,10 @@ static int message_write(sd_bus *bus, sd_bus_message *m, size_t *idx) {
 
         k = sendmsg(bus->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
         if (k < 0)
-                return -errno;
+                return errno == EAGAIN ? 0 : -errno;
 
         *idx += (size_t) k;
-        iovec_advance(iov, &j, *idx);
-
-        return j >= m->n_iovec;
+        return 1;
 }
 
 static int message_read_need(sd_bus *bus, size_t *need) {
@@ -837,7 +851,24 @@ static int message_read_need(sd_bus *bus, size_t *need) {
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
         if (bus->rbuffer_size < sizeof(struct bus_header)) {
-                *need = sizeof(struct bus_header);
+                *need = sizeof(struct bus_header) + 8;
+
+                /* Minimum message size:
+                 *
+                 * Header +
+                 *
+                 *  Method Call: +2 string headers
+                 *       Signal: +3 string headers
+                 * Method Error: +1 string headers
+                 *               +1 uint32 headers
+                 * Method Reply: +1 uint32 headers
+                 *
+                 * A string header is at least 9 bytes
+                 * A uint32 header is at least 8 bytes
+                 *
+                 * Hence the minimum message size of a valid message
+                 * is header + 8 bytes */
+
                 return 0;
         }
 
@@ -935,11 +966,11 @@ static int message_read(sd_bus *bus, sd_bus_message **m) {
         if (bus->rbuffer_size >= need)
                 return message_make(bus, need, m);
 
-        return 0;
+        return 1;
 }
 
 static int dispatch_wqueue(sd_bus *bus) {
-        int r, c = 0;
+        int r, ret = 0;
 
         assert(bus);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
@@ -954,9 +985,9 @@ static int dispatch_wqueue(sd_bus *bus) {
                         sd_bus_close(bus);
                         return r;
                 } else if (r == 0)
-                        /* Wasn't fully written yet... */
-                        break;
-                else {
+                        /* Didn't do anything this time */
+                        return ret;
+                else if (bus->windex >= bus->wqueue[0]->size) {
                         /* Fully written. Let's drop the entry from
                          * the queue.
                          *
@@ -972,15 +1003,16 @@ static int dispatch_wqueue(sd_bus *bus) {
                         memmove(bus->wqueue, bus->wqueue + 1, sizeof(sd_bus_message*) * bus->wqueue_size);
                         bus->windex = 0;
 
-                        c++;
+                        ret = 1;
                 }
         }
 
-        return c;
+        return ret;
 }
 
 static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
-        int r;
+        sd_bus_message *z;
+        int r, ret = 0;
 
         assert(bus);
         assert(m);
@@ -999,13 +1031,20 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
         }
 
         /* Try to read a new message */
-        r = message_read(bus, m);
-        if (r < 0) {
-                sd_bus_close(bus);
-                return r;
-        }
+        do {
+                r = message_read(bus, &z);
+                if (r < 0) {
+                        sd_bus_close(bus);
+                        return r;
+                }
+                if (r == 0)
+                        return ret;
 
-        return r;
+                r = 1;
+        } while (!z);
+
+        *m = z;
+        return 1;
 }
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
@@ -1034,7 +1073,7 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
                 if (r < 0) {
                         sd_bus_close(bus);
                         return r;
-                } else if (r == 0)  {
+                } else if (idx < m->size)  {
                         /* Wasn't fully written. So let's remember how
                          * much was written. Note that the first entry
                          * of the wqueue array is always allocated so
@@ -1071,9 +1110,27 @@ static usec_t calc_elapse(uint64_t usec) {
                 return 0;
 
         if (usec == 0)
-                usec = SD_BUS_DEFAULT_TIMEOUT;
+                usec = BUS_DEFAULT_TIMEOUT;
 
         return now(CLOCK_MONOTONIC) + usec;
+}
+
+static int timeout_compare(const void *a, const void *b) {
+        const struct reply_callback *x = a, *y = b;
+
+        if (x->timeout != 0 && y->timeout == 0)
+                return -1;
+
+        if (x->timeout == 0 && y->timeout != 0)
+                return 1;
+
+        if (x->timeout < y->timeout)
+                return -1;
+
+        if (x->timeout > y->timeout)
+                return 1;
+
+        return 0;
 }
 
 int sd_bus_send_with_reply(
@@ -1104,6 +1161,12 @@ int sd_bus_send_with_reply(
         if (r < 0)
                 return r;
 
+        if (usec != (uint64_t) -1) {
+                r = prioq_ensure_allocated(&bus->reply_callbacks_prioq, timeout_compare);
+                if (r < 0)
+                        return r;
+        }
+
         r = bus_seal_message(bus, m);
         if (r < 0)
                 return r;
@@ -1123,10 +1186,18 @@ int sd_bus_send_with_reply(
                 return r;
         }
 
+        if (c->timeout != 0) {
+                r = prioq_put(bus->reply_callbacks_prioq, c, &c->prioq_idx);
+                if (r < 0) {
+                        c->timeout = 0;
+                        sd_bus_send_with_reply_cancel(bus, c->serial);
+                        return r;
+                }
+        }
+
         r = sd_bus_send(bus, m, serial);
         if (r < 0) {
-                hashmap_remove(bus->reply_callbacks, &c->serial);
-                free(c);
+                sd_bus_send_with_reply_cancel(bus, c->serial);
                 return r;
         }
 
@@ -1134,7 +1205,7 @@ int sd_bus_send_with_reply(
 }
 
 int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial) {
-        struct reply_callbacks *c;
+        struct reply_callback *c;
 
         if (!bus)
                 return -EINVAL;
@@ -1144,6 +1215,9 @@ int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial) {
         c = hashmap_remove(bus->reply_callbacks, &serial);
         if (!c)
                 return 0;
+
+        if (c->timeout != 0)
+                prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
 
         free(c);
         return 1;
@@ -1159,13 +1233,19 @@ static int ensure_running(sd_bus *bus) {
                 return r;
 
         for (;;) {
+                int k;
+
                 r = sd_bus_process(bus, NULL);
+
                 if (r < 0)
                         return r;
 
-                r = sd_bus_is_running(bus);
-                if (r != 0)
-                        return r;
+                k = sd_bus_is_running(bus);
+                if (k != 0)
+                        return k;
+
+                if (r > 0)
+                        continue;
 
                 r = sd_bus_wait(bus, (uint64_t) -1);
                 if (r < 0)
@@ -1210,7 +1290,7 @@ int sd_bus_send_with_reply_and_block(
 
         for (;;) {
                 usec_t left;
-                sd_bus_message *incoming;
+                sd_bus_message *incoming = NULL;
 
                 if (!room) {
                         sd_bus_message **q;
@@ -1229,9 +1309,7 @@ int sd_bus_send_with_reply_and_block(
                 r = message_read(bus, &incoming);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        /* bus_message_dump(incoming); */
-                        /* sd_bus_message_rewind(incoming, true); */
+                if (incoming) {
 
                         if (incoming->reply_serial == serial) {
                                 /* Found a match! */
@@ -1267,6 +1345,8 @@ int sd_bus_send_with_reply_and_block(
                         /* Try to read more, right-away */
                         continue;
                 }
+                if (r != 0)
+                        continue;
 
                 if (timeout > 0) {
                         usec_t n;
@@ -1279,7 +1359,7 @@ int sd_bus_send_with_reply_and_block(
                 } else
                         left = (uint64_t) -1;
 
-                r = sd_bus_wait(bus, left);
+                r = bus_poll(bus, true, left);
                 if (r < 0)
                         return r;
 
@@ -1326,8 +1406,96 @@ int sd_bus_get_events(sd_bus *bus) {
         return flags;
 }
 
+int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
+        struct reply_callback *c;
+
+        if (!bus)
+                return -EINVAL;
+        if (!timeout_usec)
+                return -EINVAL;
+        if (bus->fd < 0)
+                return -ENOTCONN;
+
+        if (bus->state == BUS_AUTHENTICATING) {
+                *timeout_usec = bus->auth_timeout;
+                return 1;
+        }
+
+        if (bus->state != BUS_RUNNING && bus->state != BUS_HELLO)
+                return 0;
+
+        c = prioq_peek(bus->reply_callbacks_prioq);
+        if (!c)
+                return 0;
+
+        *timeout_usec = c->timeout;
+        return 1;
+}
+
+static int process_timeout(sd_bus *bus) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        struct reply_callback *c;
+        usec_t n;
+        int r;
+
+        assert(bus);
+
+        c = prioq_peek(bus->reply_callbacks_prioq);
+        if (!c)
+                return 0;
+
+        n = now(CLOCK_MONOTONIC);
+        if (c->timeout > n)
+                return 0;
+
+        assert_se(prioq_pop(bus->reply_callbacks_prioq) == c);
+        hashmap_remove(bus->reply_callbacks, &c->serial);
+
+        r = c->callback(bus, ETIMEDOUT, NULL, c->userdata);
+        free(c);
+
+        return r < 0 ? r : 1;
+}
+
+static int process_message(sd_bus *bus, sd_bus_message *m) {
+        struct filter_callback *l;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        if (m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL || m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_RETURN) {
+                struct reply_callback *c;
+
+                c = hashmap_remove(bus->reply_callbacks, &m->reply_serial);
+                if (c) {
+                        if (c->timeout != 0)
+                                prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
+
+                        r = c->callback(bus, 0, m, c->userdata);
+                        free(c);
+
+                        if (r != 0)
+                                return r;
+                }
+        }
+
+        LIST_FOREACH(callbacks, l, bus->filter_callbacks) {
+                r = l->callback(bus, 0, m, l->userdata);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
         int r;
+
+        /* Returns 0 when we didn't do anything. This should cause the
+         * caller to invoke sd_bus_wait() before returning the next
+         * time. Returns > 0 when we did something, which possibly
+         * means *ret is filled in with an unprocessed message. */
 
         if (!bus)
                 return -EINVAL;
@@ -1351,63 +1519,61 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
 
                         r = getsockopt(bus->fd, SOL_SOCKET, SO_ERROR, &error, &slen);
                         if (r < 0)
-                                return -errno;
-
-                        if (error != 0)
-                                bus->last_connect_error = -error;
+                                bus->last_connect_error = errno;
+                        else if (error != 0)
+                                bus->last_connect_error = error;
                         else if (p.revents & (POLLERR|POLLHUP))
-                                bus->last_connect_error = -ECONNREFUSED;
-                        else
-                                return bus_start_auth(bus);
+                                bus->last_connect_error = ECONNREFUSED;
+                        else {
+                                r = bus_start_auth(bus);
+                                goto null_message;
+                        }
 
                         /* Try next address */
-                        return bus_start_connect(bus);
+                        r = bus_start_connect(bus);
+                        goto null_message;
                 }
 
-                return 0;
+                r = 0;
+                goto null_message;
 
         } else if (bus->state == BUS_AUTHENTICATING) {
 
+                if (now(CLOCK_MONOTONIC) >= bus->auth_timeout)
+                        return -ETIMEDOUT;
+
                 r = bus_write_auth(bus);
-                if (r < 0)
-                        return r;
+                if (r != 0)
+                        goto null_message;
 
                 r = bus_read_auth(bus);
-                if (r < 0)
-                        return r;
-
-                return 0;
+                goto null_message;
 
         } else if (bus->state == BUS_RUNNING || bus->state == BUS_HELLO) {
-                struct filter_callback *l;
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+                int k;
+
+                r = process_timeout(bus);
+                if (r != 0)
+                        goto null_message;
 
                 r = dispatch_wqueue(bus);
+                if (r != 0)
+                        goto null_message;
+
+                k = r;
+                r = dispatch_rqueue(bus, &m);
                 if (r < 0)
                         return r;
-
-                r = dispatch_rqueue(bus, &m);
-                if (r <= 0)
-                        return r;
-
-                if (m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL || m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_RETURN) {
-                        struct reply_callback *c;
-
-                        c = hashmap_remove(bus->reply_callbacks, &m->reply_serial);
-                        if (c) {
-                                r = c->callback(bus, m, c->userdata);
-                                free(c);
-
-                                if (r != 0)
-                                        return r < 0 ? r : 0;
-                        }
+                if (!m) {
+                        if (r == 0)
+                                r = k;
+                        goto null_message;
                 }
 
-                LIST_FOREACH(callbacks, l, bus->filter_callbacks) {
-                        r = l->callback(bus, m, l->userdata);
-                        if (r != 0)
-                                return r < 0 ? r : 0;
-                }
+                r = process_message(bus, m);
+                if (r != 0)
+                        goto null_message;
 
                 if (ret) {
                         *ret = m;
@@ -1428,38 +1594,71 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
                                 return r;
                 }
 
-                return 0;
+                return 1;
         }
 
         assert_not_reached("Unknown state");
+
+null_message:
+        if (r >= 0 && ret)
+                *ret = NULL;
+
+        return r;
 }
 
-int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
+static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         struct pollfd p;
         int r, e;
         struct timespec ts;
+        usec_t until, m;
 
-        if (!bus)
-                return -EINVAL;
+        assert(bus);
+
         if (bus->fd < 0)
                 return -ENOTCONN;
-
-        if (bus->rqueue_size > 0)
-                return 0;
 
         e = sd_bus_get_events(bus);
         if (e < 0)
                 return e;
 
+        if (need_more)
+                e |= POLLIN;
+
+        r = sd_bus_get_timeout(bus, &until);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                m = (uint64_t) -1;
+        else {
+                usec_t n;
+                n = now(CLOCK_MONOTONIC);
+                m = until > n ? until - n : 0;
+        }
+
+        if (timeout_usec != (uint64_t) -1 && (m == (uint64_t) -1 || timeout_usec < m))
+                m = timeout_usec;
+
         zero(p);
         p.fd = bus->fd;
         p.events = e;
 
-        r = ppoll(&p, 1, timeout_usec == (uint64_t) -1 ? NULL : timespec_store(&ts, timeout_usec), NULL);
+        r = ppoll(&p, 1, m == (uint64_t) -1 ? NULL : timespec_store(&ts, m), NULL);
         if (r < 0)
                 return -errno;
 
-        return r;
+        return r > 0 ? 1 : 0;
+}
+
+int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
+
+        if (!bus)
+                return -EINVAL;
+        if (bus->fd < 0)
+                return -ENOTCONN;
+        if (bus->rqueue_size > 0)
+                return 0;
+
+        return bus_poll(bus, false, timeout_usec);
 }
 
 int sd_bus_flush(sd_bus *bus) {
@@ -1485,7 +1684,7 @@ int sd_bus_flush(sd_bus *bus) {
                 if (bus->wqueue_size <= 0)
                         return 0;
 
-                r = sd_bus_wait(bus, (uint64_t) -1);
+                r = bus_poll(bus, false, (uint64_t) -1);
                 if (r < 0)
                         return r;
         }

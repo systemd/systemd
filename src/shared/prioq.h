@@ -27,6 +27,7 @@ typedef struct Prioq Prioq;
 
 Prioq *prioq_new(compare_func_t compare);
 void prioq_free(Prioq *q);
+int prioq_ensure_allocated(Prioq **q, compare_func_t compare_func);
 
 int prioq_put(Prioq *q, void *data, unsigned *idx);
 int prioq_remove(Prioq *q, void *data, unsigned *idx);

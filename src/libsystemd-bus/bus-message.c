@@ -403,6 +403,8 @@ static int message_new_reply(
 
         if (!call)
                 return -EINVAL;
+        if (!call->sealed)
+                return -EPERM;
         if (call->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
                 return -EINVAL;
         if (!m)
@@ -2441,14 +2443,17 @@ static void setup_iovec(sd_bus_message *m) {
         assert(m->sealed);
 
         m->n_iovec = 0;
+        m->size = 0;
 
         m->iovec[m->n_iovec].iov_base = m->header;
         m->iovec[m->n_iovec].iov_len = sizeof(*m->header);
+        m->size += m->iovec[m->n_iovec].iov_len;
         m->n_iovec++;
 
         if (m->fields) {
                 m->iovec[m->n_iovec].iov_base = m->fields;
                 m->iovec[m->n_iovec].iov_len = m->header->fields_size;
+                m->size += m->iovec[m->n_iovec].iov_len;
                 m->n_iovec++;
 
                 if (m->header->fields_size % 8 != 0) {
@@ -2456,6 +2461,7 @@ static void setup_iovec(sd_bus_message *m) {
 
                         m->iovec[m->n_iovec].iov_base = (void*) padding;
                         m->iovec[m->n_iovec].iov_len = 8 - m->header->fields_size % 8;
+                        m->size += m->iovec[m->n_iovec].iov_len;
                         m->n_iovec++;
                 }
         }
@@ -2463,6 +2469,7 @@ static void setup_iovec(sd_bus_message *m) {
         if (m->body) {
                 m->iovec[m->n_iovec].iov_base = m->body;
                 m->iovec[m->n_iovec].iov_len = m->header->body_size;
+                m->size += m->iovec[m->n_iovec].iov_len;
                 m->n_iovec++;
         }
 }

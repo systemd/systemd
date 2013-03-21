@@ -53,6 +53,19 @@ void prioq_free(Prioq *q) {
         free(q);
 }
 
+int prioq_ensure_allocated(Prioq **q, compare_func_t compare_func) {
+        assert(q);
+
+        if (*q)
+                return 0;
+
+        *q = prioq_new(compare_func);
+        if (!*q)
+                return -ENOMEM;
+
+        return 0;
+}
+
 static void swap(Prioq *q, unsigned j, unsigned k) {
         void *saved_data;
         unsigned *saved_idx;
@@ -204,9 +217,12 @@ static struct prioq_item* find_item(Prioq *q, void *data, unsigned *idx) {
         assert(q);
 
         if (idx) {
-                assert(*idx < q->n_items);
+                if (*idx > q->n_items)
+                        return NULL;
+
                 i = q->items + *idx;
-                assert(i->data == data);
+                if (i->data != data)
+                        return NULL;
 
                 return i;
         } else {

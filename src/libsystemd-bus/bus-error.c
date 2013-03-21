@@ -168,3 +168,10 @@ int bus_error_from_errno(sd_bus_error *e, int error) {
 
         return error;
 }
+
+const char *bus_error_message(const sd_bus_error *e, int error) {
+        if (e && e->message)
+                return e->message;
+
+        return strerror(error);
+}
