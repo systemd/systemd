@@ -1057,6 +1057,11 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         if (!m)
                 return -EINVAL;
 
+        /* If the serial number isn't kept, then we know that no reply
+         * is expected */
+        if (!serial && !m->sealed)
+                m->header->flags |= SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
+
         r = bus_seal_message(bus, m);
         if (r < 0)
                 return r;

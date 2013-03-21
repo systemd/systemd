@@ -33,7 +33,6 @@
  * - add page donation logic
  * - api for appending/reading fixed arrays
  * - always verify container depth
- * - implicitly set no_reply when a message-call is sent an the serial number ignored
  * - handle NULL strings nicer when appending
  * - merge busctl into systemctl or so?
  * - add object handlers
