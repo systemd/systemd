@@ -20,3 +20,43 @@
 ***/
 
 #include "bus-internal.h"
+
+bool object_path_is_valid(const char *p) {
+        const char *q;
+        bool slash;
+
+        if (!p)
+                return false;
+
+        if (p[0] != '/')
+                return false;
+
+        if (p[1] == 0)
+                return true;
+
+        for (slash = true, q = p+1; *q; q++)
+                if (*q == '/') {
+                        if (slash)
+                                return false;
+
+                        slash = true;
+                } else {
+                        bool good;
+
+                        good =
+                                (*q >= 'a' && *q <= 'z') ||
+                                (*q >= 'A' && *q <= 'Z') ||
+                                (*q >= '0' && *q <= '9') ||
+                                *q == '_';
+
+                        if (!good)
+                                return false;
+
+                        slash = false;
+                }
+
+        if (slash)
+                return false;
+
+        return true;
+}

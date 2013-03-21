@@ -1374,8 +1374,7 @@ static int message_peek_body(sd_bus_message *m, size_t *rindex, size_t align, si
         return buffer_peek(m->body, BUS_MESSAGE_BODY_SIZE(m), rindex, align, nbytes, ret);
 }
 
-static bool validate_string(const char *s, size_t l) {
-        assert(s);
+static bool validate_nul(const char *s, size_t l) {
 
         /* Check for NUL chars in the string */
         if (memchr(s, 0, l))
@@ -1383,6 +1382,14 @@ static bool validate_string(const char *s, size_t l) {
 
         /* Check for NUL termination */
         if (s[l] != 0)
+                return false;
+
+        return true;
+}
+
+static bool validate_string(const char *s, size_t l) {
+
+        if (!validate_nul(s, l))
                 return false;
 
         /* Check if valid UTF8 */
@@ -1393,16 +1400,23 @@ static bool validate_string(const char *s, size_t l) {
 }
 
 static bool validate_signature(const char *s, size_t l) {
-        /* Check for NUL chars in the signature */
-        if (memchr(s, 0, l))
-                return false;
 
-        /* Check for NUL termination */
-        if (s[l] != 0)
+        if (!validate_nul(s, l))
                 return false;
 
         /* Check if valid signature */
         if (!signature_is_valid(s, true))
+                return false;
+
+        return true;
+}
+
+static bool validate_object_path(const char *s, size_t l) {
+
+        if (!validate_nul(s, l))
+                return false;
+
+        if (!object_path_is_valid(s))
                 return false;
 
         return true;
@@ -1447,8 +1461,13 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                 if (r == 0)
                         return -EBADMSG;
 
-                if (!validate_string(q, l))
-                        return -EBADMSG;
+                if (type == SD_BUS_TYPE_OBJECT_PATH) {
+                        if (!validate_object_path(q, l))
+                                return -EBADMSG;
+                } else {
+                        if (!validate_string(q, l))
+                                return -EBADMSG;
+                }
 
                 m->rindex = rindex;
                 *(const char**) p = q;
@@ -1565,7 +1584,7 @@ static int bus_message_enter_array(
         if (r <= 0)
                 return r;
 
-        if (BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q) > 67108864)
+        if (BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q) > BUS_ARRAY_MAX_SIZE)
                 return -EBADMSG;
 
         r = message_peek_body(m, &rindex, alignment, 0, NULL);
@@ -2104,6 +2123,7 @@ static int message_peek_fields(
 
 static int message_peek_field_string(
                 sd_bus_message *m,
+                char type,
                 size_t *ri,
                 const char **ret) {
 
@@ -2123,8 +2143,13 @@ static int message_peek_field_string(
         if (r < 0)
                 return r;
 
-        if (!validate_string(q, l))
-                return -EBADMSG;
+        if (type == SD_BUS_TYPE_OBJECT_PATH) {
+                if (!validate_object_path(q, l))
+                        return -EBADMSG;
+        } else {
+                if (!validate_string(q, l))
+                        return -EBADMSG;
+        }
 
         if (ret)
                 *ret = q;
@@ -2214,7 +2239,7 @@ static int message_skip_fields(
                 if (t == SD_BUS_TYPE_STRING ||
                     t == SD_BUS_TYPE_OBJECT_PATH) {
 
-                        r = message_peek_field_string(m, ri, NULL);
+                        r = message_peek_field_string(m, t, ri, NULL);
                         if (r < 0)
                                 return r;
 
@@ -2264,7 +2289,7 @@ static int message_skip_fields(
                                         return r;
 
                                 nas = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
-                                if (nas > 67108864)
+                                if (nas > BUS_ARRAY_MAX_SIZE)
                                         return -EBADMSG;
 
                                 r = message_peek_fields(m, ri, alignment, 0, NULL);
@@ -2341,42 +2366,42 @@ static int message_parse_fields(sd_bus_message *m) {
                         if (!streq(signature, "o"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, &ri, &m->path);
+                        r = message_peek_field_string(m, 'o', &ri, &m->path);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_INTERFACE:
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, &ri, &m->interface);
+                        r = message_peek_field_string(m, 's', &ri, &m->interface);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_MEMBER:
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, &ri, &m->member);
+                        r = message_peek_field_string(m, 's', &ri, &m->member);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_ERROR_NAME:
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, &ri, &m->error.name);
+                        r = message_peek_field_string(m, 's', &ri, &m->error.name);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_DESTINATION:
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, &ri, &m->destination);
+                        r = message_peek_field_string(m, 's', &ri, &m->destination);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_SENDER:
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, &ri, &m->sender);
+                        r = message_peek_field_string(m, 's', &ri, &m->sender);
                         break;
 
 
