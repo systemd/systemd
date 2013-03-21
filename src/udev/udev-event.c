@@ -838,6 +838,8 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                 }
 
                 if (major(udev_device_get_devnum(dev)) > 0) {
+                        bool apply;
+
                         /* remove/update possible left-over symlinks from old database entry */
                         if (event->dev_db != NULL)
                                 udev_node_update_old_links(dev, event->dev_db);
@@ -861,8 +863,8 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                                 }
                         }
 
-                        udev_node_add(dev, event->owner_set || event->group_set || event->mode_set,
-                                      event->mode, event->uid, event->gid);
+                        apply = streq(udev_device_get_action(dev), "add") || event->owner_set || event->group_set || event->mode_set;
+                        udev_node_add(dev, apply, event->mode, event->uid, event->gid);
                 }
 
                 /* preserve old, or get new initialization timestamp */
