@@ -1663,6 +1663,7 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-message.c \
 	src/libsystemd-bus/bus-message.h \
 	src/libsystemd-bus/bus-signature.c \
+	src/libsystemd-bus/bus-signature.h \
 	src/libsystemd-bus/bus-type.c \
 	src/libsystemd-bus/bus-type.h
 
