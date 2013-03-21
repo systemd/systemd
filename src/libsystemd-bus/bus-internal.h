@@ -110,3 +110,9 @@ static inline void bus_unrefp(sd_bus **b) {
 #define _cleanup_bus_unref_ __attribute__((cleanup(bus_unrefp)))
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
+
+#define BUS_WQUEUE_MAX 128
+#define BUS_RQUEUE_MAX 128
+
+#define BUS_MESSAGE_SIZE_MAX (64*1024*1024)
+#define BUS_AUTH_SIZE_MAX (64*1024)

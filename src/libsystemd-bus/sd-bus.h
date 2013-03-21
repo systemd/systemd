@@ -38,8 +38,6 @@
  * - add object handlers
  * - add peer message handlers
  * - verify object paths
- * - when reading a message, verify its size
- * - add limits to wqueue and rqueue alike
  */
 
 typedef struct sd_bus sd_bus;

@@ -35,8 +35,6 @@
 #include "bus-message.h"
 #include "bus-type.h"
 
-#define WQUEUE_MAX 128
-
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 
 static void bus_free(sd_bus *b) {
@@ -495,6 +493,13 @@ static int bus_read_auth(sd_bus *b) {
                 return r;
 
         n = MAX(3 + 32 + 2 + sizeof("AGREE_UNIX_FD") - 1 + 2, b->rbuffer_size * 2);
+
+        if (n > BUS_AUTH_SIZE_MAX)
+                n = BUS_AUTH_SIZE_MAX;
+
+        if (b->rbuffer_size >= n)
+                return -ENOBUFS;
+
         p = realloc(b->rbuffer, n);
         if (!p)
                 return -ENOMEM;
@@ -845,6 +850,7 @@ static int message_write(sd_bus *bus, sd_bus_message *m, size_t *idx) {
 static int message_read_need(sd_bus *bus, size_t *need) {
         uint32_t a, b;
         uint8_t e;
+        uint64_t sum;
 
         assert(bus);
         assert(need);
@@ -885,7 +891,11 @@ static int message_read_need(sd_bus *bus, size_t *need) {
         } else
                 return -EBADMSG;
 
-        *need = sizeof(struct bus_header) + ALIGN_TO(b, 8) + a;
+        sum = (uint64_t) sizeof(struct bus_header) + (uint64_t) ALIGN_TO(b, 8) + (uint64_t) a;
+        if (sum >= BUS_MESSAGE_SIZE_MAX)
+                return -ENOBUFS;
+
+        *need = (size_t) sum;
         return 0;
 }
 
@@ -1093,7 +1103,7 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
 
                 /* Just append it to the queue. */
 
-                if (bus->wqueue_size >= WQUEUE_MAX)
+                if (bus->wqueue_size >= BUS_WQUEUE_MAX)
                         return -ENOBUFS;
 
                 q = realloc(bus->wqueue, sizeof(sd_bus_message*) * (bus->wqueue_size + 1));
@@ -1299,6 +1309,9 @@ int sd_bus_send_with_reply_and_block(
 
                 if (!room) {
                         sd_bus_message **q;
+
+                        if (bus->rqueue_size >= BUS_RQUEUE_MAX)
+                                return -ENOBUFS;
 
                         /* Make sure there's room for queuing this
                          * locally, before we read the message */
