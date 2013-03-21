@@ -157,29 +157,26 @@ static usec_t when_wall(usec_t n, usec_t elapse) {
                 usec_t delay;
                 usec_t interval;
         } table[] = {
-                { 10 * USEC_PER_MINUTE, USEC_PER_MINUTE      },
-                { USEC_PER_HOUR,        15 * USEC_PER_MINUTE },
-                { 3 * USEC_PER_HOUR,    30 * USEC_PER_MINUTE }
+                { 0,                    USEC_PER_MINUTE      },
+                { 10 * USEC_PER_MINUTE, 15 * USEC_PER_MINUTE },
+                { USEC_PER_HOUR,        30 * USEC_PER_MINUTE },
+                { 3 * USEC_PER_HOUR,    USEC_PER_HOUR        },
         };
 
         usec_t left, sub;
-        unsigned i;
+        unsigned i = ELEMENTSOF(table) - 1;
 
         /* If the time is already passed, then don't announce */
         if (n >= elapse)
                 return 0;
 
         left = elapse - n;
-        for (i = 0; i < ELEMENTSOF(table); i++)
-                if (n + table[i].delay >= elapse) {
-                        sub = ((left / table[i].interval) * table[i].interval);
-                        break;
-                }
+        while (left < table[i].delay)
+                i--;
+        sub = (left / table[i].interval) * table[i].interval;
 
-        if (i >= ELEMENTSOF(table))
-                sub = ((left / USEC_PER_HOUR) * USEC_PER_HOUR);
-
-        return elapse > sub ? elapse - sub : 1;
+        assert(sub < elapse);
+        return elapse - sub;
 }
 
 static usec_t when_nologin(usec_t elapse) {
