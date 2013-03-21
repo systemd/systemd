@@ -290,7 +290,8 @@ static int server_init(Server *s, unsigned n_sockets) {
 
         zero(*s);
 
-        if ((s->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0) {
+        s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+        if (s->epoll_fd < 0) {
                 r = -errno;
                 log_error("Failed to create epoll object: %s", strerror(errno));
                 goto fail;
@@ -303,8 +304,10 @@ static int server_init(Server *s, unsigned n_sockets) {
 
                 fd = SD_LISTEN_FDS_START+i;
 
-                if ((r = sd_is_fifo(fd, NULL)) < 0) {
-                        log_error("Failed to determine file descriptor type: %s", strerror(-r));
+                r = sd_is_fifo(fd, NULL);
+                if (r < 0) {
+                        log_error("Failed to determine file descriptor type: %s",
+                                  strerror(-r));
                         goto fail;
                 }
 
@@ -314,9 +317,11 @@ static int server_init(Server *s, unsigned n_sockets) {
                         goto fail;
                 }
 
-                if (!(f = new0(Fifo, 1))) {
+                f = new0(Fifo, 1);
+                if (!f) {
                         r = -ENOMEM;
-                        log_error("Failed to create fifo object: %s", strerror(errno));
+                        log_error("Failed to create fifo object: %s",
+                                  strerror(errno));
                         goto fail;
                 }
 
@@ -328,7 +333,8 @@ static int server_init(Server *s, unsigned n_sockets) {
                 if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
                         r = -errno;
                         fifo_free(f);
-                        log_error("Failed to add fifo fd to epoll object: %s", strerror(errno));
+                        log_error("Failed to add fifo fd to epoll object: %s",
+                                  strerror(errno));
                         goto fail;
                 }
 
@@ -339,7 +345,9 @@ static int server_init(Server *s, unsigned n_sockets) {
         }
 
         if (bus_connect(DBUS_BUS_SYSTEM, &s->bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
+                log_error("Failed to get D-Bus connection: %s",
+                          bus_error_message(&error));
+                r = -EIO;
                 goto fail;
         }
 
