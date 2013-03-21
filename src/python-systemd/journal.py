@@ -35,7 +35,7 @@ from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
 from ._journal import sendv, stream_fd
 from ._reader import (_Reader, NOP, APPEND, INVALIDATE,
                       LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY,
-                      get_catalog)
+                      _get_catalog)
 from . import id128 as _id128
 
 if _sys.version_info >= (3,):
@@ -137,6 +137,9 @@ class Reader(_Reader):
         the conversion fails with a ValueError, unconverted bytes
         object will be returned. (Note that ValueEror is a superclass
         of UnicodeDecodeError).
+
+        Reader implements the context manager protocol: the journal
+        will be closed when exiting the block.
         """
         super(Reader, self).__init__(flags, path)
         if _sys.version_info >= (3,3):
@@ -292,6 +295,11 @@ class Reader(_Reader):
             machineid = getattr(machineid, 'hex', machineid)
         self.add_match(_MACHINE_ID=machineid)
 
+
+def get_catalog(mid):
+    if isinstance(mid, _uuid.UUID):
+        mid = mid.get_hex()
+    return _get_catalog(mid)
 
 def _make_line(field, value):
         if isinstance(value, bytes):

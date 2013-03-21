@@ -261,6 +261,73 @@ static PyObject* Reader_next(Reader *self, PyObject *args)
 }
 
 
+static int extract(const char* msg, size_t msg_len,
+                   PyObject **key, PyObject **value) {
+    PyObject *k = NULL, *v;
+    const char *delim_ptr;
+
+    delim_ptr = memchr(msg, '=', msg_len);
+    if (!delim_ptr) {
+        PyErr_SetString(PyExc_OSError,
+                        "journal gave us a field without '='");
+        return -1;
+    }
+
+    if (key) {
+        k = unicode_FromStringAndSize(msg, delim_ptr - (const char*) msg);
+        if (!k)
+            return -1;
+    }
+
+    if (value) {
+        v = PyBytes_FromStringAndSize(delim_ptr + 1,
+                             (const char*) msg + msg_len - (delim_ptr + 1));
+        if (!v) {
+            Py_XDECREF(k);
+            return -1;
+        }
+
+        *value = v;
+    }
+
+    if (key)
+        *key = k;
+
+    return 0;
+}
+
+PyDoc_STRVAR(Reader_get__doc__,
+             "get(str) -> str\n\n"
+             "Return data associated with this key in current log entry.\n"
+             "Throws KeyError is the data is not available.");
+static PyObject* Reader_get(Reader *self, PyObject *args)
+{
+    const char* field;
+    const void* msg;
+    size_t msg_len;
+    PyObject *value;
+    int r;
+
+    assert(self);
+    assert(args);
+
+    if (!PyArg_ParseTuple(args, "s:get", &field))
+        return NULL;
+
+    r = sd_journal_get_data(self->j, field, &msg, &msg_len);
+    if (r == -ENOENT) {
+        PyErr_SetString(PyExc_KeyError, field);
+        return NULL;
+    } else if (set_error(r, NULL, "field name is not valid"))
+        return NULL;
+
+    r = extract(msg, msg_len, NULL, &value);
+    if (r < 0)
+        return NULL;
+    return value;
+}
+
+
 PyDoc_STRVAR(Reader_get_next__doc__,
              "get_next([skip]) -> dict\n\n"
              "Return dictionary of the next log entry. Optional skip value will\n"
@@ -285,23 +352,9 @@ static PyObject* Reader_get_next(Reader *self, PyObject *args)
 
     SD_JOURNAL_FOREACH_DATA(self->j, msg, msg_len) {
         PyObject _cleanup_Py_DECREF_ *key = NULL, *value = NULL;
-        const char *delim_ptr;
 
-        delim_ptr = memchr(msg, '=', msg_len);
-        if (!delim_ptr) {
-            PyErr_SetString(PyExc_OSError,
-                            "journal gave us a field without '='");
-            goto error;
-        }
-
-        key = unicode_FromStringAndSize(msg, delim_ptr - (const char*) msg);
-        if (!key)
-            goto error;
-
-        value = PyBytes_FromStringAndSize(
-                delim_ptr + 1,
-                (const char*) msg + msg_len - (delim_ptr + 1) );
-        if (!value)
+        r = extract(msg, msg_len, &key, &value);
+        if (r < 0)
             goto error;
 
         if (PyDict_Contains(dict, key)) {
@@ -336,6 +389,7 @@ static PyObject* Reader_get_next(Reader *self, PyObject *args)
     }
 
     return dict;
+
 error:
     Py_DECREF(dict);
     return NULL;
@@ -724,6 +778,9 @@ static PyObject* Reader_query_unique(Reader *self, PyObject *args)
 PyDoc_STRVAR(Reader_get_catalog__doc__,
              "get_catalog() -> str\n\n"
              "Retrieve a message catalog entry for the current journal entry.\n"
+             "Will throw IndexError if the entry has no MESSAGE_ID\n"
+             "and KeyError is the id is specified, but hasn't been found\n"
+             "in the catalog.\n\n"
              "Wraps man:sd_journal_get_catalog(3).");
 static PyObject* Reader_get_catalog(Reader *self, PyObject *args)
 {
@@ -736,7 +793,22 @@ static PyObject* Reader_get_catalog(Reader *self, PyObject *args)
     Py_BEGIN_ALLOW_THREADS
     r = sd_journal_get_catalog(self->j, &msg);
     Py_END_ALLOW_THREADS
-    if (set_error(r, NULL, NULL))
+    if (r == -ENOENT) {
+        const void* mid;
+        size_t mid_len;
+
+        r = sd_journal_get_data(self->j, "MESSAGE_ID", &mid, &mid_len);
+        if (r == 0) {
+            const int l = sizeof("MESSAGE_ID");
+            assert(mid_len > l);
+            PyErr_Format(PyExc_KeyError, "%.*s", (int) mid_len - l,
+                         (const char*) mid + l);
+        } else if (r == -ENOENT)
+            PyErr_SetString(PyExc_IndexError, "no MESSAGE_ID field");
+        else
+            set_error(r, NULL, NULL);
+        return NULL;
+    } else if (set_error(r, NULL, NULL))
         return NULL;
 
     return unicode_FromString(msg);
@@ -837,6 +909,7 @@ static PyMethodDef Reader_methods[] = {
     {"__enter__",       (PyCFunction) Reader___enter__, METH_NOARGS, Reader___enter____doc__},
     {"__exit__",        (PyCFunction) Reader___exit__, METH_VARARGS, Reader___exit____doc__},
     {"next",            (PyCFunction) Reader_next, METH_VARARGS, Reader_next__doc__},
+    {"get",             (PyCFunction) Reader_get, METH_VARARGS, Reader_get__doc__},
     {"get_next",        (PyCFunction) Reader_get_next, METH_VARARGS, Reader_get_next__doc__},
     {"get_previous",    (PyCFunction) Reader_get_previous, METH_VARARGS, Reader_get_previous__doc__},
     {"get_realtime",    (PyCFunction) Reader_get_realtime, METH_NOARGS, Reader_get_realtime__doc__},
@@ -899,7 +972,7 @@ static PyTypeObject ReaderType = {
 };
 
 static PyMethodDef methods[] = {
-        { "get_catalog", get_catalog, METH_VARARGS, get_catalog__doc__},
+        { "_get_catalog", get_catalog, METH_VARARGS, get_catalog__doc__},
         { NULL, NULL, 0, NULL }        /* Sentinel */
 };
 

@@ -584,7 +584,6 @@ Features:
 * drop cap bounding set in readahead and other services
 
 * systemd-python:
-   - allow reading of only select fields in systemd.journal._reader.Reader
    - figure out a simple way to wait for journal events in a way that
      works with ^C
    - add documentation to systemd.daemon

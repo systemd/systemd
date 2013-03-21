@@ -23,6 +23,9 @@ Accessing the Journal
 
    .. automethod:: __init__
 
+.. autofunction:: _get_catalog
+.. autofunction:: get_catalog
+
 .. autoclass:: Monotonic
 
 .. autoattribute:: systemd.journal.DEFAULT_CONVERTERS
