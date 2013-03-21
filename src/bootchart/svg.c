@@ -392,7 +392,7 @@ static void svg_pss_graph(void) {
         svg("\n\n<!-- PSS map - csv format -->\n");
         ps = ps_first;
         while (ps->next_ps) {
-                char _cleanup_free_*enc_name;
+                char _cleanup_free_ *enc_name = NULL;
                 ps = ps->next_ps;
                 if (!ps)
                         continue;
@@ -818,7 +818,7 @@ static void svg_ps_bars(void) {
         /* pass 2 - ps boxes */
         ps = ps_first;
         while ((ps = get_next_ps(ps))) {
-                char _cleanup_free_*enc_name;
+                char _cleanup_free_ *enc_name = NULL;
 
                 double starttime;
                 int t;
