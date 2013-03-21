@@ -10,7 +10,7 @@ Description=udev Kernel Device Manager
 Documentation=man:systemd-udevd.service(8) man:udev(7)
 Wants=systemd-udevd-control.socket systemd-udevd-kernel.socket
 After=systemd-udevd-control.socket systemd-udevd-kernel.socket
-Before=sysinit.target
+Before=sysinit.target local-fs-pre.target
 DefaultDependencies=no
 ConditionCapability=CAP_MKNOD
 
