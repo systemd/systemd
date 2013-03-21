@@ -33,7 +33,6 @@
  * - add page donation logic
  * - api for appending/reading fixed arrays
  * - always verify container depth
- * - handle NULL strings nicer when appending
  * - merge busctl into systemctl or so?
  * - add object handlers
  * - verify object paths

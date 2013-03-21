@@ -50,6 +50,9 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_append(m, "s", "a string");
         assert_se(r >= 0);
 
+        r = sd_bus_message_append(m, "s", NULL);
+        assert_se(r < 0);
+
         r = sd_bus_message_append(m, "as", 2, "string #1", "string #2");
         assert_se(r >= 0);
 

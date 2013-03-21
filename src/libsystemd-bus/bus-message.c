@@ -768,11 +768,27 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
 
         case SD_BUS_TYPE_STRING:
         case SD_BUS_TYPE_OBJECT_PATH:
+
+                if (!p) {
+                        if (e)
+                                c->signature[c->index] = 0;
+
+                        return -EINVAL;
+                }
+
                 align = 4;
                 sz = 4 + strlen(p) + 1;
                 break;
 
         case SD_BUS_TYPE_SIGNATURE:
+
+                if (!p) {
+                        if (e)
+                                c->signature[c->index] = 0;
+
+                        return -EINVAL;
+                }
+
                 align = 1;
                 sz = 1 + strlen(p) + 1;
                 break;
