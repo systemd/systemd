@@ -1612,7 +1612,7 @@ libsystemd_daemon_la_SOURCES = \
 	src/libsystemd-daemon/sd-daemon.c
 
 libsystemd_daemon_internal_la_SOURCES = \
-        $(libsystemd_daemon_la_SOURCES)
+	$(libsystemd_daemon_la_SOURCES)
 
 libsystemd_daemon_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1641,7 +1641,7 @@ lib_LTLIBRARIES += \
 	libsystemd-daemon.la
 
 noinst_LTLIBRARIES += \
-        libsystemd-daemon-internal.la
+	libsystemd-daemon-internal.la
 
 pkgconfiglib_DATA += \
 	src/libsystemd-daemon/libsystemd-daemon.pc
@@ -1671,7 +1671,7 @@ libsystemd_bus_la_LIBADD =  \
 	libsystemd-id128-internal.la
 
 noinst_LTLIBRARIES += \
-        libsystemd-bus.la
+	libsystemd-bus.la
 
 noinst_tests += \
 	test-bus-marshal \
@@ -3583,7 +3583,7 @@ _journal_la_SOURCES = \
 
 _journal_la_CFLAGS = \
 	$(AM_CFLAGS) \
-        -fvisibility=default \
+	-fvisibility=default \
 	$(PYTHON_CFLAGS)
 
 _journal_la_LDFLAGS = \
@@ -3604,7 +3604,7 @@ id128_la_SOURCES = \
 
 id128_la_CFLAGS = \
 	$(AM_CFLAGS) \
-        -fvisibility=default \
+	-fvisibility=default \
 	$(PYTHON_CFLAGS) \
 	-I$(top_builddir)/src/python-systemd
 
@@ -3625,7 +3625,7 @@ _daemon_la_SOURCES = \
 
 _daemon_la_CFLAGS = \
 	$(AM_CFLAGS) \
-        -fvisibility=default \
+	-fvisibility=default \
 	$(PYTHON_CFLAGS) \
 	-I$(top_builddir)/src/python-systemd
 
@@ -3646,7 +3646,7 @@ _reader_la_SOURCES = \
 
 _reader_la_CFLAGS = \
 	$(AM_CFLAGS) \
-        -fvisibility=default \
+	-fvisibility=default \
 	$(PYTHON_CFLAGS)
 
 _reader_la_LDFLAGS = \
@@ -3683,7 +3683,7 @@ sphinx-%:
 destdir-sphinx: all
 	dir="$$(mktemp -d /tmp/systemd-install.XXXXXX)" && \
 		$(MAKE) DESTDIR="$$dir" install && \
-	        $(MAKE) DESTDIR="$$dir" sphinx-html && \
+		$(MAKE) DESTDIR="$$dir" sphinx-html && \
 		rm -rf "$$dir"
 
 endif
@@ -3978,7 +3978,7 @@ distclean-local: $(DISTCLEAN_LOCAL_HOOKS)
 clean-local: $(CLEAN_LOCAL_HOOKS)
 	rm -rf $(abs_srcdir)/install-tree
 	rm -f $(abs_srcdir)/hwdb/usb.ids $(abs_srcdir)/hwdb/pci.ids $(abs_srcdir)/hwdb/oui.txt \
-              $(abs_srcdir)/hwdb/iab.txt
+	      $(abs_srcdir)/hwdb/iab.txt
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
@@ -4009,7 +4009,7 @@ hwdb-update:
 	( cd $(top_srcdir)/hwdb && \
 	wget -N http://www.linux-usb.org/usb.ids \
 	        http://pci-ids.ucw.cz/v2.2/pci.ids \
-		http://standards.ieee.org/develop/regauth/oui/oui.txt \
+	        http://standards.ieee.org/develop/regauth/oui/oui.txt \
 	        http://standards.ieee.org/develop/regauth/iab/iab.txt && \
 	./ids-update.pl )
 
