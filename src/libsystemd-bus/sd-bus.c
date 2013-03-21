@@ -1475,6 +1475,57 @@ static int process_timeout(sd_bus *bus) {
         return r < 0 ? r : 1;
 }
 
+static int process_builtin(sd_bus *bus, sd_bus_message *m) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+                return 0;
+
+        if (!streq_ptr(m->interface, "org.freedesktop.DBus.Peer"))
+                return 0;
+
+        if (m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 1;
+
+        if (streq_ptr(m->member, "Ping"))
+                r = sd_bus_message_new_method_return(bus, m, &reply);
+        else if (streq_ptr(m->member, "GetMachineId")) {
+                sd_id128_t id;
+                char sid[33];
+
+                r = sd_id128_get_machine(&id);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_new_method_return(bus, m, &reply);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(reply, "s", sd_id128_to_string(id, sid));
+        } else {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_INIT;
+
+                sd_bus_error_set(&error,
+                                 "org.freedesktop.DBus.Error.UnknownMethod",
+                                 "Unknown method '%s' on interface '%s'.", m->member, m->interface);
+
+                r = sd_bus_message_new_method_error(bus, m, &error, &reply);
+        }
+
+        if (r < 0)
+                return r;
+
+        r = sd_bus_send(bus, reply, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int process_message(sd_bus *bus, sd_bus_message *m) {
         struct filter_callback *l;
         int r;
@@ -1482,7 +1533,7 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
-        if (m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL || m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_RETURN) {
+        if (m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_RETURN || m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_ERROR) {
                 struct reply_callback *c;
 
                 c = hashmap_remove(bus->reply_callbacks, &m->reply_serial);
@@ -1504,7 +1555,7 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
                         return r;
         }
 
-        return 0;
+        return process_builtin(bus, m);
 }
 
 int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
@@ -1599,11 +1650,13 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
                         return 1;
                 }
 
-                if (sd_bus_message_is_method_call(m, NULL, NULL)) {
-                        const sd_bus_error e = SD_BUS_ERROR_INIT_CONST("org.freedesktop.DBus.Error.UnknownObject", "Unknown object.");
+                if (m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL) {
                         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_INIT;
 
-                        r = sd_bus_message_new_method_error(bus, m, &e, &reply);
+                        sd_bus_error_set(&error, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object '%s'.", m->path);
+
+                        r = sd_bus_message_new_method_error(bus, m, &error, &reply);
                         if (r < 0)
                                 return r;
 

@@ -108,6 +108,7 @@ static inline void bus_unrefp(sd_bus **b) {
 }
 
 #define _cleanup_bus_unref_ __attribute__((cleanup(bus_unrefp)))
+#define _cleanup_bus_error_free_ __attribute__((cleanup(sd_bus_error_free)))
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
 

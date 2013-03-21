@@ -36,8 +36,8 @@
  * - handle NULL strings nicer when appending
  * - merge busctl into systemctl or so?
  * - add object handlers
- * - add peer message handlers
  * - verify object paths
+ * - implicitly add stub introspection calls
  */
 
 typedef struct sd_bus sd_bus;

@@ -264,14 +264,44 @@ static void* client2(void*p) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
         sd_bus *bus = NULL;
         sd_bus_error error = SD_BUS_ERROR_INIT;
-        int r;
         bool quit = false;
+        const char *mid;
+        int r;
 
         r = sd_bus_open_user(&bus);
         if (r < 0) {
                 log_error("Failed to connect to user bus: %s", strerror(-r));
                 goto finish;
         }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        "org.freedesktop.systemd.test",
+                        "/",
+                        "org.freedesktop.DBus.Peer",
+                        "GetMachineId",
+                        &m);
+        if (r < 0) {
+                log_error("Failed to allocate method call: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = sd_bus_send_with_reply_and_block(bus, m, 0, &error, &reply);
+        if (r < 0) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                goto finish;
+        }
+
+        r = sd_bus_message_read(reply, "s", &mid);
+        if (r < 0) {
+                log_error("Failed to parse machine ID: %s", strerror(-r));
+                goto finish;
+        }
+
+        log_info("Machine ID is %s.", mid);
+
+        sd_bus_message_unref(m);
+        m = NULL;
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -284,6 +314,9 @@ static void* client2(void*p) {
                 log_error("Failed to allocate method call: %s", strerror(-r));
                 goto finish;
         }
+
+        sd_bus_message_unref(reply);
+        reply = NULL;
 
         r = sd_bus_send_with_reply_and_block(bus, m, 200 * USEC_PER_MSEC, &error, &reply);
         if (r < 0)
