@@ -135,7 +135,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         --param=ssp-buffer-size=4])
 AC_SUBST([OUR_CFLAGS], $with_cflags)
 
-AS_CASE([$CFLAGS], [*-O[[12345\ ]]*], [
+AS_CASE([$CFLAGS], [*-O[[12345g\ ]]*], [
         CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
                -Wp,-D_FORTIFY_SOURCE=2])], [
         python_extra_cflags=-Wp,-U_FORTIFY_SOURCE
