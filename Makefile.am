@@ -620,6 +620,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/set.h \
 	src/shared/fdset.c \
 	src/shared/fdset.h \
+	src/shared/prioq.c \
+	src/shared/prioq.h \
 	src/shared/strv.c \
 	src/shared/strv.h \
 	src/shared/env-util.c \
@@ -1075,7 +1077,8 @@ noinst_tests += \
 	test-sched-prio \
 	test-calendarspec \
 	test-strip-tab-ansi \
-	test-cgroup-util
+	test-cgroup-util \
+	test-prioq
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1164,6 +1167,15 @@ test_util_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_util_LDADD = \
+	libsystemd-core.la
+
+test_prioq_SOURCES = \
+	src/test/test-prioq.c
+
+test_prioq_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_prioq_LDADD = \
 	libsystemd-core.la
 
 test_log_SOURCES = \
