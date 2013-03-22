@@ -1310,19 +1310,13 @@ int main(int argc, char *argv[]) {
         /* Determine if this is a reexecution or normal bootup. We do
          * the full command line parsing much later, so let's just
          * have a quick peek here. */
-        for (j = 1; j < argc; j++)
-                if (streq(argv[j], "--deserialize")) {
-                        skip_setup = true;
-                        break;
-                }
+        if (strv_find(argv+1, "--deserialize"))
+                skip_setup = true;
 
         /* If we have switched root, do all the special setup
          * things */
-        for (j = 1; j < argc; j++)
-                if (streq(argv[j], "--switched-root")) {
-                        skip_setup = false;
-                        break;
-                }
+        if (strv_find(argv+1, "--switched-root"))
+                skip_setup = false;
 
         /* If we get started via the /sbin/init symlink then we are
            called 'init'. After a subsequent reexecution we are then
