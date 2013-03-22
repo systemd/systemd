@@ -139,12 +139,14 @@ static int checkout(int fd)
 
  restart:
         len = bufsize >> 1;
-        buf = calloc(1,bufsize + 1);
+        buf = malloc(bufsize + 1);
         if (!buf) {
                 fprintf(stderr, "Out of memory.\n");
                 return log_oom();
         }
         memset(buf, ' ', bufsize);
+        buf[bufsize] = '\0';
+
         ptr = buf + len;
         while ((read(fd, buf + len, len)) > 0) {
                 while (ptr && *ptr) {
