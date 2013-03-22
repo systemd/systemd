@@ -118,6 +118,8 @@ static inline void bus_unrefp(sd_bus **b) {
 #define BUS_MESSAGE_SIZE_MAX (64*1024*1024)
 #define BUS_AUTH_SIZE_MAX (64*1024)
 
+#define BUS_CONTAINER_DEPTH 128
+
 /* Defined by the specification as maximum size of an array in
  * bytes */
 #define BUS_ARRAY_MAX_SIZE 67108864

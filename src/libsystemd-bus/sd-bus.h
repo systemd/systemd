@@ -32,7 +32,6 @@
  * - make unix fd passing work
  * - add page donation logic
  * - api for appending/reading fixed arrays
- * - always verify container depth
  * - merge busctl into systemctl or so?
  * - add object handlers
  * - implicitly add stub introspection calls

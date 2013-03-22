@@ -1741,6 +1741,25 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
         if (!contents)
                 return -EINVAL;
 
+        /*
+         * We enforce a global limit on container depth, that is much
+         * higher than the 32 structs and 32 arrays the specification
+         * mandates. This is simpler to implement for us, and we need
+         * this only to ensure our container array doesn't grow
+         * without bounds. We are happy to return any data from a
+         * message as long as the data itself is valid, even if the
+         * overall message might be not.
+         *
+         * Note that the message signature is validated when
+         * parsing the headers, and that validation does check the
+         * 32/32 limit.
+         *
+         * Note that the specification defines no limits on the depth
+         * of stacked variants, but we do.
+         */
+        if (m->n_containers >= BUS_CONTAINER_DEPTH)
+                return -EBADMSG;
+
         w = realloc(m->containers, sizeof(struct bus_container) * (m->n_containers + 1));
         if (!w)
                 return -ENOMEM;
