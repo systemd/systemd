@@ -123,3 +123,8 @@ static inline void bus_unrefp(sd_bus **b) {
 #define BUS_ARRAY_MAX_SIZE 67108864
 
 bool object_path_is_valid(const char *p);
+bool interface_name_is_valid(const char *p);
+bool service_name_is_valid(const char *p);
+bool member_name_is_valid(const char *p);
+
+#define error_name_is_valid interface_name_is_valid

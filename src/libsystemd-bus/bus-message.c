@@ -2123,7 +2123,7 @@ static int message_peek_fields(
 
 static int message_peek_field_string(
                 sd_bus_message *m,
-                char type,
+                bool (*validate)(const char *p),
                 size_t *ri,
                 const char **ret) {
 
@@ -2143,8 +2143,11 @@ static int message_peek_field_string(
         if (r < 0)
                 return r;
 
-        if (type == SD_BUS_TYPE_OBJECT_PATH) {
-                if (!validate_object_path(q, l))
+        if (validate) {
+                if (!validate_nul(q, l))
+                        return -EBADMSG;
+
+                if (!validate(q))
                         return -EBADMSG;
         } else {
                 if (!validate_string(q, l))
@@ -2236,10 +2239,17 @@ static int message_skip_fields(
                 if (!t)
                         return 0;
 
-                if (t == SD_BUS_TYPE_STRING ||
-                    t == SD_BUS_TYPE_OBJECT_PATH) {
+                if (t == SD_BUS_TYPE_STRING) {
 
-                        r = message_peek_field_string(m, t, ri, NULL);
+                        r = message_peek_field_string(m, NULL, ri, NULL);
+                        if (r < 0)
+                                return r;
+
+                        (*signature)++;
+
+                } else if (t == SD_BUS_TYPE_OBJECT_PATH) {
+
+                        r = message_peek_field_string(m, object_path_is_valid, ri, NULL);
                         if (r < 0)
                                 return r;
 
@@ -2366,42 +2376,42 @@ static int message_parse_fields(sd_bus_message *m) {
                         if (!streq(signature, "o"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, 'o', &ri, &m->path);
+                        r = message_peek_field_string(m, object_path_is_valid, &ri, &m->path);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_INTERFACE:
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, 's', &ri, &m->interface);
+                        r = message_peek_field_string(m, interface_name_is_valid, &ri, &m->interface);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_MEMBER:
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, 's', &ri, &m->member);
+                        r = message_peek_field_string(m, member_name_is_valid, &ri, &m->member);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_ERROR_NAME:
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, 's', &ri, &m->error.name);
+                        r = message_peek_field_string(m, error_name_is_valid, &ri, &m->error.name);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_DESTINATION:
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, 's', &ri, &m->destination);
+                        r = message_peek_field_string(m, service_name_is_valid, &ri, &m->destination);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_SENDER:
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, 's', &ri, &m->sender);
+                        r = message_peek_field_string(m, service_name_is_valid, &ri, &m->sender);
                         break;
 
 
@@ -2432,6 +2442,12 @@ static int message_parse_fields(sd_bus_message *m) {
                                 return -EBADMSG;
 
                         r = message_peek_field_uint32(m, &ri, &m->reply_serial);
+                        if (r < 0)
+                                return r;
+
+                        if (m->reply_serial == 0)
+                                return -EBADMSG;
+
                         break;
 
                 default:

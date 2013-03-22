@@ -60,3 +60,111 @@ bool object_path_is_valid(const char *p) {
 
         return true;
 }
+
+bool interface_name_is_valid(const char *p) {
+        const char *q;
+        bool dot, found_dot;
+
+        if (isempty(p))
+                return false;
+
+        for (dot = true, q = p; *q; q++)
+                if (*q == '.') {
+                        if (dot)
+                                return false;
+
+                        found_dot = dot = true;
+                } else {
+                        bool good;
+
+                        good =
+                                (*q >= 'a' && *q <= 'z') ||
+                                (*q >= 'A' && *q <= 'Z') ||
+                                (!dot && *q >= '0' && *q <= '9') ||
+                                *q == '_';
+
+                        if (!good)
+                                return false;
+
+                        dot = false;
+                }
+
+        if (q - p > 255)
+                return false;
+
+        if (dot)
+                return false;
+
+        if (!found_dot)
+                return false;
+
+        return true;
+}
+
+bool service_name_is_valid(const char *p) {
+        const char *q;
+        bool dot, found_dot, unique;
+
+        if (isempty(p))
+                return false;
+
+        unique = p[0] == ':';
+
+        for (dot = true, q = unique ? p+1 : p; *q; q++)
+                if (*q == '.') {
+                        if (dot)
+                                return false;
+
+                        found_dot = dot = true;
+                } else {
+                        bool good;
+
+                        good =
+                                (*q >= 'a' && *q <= 'z') ||
+                                (*q >= 'A' && *q <= 'Z') ||
+                                ((!dot || unique) && *q >= '0' && *q <= '9') ||
+                                *q == '_' || *q == '-';
+
+                        if (!good)
+                                return false;
+
+                        dot = false;
+                }
+
+        if (q - p > 255)
+                return false;
+
+        if (dot)
+                return false;
+
+        if (!found_dot)
+                return false;
+
+        return true;
+
+}
+
+bool member_name_is_valid(const char *p) {
+        const char *q;
+
+        if (isempty(p))
+                return false;
+
+        for (q = p; *q; q++) {
+                bool good;
+
+                good =
+                        (*q >= 'a' && *q <= 'z') ||
+                        (*q >= 'A' && *q <= 'Z') ||
+                        (*q >= '0' && *q <= '9') ||
+                        *q == '_';
+
+                if (!good)
+                        return false;
+        }
+
+        if (q - p > 255)
+                return false;
+
+        return true;
+}
