@@ -42,6 +42,7 @@
 #include <sys/vfs.h>
 #include <getopt.h>
 #include <sys/inotify.h>
+#include <math.h>
 
 #ifdef HAVE_FANOTIFY_INIT
 #include <sys/fanotify.h>
@@ -67,6 +68,7 @@
  */
 
 static ReadaheadShared *shared = NULL;
+static struct timespec starttime;
 
 /* Avoid collisions with the NULL pointer */
 #define SECTOR_TO_PTR(s) ULONG_TO_PTR((s)+1)
@@ -205,6 +207,7 @@ static unsigned long fd_first_block(int fd) {
 struct item {
         const char *path;
         unsigned long block;
+        unsigned long bin;
 };
 
 static int qsort_compare(const void *a, const void *b) {
@@ -213,6 +216,13 @@ static int qsort_compare(const void *a, const void *b) {
         i = a;
         j = b;
 
+        /* sort by bin first */
+        if (i->bin < j->bin)
+                return -1;
+        if (i->bin > j->bin)
+                return 1;
+
+        /* then sort by sector */
         if (i->block < j->block)
                 return -1;
         if (i->block > j->block)
@@ -249,6 +259,8 @@ static int collect(const char *root) {
                 r = log_oom();
                 goto finish;
         }
+
+        clock_gettime(CLOCK_MONOTONIC, &starttime);
 
         /* If there's no pack file yet we lower the kernel readahead
          * so that mincore() is accurate. If there is a pack file
@@ -447,10 +459,21 @@ static int collect(const char *root) {
                                         free(p);
                                 else {
                                         unsigned long ul;
+                                        struct timespec ts;
+                                        struct item *entry;
+
+                                        entry = new0(struct item, 1);
 
                                         ul = fd_first_block(m->fd);
 
-                                        if ((k = hashmap_put(files, p, SECTOR_TO_PTR(ul))) < 0) {
+                                        clock_gettime(CLOCK_MONOTONIC, &ts);
+
+                                        entry->block = ul;
+                                        entry->path = strdup(p);
+                                        entry->bin = round((ts.tv_sec - starttime.tv_sec +
+                                                     ((ts.tv_nsec - starttime.tv_nsec) / 1000000000.0)) / 2.0);
+
+                                        if ((k = hashmap_put(files, p, entry)) < 0) {
                                                 log_warning("set_put() failed: %s", strerror(-k));
                                                 free(p);
                                         }
@@ -518,8 +541,7 @@ done:
 
                 j = ordered;
                 HASHMAP_FOREACH_KEY(q, p, files, i) {
-                        j->path = p;
-                        j->block = PTR_TO_SECTOR(q);
+                        memcpy(j, q, sizeof(struct item));
                         j++;
                 }
 
