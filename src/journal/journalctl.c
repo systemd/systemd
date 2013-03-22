@@ -35,6 +35,10 @@
 #include <sys/ioctl.h>
 #include <linux/fs.h>
 
+#ifdef HAVE_ACL
+#include <sys/acl.h>
+#endif
+
 #include <systemd/sd-journal.h>
 
 #include "log.h"
@@ -881,13 +885,96 @@ static int verify(sd_journal *j) {
 static int access_check(void) {
 
 #ifdef HAVE_ACL
+        /* If /var/log/journal doesn't even exist, unprivileged users have no access at all */
         if (access("/var/log/journal", F_OK) < 0 && geteuid() != 0 && in_group("systemd-journal") <= 0) {
                 log_error("Unprivileged users can't see messages unless persistent log storage is enabled. Users in the group 'systemd-journal' can always see messages.");
                 return -EACCES;
         }
 
-        if (!arg_quiet && geteuid() != 0 && in_group("systemd-journal") <= 0)
-                log_warning("Showing user generated messages only. Users in the group 'systemd-journal' can see all messages. Pass -q to turn this notice off.");
+        /* If /var/log/journal exists, try to pring a nice notice if the user lacks access to it */
+        if (!arg_quiet && geteuid() != 0) {
+                _cleanup_strv_free_ char **g = NULL;
+                bool have_access;
+                acl_t acl;
+                int r;
+
+                have_access = in_group("systemd-journal") > 0;
+                if (!have_access) {
+
+                        /* Let's enumerate all groups from the default
+                         * ACL of the directory, which generally
+                         * should allow access to most journal
+                         * files too */
+
+                        acl = acl_get_file("/var/log/journal/", ACL_TYPE_DEFAULT);
+                        if (acl) {
+                                acl_entry_t entry;
+
+                                r = acl_get_entry(acl, ACL_FIRST_ENTRY, &entry);
+                                while (r > 0) {
+                                        acl_tag_t tag;
+                                        gid_t *gid;
+                                        char *name;
+
+                                        r = acl_get_tag_type(entry, &tag);
+                                        if (r < 0)
+                                                break;
+
+                                        if (tag != ACL_GROUP)
+                                                goto next;
+
+                                        gid = acl_get_qualifier(entry);
+                                        if (!gid)
+                                                break;
+
+                                        if (in_gid(*gid) > 0) {
+                                                have_access = true;
+                                                break;
+                                        }
+
+                                        name = gid_to_name(*gid);
+                                        if (!name) {
+                                                acl_free(acl);
+                                                return log_oom();
+                                        }
+
+                                        r = strv_push(&g, name);
+                                        if (r < 0) {
+                                                free(name);
+                                                acl_free(acl);
+                                                return log_oom();
+                                        }
+
+                                next:
+                                        r = acl_get_entry(acl, ACL_NEXT_ENTRY, &entry);
+                                }
+
+                                acl_free(acl);
+                        }
+                }
+
+                if (!have_access) {
+
+                        if (strv_isempty(g))
+                                log_notice("Hint: You are currently not seeing messages from other users and the system. Users in the group 'systemd-journal' can see all messages. Pass -q to turn this notice off.");
+                        else {
+                                _cleanup_free_ char *s = NULL;
+
+                                r = strv_extend(&g, "systemd-journal");
+                                if (r < 0)
+                                        return log_oom();
+
+                                strv_sort(g);
+                                strv_uniq(g);
+
+                                s = strv_join(g, "', '");
+                                if (!s)
+                                        return log_oom();
+
+                                log_notice("Hint: You are currently not seeing messages from other users and the system. Users in the groups '%s' can see all messages. Pass -q to turn this notice off.", s);
+                        }
+                }
+        }
 #else
         if (geteuid() != 0 && in_group("systemd-journal") <= 0) {
                 log_error("No access to messages. Only users in the group 'systemd-journal' can see messages.");

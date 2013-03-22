@@ -387,10 +387,28 @@ fail:
         return NULL;
 }
 
-int strv_extend(char ***l, const char *value) {
+int strv_push(char ***l, char *value) {
         char **c;
-        char *v;
         unsigned n;
+
+        if (!value)
+                return 0;
+
+        n = strv_length(*l);
+        c = realloc(*l, sizeof(char*) * (n + 2));
+        if (!c)
+                return -ENOMEM;
+
+        c[n] = value;
+        c[n+1] = NULL;
+
+        *l = c;
+        return 0;
+}
+
+int strv_extend(char ***l, const char *value) {
+        char *v;
+        int r;
 
         if (!value)
                 return 0;
@@ -399,18 +417,11 @@ int strv_extend(char ***l, const char *value) {
         if (!v)
                 return -ENOMEM;
 
-        n = strv_length(*l);
-        c = realloc(*l, sizeof(char*) * (n + 2));
-        if (!c) {
+        r = strv_push(l, v);
+        if (r < 0)
                 free(v);
-                return -ENOMEM;
-        }
 
-        c[n] = v;
-        c[n+1] = NULL;
-
-        *l = c;
-        return 0;
+        return r;
 }
 
 char **strv_uniq(char **l) {
