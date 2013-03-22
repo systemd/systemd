@@ -325,6 +325,19 @@ static void test_bus_path_escape(void) {
         test_bus_path_escape_one(":1", "_3a1");
 }
 
+static void test_hostname_is_valid(void) {
+        assert(hostname_is_valid("foobar"));
+        assert(hostname_is_valid("foobar.com"));
+        assert(!hostname_is_valid("fööbar"));
+        assert(!hostname_is_valid(""));
+        assert(!hostname_is_valid("."));
+        assert(!hostname_is_valid(".."));
+        assert(!hostname_is_valid("foobar."));
+        assert(!hostname_is_valid(".foobar"));
+        assert(!hostname_is_valid("foo..bar"));
+        assert(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -349,6 +362,7 @@ int main(int argc, char *argv[]) {
         test_default_term_for_tty();
         test_memdup_multiply();
         test_bus_path_escape();
+        test_hostname_is_valid();
 
         return 0;
 }

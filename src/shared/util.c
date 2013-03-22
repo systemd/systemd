@@ -3773,13 +3773,27 @@ static bool hostname_valid_char(char c) {
 
 bool hostname_is_valid(const char *s) {
         const char *p;
+        bool dot;
 
         if (isempty(s))
                 return false;
 
-        for (p = s; *p; p++)
-                if (!hostname_valid_char(*p))
-                        return false;
+        for (p = s, dot = true; *p; p++) {
+                if (*p == '.') {
+                        if (dot)
+                                return false;
+
+                        dot = true;
+                } else {
+                        if (!hostname_valid_char(*p))
+                                return false;
+
+                        dot = false;
+                }
+        }
+
+        if (dot)
+                return false;
 
         if (p-s > HOST_NAME_MAX)
                 return false;
