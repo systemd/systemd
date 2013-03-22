@@ -224,10 +224,16 @@ static int message_append_field_uint32(sd_bus_message *m, uint8_t h, uint32_t x)
         return 0;
 }
 
-int bus_message_from_malloc(void *buffer, size_t length, sd_bus_message **ret) {
+int bus_message_from_malloc(
+                void *buffer,
+                size_t length,
+                struct ucred *ucred,
+                const char *label,
+                sd_bus_message **ret) {
+
         sd_bus_message *m;
         struct bus_header *h;
-        size_t total, fs, bs;
+        size_t total, fs, bs, label_sz, a;
         int r;
 
         assert(buffer || length <= 0);
@@ -259,7 +265,13 @@ int bus_message_from_malloc(void *buffer, size_t length, sd_bus_message **ret) {
         if (length != total)
                 return -EBADMSG;
 
-        m = new0(sd_bus_message, 1);
+        if (label) {
+                label_sz = strlen(label);
+                a = ALIGN(sizeof(sd_bus_message)) + label_sz + 1;
+        } else
+                a = sizeof(sd_bus_message);
+
+        m = malloc0(a);
         if (!m)
                 return -ENOMEM;
 
@@ -269,6 +281,18 @@ int bus_message_from_malloc(void *buffer, size_t length, sd_bus_message **ret) {
         m->fields = (uint8_t*) buffer + sizeof(struct bus_header);
         m->body = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN_TO(fs, 8);
         m->sealed = true;
+
+        if (ucred) {
+                m->uid = ucred->uid;
+                m->pid = ucred->pid;
+                m->gid = ucred->gid;
+                m->uid_valid = m->gid_valid = true;
+        }
+
+        if (label) {
+                m->label = (char*) m + ALIGN(sizeof(sd_bus_message));
+                memcpy(m->label, label, label_sz + 1);
+        }
 
         m->n_iovec = 1;
         m->iovec[0].iov_base = buffer;
@@ -627,6 +651,13 @@ int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid) {
 
         *tid = m->tid;
         return 0;
+}
+
+const char *sd_bus_message_get_label(sd_bus_message *m) {
+        if (!m)
+                return NULL;
+
+        return m->label;
 }
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member) {

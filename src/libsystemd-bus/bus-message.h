@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <byteswap.h>
+#include <sys/socket.h>
 
 #include "macro.h"
 #include "sd-bus.h"
@@ -77,6 +78,8 @@ struct sd_bus_message {
         void *fields;
         void *body;
 
+        char *label;
+
         size_t rindex;
 
         uint32_t n_fds;
@@ -127,5 +130,5 @@ static inline void bus_message_unrefp(sd_bus_message **m) {
 int bus_message_seal(sd_bus_message *m, uint64_t serial);
 int bus_message_dump(sd_bus_message *m);
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
-int bus_message_from_malloc(void *buffer, size_t length, sd_bus_message **ret);
+int bus_message_from_malloc(void *buffer, size_t length, struct ucred *ucred, const char *label, sd_bus_message **ret);
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l);

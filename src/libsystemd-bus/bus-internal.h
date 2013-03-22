@@ -62,6 +62,7 @@ struct sd_bus {
         int message_version;
         bool can_fds:1;
         bool sent_hello:1;
+        bool ucred_valid:1;
 
         void *rbuffer;
         size_t rbuffer_size;
@@ -101,6 +102,9 @@ struct sd_bus {
         size_t auth_size;
         char *auth_uid;
         usec_t auth_timeout;
+
+        struct ucred ucred;
+        char label[NAME_MAX];
 };
 
 static inline void bus_unrefp(sd_bus **b) {

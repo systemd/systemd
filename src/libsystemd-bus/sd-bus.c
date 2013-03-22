@@ -29,6 +29,7 @@
 
 #include "util.h"
 #include "macro.h"
+#include "missing.h"
 
 #include "sd-bus.h"
 #include "bus-internal.h"
@@ -530,6 +531,24 @@ static int bus_read_auth(sd_bus *b) {
         return 1;
 }
 
+static int bus_setup_fd(sd_bus *b) {
+        int one;
+
+        assert(b);
+
+        /* Enable SO_PASSCRED + SO_PASSEC. We try this on any socket,
+         * just in case. This is actually irrelavant for */
+        one = 1;
+        setsockopt(b->fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        setsockopt(b->fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
+
+        /* Increase the buffers to a MB */
+        fd_inc_rcvbuf(b->fd, 1024*1024);
+        fd_inc_sndbuf(b->fd, 1024*1024);
+
+        return 0;
+}
+
 static int bus_start_auth(sd_bus *b) {
         static const char auth_prefix[] = "\0AUTH EXTERNAL ";
         static const char auth_suffix[] = "\r\nNEGOTIATE_UNIX_FD\r\nBEGIN\r\n";
@@ -578,8 +597,13 @@ static int bus_start_connect(sd_bus *b) {
                 b->fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (b->fd < 0) {
                         b->last_connect_error = errno;
-                        zero(b->sockaddr);
-                        continue;
+                        goto try_again;
+                }
+
+                r = bus_setup_fd(b);
+                if (r < 0) {
+                        b->last_connect_error = errno;
+                        goto try_again;
                 }
 
                 r = connect(b->fd, &b->sockaddr.sa, b->sockaddr_size);
@@ -588,13 +612,18 @@ static int bus_start_connect(sd_bus *b) {
                                 return 1;
 
                         b->last_connect_error = errno;
-                        close_nointr_nofail(b->fd);
-                        b->fd = -1;
-                        zero(b->sockaddr);
-                        continue;
+                        goto try_again;
                 }
 
                 return bus_start_auth(b);
+
+        try_again:
+                zero(b->sockaddr);
+
+                if (b->fd >= 0) {
+                        close_nointr_nofail(b->fd);
+                        b->fd = -1;
+                }
         }
 }
 
@@ -728,17 +757,29 @@ int sd_bus_open_fd(int fd, sd_bus **ret) {
                 return -ENOMEM;
 
         b->fd = fd;
-        fd_nonblock(b->fd, true);
+
+        r = fd_nonblock(b->fd, true);
+        if (r < 0)
+                goto fail;
+
         fd_cloexec(b->fd, true);
+        if (r < 0)
+                goto fail;
+
+        r = bus_setup_fd(b);
+        if (r < 0)
+                goto fail;
 
         r = bus_start_auth(b);
-        if (r < 0) {
-                bus_free(b);
-                return r;
-        }
+        if (r < 0)
+                goto fail;
 
         *ret = b;
         return 0;
+
+fail:
+                bus_free(b);
+        return r;
 }
 
 void sd_bus_close(sd_bus *bus) {
@@ -930,7 +971,9 @@ static int message_make(sd_bus *bus, size_t size, sd_bus_message **m) {
                 }
         }
 
-        r = bus_message_from_malloc(bus->rbuffer, size, &t);
+        r = bus_message_from_malloc(bus->rbuffer, size,
+                                    bus->ucred_valid ? &bus->ucred : NULL,
+                                    bus->label[0] ? bus->label : NULL, &t);
         if (r < 0) {
                 free(b);
                 return r;
@@ -950,6 +993,12 @@ static int message_read(sd_bus *bus, sd_bus_message **m) {
         size_t need;
         int r;
         void *b;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
+                            CMSG_SPACE(NAME_MAX)]; /*selinux label */
+        } control;
+        struct cmsghdr *cmsg;
 
         assert(bus);
         assert(m);
@@ -975,12 +1024,34 @@ static int message_read(sd_bus *bus, sd_bus_message **m) {
         zero(mh);
         mh.msg_iov = &iov;
         mh.msg_iovlen = 1;
+        mh.msg_control = &control;
+        mh.msg_controllen = sizeof(control);
 
-        k = recvmsg(bus->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+        k = recvmsg(bus->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
         if (k < 0)
                 return errno == EAGAIN ? 0 : -errno;
 
         bus->rbuffer_size += k;
+        bus->ucred_valid = false;
+        bus->label[0] = 0;
+
+        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+
+                        memcpy(&bus->ucred, CMSG_DATA(cmsg), sizeof(struct ucred));
+                        bus->ucred_valid = true;
+
+                } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                         cmsg->cmsg_type == SCM_SECURITY) {
+
+                        size_t l;
+                        l = cmsg->cmsg_len - CMSG_LEN(0);
+                        memcpy(&bus->label, CMSG_DATA(cmsg), l);
+                        bus->label[l] = 0;
+                }
+        }
 
         r = message_read_need(bus, &need);
         if (r < 0)

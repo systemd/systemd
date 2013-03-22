@@ -83,6 +83,7 @@ static int server(sd_bus *bus) {
 
         while (!client1_gone || !client2_gone) {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+                pid_t pid = 0;
 
                 r = sd_bus_process(bus, &m);
                 if (r < 0) {
@@ -103,7 +104,8 @@ static int server(sd_bus *bus) {
                 if (!m)
                         continue;
 
-                log_info("Got message! %s", strna(sd_bus_message_get_member(m)));
+                sd_bus_message_get_pid(m, &pid);
+                log_info("Got message! member=%s pid=%lu label=%s", strna(sd_bus_message_get_member(m)), (unsigned long) pid, strna(sd_bus_message_get_label(m)));
                 /* bus_message_dump(m); */
                 /* sd_bus_message_rewind(m, true); */
 

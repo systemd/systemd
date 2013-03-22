@@ -106,6 +106,7 @@ int sd_bus_message_get_uid(sd_bus_message *m, uid_t *uid);
 int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid);
 int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid);
 int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid);
+const char *sd_bus_message_get_label(sd_bus_message *m);
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member);
 int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member);

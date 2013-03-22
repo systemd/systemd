@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
 
         m = sd_bus_message_unref(m);
 
-        r = bus_message_from_malloc(buffer, sz, &m);
+        r = bus_message_from_malloc(buffer, sz, NULL, NULL, &m);
         assert_se(r >= 0);
 
         bus_message_dump(m);
