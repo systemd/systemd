@@ -31,6 +31,37 @@
 #include "bus-message.h"
 #include "bus-error.h"
 
+static int object_callback(sd_bus *bus, int error, sd_bus_message *m, void *userdata) {
+        int r;
+
+        assert(bus);
+
+        if (error != 0)
+                return 0;
+
+        if (sd_bus_message_is_method_call(m, "org.object.test", "Foobar")) {
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+
+                log_info("Invoked Foobar() on %s", sd_bus_message_get_path(m));
+
+                r = sd_bus_message_new_method_return(bus, m, &reply);
+                if (r < 0) {
+                        log_error("Failed to allocate return: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_send(bus, reply, NULL);
+                if (r < 0) {
+                        log_error("Failed to send reply: %s", strerror(-r));
+                        return r;
+                }
+
+                return 1;
+        }
+
+        return 0;
+}
+
 static int server_init(sd_bus **_bus) {
         sd_bus *bus = NULL;
         sd_id128_t id;
@@ -64,6 +95,12 @@ static int server_init(sd_bus **_bus) {
         r = sd_bus_request_name(bus, "org.freedesktop.systemd.test", 0);
         if (r < 0) {
                 log_error("Failed to acquire name: %s", strerror(-r));
+                goto fail;
+        }
+
+        r = sd_bus_add_fallback(bus, "/foo/bar", object_callback, NULL);
+        if (r < 0) {
+                log_error("Failed to add object: %s", strerror(-r));
                 goto fail;
         }
 
@@ -293,6 +330,27 @@ static void* client2(void*p) {
                 log_error("Failed to connect to user bus: %s", strerror(-r));
                 goto finish;
         }
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        "org.freedesktop.systemd.test",
+                        "/foo/bar/waldo/piep",
+                        "org.object.test",
+                        "Foobar",
+                        &m);
+        if (r < 0) {
+                log_error("Failed to allocate method call: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = sd_bus_send(bus, m, NULL);
+        if (r < 0) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                goto finish;
+        }
+
+        sd_bus_message_unref(m);
+        m = NULL;
 
         r = sd_bus_message_new_method_call(
                         bus,

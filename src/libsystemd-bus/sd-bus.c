@@ -40,6 +40,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 
 static void bus_free(sd_bus *b) {
         struct filter_callback *f;
+        struct object_callback *c;
         unsigned i;
 
         assert(b);
@@ -67,6 +68,13 @@ static void bus_free(sd_bus *b) {
                 LIST_REMOVE(struct filter_callback, callbacks, b->filter_callbacks, f);
                 free(f);
         }
+
+        while ((c = hashmap_steal_first(b->object_callbacks))) {
+                free(c->path);
+                free(c);
+        }
+
+        hashmap_free(b->object_callbacks);
 
         free(b);
 }
@@ -1552,6 +1560,43 @@ static int process_timeout(sd_bus *bus) {
         return r < 0 ? r : 1;
 }
 
+static int process_reply(sd_bus *bus, sd_bus_message *m) {
+        struct reply_callback *c;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_RETURN &&
+            m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+                return 0;
+
+        c = hashmap_remove(bus->reply_callbacks, &m->reply_serial);
+        if (!c)
+                return 0;
+
+        if (c->timeout != 0)
+                prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
+
+        r = c->callback(bus, 0, m, c->userdata);
+        free(c);
+
+        return r;
+}
+
+static int process_filter(sd_bus *bus, sd_bus_message *m) {
+        struct filter_callback *l;
+        int r;
+
+        LIST_FOREACH(callbacks, l, bus->filter_callbacks) {
+                r = l->callback(bus, 0, m, l->userdata);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int process_builtin(sd_bus *bus, sd_bus_message *m) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         int r;
@@ -1603,36 +1648,90 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
         return 1;
 }
 
+static int process_object(sd_bus *bus, sd_bus_message *m) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_INIT;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        struct object_callback *c;
+        char *p;
+        int r;
+        bool found = false;
+
+        assert(bus);
+        assert(m);
+
+        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+                return 0;
+
+        if (hashmap_isempty(bus->object_callbacks))
+                return 0;
+
+        c = hashmap_get(bus->object_callbacks, m->path);
+        if (c) {
+                r = c->callback(bus, 0, m, c->userdata);
+                if (r != 0)
+                        return r;
+
+                found = true;
+        }
+
+        /* Look for fallback prefixes */
+        p = strdupa(m->path);
+        for (;;) {
+                char *e;
+
+                e = strrchr(p, '/');
+                if (e == p || !e)
+                        break;
+
+                *e = 0;
+
+                c = hashmap_get(bus->object_callbacks, p);
+                if (c && c->is_fallback) {
+                        r = c->callback(bus, 0, m, c->userdata);
+                        if (r != 0)
+                                return r;
+
+                        found = true;
+                }
+        }
+
+        if (!found)
+                return 0;
+
+        sd_bus_error_set(&error,
+                         "org.freedesktop.DBus.Error.UnknownMethod",
+                         "Unknown method '%s' or interface '%s'.", m->member, m->interface);
+
+        r = sd_bus_message_new_method_error(bus, m, &error, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_send(bus, reply, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int process_message(sd_bus *bus, sd_bus_message *m) {
-        struct filter_callback *l;
         int r;
 
         assert(bus);
         assert(m);
 
-        if (m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_RETURN || m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_ERROR) {
-                struct reply_callback *c;
+        r = process_reply(bus, m);
+        if (r != 0)
+                return r;
 
-                c = hashmap_remove(bus->reply_callbacks, &m->reply_serial);
-                if (c) {
-                        if (c->timeout != 0)
-                                prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
+        r = process_filter(bus, m);
+        if (r != 0)
+                return r;
 
-                        r = c->callback(bus, 0, m, c->userdata);
-                        free(c);
+        r = process_builtin(bus, m);
+        if (r != 0)
+                return r;
 
-                        if (r != 0)
-                                return r;
-                }
-        }
-
-        LIST_FOREACH(callbacks, l, bus->filter_callbacks) {
-                r = l->callback(bus, 0, m, l->userdata);
-                if (r != 0)
-                        return r;
-        }
-
-        return process_builtin(bus, m);
+        return process_object(bus, m);
 }
 
 int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
@@ -1873,4 +1972,96 @@ int sd_bus_remove_filter(sd_bus *bus, sd_message_handler_t callback, void *userd
         }
 
         return 0;
+}
+
+static int bus_add_object(
+                sd_bus *bus,
+                bool fallback,
+                const char *path,
+                sd_message_handler_t callback,
+                void *userdata) {
+
+        struct object_callback *c;
+        int r;
+
+        if (!bus)
+                return -EINVAL;
+        if (!path)
+                return -EINVAL;
+        if (!callback)
+                return -EINVAL;
+
+        r = hashmap_ensure_allocated(&bus->object_callbacks, string_hash_func, string_compare_func);
+        if (r < 0)
+                return r;
+
+        c = new(struct object_callback, 1);
+        if (!c)
+                return -ENOMEM;
+
+        c->path = strdup(path);
+        if (!path) {
+                free(c);
+                return -ENOMEM;
+        }
+
+        c->callback = callback;
+        c->userdata = userdata;
+        c->is_fallback = fallback;
+
+        r = hashmap_put(bus->object_callbacks, c->path, c);
+        if (r < 0) {
+                free(c->path);
+                free(c);
+                return r;
+        }
+
+        return 0;
+}
+
+static int bus_remove_object(
+                sd_bus *bus,
+                bool fallback,
+                const char *path,
+                sd_message_handler_t callback,
+                void *userdata) {
+
+        struct object_callback *c;
+
+        if (!bus)
+                return -EINVAL;
+        if (!path)
+                return -EINVAL;
+        if (!callback)
+                return -EINVAL;
+
+        c = hashmap_get(bus->object_callbacks, path);
+        if (!c)
+                return 0;
+
+        if (c->callback != callback || c->userdata != userdata || c->is_fallback != fallback)
+                return 0;
+
+        assert_se(c == hashmap_remove(bus->object_callbacks, c->path));
+
+        free(c->path);
+        free(c);
+
+        return 1;
+}
+
+int sd_bus_add_object(sd_bus *bus, const char *path, sd_message_handler_t callback, void *userdata) {
+        return bus_add_object(bus, false, path, callback, userdata);
+}
+
+int sd_bus_remove_object(sd_bus *bus, const char *path, sd_message_handler_t callback, void *userdata) {
+        return bus_remove_object(bus, false, path, callback, userdata);
+}
+
+int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata) {
+        return bus_add_object(bus, true, prefix, callback, userdata);
+}
+
+int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata) {
+        return bus_remove_object(bus, true, prefix, callback, userdata);
 }

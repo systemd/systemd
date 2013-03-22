@@ -48,6 +48,14 @@ struct filter_callback {
         LIST_FIELDS(struct filter_callback, callbacks);
 };
 
+struct object_callback {
+        sd_message_handler_t callback;
+        void *userdata;
+
+        char *path;
+        bool is_fallback;
+};
+
 enum bus_state {
         BUS_OPENING,
         BUS_AUTHENTICATING,
@@ -81,6 +89,7 @@ struct sd_bus {
         Prioq *reply_callbacks_prioq;
         Hashmap *reply_callbacks;
         LIST_HEAD(struct filter_callback, filter_callbacks);
+        Hashmap *object_callbacks;
 
         union {
                 struct sockaddr sa;

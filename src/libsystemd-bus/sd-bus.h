@@ -28,15 +28,15 @@
 #include "sd-bus-protocol.h"
 
 /* TODO:
- *
  * - make unix fd passing work
- * - add page donation logic
- * - api for appending/reading fixed arrays
- * - merge busctl into systemctl or so?
- * - add object handlers
  * - implicitly add stub introspection calls
  * - implement unix exec protocol
  * - server side
+ *
+ * Later:
+ * - add page donation logic
+ * - api for appending/reading fixed arrays
+ * - merge busctl into systemctl or so?
  */
 
 typedef struct sd_bus sd_bus;
@@ -79,6 +79,12 @@ int sd_bus_flush(sd_bus *bus);
 
 int sd_bus_add_filter(sd_bus *bus, sd_message_handler_t callback, void *userdata);
 int sd_bus_remove_filter(sd_bus *bus, sd_message_handler_t callback, void *userdata);
+
+int sd_bus_add_object(sd_bus *bus, const char *path, sd_message_handler_t callback, void *userdata);
+int sd_bus_remove_object(sd_bus *bus, const char *path, sd_message_handler_t callback, void *userdata);
+
+int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata);
+int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata);
 
 /* Message object */
 
