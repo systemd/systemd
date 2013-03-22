@@ -717,9 +717,14 @@ dbus_bool_t bus_maybe_send_reply (DBusConnection   *c,
                                   DBusMessage *message,
                                   DBusMessage *reply)
 {
-        if (dbus_message_get_no_reply (message))
+        /* Some parts of systemd "reply" to signals, which of course
+         * have the no-reply flag set.  We will be defensive here and
+         * still send out a reply if we're passed a signal.
+         */
+        if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_METHOD_CALL &&
+            dbus_message_get_no_reply(message))
                 return TRUE;
-        return dbus_connection_send (c, reply, NULL);
+        return dbus_connection_send(c, reply, NULL);
 }
 
 DBusHandlerResult bus_send_error_reply(DBusConnection *c, DBusMessage *message, DBusError *berror, int error) {
