@@ -1573,10 +1573,9 @@ int main(int argc, char *argv[]) {
 
         /* Make sure we leave a core dump without panicing the
          * kernel. */
-        if (getpid() == 1)
+        if (getpid() == 1) {
                 install_crash_handler();
 
-        if (getpid() == 1) {
                 r = mount_cgroup_controllers(arg_join_controllers);
                 if (r < 0)
                         goto finish;
