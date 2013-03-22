@@ -273,7 +273,7 @@ _systemd-nspawn(){
 }
 
 _systemd_inhibit_command(){
-    if (( CURRENT == 1 )); then 
+    if (( CURRENT == 1 )); then
         compset -q
         _normal
     else
@@ -317,7 +317,7 @@ _outputmodes() {
     _output_opts=(short short-monotonic verbose export json json-pretty json-see cat)
     _describe -t output 'output mode' _output_opts || compadd "$@"
 }
-        
+
 
 (( $+functions[_systemctl_command] )) || _systemctl_command()
 {
@@ -630,7 +630,7 @@ _journal_none() {
 _journal_fields() {
     local -a _fields cmd
     cmd=("journalctl" "-F ${@[-1]}" "2>/dev/null" )
-    _fields=( ${(f)"$(_call_program fields $cmd[@])"} ) 
+    _fields=( ${(f)"$(_call_program fields $cmd[@])"} )
     typeset -U _fields
     _describe 'possible values' _fields
 }
@@ -787,8 +787,8 @@ _localectl_set-x11-keymap() {
         #_model=( ${(f)"$(echo $_file[2] | awk '/^  / {print $1}')"} )
         #_variant=( ${(f)"$(echo $_file[3] | awk '/^  / {print $1}')"} )
         #_options=( ${(f)"$(echo ${_file[4]//:/\\:} | awk '/^  / {print $1}')"} )
-        
-        case $CURRENT in 
+
+        case $CURRENT in
             2) _describe layouts _layout ;;
             3) _describe models _model;;
             4) _describe variants _variant;;
@@ -955,7 +955,7 @@ _udevadm_control(){
         '--timeout=[The maximum number of seconds to wait for a reply from systemd-udevd.]' \
         '--help[Print help text.]'
 }
- 
+
 _udevadm_monitor(){
     _arguments \
         '--kernel[Print the kernel uevents.]' \
