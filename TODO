@@ -44,6 +44,10 @@ Fedora 19:
 
 Features:
 
+* add ConditionArchitecture= or so
+
+* teach ConditionKernelCommandLine= globs or regexes (in order to match foobar={no,0,off})
+
 * hostnamectl: when a passed pretty hostname also qualifies as low-level name, then only set low-level name, and unset the pretty hostname
 
 * we should log capabilities too
@@ -64,10 +68,6 @@ Features:
 * man: remove .include documentation, and instead push people to use .d/*.conf
 
 * disallow .include from included files
-
-* timedatectl needs to show whether NTP is available at all
-
-* reduce caps of systemd-localed
 
 * safe_atod() is too naive, as it is vulnerable to locale parameters, should be locale independent.
 
@@ -127,8 +127,6 @@ Features:
 
 * use "log level" rather than "log priority" everywhere
 
-* unit_name_mangle() is currently not used on "systemctl enable" and friends, only on "systemctl start"
-
 * ensure sd_journal_seek_monotonic actually works properly.
 
 * timedate: have global on/off switches for auto-time (NTP), and auto-timezone that connman can subscribe to.
@@ -143,7 +141,7 @@ Features:
   so that libudev reports them as present, and systemd's .device units
   will be activated.
 
-* merge service_kill() logic into unit_kill_context() and unify the code paths
+* merge unit_kill_common() and unit_kill_context()
 
 * introduce ExecCondition= in services
 
@@ -174,7 +172,6 @@ Features:
   - logind: spawn user@..service on login
   - logind: non-local X11 server handling
   - logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
-  - pam_systemd: try to get old session id from cgroup, if audit sessionid cannot be determined
   - pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
   - logind: GetSessionByPID() should accept 0 as PID value
 
@@ -298,7 +295,6 @@ Features:
 * fedup: generator
 
 * timedated:
-  - timedated: export boolean that clarifies whether NTP is even available
   - timedated: refuse time changes when NTP is on
 
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
@@ -408,8 +404,6 @@ Features:
   - syscall filter: option to return EPERM rather than SIGSYS?
   - syscall filter: port to libseccomp
   - system-wide seccomp filter
-
-* systemd-analyze: data collection tools should be lightweight (few dependencies); data analysis tools can be heavyweight
 
 * .device aliases need to be implemented with the "following" logic, probably.
 
