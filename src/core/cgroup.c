@@ -438,7 +438,7 @@ int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding) 
                 return 1;
         }
 
-        p = strdup(cgroup);
+        p = strdupa(cgroup);
         if (!p)
                 return -ENOMEM;
 
@@ -446,8 +446,7 @@ int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding) 
                 char *e;
 
                 e = strrchr(p, '/');
-                if (!e || e == p) {
-                        free(p);
+                if (e == p || !e) {
                         *bonding = NULL;
                         return 0;
                 }
@@ -456,7 +455,6 @@ int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding) 
 
                 b = hashmap_get(m->cgroup_bondings, p);
                 if (b) {
-                        free(p);
                         *bonding = b;
                         return 1;
                 }
