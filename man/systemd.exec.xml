@@ -719,29 +719,38 @@
                                 for details. Takes a whitespace
                                 separated list of capability names as
                                 read by
-                                <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                                e.g. <literal>CAP_SYS_ADMIN
+                                CAP_DAC_OVERRIDE
+                                CAP_SYS_PTRACE</literal>.
                                 Capabilities listed will be included
                                 in the bounding set, all others are
                                 removed. If the list of capabilities
-                                is prefixed with ~ all but the listed
-                                capabilities will be included, the
-                                effect of the assignment
-                                inverted. Note that this option also
-                                effects the respective capabilities in
-                                the effective, permitted and
-                                inheritable capability sets, on top of
-                                what <varname>Capabilities=</varname>
+                                is prefixed with <literal>~</literal>
+                                all but the listed capabilities will
+                                be included, the effect of the
+                                assignment inverted. Note that this
+                                option also affects the respective
+                                capabilities in the effective,
+                                permitted and inheritable capability
+                                sets, on top of what
+                                <varname>Capabilities=</varname>
                                 does. If this option is not used the
                                 capability bounding set is not
                                 modified on process execution, hence
                                 no limits on the capabilities of the
                                 process are enforced. This option may
                                 appear more than once in which case
-                                the bounding sets are merged. If the empty
-                                string is assigned to this option the
-                                bounding set is reset, and all prior
-                                settings have no
-                                effect.</para></listitem>
+                                the bounding sets are merged. If the
+                                empty string is assigned to this
+                                option the bounding set is reset to
+                                the empty capability set, and all
+                                prior settings have no effect. If set
+                                to <literal>~</literal> (without any
+                                further argument) the bounding set is
+                                reset to the full set of available
+                                capabilities, also undoing any
+                                previous settings.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -889,12 +889,6 @@ int config_parse_bounding_set(
         assert(rvalue);
         assert(data);
 
-        if (isempty(rvalue)) {
-                /* An empty assignment resets */
-                *capability_bounding_set_drop = 0;
-                return 0;
-        }
-
         if (rvalue[0] == '~') {
                 invert = true;
                 rvalue++;

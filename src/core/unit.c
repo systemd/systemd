@@ -2645,7 +2645,14 @@ int unit_kill(Unit *u, KillWho w, int signo, DBusError *error) {
         return UNIT_VTABLE(u)->kill(u, w, signo, error);
 }
 
-int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t control_pid, DBusError *error) {
+int unit_kill_common(
+                Unit *u,
+                KillWho who,
+                int signo,
+                pid_t main_pid,
+                pid_t control_pid,
+                DBusError *error) {
+
         int r = 0;
 
         if (who == KILL_MAIN && main_pid <= 0) {
