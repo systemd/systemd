@@ -21,4 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry);
+int search_acl_groups(char*** dst, const char* path, bool* belong);

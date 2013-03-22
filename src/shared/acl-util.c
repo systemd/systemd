@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2011 Lennart Poettering
+  Copyright 2011,2013 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,8 @@
 #include <stdbool.h>
 
 #include "acl-util.h"
+#include "util.h"
+#include "strv.h"
 
 int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
         acl_entry_t i;
@@ -63,6 +65,62 @@ int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
 
         if (found < 0)
                 return -errno;
+
+        return 0;
+}
+
+int search_acl_groups(char*** dst, const char* path, bool* belong) {
+        acl_t acl;
+
+        assert(path);
+        assert(belong);
+
+        acl = acl_get_file(path, ACL_TYPE_DEFAULT);
+        if (acl) {
+                acl_entry_t entry;
+                int r;
+
+                r = acl_get_entry(acl, ACL_FIRST_ENTRY, &entry);
+                while (r > 0) {
+                        acl_tag_t tag;
+                        gid_t *gid;
+                        char *name;
+
+                        r = acl_get_tag_type(entry, &tag);
+                        if (r < 0)
+                                break;
+
+                        if (tag != ACL_GROUP)
+                                goto next;
+
+                        gid = acl_get_qualifier(entry);
+                        if (!gid)
+                                break;
+
+                        if (in_gid(*gid) > 0) {
+                                *belong = true;
+                                break;
+                        }
+
+                        name = gid_to_name(*gid);
+                        if (!name) {
+                                acl_free(acl);
+                                return log_oom();
+                        }
+
+                        r = strv_push(dst, name);
+                        if (r < 0) {
+                                free(name);
+                                acl_free(acl);
+                                return log_oom();
+                        }
+
+                next:
+                        r = acl_get_entry(acl, ACL_NEXT_ENTRY, &entry);
+                }
+
+                acl_free(acl);
+        }
 
         return 0;
 }

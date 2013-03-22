@@ -37,6 +37,7 @@
 
 #ifdef HAVE_ACL
 #include <sys/acl.h>
+#include "acl-util.h"
 #endif
 
 #include <systemd/sd-journal.h>
@@ -895,62 +896,18 @@ static int access_check(void) {
         if (!arg_quiet && geteuid() != 0) {
                 _cleanup_strv_free_ char **g = NULL;
                 bool have_access;
-                acl_t acl;
                 int r;
 
                 have_access = in_group("systemd-journal") > 0;
-                if (!have_access) {
 
+                if (!have_access) {
                         /* Let's enumerate all groups from the default
                          * ACL of the directory, which generally
                          * should allow access to most journal
                          * files too */
-
-                        acl = acl_get_file("/var/log/journal/", ACL_TYPE_DEFAULT);
-                        if (acl) {
-                                acl_entry_t entry;
-
-                                r = acl_get_entry(acl, ACL_FIRST_ENTRY, &entry);
-                                while (r > 0) {
-                                        acl_tag_t tag;
-                                        gid_t *gid;
-                                        char *name;
-
-                                        r = acl_get_tag_type(entry, &tag);
-                                        if (r < 0)
-                                                break;
-
-                                        if (tag != ACL_GROUP)
-                                                goto next;
-
-                                        gid = acl_get_qualifier(entry);
-                                        if (!gid)
-                                                break;
-
-                                        if (in_gid(*gid) > 0) {
-                                                have_access = true;
-                                                break;
-                                        }
-
-                                        name = gid_to_name(*gid);
-                                        if (!name) {
-                                                acl_free(acl);
-                                                return log_oom();
-                                        }
-
-                                        r = strv_push(&g, name);
-                                        if (r < 0) {
-                                                free(name);
-                                                acl_free(acl);
-                                                return log_oom();
-                                        }
-
-                                next:
-                                        r = acl_get_entry(acl, ACL_NEXT_ENTRY, &entry);
-                                }
-
-                                acl_free(acl);
-                        }
+                        r = search_acl_groups(&g, "/var/log/journal/", &have_access);
+                        if (r < 0)
+                                return r;
                 }
 
                 if (!have_access) {

@@ -793,7 +793,8 @@ libsystemd_acl_la_CFLAGS = \
 	$(ACL_CFLAGS)
 
 libsystemd_acl_la_LIBADD = \
-	$(ACL_LIBS)
+	$(ACL_LIBS) \
+	libsystemd-shared.la
 endif
 
 # ------------------------------------------------------------------------------
@@ -2502,6 +2503,11 @@ journalctl_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-logs.la
+
+if HAVE_ACL
+journalctl_LDADD += \
+	libsystemd-acl.la
+endif
 
 if HAVE_QRENCODE
 journalctl_SOURCES += \
