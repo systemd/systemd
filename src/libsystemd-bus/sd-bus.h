@@ -128,7 +128,7 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete);
 
 /* Bus management */
 
-const char *sd_bus_get_unique_name(sd_bus *bus);
+int sd_bus_get_unique_name(sd_bus *bus, const char **unique);
 int sd_bus_request_name(sd_bus *bus, const char *name, int flags);
 int sd_bus_release_name(sd_bus *bus, const char *name);
 int sd_bus_list_names(sd_bus *bus, char ***l);

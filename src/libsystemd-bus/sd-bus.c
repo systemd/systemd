@@ -35,7 +35,6 @@
 #include "bus-message.h"
 #include "bus-type.h"
 
-static int ensure_running(sd_bus *bus);
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 
 static void bus_free(sd_bus *b) {
@@ -789,7 +788,7 @@ int sd_bus_can_send(sd_bus *bus, char type) {
                 return -EINVAL;
 
         if (type == SD_BUS_TYPE_UNIX_FD) {
-                r = ensure_running(bus);
+                r = bus_ensure_running(bus);
                 if (r < 0)
                         return r;
 
@@ -807,7 +806,7 @@ int sd_bus_get_peer(sd_bus *bus, sd_id128_t *peer) {
         if (!peer)
                 return -EINVAL;
 
-        r = ensure_running(bus);
+        r = bus_ensure_running(bus);
         if (r < 0)
                 return r;
 
@@ -1252,7 +1251,7 @@ int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial) {
         return 1;
 }
 
-static int ensure_running(sd_bus *bus) {
+int bus_ensure_running(sd_bus *bus) {
         int r;
 
         assert(bus);
@@ -1300,7 +1299,7 @@ int sd_bus_send_with_reply_and_block(
         if (bus_error_is_dirty(error))
                 return -EINVAL;
 
-        r = ensure_running(bus);
+        r = bus_ensure_running(bus);
         if (r < 0)
                 return r;
 
@@ -1747,7 +1746,7 @@ int sd_bus_flush(sd_bus *bus) {
         if (bus->fd < 0)
                 return -ENOTCONN;
 
-        r = ensure_running(bus);
+        r = bus_ensure_running(bus);
         if (r < 0)
                 return r;
 

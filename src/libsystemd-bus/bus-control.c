@@ -28,11 +28,20 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 
-const char *sd_bus_get_unique_name(sd_bus *bus) {
-        if (!bus)
-                return NULL;
+int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
+        int r;
 
-        return bus->unique_name;
+        if (!bus)
+                return -EINVAL;
+        if (!unique)
+                return -EINVAL;
+
+        r = bus_ensure_running(bus);
+        if (r < 0)
+                return r;
+
+        *unique = bus->unique_name;
+        return 0;
 }
 
 int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
