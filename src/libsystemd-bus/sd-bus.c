@@ -104,15 +104,18 @@ static int hello_callback(sd_bus *bus, int error, sd_bus_message *reply, void *u
 
         assert(reply);
 
-        bus->state = BUS_RUNNING;
-
         r = sd_bus_message_read(reply, "s", &s);
         if (r < 0)
                 return r;
 
+        if (!service_name_is_valid(s) || s[0] != ':')
+                return -EBADMSG;
+
         bus->unique_name = strdup(s);
         if (!bus->unique_name)
                 return -ENOMEM;
+
+        bus->state = BUS_RUNNING;
 
         return 1;
 }
