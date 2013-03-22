@@ -27,6 +27,8 @@
 static int signature_element_length_internal(
                 const char *s,
                 bool allow_dict_entry,
+                unsigned array_depth,
+                unsigned struct_depth,
                 size_t *l) {
 
         int r;
@@ -41,7 +43,10 @@ static int signature_element_length_internal(
         if (*s == SD_BUS_TYPE_ARRAY) {
                 size_t t;
 
-                r = signature_element_length_internal(s + 1, true, &t);
+                if (array_depth >= 32)
+                        return -EINVAL;
+
+                r = signature_element_length_internal(s + 1, true, array_depth+1, struct_depth, &t);
                 if (r < 0)
                         return r;
 
@@ -52,10 +57,13 @@ static int signature_element_length_internal(
         if (*s == SD_BUS_TYPE_STRUCT_BEGIN) {
                 const char *p = s + 1;
 
+                if (struct_depth >= 32)
+                        return -EINVAL;
+
                 while (*p != SD_BUS_TYPE_STRUCT_END) {
                         size_t t;
 
-                        r = signature_element_length_internal(p, false, &t);
+                        r = signature_element_length_internal(p, false, array_depth, struct_depth+1, &t);
                         if (r < 0)
                                 return r;
 
@@ -70,13 +78,16 @@ static int signature_element_length_internal(
                 const char *p = s + 1;
                 unsigned n = 0;
 
+                if (struct_depth >= 32)
+                        return -EINVAL;
+
                 while (*p != SD_BUS_TYPE_DICT_ENTRY_END) {
                         size_t t;
 
                         if (n == 0 && !bus_type_is_basic(*p))
                                 return -EINVAL;
 
-                        r = signature_element_length_internal(p, false, &t);
+                        r = signature_element_length_internal(p, false, array_depth, struct_depth+1, &t);
                         if (r < 0)
                                 return r;
 
@@ -92,6 +103,11 @@ static int signature_element_length_internal(
         }
 
         return -EINVAL;
+}
+
+
+int signature_element_length(const char *s, size_t *l) {
+        return signature_element_length_internal(s, true, 0, 0, l);
 }
 
 bool signature_is_single(const char *s) {
@@ -126,7 +142,7 @@ bool signature_is_valid(const char *s, bool allow_dict_entry) {
         while (*p) {
                 size_t t;
 
-                r = signature_element_length_internal(p, allow_dict_entry, &t);
+                r = signature_element_length_internal(p, allow_dict_entry, 0, 0, &t);
                 if (r < 0)
                         return false;
 
@@ -134,8 +150,4 @@ bool signature_is_valid(const char *s, bool allow_dict_entry) {
         }
 
         return p - s <= 255;
-}
-
-int signature_element_length(const char *s, size_t *l) {
-        return signature_element_length_internal(s, true, l);
 }

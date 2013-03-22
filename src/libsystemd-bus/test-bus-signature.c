@@ -70,5 +70,16 @@ int main(int argc, char *argv[]) {
 
         assert_se(signature_is_valid("sssusa(uuubbba(uu)uuuu)a{u(uuuvas)}", false));
 
+        assert_se(!signature_is_valid("a", false));
+        assert_se(signature_is_valid("as", false));
+        assert_se(signature_is_valid("aas", false));
+        assert_se(signature_is_valid("aaas", false));
+        assert_se(signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaad", false));
+        assert_se(signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaas", false));
+        assert_se(!signature_is_valid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaau", false));
+
+        assert_se(signature_is_valid("(((((((((((((((((((((((((((((((())))))))))))))))))))))))))))))))", false));
+        assert_se(!signature_is_valid("((((((((((((((((((((((((((((((((()))))))))))))))))))))))))))))))))", false));
+
         return 0;
 }
