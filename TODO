@@ -44,6 +44,10 @@ Fedora 19:
 
 Features:
 
+* hostnamectl: when a passed pretty hostname also qualifies as low-level name, then only set low-level name, and unset the pretty hostname
+
+* we should log capabilities too
+
 * Support SO_REUSEPORT with socket activation:
   - Let systemd maintain a pool of servers.
   - Use for seamless upgrades, by running the new server before stopping the
