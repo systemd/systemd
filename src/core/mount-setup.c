@@ -315,6 +315,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
                 p.type = "cgroup";
                 p.options = options;
                 p.flags = MS_NOSUID|MS_NOEXEC|MS_NODEV;
+                p.mode = MNT_IN_CONTAINER;
 
                 r = mount_one(&p, true);
                 free(controller);
