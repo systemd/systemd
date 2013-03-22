@@ -111,7 +111,7 @@ int efi_get_variable(
         n = read(fd, r, (size_t) st.st_size - 4);
         if (n < 0) {
                 free(r);
-                return (int) -n;
+                return -errno;
         }
         if (n != (ssize_t) st.st_size - 4) {
                 free(r);
