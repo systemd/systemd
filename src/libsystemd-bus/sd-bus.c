@@ -1035,7 +1035,7 @@ static int dispatch_wqueue(sd_bus *bus) {
 }
 
 static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
-        sd_bus_message *z;
+        sd_bus_message *z = NULL;
         int r, ret = 0;
 
         assert(bus);
