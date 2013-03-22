@@ -68,6 +68,7 @@ typedef struct StatusInfo {
         const char *timezone;
         bool local_rtc;
         bool ntp;
+        bool can_ntp;
 } StatusInfo;
 
 static bool ntp_synced(void) {
@@ -153,7 +154,7 @@ static void print_status_info(StatusInfo *i) {
                " RTC in local TZ: %s\n",
                strna(i->timezone),
                a,
-               yes_no(i->ntp),
+               i->can_ntp ? yes_no(i->ntp) : "n/a",
                yes_no(ntp_synced()),
                yes_no(i->local_rtc));
 
@@ -228,6 +229,8 @@ static int status_property(const char *name, DBusMessageIter *iter, StatusInfo *
                         i->local_rtc = b;
                 else if (streq(name, "NTP"))
                         i->ntp = b;
+                else if (streq(name, "CanNTP"))
+                        i->can_ntp = b;
         }
         }
 
