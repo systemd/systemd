@@ -2121,13 +2121,11 @@ static int message_peek_fields(
         return buffer_peek(m->fields, BUS_MESSAGE_FIELDS_SIZE(m), rindex, align, nbytes, ret);
 }
 
-static int message_peek_field_string(
+static int message_peek_field_uint32(
                 sd_bus_message *m,
-                bool (*validate)(const char *p),
                 size_t *ri,
-                const char **ret) {
+                uint32_t *ret) {
 
-        size_t l;
         int r;
         void *q;
 
@@ -2138,7 +2136,29 @@ static int message_peek_field_string(
         if (r < 0)
                 return r;
 
-        l = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
+        if (ret)
+                *ret = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
+
+        return 0;
+}
+
+static int message_peek_field_string(
+                sd_bus_message *m,
+                bool (*validate)(const char *p),
+                size_t *ri,
+                const char **ret) {
+
+        uint32_t l;
+        int r;
+        void *q;
+
+        assert(m);
+        assert(ri);
+
+        r = message_peek_field_uint32(m, ri, &l);
+        if (r < 0)
+                return r;
+
         r = message_peek_fields(m, ri, 1, l+1, &q);
         if (r < 0)
                 return r;
@@ -2190,27 +2210,6 @@ static int message_peek_field_signature(
         return 0;
 }
 
-static int message_peek_field_uint32(
-                sd_bus_message *m,
-                size_t *ri,
-                uint32_t *ret) {
-
-        int r;
-        void *q;
-
-        assert(m);
-        assert(ri);
-
-        r = message_peek_fields(m, ri, 4, 4, &q);
-        if (r < 0)
-                return r;
-
-        if (ret)
-                *ret = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
-
-        return 0;
-}
-
 static int message_skip_fields(
                 sd_bus_message *m,
                 size_t *ri,
@@ -2228,7 +2227,6 @@ static int message_skip_fields(
 
         for (;;) {
                 char t;
-                void *q;
                 size_t l;
 
                 if (array_size != (uint32_t) -1 &&
@@ -2284,7 +2282,7 @@ static int message_skip_fields(
                         assert(l >= 1);
                         {
                                 char sig[l-1], *s;
-                                size_t nas;
+                                uint32_t nas;
                                 int alignment;
 
                                 strncpy(sig, *signature + 1, l-1);
@@ -2294,11 +2292,9 @@ static int message_skip_fields(
                                 if (alignment < 0)
                                         return alignment;
 
-                                r = message_peek_fields(m, ri, 4, 4, &q);
+                                r = message_peek_field_uint32(m, ri, &nas);
                                 if (r < 0)
                                         return r;
-
-                                nas = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
                                 if (nas > BUS_ARRAY_MAX_SIZE)
                                         return -EBADMSG;
 
@@ -2432,8 +2428,6 @@ static int message_parse_fields(sd_bus_message *m) {
 
                         free(m->root_container.signature);
                         m->root_container.signature = c;
-
-                        r = 0;
                         break;
                 }
 
