@@ -816,14 +816,23 @@ static DBusHandlerResult timedate_message_handler(
                         struct timespec ts;
                         struct tm* tm;
 
+                        if (relative) {
+                                usec_t n, x;
+
+                                n = now(CLOCK_REALTIME);
+                                x = n + utc;
+
+                                if ((utc > 0 && x < n) ||
+                                    (utc < 0 && x > n))
+                                        return bus_send_error_reply(connection, message, NULL, -EOVERFLOW);
+
+                                timespec_store(&ts, x);
+                        } else
+                                timespec_store(&ts, (usec_t) utc);
+
                         r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-time", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
-
-                        if (relative)
-                                timespec_store(&ts, now(CLOCK_REALTIME) + utc);
-                        else
-                                timespec_store(&ts, utc);
 
                         /* Set system clock */
                         if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
