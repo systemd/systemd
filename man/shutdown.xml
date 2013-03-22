@@ -80,7 +80,7 @@
 
                 <para>If the time argument is used, 5 minutes
                 before the system goes down the
-                <filename>/etc/nologin</filename> file is created to
+                <filename>/run/nologin</filename> file is created to
                 ensure that further logins shall not be
                 allowed.</para>
         </refsect1>
