@@ -33,6 +33,7 @@
 
 static int server_init(sd_bus **_bus) {
         sd_bus *bus = NULL;
+        sd_id128_t id;
         int r;
 
         assert(_bus);
@@ -42,6 +43,16 @@ static int server_init(sd_bus **_bus) {
                 log_error("Failed to connect to user bus: %s", strerror(-r));
                 goto fail;
         }
+
+        r = sd_bus_get_peer(bus, &id);
+        if (r < 0) {
+                log_error("Failed to get peer ID: %s", strerror(-r));
+                goto fail;
+        }
+
+        log_info("Peer ID is " SD_ID128_FORMAT_STR ".", SD_ID128_FORMAT_VAL(id));
+        log_info("Can send file handles: %i", sd_bus_can_send(bus, 'h'));
+        log_info("Unique ID: %s", strna(sd_bus_get_unique_name(bus)));
 
         r = sd_bus_request_name(bus, "org.freedesktop.systemd.test", 0);
         if (r < 0) {

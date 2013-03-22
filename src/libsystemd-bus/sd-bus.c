@@ -35,6 +35,7 @@
 #include "bus-message.h"
 #include "bus-type.h"
 
+static int ensure_running(sd_bus *bus);
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 
 static void bus_free(sd_bus *b) {
@@ -778,27 +779,37 @@ int sd_bus_is_open(sd_bus *bus) {
         return bus->fd >= 0;
 }
 
-int sd_bus_is_running(sd_bus *bus) {
-        if (!bus)
-                return -EINVAL;
-
-        if (bus->fd < 0)
-                return -ENOTCONN;
-
-        return bus->state == BUS_RUNNING;
-}
-
 int sd_bus_can_send(sd_bus *bus, char type) {
+        int r;
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state != BUS_RUNNING && bus->state != BUS_HELLO)
-                return -EAGAIN;
 
-        if (type == SD_BUS_TYPE_UNIX_FD)
+        if (type == SD_BUS_TYPE_UNIX_FD) {
+                r = ensure_running(bus);
+                if (r < 0)
+                        return r;
+
                 return bus->can_fds;
+        }
 
         return bus_type_is_valid(type);
+}
+
+int sd_bus_get_peer(sd_bus *bus, sd_id128_t *peer) {
+        int r;
+
+        if (!bus)
+                return -EINVAL;
+        if (!peer)
+                return -EINVAL;
+
+        r = ensure_running(bus);
+        if (r < 0)
+                return r;
+
+        *peer = bus->peer;
+        return 0;
 }
 
 static int bus_seal_message(sd_bus *b, sd_bus_message *m) {
@@ -1243,22 +1254,15 @@ static int ensure_running(sd_bus *bus) {
 
         assert(bus);
 
-        r = sd_bus_is_running(bus);
-        if (r != 0)
-                return r;
+        if (bus->state == BUS_RUNNING)
+                return 1;
 
         for (;;) {
-                int k;
-
                 r = sd_bus_process(bus, NULL);
-
                 if (r < 0)
                         return r;
-
-                k = sd_bus_is_running(bus);
-                if (k != 0)
-                        return k;
-
+                if (bus->state == BUS_RUNNING)
+                        return 1;
                 if (r > 0)
                         continue;
 

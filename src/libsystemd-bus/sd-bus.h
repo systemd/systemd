@@ -35,8 +35,9 @@
  * - always verify container depth
  * - merge busctl into systemctl or so?
  * - add object handlers
- * - verify object paths
  * - implicitly add stub introspection calls
+ * - implement unix exec protocol
+ * - server side
  */
 
 typedef struct sd_bus sd_bus;
@@ -62,8 +63,8 @@ sd_bus *sd_bus_ref(sd_bus *bus);
 sd_bus *sd_bus_unref(sd_bus *bus);
 
 int sd_bus_is_open(sd_bus *bus);
-int sd_bus_is_running(sd_bus *bus);
 int sd_bus_can_send(sd_bus *bus, char type);
+int sd_bus_get_peer(sd_bus *bus, sd_id128_t *peer);
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial);
 int sd_bus_send_with_reply(sd_bus *bus, sd_bus_message *m, sd_message_handler_t callback, void *userdata, uint64_t usec, uint64_t *serial);
