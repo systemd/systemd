@@ -290,7 +290,7 @@ int safe_atou(const char *s, unsigned *ret_u) {
         l = strtoul(s, &x, 0);
 
         if (!x || x == s || *x || errno)
-                return errno ? -errno : -EINVAL;
+                return errno > 0 ? -errno : -EINVAL;
 
         if ((unsigned long) (unsigned) l != l)
                 return -ERANGE;
@@ -310,7 +310,7 @@ int safe_atoi(const char *s, int *ret_i) {
         l = strtol(s, &x, 0);
 
         if (!x || x == s || *x || errno)
-                return errno ? -errno : -EINVAL;
+                return errno > 0 ? -errno : -EINVAL;
 
         if ((long) (int) l != l)
                 return -ERANGE;
