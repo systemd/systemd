@@ -705,9 +705,18 @@ int config_parse_strv(
         assert(data);
 
         if (isempty(rvalue)) {
-                /* Empty assignment resets the list */
+                char **empty;
+
+                /* Empty assignment resets the list. As a special rule
+                 * we actually fill in a real empty array here rather
+                 * than NULL, since some code wants to know if
+                 * something was set at all... */
+                empty = strv_new(NULL, NULL);
+                if (!empty)
+                        return log_oom();
+
                 strv_free(*sv);
-                *sv = NULL;
+                *sv = empty;
                 return 0;
         }
 
