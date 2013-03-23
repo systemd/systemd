@@ -44,6 +44,14 @@ Fedora 19:
 
 Features:
 
+* clean up early boot services, and put them all before sysinit.target
+  and leave basic.target alone.
+
+* introduce timers.target and paths.target and automatucally order all
+  timers and paths before it and after sysinit.target.
+
+* x-initrd-rootfs.mount in fstab-generator needs to go or get a saner name
+
 * matching against units is currently broken in journalctl. We really
   need another AND level in the expressions,
   i.e. sd_journal_add_conjunction().
