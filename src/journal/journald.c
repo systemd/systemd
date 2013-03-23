@@ -88,7 +88,6 @@ int main(int argc, char *argv[]) {
 
                         /* Calculate when to rotate the next time */
                         t = (int) ((server.oldest_file_usec + server.max_retention_usec - n + USEC_PER_MSEC - 1) / USEC_PER_MSEC);
-                        log_info("Sleeping for %i ms", t);
                 }
 
 #ifdef HAVE_GCRYPT
