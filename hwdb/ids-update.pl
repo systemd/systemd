@@ -7,7 +7,7 @@ sub usb_vendor {
         my $vendor;
 
         open(IN, "<", "usb.ids");
-        open(OUT, ">", "20-usb-vendor-product.hwdb");
+        open(OUT, ">", "20-usb-vendor-model.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
                   "# Data imported from: http://www.linux-usb.org/usb.ids\n");
@@ -26,11 +26,11 @@ sub usb_vendor {
 
                 $line =~ m/^\t([0-9a-f]{4})\s*(.+)$/;
                 if (defined $1) {
-                        my $product = uc $1;
+                        my $model = uc $1;
                         my $text = $2;
                         print(OUT "\n");
-                        print(OUT "usb:v" . $vendor . "p" . $product . "*\n");
-                        print(OUT " ID_PRODUCT_FROM_DATABASE=" . $text . "\n");
+                        print(OUT "usb:v" . $vendor . "p" . $model . "*\n");
+                        print(OUT " ID_MODEL_FROM_DATABASE=" . $text . "\n");
                 }
         }
 
@@ -109,7 +109,7 @@ sub pci_vendor {
         my $device;
 
         open(IN, "<", "pci.ids");
-        open(OUT, ">", "20-pci-vendor-product.hwdb");
+        open(OUT, ">", "20-pci-vendor-model.hwdb");
         print(OUT "# This file is part of systemd.\n" .
                   "#\n" .
                   "# Data imported from: http://pci-ids.ucw.cz/v2.2/pci.ids\n");
@@ -133,7 +133,7 @@ sub pci_vendor {
                         my $text = $2;
                         print(OUT "\n");
                         print(OUT "pci:v0000" . $vendor . "d0000" . $device . "*\n");
-                        print(OUT " ID_PRODUCT_FROM_DATABASE=" . $text . "\n");
+                        print(OUT " ID_MODEL_FROM_DATABASE=" . $text . "\n");
                         next;
                 }
 
@@ -144,7 +144,7 @@ sub pci_vendor {
                         my $text = $3;
                         print(OUT "\n");
                         print(OUT "pci:v0000" . $vendor . "d0000" . $device . "sv0000" . $sub_vendor . "sd0000" . $sub_device . "*\n");
-                        print(OUT " ID_PRODUCT_FROM_DATABASE=" . $text . "\n");
+                        print(OUT " ID_MODEL_FROM_DATABASE=" . $text . "\n");
                 }
         }
 
