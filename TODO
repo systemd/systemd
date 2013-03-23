@@ -44,6 +44,10 @@ Fedora 19:
 
 Features:
 
+* matching against units is currently broken in journalctl. We really
+  need another AND level in the expressions,
+  i.e. sd_journal_add_conjunction().
+
 * add ConditionArchitecture= or so
 
 * teach ConditionKernelCommandLine= globs or regexes (in order to match foobar={no,0,off})
