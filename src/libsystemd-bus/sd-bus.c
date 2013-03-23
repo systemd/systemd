@@ -972,11 +972,10 @@ static int message_make(sd_bus *bus, size_t size, sd_bus_message **m) {
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
         if (bus->rbuffer_size > size) {
-                b = memdup((const uint8_t*) bus->rbuffer + size, bus->rbuffer_size - size);
-                if (!b) {
-                        free(t);
+                b = memdup((const uint8_t*) bus->rbuffer + size,
+                           bus->rbuffer_size - size);
+                if (!b)
                         return -ENOMEM;
-                }
         }
 
         r = bus_message_from_malloc(bus->rbuffer, size,
@@ -1536,7 +1535,6 @@ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
 }
 
 static int process_timeout(sd_bus *bus) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         struct reply_callback *c;
         usec_t n;
         int r;
