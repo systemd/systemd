@@ -4918,7 +4918,7 @@ static int parse_argv(int argc, char *argv[]) {
                                  * request to it. For now we simply
                                  * guess that it is Upstart. */
 
-                                execv("/lib/upstart/telinit", argv);
+                                execv(TELINIT, argv);
 
                                 log_error("Couldn't find an alternative telinit implementation to spawn.");
                                 return -EIO;

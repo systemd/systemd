@@ -683,6 +683,16 @@ AC_DEFINE_UNQUOTED(KBD_SETFONT, ["$KBD_SETFONT"], [Path of setfont])
 AC_SUBST(KBD_LOADKEYS)
 AC_SUBST(KBD_SETFONT)
 
+AC_ARG_WITH(telinit,
+        AS_HELP_STRING([--with-telinit=PATH],
+                [Path to telinit]),
+        [TELINIT="$withval"],
+        [TELINIT="/lib/upstart/telinit"])
+
+AC_DEFINE_UNQUOTED(TELINIT, ["$TELINIT"], [Path to telinit])
+
+AC_SUBST(TELINIT)
+
 # ------------------------------------------------------------------------------
 have_myhostname=no
 AC_ARG_ENABLE(myhostname, AS_HELP_STRING([--disable-myhostname], [disable nss-myhostname support]))
