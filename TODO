@@ -1,4 +1,14 @@
 Bugfixes:
+* journal: setting MaxRetentionSec= to any value creates a /dev/kmsg loop:
+    epoll_wait(7, {?} 0x7fff220df200, 1, 799489421) = 1
+    read(8, "46,156226155,545165984,-;systemd"..., 8192) = 75
+    writev(6, [{"<46>", 4}, {"systemd-journald", 16}, {"[3822]: ", 8}, {"Sleeping for 799489421 ms", 25}, {"\n", 1}], 5) = 54
+    epoll_wait(7, {?} 0x7fff220df200, 1, 799489421) = 1
+    read(8, "46,156226156,545166076,-;systemd"..., 8192) = 75
+    writev(6, [{"<46>", 4}, {"systemd-journald", 16}, {"[3822]: ", 8}, {"Sleeping for 799489421 ms", 25}, {"\n", 1}], 5) = 54
+    epoll_wait(7, {?} 0x7fff220df200, 1, 799489421) = 1
+    https://bbs.archlinux.org/viewtopic.php?pid=1200373
+
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
