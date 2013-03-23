@@ -905,9 +905,9 @@ static int access_check_var_log_journal(sd_journal *j) {
         if (!have_access) {
 
                 if (strv_isempty(g))
-                        log_notice("Hint: You are currently not seeing messages from other users and\n"
-                                   "the system. Users in the group 'systemd-journal' can see all messages.\n"
-                                   "Pass -q to turn this notice off.");
+                        log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
+                                   "      Users in the 'systemd-journal' group can see all messages. Pass -q to\n"
+                                   "      turn off this notice.");
                 else {
                         _cleanup_free_ char *s = NULL;
 
@@ -923,8 +923,8 @@ static int access_check_var_log_journal(sd_journal *j) {
                                 return log_oom();
 
                         log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
-                                   "Users in the groups '%s' can see all messages.\n"
-                                   "Pass -q to turn this notice off.", s);
+                                   "      Users in the groups '%s' can see all messages.\n"
+                                   "      Pass -q to turn off this notice.", s);
                 }
         }
 
@@ -933,29 +933,27 @@ static int access_check_var_log_journal(sd_journal *j) {
 #endif
 
 static int access_check(sd_journal *j) {
-        uint64_t eacces = EACCES, *code;
         Iterator it;
+        void *code;
         int r = 0;
 
         assert(j);
-        assert(j->errors);
-        assert(j->files);
 
         if (set_isempty(j->errors)) {
                 if (hashmap_isempty(j->files))
-                        log_info("No journal files were found.");
+                        log_notice("No journal files were found.");
                 return 0;
         }
 
-        if (!set_contains(j->errors, &eacces)) {
+        if (set_contains(j->errors, INT_TO_PTR(-EACCES))) {
 #ifdef HAVE_ACL
                 /* If /var/log/journal doesn't even exist,
-                   unprivileged users have no access at all */
+                 * unprivileged users have no access at all */
                 if (access("/var/log/journal", F_OK) < 0 &&
                     geteuid() != 0 &&
                     in_group("systemd-journal") <= 0) {
-                        log_error("Unprivileged users can't see messages unless persistent log storage\n"
-                                  "is enabled. Users in the group 'systemd-journal' can always see messages.");
+                        log_error("Unprivileged users cannot access messages, unless persistent log storage is\n"
+                                  "enabled. Users in the 'systemd-journal' group may always access messages.");
                         return -EACCES;
                 }
 
@@ -967,25 +965,29 @@ static int access_check(sd_journal *j) {
                                 return r;
                 }
 #else
-                if (geteuid() != 0 && in_group("systemd-journal") <= 0)
-                        log_error("No access to messages.\n"
-                                  "Users in the group 'systemd-journal' can see messages.");
+                if (geteuid() != 0 && in_group("systemd-journal") <= 0) {
+                        log_error("Unprivileged users cannot access messages. Users in the 'systemd-journal' group\n"
+                                  "group may access messages.");
+                        return -EACCES;
+                }
 #endif
+
                 if (hashmap_isempty(j->files)) {
-                        log_error("No journal files were opened, due to insufficient permissions.");
+                        log_error("No journal files were opened due to insufficient permissions.");
                         r = -EACCES;
                 }
         }
 
         SET_FOREACH(code, j->errors, it) {
-                int err = -PTR_TO_INT(code);
+                int err;
+
+                err = -PTR_TO_INT(code);
                 assert(err > 0);
+
                 if (err != EACCES)
                         log_warning("Error was encountered while opening journal files: %s",
                                     strerror(err));
         }
-
-        log_notice("Hint: run journalctl in debug mode: SYSTEMD_LOG_LEVEL=debug journalct ...");
 
         return r;
 }

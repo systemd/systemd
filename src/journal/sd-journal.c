@@ -51,11 +51,17 @@
 
 /* We return an error here only if we didn't manage to
    memorize the real error. */
-static int set_put_error(Set* errors, int r) {
+static int set_put_error(sd_journal *j, int r) {
+        int k;
+
         if (r >= 0)
                 return r;
 
-        return set_put(errors, INT_TO_PTR(r));
+        k = set_ensure_allocated(&j->errors, trivial_hash_func, trivial_compare_func);
+        if (k < 0)
+                return k;
+
+        return set_put(j->errors, INT_TO_PTR(r));
 }
 
 static void detach_location(sd_journal *j) {
@@ -1248,7 +1254,7 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
 
         if (hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
                 log_debug("Too many open journal files, not adding %s, ignoring.", path);
-                return set_put_error(j->errors, -ETOOMANYREFS);
+                return set_put_error(j, -ETOOMANYREFS);
         }
 
         r = journal_file_open(path, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, &f);
@@ -1392,7 +1398,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                         if (r < 0) {
                                 log_debug("Failed to add file %s/%s: %s",
                                           m->path, de->d_name, strerror(-r));
-                                r = set_put_error(j->errors, r);
+                                r = set_put_error(j, r);
                                 if (r < 0)
                                         return r;
                         }
@@ -1471,7 +1477,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
                         if (r < 0) {
                                 log_debug("Failed to add file %s/%s: %s",
                                           m->path, de->d_name, strerror(-r));
-                                r = set_put_error(j->errors, r);
+                                r = set_put_error(j, r);
                                 if (r < 0)
                                         return r;
                         }
@@ -1526,8 +1532,11 @@ static int add_search_paths(sd_journal *j) {
 
         NULSTR_FOREACH(p, search_paths) {
                 r = add_root_directory(j, p);
-                if (r < 0)
-                        return set_put_error(j->errors, r);
+                if (r < 0 && r != -ENOENT) {
+                        r = set_put_error(j, r);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -1571,8 +1580,7 @@ static sd_journal *journal_new(int flags, const char *path) {
         j->files = hashmap_new(string_hash_func, string_compare_func);
         j->directories_by_path = hashmap_new(string_hash_func, string_compare_func);
         j->mmap = mmap_cache_new();
-        j->errors = set_new(trivial_hash_func, trivial_compare_func);
-        if (!j->files || !j->directories_by_path || !j->mmap || !j->errors)
+        if (!j->files || !j->directories_by_path || !j->mmap)
                 goto fail;
 
         return j;
@@ -1630,7 +1638,7 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
 
         r = add_root_directory(j, path);
         if (r < 0) {
-                set_put_error(j->errors, r);
+                set_put_error(j, r);
                 goto fail;
         }
 
@@ -1996,7 +2004,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                                 if (r < 0) {
                                         log_debug("Failed to add file %s/%s: %s",
                                                   d->path, e->name, strerror(-r));
-                                        set_put_error(j->errors, r);
+                                        set_put_error(j, r);
                                 }
 
                         } else if (e->mask & (IN_DELETE|IN_MOVED_FROM|IN_UNMOUNT)) {
