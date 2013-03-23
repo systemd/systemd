@@ -1658,6 +1658,8 @@ _public_ void sd_journal_close(sd_journal *j) {
         if (!j)
                 return;
 
+        sd_journal_flush_matches(j);
+
         while ((f = hashmap_steal_first(j->files)))
                 journal_file_close(f);
 
@@ -1674,8 +1676,6 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         if (j->inotify_fd >= 0)
                 close_nointr_nofail(j->inotify_fd);
-
-        sd_journal_flush_matches(j);
 
         if (j->mmap)
                 mmap_cache_unref(j->mmap);
