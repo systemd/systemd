@@ -6,14 +6,18 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=User Manager for %I
+Description=User Manager for %u
 After=systemd-user-sessions.service
 
 [Service]
 User=%I
 PAMName=systemd-shared
-ControlGroup=%R/user/%I/shared cpu:/
+# in order to allow MEM_CG features to work, add "memory:/" here
+ControlGroup=%R/user/%u/shared cpu:/
 ControlGroupModify=yes
 Type=notify
 ExecStart=-@rootlibexecdir@/systemd --user
-Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%I/dbus/user_bus_socket
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/dbus/user_bus_socket
+
+[Install]
+Alias=user@%i.service
