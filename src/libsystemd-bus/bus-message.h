@@ -38,7 +38,7 @@ struct bus_container {
         size_t begin;
 };
 
-_packed_ struct bus_header {
+struct bus_header {
         uint8_t endian;
         uint8_t type;
         uint8_t flags;
@@ -46,7 +46,7 @@ _packed_ struct bus_header {
         uint32_t body_size;
         uint32_t serial;
         uint32_t fields_size;
-};
+} _packed_;
 
 struct sd_bus_message {
         unsigned n_ref;
