@@ -20,6 +20,7 @@
 ***/
 
 #include <errno.h>
+#include <fcntl.h>
 
 #include "util.h"
 #include "utf8.h"
@@ -50,8 +51,6 @@ static void reset_containers(sd_bus_message *m) {
 }
 
 static void message_free(sd_bus_message *m) {
-        unsigned i;
-
         assert(m);
 
         if (m->free_header)
@@ -63,8 +62,10 @@ static void message_free(sd_bus_message *m) {
         if (m->free_body)
                 free(m->body);
 
-        for (i = 0; i < m->n_fds; i++)
-                close_nointr_nofail(m->fds[i]);
+        if (m->free_fds) {
+                close_many(m->fds, m->n_fds);
+                free(m->fds);
+        }
 
         reset_containers(m);
         free(m->root_container.signature);
@@ -227,7 +228,9 @@ static int message_append_field_uint32(sd_bus_message *m, uint8_t h, uint32_t x)
 int bus_message_from_malloc(
                 void *buffer,
                 size_t length,
-                struct ucred *ucred,
+                int *fds,
+                unsigned n_fds,
+                const struct ucred *ucred,
                 const char *label,
                 sd_bus_message **ret) {
 
@@ -237,6 +240,7 @@ int bus_message_from_malloc(
         int r;
 
         assert(buffer || length <= 0);
+        assert(fds || n_fds <= 0);
         assert(ret);
 
         if (length < sizeof(struct bus_header))
@@ -276,11 +280,12 @@ int bus_message_from_malloc(
                 return -ENOMEM;
 
         m->n_ref = 1;
+        m->sealed = true;
         m->header = h;
-        m->free_header = true;
         m->fields = (uint8_t*) buffer + sizeof(struct bus_header);
         m->body = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN_TO(fs, 8);
-        m->sealed = true;
+        m->fds = fds;
+        m->n_fds = n_fds;
 
         if (ucred) {
                 m->uid = ucred->uid;
@@ -299,13 +304,19 @@ int bus_message_from_malloc(
         m->iovec[0].iov_len = length;
 
         r = message_parse_fields(m);
-        if (r < 0) {
-                message_free(m);
-                return r;
-        }
+        if (r < 0)
+                goto fail;
+
+        /* We take possession of the memory and fds now */
+        m->free_header = true;
+        m->free_fds = true;
 
         *ret = m;
         return 0;
+
+fail:
+        message_free(m);
+        return r;
 }
 
 static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
@@ -320,6 +331,7 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         m->header->endian = SD_BUS_NATIVE_ENDIAN;
         m->header->type = type;
         m->header->version = bus ? bus->message_version : 1;
+        m->allow_fds = !bus || bus->can_fds;
 
         return m;
 }
@@ -770,8 +782,13 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         uint32_t k;
         void *a;
         char *e = NULL;
+        int fd = -1;
+        uint32_t fdi;
+        int r;
 
         if (!m)
+                return -EINVAL;
+        if (!p)
                 return -EINVAL;
         if (m->sealed)
                 return -EPERM;
@@ -800,25 +817,11 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         case SD_BUS_TYPE_STRING:
         case SD_BUS_TYPE_OBJECT_PATH:
 
-                if (!p) {
-                        if (e)
-                                c->signature[c->index] = 0;
-
-                        return -EINVAL;
-                }
-
                 align = 4;
                 sz = 4 + strlen(p) + 1;
                 break;
 
         case SD_BUS_TYPE_SIGNATURE:
-
-                if (!p) {
-                        if (e)
-                                c->signature[c->index] = 0;
-
-                        return -EINVAL;
-                }
 
                 align = 1;
                 sz = 1 + strlen(p) + 1;
@@ -833,6 +836,41 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                 p = &k;
                 break;
 
+        case SD_BUS_TYPE_UNIX_FD: {
+                int z, *f;
+
+                if (!m->allow_fds) {
+                        r = -ENOTSUP;
+                        goto fail;
+                }
+
+                align = sz = 4;
+
+                z = *(int*) p;
+                if (z < 0) {
+                        r = -EINVAL;
+                        goto fail;
+                }
+
+                fd = fcntl(z, F_DUPFD_CLOEXEC, 3);
+                if (fd < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                f = realloc(m->fds, sizeof(int) * (m->n_fds + 1));
+                if (!f) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                fdi = m->n_fds;
+                f[fdi] = fd;
+                m->fds = f;
+                m->free_fds = true;
+                break;
+        }
+
         default:
                 align = bus_type_get_alignment(type);
                 sz = bus_type_get_size(type);
@@ -844,11 +882,8 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
 
         a = message_extend_body(m, align, sz);
         if (!a) {
-                /* Truncate extended signature again */
-                if (e)
-                        c->signature[c->index] = 0;
-
-                return -ENOMEM;
+                r = -ENOMEM;
+                goto fail;
         }
 
         if (type == SD_BUS_TYPE_STRING || type == SD_BUS_TYPE_OBJECT_PATH) {
@@ -864,6 +899,13 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
 
                 if (stored)
                         *stored = (const uint8_t*) a + 1;
+        } else if (type == SD_BUS_TYPE_UNIX_FD) {
+                *(uint32_t*) a = fdi;
+
+                if (stored)
+                        *stored = a;
+
+                m->n_fds ++;
 
         } else {
                 memcpy(a, p, sz);
@@ -876,6 +918,16 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                 c->index++;
 
         return 0;
+
+fail:
+        /* Truncate extended signature again */
+        if (e)
+                c->signature[c->index] = 0;
+
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        return r;
 }
 
 int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p) {
@@ -1464,6 +1516,8 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                 return -EPERM;
         if (!bus_type_is_basic(type))
                 return -EINVAL;
+        if (!p)
+                return -EINVAL;
 
         c = message_get_container(m);
 
@@ -1530,12 +1584,13 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
         }
 
         default: {
-                size_t sz, align;
+                size_t sz, align, rindex;
 
                 align = bus_type_get_alignment(type);
                 sz = bus_type_get_size(type);
 
-                r = message_peek_body(m, &m->rindex, align, sz, &q);
+                rindex = m->rindex;
+                r = message_peek_body(m, &rindex, align, sz, &q);
                 if (r <= 0)
                         return r;
 
@@ -1565,9 +1620,27 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         *(uint64_t*) p = BUS_MESSAGE_BSWAP64(m, *(uint64_t*) q);
                         break;
 
+                case SD_BUS_TYPE_UNIX_FD: {
+                        int copy;
+                        uint32_t j;
+
+                        j = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
+                        if (j >= m->n_fds)
+                                return -EBADMSG;
+
+                        copy = fcntl(m->fds[j], F_DUPFD_CLOEXEC, 3);
+                        if (copy < 0)
+                                return -errno;
+
+                        *(int*) p = copy;
+                        break;
+                }
+
                 default:
                         assert_not_reached("Unknown basic type...");
                 }
+
+                        m->rindex = rindex;
 
                 break;
         }
@@ -2028,7 +2101,8 @@ static int message_read_ap(sd_bus_message *m, const char *types, va_list ap) {
                 case SD_BUS_TYPE_DOUBLE:
                 case SD_BUS_TYPE_STRING:
                 case SD_BUS_TYPE_OBJECT_PATH:
-                case SD_BUS_TYPE_SIGNATURE: {
+                case SD_BUS_TYPE_SIGNATURE:
+                case SD_BUS_TYPE_UNIX_FD: {
                         void *p;
 
                         p = va_arg(ap, void*);
@@ -2399,6 +2473,7 @@ static int message_skip_fields(
 static int message_parse_fields(sd_bus_message *m) {
         size_t ri;
         int r;
+        uint32_t unix_fds = 0;
 
         assert(m);
 
@@ -2419,6 +2494,10 @@ static int message_parse_fields(sd_bus_message *m) {
                         return -EBADMSG;
 
                 case SD_BUS_MESSAGE_HEADER_PATH:
+
+                        if (m->path)
+                                return -EBADMSG;
+
                         if (!streq(signature, "o"))
                                 return -EBADMSG;
 
@@ -2426,6 +2505,10 @@ static int message_parse_fields(sd_bus_message *m) {
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_INTERFACE:
+
+                        if (m->interface)
+                                return -EBADMSG;
+
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
@@ -2433,6 +2516,10 @@ static int message_parse_fields(sd_bus_message *m) {
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_MEMBER:
+
+                        if (m->member)
+                                return -EBADMSG;
+
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
@@ -2440,6 +2527,10 @@ static int message_parse_fields(sd_bus_message *m) {
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_ERROR_NAME:
+
+                        if (m->error.name)
+                                return -EBADMSG;
+
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
@@ -2447,6 +2538,10 @@ static int message_parse_fields(sd_bus_message *m) {
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_DESTINATION:
+
+                        if (m->destination)
+                                return -EBADMSG;
+
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
@@ -2454,6 +2549,10 @@ static int message_parse_fields(sd_bus_message *m) {
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_SENDER:
+
+                        if (m->sender)
+                                return -EBADMSG;
+
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
@@ -2464,6 +2563,9 @@ static int message_parse_fields(sd_bus_message *m) {
                 case SD_BUS_MESSAGE_HEADER_SIGNATURE: {
                         const char *s;
                         char *c;
+
+                        if (m->root_container.signature)
+                                return -EBADMSG;
 
                         if (!streq(signature, "g"))
                                 return -EBADMSG;
@@ -2482,6 +2584,9 @@ static int message_parse_fields(sd_bus_message *m) {
                 }
 
                 case SD_BUS_MESSAGE_HEADER_REPLY_SERIAL:
+                        if (m->reply_serial != 0)
+                                return -EBADMSG;
+
                         if (!streq(signature, "u"))
                                 return -EBADMSG;
 
@@ -2494,6 +2599,22 @@ static int message_parse_fields(sd_bus_message *m) {
 
                         break;
 
+                case SD_BUS_MESSAGE_HEADER_UNIX_FDS:
+                        if (unix_fds != 0)
+                                return -EBADMSG;
+
+                        if (!streq(signature, "u"))
+                                return -EBADMSG;
+
+                        r = message_peek_field_uint32(m, &ri, &unix_fds);
+                        if (r < 0)
+                                return -EBADMSG;
+
+                        if (unix_fds == 0)
+                                return -EBADMSG;
+
+                        break;
+
                 default:
                         r = message_skip_fields(m, &ri, (uint32_t) -1, (const char **) &signature);
                 }
@@ -2501,6 +2622,9 @@ static int message_parse_fields(sd_bus_message *m) {
                 if (r < 0)
                         return r;
         }
+
+        if (m->n_fds != unix_fds)
+                return -EBADMSG;
 
         if (isempty(m->root_container.signature) != (BUS_MESSAGE_BODY_SIZE(m) == 0))
                 return -EBADMSG;

@@ -114,6 +114,9 @@ struct sd_bus {
 
         struct ucred ucred;
         char label[NAME_MAX];
+
+        int *fds;
+        unsigned n_fds;
 };
 
 static inline void bus_unrefp(sd_bus **b) {
@@ -136,6 +139,8 @@ static inline void bus_unrefp(sd_bus **b) {
 /* Defined by the specification as maximum size of an array in
  * bytes */
 #define BUS_ARRAY_MAX_SIZE 67108864
+
+#define BUS_FDS_MAX 1024
 
 bool object_path_is_valid(const char *p);
 bool interface_name_is_valid(const char *p);

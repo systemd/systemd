@@ -67,12 +67,14 @@ struct sd_bus_message {
         pid_t tid;
 
         bool sealed:1;
+        bool dont_send:1;
+        bool allow_fds:1;
         bool uid_valid:1;
         bool gid_valid:1;
         bool free_header:1;
         bool free_fields:1;
         bool free_body:1;
-        bool dont_send:1;
+        bool free_fds:1;
 
         struct bus_header *header;
         void *fields;
@@ -130,5 +132,13 @@ static inline void bus_message_unrefp(sd_bus_message **m) {
 int bus_message_seal(sd_bus_message *m, uint64_t serial);
 int bus_message_dump(sd_bus_message *m);
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
-int bus_message_from_malloc(void *buffer, size_t length, struct ucred *ucred, const char *label, sd_bus_message **ret);
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l);
+
+int bus_message_from_malloc(
+                void *buffer,
+                size_t length,
+                int *fds,
+                unsigned n_fds,
+                const struct ucred *ucred,
+                const char *label,
+                sd_bus_message **ret);

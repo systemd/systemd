@@ -28,7 +28,6 @@
 #include "sd-bus-protocol.h"
 
 /* TODO:
- * - make unix fd passing work
  * - implicitly add stub introspection calls
  * - implement unix exec protocol
  * - server side

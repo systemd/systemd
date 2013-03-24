@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "log.h"
 #include "util.h"
@@ -202,6 +203,31 @@ static int server(sd_bus *bus) {
                         }
 
                         sleep(1);
+
+                } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "FileDescriptor")) {
+                        int fd;
+                        static const char x = 'X';
+
+                        r = sd_bus_message_read(m, "h", &fd);
+                        if (r < 0) {
+                                log_error("Failed to get parameter: %s", strerror(-r));
+                                goto fail;
+                        }
+
+                        if (write(fd, &x, 1) < 0) {
+                                log_error("Failed to write to fd: %m");
+                                close_nointr_nofail(fd);
+                                goto fail;
+                        }
+
+                        close_nointr_nofail(fd);
+
+                        r = sd_bus_message_new_method_return(bus, m, &reply);
+                        if (r < 0) {
+                                log_error("Failed to allocate return: %s", strerror(-r));
+                                goto fail;
+                        }
+
                 } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
                         const sd_bus_error e = SD_BUS_ERROR_INIT_CONST("org.freedesktop.DBus.Error.UnknownMethod", "Unknown method.");
 
@@ -242,6 +268,8 @@ static void* client1(void*p) {
         sd_bus_error error = SD_BUS_ERROR_INIT;
         const char *hello;
         int r;
+        int pp[2] = { -1, -1 };
+        char x;
 
         r = sd_bus_open_user(&bus);
         if (r < 0) {
@@ -281,6 +309,46 @@ static void* client1(void*p) {
 
         assert(streq(hello, "hello"));
 
+        if (pipe2(pp, O_CLOEXEC|O_NONBLOCK) < 0) {
+                log_error("Failed to allocate pipe: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        sd_bus_message_unref(m);
+        m = NULL;
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        "org.freedesktop.systemd.test",
+                        "/",
+                        "org.freedesktop.systemd.test",
+                        "FileDescriptor",
+                        &m);
+        if (r < 0) {
+                log_error("Failed to allocate method call: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = sd_bus_message_append(m, "h", pp[1]);
+        if (r < 0) {
+                log_error("Failed to append string: %s", strerror(-r));
+                goto finish;
+        }
+
+        sd_bus_message_unref(reply);
+        reply = NULL;
+        r = sd_bus_send_with_reply_and_block(bus, m, 0, &error, &reply);
+        if (r < 0) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                goto finish;
+        }
+
+        errno = 0;
+        if (read(pp[0], &x, 1) <= 0) {
+                log_error("Failed to read from pipe: %s", errno ? strerror(errno) : "early read");
+                goto finish;
+        }
+
         r = 0;
 
 finish:
@@ -305,6 +373,9 @@ finish:
         }
 
         sd_bus_error_free(&error);
+
+        close_pipe(pp);
+
         return INT_TO_PTR(r);
 }
 

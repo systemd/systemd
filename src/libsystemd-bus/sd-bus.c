@@ -53,6 +53,9 @@ static void bus_free(sd_bus *b) {
         free(b->auth_uid);
         free(b->address);
 
+        close_many(b->fds, b->n_fds);
+        free(b->fds);
+
         for (i = 0; i < b->rqueue_size; i++)
                 sd_bus_message_unref(b->rqueue[i]);
         free(b->rqueue);
@@ -889,6 +892,18 @@ static int message_write(sd_bus *bus, sd_bus_message *m, size_t *idx) {
 
         if (*idx >= m->size)
                 return 0;
+        zero(mh);
+
+        if (m->n_fds > 0) {
+                struct cmsghdr *control;
+                control = alloca(CMSG_SPACE(sizeof(int) * m->n_fds));
+
+                mh.msg_control = control;
+                control->cmsg_level = SOL_SOCKET;
+                control->cmsg_type = SCM_RIGHTS;
+                mh.msg_controllen = control->cmsg_len = CMSG_LEN(sizeof(int) * m->n_fds);
+                memcpy(CMSG_DATA(control), m->fds, sizeof(int) * m->n_fds);
+        }
 
         n = m->n_iovec * sizeof(struct iovec);
         iov = alloca(n);
@@ -897,7 +912,6 @@ static int message_write(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         j = 0;
         iovec_advance(iov, &j, *idx);
 
-        zero(mh);
         mh.msg_iov = iov;
         mh.msg_iovlen = m->n_iovec;
 
@@ -963,7 +977,7 @@ static int message_read_need(sd_bus *bus, size_t *need) {
 
 static int message_make(sd_bus *bus, size_t size, sd_bus_message **m) {
         sd_bus_message *t;
-        void *b = NULL;
+        void *b;
         int r;
 
         assert(bus);
@@ -976,11 +990,14 @@ static int message_make(sd_bus *bus, size_t size, sd_bus_message **m) {
                            bus->rbuffer_size - size);
                 if (!b)
                         return -ENOMEM;
-        }
+        } else
+                b = NULL;
 
         r = bus_message_from_malloc(bus->rbuffer, size,
+                                    bus->fds, bus->n_fds,
                                     bus->ucred_valid ? &bus->ucred : NULL,
-                                    bus->label[0] ? bus->label : NULL, &t);
+                                    bus->label[0] ? bus->label : NULL,
+                                    &t);
         if (r < 0) {
                 free(b);
                 return r;
@@ -988,6 +1005,9 @@ static int message_make(sd_bus *bus, size_t size, sd_bus_message **m) {
 
         bus->rbuffer = b;
         bus->rbuffer_size -= size;
+
+        bus->fds = NULL;
+        bus->n_fds = 0;
 
         *m = t;
         return 1;
@@ -1002,7 +1022,8 @@ static int message_read(sd_bus *bus, sd_bus_message **m) {
         void *b;
         union {
                 struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
+                uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX) +
+                            CMSG_SPACE(sizeof(struct ucred)) +
                             CMSG_SPACE(NAME_MAX)]; /*selinux label */
         } control;
         struct cmsghdr *cmsg;
@@ -1039,11 +1060,24 @@ static int message_read(sd_bus *bus, sd_bus_message **m) {
                 return errno == EAGAIN ? 0 : -errno;
 
         bus->rbuffer_size += k;
-        bus->ucred_valid = false;
-        bus->label[0] = 0;
 
         for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_RIGHTS) {
+                        int n, *f;
+
+                        n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+                        f = realloc(bus->fds, sizeof(int) + (bus->n_fds + n));
+                        if (!f) {
+                                close_many((int*) CMSG_DATA(cmsg), n);
+                                return -ENOMEM;
+                        }
+
+                        memcpy(f + bus->n_fds, CMSG_DATA(cmsg), n * sizeof(int));
+                        bus->fds = f;
+                        bus->n_fds += n;
+                } else if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SCM_CREDENTIALS &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
 
@@ -1157,6 +1191,8 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
+        if (m->n_fds > 0 && !bus->can_fds)
+                return -ENOTSUP;
 
         /* If the serial number isn't kept, then we know that no reply
          * is expected */
