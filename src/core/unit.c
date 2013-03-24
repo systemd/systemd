@@ -1520,16 +1520,15 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 }
 
 int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w) {
-        struct epoll_event ev;
+        struct epoll_event ev = {
+                .data.ptr = w,
+                .events = events,
+        };
 
         assert(u);
         assert(fd >= 0);
         assert(w);
         assert(w->type == WATCH_INVALID || (w->type == WATCH_FD && w->fd == fd && w->data.unit == u));
-
-        zero(ev);
-        ev.data.ptr = w;
-        ev.events = events;
 
         if (epoll_ctl(u->manager->epoll_fd,
                       w->type == WATCH_INVALID ? EPOLL_CTL_ADD : EPOLL_CTL_MOD,
@@ -1578,7 +1577,7 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
 }
 
 int unit_watch_timer(Unit *u, clockid_t clock_id, bool relative, usec_t usec, Watch *w) {
-        struct itimerspec its;
+        struct itimerspec its = {};
         int flags, fd;
         bool ours;
 
@@ -1603,8 +1602,6 @@ int unit_watch_timer(Unit *u, clockid_t clock_id, bool relative, usec_t usec, Wa
         } else
                 assert_not_reached("Invalid watch type");
 
-        zero(its);
-
         if (usec <= 0) {
                 /* Set absolute time in the past, but not 0, since we
                  * don't want to disarm the timer */
@@ -1622,11 +1619,10 @@ int unit_watch_timer(Unit *u, clockid_t clock_id, bool relative, usec_t usec, Wa
                 goto fail;
 
         if (w->type == WATCH_INVALID) {
-                struct epoll_event ev;
-
-                zero(ev);
-                ev.data.ptr = w;
-                ev.events = EPOLLIN;
+                struct epoll_event ev = {
+                        .data.ptr = w,
+                        .events = EPOLLIN,
+                };
 
                 if (epoll_ctl(u->manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
                         goto fail;

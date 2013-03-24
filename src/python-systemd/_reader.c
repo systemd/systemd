@@ -64,7 +64,7 @@ PyDoc_STRVAR(MonotonicType__doc__,
 static PyStructSequence_Field MonotonicType_fields[] = {
     {(char*) "timestamp", (char*) "Time"},
     {(char*) "bootid", (char*) "Unique identifier of the boot"},
-    {NULL, NULL}
+    {} /* Sentinel */
 };
 
 static PyStructSequence_Desc Monotonic_desc = {
@@ -898,7 +898,7 @@ static PyGetSetDef Reader_getsetters[] = {
      NULL,
      (char*) closed__doc__,
      NULL},
-    {NULL}
+    {} /* Sentinel */
 };
 
 static PyMethodDef Reader_methods[] = {
@@ -927,7 +927,7 @@ static PyMethodDef Reader_methods[] = {
     {"test_cursor",     (PyCFunction) Reader_test_cursor, METH_VARARGS, Reader_test_cursor__doc__},
     {"query_unique",    (PyCFunction) Reader_query_unique, METH_VARARGS, Reader_query_unique__doc__},
     {"get_catalog",     (PyCFunction) Reader_get_catalog, METH_NOARGS, Reader_get_catalog__doc__},
-    {NULL}  /* Sentinel */
+    {}  /* Sentinel */
 };
 
 static PyTypeObject ReaderType = {

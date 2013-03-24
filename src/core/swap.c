@@ -1242,20 +1242,20 @@ static void swap_shutdown(Manager *m) {
 
 static int swap_enumerate(Manager *m) {
         int r;
-        struct epoll_event ev;
         assert(m);
 
         if (!m->proc_swaps) {
+                struct epoll_event ev = {
+                        .events = EPOLLPRI,
+                        .data.ptr = &m->swap_watch,
+                };
+
                 m->proc_swaps = fopen("/proc/swaps", "re");
                 if (!m->proc_swaps)
                         return (errno == ENOENT) ? 0 : -errno;
 
                 m->swap_watch.type = WATCH_SWAP;
                 m->swap_watch.fd = fileno(m->proc_swaps);
-
-                zero(ev);
-                ev.events = EPOLLPRI;
-                ev.data.ptr = &m->swap_watch;
 
                 if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->swap_watch.fd, &ev) < 0)
                         return -errno;

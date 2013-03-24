@@ -477,7 +477,6 @@ static void device_shutdown(Manager *m) {
 }
 
 static int device_enumerate(Manager *m) {
-        struct epoll_event ev;
         int r;
         struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
@@ -485,6 +484,8 @@ static int device_enumerate(Manager *m) {
         assert(m);
 
         if (!m->udev) {
+                struct epoll_event ev;
+
                 if (!(m->udev = udev_new()))
                         return -ENOMEM;
 

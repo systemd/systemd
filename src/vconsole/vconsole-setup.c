@@ -179,20 +179,18 @@ static int font_load(const char *vc, const char *font, const char *map, const ch
  * to apply a new font to all VTs.
  */
 static void font_copy_to_all_vcs(int fd) {
-        struct vt_stat vcs;
-        int i;
-        int r;
+        struct vt_stat vcs = {};
+        int i, r;
 
         /* get active, and 16 bit mask of used VT numbers */
-        zero(vcs);
         r = ioctl(fd, VT_GETSTATE, &vcs);
         if (r < 0)
                 return;
 
         for (i = 1; i <= 15; i++) {
                 char vcname[16];
-                struct console_font_op cfo;
                 int _cleanup_close_ vcfd = -1;
+                struct console_font_op cfo = {};
 
                 if (i == vcs.v_active)
                         continue;
@@ -208,7 +206,6 @@ static void font_copy_to_all_vcs(int fd) {
                         continue;
 
                 /* copy font from active VT, where the font was uploaded to */
-                zero(cfo);
                 cfo.op = KD_FONT_OP_COPY;
                 cfo.height = vcs.v_active-1; /* tty1 == index 0 */
                 ioctl(vcfd, KDFONTOP, &cfo);

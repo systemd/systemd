@@ -436,8 +436,11 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
 
 static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
         _cleanup_free_ char *host = NULL, *port = NULL, *family = NULL;
-        struct addrinfo hints, *result;
         int r;
+        struct addrinfo *result, hints = {
+                .ai_socktype = SOCK_STREAM,
+                .ai_flags = AI_ADDRCONFIG,
+        };
 
         assert(b);
         assert(p);
@@ -474,10 +477,6 @@ static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
 
         if (!host || !port)
                 return -EINVAL;
-
-        zero(hints);
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags = AI_ADDRCONFIG;
 
         if (family) {
                 if (streq(family, "ipv4"))
@@ -1937,7 +1936,7 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
 }
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
-        struct pollfd p[2];
+        struct pollfd p[2] = {};
         int r, e, n;
         struct timespec ts;
         usec_t until, m;
@@ -1968,9 +1967,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         if (timeout_usec != (uint64_t) -1 && (m == (uint64_t) -1 || timeout_usec < m))
                 m = timeout_usec;
 
-        zero(p);
         p[0].fd = bus->input_fd;
-
         if (bus->output_fd == bus->input_fd) {
                 p[0].events = e;
                 n = 1;

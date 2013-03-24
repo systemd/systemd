@@ -674,8 +674,11 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control;
-        struct msghdr mh;
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
         struct cmsghdr *cmsg;
 
         assert(dest);
@@ -715,12 +718,6 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
                 log_error("Failed to open fifo: %m");
                 return -errno;
         }
-
-        zero(mh);
-        zero(control);
-
-        mh.msg_control = &control;
-        mh.msg_controllen = sizeof(control);
 
         cmsg = CMSG_FIRSTHDR(&mh);
         cmsg->cmsg_level = SOL_SOCKET;

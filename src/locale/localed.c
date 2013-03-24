@@ -1011,7 +1011,7 @@ static DBusHandlerResult locale_message_handler(
                 dbus_bool_t interactive;
                 DBusMessageIter iter;
                 bool modified = false;
-                bool passed[_PROP_MAX];
+                bool passed[_PROP_MAX] = {};
                 int p;
 
                 if (!dbus_message_iter_init(message, &iter))
@@ -1032,8 +1032,6 @@ static DBusHandlerResult locale_message_handler(
                 }
 
                 dbus_message_iter_get_basic(&iter, &interactive);
-
-                zero(passed);
 
                 /* Check whether a variable changed and if so valid */
                 STRV_FOREACH(i, l) {

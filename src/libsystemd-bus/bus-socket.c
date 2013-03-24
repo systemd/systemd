@@ -986,15 +986,13 @@ int bus_socket_read_message(sd_bus *bus, sd_bus_message **m) {
 int bus_socket_process_opening(sd_bus *b) {
         int error = 0;
         socklen_t slen = sizeof(error);
-        struct pollfd p;
+        struct pollfd p = {
+                .fd = b->output_fd,
+                .events = POLLOUT,
+        };
         int r;
 
-        assert(b);
         assert(b->state == BUS_OPENING);
-
-        zero(p);
-        p.fd = b->output_fd;
-        p.events = POLLOUT;
 
         r = poll(&p, 1, 0);
         if (r < 0)

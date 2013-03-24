@@ -889,14 +889,13 @@ int reset_all_signal_handlers(void) {
         int sig;
 
         for (sig = 1; sig < _NSIG; sig++) {
-                struct sigaction sa;
+                struct sigaction sa = {
+                        .sa_handler = SIG_DFL,
+                        .sa_flags = SA_RESTART,
+                };
 
                 if (sig == SIGKILL || sig == SIGSTOP)
                         continue;
-
-                zero(sa);
-                sa.sa_handler = SIG_DFL;
-                sa.sa_flags = SA_RESTART;
 
                 /* On Linux the first two RT signals are reserved by
                  * glibc, and sigaction() will return EINVAL for them. */
@@ -1858,11 +1857,10 @@ int open_terminal(const char *name, int mode) {
 }
 
 int flush_fd(int fd) {
-        struct pollfd pollfd;
-
-        zero(pollfd);
-        pollfd.fd = fd;
-        pollfd.events = POLLIN;
+        struct pollfd pollfd = {
+                .fd = fd,
+                .events = POLLIN,
+        };
 
         for (;;) {
                 char buf[LINE_MAX];
@@ -1903,7 +1901,6 @@ int acquire_terminal(
 
         int fd = -1, notify = -1, r = 0, wd = -1;
         usec_t ts = 0;
-        struct sigaction sa_old, sa_new;
 
         assert(name);
 
@@ -1938,6 +1935,11 @@ int acquire_terminal(
         }
 
         for (;;) {
+                struct sigaction sa_old, sa_new = {
+                        .sa_handler = SIG_IGN,
+                        .sa_flags = SA_RESTART,
+                };
+
                 if (notify >= 0) {
                         r = flush_fd(notify);
                         if (r < 0)
@@ -1953,9 +1955,6 @@ int acquire_terminal(
 
                 /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed
                  * if we already own the tty. */
-                zero(sa_new);
-                sa_new.sa_handler = SIG_IGN;
-                sa_new.sa_flags = SA_RESTART;
                 assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
                 /* First, try to get the tty */
@@ -2063,7 +2062,10 @@ fail:
 
 int release_terminal(void) {
         int r = 0;
-        struct sigaction sa_old, sa_new;
+        struct sigaction sa_old, sa_new = {
+                .sa_handler = SIG_IGN,
+                .sa_flags = SA_RESTART,
+        };
         int _cleanup_close_ fd;
 
         fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_NDELAY|O_CLOEXEC);
@@ -2072,10 +2074,6 @@ int release_terminal(void) {
 
         /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed
          * by our own TIOCNOTTY */
-
-        zero(sa_new);
-        sa_new.sa_handler = SIG_IGN;
-        sa_new.sa_flags = SA_RESTART;
         assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
         if (ioctl(fd, TIOCNOTTY) < 0)
@@ -2100,13 +2098,13 @@ int sigaction_many(const struct sigaction *sa, ...) {
 }
 
 int ignore_signals(int sig, ...) {
-        struct sigaction sa;
+        struct sigaction sa = {
+                .sa_handler = SIG_IGN,
+                .sa_flags = SA_RESTART,
+        };
         va_list ap;
         int r = 0;
 
-        zero(sa);
-        sa.sa_handler = SIG_IGN;
-        sa.sa_flags = SA_RESTART;
 
         if (sigaction(sig, &sa, NULL) < 0)
                 r = -errno;
@@ -2121,13 +2119,12 @@ int ignore_signals(int sig, ...) {
 }
 
 int default_signals(int sig, ...) {
-        struct sigaction sa;
+        struct sigaction sa = {
+                .sa_handler = SIG_DFL,
+                .sa_flags = SA_RESTART,
+        };
         va_list ap;
         int r = 0;
-
-        zero(sa);
-        sa.sa_handler = SIG_DFL;
-        sa.sa_flags = SA_RESTART;
 
         if (sigaction(sig, &sa, NULL) < 0)
                 r = -errno;
@@ -2177,11 +2174,10 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
                                 continue;
 
                         if (k < 0 && errno == EAGAIN && do_poll) {
-                                struct pollfd pollfd;
-
-                                zero(pollfd);
-                                pollfd.fd = fd;
-                                pollfd.events = POLLIN;
+                                struct pollfd pollfd = {
+                                        .fd = fd,
+                                        .events = POLLIN,
+                                };
 
                                 if (poll(&pollfd, 1, -1) < 0) {
                                         if (errno == EINTR)
@@ -2226,11 +2222,10 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
                                 continue;
 
                         if (k < 0 && errno == EAGAIN && do_poll) {
-                                struct pollfd pollfd;
-
-                                zero(pollfd);
-                                pollfd.fd = fd;
-                                pollfd.events = POLLOUT;
+                                struct pollfd pollfd = {
+                                        .fd = fd,
+                                        .events = POLLOUT,
+                                };
 
                                 if (poll(&pollfd, 1, -1) < 0) {
                                         if (errno == EINTR)
@@ -2933,7 +2928,7 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
         static const char status_indent[] = "         "; /* "[" STATUS "] " */
         _cleanup_free_ char *s = NULL;
         _cleanup_close_ int fd = -1;
-        struct iovec iovec[6];
+        struct iovec iovec[6] = {};
         int n = 0;
         static bool prev_ephemeral;
 
@@ -2970,8 +2965,6 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
                         s = e;
                 }
         }
-
-        zero(iovec);
 
         if (prev_ephemeral)
                 IOVEC_SET_STRING(iovec[n++], "\r" ANSI_ERASE_TO_END_OF_LINE);
@@ -3162,8 +3155,7 @@ char **replace_env_argv(char **argv, char **env) {
 }
 
 int fd_columns(int fd) {
-        struct winsize ws;
-        zero(ws);
+        struct winsize ws = {};
 
         if (ioctl(fd, TIOCGWINSZ, &ws) < 0)
                 return -errno;
@@ -3197,8 +3189,7 @@ unsigned columns(void) {
 }
 
 int fd_lines(int fd) {
-        struct winsize ws;
-        zero(ws);
+        struct winsize ws = {};
 
         if (ioctl(fd, TIOCGWINSZ, &ws) < 0)
                 return -errno;
@@ -3247,13 +3238,9 @@ bool on_tty(void) {
 }
 
 int running_in_chroot(void) {
-        struct stat a, b;
-
-        zero(a);
-        zero(b);
+        struct stat a = {}, b = {};
 
         /* Only works as root */
-
         if (stat("/proc/1/root", &a) < 0)
                 return -errno;
 
@@ -3731,10 +3718,9 @@ void execute_directory(const char *directory, DIR *d, char *argv[]) {
 
         while (!hashmap_isempty(pids)) {
                 pid_t pid = PTR_TO_UINT(hashmap_first_key(pids));
-                siginfo_t si;
+                siginfo_t si = {};
                 char *path;
 
-                zero(si);
                 if (waitid(P_PID, pid, &si, WEXITED) < 0) {
 
                         if (errno == EINTR)
@@ -3861,12 +3847,11 @@ char* hostname_cleanup(char *s) {
 }
 
 int pipe_eof(int fd) {
-        struct pollfd pollfd;
         int r;
-
-        zero(pollfd);
-        pollfd.fd = fd;
-        pollfd.events = POLLIN|POLLHUP;
+        struct pollfd pollfd = {
+                .fd = fd,
+                .events = POLLIN|POLLHUP,
+        };
 
         r = poll(&pollfd, 1, 0);
         if (r < 0)
@@ -3879,12 +3864,11 @@ int pipe_eof(int fd) {
 }
 
 int fd_wait_for_event(int fd, int event, usec_t t) {
-        struct pollfd pollfd;
         int r;
-
-        zero(pollfd);
-        pollfd.fd = fd;
-        pollfd.events = event;
+        struct pollfd pollfd = {
+                .fd = fd,
+                .events = event,
+        };
 
         r = poll(&pollfd, 1, t == (usec_t) -1 ? -1 : (int) (t / USEC_PER_MSEC));
         if (r < 0)
@@ -4343,7 +4327,6 @@ int glob_exists(const char *path) {
 
         assert(path);
 
-        zero(g);
         errno = 0;
         k = glob(path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
 

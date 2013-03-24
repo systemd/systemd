@@ -75,10 +75,7 @@ static usec_t starttime;
 #define PTR_TO_SECTOR(p) (PTR_TO_ULONG(p)-1)
 
 static int btrfs_defrag(int fd) {
-        struct btrfs_ioctl_vol_args data;
-
-        zero(data);
-        data.fd = fd;
+        struct btrfs_ioctl_vol_args data = { .fd = fd };
 
         return ioctl(fd, BTRFS_IOC_DEFRAG, &data);
 }
@@ -186,11 +183,10 @@ static unsigned long fd_first_block(int fd) {
         struct {
                 struct fiemap fiemap;
                 struct fiemap_extent extent;
-        } data;
-
-        zero(data);
-        data.fiemap.fm_length = ~0ULL;
-        data.fiemap.fm_extent_count = 1;
+        } data = {
+                .fiemap.fm_length = ~0ULL,
+                .fiemap.fm_extent_count = 1,
+        };
 
         if (ioctl(fd, FS_IOC_FIEMAP, &data) < 0)
                 return 0;
@@ -238,7 +234,7 @@ static int collect(const char *root) {
                 FD_INOTIFY,   /* We get notifications to quit early via this fd */
                 _FD_MAX
         };
-        struct pollfd pollfd[_FD_MAX];
+        struct pollfd pollfd[_FD_MAX] = {};
         int fanotify_fd = -1, signal_fd = -1, inotify_fd = -1, r = 0;
         pid_t my_pid;
         Hashmap *files = NULL;
@@ -314,7 +310,6 @@ static int collect(const char *root) {
 
         my_pid = getpid();
 
-        zero(pollfd);
         pollfd[FD_FANOTIFY].fd = fanotify_fd;
         pollfd[FD_FANOTIFY].events = POLLIN;
         pollfd[FD_SIGNAL].fd = signal_fd;

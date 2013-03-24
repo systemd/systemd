@@ -124,7 +124,6 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-                struct pollfd p[3];
                 int events_a, events_b, fd;
                 uint64_t timeout_a, timeout_b, t;
                 struct timespec _ts, *ts;
@@ -211,15 +210,14 @@ int main(int argc, char *argv[]) {
                         ts = timespec_store(&_ts, t);
                 }
 
-                zero(p);
-                p[0].fd = fd;
-                p[0].events = events_a;
-                p[1].fd = STDIN_FILENO;
-                p[1].events = events_b & POLLIN;
-                p[2].fd = STDOUT_FILENO;
-                p[2].events = events_b & POLLOUT;
+                {
+                        struct pollfd p[3] = {
+                                {.fd = fd,            .events = events_a, },
+                                {.fd = STDIN_FILENO,  .events = events_b & POLLIN, },
+                                {.fd = STDOUT_FILENO, .events = events_b & POLLOUT, }};
 
-                r = ppoll(p, ELEMENTSOF(p), ts, NULL);
+                        r = ppoll(p, ELEMENTSOF(p), ts, NULL);
+                }
                 if (r < 0) {
                         log_error("ppoll() failed: %m");
                         goto finish;

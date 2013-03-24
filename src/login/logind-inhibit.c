@@ -292,7 +292,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
         /* Open reading side */
         if (i->fifo_fd < 0) {
-                struct epoll_event ev;
+                struct epoll_event ev = {};
 
                 i->fifo_fd = open(i->fifo_path, O_RDONLY|O_CLOEXEC|O_NDELAY);
                 if (i->fifo_fd < 0)
@@ -302,7 +302,6 @@ int inhibitor_create_fifo(Inhibitor *i) {
                 if (r < 0)
                         return r;
 
-                zero(ev);
                 ev.events = 0;
                 ev.data.u32 = FD_OTHER_BASE + i->fifo_fd;
 

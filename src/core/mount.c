@@ -293,7 +293,7 @@ static int mount_add_requires_mounts_links(Mount *m) {
 }
 
 static char* mount_test_option(const char *haystack, const char *needle) {
-        struct mntent me;
+        struct mntent me = { .mnt_opts = (char*) haystack };
 
         assert(needle);
 
@@ -302,9 +302,6 @@ static char* mount_test_option(const char *haystack, const char *needle) {
 
         if (!haystack)
                 return NULL;
-
-        zero(me);
-        me.mnt_opts = (char*) haystack;
 
         return hasmntopt(&me, needle);
 }
@@ -1706,20 +1703,20 @@ static void mount_shutdown(Manager *m) {
 
 static int mount_enumerate(Manager *m) {
         int r;
-        struct epoll_event ev;
         assert(m);
 
         if (!m->proc_self_mountinfo) {
+                struct epoll_event ev = {
+                        .events = EPOLLPRI,
+                        .data.ptr = &m->mount_watch,
+                };
+
                 m->proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
                 if (!m->proc_self_mountinfo)
                         return -errno;
 
                 m->mount_watch.type = WATCH_MOUNT;
                 m->mount_watch.fd = fileno(m->proc_self_mountinfo);
-
-                zero(ev);
-                ev.events = EPOLLPRI;
-                ev.data.ptr = &m->mount_watch;
 
                 if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->mount_watch.fd, &ev) < 0)
                         return -errno;

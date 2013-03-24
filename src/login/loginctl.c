@@ -834,16 +834,12 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         const char *interface = "";
         int r;
         DBusMessageIter iter, sub, sub2, sub3;
-        SessionStatusInfo session_info;
-        UserStatusInfo user_info;
-        SeatStatusInfo seat_info;
+        SessionStatusInfo session_info = {};
+        UserStatusInfo user_info = {};
+        SeatStatusInfo seat_info = {};
 
         assert(path);
         assert(new_line);
-
-        zero(session_info);
-        zero(user_info);
-        zero(seat_info);
 
         r = bus_method_call_with_reply(
                         bus,

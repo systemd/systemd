@@ -898,7 +898,7 @@ int session_create_fifo(Session *s) {
 
         /* Open reading side */
         if (s->fifo_fd < 0) {
-                struct epoll_event ev;
+                struct epoll_event ev = {};
 
                 s->fifo_fd = open(s->fifo_path, O_RDONLY|O_CLOEXEC|O_NDELAY);
                 if (s->fifo_fd < 0)
@@ -908,7 +908,6 @@ int session_create_fifo(Session *s) {
                 if (r < 0)
                         return r;
 
-                zero(ev);
                 ev.events = 0;
                 ev.data.u32 = FD_OTHER_BASE + s->fifo_fd;
 

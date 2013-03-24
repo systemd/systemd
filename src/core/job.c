@@ -858,10 +858,12 @@ finish:
 }
 
 int job_start_timer(Job *j) {
-        struct itimerspec its;
-        struct epoll_event ev;
+        struct itimerspec its = {};
+        struct epoll_event ev = {
+                .data.ptr = &j->timer_watch,
+                .events = EPOLLIN,
+        };
         int fd, r;
-        assert(j);
 
         if (j->unit->job_timeout <= 0 ||
             j->timer_watch.type == WATCH_JOB_TIMER)
@@ -874,17 +876,12 @@ int job_start_timer(Job *j) {
                 goto fail;
         }
 
-        zero(its);
         timespec_store(&its.it_value, j->unit->job_timeout);
 
         if (timerfd_settime(fd, 0, &its, NULL) < 0) {
                 r = -errno;
                 goto fail;
         }
-
-        zero(ev);
-        ev.data.ptr = &j->timer_watch;
-        ev.events = EPOLLIN;
 
         if (epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
                 r = -errno;
@@ -1064,14 +1061,13 @@ int job_deserialize(Job *j, FILE *f, FDSet *fds) {
 }
 
 int job_coldplug(Job *j) {
-        struct epoll_event ev;
+        struct epoll_event ev = {
+                .data.ptr = &j->timer_watch,
+                .events = EPOLLIN,
+        };
 
         if (j->timer_watch.type != WATCH_JOB_TIMER)
                 return 0;
-
-        zero(ev);
-        ev.data.ptr = &j->timer_watch;
-        ev.events = EPOLLIN;
 
         if (epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_ADD, j->timer_watch.fd, &ev) < 0)
                 return -errno;

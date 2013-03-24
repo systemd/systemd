@@ -1193,13 +1193,10 @@ static int enable_wait_for_jobs(DBusConnection *bus) {
 
 static int wait_for_jobs(DBusConnection *bus, Set *s) {
         int r = 0;
-        WaitData d;
+        WaitData d = { .set = s };
 
         assert(bus);
         assert(s);
-
-        zero(d);
-        d.set = s;
 
         if (!dbus_connection_add_filter(bus, wait_filter, &d, NULL))
                 return log_oom();
@@ -3021,9 +3018,8 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                         dbus_message_iter_recurse(iter, &sub);
                         while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
-                                ExecStatusInfo info;
+                                ExecStatusInfo info = {};
 
-                                zero(info);
                                 if (exec_status_info_deserialize(&sub, &info) >= 0) {
                                         char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
                                         char _cleanup_free_ *t;
@@ -3070,13 +3066,11 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         const char *interface = "";
         int r;
         DBusMessageIter iter, sub, sub2, sub3;
-        UnitStatusInfo info;
+        UnitStatusInfo info = {};
         ExecStatusInfo *p;
 
         assert(path);
         assert(new_line);
-
-        zero(info);
 
         r = bus_method_call_with_reply(
                         bus,
@@ -3654,7 +3648,7 @@ static int enable_sysv_units(char **args) {
 #if defined(HAVE_SYSV_COMPAT) && defined(HAVE_CHKCONFIG)
         const char *verb = args[0];
         unsigned f = 1, t = 1;
-        LookupPaths paths;
+        LookupPaths paths = {};
 
         if (arg_scope != UNIT_FILE_SYSTEM)
                 return 0;
@@ -3667,7 +3661,6 @@ static int enable_sysv_units(char **args) {
         /* Processes all SysV units, and reshuffles the array so that
          * afterwards only the native units remain */
 
-        zero(paths);
         r = lookup_paths_init(&paths, SYSTEMD_SYSTEM, false, NULL, NULL, NULL);
         if (r < 0)
                 return r;
@@ -4716,7 +4709,7 @@ static int parse_time_spec(const char *t, usec_t *_u) {
         } else {
                 char *e = NULL;
                 long hour, minute;
-                struct tm tm;
+                struct tm tm = {};
                 time_t s;
                 usec_t n;
 
@@ -4732,7 +4725,6 @@ static int parse_time_spec(const char *t, usec_t *_u) {
                 n = now(CLOCK_REALTIME);
                 s = (time_t) (n / USEC_PER_SEC);
 
-                zero(tm);
                 assert_se(localtime_r(&s, &tm));
 
                 tm.tm_hour = (int) hour;
@@ -5134,7 +5126,7 @@ finish:
 }
 
 static int talk_initctl(void) {
-        struct init_request request = {0};
+        struct init_request request = {};
         int r;
         int _cleanup_close_ fd = -1;
         char rl;
@@ -5339,41 +5331,38 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
 
 static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const char *message) {
         int _cleanup_close_ fd;
-        struct msghdr msghdr;
-        struct iovec iovec[2];
-        union sockaddr_union sockaddr;
-        struct sd_shutdown_command c;
+        struct sd_shutdown_command c = {
+                .usec = t,
+                .mode = mode,
+                .dry_run = dry_run,
+                .warn_wall = warn,
+        };
+        union sockaddr_union sockaddr = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/shutdownd",
+        };
+        struct iovec iovec[2] = {
+                {.iov_base = (char*) &c,
+                 .iov_len = offsetof(struct sd_shutdown_command, wall_message),
+                }
+        };
+        struct msghdr msghdr = {
+                .msg_name = &sockaddr,
+                .msg_namelen = offsetof(struct sockaddr_un, sun_path)
+                               + sizeof("/run/systemd/shutdownd") - 1,
+                .msg_iov = iovec,
+                .msg_iovlen = 1,
+        };
 
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
-        zero(c);
-        c.usec = t;
-        c.mode = mode;
-        c.dry_run = dry_run;
-        c.warn_wall = warn;
-
-        zero(sockaddr);
-        sockaddr.sa.sa_family = AF_UNIX;
-        strncpy(sockaddr.un.sun_path, "/run/systemd/shutdownd", sizeof(sockaddr.un.sun_path));
-
-        zero(msghdr);
-        msghdr.msg_name = &sockaddr;
-        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + sizeof("/run/systemd/shutdownd") - 1;
-
-        zero(iovec);
-        iovec[0].iov_base = (char*) &c;
-        iovec[0].iov_len = offsetof(struct sd_shutdown_command, wall_message);
-
-        if (isempty(message))
-                msghdr.msg_iovlen = 1;
-        else {
+        if (!isempty(message)) {
                 iovec[1].iov_base = (char*) message;
                 iovec[1].iov_len = strlen(message);
-                msghdr.msg_iovlen = 2;
+                msghdr.msg_iovlen++;
         }
-        msghdr.msg_iov = iovec;
 
         if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) < 0)
                 return -errno;

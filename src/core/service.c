@@ -3446,7 +3446,7 @@ static int service_enumerate(Manager *m) {
         unsigned i;
         DIR _cleanup_closedir_ *d = NULL;
         char _cleanup_free_ *path = NULL, *fpath = NULL, *name = NULL;
-        Set *runlevel_services[ELEMENTSOF(rcnd_table)];
+        Set *runlevel_services[ELEMENTSOF(rcnd_table)] = {};
         Set _cleanup_set_free_ *shutdown_services = NULL;
         Unit *service;
         Iterator j;
@@ -3456,8 +3456,6 @@ static int service_enumerate(Manager *m) {
 
         if (m->running_as != SYSTEMD_SYSTEM)
                 return 0;
-
-        zero(runlevel_services);
 
         STRV_FOREACH(p, m->lookup_paths.sysvrcnd_path)
                 for (i = 0; i < ELEMENTSOF(rcnd_table); i ++) {

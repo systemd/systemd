@@ -93,11 +93,14 @@ static int manager_setup_notify(Manager *m) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_un un;
-        } sa;
-        struct epoll_event ev;
+        } sa = {
+                .sa.sa_family = AF_UNIX,
+        };
+        struct epoll_event ev = {
+                .events = EPOLLIN,
+                .data.ptr = &m->notify_watch,
+        };
         int one = 1, r;
-
-        assert(m);
 
         m->notify_watch.type = WATCH_NOTIFY;
         m->notify_watch.fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
@@ -105,9 +108,6 @@ static int manager_setup_notify(Manager *m) {
                 log_error("Failed to allocate notification socket: %m");
                 return -errno;
         }
-
-        zero(sa);
-        sa.sa.sa_family = AF_UNIX;
 
         if (getpid() != 1 || detect_container(NULL) > 0)
                 snprintf(sa.un.sun_path, sizeof(sa.un.sun_path), NOTIFY_SOCKET "/%llu", random_ull());
@@ -129,10 +129,6 @@ static int manager_setup_notify(Manager *m) {
                 return -errno;
         }
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.ptr = &m->notify_watch;
-
         r = epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->notify_watch.fd, &ev);
         if (r < 0) {
                 log_error("Failed to add notification socket fd to epoll: %m");
@@ -150,15 +146,13 @@ static int manager_setup_notify(Manager *m) {
 }
 
 static int manager_jobs_in_progress_mod_timer(Manager *m) {
-        struct itimerspec its;
+        struct itimerspec its = {
+                .it_value.tv_sec = JOBS_IN_PROGRESS_WAIT_SEC,
+                .it_interval.tv_sec = JOBS_IN_PROGRESS_PERIOD_SEC,
+        };
 
         if (m->jobs_in_progress_watch.type != WATCH_JOBS_IN_PROGRESS)
                 return 0;
-
-        zero(its);
-
-        its.it_value.tv_sec = JOBS_IN_PROGRESS_WAIT_SEC;
-        its.it_interval.tv_sec = JOBS_IN_PROGRESS_PERIOD_SEC;
 
         if (timerfd_settime(m->jobs_in_progress_watch.fd, 0, &its, NULL) < 0)
                 return -errno;
@@ -167,10 +161,11 @@ static int manager_jobs_in_progress_mod_timer(Manager *m) {
 }
 
 static int manager_watch_jobs_in_progress(Manager *m) {
-        struct epoll_event ev;
+        struct epoll_event ev = {
+                .events = EPOLLIN,
+                .data.ptr = &m->jobs_in_progress_watch,
+        };
         int r;
-
-        assert(m);
 
         if (m->jobs_in_progress_watch.type != WATCH_INVALID)
                 return 0;
@@ -188,10 +183,6 @@ static int manager_watch_jobs_in_progress(Manager *m) {
                 log_error("Failed to set up timer for jobs progress watch: %s", strerror(-r));
                 goto err;
         }
-
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.ptr = &m->jobs_in_progress_watch;
 
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->jobs_in_progress_watch.fd, &ev) < 0) {
                 log_error("Failed to add jobs progress timer fd to epoll: %m");
@@ -287,10 +278,18 @@ static void manager_print_jobs_in_progress(Manager *m) {
 }
 
 static int manager_setup_time_change(Manager *m) {
-        struct epoll_event ev;
-        struct itimerspec its;
+        struct epoll_event ev = {
+                .events = EPOLLIN,
+                .data.ptr = &m->time_change_watch,
+        };
 
-        assert(m);
+        /* We only care for the cancellation event, hence we set the
+         * timeout to the latest possible value. */
+        struct itimerspec its = {
+                .it_value.tv_sec = TIME_T_MAX,
+        };
+        assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
+
         assert(m->time_change_watch.type == WATCH_INVALID);
 
         /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever
@@ -303,23 +302,12 @@ static int manager_setup_time_change(Manager *m) {
                 return -errno;
         }
 
-        zero(its);
-
-        /* We only care for the cancellation event, hence we set the
-         * timeout to the latest possible value. */
-        assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
-        its.it_value.tv_sec = TIME_T_MAX;
-
         if (timerfd_settime(m->time_change_watch.fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
                 log_debug("Failed to set up TFD_TIMER_CANCEL_ON_SET, ignoring: %m");
                 close_nointr_nofail(m->time_change_watch.fd);
                 watch_init(&m->time_change_watch);
                 return 0;
         }
-
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.ptr = &m->time_change_watch;
 
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->time_change_watch.fd, &ev) < 0) {
                 log_error("Failed to add timer change fd to epoll: %m");
@@ -360,15 +348,18 @@ static int enable_special_signals(Manager *m) {
 
 static int manager_setup_signals(Manager *m) {
         sigset_t mask;
-        struct epoll_event ev;
-        struct sigaction sa;
+        struct epoll_event ev = {
+                .events = EPOLLIN,
+                .data.ptr = &m->signal_watch,
+        };
+        struct sigaction sa = {
+                .sa_handler = SIG_DFL,
+                .sa_flags = SA_NOCLDSTOP|SA_RESTART,
+        };
 
         assert(m);
 
         /* We are not interested in SIGSTOP and friends. */
-        zero(sa);
-        sa.sa_handler = SIG_DFL;
-        sa.sa_flags = SA_NOCLDSTOP|SA_RESTART;
         assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
         assert_se(sigemptyset(&mask) == 0);
@@ -409,10 +400,6 @@ static int manager_setup_signals(Manager *m) {
         m->signal_watch.fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (m->signal_watch.fd < 0)
                 return -errno;
-
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.ptr = &m->signal_watch;
 
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->signal_watch.fd, &ev) < 0)
                 return -errno;
@@ -1184,30 +1171,29 @@ static int manager_process_notify_fd(Manager *m) {
 
         for (;;) {
                 char buf[4096];
-                struct msghdr msghdr;
-                struct iovec iovec;
-                struct ucred *ucred;
+                struct iovec iovec = {
+                        .iov_base = buf,
+                        .iov_len = sizeof(buf)-1,
+                };
+
                 union {
                         struct cmsghdr cmsghdr;
                         uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-                } control;
+                } control = {};
+
+                struct msghdr msghdr = {
+                        .msg_iov = &iovec,
+                        .msg_iovlen = 1,
+                        .msg_control = &control,
+                        .msg_controllen = sizeof(control),
+                };
+                struct ucred *ucred;
                 Unit *u;
                 char _cleanup_strv_free_ **tags = NULL;
 
-                zero(iovec);
-                iovec.iov_base = buf;
-                iovec.iov_len = sizeof(buf)-1;
-
-                zero(control);
-                zero(msghdr);
-                msghdr.msg_iov = &iovec;
-                msghdr.msg_iovlen = 1;
-                msghdr.msg_control = &control;
-                msghdr.msg_controllen = sizeof(control);
-
                 n = recvmsg(m->notify_watch.fd, &msghdr, MSG_DONTWAIT);
                 if (n <= 0) {
-                        if (n >= 0)
+                        if (n == 0)
                                 return -EIO;
 
                         if (errno == EAGAIN || errno == EINTR)
@@ -1254,11 +1240,9 @@ static int manager_dispatch_sigchld(Manager *m) {
         assert(m);
 
         for (;;) {
-                siginfo_t si;
+                siginfo_t si = {};
                 Unit *u;
                 int r;
-
-                zero(si);
 
                 /* First we call waitd() for a PID and do not reap the
                  * zombie. That way we can still access /proc/$PID for

@@ -256,13 +256,15 @@ static bool check_user_lists(
 }
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
-        char *p = NULL;
+        char _cleanup_free_ *p = NULL;
         int r;
-        int fd;
-        union sockaddr_union sa;
+        int _cleanup_close_ fd = -1;
+        union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+        };
         struct ucred ucred;
         socklen_t l;
-        char *tty;
+        char _cleanup_free_ *tty = NULL;
         int v;
 
         assert(display);
@@ -277,27 +279,17 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         r = socket_from_display(display, &p);
         if (r < 0)
                 return r;
+        strncpy(sa.un.sun_path, p, sizeof(sa.un.sun_path)-1);
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        if (fd < 0) {
-                free(p);
+        if (fd < 0)
                 return -errno;
-        }
 
-        zero(sa);
-        sa.un.sun_family = AF_UNIX;
-        strncpy(sa.un.sun_path, p, sizeof(sa.un.sun_path)-1);
-        free(p);
-
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
-                close_nointr_nofail(fd);
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0)
                 return -errno;
-        }
 
         l = sizeof(ucred);
         r = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l);
-        close_nointr_nofail(fd);
-
         if (r < 0)
                 return -errno;
 
@@ -306,8 +298,6 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
                 return r;
 
         v = vtnr_from_tty(tty);
-        free(tty);
-
         if (v < 0)
                 return v;
         else if (v == 0)

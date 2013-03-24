@@ -107,13 +107,13 @@ _noreturn_ static void crash(int sig) {
         if (!arg_dump_core)
                 log_error("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
-                struct sigaction sa;
+                struct sigaction sa = {
+                        .sa_handler = nop_handler,
+                        .sa_flags = SA_NOCLDSTOP|SA_RESTART,
+                };
                 pid_t pid;
 
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
-                zero(sa);
-                sa.sa_handler = nop_handler;
-                sa.sa_flags = SA_NOCLDSTOP|SA_RESTART;
                 assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
                 pid = fork();
@@ -121,7 +121,7 @@ _noreturn_ static void crash(int sig) {
                         log_error("Caught <%s>, cannot fork for core dump: %s", signal_to_string(sig), strerror(errno));
 
                 else if (pid == 0) {
-                        struct rlimit rl;
+                        struct rlimit rl = {};
 
                         /* Enable default signal handler for core dump */
                         zero(sa);
@@ -129,7 +129,6 @@ _noreturn_ static void crash(int sig) {
                         assert_se(sigaction(sig, &sa, NULL) == 0);
 
                         /* Don't limit the core dump size */
-                        zero(rl);
                         rl.rlim_cur = RLIM_INFINITY;
                         rl.rlim_max = RLIM_INFINITY;
                         setrlimit(RLIMIT_CORE, &rl);
@@ -162,16 +161,16 @@ _noreturn_ static void crash(int sig) {
                 chvt(arg_crash_chvt);
 
         if (arg_crash_shell) {
-                struct sigaction sa;
+                struct sigaction sa = {
+                        .sa_handler = SIG_IGN,
+                        .sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT|SA_RESTART,
+                };
                 pid_t pid;
 
                 log_info("Executing crash shell in 10s...");
                 sleep(10);
 
                 /* Let the kernel reap children for us */
-                zero(sa);
-                sa.sa_handler = SIG_IGN;
-                sa.sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT|SA_RESTART;
                 assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
                 pid = fork();
@@ -193,12 +192,10 @@ _noreturn_ static void crash(int sig) {
 }
 
 static void install_crash_handler(void) {
-        struct sigaction sa;
-
-        zero(sa);
-
-        sa.sa_handler = crash;
-        sa.sa_flags = SA_NODEFER;
+        struct sigaction sa = {
+                .sa_handler = crash,
+                .sa_flags = SA_NODEFER,
+        };
 
         sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
 }

@@ -45,7 +45,7 @@ typedef struct EpollData {
 
 static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
         EpollData _cleanup_free_ *e = NULL;
-        struct epoll_event ev;
+        struct epoll_event ev = { .data.ptr = e };
 
         assert(watch);
 
@@ -57,9 +57,7 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
         e->object = watch;
         e->is_timeout = false;
 
-        zero(ev);
         ev.events = bus_flags_to_events(watch);
-        ev.data.ptr = e;
 
         if (epoll_ctl(PTR_TO_INT(data), EPOLL_CTL_ADD, e->fd, &ev) < 0) {
 
@@ -106,7 +104,7 @@ static void remove_watch(DBusWatch *watch, void *data) {
 
 static void toggle_watch(DBusWatch *watch, void *data) {
         EpollData *e;
-        struct epoll_event ev;
+        struct epoll_event ev = {};
 
         assert(watch);
 
@@ -114,20 +112,17 @@ static void toggle_watch(DBusWatch *watch, void *data) {
         if (!e)
                 return;
 
-        zero(ev);
-        ev.events = bus_flags_to_events(watch);
         ev.data.ptr = e;
+        ev.events = bus_flags_to_events(watch);
 
         assert_se(epoll_ctl(PTR_TO_INT(data), EPOLL_CTL_MOD, e->fd, &ev) == 0);
 }
 
 static int timeout_arm(EpollData *e) {
-        struct itimerspec its;
+        struct itimerspec its = {};
 
         assert(e);
         assert(e->is_timeout);
-
-        zero(its);
 
         if (dbus_timeout_get_enabled(e->object)) {
                 timespec_store(&its.it_value, dbus_timeout_get_interval(e->object) * USEC_PER_MSEC);
@@ -142,7 +137,7 @@ static int timeout_arm(EpollData *e) {
 
 static dbus_bool_t add_timeout(DBusTimeout *timeout, void *data) {
         EpollData *e;
-        struct epoll_event ev;
+        struct epoll_event ev = {};
 
         assert(timeout);
 
@@ -160,7 +155,6 @@ static dbus_bool_t add_timeout(DBusTimeout *timeout, void *data) {
         if (timeout_arm(e) < 0)
                 goto fail;
 
-        zero(ev);
         ev.events = EPOLLIN;
         ev.data.ptr = e;
 
@@ -227,12 +221,10 @@ int bus_loop_open(DBusConnection *c) {
 
 int bus_loop_dispatch(int fd) {
         int n;
-        struct epoll_event event;
+        struct epoll_event event = {};
         EpollData *d;
 
         assert(fd >= 0);
-
-        zero(event);
 
         n = epoll_wait(fd, &event, 1, 0);
         if (n < 0)

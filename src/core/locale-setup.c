@@ -68,10 +68,8 @@ static const char * const variable_names[_VARIABLE_MAX] = {
 };
 
 int locale_setup(void) {
-        char *variables[_VARIABLE_MAX];
+        char *variables[_VARIABLE_MAX] = {};
         int r = 0, i;
-
-        zero(variables);
 
         if (detect_container(NULL) <= 0) {
                 r = parse_env_file("/proc/cmdline", WHITESPACE,

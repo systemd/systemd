@@ -381,21 +381,19 @@ static int delete_loopback(const char *device) {
 static int delete_dm(dev_t devnum) {
         int _cleanup_close_ fd = -1;
         int r;
-        struct dm_ioctl dm;
+        struct dm_ioctl dm = {
+                .version = {DM_VERSION_MAJOR,
+                            DM_VERSION_MINOR,
+                            DM_VERSION_PATCHLEVEL},
+                .data_size = sizeof(dm),
+                .dev = devnum,
+        };
 
         assert(major(devnum) != 0);
 
         fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
-
-        zero(dm);
-        dm.version[0] = DM_VERSION_MAJOR;
-        dm.version[1] = DM_VERSION_MINOR;
-        dm.version[2] = DM_VERSION_PATCHLEVEL;
-
-        dm.data_size = sizeof(dm);
-        dm.dev = devnum;
 
         r = ioctl(fd, DM_DEV_REMOVE, &dm);
         return r >= 0 ? 0 : -errno;

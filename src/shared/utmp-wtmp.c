@@ -33,7 +33,7 @@
 #include "utmp-wtmp.h"
 
 int utmp_get_runlevel(int *runlevel, int *previous) {
-        struct utmpx lookup, *found;
+        struct utmpx *found, lookup = { .ut_type = RUN_LVL };
         int r;
         const char *e;
 
@@ -65,9 +65,6 @@ int utmp_get_runlevel(int *runlevel, int *previous) {
                 return -errno;
 
         setutxent();
-
-        zero(lookup);
-        lookup.ut_type = RUN_LVL;
 
         if (!(found = getutxid(&lookup)))
                 r = -errno;
@@ -102,13 +99,11 @@ static void init_timestamp(struct utmpx *store, usec_t t) {
 }
 
 static void init_entry(struct utmpx *store, usec_t t) {
-        struct utsname uts;
+        struct utsname uts = {};
 
         assert(store);
 
         init_timestamp(store, t);
-
-        zero(uts);
 
         if (uname(&uts) >= 0)
                 strncpy(store->ut_host, uts.release, sizeof(store->ut_host));
@@ -311,7 +306,10 @@ static int write_to_terminal(const char *tty, const char *message) {
 
         while (left > 0) {
                 ssize_t n;
-                struct pollfd pollfd;
+                struct pollfd pollfd = {
+                        .fd = fd,
+                        .events = POLLOUT,
+                };
                 usec_t t;
                 int k;
 
@@ -319,10 +317,6 @@ static int write_to_terminal(const char *tty, const char *message) {
 
                 if (t >= end)
                         return -ETIME;
-
-                zero(pollfd);
-                pollfd.fd = fd;
-                pollfd.events = POLLOUT;
 
                 k = poll(&pollfd, 1, (end - t) / USEC_PER_MSEC);
                 if (k < 0)

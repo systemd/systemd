@@ -1174,7 +1174,10 @@ static void manager_dispatch_other(Manager *m, int fd) {
 static int manager_connect_bus(Manager *m) {
         DBusError error;
         int r;
-        struct epoll_event ev;
+        struct epoll_event ev = {
+                .events = EPOLLIN,
+                .data.u32 = FD_BUS,
+        };
 
         assert(m);
         assert(!m->bus);
@@ -1230,10 +1233,6 @@ static int manager_connect_bus(Manager *m) {
                 goto fail;
         }
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.u32 = FD_BUS;
-
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->bus_fd, &ev) < 0)
                 goto fail;
 
@@ -1246,7 +1245,10 @@ fail:
 }
 
 static int manager_connect_console(Manager *m) {
-        struct epoll_event ev;
+        struct epoll_event ev = {
+                .events = 0,
+                .data.u32 = FD_CONSOLE,
+        };
 
         assert(m);
         assert(m->console_active_fd < 0);
@@ -1271,10 +1273,6 @@ static int manager_connect_console(Manager *m) {
                 return -errno;
         }
 
-        zero(ev);
-        ev.events = 0;
-        ev.data.u32 = FD_CONSOLE;
-
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->console_active_fd, &ev) < 0)
                 return -errno;
 
@@ -1282,8 +1280,11 @@ static int manager_connect_console(Manager *m) {
 }
 
 static int manager_connect_udev(Manager *m) {
-        struct epoll_event ev;
         int r;
+        struct epoll_event ev = {
+                .events = EPOLLIN,
+                .data.u32 = FD_SEAT_UDEV,
+        };
 
         assert(m);
         assert(!m->udev_seat_monitor);
@@ -1304,9 +1305,6 @@ static int manager_connect_udev(Manager *m) {
 
         m->udev_seat_fd = udev_monitor_get_fd(m->udev_seat_monitor);
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.u32 = FD_SEAT_UDEV;
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_seat_fd, &ev) < 0)
                 return -errno;
 
@@ -1447,7 +1445,7 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
 
 int manager_dispatch_idle_action(Manager *m) {
         struct dual_timestamp since;
-        struct itimerspec its;
+        struct itimerspec its = {};
         int r;
         usec_t n;
 
@@ -1459,7 +1457,6 @@ int manager_dispatch_idle_action(Manager *m) {
                 goto finish;
         }
 
-        zero(its);
         n = now(CLOCK_MONOTONIC);
 
         r = manager_get_idle_hint(m, &since);
@@ -1482,7 +1479,10 @@ int manager_dispatch_idle_action(Manager *m) {
         }
 
         if (m->idle_action_fd < 0) {
-                struct epoll_event ev;
+                struct epoll_event ev = {
+                        .events = EPOLLIN,
+                        .data.u32 = FD_IDLE_ACTION,
+                };
 
                 m->idle_action_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
                 if (m->idle_action_fd < 0) {
@@ -1490,10 +1490,6 @@ int manager_dispatch_idle_action(Manager *m) {
                         r = -errno;
                         goto finish;
                 }
-
-                zero(ev);
-                ev.events = EPOLLIN;
-                ev.data.u32 = FD_IDLE_ACTION;
 
                 if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->idle_action_fd, &ev) < 0) {
                         log_error("Failed to add idle action timer to epoll: %m");

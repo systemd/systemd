@@ -34,27 +34,27 @@
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)
 
 static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, struct ucred *ucred, struct timeval *tv) {
-        struct msghdr msghdr;
+
+        union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/journal/syslog",
+        };
+        struct msghdr msghdr = {
+                .msg_iov = (struct iovec *) iovec,
+                .msg_iovlen = n_iovec,
+                .msg_name = &sa,
+                .msg_namelen = offsetof(union sockaddr_union, un.sun_path)
+                               + sizeof("/run/systemd/journal/syslog") - 1,
+        };
         struct cmsghdr *cmsg;
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
         } control;
-        union sockaddr_union sa;
 
         assert(s);
         assert(iovec);
         assert(n_iovec > 0);
-
-        zero(msghdr);
-        msghdr.msg_iov = (struct iovec*) iovec;
-        msghdr.msg_iovlen = n_iovec;
-
-        zero(sa);
-        sa.un.sun_family = AF_UNIX;
-        strncpy(sa.un.sun_path, "/run/systemd/journal/syslog", sizeof(sa.un.sun_path));
-        msghdr.msg_name = &sa;
-        msghdr.msg_namelen = offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path);
 
         if (ucred) {
                 zero(control);
@@ -412,23 +412,22 @@ void server_process_syslog_message(
 }
 
 int server_open_syslog_socket(Server *s) {
-        union sockaddr_union sa;
         int one, r;
         struct epoll_event ev;
 
         assert(s);
 
         if (s->syslog_fd < 0) {
+                union sockaddr_union sa = {
+                        .un.sun_family = AF_UNIX,
+                        .un.sun_path = "/dev/log",
+                };
 
                 s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->syslog_fd < 0) {
                         log_error("socket() failed: %m");
                         return -errno;
                 }
-
-                zero(sa);
-                sa.un.sun_family = AF_UNIX;
-                strncpy(sa.un.sun_path, "/dev/log", sizeof(sa.un.sun_path));
 
                 unlink(sa.un.sun_path);
 

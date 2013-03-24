@@ -152,7 +152,7 @@ static int show_status(DBusConnection *bus, char **args, unsigned n) {
         const char *interface = "";
         int r;
         DBusMessageIter iter, sub, sub2, sub3;
-        StatusInfo info;
+        StatusInfo info = {};
 
         assert(args);
 
@@ -176,7 +176,6 @@ static int show_status(DBusConnection *bus, char **args, unsigned n) {
                 return -EIO;
         }
 
-        zero(info);
         dbus_message_iter_recurse(&iter, &sub);
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {

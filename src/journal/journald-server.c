@@ -719,7 +719,7 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         struct iovec iovec[N_IOVEC_META_FIELDS + 4];
         int n = 0;
         va_list ap;
-        struct ucred ucred;
+        struct ucred ucred = {};
 
         assert(s);
         assert(format);
@@ -740,7 +740,6 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
                 IOVEC_SET_STRING(iovec[n++], mid);
         }
 
-        zero(ucred);
         ucred.pid = getpid();
         ucred.uid = getuid();
         ucred.gid = getgid();
@@ -1356,17 +1355,16 @@ static int server_open_sync_timer(Server *s) {
 int server_schedule_sync(Server *s) {
         int r;
 
-        struct itimerspec sync_timer_enable;
-
         assert(s);
 
         if (s->sync_scheduled)
                 return 0;
 
         if (s->sync_interval_usec) {
-                zero(sync_timer_enable);
-                sync_timer_enable.it_value.tv_sec = s->sync_interval_usec / USEC_PER_SEC;
-                sync_timer_enable.it_value.tv_nsec = s->sync_interval_usec % MSEC_PER_SEC;
+                struct itimerspec sync_timer_enable = {
+                        .it_value.tv_sec = s->sync_interval_usec / USEC_PER_SEC,
+                        .it_value.tv_nsec = s->sync_interval_usec % MSEC_PER_SEC,
+                };
 
                 r = timerfd_settime(s->sync_timer_fd, 0, &sync_timer_enable, NULL);
                 if (r < 0)

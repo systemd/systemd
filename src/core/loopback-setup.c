@@ -88,24 +88,25 @@ static int add_adresses(int fd, int if_loopback, unsigned *requests) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
-        } sa;
+        } sa = {
+                .nl.nl_family = AF_NETLINK,
+        };
+
         union {
                 struct nlmsghdr header;
                 uint8_t buf[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
                             NLMSG_ALIGN(sizeof(struct ifaddrmsg)) +
                             RTA_LENGTH(sizeof(struct in6_addr))];
-        } request;
+        } request = {
+                .header.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg)),
+                .header.nlmsg_type = RTM_NEWADDR,
+                .header.nlmsg_flags = NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK,
+                .header.nlmsg_seq = *requests + 1,
+        };
 
         struct ifaddrmsg *ifaddrmsg;
         uint32_t ipv4_address = htonl(INADDR_LOOPBACK);
         int r;
-
-        zero(request);
-
-        request.header.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-        request.header.nlmsg_type = RTM_NEWADDR;
-        request.header.nlmsg_flags = NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK;
-        request.header.nlmsg_seq = *requests + 1;
 
         ifaddrmsg = NLMSG_DATA(&request.header);
         ifaddrmsg->ifa_family = AF_INET;
@@ -114,12 +115,10 @@ static int add_adresses(int fd, int if_loopback, unsigned *requests) {
         ifaddrmsg->ifa_scope = RT_SCOPE_HOST;
         ifaddrmsg->ifa_index = if_loopback;
 
-        r = add_rtattr(&request.header, sizeof(request), IFA_LOCAL, &ipv4_address, sizeof(ipv4_address));
+        r = add_rtattr(&request.header, sizeof(request), IFA_LOCAL,
+                       &ipv4_address, sizeof(ipv4_address));
         if (r < 0)
                 return r;
-
-        zero(sa);
-        sa.nl.nl_family = AF_NETLINK;
 
         if (sendto_loop(fd, &request, request.header.nlmsg_len, 0, &sa.sa, sizeof(sa)) < 0)
                 return -errno;
@@ -134,7 +133,8 @@ static int add_adresses(int fd, int if_loopback, unsigned *requests) {
         ifaddrmsg->ifa_family = AF_INET6;
         ifaddrmsg->ifa_prefixlen = 128;
 
-        r = add_rtattr(&request.header, sizeof(request), IFA_LOCAL, &in6addr_loopback, sizeof(in6addr_loopback));
+        r = add_rtattr(&request.header, sizeof(request), IFA_LOCAL,
+                       &in6addr_loopback, sizeof(in6addr_loopback));
         if (r < 0)
                 return r;
 
@@ -149,30 +149,28 @@ static int start_interface(int fd, int if_loopback, unsigned *requests) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
-        } sa;
+        } sa = {
+                .nl.nl_family = AF_NETLINK,
+        };
+
         union {
                 struct nlmsghdr header;
                 uint8_t buf[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
                             NLMSG_ALIGN(sizeof(struct ifinfomsg))];
-        } request;
+        } request = {
+                .header.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
+                .header.nlmsg_type = RTM_NEWLINK,
+                .header.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK,
+                .header.nlmsg_seq = *requests + 1,
+        };
 
         struct ifinfomsg *ifinfomsg;
-
-        zero(request);
-
-        request.header.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-        request.header.nlmsg_type = RTM_NEWLINK;
-        request.header.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK;
-        request.header.nlmsg_seq = *requests + 1;
 
         ifinfomsg = NLMSG_DATA(&request.header);
         ifinfomsg->ifi_family = AF_UNSPEC;
         ifinfomsg->ifi_index = if_loopback;
         ifinfomsg->ifi_flags = IFF_UP;
         ifinfomsg->ifi_change = IFF_UP;
-
-        zero(sa);
-        sa.nl.nl_family = AF_NETLINK;
 
         if (sendto_loop(fd, &request, request.header.nlmsg_len, 0, &sa.sa, sizeof(sa)) < 0)
                 return -errno;
@@ -234,7 +232,10 @@ static int check_loopback(void) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_in in;
-        } sa;
+        } sa = {
+                .in.sin_family = AF_INET,
+                .in.sin_addr.s_addr = INADDR_LOOPBACK,
+        };
 
         /* If we failed to set up the loop back device, check whether
          * it might already be set up */
@@ -242,10 +243,6 @@ static int check_loopback(void) {
         fd = socket(AF_INET, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
-
-        zero(sa);
-        sa.in.sin_family = AF_INET;
-        sa.in.sin_addr.s_addr = INADDR_LOOPBACK;
 
         if (bind(fd, &sa.sa, sizeof(sa.in)) >= 0)
                 r = 1;
@@ -260,7 +257,9 @@ int loopback_setup(void) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
-        } sa;
+        } sa = {
+                .nl.nl_family = AF_NETLINK,
+        };
         unsigned requests = 0, i;
         int _cleanup_close_ fd = -1;
         bool eperm = false;
@@ -274,8 +273,6 @@ int loopback_setup(void) {
         if (fd < 0)
                 return -errno;
 
-        zero(sa);
-        sa.nl.nl_family = AF_NETLINK;
         if (bind(fd, &sa.sa, sizeof(sa)) < 0) {
                 r = -errno;
                 goto error;

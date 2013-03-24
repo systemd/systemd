@@ -205,7 +205,10 @@ static int open_null_as(int flags, int nfd) {
 
 static int connect_logger_as(const ExecContext *context, ExecOutput output, const char *ident, const char *unit_id, int nfd) {
         int fd, r;
-        union sockaddr_union sa;
+        union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/journal/stdout",
+        };
 
         assert(context);
         assert(output < _EXEC_OUTPUT_MAX);
@@ -215,10 +218,6 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0)
                 return -errno;
-
-        zero(sa);
-        sa.un.sun_family = AF_UNIX;
-        strncpy(sa.un.sun_path, "/run/systemd/journal/stdout", sizeof(sa.un.sun_path));
 
         r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
         if (r < 0) {
@@ -938,7 +937,7 @@ static int apply_seccomp(uint32_t *syscall_filter) {
         int i;
         unsigned n;
         struct sock_filter *f;
-        struct sock_fprog prog;
+        struct sock_fprog prog = {};
 
         assert(syscall_filter);
 
@@ -970,7 +969,6 @@ static int apply_seccomp(uint32_t *syscall_filter) {
         memcpy(f + (ELEMENTSOF(header) + 2*n), footer, sizeof(footer));
 
         /* Third: install the filter */
-        zero(prog);
         prog.len = ELEMENTSOF(header) + ELEMENTSOF(footer) + 2*n;
         prog.filter = f;
         if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) < 0)
@@ -1210,10 +1208,9 @@ int exec_spawn(ExecCommand *command,
                         }
 
                 if (context->cpu_sched_set) {
-                        struct sched_param param;
-
-                        zero(param);
-                        param.sched_priority = context->cpu_sched_priority;
+                        struct sched_param param = {
+                                .sched_priority = context->cpu_sched_priority,
+                        };
 
                         r = sched_setscheduler(0,
                                                context->cpu_sched_policy |
@@ -1701,7 +1698,7 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                 int k;
                 bool ignore = false;
                 char **p;
-                glob_t pglob;
+                glob_t pglob = {};
                 int count, n;
 
                 fn = *i;
@@ -1721,7 +1718,6 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                 }
 
                 /* Filename supports globbing, take all matching files */
-                zero(pglob);
                 errno = 0;
                 if (glob(fn, 0, NULL, &pglob) != 0) {
                         globfree(&pglob);

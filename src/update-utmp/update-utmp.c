@@ -313,11 +313,10 @@ static int on_runlevel(Context *c) {
 int main(int argc, char *argv[]) {
         int r;
         DBusError error;
-        Context c;
+        Context c = {};
 
         dbus_error_init(&error);
 
-        zero(c);
 #ifdef HAVE_AUDIT
         c.audit_fd = -1;
 #endif

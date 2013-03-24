@@ -700,7 +700,7 @@ int unit_file_link(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        LookupPaths _cleanup_lookup_paths_free_ paths = {NULL};
+        LookupPaths _cleanup_lookup_paths_free_ paths = {};
         char **i;
         char _cleanup_free_ *config_path = NULL;
         int r, q;
@@ -1116,7 +1116,7 @@ static int unit_file_can_install(
                 const char *name,
                 bool allow_symlink) {
 
-        InstallContext _cleanup_install_context_done_ c = {NULL};
+        InstallContext _cleanup_install_context_done_ c = {};
         InstallInfo *i;
         int r;
 
@@ -1452,8 +1452,8 @@ int unit_file_enable(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        LookupPaths _cleanup_lookup_paths_free_ paths = {NULL};
-        InstallContext _cleanup_install_context_done_ c = {NULL};
+        LookupPaths _cleanup_lookup_paths_free_ paths = {};
+        InstallContext _cleanup_install_context_done_ c = {};
         char **i;
         char _cleanup_free_ *config_path = NULL;
         int r;
@@ -1491,8 +1491,8 @@ int unit_file_disable(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        LookupPaths _cleanup_lookup_paths_free_ paths = {NULL};
-        InstallContext _cleanup_install_context_done_ c = {NULL};
+        LookupPaths _cleanup_lookup_paths_free_ paths = {};
+        InstallContext _cleanup_install_context_done_ c = {};
         char **i;
         char _cleanup_free_ *config_path = NULL;
         Set _cleanup_set_free_free_ *remove_symlinks_to = NULL;
@@ -1533,8 +1533,8 @@ int unit_file_reenable(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        LookupPaths _cleanup_lookup_paths_free_ paths = {NULL};
-        InstallContext _cleanup_install_context_done_ c = {NULL};
+        LookupPaths _cleanup_lookup_paths_free_ paths = {};
+        InstallContext _cleanup_install_context_done_ c = {};
         char **i;
         char _cleanup_free_ *config_path = NULL;
         Set _cleanup_set_free_free_ *remove_symlinks_to = NULL;
@@ -1576,7 +1576,7 @@ UnitFileState unit_file_get_state(
                 const char *root_dir,
                 const char *name) {
 
-        LookupPaths _cleanup_lookup_paths_free_ paths = {NULL};
+        LookupPaths _cleanup_lookup_paths_free_ paths = {};
         UnitFileState state = _UNIT_FILE_STATE_INVALID;
         char **i;
         char _cleanup_free_ *path = NULL;
@@ -1734,8 +1734,8 @@ int unit_file_preset(
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
-        LookupPaths _cleanup_lookup_paths_free_ paths = {NULL};
-        InstallContext _cleanup_install_context_done_ plus = {NULL}, minus = {NULL};
+        LookupPaths _cleanup_lookup_paths_free_ paths = {};
+        InstallContext _cleanup_install_context_done_ plus = {}, minus = {NULL};
         char **i;
         char _cleanup_free_ *config_path = NULL;
         Set _cleanup_set_free_free_ *remove_symlinks_to = NULL;
@@ -1800,7 +1800,7 @@ int unit_file_get_list(
                 const char *root_dir,
                 Hashmap *h) {
 
-        LookupPaths _cleanup_lookup_paths_free_ paths = {NULL};
+        LookupPaths _cleanup_lookup_paths_free_ paths = {};
         char **i;
         char _cleanup_free_ *buf = NULL;
         DIR _cleanup_closedir_ *d = NULL;

@@ -601,10 +601,8 @@ static int recursive_relabel(Item *i, const char *path) {
 
 static int glob_item(Item *i, int (*action)(Item *, const char *)) {
         int r = 0, k;
-        glob_t g;
+        glob_t g = {};
         char **fn;
-
-        zero(g);
 
         errno = 0;
         if ((k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g)) != 0) {

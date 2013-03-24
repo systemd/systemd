@@ -109,7 +109,6 @@ int ask_password_tty(
         }
 
         zero(pollfd);
-
         pollfd[POLL_TTY].fd = ttyfd >= 0 ? ttyfd : STDIN_FILENO;
         pollfd[POLL_TTY].events = POLLIN;
         pollfd[POLL_INOTIFY].fd = notify;
@@ -248,7 +247,9 @@ static int create_socket(char **name) {
         union {
                 struct sockaddr sa;
                 struct sockaddr_un un;
-        } sa;
+        } sa = {
+                .un.sun_family = AF_UNIX,
+        };
         int one = 1, r;
         char *c;
 
@@ -260,8 +261,6 @@ static int create_socket(char **name) {
                 return -errno;
         }
 
-        zero(sa);
-        sa.un.sun_family = AF_UNIX;
         snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/run/systemd/ask-password/sck.%llu", random_ull());
 
         RUN_WITH_UMASK(0177) {

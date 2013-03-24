@@ -396,7 +396,7 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         unsigned int i;
         const char *devtype;
         const char *prefix = "en";
-        struct netnames names;
+        struct netnames names = {};
         int err;
 
         /* handle only ARPHRD_ETHER devices */
@@ -425,7 +425,6 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
                         prefix = "ww";
         }
 
-        zero(names);
         err = names_mac(dev, &names);
         if (err >= 0 && names.mac_valid) {
                 char str[IFNAMSIZ];

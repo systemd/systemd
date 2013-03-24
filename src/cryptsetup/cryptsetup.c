@@ -461,10 +461,7 @@ int main(int argc, char *argv[]) {
                                 k = crypt_load(cd, CRYPT_LUKS1, NULL);
 
                         if ((!opt_type && k < 0) || streq_ptr(opt_type, CRYPT_PLAIN)) {
-                                struct crypt_params_plain params;
-
-                                zero(params);
-                                params.hash = hash;
+                                struct crypt_params_plain params = { .hash = hash };
 
                                 /* for CRYPT_PLAIN limit reads
                                 * from keyfile to key length, and

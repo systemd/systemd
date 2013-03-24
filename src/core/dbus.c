@@ -203,12 +203,10 @@ static void bus_toggle_watch(DBusWatch *bus_watch, void *data) {
 }
 
 static int bus_timeout_arm(Manager *m, Watch *w) {
-        struct itimerspec its;
+        struct itimerspec its = {};
 
         assert(m);
         assert(w);
-
-        zero(its);
 
         if (dbus_timeout_get_enabled(w->data.bus_timeout)) {
                 timespec_store(&its.it_value, dbus_timeout_get_interval(w->data.bus_timeout) * USEC_PER_MSEC);
