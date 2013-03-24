@@ -44,7 +44,7 @@ typedef struct EpollData {
 } EpollData;
 
 static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
-        EpollData *e;
+        EpollData _cleanup_free_ *e = NULL;
         struct epoll_event ev;
 
         assert(watch);
@@ -63,10 +63,8 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
 
         if (epoll_ctl(PTR_TO_INT(data), EPOLL_CTL_ADD, e->fd, &ev) < 0) {
 
-                if (errno != EEXIST) {
-                        free(e);
+                if (errno != EEXIST)
                         return FALSE;
-                }
 
                 /* Hmm, bloody D-Bus creates multiple watches on the
                  * same fd. epoll() does not like that. As a dirty
@@ -74,14 +72,11 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
                  * one we can safely add to the epoll(). */
 
                 e->fd = dup(e->fd);
-                if (e->fd < 0) {
-                        free(e);
+                if (e->fd < 0)
                         return FALSE;
-                }
 
                 if (epoll_ctl(PTR_TO_INT(data), EPOLL_CTL_ADD, e->fd, &ev) < 0) {
                         close_nointr_nofail(e->fd);
-                        free(e);
                         return FALSE;
                 }
 
@@ -89,12 +84,13 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
         }
 
         dbus_watch_set_data(watch, e, NULL);
+        e = NULL; /* prevent freeing */
 
         return TRUE;
 }
 
 static void remove_watch(DBusWatch *watch, void *data) {
-        EpollData *e;
+        EpollData _cleanup_free_ *e = NULL;
 
         assert(watch);
 
@@ -106,8 +102,6 @@ static void remove_watch(DBusWatch *watch, void *data) {
 
         if (e->fd_is_dupped)
                 close_nointr_nofail(e->fd);
-
-        free(e);
 }
 
 static void toggle_watch(DBusWatch *watch, void *data) {
@@ -186,7 +180,7 @@ fail:
 }
 
 static void remove_timeout(DBusTimeout *timeout, void *data) {
-        EpollData *e;
+        EpollData _cleanup_free_ *e = NULL;
 
         assert(timeout);
 
@@ -196,7 +190,6 @@ static void remove_timeout(DBusTimeout *timeout, void *data) {
 
         assert_se(epoll_ctl(PTR_TO_INT(data), EPOLL_CTL_DEL, e->fd, NULL) >= 0);
         close_nointr_nofail(e->fd);
-        free(e);
 }
 
 static void toggle_timeout(DBusTimeout *timeout, void *data) {

@@ -1710,7 +1710,8 @@ static int mount_enumerate(Manager *m) {
         assert(m);
 
         if (!m->proc_self_mountinfo) {
-                if (!(m->proc_self_mountinfo = fopen("/proc/self/mountinfo", "re")))
+                m->proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+                if (!m->proc_self_mountinfo)
                         return -errno;
 
                 m->mount_watch.type = WATCH_MOUNT;
@@ -1724,7 +1725,8 @@ static int mount_enumerate(Manager *m) {
                         return -errno;
         }
 
-        if ((r = mount_load_proc_self_mountinfo(m, false)) < 0)
+        r = mount_load_proc_self_mountinfo(m, false);
+        if (r < 0)
                 goto fail;
 
         return 0;

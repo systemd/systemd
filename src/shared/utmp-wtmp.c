@@ -292,7 +292,7 @@ int utmp_put_runlevel(int runlevel, int previous) {
 #define TIMEOUT_MSEC 50
 
 static int write_to_terminal(const char *tty, const char *message) {
-        int fd, r;
+        int _cleanup_close_ fd = -1;
         const char *p;
         size_t left;
         usec_t end;
@@ -300,13 +300,9 @@ static int write_to_terminal(const char *tty, const char *message) {
         assert(tty);
         assert(message);
 
-        if ((fd = open(tty, O_WRONLY|O_NDELAY|O_NOCTTY|O_CLOEXEC)) < 0)
+        fd = open(tty, O_WRONLY|O_NDELAY|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0 || !isatty(fd))
                 return -errno;
-
-        if (!isatty(fd)) {
-                r = -errno;
-                goto finish;
-        }
 
         p = message;
         left = strlen(message);
@@ -321,30 +317,26 @@ static int write_to_terminal(const char *tty, const char *message) {
 
                 t = now(CLOCK_MONOTONIC);
 
-                if (t >= end) {
-                        r = -ETIME;
-                        goto finish;
-                }
+                if (t >= end)
+                        return -ETIME;
 
                 zero(pollfd);
                 pollfd.fd = fd;
                 pollfd.events = POLLOUT;
 
-                if ((k = poll(&pollfd, 1, (end - t) / USEC_PER_MSEC)) < 0)
+                k = poll(&pollfd, 1, (end - t) / USEC_PER_MSEC);
+                if (k < 0)
                         return -errno;
 
-                if (k <= 0) {
-                        r = -ETIME;
-                        goto finish;
-                }
+                if (k == 0)
+                        return -ETIME;
 
-                if ((n = write(fd, p, left)) < 0) {
-
+                n = write(fd, p, left);
+                if (n < 0) {
                         if (errno == EAGAIN)
                                 continue;
 
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
 
                 assert((size_t) n <= left);
@@ -353,12 +345,7 @@ static int write_to_terminal(const char *tty, const char *message) {
                 left -= n;
         }
 
-        r = 0;
-
-finish:
-        close_nointr_nofail(fd);
-
-        return r;
+        return 0;
 }
 
 int utmp_wall(const char *message, bool (*match_tty)(const char *tty)) {

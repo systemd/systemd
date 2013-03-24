@@ -161,11 +161,12 @@ int bus_execute_append_cpu_sched_priority(DBusMessageIter *i, const char *proper
                 n = c->cpu_sched_priority;
         else {
                 struct sched_param p;
-                n = 0;
 
                 zero(p);
                 if (sched_getparam(0, &p) >= 0)
                         n = p.sched_priority;
+                else
+                        n = 0;
         }
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT32, &n))

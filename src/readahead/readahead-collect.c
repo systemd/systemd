@@ -284,13 +284,16 @@ static int collect(const char *root) {
                 goto finish;
         }
 
-        if (!(files = hashmap_new(string_hash_func, string_compare_func))) {
+        files = hashmap_new(string_hash_func, string_compare_func);
+        if (!files) {
                 log_error("Failed to allocate set.");
                 r = -ENOMEM;
                 goto finish;
         }
 
-        if ((fanotify_fd = fanotify_init(FAN_CLOEXEC|FAN_NONBLOCK, O_RDONLY|O_LARGEFILE|O_CLOEXEC|O_NOATIME)) < 0)  {
+        fanotify_fd = fanotify_init(FAN_CLOEXEC|FAN_NONBLOCK,
+                                    O_RDONLY|O_LARGEFILE|O_CLOEXEC|O_NOATIME);
+        if (fanotify_fd < 0)  {
                 log_error("Failed to create fanotify object: %m");
                 r = -errno;
                 goto finish;
@@ -302,7 +305,8 @@ static int collect(const char *root) {
                 goto finish;
         }
 
-        if ((inotify_fd = open_inotify()) < 0) {
+        inotify_fd = open_inotify();
+        if (inotify_fd < 0) {
                 r = inotify_fd;
                 goto finish;
         }

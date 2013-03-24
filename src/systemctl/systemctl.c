@@ -2980,7 +2980,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 }
 
 static int show_one(const char *verb, DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
-        _cleanup_free_ DBusMessage *reply = NULL;
+        DBusMessage _cleanup_free_ *reply = NULL;
         const char *interface = "";
         int r;
         DBusMessageIter iter, sub, sub2, sub3;

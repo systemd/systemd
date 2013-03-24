@@ -229,7 +229,8 @@ static int read_response(int fd, unsigned requests_max) {
 }
 
 static int check_loopback(void) {
-        int r, fd;
+        int r;
+        int _cleanup_close_ fd;
         union {
                 struct sockaddr sa;
                 struct sockaddr_in in;
@@ -251,8 +252,6 @@ static int check_loopback(void) {
         else
                 r = errno == EADDRNOTAVAIL ? 0 : -errno;
 
-        close_nointr_nofail(fd);
-
         return r;
 }
 
@@ -263,7 +262,7 @@ int loopback_setup(void) {
                 struct sockaddr_nl nl;
         } sa;
         unsigned requests = 0, i;
-        int fd;
+        int _cleanup_close_ fd = -1;
         bool eperm = false;
 
         errno = 0;
@@ -279,16 +278,16 @@ int loopback_setup(void) {
         sa.nl.nl_family = AF_NETLINK;
         if (bind(fd, &sa.sa, sizeof(sa)) < 0) {
                 r = -errno;
-                goto finish;
+                goto error;
         }
 
         r = add_adresses(fd, if_loopback, &requests);
         if (r < 0)
-                goto finish;
+                goto error;
 
         r = start_interface(fd, if_loopback, &requests);
         if (r < 0)
-                goto finish;
+                goto error;
 
         for (i = 0; i < requests; i++) {
                 r = read_response(fd, requests);
@@ -296,22 +295,17 @@ int loopback_setup(void) {
                 if (r == -EPERM)
                         eperm = true;
                 else if (r  < 0)
-                        goto finish;
+                        goto error;
         }
 
         if (eperm && check_loopback() < 0) {
                 r = -EPERM;
-                goto finish;
+                goto error;
         }
 
-        r = 0;
+        return 0;
 
-finish:
-        if (r < 0)
-                log_warning("Failed to configure loopback device: %s", strerror(-r));
-
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
+error:
+        log_warning("Failed to configure loopback device: %s", strerror(-r));
         return r;
 }

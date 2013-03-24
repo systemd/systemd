@@ -191,8 +191,8 @@ static void font_copy_to_all_vcs(int fd) {
 
         for (i = 1; i <= 15; i++) {
                 char vcname[16];
-                int vcfd;
                 struct console_font_op cfo;
+                int _cleanup_close_ vcfd = -1;
 
                 if (i == vcs.v_active)
                         continue;
@@ -212,8 +212,6 @@ static void font_copy_to_all_vcs(int fd) {
                 cfo.op = KD_FONT_OP_COPY;
                 cfo.height = vcs.v_active-1; /* tty1 == index 0 */
                 ioctl(vcfd, KDFONTOP, &cfo);
-
-                close_nointr_nofail(vcfd);
         }
 }
 

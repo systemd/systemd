@@ -255,14 +255,16 @@ static int create_socket(char **name) {
 
         assert(name);
 
-        if ((fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0)) < 0) {
+        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0) {
                 log_error("socket() failed: %m");
                 return -errno;
         }
 
         zero(sa);
         sa.un.sun_family = AF_UNIX;
-        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/run/systemd/ask-password/sck.%llu", random_ull());
+        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1,
+                 "/run/systemd/ask-password/sck.%llu", random_ull());
 
         u = umask(0177);
         r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
@@ -280,7 +282,8 @@ static int create_socket(char **name) {
                 goto fail;
         }
 
-        if (!(c = strdup(sa.un.sun_path))) {
+        c = strdup(sa.un.sun_path);
+        if (!c) {
                 r = log_oom();
                 goto fail;
         }

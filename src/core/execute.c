@@ -1215,8 +1215,12 @@ int exec_spawn(ExecCommand *command,
                         zero(param);
                         param.sched_priority = context->cpu_sched_priority;
 
-                        if (sched_setscheduler(0, context->cpu_sched_policy |
-                                               (context->cpu_sched_reset_on_fork ? SCHED_RESET_ON_FORK : 0), &param) < 0) {
+                        r = sched_setscheduler(0,
+                                               context->cpu_sched_policy |
+                                               (context->cpu_sched_reset_on_fork ?
+                                                SCHED_RESET_ON_FORK : 0),
+                                               &param);
+                        if (r < 0) {
                                 err = -errno;
                                 r = EXIT_SETSCHEDULER;
                                 goto fail_child;
@@ -1437,7 +1441,8 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 
-                if (!(our_env = new0(char*, 7))) {
+                our_env = new0(char*, 7);
+                if (!our_env) {
                         err = -ENOMEM;
                         r = EXIT_MEMORY;
                         goto fail_child;
@@ -1477,20 +1482,21 @@ int exec_spawn(ExecCommand *command,
 
                 assert(n_env <= 7);
 
-                if (!(final_env = strv_env_merge(
-                                      5,
-                                      environment,
-                                      our_env,
-                                      context->environment,
-                                      files_env,
-                                      pam_env,
-                                      NULL))) {
+                final_env = strv_env_merge(5,
+                                           environment,
+                                           our_env,
+                                           context->environment,
+                                           files_env,
+                                           pam_env,
+                                           NULL);
+                if (!final_env) {
                         err = -ENOMEM;
                         r = EXIT_MEMORY;
                         goto fail_child;
                 }
 
-                if (!(final_argv = replace_env_argv(argv, final_env))) {
+                final_argv = replace_env_argv(argv, final_env);
+                if (!final_argv) {
                         err = -ENOMEM;
                         r = EXIT_MEMORY;
                         goto fail_child;
@@ -1519,10 +1525,10 @@ int exec_spawn(ExecCommand *command,
         }
 
         log_struct_unit(LOG_DEBUG,
-                   unit_id,
-                   "MESSAGE=Forked %s as %lu",
-                          command->path, (unsigned long) pid,
-                   NULL);
+                        unit_id,
+                        "MESSAGE=Forked %s as %lu",
+                        command->path, (unsigned long) pid,
+                        NULL);
 
         /* We add the new process to the cgroup both in the child (so
          * that we can be sure that no user code is ever executed

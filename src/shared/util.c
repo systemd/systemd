@@ -1873,18 +1873,18 @@ int flush_fd(int fd) {
                 ssize_t l;
                 int r;
 
-                if ((r = poll(&pollfd, 1, 0)) < 0) {
-
+                r = poll(&pollfd, 1, 0);
+                if (r < 0) {
                         if (errno == EINTR)
                                 continue;
 
                         return -errno;
-                }
 
-                if (r == 0)
+                } else if (r == 0)
                         return 0;
 
-                if ((l = read(fd, buf, sizeof(buf))) < 0) {
+                l = read(fd, buf, sizeof(buf));
+                if (l < 0) {
 
                         if (errno == EINTR)
                                 continue;
@@ -1893,9 +1893,7 @@ int flush_fd(int fd) {
                                 return 0;
 
                         return -errno;
-                }
-
-                if (l <= 0)
+                } else if (l == 0)
                         return 0;
         }
 }
@@ -2068,10 +2066,12 @@ fail:
 }
 
 int release_terminal(void) {
-        int r = 0, fd;
+        int r = 0;
         struct sigaction sa_old, sa_new;
+        int _cleanup_close_ fd;
 
-        if ((fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_NDELAY|O_CLOEXEC)) < 0)
+        fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_NDELAY|O_CLOEXEC);
+        if (fd < 0)
                 return -errno;
 
         /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed
@@ -2087,7 +2087,6 @@ int release_terminal(void) {
 
         assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
-        close_nointr_nofail(fd);
         return r;
 }
 

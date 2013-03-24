@@ -95,7 +95,7 @@ static int manager_setup_notify(Manager *m) {
                 struct sockaddr_un un;
         } sa;
         struct epoll_event ev;
-        int one = 1;
+        int one = 1, r;
 
         assert(m);
 
@@ -116,12 +116,15 @@ static int manager_setup_notify(Manager *m) {
 
         sa.un.sun_path[0] = 0;
 
-        if (bind(m->notify_watch.fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+        r = bind(m->notify_watch.fd, &sa.sa,
+                 offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
+        if (r < 0) {
                 log_error("bind() failed: %m");
                 return -errno;
         }
 
-        if (setsockopt(m->notify_watch.fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0) {
+        r = setsockopt(m->notify_watch.fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
+        if (r < 0) {
                 log_error("SO_PASSCRED failed: %m");
                 return -errno;
         }
@@ -130,7 +133,8 @@ static int manager_setup_notify(Manager *m) {
         ev.events = EPOLLIN;
         ev.data.ptr = &m->notify_watch;
 
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->notify_watch.fd, &ev) < 0) {
+        r = epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->notify_watch.fd, &ev);
+        if (r < 0) {
                 log_error("Failed to add notification socket fd to epoll: %m");
                 return -errno;
         }
@@ -1188,7 +1192,7 @@ static int manager_process_notify_fd(Manager *m) {
                         uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
                 } control;
                 Unit *u;
-                char **tags;
+                char _cleanup_strv_free_ **tags = NULL;
 
                 zero(iovec);
                 iovec.iov_base = buf;
@@ -1226,7 +1230,8 @@ static int manager_process_notify_fd(Manager *m) {
                 if (!u) {
                         u = cgroup_unit_by_pid(m, ucred->pid);
                         if (!u) {
-                                log_warning("Cannot find unit for notify message of PID %lu.", (unsigned long) ucred->pid);
+                                log_warning("Cannot find unit for notify message of PID %lu.",
+                                            (unsigned long) ucred->pid);
                                 continue;
                         }
                 }
@@ -1241,8 +1246,6 @@ static int manager_process_notify_fd(Manager *m) {
 
                 if (UNIT_VTABLE(u)->notify_message)
                         UNIT_VTABLE(u)->notify_message(u, ucred->pid, tags);
-
-                strv_free(tags);
         }
 
         return 0;
@@ -1898,7 +1901,8 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 
         /* We set SOCK_NONBLOCK here so that we rather drop the
          * message then wait for plymouth */
-        if ((fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0)) < 0) {
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0) {
                 log_error("socket() failed: %m");
                 return;
         }
