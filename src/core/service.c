@@ -331,9 +331,6 @@ static char *sysv_translate_name(const char *name) {
         if (endswith(name, ".sh"))
                 /* Drop .sh suffix */
                 strcpy(stpcpy(r, name) - 3, ".service");
-        else if (startswith(name, "rc."))
-                /* Drop rc. prefix */
-                strcpy(stpcpy(r, name + 3), ".service");
         else
                 /* Normal init script name */
                 strcpy(stpcpy(r, name), ".service");
@@ -984,10 +981,8 @@ static int service_load_sysv_name(Service *s, const char *name) {
         assert(s);
         assert(name);
 
-        /* For SysV services we strip the rc.* and *.sh
-         * prefixes/suffixes. */
-        if (startswith(name, "rc.") ||
-            endswith(name, ".sh.service"))
+	/* For SysV services we strip the *.sh suffixes. */
+        if (endswith(name, ".sh.service"))
                 return -ENOENT;
 
         STRV_FOREACH(p, UNIT(s)->manager->lookup_paths.sysvinit_path) {
@@ -1009,19 +1004,6 @@ static int service_load_sysv_name(Service *s, const char *name) {
                         r = service_load_sysv_path(s, path);
                 }
                 free(path);
-
-                if (r >= 0 && UNIT(s)->load_state == UNIT_STUB) {
-                        /* Try rc.* init scripts */
-
-                        path = strjoin(*p, "/rc.", name, NULL);
-                        if (!path)
-                                return -ENOMEM;
-
-                        /* Drop .service suffix */
-                        path[strlen(path)-8] = 0;
-                        r = service_load_sysv_path(s, path);
-                        free(path);
-                }
 
                 if (r < 0)
                         return r;
