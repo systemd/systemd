@@ -53,8 +53,14 @@ typedef int (*sd_message_handler_t)(sd_bus *bus, int ret, sd_bus_message *m, voi
 
 int sd_bus_open_system(sd_bus **ret);
 int sd_bus_open_user(sd_bus **ret);
-int sd_bus_open_address(const char *address, sd_bus **ret);
-int sd_bus_open_fd(int fd, sd_bus **ret);
+
+int sd_bus_new(sd_bus **ret);
+int sd_bus_set_address(sd_bus *bus, const char *address);
+int sd_bus_set_fd(sd_bus *bus, int fd);
+int sd_bus_set_hello(sd_bus *bus, int b);
+int sd_bus_set_negotiate_fds(sd_bus *bus, int b);
+int sd_bus_start(sd_bus *ret);
+
 void sd_bus_close(sd_bus *bus);
 
 sd_bus *sd_bus_ref(sd_bus *bus);

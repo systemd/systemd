@@ -57,6 +57,7 @@ struct object_callback {
 };
 
 enum bus_state {
+        BUS_UNSET,
         BUS_OPENING,
         BUS_AUTHENTICATING,
         BUS_HELLO,
@@ -68,8 +69,10 @@ struct sd_bus {
         enum bus_state state;
         int fd;
         int message_version;
+
+        bool negotiate_fds:1;
         bool can_fds:1;
-        bool sent_hello:1;
+        bool send_hello:1;
         bool ucred_valid:1;
 
         void *rbuffer;

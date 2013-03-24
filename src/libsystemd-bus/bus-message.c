@@ -331,7 +331,7 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         m->header->endian = SD_BUS_NATIVE_ENDIAN;
         m->header->type = type;
         m->header->version = bus ? bus->message_version : 1;
-        m->allow_fds = !bus || bus->can_fds;
+        m->allow_fds = !bus || bus->can_fds || (bus->state != BUS_HELLO && bus->state != BUS_RUNNING);
 
         return m;
 }
@@ -354,6 +354,8 @@ int sd_bus_message_new_signal(
                 return -EINVAL;
         if (!m)
                 return -EINVAL;
+        if (bus && bus->state == BUS_UNSET)
+                return -ENOTCONN;
 
         t = message_new(bus, SD_BUS_MESSAGE_TYPE_SIGNAL);
         if (!t)
@@ -396,6 +398,8 @@ int sd_bus_message_new_method_call(
                 return -EINVAL;
         if (!m)
                 return -EINVAL;
+        if (bus && bus->state == BUS_UNSET)
+                return -ENOTCONN;
 
         t = message_new(bus, SD_BUS_MESSAGE_TYPE_METHOD_CALL);
         if (!t)
@@ -445,6 +449,8 @@ static int message_new_reply(
                 return -EINVAL;
         if (!m)
                 return -EINVAL;
+        if (bus && bus->state == BUS_UNSET)
+                return -ENOTCONN;
 
         t = message_new(bus, type);
         if (!t)
