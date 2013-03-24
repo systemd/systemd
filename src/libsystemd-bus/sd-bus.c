@@ -532,6 +532,8 @@ static int bus_read_auth(sd_bus *b) {
         k = recvmsg(b->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
         if (k < 0)
                 return errno == EAGAIN ? 0 : -errno;
+        if (k == 0)
+                return -ECONNRESET;
 
         b->rbuffer_size += k;
 
@@ -1058,6 +1060,8 @@ static int message_read(sd_bus *bus, sd_bus_message **m) {
         k = recvmsg(bus->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
         if (k < 0)
                 return errno == EAGAIN ? 0 : -errno;
+        if (k == 0)
+                return -ECONNRESET;
 
         bus->rbuffer_size += k;
 
