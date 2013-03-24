@@ -1698,7 +1698,7 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                 int k;
                 bool ignore = false;
                 char **p;
-                glob_t pglob = {};
+                glob_t _cleanup_globfree_ pglob = {};
                 int count, n;
 
                 fn = *i;
@@ -1709,7 +1709,6 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                 }
 
                 if (!path_is_absolute(fn)) {
-
                         if (ignore)
                                 continue;
 
@@ -1720,7 +1719,6 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                 /* Filename supports globbing, take all matching files */
                 errno = 0;
                 if (glob(fn, 0, NULL, &pglob) != 0) {
-                        globfree(&pglob);
                         if (ignore)
                                 continue;
 
@@ -1729,7 +1727,6 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                 }
                 count = pglob.gl_pathc;
                 if (count == 0) {
-                        globfree(&pglob);
                         if (ignore)
                                 continue;
 
@@ -1743,7 +1740,6 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                                         continue;
 
                                 strv_free(r);
-                                globfree(&pglob);
                                 return k;
                          }
 
@@ -1755,16 +1751,12 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                                 m = strv_env_merge(2, r, p);
                                 strv_free(r);
                                 strv_free(p);
-
-                                if (!m) {
-                                        globfree(&pglob);
+                                if (!m)
                                         return -ENOMEM;
-                                }
 
                                 r = m;
                         }
                 }
-                globfree(&pglob);
         }
 
         *l = r;

@@ -37,8 +37,8 @@
 #include <sys/resource.h>
 #include <stddef.h>
 #include <unistd.h>
-#include <systemd/sd-journal.h>
 
+#include <systemd/sd-journal.h>
 #include "macro.h"
 #include "time-util.h"
 
@@ -538,6 +538,8 @@ static inline void umaskp(mode_t *u) {
 static inline void journal_closep(sd_journal **j) {
         sd_journal_close(*j);
 }
+
+#define _cleanup_globfree_ __attribute__((cleanup(globfree)))
 
 _malloc_  static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b == 0 || a > ((size_t) -1) / b))

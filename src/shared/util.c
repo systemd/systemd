@@ -4322,7 +4322,7 @@ int in_group(const char *name) {
 }
 
 int glob_exists(const char *path) {
-        glob_t g;
+        glob_t _cleanup_globfree_ g = {};
         int r, k;
 
         assert(path);
@@ -4338,8 +4338,6 @@ int glob_exists(const char *path) {
                 r = !strv_isempty(g.gl_pathv);
         else
                 r = errno ? -errno : -EIO;
-
-        globfree(&g);
 
         return r;
 }

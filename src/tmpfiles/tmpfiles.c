@@ -601,12 +601,12 @@ static int recursive_relabel(Item *i, const char *path) {
 
 static int glob_item(Item *i, int (*action)(Item *, const char *)) {
         int r = 0, k;
-        glob_t g = {};
+        glob_t _cleanup_globfree_ g = {};
         char **fn;
 
         errno = 0;
-        if ((k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g)) != 0) {
-
+        k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
+        if (k != 0)
                 if (k != GLOB_NOMATCH) {
                         if (errno > 0)
                                 errno = EIO;
@@ -614,13 +614,13 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
                         log_error("glob(%s) failed: %m", i->path);
                         return -errno;
                 }
+
+        STRV_FOREACH(fn, g.gl_pathv) {
+                k = action(i, *fn);
+                if (k < 0)
+                        r = k;
         }
 
-        STRV_FOREACH(fn, g.gl_pathv)
-                if ((k = action(i, *fn)) < 0)
-                        r = k;
-
-        globfree(&g);
         return r;
 }
 
