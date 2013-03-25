@@ -34,7 +34,7 @@ CHANGES WITH 199:
 
         * journald will not explicitly flush the journal files to disk
           the latest 5min after each write. This will also mark the
-          files as offline then until the next read. This should
+          files as offline then until the next write. This should
           increase reliability. The synchronization delay can be
           configured via SyncIntervalSec= in journald.conf.
 
@@ -46,6 +46,9 @@ CHANGES WITH 199:
           canonical targets to pull user timer and path units in
           from. This complements sockets.target with a similar
           purpose for socket units.
+
+        * libudev gained a new call udev_device_set_attribute_value()
+          to set sysfs attributes of a device.
 
         Contributions from: Auke Kok, Colin Walters, Cristian
         Rodríguez, Daniel Buch, Dave Reisner, Frederic Crozat, Hannes
