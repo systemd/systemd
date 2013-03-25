@@ -24,6 +24,7 @@
 #include <linux/sockios.h>
 #include <sys/statvfs.h>
 #include <sys/mman.h>
+#include <sys/timerfd.h>
 
 #include <libudev.h>
 #include <systemd/sd-journal.h>
@@ -67,6 +68,7 @@
 
 #define USER_JOURNALS_MAX 1024
 
+#define DEFAULT_SYNC_INTERVAL_USEC (5*USEC_PER_MINUTE)
 #define DEFAULT_RATE_LIMIT_INTERVAL (10*USEC_PER_SEC)
 #define DEFAULT_RATE_LIMIT_BURST 200
 
@@ -344,6 +346,33 @@ void server_rotate(Server *s) {
         }
 }
 
+void server_sync(Server *s) {
+        JournalFile *f;
+        void *k;
+        Iterator i;
+        int r;
+
+        static const struct itimerspec sync_timer_disable = {};
+
+        if (s->system_journal) {
+                r = journal_file_set_offline(s->system_journal);
+                if (r < 0)
+                        log_error("Failed to sync system journal: %s", strerror(-r));
+        }
+
+        HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
+                r = journal_file_set_offline(f);
+                if (r < 0)
+                        log_error("Failed to sync user journal: %s", strerror(-r));
+        }
+
+        r = timerfd_settime(s->sync_timer_fd, 0, &sync_timer_disable, NULL);
+        if (r < 0)
+                log_error("Failed to disable max timer: %m");
+
+        s->sync_scheduled = false;
+}
+
 void server_vacuum(Server *s) {
         char *p;
         char ids[33];
@@ -475,8 +504,10 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
         }
 
         r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
-        if (r >= 0)
+        if (r >= 0) {
+                server_schedule_sync(s);
                 return;
+        }
 
         if (vacuumed || !shall_try_append_again(f, r)) {
                 log_error("Failed to write entry, ignoring: %s", strerror(-r));
@@ -990,11 +1021,10 @@ int process_event(Server *s, struct epoll_event *ev) {
                         return -errno;
                 }
 
-                log_info("Received SIG%s", signal_to_string(sfsi.ssi_signo));
-
                 if (sfsi.ssi_signo == SIGUSR1) {
                         touch("/run/systemd/journal/flushed");
                         server_flush_to_var(s);
+                        server_sync(s);
                         return 1;
                 }
 
@@ -1004,7 +1034,22 @@ int process_event(Server *s, struct epoll_event *ev) {
                         return 1;
                 }
 
+                log_info("Received SIG%s", signal_to_string(sfsi.ssi_signo));
+
                 return 0;
+
+        } else if (ev->data.fd == s->sync_timer_fd) {
+                int r;
+                uint64_t t;
+
+                log_debug("Got sync request from epoll.");
+
+                r = read(ev->data.fd, (void *)&t, sizeof(t));
+                if (r < 0)
+                        return 0;
+
+                server_sync(s);
+                return 1;
 
         } else if (ev->data.fd == s->dev_kmsg_fd) {
                 int r;
@@ -1285,15 +1330,67 @@ static int server_parse_config_file(Server *s) {
         return r;
 }
 
+static int server_open_sync_timer(Server *s) {
+        int r;
+        struct epoll_event ev;
+
+        assert(s);
+
+        s->sync_timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+        if (s->sync_timer_fd < 0)
+                return -errno;
+
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.fd = s->sync_timer_fd;
+
+        r = epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->sync_timer_fd, &ev);
+        if (r < 0) {
+                log_error("Failed to add idle timer fd to epoll object: %m");
+                return -errno;
+        }
+
+        return 0;
+}
+
+int server_schedule_sync(Server *s) {
+        int r;
+
+        struct itimerspec sync_timer_enable;
+
+        assert(s);
+
+        if (s->sync_scheduled)
+                return 0;
+
+        if (s->sync_interval_usec) {
+                zero(sync_timer_enable);
+                sync_timer_enable.it_value.tv_sec = s->sync_interval_usec / USEC_PER_SEC;
+                sync_timer_enable.it_value.tv_nsec = s->sync_interval_usec % MSEC_PER_SEC;
+
+                r = timerfd_settime(s->sync_timer_fd, 0, &sync_timer_enable, NULL);
+                if (r < 0)
+                        return -errno;
+        }
+
+        s->sync_scheduled = true;
+
+        return 0;
+}
+
 int server_init(Server *s) {
         int n, r, fd;
 
         assert(s);
 
         zero(*s);
-        s->syslog_fd = s->native_fd = s->stdout_fd = s->signal_fd = s->epoll_fd = s->dev_kmsg_fd = -1;
+        s->sync_timer_fd = s->syslog_fd = s->native_fd = s->stdout_fd =
+            s->signal_fd = s->epoll_fd = s->dev_kmsg_fd = -1;
         s->compress = true;
         s->seal = true;
+
+        s->sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC;
+        s->sync_scheduled = false;
 
         s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
         s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
@@ -1394,6 +1491,10 @@ int server_init(Server *s) {
         if (r < 0)
                 return r;
 
+        r = server_open_sync_timer(s);
+        if (r < 0)
+                return r;
+
         r = open_signalfd(s);
         if (r < 0)
                 return r;
@@ -1465,6 +1566,9 @@ void server_done(Server *s) {
 
         if (s->dev_kmsg_fd >= 0)
                 close_nointr_nofail(s->dev_kmsg_fd);
+
+        if (s->sync_timer_fd >= 0)
+                close_nointr_nofail(s->sync_timer_fd);
 
         if (s->rate_limit)
                 journal_rate_limit_free(s->rate_limit);

@@ -322,6 +322,16 @@
                                 seconds. </para></listitem>
                         </varlistentry>
 
+
+                        <varlistentry>
+                                <term><varname>SyncIntervalSec=</varname></term>
+
+                                <listitem><para>The timeout before syncing journal
+                                data to disk. After syncing journal files have
+                                OFFLINE state. Default timeout is 5 minutes.
+                                </para></listitem>
+                        </varlistentry>
+
                         <varlistentry>
                                 <term><varname>ForwardToSyslog=</varname></term>
                                 <term><varname>ForwardToKMsg=</varname></term>

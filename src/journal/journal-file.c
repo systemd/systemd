@@ -68,6 +68,50 @@
 /* How many entries to keep in the entry array chain cache at max */
 #define CHAIN_CACHE_MAX 20
 
+int journal_file_set_online(JournalFile *f) {
+        assert(f);
+
+        if (!f->writable)
+                return -EPERM;
+
+        if (!(f->fd >= 0 && f->header))
+                return -EINVAL;
+
+        switch(f->header->state) {
+                case STATE_ONLINE:
+                        return 0;
+
+                case STATE_OFFLINE:
+                        f->header->state = STATE_ONLINE;
+                        fsync(f->fd);
+                        return 0;
+
+                default:
+                        return -EINVAL;
+        }
+}
+
+int journal_file_set_offline(JournalFile *f) {
+        assert(f);
+
+        if (!f->writable)
+                return -EPERM;
+
+        if (!(f->fd >= 0 && f->header))
+                return -EINVAL;
+
+        if (f->header->state != STATE_ONLINE)
+                return 0;
+
+        fsync(f->fd);
+
+        f->header->state = STATE_OFFLINE;
+
+        fsync(f->fd);
+
+        return 0;
+}
+
 void journal_file_close(JournalFile *f) {
         assert(f);
 
@@ -81,16 +125,10 @@ void journal_file_close(JournalFile *f) {
         if (f->mmap && f->fd >= 0)
                 mmap_cache_close_fd(f->mmap, f->fd);
 
-        if (f->writable && f->fd >= 0)
-                fdatasync(f->fd);
+        journal_file_set_offline(f);
 
-        if (f->header) {
-                /* Mark the file offline. Don't override the archived state if it already is set */
-                if (f->writable && f->header->state == STATE_ONLINE)
-                        f->header->state = STATE_OFFLINE;
-
+        if (f->header)
                 munmap(f->header, PAGE_ALIGN(sizeof(Header)));
-        }
 
         if (f->fd >= 0)
                 close_nointr_nofail(f->fd);
@@ -177,7 +215,7 @@ static int journal_file_refresh_header(JournalFile *f) {
 
         f->header->boot_id = boot_id;
 
-        f->header->state = STATE_ONLINE;
+        journal_file_set_online(f);
 
         /* Sync the online state to disk */
         msync(f->header, PAGE_ALIGN(sizeof(Header)), MS_SYNC);
@@ -456,6 +494,10 @@ int journal_file_append_object(JournalFile *f, int type, uint64_t size, Object *
         assert(size >= sizeof(ObjectHeader));
         assert(offset);
         assert(ret);
+
+        r = journal_file_set_online(f);
+        if (r < 0)
+                return r;
 
         p = le64toh(f->header->tail_object_offset);
         if (p == 0)
@@ -1266,9 +1308,6 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 
         assert(f);
         assert(iovec || n_iovec == 0);
-
-        if (!f->writable)
-                return -EPERM;
 
         if (!ts) {
                 dual_timestamp_get(&_ts);

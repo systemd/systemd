@@ -18,6 +18,7 @@ struct ConfigPerfItem;
 Journal.Storage,            config_parse_storage,   0, offsetof(Server, storage)
 Journal.Compress,           config_parse_bool,      0, offsetof(Server, compress)
 Journal.Seal,               config_parse_bool,      0, offsetof(Server, seal)
+Journal.SyncIntervalSec,    config_parse_usec,      0, offsetof(Server, sync_interval_usec)
 Journal.RateLimitInterval,  config_parse_usec,      0, offsetof(Server, rate_limit_interval)
 Journal.RateLimitBurst,     config_parse_unsigned,  0, offsetof(Server, rate_limit_burst)
 Journal.SystemMaxUse,       config_parse_bytes_off, 0, offsetof(Server, system_metrics.max_use)

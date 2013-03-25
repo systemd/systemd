@@ -71,6 +71,7 @@ typedef struct Server {
         size_t buffer_size;
 
         JournalRateLimit *rate_limit;
+        usec_t sync_interval_usec;
         usec_t rate_limit_interval;
         unsigned rate_limit_burst;
 
@@ -119,6 +120,9 @@ typedef struct Server {
         uint64_t *kernel_seqnum;
 
         struct udev *udev;
+
+        int sync_timer_fd;
+        bool sync_scheduled;
 } Server;
 
 #define N_IOVEC_META_FIELDS 17
@@ -145,8 +149,10 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid);
 bool shall_try_append_again(JournalFile *f, int r);
 int server_init(Server *s);
 void server_done(Server *s);
+void server_sync(Server *s);
 void server_vacuum(Server *s);
 void server_rotate(Server *s);
+int server_schedule_sync(Server *s);
 int server_flush_to_var(Server *s);
 int process_event(Server *s, struct epoll_event *ev);
 void server_maybe_append_tags(Server *s);
