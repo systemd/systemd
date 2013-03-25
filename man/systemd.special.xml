@@ -927,7 +927,13 @@
                 similar definitions as their system counterparts:
                 <filename>default.target</filename>,
                 <filename>shutdown.target</filename>,
-                <filename>sockets.target</filename></para>
+                <filename>sockets.target</filename>,
+                <filename>timers.target</filename>,
+                <filename>paths.target</filename>,
+                <filename>bluetooth.target</filename>,
+                <filename>printer.target</filename>,
+                <filename>smartcard.target</filename>,
+                <filename>sound.target</filename>.</para>
 
                 <para>In addition the following special unit is
                 understood only when systemd runs as service instance:</para>

@@ -3944,7 +3944,8 @@ USER_UNIT_ALIASES += \
 	$(systemunitdir)/paths.target paths.target \
 	$(systemunitdir)/bluetooth.target bluetooth.target \
 	$(systemunitdir)/printer.target printer.target \
-	$(systemunitdir)/sound.target sound.target
+	$(systemunitdir)/sound.target sound.target \
+	$(systemunitdir)/smartcard.target smartcard.target
 
 GENERAL_ALIASES += \
 	$(systemunitdir)/remote-fs.target $(pkgsysconfdir)/system/multi-user.target.wants/remote-fs.target \
