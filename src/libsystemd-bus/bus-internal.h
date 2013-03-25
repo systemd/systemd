@@ -72,7 +72,7 @@ struct sd_bus {
 
         bool negotiate_fds:1;
         bool can_fds:1;
-        bool send_hello:1;
+        bool bus_client:1;
         bool ucred_valid:1;
 
         void *rbuffer;

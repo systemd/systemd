@@ -31,6 +31,7 @@
 /* TODO:
  * - implicitly add stub introspection calls
  * - server side
+ * - allow installing match callbacks,
  *
  * Later:
  * - add page donation logic
@@ -58,7 +59,7 @@ int sd_bus_new(sd_bus **ret);
 int sd_bus_set_address(sd_bus *bus, const char *address);
 int sd_bus_set_fd(sd_bus *bus, int fd);
 int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]);
-int sd_bus_set_hello(sd_bus *bus, int b);
+int sd_bus_set_bus_client(sd_bus *bus, int b);
 int sd_bus_set_negotiate_fds(sd_bus *bus, int b);
 int sd_bus_start(sd_bus *ret);
 

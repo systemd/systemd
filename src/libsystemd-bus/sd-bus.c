@@ -176,13 +176,13 @@ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
         return 0;
 }
 
-int sd_bus_set_hello(sd_bus *bus, int b) {
+int sd_bus_set_bus_client(sd_bus *bus, int b) {
         if (!bus)
                 return -EINVAL;
         if (bus->state != BUS_UNSET)
                 return -EPERM;
 
-        bus->send_hello = !!b;
+        bus->bus_client = !!b;
         return 0;
 }
 
@@ -230,7 +230,7 @@ static int bus_send_hello(sd_bus *bus) {
 
         assert(bus);
 
-        if (!bus->send_hello)
+        if (!bus->bus_client)
                 return 0;
 
         r = sd_bus_message_new_method_call(
@@ -253,7 +253,7 @@ static int bus_send_hello(sd_bus *bus) {
 int bus_start_running(sd_bus *bus) {
         assert(bus);
 
-        if (bus->send_hello) {
+        if (bus->bus_client) {
                 bus->state = BUS_HELLO;
                 return 1;
         }
@@ -753,7 +753,7 @@ int sd_bus_open_system(sd_bus **ret) {
                 b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + sizeof("/run/dbus/system_bus_socket") - 1;
         }
 
-        b->send_hello = true;
+        b->bus_client = true;
 
         r = sd_bus_start(b);
         if (r < 0)
@@ -803,7 +803,7 @@ int sd_bus_open_user(sd_bus **ret) {
                 b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + l + 4;
         }
 
-        b->send_hello = true;
+        b->bus_client = true;
 
         r = sd_bus_start(b);
         if (r < 0)
