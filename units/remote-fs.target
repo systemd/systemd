@@ -8,8 +8,6 @@
 [Unit]
 Description=Remote File Systems
 Documentation=man:systemd.special(7)
-Wants=remote-fs-pre.target
-After=remote-fs-pre.target
 
 [Install]
 WantedBy=multi-user.target
