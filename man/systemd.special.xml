@@ -73,6 +73,7 @@
                 <filename>network.target</filename>,
                 <filename>nss-lookup.target</filename>,
                 <filename>nss-user-lookup.target</filename>,
+                <filename>paths.target</filename>,
                 <filename>poweroff.target</filename>,
                 <filename>printer.target</filename>,
                 <filename>reboot.target</filename>,
@@ -97,6 +98,7 @@
                 <filename>syslog.socket</filename>,
                 <filename>system-update.target</filename>,
                 <filename>time-sync.target</filename>,
+                <filename>timers.target</filename>,
                 <filename>umount.target</filename></para>
         </refsynopsisdiv>
 
@@ -116,22 +118,23 @@
                                 <term><filename>basic.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
-                                        covering early boot-up.</para>
+                                        covering basic boot-up.</para>
                                         <para>systemd automatically
                                         adds dependencies of the types
-                                        Requires and After for this
-                                        target unit to all SysV
-                                        service units configured for
-                                        runlevel 1 to 5.</para>
-                                        <para>Usually this should pull-in
-                                        all sockets, mount points,
-                                        swap devices and other basic
+                                        <varname>Requires=</varname>
+                                        and <varname>After=</varname>
+                                        for this target unit to all
+                                        services (except for those
+                                        with
+                                        <varname>DefaultDependencies=no</varname>).</para>
+
+                                        <para>Usually this should
+                                        pull-in all mount points, swap
+                                        devices, sockets, timers, and
+                                        path units and other basic
                                         initialization necessary for
-                                        the general purpose
-                                        daemons. Most normal daemons
-                                        should have dependencies of
-                                        type After and Requires on
-                                        this unit.</para>
+                                        general purpose
+                                        daemons.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -139,9 +142,15 @@
                                 <listitem>
                                         <para>This target is started
                                         automatically as soon as a
-                                        bluetooth controller is
+                                        Bluetooth controller is
                                         plugged in or becomes
                                         available at boot.</para>
+
+                                        <para>This may be used to pull
+                                        in Bluetooth management
+                                        daemons dynamically when
+                                        Bluetooth hardware is
+                                        found.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -169,7 +178,7 @@
                                 <term><filename>dbus.service</filename></term>
                                 <listitem>
                                         <para>A special unit for the
-                                        D-Bus system bus. As soon as
+                                        D-Bus bus daemon. As soon as
                                         this service is fully started
                                         up systemd will connect to it
                                         and register its
@@ -182,7 +191,7 @@
                                         <para>A special unit for the
                                         D-Bus system bus socket. All
                                         units with
-                                        <literal>Type=dbus</literal>
+                                        <varname>Type=dbus</varname>
                                         automatically gain a
                                         dependency on this
                                         unit.</para>
@@ -198,6 +207,7 @@
                                         <filename>multi-user.target</filename>
                                         or
                                         <filename>graphical.target</filename>.</para>
+
                                         <para>The default unit systemd
                                         starts at bootup can be
                                         overridden with the
@@ -247,8 +257,10 @@
                                 <term><filename>getty.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
-                                        that pulls in all local TTY
-                                        <filename>getty</filename> instances.
+                                        that pulls in statically
+                                        configured local TTY
+                                        <filename>getty</filename>
+                                        instances.
                                         </para>
                                 </listitem>
                         </varlistentry>
@@ -261,11 +273,17 @@
                                         <filename>multi-user.target</filename>.</para>
 
                                         <para>Units that are needed
-                                        for graphical login shall add
-                                        Wants dependencies for their
-                                        unit to this unit (or
+                                        for graphical logins shall add
+                                        <varname>Wants=</varname>
+                                        dependencies for their unit to
+                                        this unit (or
                                         <filename>multi-user.target</filename>)
-                                        during installation.</para>
+                                        during installation. This is
+                                        best configured via
+                                        <varname>WantedBy=graphical.target</varname>
+                                        in the unit's
+                                        <literal>[Install]</literal>
+                                        section.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -290,7 +308,13 @@
                                 <term><filename>halt.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
-                                        for shutting down and halting the system.</para>
+                                        for shutting down and halting
+                                        the system. Note that this
+                                        target is distinct from
+                                        <filename>poweroff.target</filename>
+                                        in that it generally really
+                                        just halts the system rather
+                                        than powering it down.</para>
 
                                         <para>Applications wanting to
                                         halt the system should start
@@ -300,16 +324,17 @@
                         <varlistentry>
                                 <term><filename>initrd-fs.target</filename></term>
                                 <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        Before to sysroot-usr.mount and
-                                        all mount points fround in
+                                        <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                        automatically adds
+                                        dependencies of type
+                                        <varname>Before=</varname> to
+                                        <filename>sysroot-usr.mount</filename>
+                                        and all mount points fround in
                                         <filename>/etc/fstab</filename>
                                         that have the
                                         <option>auto</option> and
                                         <option>x-initrd.mount</option>
                                         mount options set.
-                                        See also <literal>systemd-fstab-generator</literal>.
                                         </para>
                                 </listitem>
                         </varlistentry>
@@ -338,20 +363,21 @@
                         <varlistentry>
                                 <term><filename>local-fs.target</filename></term>
                                 <listitem>
-                                        <para>systemd automatically
+                                        <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                        automatically adds
+                                        dependencies of type
+                                        <varname>Before=</varname> to
+                                        all mount units that refer to
+                                        local mount points for this
+                                        target unit. In addition, it
                                         adds dependencies of type
-                                        After to all mount units that
-                                        refer to local mount points
-                                        for this target unit. In
-                                        addition, systemd adds
-                                        dependencies of type Wants to
+                                        <varname>Wants=</varname> to
                                         this target unit for those
                                         mounts listed in
                                         <filename>/etc/fstab</filename>
                                         that have the
-                                        <option>auto</option> and
-                                        <option>comment=systemd.mount</option>
-                                        mount options set.</para>
+                                        <option>auto</option> mount
+                                        option set.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -377,9 +403,15 @@
 
                                         <para>Units that are needed
                                         for a multi-user system shall
-                                        add Wants dependencies to
-                                        this unit for their unit during
-                                        installation.</para>
+                                        add <varname>Wants=</varname>
+                                        dependencies for their unit to
+                                        this unit during
+                                        installation. This is best
+                                        configured via
+                                        <varname>WantedBy=multi-uer.target</varname>
+                                        in the unit's
+                                        <literal>[Install]</literal>
+                                        section.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -387,10 +419,10 @@
                                 <listitem>
                                         <para>systemd automatically
                                         adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
+                                        <varname>After=</varname> for
+                                        this target unit to all SysV
+                                        init script service units with
+                                        an LSB header referring to the
                                         <literal>$network</literal>
                                         facility.</para>
 
@@ -418,7 +450,8 @@
                                         <filename>nss-user-lookup.target</filename>
                                         should be used. systemd
                                         automatically adds
-                                        dependencies of type After for
+                                        dependencies of type
+                                        <varname>After=</varname> for
                                         this target unit to all SysV
                                         init script service units with
                                         an LSB header referring to the
@@ -438,6 +471,29 @@
                                         which
                                         <filename>nss-lookup.target</filename>
                                         should be used. </para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>paths.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        that sets up all path units
+                                        (see
+                                        <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                        for details) that shall be
+                                        active after boot.</para>
+
+                                        <para>It is recommended that
+                                        path units installed by
+                                        applications get pulled in via
+                                        <varname>Wants=</varname>
+                                        dependencies from this
+                                        unit. This is best configured
+                                        via a
+                                        <varname>WantedBy=paths.target</varname>
+                                        in the path unit's
+                                        <literal>[Install]</literal>
+                                        section.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -463,6 +519,12 @@
                                         printer is plugged in or
                                         becomes available at
                                         boot.</para>
+
+                                        <para>This may be used to pull
+                                        in printer management
+                                        daemons dynamically when
+                                        printer hardware is
+                                        found.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -490,10 +552,10 @@
 
                                         <para>systemd automatically
                                         adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
+                                        <varname>After=</varname> for
+                                        this target unit to all SysV
+                                        init script service units with
+                                        an LSB header referring to the
                                         <literal>$remote_fs</literal>
                                         facility.</para>
                                 </listitem>
@@ -525,11 +587,14 @@
                         <varlistentry>
                                 <term><filename>initrd-root-fs.target</filename></term>
                                 <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        Before to the sysroot.mount unit,
-                                        which is generated from the kernel command
-                                        line by the <literal>systemd-fstab-generator</literal>.
+                                        <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                        automatically adds
+                                        dependencies of type
+                                        <varname>Before=</varname> to
+                                        the
+                                        <filename>sysroot.mount</filename>
+                                        unit, which is generated from
+                                        the kernel command line.
                                         </para>
                                 </listitem>
                         </varlistentry>
@@ -538,10 +603,10 @@
                                 <listitem>
                                         <para>systemd automatically
                                         adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
+                                        <varname>After=</varname> for
+                                        this target unit to all SysV
+                                        init script service units with
+                                        an LSB header referring to the
                                         <literal>$portmap</literal>
                                         facility.</para>
                                 </listitem>
@@ -574,20 +639,12 @@
 
                                         <para>Services that shall be
                                         terminated on system shutdown
-                                        shall add Conflicts
+                                        shall add <varname>Conflicts=</varname>
                                         dependencies to this unit for
                                         their service unit, which is
                                         implicitly done when
                                         <varname>DefaultDependencies=yes</varname>
                                         is set (the default).</para>
-
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        Conflicts to this target unit
-                                        for all SysV init script
-                                        service units that shall be
-                                        terminated in SysV runlevels 0
-                                        or 6.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -607,7 +664,9 @@
                                         <para>A special target unit
                                         that is pulled in by
                                         <filename>suspend.target</filename>,
-                                        <filename>hibernate.target</filename> and <filename>hybrid-sleep.target</filename>
+                                        <filename>hibernate.target</filename>
+                                        and
+                                        <filename>hybrid-sleep.target</filename>
                                         and may be used to hook units
                                         into the sleep state
                                         logic.</para>
@@ -621,20 +680,35 @@
                                         smartcard controller is
                                         plugged in or becomes
                                         available at boot.</para>
+
+                                        <para>This may be used to pull
+                                        in printer management
+                                        daemons dynamically when
+                                        smartcard hardware is
+                                        found.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><filename>sockets.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
-                                        that sets up all service
-                                        sockets.</para>
+                                        that sets up all socket
+                                        units.(see
+                                        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                        for details) that shall be
+                                        active after boot.</para>
 
                                         <para>Services that can be
                                         socket-activated shall add
-                                        Wants dependencies to this
-                                        unit for their socket unit
-                                        during installation.</para>
+                                        <varname>Wants=</varname>
+                                        dependencies to this unit for
+                                        their socket unit during
+                                        installation. This is best
+                                        configured via a
+                                        <varname>WantedBy=sockets.target</varname>
+                                        in the socket unit's
+                                        <literal>[Install]</literal>
+                                        section.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -645,6 +719,11 @@
                                         sound card is plugged in or
                                         becomes available at
                                         boot.</para>
+
+                                        <para>This may be used to pull
+                                        in audio management daemons
+                                        dynamically when printer
+                                        hardware is found.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -710,12 +789,35 @@
                                 <listitem>
                                         <para>systemd automatically
                                         adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
+                                        <varname>After=</varname> for
+                                        this target unit to all SysV
+                                        init script service units with
+                                        an LSB header referring to the
                                         <literal>$time</literal>
                                         facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>timers.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        that sets up all timer
+                                        units (see
+                                        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                        for details) that shall be
+                                        active after boot.</para>
+
+                                        <para>It is recommended that
+                                        timer units installed by
+                                        applications get pulled in via
+                                        <varname>Wants=</varname>
+                                        dependencies from this
+                                        unit. This is best configured
+                                        via
+                                        <varname>WantedBy=timers.target</varname>
+                                        in the timer unit's
+                                        <literal>[Install]</literal>
+                                        section.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -788,7 +890,7 @@
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>

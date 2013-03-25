@@ -6,12 +6,5 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Forward Password Requests to Wall Directory Watch
-Documentation=man:systemd-ask-password-console.service(8)
-DefaultDependencies=no
-Conflicts=shutdown.target
-Before=paths.target shutdown.target
-
-[Path]
-DirectoryNotEmpty=/run/systemd/ask-password
-MakeDirectory=yes
+Description=Timers
+Documentation=man:systemd.special(7)

@@ -46,6 +46,8 @@
 /* Early boot targets */
 #define SPECIAL_SYSINIT_TARGET "sysinit.target"
 #define SPECIAL_SOCKETS_TARGET "sockets.target"
+#define SPECIAL_TIMERS_TARGET "timers.target"
+#define SPECIAL_PATHS_TARGET "paths.target"
 #define SPECIAL_LOCAL_FS_TARGET "local-fs.target"
 #define SPECIAL_LOCAL_FS_PRE_TARGET "local-fs-pre.target"
 #define SPECIAL_INITRD_FS_TARGET "initrd-fs.target"

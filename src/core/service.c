@@ -1148,6 +1148,16 @@ static int service_add_default_dependencies(Service *s) {
                                                       SPECIAL_SOCKETS_TARGET, NULL, true);
                 if (r < 0)
                         return r;
+
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES,
+                                                      SPECIAL_TIMERS_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
+
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES,
+                                                      SPECIAL_PATHS_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
         }
 
         /* Second, activate normal shutdown */

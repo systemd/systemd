@@ -331,11 +331,13 @@ static int socket_add_default_dependencies(Socket *s) {
         int r;
         assert(s);
 
-        if (UNIT(s)->manager->running_as == SYSTEMD_SYSTEM) {
-                if ((r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SOCKETS_TARGET, NULL, true)) < 0)
-                        return r;
+        r = unit_add_dependency_by_name(UNIT(s), UNIT_BEFORE, SPECIAL_SOCKETS_TARGET, NULL, true);
+        if (r < 0)
+                return r;
 
-                if ((r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+        if (UNIT(s)->manager->running_as == SYSTEMD_SYSTEM) {
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
+                if (r < 0)
                         return r;
         }
 

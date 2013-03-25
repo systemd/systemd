@@ -193,8 +193,8 @@ SHUTDOWN_TARGET_WANTS =
 LOCAL_FS_TARGET_WANTS =
 MULTI_USER_TARGET_WANTS =
 SYSINIT_TARGET_WANTS =
-BASIC_TARGET_WANTS =
 SOCKETS_TARGET_WANTS =
+TIMERS_TARGET_WANTS =
 
 SYSTEM_UNIT_ALIASES =
 USER_UNIT_ALIASES =
@@ -211,8 +211,8 @@ install-target-wants-hook:
 	what="$(LOCAL_FS_TARGET_WANTS)" && wants=local-fs.target && $(add-wants)
 	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && $(add-wants)
 	what="$(SYSINIT_TARGET_WANTS)" && wants=sysinit.target && $(add-wants)
-	what="$(BASIC_TARGET_WANTS)" && wants=basic.target && $(add-wants)
 	what="$(SOCKETS_TARGET_WANTS)" && wants=sockets.target && $(add-wants)
+	what="$(TIMERS_TARGET_WANTS)" && wants=timers.target && $(add-wants)
 
 define add-wants
 	[ -z "$$what" ] || ( \
@@ -371,6 +371,8 @@ dist_systemunit_DATA = \
 	units/sigpwr.target \
 	units/sleep.target \
 	units/sockets.target \
+	units/timers.target \
+	units/paths.target \
 	units/suspend.target \
 	units/swap.target \
 	units/systemd-initctl.socket \
@@ -3916,7 +3918,7 @@ SYSINIT_TARGET_WANTS += \
 	systemd-tmpfiles-setup.service \
 	systemd-sysctl.service \
 	systemd-ask-password-console.path
-BASIC_TARGET_WANTS += \
+TIMERS_TARGET_WANTS += \
 	systemd-tmpfiles-clean.timer
 
 if HAVE_SYSV_COMPAT
@@ -3938,6 +3940,8 @@ SYSTEM_UNIT_ALIASES += \
 USER_UNIT_ALIASES += \
 	$(systemunitdir)/shutdown.target shutdown.target \
 	$(systemunitdir)/sockets.target sockets.target \
+	$(systemunitdir)/timers.target timers.target \
+	$(systemunitdir)/paths.target paths.target \
 	$(systemunitdir)/bluetooth.target bluetooth.target \
 	$(systemunitdir)/printer.target printer.target \
 	$(systemunitdir)/sound.target sound.target
