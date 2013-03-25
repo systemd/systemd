@@ -43,6 +43,9 @@ Fedora 19:
   http://lists.freedesktop.org/archives/systemd-devel/2013-February/009021.html
 
 Features:
+
+* when prompting for a hdd password show GUID partition label
+
 * teach udev + logind's uaccess to somehow handle the "dead" device nodes from:
      /lib/modules/$(uname -r)/modules.devname
   and apply ACLs to them if they have TAG=="uaccess" in udev rules.
