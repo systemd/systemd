@@ -120,6 +120,9 @@ struct sd_bus {
 
         int *fds;
         unsigned n_fds;
+
+        char *exec_path;
+        char **exec_argv;
 };
 
 static inline void bus_unrefp(sd_bus **b) {
@@ -144,6 +147,8 @@ static inline void bus_unrefp(sd_bus **b) {
 #define BUS_ARRAY_MAX_SIZE 67108864
 
 #define BUS_FDS_MAX 1024
+
+#define BUS_EXEC_ARGV_MAX 256
 
 bool object_path_is_valid(const char *p);
 bool interface_name_is_valid(const char *p);

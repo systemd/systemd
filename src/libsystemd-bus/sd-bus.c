@@ -30,6 +30,7 @@
 #include "util.h"
 #include "macro.h"
 #include "missing.h"
+#include "strv.h"
 
 #include "sd-bus.h"
 #include "bus-internal.h"
@@ -52,6 +53,9 @@ static void bus_free(sd_bus *b) {
         free(b->unique_name);
         free(b->auth_uid);
         free(b->address);
+
+        free(b->exec_path);
+        strv_free(b->exec_argv);
 
         close_many(b->fds, b->n_fds);
         free(b->fds);
@@ -138,6 +142,37 @@ int sd_bus_set_fd(sd_bus *bus, int fd) {
                 return -EINVAL;
 
         bus->fd = fd;
+        return 0;
+}
+
+int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
+        char *p, **a;
+
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (!path)
+                return -EINVAL;
+        if (strv_isempty(argv))
+                return -EINVAL;
+
+        p = strdup(path);
+        if (!p)
+                return -ENOMEM;
+
+        a = strv_copy(argv);
+        if (!a) {
+                free(p);
+                return -ENOMEM;
+        }
+
+        free(bus->exec_path);
+        strv_free(bus->exec_argv);
+
+        bus->exec_path = p;
+        bus->exec_argv = a;
+
         return 0;
 }
 
@@ -234,21 +269,24 @@ static int parse_address_key(const char **p, const char *key, char **value) {
 
         assert(p);
         assert(*p);
-        assert(key);
         assert(value);
 
-        l = strlen(key);
-        if (strncmp(*p, key, l) != 0)
-                return 0;
+        if (key) {
+                l = strlen(key);
+                if (strncmp(*p, key, l) != 0)
+                        return 0;
 
-        if ((*p)[l] != '=')
-                return 0;
+                if ((*p)[l] != '=')
+                        return 0;
 
-        if (*value)
-                return -EINVAL;
+                if (*value)
+                        return -EINVAL;
 
-        a = *p + l + 1;
-        while (*a != ',' && *a != 0) {
+                a = *p + l + 1;
+        } else
+                a = *p;
+
+        while (*a != ';' && *a != ',' && *a != 0) {
                 char c, *t;
 
                 if (*a == '%') {
@@ -294,7 +332,10 @@ static int parse_address_key(const char **p, const char *key, char **value) {
                 a++;
 
         *p = a;
+
+        free(*value);
         *value = r;
+
         return 1;
 }
 
@@ -308,9 +349,242 @@ static void skip_address_key(const char **p) {
                 (*p) ++;
 }
 
+static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
+        _cleanup_free_ char *path = NULL, *abstract = NULL;
+        size_t l;
+        int r;
+
+        assert(b);
+        assert(p);
+        assert(*p);
+        assert(guid);
+
+        while (**p != 0 && **p != ';') {
+                r = parse_address_key(p, "guid", guid);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "path", &path);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "abstract", &abstract);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                skip_address_key(p);
+        }
+
+        if (!path && !abstract)
+                return -EINVAL;
+
+        if (path && abstract)
+                return -EINVAL;
+
+        if (path) {
+                l = strlen(path);
+                if (l > sizeof(b->sockaddr.un.sun_path))
+                        return -E2BIG;
+
+                b->sockaddr.un.sun_family = AF_UNIX;
+                strncpy(b->sockaddr.un.sun_path, path, sizeof(b->sockaddr.un.sun_path));
+                b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + l;
+        } else if (abstract) {
+                l = strlen(abstract);
+                if (l > sizeof(b->sockaddr.un.sun_path) - 1)
+                        return -E2BIG;
+
+                b->sockaddr.un.sun_family = AF_UNIX;
+                b->sockaddr.un.sun_path[0] = 0;
+                strncpy(b->sockaddr.un.sun_path+1, abstract, sizeof(b->sockaddr.un.sun_path)-1);
+                b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
+        }
+
+        return 0;
+}
+
+static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
+        _cleanup_free_ char *host = NULL, *port = NULL, *family = NULL;
+        struct addrinfo hints, *result;
+        int r;
+
+        assert(b);
+        assert(p);
+        assert(*p);
+        assert(guid);
+
+        while (**p != 0 && **p != ';') {
+                r = parse_address_key(p, "guid", guid);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "host", &host);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "port", &port);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "family", &family);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                skip_address_key(p);
+        }
+
+        if (!host || !port)
+                return -EINVAL;
+
+        zero(hints);
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = AI_ADDRCONFIG;
+
+        if (family) {
+                if (streq(family, "ipv4"))
+                        hints.ai_family = AF_INET;
+                else if (streq(family, "ipv6"))
+                        hints.ai_family = AF_INET6;
+                else
+                        return -EINVAL;
+        }
+
+        r = getaddrinfo(host, port, &hints, &result);
+        if (r == EAI_SYSTEM)
+                return -errno;
+        else if (r != 0)
+                return -EADDRNOTAVAIL;
+
+        memcpy(&b->sockaddr, result->ai_addr, result->ai_addrlen);
+        b->sockaddr_size = result->ai_addrlen;
+
+        freeaddrinfo(result);
+
+        return 0;
+}
+
+static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
+        char *path = NULL;
+        unsigned n_argv = 0, j;
+        char **argv = NULL;
+        int r;
+
+        assert(b);
+        assert(p);
+        assert(*p);
+        assert(guid);
+
+        while (**p != 0 && **p != ';') {
+                r = parse_address_key(p, "guid", guid);
+                if (r < 0)
+                        goto fail;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "path", &path);
+                if (r < 0)
+                        goto fail;
+                else if (r > 0)
+                        continue;
+
+                if (startswith(*p, "argv")) {
+                        unsigned ul;
+
+                        errno = 0;
+                        ul = strtoul(*p + 4, (char**) p, 10);
+                        if (errno != 0 || **p != '=' || ul > 256) {
+                                r = -EINVAL;
+                                goto fail;
+                        }
+
+                        (*p) ++;
+
+                        if (ul >= n_argv) {
+                                char **x;
+
+                                x = realloc(argv, sizeof(char*) * (ul + 2));
+                                if (!x) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                memset(x + n_argv, 0, sizeof(char*) * (ul - n_argv + 2));
+
+                                argv = x;
+                                n_argv = ul + 1;
+                        }
+
+                        r = parse_address_key(p, NULL, argv + ul);
+                        if (r < 0)
+                                goto fail;
+
+                        continue;
+                }
+
+                skip_address_key(p);
+        }
+
+        if (!path)
+                goto fail;
+
+        /* Make sure there are no holes in the array, with the
+         * exception of argv[0] */
+        for (j = 1; j < n_argv; j++)
+                if (!argv[j]) {
+                        r = -EINVAL;
+                        goto fail;
+                }
+
+        if (argv && argv[0] == NULL) {
+                argv[0] = strdup(path);
+                if (!argv[0]) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        b->exec_path = path;
+        b->exec_argv = argv;
+        return 0;
+
+fail:
+        for (j = 0; j < n_argv; j++)
+                free(argv[j]);
+
+        free(argv);
+        free(path);
+        return r;
+}
+
+static void bus_reset_parsed_address(sd_bus *b) {
+        assert(b);
+
+        zero(b->sockaddr);
+        b->sockaddr_size = 0;
+        strv_free(b->exec_argv);
+        free(b->exec_path);
+        b->exec_path = NULL;
+        b->exec_argv = NULL;
+        b->peer = SD_ID128_NULL;
+}
+
 static int bus_parse_next_address(sd_bus *b) {
-        const char *a, *p;
         _cleanup_free_ char *guid = NULL;
+        const char *a;
         int r;
 
         assert(b);
@@ -320,126 +594,48 @@ static int bus_parse_next_address(sd_bus *b) {
         if (b->address[b->address_index] == 0)
                 return 0;
 
+        bus_reset_parsed_address(b);
+
         a = b->address + b->address_index;
 
-        zero(b->sockaddr);
-        b->sockaddr_size = 0;
-        b->peer = SD_ID128_NULL;
+        while (*a != 0) {
 
-        if (startswith(a, "unix:")) {
-                _cleanup_free_ char *path = NULL, *abstract = NULL;
-
-                p = a + 5;
-                while (*p != 0) {
-                        r = parse_address_key(&p, "guid", &guid);
-                        if (r < 0)
-                                return r;
-                        else if (r > 0)
-                                continue;
-
-                        r = parse_address_key(&p, "path", &path);
-                        if (r < 0)
-                                return r;
-                        else if (r > 0)
-                                continue;
-
-                        r = parse_address_key(&p, "abstract", &abstract);
-                        if (r < 0)
-                                return r;
-                        else if (r > 0)
-                                continue;
-
-                        skip_address_key(&p);
+                if (*a == ';') {
+                        a++;
+                        continue;
                 }
 
-                if (!path && !abstract)
-                        return -EINVAL;
+                if (startswith(a, "unix:")) {
+                        a += 5;
 
-                if (path && abstract)
-                        return -EINVAL;
+                        r = parse_unix_address(b, &a, &guid);
+                        if (r < 0)
+                                return r;
+                        break;
 
-                if (path) {
-                        size_t l;
+                } else if (startswith(a, "tcp:")) {
 
-                        l = strlen(path);
-                        if (l > sizeof(b->sockaddr.un.sun_path))
-                                return -E2BIG;
+                        a += 4;
+                        r = parse_tcp_address(b, &a, &guid);
+                        if (r < 0)
+                                return r;
 
-                        b->sockaddr.un.sun_family = AF_UNIX;
-                        strncpy(b->sockaddr.un.sun_path, path, sizeof(b->sockaddr.un.sun_path));
-                        b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + l;
-                } else if (abstract) {
-                        size_t l;
+                        break;
 
-                        l = strlen(abstract);
-                        if (l > sizeof(b->sockaddr.un.sun_path) - 1)
-                                return -E2BIG;
+                } else if (startswith(a, "unixexec:")) {
 
-                        b->sockaddr.un.sun_family = AF_UNIX;
-                        b->sockaddr.un.sun_path[0] = 0;
-                        strncpy(b->sockaddr.un.sun_path+1, abstract, sizeof(b->sockaddr.un.sun_path)-1);
-                        b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
+                        a += 9;
+                        r = parse_exec_address(b, &a, &guid);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 }
 
-        } else if (startswith(a, "tcp:")) {
-                _cleanup_free_ char *host = NULL, *port = NULL, *family = NULL;
-                struct addrinfo hints, *result;
-
-                p = a + 4;
-                while (*p != 0) {
-                        r = parse_address_key(&p, "guid", &guid);
-                        if (r < 0)
-                                return r;
-                        else if (r > 0)
-                                continue;
-
-                        r = parse_address_key(&p, "host", &host);
-                        if (r < 0)
-                                return r;
-                        else if (r > 0)
-                                continue;
-
-                        r = parse_address_key(&p, "port", &port);
-                        if (r < 0)
-                                return r;
-                        else if (r > 0)
-                                continue;
-
-                        r = parse_address_key(&p, "family", &family);
-                        if (r < 0)
-                                return r;
-                        else if (r > 0)
-                                continue;
-
-                        skip_address_key(&p);
-                }
-
-                if (!host || !port)
-                        return -EINVAL;
-
-                zero(hints);
-                hints.ai_socktype = SOCK_STREAM;
-                hints.ai_flags = AI_ADDRCONFIG;
-
-                if (family) {
-                        if (streq(family, "ipv4"))
-                                hints.ai_family = AF_INET;
-                        else if (streq(family, "ipv6"))
-                                hints.ai_family = AF_INET6;
-                        else
-                                return -EINVAL;
-                }
-
-                r = getaddrinfo(host, port, &hints, &result);
-                if (r == EAI_SYSTEM)
-                        return -errno;
-                else if (r != 0)
-                        return -EADDRNOTAVAIL;
-
-                memcpy(&b->sockaddr, result->ai_addr, result->ai_addrlen);
-                b->sockaddr_size = result->ai_addrlen;
-
-                freeaddrinfo(result);
+                a = strchr(a, ';');
+                if (!a)
+                        return 0;
         }
 
         if (guid) {
@@ -448,7 +644,7 @@ static int bus_parse_next_address(sd_bus *b) {
                         return r;
         }
 
-        b->address_index = p - b->address;
+        b->address_index = a - b->address;
         return 1;
 }
 
@@ -643,10 +839,20 @@ static int bus_start_auth(sd_bus *b) {
         char text[20 + 1]; /* enough space for a 64bit integer plus NUL */
         size_t l;
         const char *auth_suffix;
+        int domain = 0, r;
+        socklen_t sl;
 
         assert(b);
 
         b->state = BUS_AUTHENTICATING;
+
+        sl = sizeof(domain);
+        r = getsockopt(b->fd, SOL_SOCKET, SO_DOMAIN, &domain, &sl);
+        if (r < 0)
+                return -errno;
+
+        if (domain != AF_UNIX)
+                b->negotiate_fds = false;
 
         snprintf(text, sizeof(text), "%llu", (unsigned long long) geteuid());
         char_array_0(text);
@@ -669,51 +875,114 @@ static int bus_start_auth(sd_bus *b) {
         return bus_write_auth(b);
 }
 
-static int bus_start_connect(sd_bus *b) {
+static int bus_connect(sd_bus *b) {
         int r;
 
         assert(b);
         assert(b->fd < 0);
+        assert(b->sockaddr.sa.sa_family != AF_UNSPEC);
+
+        b->fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (b->fd < 0)
+                return -errno;
+
+        r = bus_setup_fd(b);
+        if (r < 0)
+                return r;
+
+        r = connect(b->fd, &b->sockaddr.sa, b->sockaddr_size);
+        if (r < 0) {
+                if (errno == EINPROGRESS)
+                        return 1;
+
+                return -errno;
+        }
+
+        return bus_start_auth(b);
+}
+
+static int bus_exec(sd_bus *b) {
+        int s[2];
+        pid_t pid;
+
+        assert(b);
+        assert(b->fd < 0);
+        assert(b->exec_path);
+
+        b->fd = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
+        if (b->fd < 0)
+                return -errno;
+
+        pid = fork();
+        if (pid < 0) {
+                close_pipe(s);
+                return -errno;
+        }
+        if (pid == 0) {
+                /* Child */
+
+                close_all_fds(s, 2);
+                close_nointr_nofail(s[0]);
+
+                assert_se(dup3(s[1], STDIN_FILENO, 0) == STDIN_FILENO);
+                assert_se(dup3(s[1], STDOUT_FILENO, 0) == STDOUT_FILENO);
+
+                if (s[1] != STDIN_FILENO && s[1] != STDOUT_FILENO)
+                        close_nointr_nofail(s[1]);
+
+                fd_cloexec(STDIN_FILENO, false);
+                fd_cloexec(STDOUT_FILENO, false);
+                fd_nonblock(STDIN_FILENO, false);
+                fd_nonblock(STDOUT_FILENO, false);
+
+                if (b->exec_argv)
+                        execvp(b->exec_path, b->exec_argv);
+                else {
+                        const char *argv[] = { b->exec_path, NULL };
+                        execvp(b->exec_path, (char**) argv);
+                }
+
+                _exit(EXIT_FAILURE);
+        }
+
+        close_nointr_nofail(s[1]);
+        b->fd = s[0];
+
+        return bus_start_auth(b);
+}
+
+static int bus_start_connect(sd_bus *b) {
+        int r;
+
+        assert(b);
 
         for (;;) {
-                if (b->sockaddr.sa.sa_family == AF_UNSPEC) {
-                        r = bus_parse_next_address(b);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                return b->last_connect_error ? -b->last_connect_error : -ECONNREFUSED;
-                }
-
-                b->fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-                if (b->fd < 0) {
-                        b->last_connect_error = errno;
-                        goto try_again;
-                }
-
-                r = bus_setup_fd(b);
-                if (r < 0) {
-                        b->last_connect_error = errno;
-                        goto try_again;
-                }
-
-                r = connect(b->fd, &b->sockaddr.sa, b->sockaddr_size);
-                if (r < 0) {
-                        if (errno == EINPROGRESS)
-                                return 1;
-
-                        b->last_connect_error = errno;
-                        goto try_again;
-                }
-
-                return bus_start_auth(b);
-
-        try_again:
-                zero(b->sockaddr);
-
                 if (b->fd >= 0) {
                         close_nointr_nofail(b->fd);
                         b->fd = -1;
                 }
+
+                if (b->sockaddr.sa.sa_family != AF_UNSPEC) {
+                        r = bus_connect(b);
+                        if (r >= 0)
+                                return r;
+
+                        b->last_connect_error = -r;
+
+                } else if (b->exec_path) {
+
+                        r = bus_exec(b);
+                        if (r >= 0)
+                                return r;
+
+                        b->last_connect_error = -r;
+                }
+
+                r = bus_parse_next_address(b);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return b->last_connect_error ? -b->last_connect_error : -ECONNREFUSED;
         }
 }
 
@@ -1893,6 +2162,7 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
                         }
 
                         /* Try next address */
+                        bus_reset_parsed_address(bus);
                         r = bus_start_connect(bus);
                         goto null_message;
                 }

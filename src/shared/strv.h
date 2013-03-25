@@ -34,8 +34,8 @@ static inline void strv_freep(char ***l) {
         strv_free(*l);
 }
 
-char **strv_copy(char **l) _malloc_;
-unsigned strv_length(char **l);
+char **strv_copy(char * const *l) _malloc_;
+unsigned strv_length(char * const *l);
 
 char **strv_merge(char **a, char **b);
 char **strv_merge_concat(char **a, char **b, const char *suffix);
@@ -56,7 +56,7 @@ static inline const char* STRV_IFNOTNULL(const char *x) {
         return x ? x : (const char *) -1;
 }
 
-static inline bool strv_isempty(char **l) {
+static inline bool strv_isempty(char * const *l) {
         return !l || !*l;
 }
 

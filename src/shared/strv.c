@@ -64,7 +64,7 @@ void strv_free(char **l) {
         free(l);
 }
 
-char **strv_copy(char **l) {
+char **strv_copy(char * const *l) {
         char **r, **k;
 
         k = r = new(char*, strv_length(l) + 1);
@@ -84,7 +84,7 @@ char **strv_copy(char **l) {
         return r;
 }
 
-unsigned strv_length(char **l) {
+unsigned strv_length(char * const *l) {
         unsigned n = 0;
 
         if (!l)
