@@ -879,29 +879,6 @@ static void static_dev_create_from_modules(struct udev *udev)
         fclose(f);
 }
 
-static int mem_size_mb(void)
-{
-        FILE *f;
-        char buf[4096];
-        long int memsize = -1;
-
-        f = fopen("/proc/meminfo", "re");
-        if (f == NULL)
-                return -1;
-
-        while (fgets(buf, sizeof(buf), f) != NULL) {
-                long int value;
-
-                if (sscanf(buf, "MemTotal: %ld kB", &value) == 1) {
-                        memsize = value / 1024;
-                        break;
-                }
-        }
-
-        fclose(f);
-        return memsize;
-}
-
 static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink)
 {
         int ctrl = -1, netlink = -1;
@@ -1278,13 +1255,13 @@ int main(int argc, char *argv[])
         }
 
         if (children_max <= 0) {
-                int memsize = mem_size_mb();
+                cpu_set_t cpu_set;
 
-                /* set value depending on the amount of RAM */
-                if (memsize > 0)
-                        children_max = 16 + (memsize / 8);
-                else
-                        children_max = 16;
+                children_max = 8;
+
+                if (sched_getaffinity(0, sizeof (cpu_set), &cpu_set) == 0) {
+                        children_max +=  CPU_COUNT(&cpu_set) * 2;
+                }
         }
         log_debug("set children_max to %u\n", children_max);
 
