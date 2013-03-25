@@ -44,6 +44,8 @@ Fedora 19:
 
 Features:
 
+* remove duplicate default deps logic from fstab-generator vs. mount.c
+
 * when isolating, try to figure out a way how we implicitly can order
   all units we stop before the isolating unit...
 
