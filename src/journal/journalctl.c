@@ -562,7 +562,7 @@ static int add_matches(sd_journal *j, char **args) {
                         else if (S_ISBLK(st.st_mode))
                                 asprintf(&t, "_KERNEL_DEVICE=b%u:%u", major(st.st_rdev), minor(st.st_rdev));
                         else {
-                                log_error("File is not a device node, regular file or is not executable: %s", *i);
+                                log_error("File is neither a device node, nor regular file, nor executable: %s", *i);
                                 return -EINVAL;
                         }
 
