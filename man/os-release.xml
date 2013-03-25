@@ -298,6 +298,28 @@
                                 <literal>BUG_REPORT_URL="https://bugzilla.redhat.com/"</literal></para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>BUILD_ID=</varname></term>
+
+                                <listitem><para>A string uniquely
+                                identifying the system image used as
+                                the origin for a distribution (it is
+                                not updated with system updates). The
+                                field can be identical between
+                                different VERSION_IDs as BUILD_ID is
+                                an only a unique identifier to a
+                                specific version. Distributions that
+                                release each update as a new version
+                                would only need to use VERSION_ID as
+                                each build is already distinct based
+                                on the VERSION_ID. This field is
+                                optional. Example:
+                                <literal>BUILD_ID="2013-03-20.3"</literal>
+                                or
+                                <literal>BUILD_ID=201303203</literal>.
+
+                                </para></listitem>
+                        </varlistentry>
 
                 </variablelist>
 
