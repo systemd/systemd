@@ -258,26 +258,14 @@ static int parse_proc_cmdline(char ***arg_proc_cmdline_disks) {
                         }
 
                 } else if (startswith(word, "luks.uuid=")) {
-                        char **t;
-
-                        t = strv_append(*arg_proc_cmdline_disks, word + 10);
-                        if (!t)
+                        if (strv_extend(arg_proc_cmdline_disks, word + 10) < 0)
                                 return log_oom();
-
-                        strv_free(*arg_proc_cmdline_disks);
-                        *arg_proc_cmdline_disks = t;
 
                 } else if (startswith(word, "rd.luks.uuid=")) {
 
                         if (in_initrd()) {
-                                char **t;
-
-                                t = strv_append(*arg_proc_cmdline_disks, word + 13);
-                                if (!t)
+                                if (strv_extend(arg_proc_cmdline_disks, word + 13) < 0)
                                         return log_oom();
-
-                                strv_free(*arg_proc_cmdline_disks);
-                                *arg_proc_cmdline_disks = t;
                         }
 
                 } else if (startswith(word, "luks.") ||
@@ -370,17 +358,11 @@ int main(int argc, char *argv[]) {
                                                 return log_oom();
 
                                         if (streq(proc_device, device) || streq(proc_name, name)) {
-                                                char **t;
-
                                                 if (create_disk(name, device, password, options) < 0)
                                                         r = EXIT_FAILURE;
 
-                                                t = strv_append(arg_proc_cmdline_disks_done, p);
-                                                if (!t)
+                                                if (strv_extend(&arg_proc_cmdline_disks_done, p) < 0)
                                                         return log_oom();
-
-                                                strv_free(arg_proc_cmdline_disks_done);
-                                                arg_proc_cmdline_disks_done = t;
                                         }
                                 }
                         } else {
