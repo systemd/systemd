@@ -51,10 +51,6 @@ Features:
 
 * when prompting for a hdd password show GUID partition label
 
-* document which targets shall be pulled in by users of the facility,
-  and which ones are to be pulled in by the implementors of the
-  facility.
-
 * teach udev + logind's uaccess to somehow handle the "dead" device nodes from:
      /lib/modules/$(uname -r)/modules.devname
   and apply ACLs to them if they have TAG=="uaccess" in udev rules.

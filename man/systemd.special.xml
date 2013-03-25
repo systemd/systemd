@@ -139,22 +139,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>bluetooth.target</filename></term>
-                                <listitem>
-                                        <para>This target is started
-                                        automatically as soon as a
-                                        Bluetooth controller is
-                                        plugged in or becomes
-                                        available at boot.</para>
-
-                                        <para>This may be used to pull
-                                        in Bluetooth management
-                                        daemons dynamically when
-                                        Bluetooth hardware is
-                                        found.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>ctrl-alt-del.target</filename></term>
                                 <listitem>
                                         <para>systemd starts this
@@ -382,18 +366,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>local-fs-pre.target</filename></term>
-                                <listitem>
-                                        <para>This target unit is
-                                        automatically ordered before
-                                        all local mount points marked
-                                        with <option>auto</option>
-                                        (see above). It can be used to
-                                        execute certain units before
-                                        all local mounts.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>multi-user.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -439,42 +411,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>nss-lookup.target</filename></term>
-                                <listitem>
-                                        <para>A target that should be
-                                        used as synchronization point
-                                        for all host/network name
-                                        service lookups. Note that
-                                        this is independent of
-                                        user/group name lookups for
-                                        which
-                                        <filename>nss-user-lookup.target</filename>
-                                        should be used. systemd
-                                        automatically adds
-                                        dependencies of type
-                                        <varname>After=</varname> for
-                                        this target unit to all SysV
-                                        init script service units with
-                                        an LSB header referring to the
-                                        <literal>$named</literal>
-                                        facility.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>nss-user-lookup.target</filename></term>
-                                <listitem>
-                                        <para>A target that should be
-                                        used as synchronization point
-                                        for all user/group name
-                                        service lookups. Note that
-                                        this is independent of
-                                        host/network name lookups for
-                                        which
-                                        <filename>nss-lookup.target</filename>
-                                        should be used. </para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>paths.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -513,22 +449,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>printer.target</filename></term>
-                                <listitem>
-                                        <para>This target is started
-                                        automatically as soon as a
-                                        printer is plugged in or
-                                        becomes available at
-                                        boot.</para>
-
-                                        <para>This may be used to pull
-                                        in printer management
-                                        daemons dynamically when
-                                        printer hardware is
-                                        found.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>reboot.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -562,36 +482,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>remote-fs-pre.target</filename></term>
-                                <listitem>
-                                        <para>This target unit is
-                                        automatically ordered before
-                                        all remote mount point units
-                                        (see above). It can be used to
-                                        run certain units before the
-                                        remote mounts are
-                                        established. Note that this
-                                        unit is generally not part of
-                                        the initial transaction,
-                                        unless the unit that wants to
-                                        be ordered before all remote
-                                        mounts pulls it in via a
-                                        <varname>Wants=</varname> type
-                                        dependency. If the unit wants
-                                        to be pulled in by the first
-                                        remote mount showing up it
-                                        should use
-                                        <filename>remote-fs-setup.target</filename>
-                                        (see below).</para>
-
-                                        <para>Again, this target unit
-                                        is <emphasis>not</emphasis>
-                                        suitable for pulling in other
-                                        units, it is only useful for
-                                        ordering.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>remote-fs-setup.target</filename></term>
                                 <listitem>
                                         <para>This target unit is
@@ -605,7 +495,7 @@
                                         this target is not ordered
                                         against the remote mounts, use
                                         <filename>remote-fs-pre.target</filename>
-                                        for that.</para>
+                                        for that (see below).</para>
 
                                         <para>Again, this target unit
                                         is <emphasis>not</emphasis>
@@ -638,19 +528,6 @@
                                         unit, which is generated from
                                         the kernel command line.
                                         </para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>rpcbind.target</filename></term>
-                                <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        <varname>After=</varname> for
-                                        this target unit to all SysV
-                                        init script service units with
-                                        an LSB header referring to the
-                                        <literal>$portmap</literal>
-                                        facility.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -715,22 +592,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>smartcard.target</filename></term>
-                                <listitem>
-                                        <para>This target is started
-                                        automatically as soon as a
-                                        smartcard controller is
-                                        plugged in or becomes
-                                        available at boot.</para>
-
-                                        <para>This may be used to pull
-                                        in printer management
-                                        daemons dynamically when
-                                        smartcard hardware is
-                                        found.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>sockets.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -751,21 +612,6 @@
                                         in the socket unit's
                                         <literal>[Install]</literal>
                                         section.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>sound.target</filename></term>
-                                <listitem>
-                                        <para>This target is started
-                                        automatically as soon as a
-                                        sound card is plugged in or
-                                        becomes available at
-                                        boot.</para>
-
-                                        <para>This may be used to pull
-                                        in audio management daemons
-                                        dynamically when printer
-                                        hardware is found.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -827,19 +673,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>time-sync.target</filename></term>
-                                <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        <varname>After=</varname> for
-                                        this target unit to all SysV
-                                        init script service units with
-                                        an LSB header referring to the
-                                        <literal>$time</literal>
-                                        facility.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>timers.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -881,6 +714,208 @@
                                 </listitem>
                         </varlistentry>
 
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Special System Units for Devices</title>
+
+                <para>Some target units are automatically pulled in as
+                devices of certain kinds show up in the system. These
+                may be used to automatically activate various services
+                based on the specific type of the available
+                hardware.</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>bluetooth.target</filename></term>
+                                <listitem>
+                                        <para>This target is started
+                                        automatically as soon as a
+                                        Bluetooth controller is
+                                        plugged in or becomes
+                                        available at boot.</para>
+
+                                        <para>This may be used to pull
+                                        in Bluetooth management
+                                        daemons dynamically when
+                                        Bluetooth hardware is
+                                        found.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>printer.target</filename></term>
+                                <listitem>
+                                        <para>This target is started
+                                        automatically as soon as a
+                                        printer is plugged in or
+                                        becomes available at
+                                        boot.</para>
+
+                                        <para>This may be used to pull
+                                        in printer management
+                                        daemons dynamically when
+                                        printer hardware is
+                                        found.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>smartcard.target</filename></term>
+                                <listitem>
+                                        <para>This target is started
+                                        automatically as soon as a
+                                        smartcard controller is
+                                        plugged in or becomes
+                                        available at boot.</para>
+
+                                        <para>This may be used to pull
+                                        in printer management
+                                        daemons dynamically when
+                                        smartcard hardware is
+                                        found.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>sound.target</filename></term>
+                                <listitem>
+                                        <para>This target is started
+                                        automatically as soon as a
+                                        sound card is plugged in or
+                                        becomes available at
+                                        boot.</para>
+
+                                        <para>This may be used to pull
+                                        in audio management daemons
+                                        dynamically when printer
+                                        hardware is found.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>Special Passive System Units </title>
+
+                <para>A number of special system targets are defined
+                that can be used to properly order boot-up of optional
+                services. These targets are generally not part of the
+                initial boot transaction, unless they are explicitly
+                pulled in by one of the implementing services. Note
+                specifically, that these <emphasis>passive</emphasis>
+                target units are generally not pulled in by the
+                consumer of a service, but by the provider of the
+                service. This means: a consuming service should order
+                itself after these targets (as appropriate), but not
+                pull it in. A providing service should order itself
+                before these targets (as appropriate) and pull it in
+                (via a <varname>Wants=</varname> type
+                dependency).</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>local-fs-pre.target</filename></term>
+                                <listitem>
+                                        <para>This target unit is
+                                        automatically ordered before
+                                        all local mount points marked
+                                        with <option>auto</option>
+                                        (see above). It can be used to
+                                        execute certain units before
+                                        all local mounts.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>nss-lookup.target</filename></term>
+                                <listitem>
+                                        <para>A target that should be
+                                        used as synchronization point
+                                        for all host/network name
+                                        service lookups. Note that
+                                        this is independent of
+                                        user/group name lookups for
+                                        which
+                                        <filename>nss-user-lookup.target</filename>
+                                        should be used. systemd
+                                        automatically adds
+                                        dependencies of type
+                                        <varname>After=</varname> for
+                                        this target unit to all SysV
+                                        init script service units with
+                                        an LSB header referring to the
+                                        <literal>$named</literal>
+                                        facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>nss-user-lookup.target</filename></term>
+                                <listitem>
+                                        <para>A target that should be
+                                        used as synchronization point
+                                        for all user/group name
+                                        service lookups. Note that
+                                        this is independent of
+                                        host/network name lookups for
+                                        which
+                                        <filename>nss-lookup.target</filename>
+                                        should be used. </para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>remote-fs-pre.target</filename></term>
+                                <listitem>
+                                        <para>This target unit is
+                                        automatically ordered before
+                                        all remote mount point units
+                                        (see above). It can be used to
+                                        run certain units before the
+                                        remote mounts are
+                                        established. Note that this
+                                        unit is generally not part of
+                                        the initial transaction,
+                                        unless the unit that wants to
+                                        be ordered before all remote
+                                        mounts pulls it in via a
+                                        <varname>Wants=</varname> type
+                                        dependency. If the unit wants
+                                        to be pulled in by the first
+                                        remote mount showing up it
+                                        should use
+                                        <filename>remote-fs-setup.target</filename>
+                                        (see above).</para>
+
+                                        <para>Again, this target unit
+                                        is <emphasis>not</emphasis>
+                                        suitable for pulling in other
+                                        units, it is only useful for
+                                        ordering.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>rpcbind.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        <varname>After=</varname> for
+                                        this target unit to all SysV
+                                        init script service units with
+                                        an LSB header referring to the
+                                        <literal>$portmap</literal>
+                                        facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>time-sync.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        <varname>After=</varname> for
+                                        this target unit to all SysV
+                                        init script service units with
+                                        an LSB header referring to the
+                                        <literal>$time</literal>
+                                        facility.</para>
+                                </listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
