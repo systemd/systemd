@@ -555,8 +555,8 @@ static void timer_time_change(Unit *u) {
         if (t->state != TIMER_WAITING)
                 return;
 
-        log_info_unit(u->id,
-                      "%s: time change, recalculating next elapse.", u->id);
+        log_debug_unit(u->id,
+                       "%s: time change, recalculating next elapse.", u->id);
         timer_enter_waiting(t, false);
 }
 
