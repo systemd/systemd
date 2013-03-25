@@ -32,7 +32,7 @@ CHANGES WITH 199:
 
           http://lists.freedesktop.org/archives/systemd-devel/2013-March/009797.html
 
-        * journald will not explicitly flush the journal files to disk
+        * journald will now explicitly flush the journal files to disk
           the latest 5min after each write. This will also mark the
           files as offline then until the next write. This should
           increase reliability. The synchronization delay can be
@@ -49,6 +49,12 @@ CHANGES WITH 199:
 
         * libudev gained a new call udev_device_set_attribute_value()
           to set sysfs attributes of a device.
+
+        * The udev daemon now adjusts its default number of paralell
+          executed worker processes based on the number of available
+          CPUs instead of the amount of available RAM. This is supposed
+          to provide a more reliable default and limit a too agressive
+          paralellism for setups with 1000s of devices connected.
 
         Contributions from: Auke Kok, Colin Walters, Cristian
         Rodríguez, Daniel Buch, Dave Reisner, Frederic Crozat, Hannes
