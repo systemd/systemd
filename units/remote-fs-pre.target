@@ -8,4 +8,3 @@
 [Unit]
 Description=Remote File Systems (Pre)
 Documentation=man:systemd.special(7)
-After=network.target nss-lookup.target

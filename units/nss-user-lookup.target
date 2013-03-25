@@ -11,4 +11,3 @@
 [Unit]
 Description=User and Group Name Lookups
 Documentation=man:systemd.special(7)
-After=network.target
