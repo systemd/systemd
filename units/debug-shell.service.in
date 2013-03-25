@@ -6,18 +6,18 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Early root shell on @debugshell@ FOR DEBUGGING ONLY
+Description=Early root shell on @DEBUGTTY@ FOR DEBUGGING ONLY
 Documentation=man:sushell(8)
 DefaultDependencies=no
 IgnoreOnIsolate=yes
 
 [Service]
 Environment=TERM=linux
-ExecStart=@sushell@
+ExecStart=@SUSHELL@
 Restart=always
 RestartSec=0
 StandardInput=tty
-TTYPath=@debugshell@
+TTYPath=@DEBUGTTY@
 TTYReset=yes
 TTYVHangup=yes
 KillMode=process

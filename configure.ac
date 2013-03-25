@@ -275,11 +275,11 @@ if test "x$enable_selinux" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
 if test "x${have_selinux}" != xno ; then
-        sushell=/sbin/sushell
+        SUSHELL=/sbin/sushell
 else
-        sushell=/bin/sh
+        SUSHELL=/bin/sh
 fi
-AC_SUBST(sushell)
+AC_SUBST(SUSHELL)
 
 # ------------------------------------------------------------------------------
 have_xz=no
@@ -755,13 +755,13 @@ AS_IF([test "x$enable_keymap" = "xyes"], [
 AM_CONDITIONAL([ENABLE_KEYMAP], [test "x$enable_keymap" = "xyes"])
 
 # ------------------------------------------------------------------------------
-debugshell=/dev/tty9
+DEBUGTTY=/dev/tty9
 AC_ARG_WITH([debugshelltty],
         [AS_HELP_STRING([--with-debugshelltty=PATH],
                 [Specify the tty device for debug shell])],
-        [debugshell="$withval"],
+        [DEBUGTTY="$withval"],
         [])
-AC_SUBST(debugshell)
+AC_SUBST(DEBUGTTY)
 
 # ------------------------------------------------------------------------------
 have_manpages=no
