@@ -44,6 +44,9 @@ Fedora 19:
 
 Features:
 
+* when isolating, try to figure out a way how we implicitly can order
+  all units we stop before the isolating unit...
+
 * when prompting for a hdd password show GUID partition label
 
 * teach udev + logind's uaccess to somehow handle the "dead" device nodes from:
@@ -223,7 +226,6 @@ Features:
     and !FOOBAR for events without FOOBAR.
   - journal: when rotating, copy over old acls/access mode
   - journal: send out marker messages every now and then, and immediately sync with fdatasync() afterwards, in order to have hourly guaranteed syncs.
-  - journal: when we haven't written anything in a while, sync to disk and mark file as offline, in order to be more often than not in a clean state
   - journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
   - journal: find a way to allow dropping history early, based on priority, other rules
   - journal: When used on NFS, check payload hashes
