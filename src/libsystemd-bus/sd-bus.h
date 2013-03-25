@@ -25,12 +25,12 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
+#include <sd-id128.h>
 #include "sd-bus-protocol.h"
 
 /* TODO:
  * - implicitly add stub introspection calls
  * - server side
- * - split out actual sending logic into backend-socket.c
  *
  * Later:
  * - add page donation logic

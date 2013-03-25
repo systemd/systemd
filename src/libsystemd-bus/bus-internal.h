@@ -158,3 +158,5 @@ bool member_name_is_valid(const char *p);
 #define error_name_is_valid interface_name_is_valid
 
 int bus_ensure_running(sd_bus *bus);
+int bus_start_running(sd_bus *bus);
+int bus_next_address(sd_bus *bus);

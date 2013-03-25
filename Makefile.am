@@ -1661,6 +1661,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-error.h \
 	src/libsystemd-bus/bus-internal.c \
 	src/libsystemd-bus/bus-internal.h \
+	src/libsystemd-bus/bus-socket.c \
+	src/libsystemd-bus/bus-socket.h \
 	src/libsystemd-bus/bus-message.c \
 	src/libsystemd-bus/bus-message.h \
 	src/libsystemd-bus/bus-signature.c \
