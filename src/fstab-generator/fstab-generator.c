@@ -389,13 +389,15 @@ static int add_mount(const char *what, const char *where, const char *type, cons
 }
 
 static int parse_fstab(const char *prefix, bool initrd) {
-        FILE *f;
         _cleanup_free_ char *fstab_path = NULL;
+        FILE *f;
         int r = 0;
         struct mntent *me;
 
-        errno = 0;
-        fstab_path = strjoin(prefix, "/etc/fstab", NULL);
+        fstab_path = strjoin(strempty(prefix), "/etc/fstab", NULL);
+        if (!fstab_path)
+                return log_oom();
+
         f = setmntent(fstab_path, "r");
         if (!f) {
                 if (errno == ENOENT)
@@ -614,7 +616,7 @@ int main(int argc, char *argv[]) {
         if (!arg_enabled)
                 return (r < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
 
-        k = parse_fstab("", false);
+        k = parse_fstab(NULL, false);
 
         if (in_initrd())
                 l = parse_fstab("/sysroot", true);
