@@ -205,9 +205,20 @@ static bool mount_is_rootfs(struct mntent *me) {
         return hasmntopt(me, "x-initrd.rootfs");
 }
 
-static int add_mount(const char *what, const char *where, const char *type, const char *opts,
-                     int passno, bool noauto, bool nofail, bool automount, bool isbind,
-                     const char *pre, const char *post, const char *source) {
+static int add_mount(
+                const char *what,
+                const char *where,
+                const char *type,
+                const char *opts,
+                int passno,
+                bool noauto,
+                bool nofail,
+                bool automount,
+                bool isbind,
+                const char *pre,
+                const char *post,
+                const char *setup,
+                const char *source) {
         char _cleanup_free_
                 *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL,
                 *automount_name = NULL, *automount_unit = NULL;
@@ -259,10 +270,14 @@ static int add_mount(const char *what, const char *where, const char *type, cons
         if (!path_equal(where, "/")) {
                 if (pre)
                         fprintf(f,
-                                "After=%s\n"
-                                "Wants=%s\n",
-                                pre,
+                                "After=%s\n",
                                 pre);
+
+                if (setup)
+                        fprintf(f,
+                                "Wants=%s\n",
+                                setup);
+
                 fprintf(f,
                         "Conflicts=" SPECIAL_UMOUNT_TARGET "\n"
                         "Before=" SPECIAL_UMOUNT_TARGET "\n");
@@ -430,7 +445,7 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         k = add_swap(what, me);
                 else {
                         bool noauto, nofail, automount, isbind;
-                        const char *pre, *post;
+                        const char *pre, *post, *setup;
 
                         noauto = !!hasmntopt(me, "noauto");
                         nofail = !!hasmntopt(me, "nofail");
@@ -442,20 +457,24 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         if (initrd) {
                                 post = SPECIAL_INITRD_FS_TARGET;
                                 pre = NULL;
+                                setup = NULL;
                         } else if (mount_is_rootfs(me)) {
                                 post = SPECIAL_INITRD_ROOT_FS_TARGET;
                                 pre = NULL;
+                                setup = NULL;
                         } else if (mount_is_network(me)) {
                                 post = SPECIAL_REMOTE_FS_TARGET;
                                 pre = SPECIAL_REMOTE_FS_PRE_TARGET;
+                                setup = SPECIAL_REMOTE_FS_SETUP_TARGET;
                         } else {
                                 post = SPECIAL_LOCAL_FS_TARGET;
                                 pre = SPECIAL_LOCAL_FS_PRE_TARGET;
+                                setup = NULL;
                         }
 
                         k = add_mount(what, where, me->mnt_type, me->mnt_opts,
-                                     me->mnt_passno, noauto, nofail, automount,
-                                     isbind, pre, post, fstab_path);
+                                      me->mnt_passno, noauto, nofail, automount,
+                                      isbind, pre, post, setup, fstab_path);
                 }
 
                 if (k < 0)
@@ -539,7 +558,7 @@ static int parse_new_root_from_proc_cmdline(void) {
 
         log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
         r = add_mount(what, "/sysroot", type, opts, 0, false, false, false,
-                      false, NULL, SPECIAL_INITRD_ROOT_FS_TARGET, "/proc/cmdline");
+                      false, NULL, SPECIAL_INITRD_ROOT_FS_TARGET, NULL, "/proc/cmdline");
 
         return (r < 0) ? r : 0;
 }

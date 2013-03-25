@@ -6,9 +6,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Remote File Systems
+Description=Remote File System Setup
 Documentation=man:systemd.special(7)
-After=remote-fs-pre.target remote-fs-setup.target
-
-[Install]
-WantedBy=multi-user.target
+DefaultDependencies=no

@@ -79,6 +79,7 @@
                 <filename>reboot.target</filename>,
                 <filename>remote-fs.target</filename>,
                 <filename>remote-fs-pre.target</filename>,
+                <filename>remote-fs-setup.target</filename>,
                 <filename>rescue.target</filename>,
                 <filename>initrd-root-fs.target</filename>,
                 <filename>rpcbind.target</filename>,
@@ -565,11 +566,52 @@
                                 <listitem>
                                         <para>This target unit is
                                         automatically ordered before
-                                        all remote mount points marked
-                                        with <option>auto</option>
+                                        all remote mount point units
                                         (see above). It can be used to
-                                        execute certain units before
-                                        all remote mounts.</para>
+                                        run certain units before the
+                                        remote mounts are
+                                        established. Note that this
+                                        unit is generally not part of
+                                        the initial transaction,
+                                        unless the unit that wants to
+                                        be ordered before all remote
+                                        mounts pulls it in via a
+                                        <varname>Wants=</varname> type
+                                        dependency. If the unit wants
+                                        to be pulled in by the first
+                                        remote mount showing up it
+                                        should use
+                                        <filename>remote-fs-setup.target</filename>
+                                        (see below).</para>
+
+                                        <para>Again, this target unit
+                                        is <emphasis>not</emphasis>
+                                        suitable for pulling in other
+                                        units, it is only useful for
+                                        ordering.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>remote-fs-setup.target</filename></term>
+                                <listitem>
+                                        <para>This target unit is
+                                        automatically pulled in (by a
+                                        <varname>Wants=</varname> type
+                                        dependency) by all remote
+                                        mount points. It can be used
+                                        to run certain units when at
+                                        least one remote file system
+                                        is to be mounted. Note that
+                                        this target is not ordered
+                                        against the remote mounts, use
+                                        <filename>remote-fs-pre.target</filename>
+                                        for that.</para>
+
+                                        <para>Again, this target unit
+                                        is <emphasis>not</emphasis>
+                                        suitable for ordering, it is
+                                        only useful for pulling in
+                                        other units.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
