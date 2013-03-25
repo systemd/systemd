@@ -468,8 +468,8 @@ finish:
 }
 
 static int parse_new_root_from_proc_cmdline(void) {
-        char *w, *state;
         _cleanup_free_ char *what = NULL, *type = NULL, *opts = NULL, *line = NULL;
+        char *w, *state;
         int r;
         size_t l;
 
@@ -487,7 +487,7 @@ static int parse_new_root_from_proc_cmdline(void) {
         /* root= and roofstype= may occur more than once, the last instance should take precedence.
          * In the case of multiple rootflags= the arguments should be concatenated */
         FOREACH_WORD_QUOTED(w, l, line, state) {
-                char *word, *tmp_word;
+                _cleanup_free_ char *word;
 
                 word = strndup(w, l);
                 if (!word)
@@ -506,22 +506,25 @@ static int parse_new_root_from_proc_cmdline(void) {
                                 return log_oom();
 
                 } else if (startswith(word, "rootflags=")) {
-                        tmp_word = opts;
-                        opts = strjoin(opts, ",", word + 10, NULL);
-                        free(tmp_word);
-                        if (!opts)
+                        char *o;
+
+                        o = strjoin(opts, ",", word + 10, NULL);
+                        if (!o)
                                 return log_oom();
+
+                        free(opts);
+                        opts = o;
 
                 } else if (streq(word, "ro") || streq(word, "rw")) {
-                        tmp_word = opts;
-                        opts = strjoin(opts, ",", word, NULL);
-                        free(tmp_word);
-                        if (!opts)
+                        char *o;
+
+                        o = strjoin(opts, ",", word, NULL);
+                        if (!o)
                                 return log_oom();
 
+                        free(opts);
+                        opts = o;
                 }
-
-                free(word);
         }
 
         if (!what) {
