@@ -403,7 +403,7 @@ static int parse_fstab(const char *prefix, bool initrd) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to open %s/etc/fstab: %m", prefix);
+                log_error("Failed to open %s/etc/fstab: %m", strempty(prefix));
                 return -errno;
         }
 
@@ -415,7 +415,7 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         continue;
 
                 what = fstab_node_to_udev_node(me->mnt_fsname);
-                where = strjoin(prefix, me->mnt_dir, NULL);
+                where = strjoin(strempty(prefix), me->mnt_dir, NULL);
                 if (!what || !where) {
                         r = log_oom();
                         goto finish;
