@@ -169,8 +169,6 @@ static int create_disk(
                 }
 
                 free(to);
-                to = NULL;
-
                 if (!nofail)
                         to = strjoin(arg_dest, "/cryptsetup.target.requires/", n, NULL);
                 else
@@ -183,12 +181,13 @@ static int create_disk(
                         log_error("Failed to create symlink '%s' to '%s': %m", from, to);
                         return -errno;
                 }
-
-                free(to);
-                to = NULL;
         }
 
         e = unit_name_escape(name);
+        if (!e)
+                return log_oom();
+
+        free(to);
         to = strjoin(arg_dest, "/dev-mapper-", e, ".device.requires/", n, NULL);
         if (!to)
                 return log_oom();
