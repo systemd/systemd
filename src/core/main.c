@@ -704,7 +704,7 @@ static int parse_config_file(void) {
                 { NULL, NULL, NULL, 0, NULL }
         };
 
-        FILE *f;
+        FILE _cleanup_fclose_ *f;
         const char *fn;
         int r;
 
@@ -721,8 +721,6 @@ static int parse_config_file(void) {
         r = config_parse(fn, f, "Manager\0", config_item_table_lookup, (void*) items, false, NULL);
         if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
-
-        fclose(f);
 
         return 0;
 }

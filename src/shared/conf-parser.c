@@ -262,23 +262,19 @@ int config_parse(
                 void *userdata) {
 
         unsigned line = 0;
-        char *section = NULL;
+        char _cleanup_free_ *section = NULL, *continuation = NULL;
+        FILE _cleanup_fclose_ *ours = NULL;
         int r;
-        bool ours = false;
-        char *continuation = NULL;
 
         assert(filename);
         assert(lookup);
 
         if (!f) {
-                f = fopen(filename, "re");
+                f = ours = fopen(filename, "re");
                 if (!f) {
-                        r = -errno;
-                        log_error("Failed to open configuration file '%s': %s", filename, strerror(-r));
-                        goto finish;
+                        log_error("Failed to open configuration file '%s': %m", filename);
+                        return -errno;
                 }
-
-                ours = true;
         }
 
         while (!feof(f)) {
@@ -289,19 +285,16 @@ int config_parse(
                         if (feof(f))
                                 break;
 
-                        r = -errno;
-                        log_error("Failed to read configuration file '%s': %s", filename, strerror(-r));
-                        goto finish;
+                        log_error("Failed to read configuration file '%s': %m", filename);
+                        return -errno;
                 }
 
                 truncate_nl(l);
 
                 if (continuation) {
                         c = strappend(continuation, l);
-                        if (!c) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!c)
+                                return -ENOMEM;
 
                         free(continuation);
                         continuation = NULL;
@@ -323,10 +316,8 @@ int config_parse(
                                 continuation = c;
                         else {
                                 continuation = strdup(l);
-                                if (!continuation) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
+                                if (!continuation)
+                                        return -ENOMEM;
                         }
 
                         continue;
@@ -344,19 +335,10 @@ int config_parse(
                 free(c);
 
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
-        r = 0;
-
-finish:
-        free(section);
-        free(continuation);
-
-        if (f && ours)
-                fclose(f);
-
-        return r;
+        return 0;
 }
 
 int config_parse_int(
