@@ -202,7 +202,7 @@ static bool mount_in_initrd(struct mntent *me) {
 static bool mount_is_rootfs(struct mntent *me) {
         assert(me);
 
-        return hasmntopt(me, "x-initrd-rootfs.mount");
+        return hasmntopt(me, "x-initrd.rootfs");
 }
 
 static int add_mount(const char *what, const char *where, const char *type, const char *opts,
