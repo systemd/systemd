@@ -62,7 +62,7 @@ usage()
     } >&2
 }
 
-if ! ( [[ $COMMAND ]] && [[ $KERNEL_VERSION ]] && [[ $KERNEL_IMAGE ]] ); then
+if ! ( [[ $COMMAND ]] && [[ $KERNEL_VERSION ]] ); then
     usage
     exit 1
 fi
@@ -101,6 +101,10 @@ readarray -t PLUGINS < <(
 
 case "$COMMAND" in
     add)
+        if [[ -z $KERNEL_IMAGE ]]; then
+            usage
+            exit 1
+        fi
         mkdir -p "$BOOT_DIR_ABS" || exit 1
 
         for f in "${PLUGINS[@]}"; do
