@@ -355,6 +355,7 @@ dist_systemunit_DATA = \
 	units/initrd-root-fs.target \
 	units/remote-fs.target \
 	units/remote-fs-pre.target \
+	units/remote-fs-setup.target \
 	units/network.target \
 	units/nss-lookup.target \
 	units/nss-user-lookup.target \
