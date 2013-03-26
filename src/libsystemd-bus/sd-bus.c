@@ -539,8 +539,10 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
                 skip_address_key(p);
         }
 
-        if (!path)
+        if (!path) {
+                r = -EINVAL;
                 goto fail;
+        }
 
         /* Make sure there are no holes in the array, with the
          * exception of argv[0] */
