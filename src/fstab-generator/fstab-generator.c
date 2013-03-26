@@ -547,7 +547,7 @@ static int parse_new_root_from_proc_cmdline(void) {
         }
 
         if (!what) {
-                log_error("Could not find a root= entry on the kernel commandline.");
+                log_debug("Could not find a root= entry on the kernel commandline.");
                 return 0;
         }
 
