@@ -206,8 +206,8 @@ static int bus_socket_setup(sd_bus *b) {
 
         assert(b);
 
-        /* Enable SO_PASSCRED + SO_PASSEC. We try this on any socket,
-         * just in case. This is actually irrelavant for */
+        /* Enable SO_PASSCRED + SO_PASSEC. We try this on any
+         * socket, just in case. */
         one = 1;
         setsockopt(b->fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
         setsockopt(b->fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
@@ -467,8 +467,8 @@ static int bus_socket_make_message(sd_bus *bus, size_t size, sd_bus_message **m)
 
         r = bus_message_from_malloc(bus->rbuffer, size,
                                     bus->fds, bus->n_fds,
-                                    bus->ucred_valid ? &bus->ucred : NULL,
-                                    bus->label[0] ? bus->label : NULL,
+                                    !bus->bus_client && bus->ucred_valid ? &bus->ucred : NULL,
+                                    !bus->bus_client && bus->label[0] ? bus->label : NULL,
                                     &t);
         if (r < 0) {
                 free(b);
