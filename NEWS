@@ -14,7 +14,7 @@ CHANGES WITH 199:
           ExecStartPre= may now leave data in /tmp that ExecStart= of
           the same service can still access). When a service is
           stopped its temporary directories are immediately deleted
-          (normal clean-up with tmpfiles still is done in addition to
+          (normal clean-up with tmpfiles is still done in addition to
           this though).
 
         * By default, systemd will now set a couple of sysctl
@@ -25,7 +25,7 @@ CHANGES WITH 199:
           be reasonably safe, and good defaults for all new systems.
 
         * The predictable network naming logic may now be turned off
-          with a new kernel command line switch: net.ifnames=0
+          with a new kernel command line switch: net.ifnames=0.
 
         * A new libsystemd-bus module has been added that implements a
           pretty complete D-Bus client library. For details see:
@@ -33,10 +33,10 @@ CHANGES WITH 199:
           http://lists.freedesktop.org/archives/systemd-devel/2013-March/009797.html
 
         * journald will now explicitly flush the journal files to disk
-          the latest 5min after each write. This will also mark the
-          files as offline then until the next write. This should
-          increase reliability. The synchronization delay can be
-          configured via SyncIntervalSec= in journald.conf.
+          at the latest 5min after each write. The file will then also
+          be marked offline until the next write. This should increase
+          reliability in case of a crash. The synchronization delay
+          can be configured via SyncIntervalSec= in journald.conf.
 
         * There's a new remote-fs-setup.target unit that can be used
           to pull in specific services when at least one remote file
@@ -50,8 +50,8 @@ CHANGES WITH 199:
         * libudev gained a new call udev_device_set_attribute_value()
           to set sysfs attributes of a device.
 
-        * The udev daemon now adjusts its default number of parallel
-          executed worker processes based on the number of available
+        * The udev daemon now sets the default number of worker
+          processes executed in parallel based on the number of available
           CPUs instead of the amount of available RAM. This is supposed
           to provide a more reliable default and limit a too agressive
           paralellism for setups with 1000s of devices connected.
