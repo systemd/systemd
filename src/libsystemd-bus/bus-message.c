@@ -789,7 +789,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         void *a;
         char *e = NULL;
         int fd = -1;
-        uint32_t fdi;
+        uint32_t fdi = 0;
         int r;
 
         if (!m)
