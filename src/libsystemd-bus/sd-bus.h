@@ -29,9 +29,10 @@
 #include "sd-bus-protocol.h"
 
 /* TODO:
- * - implicitly add stub introspection calls
  * - server side
- * - allow installing match callbacks,
+ * - allow installing match callbacks
+ * - anonymous auth
+ * - default policy
  *
  * Later:
  * - add page donation logic

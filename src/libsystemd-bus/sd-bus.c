@@ -30,6 +30,7 @@
 #include "util.h"
 #include "macro.h"
 #include "strv.h"
+#include "set.h"
 
 #include "sd-bus.h"
 #include "bus-internal.h"
@@ -1553,7 +1554,10 @@ static int process_object(sd_bus *bus, sd_bus_message *m) {
                 }
         }
 
-        if (!found)
+        /* We found some handlers but none wanted to take this, then
+         * return this -- with one exception, we can handle
+         * introspection minimally ourselves */
+        if (!found || sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect"))
                 return 0;
 
         sd_bus_error_set(&error,
@@ -1561,6 +1565,98 @@ static int process_object(sd_bus *bus, sd_bus_message *m) {
                          "Unknown method '%s' or interface '%s'.", m->member, m->interface);
 
         r = sd_bus_message_new_method_error(bus, m, &error, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_send(bus, reply, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int process_introspect(sd_bus *bus, sd_bus_message *m) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_free_ char *introspection = NULL;
+        _cleanup_set_free_free_ Set *s = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        struct object_callback *c;
+        Iterator i;
+        size_t size = 0;
+        char *node;
+        int r;
+
+        assert(bus);
+        assert(m);
+
+        if (!sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect"))
+                return 0;
+
+        if (!m->path)
+                return 0;
+
+        s = set_new(string_hash_func, string_compare_func);
+        if (!s)
+                return -ENOMEM;
+
+        HASHMAP_FOREACH(c, bus->object_callbacks, i) {
+                const char *e;
+                char *a, *p;
+
+                if (streq(c->path, "/"))
+                        continue;
+
+                if (streq(m->path, "/"))
+                        e = c->path;
+                else {
+                        e = startswith(c->path, m->path);
+                        if (!e || *e != '/')
+                                continue;
+                }
+
+                a = strdup(e+1);
+                if (!a)
+                        return -ENOMEM;
+
+                p = strchr(a, '/');
+                if (p)
+                        *p = 0;
+
+                r = set_put(s, a);
+                if (r < 0) {
+                        free(a);
+
+                        if (r != -EEXIST)
+                                return r;
+                }
+        }
+
+        f = open_memstream(&introspection, &size);
+        if (!f)
+                return -ENOMEM;
+
+        fputs(SD_BUS_INTROSPECT_DOCTYPE, f);
+        fputs("<node>\n", f);
+        fputs(SD_BUS_INTROSPECT_INTERFACE_PEER, f);
+        fputs(SD_BUS_INTROSPECT_INTERFACE_INTROSPECTABLE, f);
+
+        while ((node = set_steal_first(s))) {
+                fprintf(f, " <node name=\"%s\"/>\n", node);
+                free(node);
+        }
+
+        fputs("</node>\n", f);
+
+        fflush(f);
+
+        if (ferror(f))
+                return -ENOMEM;
+
+        r = sd_bus_message_new_method_return(bus, m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", introspection);
         if (r < 0)
                 return r;
 
@@ -1589,7 +1685,11 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         if (r != 0)
                 return r;
 
-        return process_object(bus, m);
+        r = process_object(bus, m);
+        if (r != 0)
+                return r;
+
+        return process_introspect(bus, m);
 }
 
 static int process_running(sd_bus *bus, sd_bus_message **ret) {

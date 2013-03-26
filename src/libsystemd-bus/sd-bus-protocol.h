@@ -100,4 +100,46 @@ enum {
         _SD_BUS_MESSAGE_HEADER_MAX
 };
 
+#define SD_BUS_INTROSPECT_DOCTYPE                                       \
+        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n" \
+        "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
+
+#define SD_BUS_INTROSPECT_INTERFACE_PROPERTIES                          \
+        " <interface name=\"org.freedesktop.DBus.Properties\">\n"       \
+        "  <method name=\"Get\">\n"                                     \
+        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
+        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
+        "   <arg name=\"value\" direction=\"out\" type=\"v\"/>\n"       \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetAll\">\n"                                  \
+        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
+        "   <arg name=\"properties\" direction=\"out\" type=\"a{sv}\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"Set\">\n"                                     \
+        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
+        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
+        "   <arg name=\"value\" direction=\"in\" type=\"v\"/>\n"        \
+        "  </method>\n"                                                 \
+        "  <signal name=\"PropertiesChanged\">\n"                       \
+        "   <arg type=\"s\" name=\"interface\"/>\n"                     \
+        "   <arg type=\"a{sv}\" name=\"changed_properties\"/>\n"        \
+        "   <arg type=\"as\" name=\"invalidated_properties\"/>\n"       \
+        "  </signal>\n"                                                 \
+        " </interface>\n"
+
+#define SD_BUS_INTROSPECT_INTERFACE_INTROSPECTABLE                      \
+        " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"   \
+        "  <method name=\"Introspect\">\n"                              \
+        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
+        " </interface>\n"
+
+#define SD_BUS_INTROSPECT_INTERFACE_PEER                                \
+        "<interface name=\"org.freedesktop.DBus.Peer\">\n"              \
+        " <method name=\"Ping\"/>\n"                                    \
+        " <method name=\"GetMachineId\">\n"                             \
+        "  <arg type=\"s\" name=\"machine_uuid\" direction=\"out\"/>\n" \
+        " </method>\n"                                                  \
+        "</interface>\n"
+
 #endif
