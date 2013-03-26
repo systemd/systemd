@@ -199,12 +199,6 @@ static bool mount_in_initrd(struct mntent *me) {
                 streq(me->mnt_dir, "/usr");
 }
 
-static bool mount_is_rootfs(struct mntent *me) {
-        assert(me);
-
-        return hasmntopt(me, "x-initrd.rootfs");
-}
-
 static int add_mount(
                 const char *what,
                 const char *where,
@@ -458,7 +452,7 @@ static int parse_fstab(const char *prefix, bool initrd) {
                                 post = SPECIAL_INITRD_FS_TARGET;
                                 pre = NULL;
                                 setup = NULL;
-                        } else if (mount_is_rootfs(me)) {
+                        } else if (mount_in_initrd(me)) {
                                 post = SPECIAL_INITRD_ROOT_FS_TARGET;
                                 pre = NULL;
                                 setup = NULL;
