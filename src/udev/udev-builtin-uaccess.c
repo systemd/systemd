@@ -29,7 +29,6 @@
 #include <dirent.h>
 #include <getopt.h>
 
-#include <systemd/sd-daemon.h>
 #include <systemd/sd-login.h>
 #include "logind-acl.h"
 #include "udev.h"
@@ -49,7 +48,7 @@ static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool
         umask(0022);
 
         /* don't muck around with ACLs when the system is not running systemd */
-        if (!sd_booted())
+        if (!logind_running())
                 return 0;
 
         path = udev_device_get_devnode(dev);

@@ -32,8 +32,6 @@
 #include <security/pam_ext.h>
 #include <security/pam_misc.h>
 
-#include <systemd/sd-daemon.h>
-
 #include "util.h"
 #include "audit.h"
 #include "macro.h"
@@ -348,8 +346,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         /* pam_syslog(handle, LOG_INFO, "pam-systemd initializing"); */
 
-        /* Make this a NOP on non-systemd systems */
-        if (sd_booted() <= 0)
+        /* Make this a NOP on non-logind systems */
+        if (!logind_running())
                 return PAM_SUCCESS;
 
         if (parse_argv(handle,

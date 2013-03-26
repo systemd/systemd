@@ -36,6 +36,7 @@
 #include <dirent.h>
 #include <sys/resource.h>
 #include <stddef.h>
+#include <unistd.h>
 #include <systemd/sd-journal.h>
 
 #include "macro.h"
@@ -638,4 +639,8 @@ static inline void _reset_umask_(struct umask_struct *s) {
 
 static inline unsigned u64log2(uint64_t n) {
         return (n > 1) ? __builtin_clzll(n) ^ 63U : 0;
+}
+
+static inline bool logind_running(void) {
+        return access("/run/systemd/seats/", F_OK) >= 0;
 }
