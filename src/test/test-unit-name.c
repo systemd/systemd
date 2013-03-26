@@ -164,7 +164,7 @@ static void test_unit_printf(void) {
         expect(u, "%u", root->pw_name);
         expect(u, "%U", root_uid);
         expect(u, "%h", root->pw_dir);
-        expect(u, "%s", root->pw_shell);
+        expect(u, "%s", "/bin/sh");
         expect(u, "%m", mid);
         expect(u, "%b", bid);
         expect(u, "%H", host);
@@ -184,7 +184,7 @@ static void test_unit_printf(void) {
         expect(u2, "%u", root->pw_name);
         expect(u2, "%U", root_uid);
         expect(u2, "%h", root->pw_dir);
-        expect(u2, "%s", root->pw_shell);
+        expect(u2, "%s", "/bin/sh");
         expect(u2, "%m", mid);
         expect(u2, "%b", bid);
         expect(u2, "%H", host);

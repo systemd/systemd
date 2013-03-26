@@ -190,28 +190,37 @@ static char *specifier_user_shell(char specifier, void *data, void *userdata) {
         ExecContext *c;
         int r;
         const char *username, *shell;
+        char *ret;
 
         assert(u);
 
         c = unit_get_exec_context(u);
 
-        /* return HOME if set, otherwise from passwd */
-        if (!c || !c->user) {
-                char *sh;
+        if (c && c->user)
+                username = c->user;
+        else
+                username = "root";
 
-                r = get_shell(&sh);
-                if (r < 0)
-                        return strdup("/bin/sh");
-
-                return sh;
+        /* return /bin/sh for root, otherwise the value from passwd */
+        r = get_user_creds(&username, NULL, NULL, NULL, &shell);
+        if (r < 0) {
+                log_warning_unit(u->id,
+                                 "Failed to determine shell: %s",
+                                 strerror(-r));
+                return NULL;
         }
 
-        username = c->user;
-        r = get_user_creds(&username, NULL, NULL, NULL, &shell);
-        if (r < 0)
-                return strdup("/bin/sh");
+        if (!path_is_absolute(shell)) {
+                log_warning_unit(u->id,
+                                 "Shell %s is not absolute, ignoring.",
+                                 shell);
+        }
 
-        return strdup(shell);
+        ret = strdup(shell);
+        if (!ret)
+                log_oom();
+
+        return ret;
 }
 
 char *unit_name_printf(Unit *u, const char* format) {

@@ -1270,7 +1270,14 @@
                       <row>
                         <entry><literal>%s</literal></entry>
                         <entry>User shell</entry>
-                        <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+                        <entry>This is the shell of the configured
+                        user of the unit, or (if none is set) the user
+                        running the systemd instance.  If the user is
+                        <literal>root</literal> (UID equal to 0), the
+                        shell configured in account database is
+                        ignored and <filename>/bin/sh</filename> is
+                        always used.
+                        </entry>
                       </row>
                       <row>
                         <entry><literal>%m</literal></entry>

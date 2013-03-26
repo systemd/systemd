@@ -519,7 +519,6 @@ bool in_initrd(void);
 
 void warn_melody(void);
 
-int get_shell(char **ret);
 int get_home_dir(char **ret);
 
 static inline void freep(void *p) {

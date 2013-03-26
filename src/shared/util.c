@@ -5246,53 +5246,6 @@ int get_home_dir(char **_h) {
         return 0;
 }
 
-int get_shell(char **_sh) {
-        char *sh;
-        const char *e;
-        uid_t u;
-        struct passwd *p;
-
-        assert(_sh);
-
-        /* Take the user specified one */
-        e = getenv("SHELL");
-        if (e) {
-                sh = strdup(e);
-                if (!sh)
-                        return -ENOMEM;
-
-                *_sh = sh;
-                return 0;
-        }
-
-        /* Hardcode home directory for root to avoid NSS */
-        u = getuid();
-        if (u == 0) {
-                sh = strdup("/bin/sh");
-                if (!sh)
-                        return -ENOMEM;
-
-                *_sh = sh;
-                return 0;
-        }
-
-        /* Check the database... */
-        errno = 0;
-        p = getpwuid(u);
-        if (!p)
-                return errno ? -errno : -ESRCH;
-
-        if (!path_is_absolute(p->pw_shell))
-                return -EINVAL;
-
-        sh = strdup(p->pw_shell);
-        if (!sh)
-                return -ENOMEM;
-
-        *_sh = sh;
-        return 0;
-}
-
 void fclosep(FILE **f) {
         if (*f)
                 fclose(*f);
