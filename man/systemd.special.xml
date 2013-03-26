@@ -811,6 +811,14 @@
                 (via a <varname>Wants=</varname> type
                 dependency).</para>
 
+                <para>Note that these passive units cannot be started
+                manually, i.e. <literal>systemctl start
+                time-sync.target</literal> will fail with an
+                error. They can only be pulled in by dependency. This
+                is enforced since they exist for ordering purposes
+                only and thus are not useful as only unit within a
+                transaction.</para>
+
                 <variablelist>
                         <varlistentry>
                                 <term><filename>local-fs-pre.target</filename></term>
