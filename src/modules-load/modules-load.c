@@ -148,7 +148,7 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
                         break;
 
                 case KMOD_MODULE_LIVE:
-                        log_info("Module '%s' is already loaded", kmod_module_get_name(mod));
+                        log_debug("Module '%s' is already loaded", kmod_module_get_name(mod));
                         break;
 
                 default:
