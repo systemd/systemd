@@ -3969,6 +3969,8 @@ INSTALL_DIRS += \
 	$(sysconfdir)/modules-load.d \
 	$(prefix)/lib/sysctl.d \
 	$(sysconfdir)/sysctl.d \
+	$(prefix)/lib/kernel/install.d \
+	$(sysconfdir)/kernel/install.d \
 	$(systemshutdowndir) \
 	$(systemsleepdir) \
 	$(systemgeneratordir) \
