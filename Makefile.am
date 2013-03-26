@@ -2956,7 +2956,7 @@ systemd_readahead_SOURCES = \
 systemd_readahead_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libudev.la -lm
+	libudev.la
 
 dist_doc_DATA += \
 	src/readahead/sd-readahead.c \

@@ -68,7 +68,7 @@
  */
 
 static ReadaheadShared *shared = NULL;
-static struct timespec starttime;
+static usec_t starttime;
 
 /* Avoid collisions with the NULL pointer */
 #define SECTOR_TO_PTR(s) ULONG_TO_PTR((s)+1)
@@ -260,7 +260,7 @@ static int collect(const char *root) {
                 goto finish;
         }
 
-        clock_gettime(CLOCK_MONOTONIC, &starttime);
+        starttime = now(CLOCK_MONOTONIC);
 
         /* If there's no pack file yet we lower the kernel readahead
          * so that mincore() is accurate. If there is a pack file
@@ -459,19 +459,27 @@ static int collect(const char *root) {
                                         free(p);
                                 else {
                                         unsigned long ul;
-                                        struct timespec ts;
+                                        usec_t entrytime;
                                         struct item *entry;
 
                                         entry = new0(struct item, 1);
+                                        if (!entry) {
+                                                r = log_oom();
+                                                goto finish;
+                                        }
 
                                         ul = fd_first_block(m->fd);
 
-                                        clock_gettime(CLOCK_MONOTONIC, &ts);
+                                        entrytime = now(CLOCK_MONOTONIC);
 
                                         entry->block = ul;
                                         entry->path = strdup(p);
-                                        entry->bin = round((ts.tv_sec - starttime.tv_sec +
-                                                     ((ts.tv_nsec - starttime.tv_nsec) / 1000000000.0)) / 2.0);
+                                        if (!entry->path) {
+                                                free(entry);
+                                                r = log_oom();
+                                                goto finish;
+                                        }
+                                        entry->bin = (entrytime - starttime) / 2000000;
 
                                         if ((k = hashmap_put(files, p, entry)) < 0) {
                                                 log_warning("set_put() failed: %s", strerror(-k));
