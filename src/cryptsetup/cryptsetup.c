@@ -68,7 +68,8 @@ static int parse_one_option(const char *option) {
         if (startswith(option, "cipher=")) {
                 char *t;
 
-                if (!(t = strdup(option+7)))
+                t = strdup(option+7);
+                if (!t)
                         return -ENOMEM;
 
                 free(opt_cipher);
@@ -98,7 +99,8 @@ static int parse_one_option(const char *option) {
         } else if (startswith(option, "hash=")) {
                 char *t;
 
-                if (!(t = strdup(option+5)))
+                t = strdup(option+5);
+                if (!t)
                         return -ENOMEM;
 
                 free(opt_hash);
@@ -137,22 +139,19 @@ static int parse_one_option(const char *option) {
 }
 
 static int parse_options(const char *options) {
-        char *state;
-        char *w;
+        char *state, *w;
         size_t l;
+        int r;
 
         assert(options);
 
         FOREACH_WORD_SEPARATOR(w, l, options, ",", state) {
-                char *o;
-                int r;
+                _cleanup_free_ char *o;
 
-                if (!(o = strndup(w, l)))
+                o = strndup(w, l);
+                if (!o)
                         return -ENOMEM;
-
                 r = parse_one_option(o);
-                free(o);
-
                 if (r < 0)
                         return r;
         }
@@ -165,11 +164,19 @@ static void log_glue(int level, const char *msg, void *usrptr) {
 }
 
 static char *disk_description(const char *path) {
+
+        static const char name_fields[] = {
+                "ID_PART_ENTRY_NAME\0"
+                "DM_NAME\0"
+                "ID_MODEL_FROM_DATABASE\0"
+                "ID_MODEL\0"
+        };
+
         struct udev *udev = NULL;
         struct udev_device *device = NULL;
         struct stat st;
         char *description = NULL;
-        const char *model;
+        const char *i;
 
         assert(path);
 
@@ -179,16 +186,23 @@ static char *disk_description(const char *path) {
         if (!S_ISBLK(st.st_mode))
                 return NULL;
 
-        if (!(udev = udev_new()))
+        udev = udev_new();
+        if (!udev)
                 return NULL;
 
-        if (!(device = udev_device_new_from_devnum(udev, 'b', st.st_rdev)))
+        device = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+        if (!device)
                 goto finish;
 
-        if ((model = udev_device_get_property_value(device, "ID_MODEL_FROM_DATABASE")) ||
-            (model = udev_device_get_property_value(device, "ID_MODEL")) ||
-            (model = udev_device_get_property_value(device, "DM_NAME")))
-                description = strdup(model);
+        NULSTR_FOREACH(i, name_fields) {
+                const char *name;
+
+                name = udev_device_get_property_value(device, i);
+                if (!isempty(name)) {
+                        description = strdup(name);
+                        break;
+                }
+        }
 
 finish:
         if (device)
@@ -289,8 +303,10 @@ int main(int argc, char *argv[]) {
                                 key_file = argv[4];
                 }
 
-                if (argc >= 6 && argv[5][0] && !streq(argv[5], "-"))
-                        parse_options(argv[5]);
+                if (argc >= 6 && argv[5][0] && !streq(argv[5], "-")) {
+                        if (parse_options(argv[5]) < 0)
+                                goto finish;
+                }
 
                 /* A delicious drop of snake oil */
                 mlockall(MCL_FUTURE);
@@ -315,7 +331,8 @@ int main(int argc, char *argv[]) {
 
                 name = name_buffer ? name_buffer : argv[2];
 
-                if ((k = crypt_init(&cd, argv[3]))) {
+                k = crypt_init(&cd, argv[3]);
+                if (k) {
                         log_error("crypt_init() failed: %s", strerror(-k));
                         goto finish;
                 }
@@ -353,8 +370,9 @@ int main(int argc, char *argv[]) {
                         size_t l;
 
                         l = strcspn(opt_cipher, "-");
+                        truncated_cipher = strndup(opt_cipher, l);
 
-                        if (!(truncated_cipher = strndup(opt_cipher, l))) {
+                        if (!truncated_cipher) {
                                 log_oom();
                                 goto finish;
                         }
@@ -373,8 +391,7 @@ int main(int argc, char *argv[]) {
                         passwords = NULL;
 
                         if (!key_file) {
-                                char *text;
-                                char **p;
+                                char *text, **p;
 
                                 if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0) {
                                         log_oom();
@@ -521,14 +538,16 @@ int main(int argc, char *argv[]) {
         } else if (streq(argv[1], "detach")) {
                 int k;
 
-                if ((k = crypt_init_by_name(&cd, argv[2]))) {
+                k = crypt_init_by_name(&cd, argv[2]);
+                if (k) {
                         log_error("crypt_init() failed: %s", strerror(-k));
                         goto finish;
                 }
 
                 crypt_set_log_callback(cd, log_glue, NULL);
 
-                if ((k = crypt_deactivate(cd, argv[2])) < 0) {
+                k = crypt_deactivate(cd, argv[2]);
+                if (k < 0) {
                         log_error("Failed to deactivate: %s", strerror(-k));
                         goto finish;
                 }
