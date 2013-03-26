@@ -50,7 +50,7 @@ CHANGES WITH 199:
         * libudev gained a new call udev_device_set_attribute_value()
           to set sysfs attributes of a device.
 
-        * The udev daemon now adjusts its default number of paralell
+        * The udev daemon now adjusts its default number of parallel
           executed worker processes based on the number of available
           CPUs instead of the amount of available RAM. This is supposed
           to provide a more reliable default and limit a too agressive
