@@ -8,3 +8,4 @@
 [Unit]
 Description=Local File Systems (Pre)
 Documentation=man:systemd.special(7)
+RefuseManualStart=yes

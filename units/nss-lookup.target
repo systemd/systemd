@@ -11,3 +11,4 @@
 [Unit]
 Description=Host and Network Name Lookups
 Documentation=man:systemd.special(7)
+RefuseManualStart=yes
