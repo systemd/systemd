@@ -441,7 +441,7 @@ static int mount_add_quota_links(Mount *m) {
 static int mount_add_default_dependencies(Mount *m) {
         int r;
         MountParameters *p;
-        const char *after, *setup;
+        const char *after, *after2, *setup;
 
         assert(m);
 
@@ -458,15 +458,23 @@ static int mount_add_default_dependencies(Mount *m) {
 
         if (mount_is_network(p)) {
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
+                after2 = SPECIAL_NETWORK_TARGET;
                 setup = SPECIAL_REMOTE_FS_SETUP_TARGET;
         } else {
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
+                after2 = NULL;
                 setup = NULL;
         }
 
         r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, NULL, true);
         if (r < 0)
                 return r;
+
+        if (after2) {
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after2, NULL, true);
+                if (r < 0)
+                        return r;
+        }
 
         if (setup) {
                 r = unit_add_dependency_by_name(UNIT(m), UNIT_WANTS, setup, NULL, true);
