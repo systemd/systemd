@@ -617,7 +617,7 @@ int catalog_list_items(FILE *f, bool oneline, char **items) {
                 if (k < 0) {
                         log_error("Failed to parse id128 '%s': %s",
                                   *item, strerror(-k));
-                        if (r < 0)
+                        if (r == 0)
                                 r = k;
                         continue;
                 }
@@ -627,7 +627,7 @@ int catalog_list_items(FILE *f, bool oneline, char **items) {
                         log_full(k == -ENOENT ? LOG_NOTICE : LOG_ERR,
                                  "Failed to retrieve catalog entry for '%s': %s",
                                   *item, strerror(-k));
-                        if (r < 0)
+                        if (r == 0)
                                 r = k;
                         continue;
                 }
