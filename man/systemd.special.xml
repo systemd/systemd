@@ -388,29 +388,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>network.target</filename></term>
-                                <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        <varname>After=</varname> for
-                                        this target unit to all SysV
-                                        init script service units with
-                                        an LSB header referring to the
-                                        <literal>$network</literal>
-                                        facility.</para>
-
-                                        <para>This unit is supposed to
-                                        indicate when the network is
-                                        "up", but it is only very
-                                        loosely defined what that is
-                                        supposed to mean. Also see <ulink
-                                        url="http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
-                                        Services After the Network is
-                                        up</ulink> for more
-                                        information.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>paths.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -830,6 +807,29 @@
                                         (see above). It can be used to
                                         execute certain units before
                                         all local mounts.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>network.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        <varname>After=</varname> for
+                                        this target unit to all SysV
+                                        init script service units with
+                                        an LSB header referring to the
+                                        <literal>$network</literal>
+                                        facility.</para>
+
+                                        <para>This unit is supposed to
+                                        indicate when the network is
+                                        "up", but it is only very
+                                        loosely defined what that is
+                                        supposed to mean. Also see <ulink
+                                        url="http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
+                                        Services After the Network is
+                                        up</ulink> for more
+                                        information.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
