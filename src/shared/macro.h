@@ -46,6 +46,9 @@
 #define _introspect_(x) __attribute__((section("introspect." x)))
 #define _alignas_(x) __attribute__((aligned(__alignof(x))))
 
+/* automake test harness */
+#define EXIT_TEST_SKIP 77
+
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
 

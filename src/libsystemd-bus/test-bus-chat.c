@@ -27,6 +27,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "macro.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -543,8 +544,10 @@ int main(int argc, char *argv[]) {
         int q, r;
 
         r = server_init(&bus);
-        if (r < 0)
-                return EXIT_FAILURE;
+        if (r < 0) {
+                log_info("Failed to connect to bus, skipping tests.");
+                return EXIT_TEST_SKIP;
+        }
 
         log_info("Initialized...");
 

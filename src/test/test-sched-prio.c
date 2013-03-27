@@ -22,7 +22,7 @@
 #include <sched.h>
 
 #include "manager.h"
-
+#include "macro.h"
 
 int main(int argc, char *argv[]) {
         Manager *m;
@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
         r = manager_new(SYSTEMD_USER, &m);
         if (r == -EPERM) {
                 puts("manager_new: Permission denied. Skipping test.");
-                return EXIT_SUCCESS;
+                return EXIT_TEST_SKIP;
         }
         assert(r >= 0);
         assert_se(manager_startup(m, serial, fdset) >= 0);

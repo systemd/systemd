@@ -108,7 +108,7 @@ static void test_replacements(void) {
 #undef expect
 }
 
-static void test_unit_printf(void) {
+static int test_unit_printf(void) {
         Manager *m;
         Unit *u, *u2;
         int r;
@@ -126,7 +126,7 @@ static void test_unit_printf(void) {
         r = manager_new(SYSTEMD_USER, &m);
         if (r == -EPERM) {
                 puts("manager_new: Permission denied. Skipping test.");
-                return;
+                return EXIT_TEST_SKIP;
         }
         assert(r == 0);
 
@@ -189,11 +189,11 @@ static void test_unit_printf(void) {
         expect(u2, "%b", bid);
         expect(u2, "%H", host);
         expect(u2, "%t", "/run/user/*");
+
+        return 0;
 }
 
 int main(int argc, char* argv[]) {
         test_replacements();
-        test_unit_printf();
-
-        return 0;
+        return test_unit_printf();
 }
