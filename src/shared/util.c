@@ -5708,7 +5708,7 @@ int create_tmp_dir(char template[], char** dir_name) {
         dt = strjoin(d, "/tmp", NULL);
         if (!dt) {
                 r = log_oom();
-                goto fail2;
+                goto fail3;
         }
 
         umask(0000);
@@ -5716,7 +5716,7 @@ int create_tmp_dir(char template[], char** dir_name) {
         if (r) {
                 log_error("Can't create directory %s: %m", dt);
                 r = -errno;
-                goto fail1;
+                goto fail2;
         }
         log_debug("Created temporary directory %s", dt);
 
@@ -5734,6 +5734,8 @@ int create_tmp_dir(char template[], char** dir_name) {
 fail1:
         rmdir(dt);
 fail2:
+        free(dt);
+fail3:
         rmdir(template);
         return r;
 }
