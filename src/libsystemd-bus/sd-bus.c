@@ -1944,7 +1944,7 @@ static int bus_add_object(
                 return -ENOMEM;
 
         c->path = strdup(path);
-        if (!path) {
+        if (!c->path) {
                 free(c);
                 return -ENOMEM;
         }
