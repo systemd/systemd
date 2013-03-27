@@ -143,6 +143,9 @@ ENV{DMI_VENDOR}=="MICRO-STAR*|Micro-Star*", RUN+="keymap $name micro-star"
 # brightness; so ignore those atkbd ones, to avoid loops
 ENV{DMI_VENDOR}=="MICRO-STAR*", ATTR{[dmi/id]product_name}=="*U-100*|*U100*|*N033", RUN+="keymap $name 0xF7 reserved 0xF8 reserved"
 
+# MSI Wind U90/U100 generates separate touchpad on/off keycodes so ignore touchpad toggle keycode
+ENV{DMI_VENDOR}=="MICRO-STAR*", ATTR{[dmi/id]product_name}=="U90/U100", RUN+="keymap $name 0xE4 reserved"
+
 ENV{DMI_VENDOR}=="INVENTEC", ATTR{[dmi/id]product_name}=="SYMPHONY 6.0/7.0", RUN+="keymap $name inventec-symphony_6.0_7.0"
 
 ENV{DMI_VENDOR}=="MAXDATA", ATTR{[dmi/id]product_name}=="Pro 7000*", RUN+="keymap $name maxdata-pro_7000"
