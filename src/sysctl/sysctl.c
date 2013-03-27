@@ -125,7 +125,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
 
         r = search_and_fopen_nulstr(path, "re", conf_file_dirs, &f);
         if (r < 0) {
-                if (ignore_enoent && errno == -ENOENT)
+                if (ignore_enoent && r == -ENOENT)
                         return 0;
 
                 log_error("Failed to open file '%s', ignoring: %s", path, strerror(-r));
