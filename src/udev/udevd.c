@@ -819,7 +819,11 @@ static void static_dev_create_from_modules(struct udev *udev)
         char buf[4096];
         FILE *f;
 
-        uname(&kernel);
+        if (uname(&kernel) < 0) {
+                log_error("uname failed: %m");
+                return;
+        }
+
         strscpyl(modules, sizeof(modules), ROOTPREFIX "/lib/modules/", kernel.release, "/modules.devname", NULL);
         f = fopen(modules, "re");
         if (f == NULL)
