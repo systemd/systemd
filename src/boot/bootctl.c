@@ -143,8 +143,8 @@ static int show_status(char **args, unsigned n) {
 
         err = boot_info_query(info);
 
-        printf("Machine:\n");
-        printf("           ID: %s\n", sd_id128_to_string(info->machine_id, buf));
+        printf("Identification:\n");
+        printf("   Machine ID: %s\n", sd_id128_to_string(info->machine_id, buf));
         printf("      Boot ID: %s\n", sd_id128_to_string(info->boot_id, buf));
         printf("\n");
 
