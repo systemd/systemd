@@ -1559,10 +1559,19 @@ void exec_context_tmp_dirs_done(ExecContext *c) {
 
         for(dirp = dirs; *dirp; dirp++) {
                 char *dir;
-                rm_rf_dangerous(*dirp, false, true, false);
+                int r;
 
+                r = rm_rf_dangerous(*dirp, false, true, false);
                 dir = dirname(*dirp);
-                rmdir(dir);
+                if (r < 0)
+                        log_warning("Failed to remove content of temporary directory %s: %s",
+                                    dir, strerror(-r));
+                else {
+                        r = rmdir(dir);
+                        if (r < 0)
+                                log_warning("Failed to remove  temporary directory %s: %s",
+                                            dir, strerror(-r));
+                }
 
                 free(*dirp);
         }
