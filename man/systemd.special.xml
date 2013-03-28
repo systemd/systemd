@@ -71,6 +71,7 @@
                 <filename>local-fs-pre.target</filename>,
                 <filename>multi-user.target</filename>,
                 <filename>network.target</filename>,
+                <filename>network-online.target</filename>,
                 <filename>nss-lookup.target</filename>,
                 <filename>nss-user-lookup.target</filename>,
                 <filename>paths.target</filename>,
@@ -79,7 +80,6 @@
                 <filename>reboot.target</filename>,
                 <filename>remote-fs.target</filename>,
                 <filename>remote-fs-pre.target</filename>,
-                <filename>remote-fs-setup.target</filename>,
                 <filename>rescue.target</filename>,
                 <filename>initrd-root-fs.target</filename>,
                 <filename>rpcbind.target</filename>,
@@ -388,6 +388,67 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>network-online.target</filename></term>
+                                <listitem>
+                                        <para>Units that strictly
+                                        require a configured network
+                                        connection should pull in
+                                        <filename>network-online.target</filename>
+                                        (via a
+                                        <varname>Wants=</varname> type
+                                        dependency) and order
+                                        themselves after it. This
+                                        target unit is intended to
+                                        pull in a service that delays
+                                        further execution until the
+                                        network is sufficiently set
+                                        up. What precisely this
+                                        requires is left to the
+                                        implementation of the network
+                                        managing service.</para>
+
+                                        <para>Note the distinction
+                                        between this unit and
+                                        <filename>network.target</filename>. This
+                                        unit is an active unit
+                                        (i.e. pulled in by the
+                                        consumer rather than the
+                                        provider of this
+                                        functionality) and pulls in a
+                                        service which possibly adds
+                                        substantial delays to further
+                                        execution. In contrast,
+                                        <filename>network.target</filename>
+                                        is a passive unit (i.e. pulled
+                                        in by the provider of the
+                                        functionality, rather than the
+                                        consumer) that usually does
+                                        not delay execution
+                                        much. Usually,
+                                        <filename>network.target</filename>
+                                        is part of the boot of most
+                                        systems, while
+                                        <filename>network-online.target</filename>
+                                        is not, except when at least
+                                        one unit requires it. Also see
+                                        <ulink
+                                        url="http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
+                                        Services After the Network is
+                                        up</ulink> for more
+                                        information.</para>
+
+                                        <para>All mount units for
+                                        remote network file systems
+                                        automatically pull in this
+                                        unit, and order themselves
+                                        after it. Note that networking
+                                        daemons that simply provide
+                                        functionality to other hosts
+                                        generally don't need to pull
+                                        this in.</para>
+                                        </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>paths.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -456,29 +517,6 @@
                                         an LSB header referring to the
                                         <literal>$remote_fs</literal>
                                         facility.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>remote-fs-setup.target</filename></term>
-                                <listitem>
-                                        <para>This target unit is
-                                        automatically pulled in (by a
-                                        <varname>Wants=</varname> type
-                                        dependency) by all remote
-                                        mount points. It can be used
-                                        to run certain units when at
-                                        least one remote file system
-                                        is to be mounted. Note that
-                                        this target is not ordered
-                                        against the remote mounts, use
-                                        <filename>remote-fs-pre.target</filename>
-                                        for that (see below).</para>
-
-                                        <para>Again, this target unit
-                                        is <emphasis>not</emphasis>
-                                        suitable for ordering, it is
-                                        only useful for pulling in
-                                        other units.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -812,6 +850,26 @@
                         <varlistentry>
                                 <term><filename>network.target</filename></term>
                                 <listitem>
+                                        <para>This unit is supposed to
+                                        indicate when network
+                                        functionality is available,
+                                        but it is only very weakly
+                                        defined what that is supposed
+                                        to mean, with one exception:
+                                        at shutdown, a unit that is
+                                        ordered after
+                                        <filename>network.target</filename>
+                                        will be stopped before the
+                                        network -- to whatever level
+                                        it might be set up then -- is
+                                        shut down. Also see <ulink
+                                        url="http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
+                                        Services After the Network is
+                                        up</ulink> for more
+                                        information. Also see
+                                        <filename>network-online.target</filename>
+                                        described above.</para>
+
                                         <para>systemd automatically
                                         adds dependencies of type
                                         <varname>After=</varname> for
@@ -821,15 +879,6 @@
                                         <literal>$network</literal>
                                         facility.</para>
 
-                                        <para>This unit is supposed to
-                                        indicate when the network is
-                                        "up", but it is only very
-                                        loosely defined what that is
-                                        supposed to mean. Also see <ulink
-                                        url="http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget">Running
-                                        Services After the Network is
-                                        up</ulink> for more
-                                        information.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

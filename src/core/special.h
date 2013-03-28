@@ -54,8 +54,8 @@
 #define SPECIAL_INITRD_ROOT_FS_TARGET "initrd-root-fs.target"
 #define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"       /* LSB's $remote_fs */
 #define SPECIAL_REMOTE_FS_PRE_TARGET "remote-fs-pre.target"
-#define SPECIAL_REMOTE_FS_SETUP_TARGET "remote-fs-setup.target"
 #define SPECIAL_SWAP_TARGET "swap.target"
+#define SPECIAL_NETWORK_ONLINE_TARGET "network-online.target"
 #define SPECIAL_BASIC_TARGET "basic.target"
 
 /* LSB compatibility */

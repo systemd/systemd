@@ -210,8 +210,9 @@ static int add_mount(
                 bool automount,
                 bool isbind,
                 const char *pre,
+                const char *pre2,
+                const char *online,
                 const char *post,
-                const char *setup,
                 const char *source) {
         char _cleanup_free_
                 *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL,
@@ -267,10 +268,17 @@ static int add_mount(
                                 "After=%s\n",
                                 pre);
 
-                if (setup)
+                if (pre2)
                         fprintf(f,
+                                "After=%s\n",
+                                pre2);
+
+                if (online)
+                        fprintf(f,
+                                "After=%s\n"
                                 "Wants=%s\n",
-                                setup);
+                                online,
+                                online);
 
                 fprintf(f,
                         "Conflicts=" SPECIAL_UMOUNT_TARGET "\n"
@@ -439,7 +447,7 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         k = add_swap(what, me);
                 else {
                         bool noauto, nofail, automount, isbind;
-                        const char *pre, *post, *setup;
+                        const char *pre, *pre2, *post, *online;
 
                         noauto = !!hasmntopt(me, "noauto");
                         nofail = !!hasmntopt(me, "nofail");
@@ -449,26 +457,25 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         isbind = mount_is_bind(me);
 
                         if (initrd) {
+                                pre = pre2 = online = NULL;
                                 post = SPECIAL_INITRD_FS_TARGET;
-                                pre = NULL;
-                                setup = NULL;
                         } else if (mount_in_initrd(me)) {
+                                pre = pre2 = online = NULL;
                                 post = SPECIAL_INITRD_ROOT_FS_TARGET;
-                                pre = NULL;
-                                setup = NULL;
                         } else if (mount_is_network(me)) {
-                                post = SPECIAL_REMOTE_FS_TARGET;
                                 pre = SPECIAL_REMOTE_FS_PRE_TARGET;
-                                setup = SPECIAL_REMOTE_FS_SETUP_TARGET;
+                                pre2 = SPECIAL_NETWORK_TARGET;
+                                online = SPECIAL_NETWORK_ONLINE_TARGET;
+                                post = SPECIAL_REMOTE_FS_TARGET;
                         } else {
-                                post = SPECIAL_LOCAL_FS_TARGET;
                                 pre = SPECIAL_LOCAL_FS_PRE_TARGET;
-                                setup = NULL;
+                                pre2 = online = NULL;
+                                post = SPECIAL_LOCAL_FS_TARGET;
                         }
 
                         k = add_mount(what, where, me->mnt_type, me->mnt_opts,
                                       me->mnt_passno, noauto, nofail, automount,
-                                      isbind, pre, post, setup, fstab_path);
+                                      isbind, pre, pre2, online, post, fstab_path);
                 }
 
                 if (k < 0)
@@ -552,7 +559,7 @@ static int parse_new_root_from_proc_cmdline(void) {
 
         log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
         r = add_mount(what, "/sysroot", type, opts, 0, false, false, false,
-                      false, NULL, SPECIAL_INITRD_ROOT_FS_TARGET, NULL, "/proc/cmdline");
+                      false, NULL, NULL, NULL, SPECIAL_INITRD_ROOT_FS_TARGET, "/proc/cmdline");
 
         return (r < 0) ? r : 0;
 }
