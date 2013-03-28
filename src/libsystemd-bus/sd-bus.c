@@ -507,7 +507,7 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
 
                         errno = 0;
                         ul = strtoul(*p + 4, (char**) p, 10);
-                        if (errno != 0 || **p != '=' || ul > 256) {
+                        if (errno > 0 || **p != '=' || ul > 256) {
                                 r = -EINVAL;
                                 goto fail;
                         }

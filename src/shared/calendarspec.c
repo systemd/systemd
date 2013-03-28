@@ -391,7 +391,7 @@ static int prepend_component(const char **p, CalendarComponent **c) {
 
         errno = 0;
         value = strtoul(*p, &e, 10);
-        if (errno != 0)
+        if (errno > 0)
                 return -errno;
         if (e == *p)
                 return -EINVAL;
@@ -400,7 +400,7 @@ static int prepend_component(const char **p, CalendarComponent **c) {
 
         if (*e == '/') {
                 repeat = strtoul(e+1, &ee, 10);
-                if (errno != 0)
+                if (errno > 0)
                         return -errno;
                 if (ee == e+1)
                         return -EINVAL;

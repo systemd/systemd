@@ -364,7 +364,7 @@ int write_env_file(const char *fname, char **l) {
         fflush(f);
 
         if (ferror(f)) {
-                if (errno != 0)
+                if (errno > 0)
                         r = -errno;
                 else
                         r = -EIO;

@@ -595,7 +595,7 @@ int create_tmp_dir(char template[], char** dir_name);
 #define FOREACH_DIRENT(de, d, on_error)                                 \
         for (errno = 0, de = readdir(d);; errno = 0, de = readdir(d))   \
                 if (!de) {                                              \
-                        if (errno != 0) {                               \
+                        if (errno > 0) {                                \
                                 on_error;                               \
                         }                                               \
                         break;                                          \

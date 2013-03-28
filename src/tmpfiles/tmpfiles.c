@@ -611,7 +611,7 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
         if ((k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g)) != 0) {
 
                 if (k != GLOB_NOMATCH) {
-                        if (errno != 0)
+                        if (errno > 0)
                                 errno = EIO;
 
                         log_error("glob(%s) failed: %m", i->path);

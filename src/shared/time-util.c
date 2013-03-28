@@ -547,7 +547,7 @@ int parse_usec(const char *t, usec_t *usec) {
                 errno = 0;
                 l = strtoll(p, &e, 10);
 
-                if (errno != 0)
+                if (errno > 0)
                         return -errno;
 
                 if (l < 0)
@@ -627,7 +627,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                 errno = 0;
                 l = strtoll(p, &e, 10);
 
-                if (errno != 0)
+                if (errno > 0)
                         return -errno;
 
                 if (l < 0)

@@ -84,7 +84,7 @@ _sd_export_ int sd_listen_fds(int unset_environment) {
         errno = 0;
         l = strtoul(e, &p, 10);
 
-        if (errno != 0) {
+        if (errno > 0) {
                 r = -errno;
                 goto finish;
         }
@@ -109,7 +109,7 @@ _sd_export_ int sd_listen_fds(int unset_environment) {
         errno = 0;
         l = strtoul(e, &p, 10);
 
-        if (errno != 0) {
+        if (errno > 0) {
                 r = -errno;
                 goto finish;
         }

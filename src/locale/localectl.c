@@ -421,7 +421,7 @@ static int add_locales_from_libdir (Set *locales) {
                 errno = 0;
         }
 
-        if (errno != 0) {
+        if (errno > 0) {
                 log_error("Failed to read locale directory: %m");
                 return -errno;
         }

@@ -69,7 +69,7 @@ static int mount_find_pri(struct mntent *me, int *ret) {
 
         errno = 0;
         r = strtoul(pri, &end, 10);
-        if (errno != 0)
+        if (errno > 0)
                 return -errno;
 
         if (end == pri || (*end != ',' && *end != 0))

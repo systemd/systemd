@@ -2265,7 +2265,7 @@ int parse_bytes(const char *t, off_t *bytes) {
                 errno = 0;
                 l = strtoll(p, &e, 10);
 
-                if (errno != 0)
+                if (errno > 0)
                         return -errno;
 
                 if (l < 0)
@@ -4191,7 +4191,7 @@ int get_user_creds(
         }
 
         if (!p)
-                return errno != 0 ? -errno : -ESRCH;
+                return errno > 0 ? -errno : -ESRCH;
 
         if (uid)
                 *uid = p->pw_uid;
@@ -4272,7 +4272,7 @@ int get_group_creds(const char **groupname, gid_t *gid) {
         }
 
         if (!g)
-                return errno != 0 ? -errno : -ESRCH;
+                return errno > 0 ? -errno : -ESRCH;
 
         if (gid)
                 *gid = g->gr_gid;

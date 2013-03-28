@@ -4629,11 +4629,11 @@ static int parse_time_spec(const char *t, usec_t *_u) {
 
                 errno = 0;
                 hour = strtol(t, &e, 10);
-                if (errno != 0 || *e != ':' || hour < 0 || hour > 23)
+                if (errno > 0 || *e != ':' || hour < 0 || hour > 23)
                         return -EINVAL;
 
                 minute = strtol(e+1, &e, 10);
-                if (errno != 0 || *e != 0 || minute < 0 || minute > 59)
+                if (errno > 0 || *e != 0 || minute < 0 || minute > 59)
                         return -EINVAL;
 
                 n = now(CLOCK_REALTIME);

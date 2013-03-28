@@ -68,7 +68,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 errno = 0;
                 if (inet_pton(AF_INET6, n, &a->sockaddr.in6.sin6_addr) <= 0) {
                         free(n);
-                        return errno != 0 ? -errno : -EINVAL;
+                        return errno > 0 ? -errno : -EINVAL;
                 }
 
                 free(n);
