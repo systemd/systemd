@@ -34,6 +34,7 @@
 #include "hashmap.h"
 #include "strv.h"
 #include "strbuf.h"
+#include "strxcpyx.h"
 #include "conf-files.h"
 #include "mkdir.h"
 #include "catalog.h"
@@ -96,7 +97,7 @@ static int catalog_compare_func(const void *a, const void *b) {
                         return 1;
         }
 
-        return strncmp(i->language, j->language, sizeof(i->language));
+        return strcmp(i->language, j->language);
 }
 
 static int finish_item(
@@ -123,12 +124,13 @@ static int finish_item(
                 return log_oom();
 
         i->id = id;
-        strncpy(i->language, language, sizeof(i->language));
+        strscpy(i->language, sizeof(i->language), language);
         i->offset = htole64((uint64_t) offset);
 
         r = hashmap_put(h, i, i);
         if (r == EEXIST) {
-                log_warning("Duplicate entry for " SD_ID128_FORMAT_STR ".%s, ignoring.", SD_ID128_FORMAT_VAL(id), language ? language : "C");
+                log_warning("Duplicate entry for " SD_ID128_FORMAT_STR ".%s, ignoring.",
+                            SD_ID128_FORMAT_VAL(id), language ? language : "C");
                 free(i);
                 return 0;
         }
@@ -185,15 +187,15 @@ static int import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                     line[0] == '-' &&
                     line[1] == '-' &&
                     line[2] == ' ' &&
-                    (line[2+1+32] == ' ' || line[2+1+32] == 0)) {
+                    (line[2+1+32] == ' ' || line[2+1+32] == '\0')) {
 
                         bool with_language;
                         sd_id128_t jd;
 
                         /* New entry */
 
-                        with_language = line[2+1+32] != 0;
-                        line[2+1+32] = 0;
+                        with_language = line[2+1+32] != '\0';
+                        line[2+1+32] = '\0';
 
                         if (sd_id128_from_string(line + 2 + 1, &jd) >= 0) {
 
@@ -211,21 +213,21 @@ static int import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                                                 log_error("[%s:%u] Language too short.", path, n);
                                                 return -EINVAL;
                                         }
-                                        if (c > sizeof(language)) {
+                                        if (c > sizeof(language) - 1) {
                                                 log_error("[%s:%u] language too long.", path, n);
                                                 return -EINVAL;
                                         }
 
-                                        strncpy(language, t, sizeof(language));
+                                        strscpy(language, sizeof(language), t);
                                 } else
-                                        zero(language);
+                                        language[0] = '\0';
 
                                 got_id = true;
                                 empty_line = false;
                                 id = jd;
 
                                 if (payload)
-                                        payload[0] = 0;
+                                        payload[0] = '\0';
 
                                 continue;
                         }
@@ -324,7 +326,9 @@ int catalog_update(void) {
 
         n = 0;
         HASHMAP_FOREACH(i, h, j) {
-                log_debug("Found " SD_ID128_FORMAT_STR ", language %s", SD_ID128_FORMAT_VAL(i->id), isempty(i->language) ? "C" : i->language);
+                log_debug("Found " SD_ID128_FORMAT_STR ", language %s",
+                          SD_ID128_FORMAT_VAL(i->id),
+                          isempty(i->language) ? "C" : i->language);
                 items[n++] = *i;
         }
 
