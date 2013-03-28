@@ -143,45 +143,48 @@ static int show_status(char **args, unsigned n) {
 
         err = boot_info_query(info);
 
-        printf("Identification:\n");
+        printf("System:\n");
         printf("   Machine ID: %s\n", sd_id128_to_string(info->machine_id, buf));
         printf("      Boot ID: %s\n", sd_id128_to_string(info->boot_id, buf));
-        printf("\n");
-
-        printf("Firmware:\n");
         if (info->fw_type)
-                printf("         Type: %s (%s)\n", info->fw_type, strna(info->fw_info));
-
+                printf("     Firmware: %s (%s)\n", info->fw_type, strna(info->fw_info));
         if (info->fw_secure_boot >= 0)
                 printf("  Secure Boot: %s\n", info->fw_secure_boot ? "enabled" : "disabled");
         if (info->fw_secure_boot_setup_mode >= 0)
                 printf("   Setup Mode: %s\n", info->fw_secure_boot_setup_mode ? "setup" : "user");
+        printf("\n");
 
         if (info->fw_entry_active >= 0) {
+                printf("Selected Firmware Entry:\n");
                 printf("        Title: %s\n", strna(info->fw_entries[info->fw_entry_active].title));
-                if (info->fw_entries[info->fw_entry_active].path)
-                        printf("       Binary: %s\n", info->fw_entries[info->fw_entry_active].path);
                 if (!sd_id128_equal(info->fw_entries[info->fw_entry_active].part_uuid, SD_ID128_NULL))
-                        printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                        printf("          ESP: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
                                SD_ID128_FORMAT_VAL(info->fw_entries[info->fw_entry_active].part_uuid));
+                else
+                        printf("          ESP: n/a\n");
+                if (info->fw_entries[info->fw_entry_active].path)
+                        printf("         File: %s%s\n", draw_special_char(DRAW_TREE_RIGHT), info->fw_entries[info->fw_entry_active].path);
         }
         printf("\n");
 
         if (info->loader) {
-                printf("Boot loader:\n");
-                printf("         Type: %s\n", info->loader);
-                printf("       Binary: %s\n", strna(info->loader_image_path));
+                printf("Boot Loader:\n");
+                printf("      Product: %s\n", info->loader);
                 if (!sd_id128_equal(info->loader_part_uuid, SD_ID128_NULL))
-                        printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                        printf("          ESP: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
                                SD_ID128_FORMAT_VAL(info->loader_part_uuid));
+                        else
+                                printf("          ESP: n/a\n");
+                printf("         File: %s%s\n", draw_special_char(DRAW_TREE_RIGHT), strna(info->loader_image_path));
+                printf("\n");
 
                 if (info->loader_entry_active >= 0) {
+                        printf("Selected Boot Loader Entry:\n");
                         printf("        Title: %s\n", strna(info->loader_entries[info->loader_entry_active].title));
-                        printf("        Entry: %s\n", info->loader_entries[info->loader_entry_active].path);
+                        printf("         File: %s\n", info->loader_entries[info->loader_entry_active].path);
+                        if (info->loader_options_added)
+                                printf("      Options: %s\n", info->loader_options_added);
                 }
-
-                if (info->loader_options_added)
-                        printf("      Options: %s\n", info->loader_options_added);
         } else
                 printf("No suitable data is provided by the boot manager. See:\n"
                        "  http://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface\n"
