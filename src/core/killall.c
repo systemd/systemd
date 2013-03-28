@@ -139,6 +139,13 @@ static int killall(int sig) {
                 if (ignore_proc(pid))
                         continue;
 
+                if (sig == SIGKILL) {
+                        _cleanup_free_ char *s;
+
+                        get_process_comm(pid, &s);
+                        log_notice("Sending SIGKILL to PID %lu (%s)", (unsigned long) pid, strna(s));
+                }
+
                 if (kill(pid, sig) >= 0)
                         n_processes++;
                 else if (errno != ENOENT)
