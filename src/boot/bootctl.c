@@ -158,10 +158,10 @@ static int show_status(char **args, unsigned n) {
                 printf("Selected Firmware Entry:\n");
                 printf("        Title: %s\n", strna(info->fw_entries[info->fw_entry_active].title));
                 if (!sd_id128_equal(info->fw_entries[info->fw_entry_active].part_uuid, SD_ID128_NULL))
-                        printf("          ESP: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                        printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
                                SD_ID128_FORMAT_VAL(info->fw_entries[info->fw_entry_active].part_uuid));
                 else
-                        printf("          ESP: n/a\n");
+                        printf("    Partition: n/a\n");
                 if (info->fw_entries[info->fw_entry_active].path)
                         printf("         File: %s%s\n", draw_special_char(DRAW_TREE_RIGHT), info->fw_entries[info->fw_entry_active].path);
         }
@@ -171,10 +171,10 @@ static int show_status(char **args, unsigned n) {
                 printf("Boot Loader:\n");
                 printf("      Product: %s\n", info->loader);
                 if (!sd_id128_equal(info->loader_part_uuid, SD_ID128_NULL))
-                        printf("          ESP: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                        printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
                                SD_ID128_FORMAT_VAL(info->loader_part_uuid));
                         else
-                                printf("          ESP: n/a\n");
+                                printf("    Partition: n/a\n");
                 printf("         File: %s%s\n", draw_special_char(DRAW_TREE_RIGHT), strna(info->loader_image_path));
                 printf("\n");
 
