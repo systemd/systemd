@@ -1,5 +1,22 @@
 systemd System and Service Manager
 
+CHANGES WITH 200:
+
+        * The boot-time readahead implementation for rotating media
+          will now read the read-ahead data in multiple passes which
+          consist of all read requests made in equidistant time
+          intervals. This means instead of strictly reading read-ahead
+          data in its physical order on disk we now try to find a
+          middle ground between physical and access time order.
+
+        * /etc/os-release files gained a new BUILD_ID= field for usage
+          on operating systems that provide continuous builds of OS
+          images.
+
+        Contributions from: Auke Kok, Eelco Dolstra, Kay Sievers,
+        Lennart Poettering, Lukas Nykryn, Martin Pitt, Václav Pavlín
+        William Douglas, Zbigniew Jędrzejewski-Szmek
+
 CHANGES WITH 199:
 
         * systemd-python gained an API exposing libsystemd-daemon.
