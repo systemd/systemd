@@ -34,7 +34,7 @@ static const struct udev_builtin *builtins[] = {
         [UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
 #endif
         [UDEV_BUILTIN_BTRFS] = &udev_builtin_btrfs,
-#ifdef ENABLE_FIRMWARE
+#ifdef HAVE_FIRMWARE
         [UDEV_BUILTIN_FIRMWARE] = &udev_builtin_firmware,
 #endif
         [UDEV_BUILTIN_HWDB] = &udev_builtin_hwdb,
