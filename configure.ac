@@ -215,6 +215,29 @@ m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-conf
 PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2])
 
 # ------------------------------------------------------------------------------
+have_coverage=no
+AC_ARG_ENABLE(coverage, AS_HELP_STRING([--enable-coverage], [enable test coverage]))
+if test "x$enable_coverage" = "xyes" ; then
+        AC_CHECK_PROG(lcov_found, [lcov], [yes], [no])
+        if test "x$lcov_found" = xno ; then
+                AC_MSG_ERROR([*** lcov support requested but the program was not found])
+        else
+                lcov_version_major="`lcov --version | cut -d ' ' -f 4 | cut -d '.' -f 1`"
+                lcov_version_minor="`lcov --version | cut -d ' ' -f 4 | cut -d '.' -f 2`"
+                if test "$lcov_version_major" -eq 1 -a "$lcov_version_minor" -lt 10; then
+                        AC_MSG_ERROR([*** lcov version is too old. 1.10 required])
+                else
+                        have_coverage=yes
+                        CC_CHECK_FLAGS_APPEND([with_coverage_cflags], [CFLAGS], [\
+                        -fprofile-arcs \
+                        -ftest-coverage])
+                        AC_SUBST([OUR_CFLAGS], "$with_cflags $with_coverage_cflags")
+                fi
+        fi
+fi
+AM_CONDITIONAL(ENABLE_COVERAGE, [test "$have_coverage" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_kmod=no
 AC_ARG_ENABLE(kmod, AS_HELP_STRING([--disable-kmod], [disable loadable modules support]))
 if test "x$enable_kmod" != "xno"; then
@@ -1000,6 +1023,7 @@ AC_MSG_RESULT([
         Python Headers:          ${have_python_devel}
         man pages:               ${have_manpages}
         gtk-doc:                 ${enable_gtk_doc}
+        test coverage:           ${have_coverage}
         Split /usr:              ${enable_split_usr}
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
 

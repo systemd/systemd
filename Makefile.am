@@ -1390,6 +1390,44 @@ test_sched_prio_LDADD = \
 	libsystemd-daemon.la
 
 # ------------------------------------------------------------------------------
+## .PHONY so it always rebuilds it
+.PHONY: coverage lcov-run lcov-report
+
+# run lcov from scratch, always
+coverage:
+	$(MAKE) lcov-run
+	$(MAKE) lcov-report
+
+coverage_dir = coverage
+coverage_opts = --base-directory $(srcdir) --directory $(builddir) --rc 'geninfo_adjust_src_path=$(abspath $(srcdir))=>$(abspath $(builddir))'
+
+if ENABLE_COVERAGE
+# reset run coverage tests
+lcov-run:
+	@rm -rf $(coverage_dir)
+	lcov $(coverage_opts) --zerocounters
+	-$(MAKE) check
+
+# generate report based on current coverage data
+lcov-report:
+	$(MKDIR_P) $(coverage_dir)
+	lcov $(coverage_opts) --compat-libtool --capture --no-external \
+		| sed 's|$(abspath $(builddir))|$(abspath $(srcdir))|' > $(coverage_dir)/.lcov.info
+	genhtml -t "systemd test coverage" -o $(coverage_dir) $(coverage_dir)/.lcov.info
+	@echo "Coverage report generated in $(abs_builddir)/$(coverage_dir)/index.html"
+
+# lcov doesn't work properly with vpath builds, make sure that bad
+# output is not uploaded by mistake.
+coverage-sync: coverage
+	test "$(builddir)" = "$(srcdir)"
+	rsync -rlv --delete --omit-dir-times coverage/ $(www_target)/coverage
+
+else
+lcov-run lcov-report:
+	echo "Need to reconfigure with --enable-coverage"
+endif
+
+# ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
 	src/initctl/initctl.c
 
