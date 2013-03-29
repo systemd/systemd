@@ -1032,11 +1032,16 @@ int main(int argc, char *argv[]) {
             arg_action == ACTION_LIST_CATALOG ||
             arg_action == ACTION_DUMP_CATALOG) {
 
-                char _cleanup_free_ *database;
-                database =  strjoin(arg_root, "/", CATALOG_DATABASE, NULL);
-                if (!database) {
-                        r = log_oom();
-                        goto finish;
+                const char* database = CATALOG_DATABASE;
+                char _cleanup_free_ *copy = NULL;
+                if (arg_root) {
+                        copy = strjoin(arg_root, "/", CATALOG_DATABASE, NULL);
+                        if (!database) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                        path_kill_slashes(copy);
+                        database = copy;
                 }
 
                 if (arg_action == ACTION_UPDATE_CATALOG) {
