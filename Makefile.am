@@ -1071,6 +1071,7 @@ noinst_tests += \
 	test-env-replace \
 	test-strbuf \
 	test-strv \
+	test-path-util \
 	test-strxcpyx \
 	test-unit-name \
 	test-unit-file \
@@ -1258,6 +1259,12 @@ test_strv_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-units.la \
 	libsystemd-id128-internal.la
+
+test_path_util_SOURCES = \
+	src/test/test-path-util.c
+
+test_path_util_LDADD = \
+	libsystemd-shared.la
 
 test_strxcpyx_SOURCES = \
 	src/test/test-strxcpyx.c
