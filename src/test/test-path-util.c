@@ -51,7 +51,7 @@ static void test_path(void) {
         assert_se(streq(path_get_file_name("./aa/bb/../file.da."), "file.da."));
         assert_se(streq(path_get_file_name("/aa///.file"), ".file"));
         assert_se(streq(path_get_file_name("/aa///file..."), "file..."));
-        assert_se(streq(path_get_file_name("file.../"), "."));
+        assert_se(streq(path_get_file_name("file.../"), ""));
 
 #define test_parent(x, y) {                     \
                 char *z;                        \
