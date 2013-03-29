@@ -1054,7 +1054,7 @@ fail:
 static int bus_init_private(Manager *m) {
         DBusError error;
         int r;
-        const char *const external_only[] = {
+        static const char *const external_only[] = {
                 "EXTERNAL",
                 NULL
         };
