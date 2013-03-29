@@ -95,15 +95,15 @@ static int divert_coredump(void) {
 
 int main(int argc, char* argv[]) {
         int r, j = 0;
-        _cleanup_free_ char *p = NULL;
+        char *t;
         ssize_t n;
         pid_t pid;
         uid_t uid;
         gid_t gid;
         struct iovec iovec[14];
-        _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
+        char _cleanup_free_ *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
-                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *t = NULL;
+                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *p = NULL;
 
         prctl(PR_SET_DUMPABLE, 0);
 
