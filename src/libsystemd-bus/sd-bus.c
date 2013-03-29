@@ -718,7 +718,7 @@ int sd_bus_start(sd_bus *bus) {
 
         if (bus->fd >= 0)
                 r = bus_start_fd(bus);
-        else if (bus->address)
+        else if (bus->address || bus->sockaddr.sa.sa_family != AF_UNSPEC || bus->exec_path)
                 r = bus_start_address(bus);
         else
                 return -EINVAL;
