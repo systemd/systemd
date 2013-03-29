@@ -19,13 +19,8 @@
 
 import sys
 import collections
-try:
-    from lxml import etree as tree
-    PRETTY = dict(pretty_print=True)
-except ImportError:
-    import xml.etree.ElementTree as tree
-    PRETTY = {}
 import re
+from xml_helper import *
 
 TEMPLATE = '''\
 <refentry id="systemd.directives" conditional="HAVE_PYTHON">
@@ -173,7 +168,7 @@ referring to {pages} individual manual pages.
 '''
 
 def _extract_directives(directive_groups, formatting, page):
-    t = tree.parse(page)
+    t = xml_parse(page)
     section = t.find('./refmeta/manvolnum').text
     pagename = t.find('./refmeta/refentrytitle').text
 
@@ -282,4 +277,5 @@ def make_page(*xml_files):
     return _make_page(template, directive_groups, formatting)
 
 if __name__ == '__main__':
-    tree.dump(make_page(*sys.argv[1:]), **PRETTY)
+    with open(sys.argv[1], 'wb') as f:
+        f.write(xml_print(make_page(*sys.argv[2:])))

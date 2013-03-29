@@ -97,6 +97,7 @@ rootbindir=$(rootprefix)/bin
 rootlibexecdir=$(rootprefix)/lib/systemd
 
 CLEANFILES = $(BUILT_SOURCES)
+DISTCLEANFILES =
 EXTRA_DIST =
 BUILT_SOURCES =
 INSTALL_EXEC_HOOKS =
@@ -556,9 +557,10 @@ noinst_DATA += \
 CLEANFILES += \
 	man/index.html
 
-NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
-
 XML_GLOB = $(wildcard $(top_srcdir)/man/*.xml)
+NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
+SOURCE_XML_FILES = $(filter-out man/systemd.directives.xml,$(NON_INDEX_XML_FILES))
+
 update-man-list: make-man-rules.py $(XML_GLOB)
 	$(AM_V_GEN)$(PYTHON) $^ > $(top_srcdir)/Makefile-man.tmp
 	$(AM_V_at)mv $(top_srcdir)/Makefile-man.tmp $(top_srcdir)/Makefile-man.am
@@ -566,11 +568,11 @@ update-man-list: make-man-rules.py $(XML_GLOB)
 
 man/systemd.index.xml: make-man-index.py $(NON_INDEX_XML_FILES)
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(PYTHON) $^ > $@
+	$(AM_V_GEN)$(PYTHON) $< $@ $(filter-out $<,$^)
 
-man/systemd.directives.xml: make-directive-index.py $(filter-out man/systemd.directives.xml,$(NON_INDEX_XML_FILES))
+man/systemd.directives.xml: make-directive-index.py $(SOURCE_XML_FILES)
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(PYTHON) $^ > $@
+	$(AM_V_GEN)$(PYTHON) $< $@ $(filter-out $<,$^)
 
 EXTRA_DIST += \
 	man/systemd.index.xml \
@@ -591,7 +593,8 @@ EXTRA_DIST += \
 	$(HTML_ALIAS) \
 	$(dist_MANS) \
 	make-man-index.py \
-	make-directive-index.py
+	make-directive-index.py \
+	xml_helper.py
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -3819,38 +3822,46 @@ CLEANFILES += \
 
 # ------------------------------------------------------------------------------
 if ENABLE_MANPAGES
+man/custom-entities.ent: Makefile
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)(echo '<?xml version="1.0" encoding="utf-8" ?>' && \
+	 echo '$(subst '|,<!ENTITY ,$(subst =, ",$(subst |',">,$(substitutions))))') \
+	 > $@ # '
+
+DISTCLEANFILES += \
+	man/custom-entities.ent
+
 XSLTPROC_FLAGS = \
 	--nonet \
 	--stringparam man.output.quietly 1 \
 	--stringparam funcsynopsis.style ansi \
 	--stringparam man.authors.section.enabled 0 \
 	--stringparam man.copyright.section.enabled 0 \
-	--stringparam systemd.version $(VERSION)
+	--stringparam systemd.version $(VERSION) \
+	--path '$(builddir)/man:$(srcdir)/man'
 
 XSLTPROC_PROCESS_MAN = \
-	$(AM_V_XSLT)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-man.xsl $<
+	$(AM_V_XSLT)$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-man.xsl $<
 
 XSLTPROC_PROCESS_HTML = \
-	$(AM_V_XSLT)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
+	$(AM_V_XSLT)$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
 
-man/%.1: man/%.xml man/custom-man.xsl
+man/%.1: man/%.xml man/custom-man.xsl man/custom-entities.ent
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.3: man/%.xml man/custom-man.xsl
+man/%.3: man/%.xml man/custom-man.xsl man/custom-entities.ent
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.5: man/%.xml man/custom-man.xsl
+man/%.5: man/%.xml man/custom-man.xsl man/custom-entities.ent
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.7: man/%.xml man/custom-man.xsl
+man/%.7: man/%.xml man/custom-man.xsl man/custom-entities.ent
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.8: man/%.xml man/custom-man.xsl
+man/%.8: man/%.xml man/custom-man.xsl man/custom-entities.ent
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.html: man/%.xml man/custom-html.xsl
+man/%.html: man/%.xml man/custom-html.xsl man/custom-entities.ent
 	$(XSLTPROC_PROCESS_HTML)
 
 define html-alias

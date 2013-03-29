@@ -19,14 +19,10 @@
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 import collections
-try:
-    from lxml import etree as tree
-    PRETTY = dict(pretty_print=True)
-except ImportError:
-    import xml.etree.ElementTree as tree
-    PRETTY = {}
 import sys
 import re
+from xml_helper import *
+
 MDASH = ' — ' if sys.version_info.major >= 3 else ' -- '
 
 TEMPLATE = '''\
@@ -72,6 +68,7 @@ SUMMARY = '''\
 COUNTS = '\
 This index contains {count} entries, referring to {pages} individual manual pages.'
 
+
 def check_id(page, t):
     id = t.getroot().get('id')
     if not re.search('/' + id + '[.]', page):
@@ -80,7 +77,7 @@ def check_id(page, t):
 def make_index(pages):
     index = collections.defaultdict(list)
     for p in pages:
-        t = tree.parse(p)
+        t = xml_parse(p)
         check_id(p, t)
         section = t.find('./refmeta/manvolnum').text
         refname = t.find('./refnamediv/refname').text
@@ -123,7 +120,7 @@ def add_summary(template, indexpages):
     para = template.find(".//para[@id='counts']")
     para.text = COUNTS.format(count=count, pages=len(pages))
 
-def make_page(xml_files):
+def make_page(*xml_files):
     template = tree.fromstring(TEMPLATE)
     index = make_index(xml_files)
 
@@ -135,4 +132,5 @@ def make_page(xml_files):
     return template
 
 if __name__ == '__main__':
-    tree.dump(make_page(sys.argv[1:]), **PRETTY)
+    with open(sys.argv[1], 'wb') as f:
+        f.write(xml_print(make_page(*sys.argv[2:])))

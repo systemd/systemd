@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   This file is part of systemd.
@@ -278,7 +281,7 @@
                         <entry>Generated units</entry>
                       </row>
                       <row>
-                        <entry><filename>@SYSTEM_CONFIG_UNIT_PATH@</filename></entry>
+                        <entry><filename>&SYSTEM_CONFIG_UNIT_PATH;</filename></entry>
                         <entry morerows='1'>Local configuration</entry>
                       </row>
                       <row>
@@ -297,7 +300,7 @@
                         <entry>Units for local packages</entry>
                       </row>
                       <row>
-                        <entry><filename>@systemunitdir@</filename></entry>
+                        <entry><filename>&systemunitdir;</filename></entry>
                         <entry>Systemd package configuration</entry>
                       </row>
                       <row>
@@ -335,7 +338,7 @@
                         <entry>Generated units</entry>
                       </row>
                       <row>
-                        <entry><filename>@USER_CONFIG_UNIT_PATH@</filename></entry>
+                        <entry><filename>&USER_CONFIG_UNIT_PATH;</filename></entry>
                         <entry morerows='1'>Local configuration</entry>
                       </row>
                       <row>
@@ -357,7 +360,7 @@
                         <entry><filename>/usr/local/share/systemd/user</filename></entry>
                       </row>
                       <row>
-                        <entry><filename>@userunitdir@</filename></entry>
+                        <entry><filename>&userunitdir;</filename></entry>
                         <entry>Systemd package configuration</entry>
                       </row>
                       <row>

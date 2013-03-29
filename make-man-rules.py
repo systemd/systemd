@@ -18,9 +18,9 @@
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
-import xml.etree.ElementTree as tree
 import collections
 import sys
+from xml_helper import *
 
 SECTION = '''\
 MANPAGES += \\
@@ -54,7 +54,7 @@ def man(page, number):
     return 'man/{}.{}'.format(page, number)
 
 def add_rules(rules, name):
-    xml = tree.parse(name)
+    xml = xml_parse(name)
     # print('parsing {}'.format(name), file=sys.stderr)
     conditional = xml.getroot().get('conditional') or ''
     rulegroup = rules[conditional]

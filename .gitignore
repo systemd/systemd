@@ -139,6 +139,8 @@
 *.lo
 *.o
 *.stamp
+*.pyc
+__pycache__/
 *~
 .deps/
 .dirstamp
