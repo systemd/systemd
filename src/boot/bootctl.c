@@ -38,7 +38,7 @@ static int help(void) {
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "Commands:\n"
-               "  status                 Show current time settings\n",
+               "  status                 Show current boot settings\n",
                program_invocation_short_name);
 
         return 0;
