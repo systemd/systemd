@@ -28,7 +28,8 @@ try:
     _parser = tree.XMLParser()
     _parser.resolvers.add(CustomResolver())
     xml_parse = lambda page: tree.parse(page, _parser)
-    xml_print = lambda xml: tree.tostring(xml, pretty_print=True)
+    xml_print = lambda xml: tree.tostring(xml, pretty_print=True,
+                                          encoding='utf-8')
 except ImportError:
     import xml.etree.ElementTree as tree
     import re as _re
@@ -37,4 +38,4 @@ except ImportError:
     def xml_parse(page):
         s = _re.sub(b'&[a-zA-Z0-9_]+;', b'', open(page, 'rb').read())
         return tree.parse(_io.BytesIO(s))
-    xml_print = tree.tostring
+    xml_print = lambda xml: tree.tostring(xml, encoding='utf-8')
