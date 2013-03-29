@@ -522,8 +522,8 @@ static void help(void) {
                "  -d --delay=DELAY    Specify delay\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
-               "     --depth=DEPTH    Maximum traversal depth (default: 2)\n",
-               program_invocation_short_name);
+               "     --depth=DEPTH    Maximum traversal depth (default: %d)\n",
+               program_invocation_short_name, arg_depth);
 }
 
 static void version(void) {
