@@ -3712,48 +3712,51 @@ clean-sphinx:
 	-rm -rf docs/html/python-systemd/
 
 # ------------------------------------------------------------------------------
+substitutions = \
+       '|rootlibexecdir=$(rootlibexecdir)|' \
+       '|rootbindir=$(rootbindir)|' \
+       '|bindir=$(bindir)|' \
+       '|SYSTEMCTL=$(rootbindir)/systemctl|' \
+       '|SYSTEMD_NOTIFY=$(rootbindir)/systemd-notify|' \
+       '|pkgsysconfdir=$(pkgsysconfdir)|' \
+       '|SYSTEM_CONFIG_UNIT_PATH=$(pkgsysconfdir)/system|' \
+       '|USER_CONFIG_UNIT_PATH=$(pkgsysconfdir)/user|' \
+       '|pkgdatadir=$(pkgdatadir)|' \
+       '|systemunitdir=$(systemunitdir)|' \
+       '|userunitdir=$(userunitdir)|' \
+       '|systempresetdir=$(systempresetdir)|' \
+       '|userpresetdir=$(userpresetdir)|' \
+       '|udevhwdbdir=$(udevhwdbdir)|' \
+       '|udevrulesdir=$(udevrulesdir)|' \
+       '|catalogdir=$(catalogdir)|' \
+       '|tmpfilesdir=$(tmpfilesdir)|' \
+       '|sysctldir=$(sysctldir)|' \
+       '|PACKAGE_VERSION=$(PACKAGE_VERSION)|' \
+       '|PACKAGE_NAME=$(PACKAGE_NAME)|' \
+       '|PACKAGE_URL=$(PACKAGE_URL)|' \
+       '|RANDOM_SEED=$(localstatedir)/lib/random-seed|' \
+       '|prefix=$(prefix)|' \
+       '|exec_prefix=$(exec_prefix)|' \
+       '|libdir=$(libdir)|' \
+       '|includedir=$(includedir)|' \
+       '|VERSION=$(VERSION)|' \
+       '|rootprefix=$(rootprefix)|' \
+       '|udevlibexecdir=$(udevlibexecdir)|' \
+       '|SUSHELL=$(SUSHELL)|' \
+       '|DEBUGTTY=$(DEBUGTTY)|' \
+       '|KILL=$(KILL)|' \
+       '|QUOTAON=$(QUOTAON)|' \
+       '|QUOTACHECK=$(QUOTACHECK)|' \
+       '|SYSTEM_SYSVINIT_PATH=$(sysvinitdir)|' \
+       '|VARLOGDIR=$(varlogdir)|' \
+       '|RC_LOCAL_SCRIPT_PATH_START=$(RC_LOCAL_SCRIPT_PATH_START)|' \
+       '|RC_LOCAL_SCRIPT_PATH_STOP=$(RC_LOCAL_SCRIPT_PATH_STOP)|' \
+       '|PYTHON=$(PYTHON)|' \
+       '|PYTHON_BINARY=$(PYTHON_BINARY)|'
+
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(SED)	-e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
-		-e 's,@rootbindir\@,$(rootbindir),g' \
-		-e 's,@bindir\@,$(bindir),g' \
-		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
-		-e 's,@SYSTEMD_NOTIFY\@,$(rootbindir)/systemd-notify,g' \
-		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \
-		-e 's,@SYSTEM_CONFIG_UNIT_PATH\@,$(pkgsysconfdir)/system,g' \
-		-e 's,@USER_CONFIG_UNIT_PATH\@,$(pkgsysconfdir)/user,g' \
-		-e 's,@pkgdatadir\@,$(pkgdatadir),g' \
-		-e 's,@systemunitdir\@,$(systemunitdir),g' \
-		-e 's,@userunitdir\@,$(userunitdir),g' \
-		-e 's,@systempresetdir\@,$(systempresetdir),g' \
-		-e 's,@userpresetdir\@,$(userpresetdir),g' \
-		-e 's,@udevhwdbdir\@,$(udevhwdbdir),g' \
-		-e 's,@udevrulesdir\@,$(udevrulesdir),g' \
-		-e 's,@catalogdir\@,$(catalogdir),g' \
-		-e 's,@tmpfilesdir\@,$(tmpfilesdir),g' \
-		-e 's,@sysctldir\@,$(sysctldir),g' \
-		-e 's,@PACKAGE_VERSION\@,$(PACKAGE_VERSION),g' \
-		-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g' \
-		-e 's,@PACKAGE_URL\@,$(PACKAGE_URL),g' \
-		-e 's,@RANDOM_SEED\@,$(localstatedir)/lib/random-seed,g' \
-		-e 's,@prefix\@,$(prefix),g' \
-		-e 's,@exec_prefix\@,$(exec_prefix),g' \
-		-e 's,@libdir\@,$(libdir),g' \
-		-e 's,@includedir\@,$(includedir),g' \
-		-e 's,@VERSION\@,$(VERSION),g' \
-		-e 's,@rootprefix\@,$(rootprefix),g' \
-		-e 's,@udevlibexecdir\@,$(udevlibexecdir),g' \
-		-e 's,@SUSHELL\@,$(SUSHELL),g' \
-		-e 's,@DEBUGTTY\@,$(DEBUGTTY),g' \
-		-e 's,@KILL\@,$(KILL),g' \
-		-e 's,@QUOTAON\@,$(QUOTAON),g' \
-		-e 's,@QUOTACHECK\@,$(QUOTACHECK),g' \
-		-e 's,@SYSTEM_SYSVINIT_PATH\@,$(sysvinitdir),g' \
-		-e 's,@VARLOGDIR\@,$(varlogdir),g' \
-		-e 's,@RC_LOCAL_SCRIPT_PATH_START\@,$(RC_LOCAL_SCRIPT_PATH_START),g' \
-		-e 's,@RC_LOCAL_SCRIPT_PATH_STOP\@,$(RC_LOCAL_SCRIPT_PATH_STOP),g' \
-		-e 's,@PYTHON\@,$(PYTHON),g' \
-		-e 's,@PYTHON_BINARY\@,$(PYTHON_BINARY),g' \
+	$(SED) $(subst '|,-e 's|@,$(subst =,\@|,$(subst |',|g',$(substitutions)))) \
 		< $< > $@
 
 units/%: units/%.in Makefile
