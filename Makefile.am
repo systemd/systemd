@@ -558,7 +558,7 @@ CLEANFILES += \
 
 NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
 
-XML_GLOB = $(wildcard $(top_srcdir)/man/*.xml $(top_srcdir)/man/*.xml.in $(top_builddir)/man/*.xml)
+XML_GLOB = $(wildcard $(top_srcdir)/man/*.xml)
 update-man-list: make-man-rules.py $(XML_GLOB)
 	$(AM_V_GEN)$(PYTHON) $^ > $(top_srcdir)/Makefile-man.tmp
 	$(AM_V_at)mv $(top_srcdir)/Makefile-man.tmp $(top_srcdir)/Makefile-man.am
