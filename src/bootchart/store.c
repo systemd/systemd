@@ -34,6 +34,7 @@
 #include <time.h>
 
 #include "util.h"
+#include "strxcpyx.h"
 #include "store.h"
 #include "bootchart.h"
 
@@ -89,7 +90,7 @@ static char *bufgetline(char *buf) {
         return c;
 }
 
-static int pid_cmdline_strncpy(char *buffer, int pid, size_t buf_len) {
+static int pid_cmdline_strscpy(char *buffer, size_t buf_len, int pid) {
         char filename[PATH_MAX];
         int _cleanup_close_ fd=-1;
         ssize_t n;
@@ -286,11 +287,11 @@ schedstat_next:
                         if (!sscanf(buf, "%s %*s %*s", key))
                                 continue;
 
-                        strncpy(ps->name, key, 256);
+                        strscpy(ps->name, sizeof(ps->name), key);
 
                         /* cmdline */
                         if (arg_show_cmdline)
-                                pid_cmdline_strncpy(ps->name, pid, 256);
+                                pid_cmdline_strscpy(ps->name, sizeof(ps->name), pid);
 
                         /* discard line 2 */
                         m = bufgetline(buf);
@@ -449,11 +450,11 @@ catch_rename:
                         if (!sscanf(buf, "%s %*s %*s", key))
                                 continue;
 
-                        strncpy(ps->name, key, 256);
+                        strscpy(ps->name, sizeof(ps->name), key);
 
                         /* cmdline */
                         if (arg_show_cmdline)
-                                pid_cmdline_strncpy(ps->name, pid, 256);
+                                pid_cmdline_strscpy(ps->name, sizeof(ps->name), pid);
                 }
         }
 }
