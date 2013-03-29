@@ -408,7 +408,7 @@ int utmp_wall(const char *message, bool (*match_tty)(const char *tty)) {
                         path = u->ut_line;
                 else {
                         if (asprintf(&buf, "/dev/%.*s",
-                                     sizeof(u->ut_line), u->ut_line) < 0) {
+                                     (int) sizeof(u->ut_line), u->ut_line) < 0) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
