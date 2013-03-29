@@ -24,6 +24,10 @@
 
 #include <endian.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Types of message */
 
 enum {
@@ -141,5 +145,9 @@ enum {
         "  <arg type=\"s\" name=\"machine_uuid\" direction=\"out\"/>\n" \
         " </method>\n"                                                  \
         "</interface>\n"
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

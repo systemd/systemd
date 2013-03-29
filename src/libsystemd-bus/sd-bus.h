@@ -28,16 +28,20 @@
 #include <sd-id128.h>
 #include "sd-bus-protocol.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* TODO:
  * - server side
  * - allow installing match callbacks
  * - anonymous auth
- * - default policy
  *
  * Later:
  * - add page donation logic
  * - api for appending/reading fixed arrays
  * - merge busctl into systemctl or so?
+ * - default policy (allow uid == 0 and our own uid)
  */
 
 typedef struct sd_bus sd_bus;
@@ -164,5 +168,9 @@ void sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *messa
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);
 int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
