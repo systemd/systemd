@@ -3685,8 +3685,7 @@ src/python-systemd/id128-constants.h: src/systemd/sd-messages.h Makefile
 BUILT_SOURCES += \
 	src/python-systemd/id128-constants.h
 
-PAPER = $(shell cat /etc/papersize 2>/dev/null || echo a4)
-SPHINXOPTS = -D latex_paper_size=$(PAPER) -D version=$(VERSION) -D release=$(VERSION)
+SPHINXOPTS = -D version=$(VERSION) -D release=$(VERSION)
 sphinx-%:
 	$(AM_V_at)test -n "$(SPHINX_BUILD)" || { echo " *** sphinx-build is not available"; exit 1; }
 	$(AM_V_GEN)PYTHONPATH=$(DESTDIR)$(pyexecdir) LD_LIBRARY_PATH=$(DESTDIR)$(libdir) $(SPHINX_BUILD) -b $* $(SPHINXOPTS) $(top_srcdir)/src/python-systemd/docs $(top_builddir)/docs/html/python-systemd/
