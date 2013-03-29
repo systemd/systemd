@@ -53,11 +53,9 @@ enum UnitLoadState {
         _UNIT_LOAD_STATE_INVALID = -1
 };
 
-extern const char* const unit_type_table[];
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);
 
-extern const char* const unit_load_state_table[];
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);
 

@@ -4243,16 +4243,21 @@ static int runlevel_help(void) {
 
 static int help_types(void) {
         int i;
+        const char *t;
 
         puts("Available unit types:");
-        for(i = UNIT_SERVICE; i < _UNIT_TYPE_MAX; i++)
-                if (unit_type_table[i])
-                        puts(unit_type_table[i]);
+        for(i = 0; i < _UNIT_TYPE_MAX; i++) {
+                t = unit_type_to_string(i);
+                if (t)
+                        puts(t);
+        }
 
         puts("\nAvailable unit load states: ");
-        for(i = UNIT_STUB; i < _UNIT_LOAD_STATE_MAX; i++)
-                if (unit_type_table[i])
-                        puts(unit_load_state_table[i]);
+        for(i = 0; i < _UNIT_LOAD_STATE_MAX; i++) {
+                t = unit_load_state_to_string(i);
+                if (t)
+                        puts(t);
+        }
 
         return 0;
 }
