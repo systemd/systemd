@@ -6,6 +6,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Remote File System Setup
+Description=Network is Online
 Documentation=man:systemd.special(7)
-DefaultDependencies=no
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget
