@@ -365,7 +365,6 @@ Features:
 
 * cryptsetup:
   - cryptsetup-generator: warn if the password files are world-readable
-  - cryptsetup-generator: add RequiresMountsFor= to cryptseup service files referencing a file, similar for devices
   - cryptsetup-generator: allow specification of passwords in crypttab itself
   - move cryptsetup key caching into kernel keyctl?
     https://bugs.freedesktop.org/show_bug.cgi?id=54982
