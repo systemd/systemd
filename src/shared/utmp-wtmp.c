@@ -403,10 +403,12 @@ int utmp_wall(const char *message, bool (*match_tty)(const char *tty)) {
                 if (u->ut_type != USER_PROCESS || u->ut_user[0] == 0)
                         continue;
 
+                /* this access is fine, because strlen("/dev/") << 32 (UT_LINESIZE) */
                 if (path_startswith(u->ut_line, "/dev/"))
                         path = u->ut_line;
                 else {
-                        if (asprintf(&buf, "/dev/%s", u->ut_line) < 0) {
+                        if (asprintf(&buf, "/dev/%.*s",
+                                     sizeof(u->ut_line), u->ut_line) < 0) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
