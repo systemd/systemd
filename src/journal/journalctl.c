@@ -1020,20 +1020,26 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_action == ACTION_LIST_CATALOG ||
-            arg_action == ACTION_DUMP_CATALOG)  {
-                bool oneline = arg_action == ACTION_LIST_CATALOG;
-                if (optind < argc)
-                        r = catalog_list_items(stdout, oneline, argv + optind);
-                else
-                        r = catalog_list(stdout, oneline);
-                if (r < 0)
-                        log_error("Failed to list catalog: %s", strerror(-r));
-                goto finish;
-        }
+        if (arg_action == ACTION_UPDATE_CATALOG ||
+            arg_action == ACTION_LIST_CATALOG ||
+            arg_action == ACTION_DUMP_CATALOG) {
 
-        if (arg_action == ACTION_UPDATE_CATALOG)  {
-                r = catalog_update();
+                if (arg_action == ACTION_UPDATE_CATALOG) {
+                        r = catalog_update(CATALOG_DATABASE, NULL, catalog_file_dirs);
+                        if (r < 0)
+                                log_error("Failed to list catalog: %s", strerror(-r));
+                } else {
+                        bool oneline = arg_action == ACTION_LIST_CATALOG;
+
+                        if (optind < argc)
+                                r = catalog_list_items(stdout, CATALOG_DATABASE,
+                                                       oneline, argv + optind);
+                        else
+                                r = catalog_list(stdout, CATALOG_DATABASE, oneline);
+                        if (r < 0)
+                                log_error("Failed to list catalog: %s", strerror(-r));
+                }
+
                 goto finish;
         }
 

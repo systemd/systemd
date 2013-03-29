@@ -26,6 +26,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <locale.h>
+#include <libgen.h>
 
 #include "util.h"
 #include "log.h"
@@ -39,7 +40,7 @@
 #include "mkdir.h"
 #include "catalog.h"
 
-static const char * const conf_file_dirs[] = {
+const char * const catalog_file_dirs[] = {
         "/usr/local/lib/systemd/catalog/",
         "/usr/lib/systemd/catalog/",
         NULL
@@ -62,7 +63,7 @@ typedef struct CatalogItem {
         le64_t offset;
 } CatalogItem;
 
-static unsigned catalog_hash_func(const void *p) {
+unsigned catalog_hash_func(const void *p) {
         const CatalogItem *i = p;
 
         assert_cc(sizeof(unsigned) == sizeof(uint8_t)*4);
@@ -86,7 +87,7 @@ static unsigned catalog_hash_func(const void *p) {
                 string_hash_func(i->language);
 }
 
-static int catalog_compare_func(const void *a, const void *b) {
+int catalog_compare_func(const void *a, const void *b) {
         const CatalogItem *i = a, *j = b;
         unsigned k;
 
@@ -138,7 +139,7 @@ static int finish_item(
         return 0;
 }
 
-static int import_file(Hashmap *h, struct strbuf *sb, const char *path) {
+int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
         unsigned n = 0;
@@ -271,34 +272,99 @@ static int import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         return 0;
 }
 
-#define CATALOG_DATABASE CATALOG_PATH "/database"
-
-int catalog_update(void) {
-        _cleanup_strv_free_ char **files = NULL;
+static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
+                          CatalogItem *items, size_t n) {
+        CatalogHeader header;
         _cleanup_fclose_ FILE *w = NULL;
-        _cleanup_free_ char *p = NULL;
+        int r;
+        char _cleanup_free_ *d, *p = NULL;
+        size_t k;
+
+        d = dirname_malloc(database);
+        if (!d)
+                return log_oom();
+
+        r = mkdir_p(d, 0775);
+        if (r < 0) {
+                log_error("Recursive mkdir %s: %s", d, strerror(-r));
+                return r;
+        }
+
+        r = fopen_temporary(database, &w, &p);
+        if (r < 0) {
+                log_error("Failed to open database for writing: %s: %s",
+                          database, strerror(-r));
+                return r;
+        }
+
+        zero(header);
+        memcpy(header.signature, CATALOG_SIGNATURE, sizeof(header.signature));
+        header.header_size = htole64(ALIGN_TO(sizeof(CatalogHeader), 8));
+        header.catalog_item_size = htole64(sizeof(CatalogItem));
+        header.n_items = htole64(hashmap_size(h));
+
+        r = -EIO;
+
+        k = fwrite(&header, 1, sizeof(header), w);
+        if (k != sizeof(header)) {
+                log_error("%s: failed to write header.", p);
+                goto error;
+        }
+
+        k = fwrite(items, 1, n * sizeof(CatalogItem), w);
+        if (k != n * sizeof(CatalogItem)) {
+                log_error("%s: failed to write database.", p);
+                goto error;
+        }
+
+        k = fwrite(sb->buf, 1, sb->len, w);
+        if (k != sb->len) {
+                log_error("%s: failed to write strings.", p);
+                goto error;
+        }
+
+        fflush(w);
+
+        if (ferror(w)) {
+                log_error("%s: failed to write database.", p);
+                goto error;
+        }
+
+        fchmod(fileno(w), 0644);
+
+        if (rename(p, database) < 0) {
+                log_error("rename (%s -> %s) failed: %m", p, database);
+                r = -errno;
+                goto error;
+        }
+
+        return ftell(w);
+
+error:
+        unlink(p);
+        return r;
+}
+
+int catalog_update(const char* database, const char* root, const char* const* dirs) {
+        _cleanup_strv_free_ char **files = NULL;
         char **f;
         Hashmap *h;
         struct strbuf *sb = NULL;
         _cleanup_free_ CatalogItem *items = NULL;
         CatalogItem *i;
-        CatalogHeader header;
-        size_t k;
         Iterator j;
         unsigned n;
-        int r;
+        long r;
 
         h = hashmap_new(catalog_hash_func, catalog_compare_func);
-        if (!h)
-                return -ENOMEM;
-
         sb = strbuf_new();
-        if (!sb) {
+
+        if (!h || !sb) {
                 r = log_oom();
                 goto finish;
         }
 
-        r = conf_files_list_strv(&files, ".catalog", NULL, (const char **) conf_file_dirs);
+        r = conf_files_list_strv(&files, ".catalog", root, dirs);
         if (r < 0) {
                 log_error("Failed to get catalog files: %s", strerror(-r));
                 goto finish;
@@ -306,7 +372,7 @@ int catalog_update(void) {
 
         STRV_FOREACH(f, files) {
                 log_debug("reading file '%s'", *f);
-                import_file(h, sb, *f);
+                catalog_import_file(h, sb, *f);
         }
 
         if (hashmap_size(h) <= 0) {
@@ -335,79 +401,25 @@ int catalog_update(void) {
         assert(n == hashmap_size(h));
         qsort(items, n, sizeof(CatalogItem), catalog_compare_func);
 
-        r = mkdir_p(CATALOG_PATH, 0775);
-        if (r < 0) {
-                log_error("Recursive mkdir %s: %s", CATALOG_PATH, strerror(-r));
-                goto finish;
-        }
-
-        r = fopen_temporary(CATALOG_DATABASE, &w, &p);
-        if (r < 0) {
-                log_error("Failed to open database for writing: %s: %s",
-                          CATALOG_DATABASE, strerror(-r));
-                goto finish;
-        }
-
-        zero(header);
-        memcpy(header.signature, CATALOG_SIGNATURE, sizeof(header.signature));
-        header.header_size = htole64(ALIGN_TO(sizeof(CatalogHeader), 8));
-        header.catalog_item_size = htole64(sizeof(CatalogItem));
-        header.n_items = htole64(hashmap_size(h));
-
-        k = fwrite(&header, 1, sizeof(header), w);
-        if (k != sizeof(header)) {
-                log_error("%s: failed to write header.", p);
-                goto finish;
-        }
-
-        k = fwrite(items, 1, n * sizeof(CatalogItem), w);
-        if (k != n * sizeof(CatalogItem)) {
-                log_error("%s: failed to write database.", p);
-                goto finish;
-        }
-
-        k = fwrite(sb->buf, 1, sb->len, w);
-        if (k != sb->len) {
-                log_error("%s: failed to write strings.", p);
-                goto finish;
-        }
-
-        fflush(w);
-
-        if (ferror(w)) {
-                log_error("%s: failed to write database.", p);
-                goto finish;
-        }
-
-        fchmod(fileno(w), 0644);
-
-        if (rename(p, CATALOG_DATABASE) < 0) {
-                log_error("rename (%s -> %s) failed: %m", p, CATALOG_DATABASE);
-                r = -errno;
-                goto finish;
-        }
-
-        log_debug("%s: wrote %u items, with %zu bytes of strings, %ld total size.",
-                 CATALOG_DATABASE, n, sb->len, ftell(w));
-
-        free(p);
-        p = NULL;
+        r = write_catalog(database, h, sb, items, n);
+        if (r < 0)
+                log_error("Failed to write %s: %s", database, strerror(-r));
+        else
+                log_debug("%s: wrote %u items, with %zu bytes of strings, %ld total size.",
+                          database, n, sb->len, r);
 
         r = 0;
 
 finish:
-        hashmap_free_free(h);
-
+        if (h)
+                hashmap_free_free(h);
         if (sb)
                 strbuf_cleanup(sb);
 
-        if (p)
-                unlink(p);
-
-        return r;
+        return r < 0 ? r : 0;
 }
 
-static int open_mmap(int *_fd, struct stat *_st, void **_p) {
+static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p) {
         const CatalogHeader *h;
         int fd;
         void *p;
@@ -417,7 +429,7 @@ static int open_mmap(int *_fd, struct stat *_st, void **_p) {
         assert(_st);
         assert(_p);
 
-        fd = open(CATALOG_DATABASE, O_RDONLY|O_CLOEXEC);
+        fd = open(database, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -495,7 +507,7 @@ static const char *find_id(void *p, sd_id128_t id) {
                 le64toh(f->offset);
 }
 
-int catalog_get(sd_id128_t id, char **_text) {
+int catalog_get(const char* database, sd_id128_t id, char **_text) {
         _cleanup_close_ int fd = -1;
         void *p = NULL;
         struct stat st;
@@ -505,7 +517,7 @@ int catalog_get(sd_id128_t id, char **_text) {
 
         assert(_text);
 
-        r = open_mmap(&fd, &st, &p);
+        r = open_mmap(database, &fd, &st, &p);
         if (r < 0)
                 return r;
 
@@ -571,7 +583,7 @@ static void dump_catalog_entry(FILE *f, sd_id128_t id, const char *s, bool oneli
 }
 
 
-int catalog_list(FILE *f, bool oneline) {
+int catalog_list(FILE *f, const char *database, bool oneline) {
         _cleanup_close_ int fd = -1;
         void *p = NULL;
         struct stat st;
@@ -582,7 +594,7 @@ int catalog_list(FILE *f, bool oneline) {
         sd_id128_t last_id;
         bool last_id_set = false;
 
-        r = open_mmap(&fd, &st, &p);
+        r = open_mmap(database, &fd, &st, &p);
         if (r < 0)
                 return r;
 
@@ -608,7 +620,7 @@ int catalog_list(FILE *f, bool oneline) {
         return 0;
 }
 
-int catalog_list_items(FILE *f, bool oneline, char **items) {
+int catalog_list_items(FILE *f, const char *database, bool oneline, char **items) {
         char **item;
         int r = 0;
 
@@ -626,7 +638,7 @@ int catalog_list_items(FILE *f, bool oneline, char **items) {
                         continue;
                 }
 
-                k = catalog_get(id, &msg);
+                k = catalog_get(database, id, &msg);
                 if (k < 0) {
                         log_full(k == -ENOENT ? LOG_NOTICE : LOG_ERR,
                                  "Failed to retrieve catalog entry for '%s': %s",

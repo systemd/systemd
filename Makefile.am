@@ -138,7 +138,7 @@ AM_CPPFLAGS = \
 	-DUSER_CONFIG_FILE=\"$(pkgsysconfdir)/user.conf\" \
 	-DUSER_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/user\" \
 	-DUSER_DATA_UNIT_PATH=\"$(userunitdir)\" \
-	-DCATALOG_PATH=\"$(catalogstatedir)\" \
+	-DCATALOG_DATABASE=\"$(catalogstatedir)/database\" \
 	-DSYSTEMD_CGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
 	-DSYSTEMD_BINARY_PATH=\"$(rootlibexecdir)/systemd\" \
 	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
@@ -2748,8 +2748,7 @@ UNINSTALL_DATA_HOOKS += \
 	catalog-remove-hook
 
 noinst_PROGRAMS += \
-	test-journal-enum \
-	test-catalog
+	test-journal-enum
 
 noinst_tests += \
 	test-journal \
@@ -2758,7 +2757,8 @@ noinst_tests += \
 	test-journal-match \
 	test-journal-stream \
 	test-journal-verify \
-	test-mmap-cache
+	test-mmap-cache \
+	test-catalog
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \

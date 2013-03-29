@@ -134,7 +134,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
         return 0;
 }
 
-int conf_files_list_strv(char ***strv, const char *suffix, const char *root, const char **dirs) {
+int conf_files_list_strv(char ***strv, const char *suffix, const char *root, const char* const* dirs) {
         _cleanup_strv_free_ char **copy = NULL;
 
         assert(strv);

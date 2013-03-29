@@ -59,6 +59,7 @@
 #include <limits.h>
 #include <langinfo.h>
 #include <locale.h>
+#include <libgen.h>
 
 #include "macro.h"
 #include "util.h"
@@ -2354,6 +2355,24 @@ int dir_is_empty(const char *path) {
                 if (!ignore_file(de->d_name))
                         return 0;
         }
+}
+
+char* dirname_malloc(const char *path) {
+        char *d, *dir, *dir2;
+
+        d = strdup(path);
+        if (!d)
+                return NULL;
+        dir = dirname(d);
+        assert(dir);
+
+        if (dir != d) {
+                dir2 = strdup(dir);
+                free(d);
+                return dir2;
+        }
+
+        return dir;
 }
 
 unsigned long long random_ull(void) {
