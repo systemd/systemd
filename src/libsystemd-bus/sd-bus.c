@@ -244,11 +244,7 @@ static int bus_send_hello(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send_with_reply(bus, m, hello_callback, NULL, 0, NULL);
-        if (r < 0)
-                return r;
-
-        return r;
+        return sd_bus_send_with_reply(bus, m, hello_callback, NULL, 0, &bus->hello_serial);
 }
 
 int bus_start_running(sd_bus *bus) {
@@ -1421,6 +1417,28 @@ static int process_timeout(sd_bus *bus) {
         return r < 0 ? r : 1;
 }
 
+static int process_hello(sd_bus *bus, sd_bus_message *m) {
+        assert(bus);
+        assert(m);
+
+        if (bus->state != BUS_HELLO)
+                return 0;
+
+        /* Let's make sure the first message on the bus is the HELLO
+         * reply. But note that we don't actually parse the message
+         * here (we leave that to the usual reply handling), we just
+         * verify we don't let any earlier msg through. */
+
+        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_RETURN &&
+            m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+                return -EIO;
+
+        if (m->reply_serial != bus->hello_serial)
+                return -EIO;
+
+        return 0;
+}
+
 static int process_reply(sd_bus *bus, sd_bus_message *m) {
         struct reply_callback *c;
         int r;
@@ -1674,6 +1692,10 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
 
         assert(bus);
         assert(m);
+
+        r = process_hello(bus, m);
+        if (r != 0)
+                return r;
 
         r = process_reply(bus, m);
         if (r != 0)

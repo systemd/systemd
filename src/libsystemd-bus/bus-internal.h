@@ -123,6 +123,8 @@ struct sd_bus {
 
         char *exec_path;
         char **exec_argv;
+
+        uint64_t hello_serial;
 };
 
 static inline void bus_unrefp(sd_bus **b) {
