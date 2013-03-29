@@ -144,8 +144,6 @@ Features:
 
 * timedate: have global on/off switches for auto-time (NTP), and auto-timezone that connman can subscribe to.
 
-* support --root= in msgcatalog compiler
-
 * Honour "-" prefix for InaccessibleDirectories= and ReadOnlyDirectories= to
   suppress errors of the specified path doesn't exist
 

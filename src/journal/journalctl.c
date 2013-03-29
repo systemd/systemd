@@ -86,6 +86,7 @@ static bool arg_unit_system;
 static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
+static const char *arg_root = NULL;
 
 static enum {
         ACTION_SHOW,
@@ -125,6 +126,7 @@ static int help(void) {
                "     --no-pager          Do not pipe output into a pager\n"
                "  -m --merge             Show entries from all available journals\n"
                "  -D --directory=PATH    Show journal files from directory\n"
+               "     --root=ROOT         Operate on catalog files underneath the root ROOT\n"
 #ifdef HAVE_GCRYPT
                "     --interval=TIME     Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY    Specify FSS verification key\n"
@@ -155,6 +157,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_TAIL,
                 ARG_NEW_ID128,
+                ARG_ROOT,
                 ARG_HEADER,
                 ARG_FULL,
                 ARG_SETUP_KEYS,
@@ -186,6 +189,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "merge",        no_argument,       NULL, 'm'              },
                 { "this-boot",    no_argument,       NULL, 'b'              },
                 { "directory",    required_argument, NULL, 'D'              },
+                { "root",         required_argument, NULL, ARG_ROOT         },
                 { "header",       no_argument,       NULL, ARG_HEADER       },
                 { "priority",     required_argument, NULL, 'p'              },
                 { "setup-keys",   no_argument,       NULL, ARG_SETUP_KEYS   },
@@ -316,6 +320,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'D':
                         arg_directory = optarg;
+                        break;
+
+                case ARG_ROOT:
+                        arg_root = optarg;
                         break;
 
                 case 'c':
@@ -1024,18 +1032,25 @@ int main(int argc, char *argv[]) {
             arg_action == ACTION_LIST_CATALOG ||
             arg_action == ACTION_DUMP_CATALOG) {
 
+                char _cleanup_free_ *database;
+                database =  strjoin(arg_root, "/", CATALOG_DATABASE, NULL);
+                if (!database) {
+                        r = log_oom();
+                        goto finish;
+                }
+
                 if (arg_action == ACTION_UPDATE_CATALOG) {
-                        r = catalog_update(CATALOG_DATABASE, NULL, catalog_file_dirs);
+                        r = catalog_update(database, arg_root, catalog_file_dirs);
                         if (r < 0)
                                 log_error("Failed to list catalog: %s", strerror(-r));
                 } else {
                         bool oneline = arg_action == ACTION_LIST_CATALOG;
 
                         if (optind < argc)
-                                r = catalog_list_items(stdout, CATALOG_DATABASE,
+                                r = catalog_list_items(stdout, database,
                                                        oneline, argv + optind);
                         else
-                                r = catalog_list(stdout, CATALOG_DATABASE, oneline);
+                                r = catalog_list(stdout, database, oneline);
                         if (r < 0)
                                 log_error("Failed to list catalog: %s", strerror(-r));
                 }
