@@ -846,17 +846,17 @@ int config_parse_exec_secure_bits(
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 if (first_word(w, "keep-caps"))
-                        c->secure_bits |= SECURE_KEEP_CAPS;
+                        c->secure_bits |= 1<<SECURE_KEEP_CAPS;
                 else if (first_word(w, "keep-caps-locked"))
-                        c->secure_bits |= SECURE_KEEP_CAPS_LOCKED;
+                        c->secure_bits |= 1<<SECURE_KEEP_CAPS_LOCKED;
                 else if (first_word(w, "no-setuid-fixup"))
-                        c->secure_bits |= SECURE_NO_SETUID_FIXUP;
+                        c->secure_bits |= 1<<SECURE_NO_SETUID_FIXUP;
                 else if (first_word(w, "no-setuid-fixup-locked"))
-                        c->secure_bits |= SECURE_NO_SETUID_FIXUP_LOCKED;
+                        c->secure_bits |= 1<<SECURE_NO_SETUID_FIXUP_LOCKED;
                 else if (first_word(w, "noroot"))
-                        c->secure_bits |= SECURE_NOROOT;
+                        c->secure_bits |= 1<<SECURE_NOROOT;
                 else if (first_word(w, "noroot-locked"))
-                        c->secure_bits |= SECURE_NOROOT_LOCKED;
+                        c->secure_bits |= 1<<SECURE_NOROOT_LOCKED;
                 else {
                         log_error("[%s:%u] Failed to parse secure bits, ignoring: %s",
                                   filename, line, rvalue);

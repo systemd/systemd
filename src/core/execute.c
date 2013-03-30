@@ -671,9 +671,9 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
 
                 /* First step: If we need to keep capabilities but
                  * drop privileges we need to make sure we keep our
-                 * caps, whiel we drop privileges. */
+                 * caps, while we drop privileges. */
                 if (uid != 0) {
-                        int sb = context->secure_bits|SECURE_KEEP_CAPS;
+                        int sb = context->secure_bits | 1<<SECURE_KEEP_CAPS;
 
                         if (prctl(PR_GET_SECUREBITS) != sb)
                                 if (prctl(PR_SET_SECUREBITS, sb) < 0)
@@ -1963,12 +1963,12 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         if (c->secure_bits)
                 fprintf(f, "%sSecure Bits:%s%s%s%s%s%s\n",
                         prefix,
-                        (c->secure_bits & SECURE_KEEP_CAPS) ? " keep-caps" : "",
-                        (c->secure_bits & SECURE_KEEP_CAPS_LOCKED) ? " keep-caps-locked" : "",
-                        (c->secure_bits & SECURE_NO_SETUID_FIXUP) ? " no-setuid-fixup" : "",
-                        (c->secure_bits & SECURE_NO_SETUID_FIXUP_LOCKED) ? " no-setuid-fixup-locked" : "",
-                        (c->secure_bits & SECURE_NOROOT) ? " noroot" : "",
-                        (c->secure_bits & SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
+                        (c->secure_bits & 1<<SECURE_KEEP_CAPS) ? " keep-caps" : "",
+                        (c->secure_bits & 1<<SECURE_KEEP_CAPS_LOCKED) ? " keep-caps-locked" : "",
+                        (c->secure_bits & 1<<SECURE_NO_SETUID_FIXUP) ? " no-setuid-fixup" : "",
+                        (c->secure_bits & 1<<SECURE_NO_SETUID_FIXUP_LOCKED) ? " no-setuid-fixup-locked" : "",
+                        (c->secure_bits & 1<<SECURE_NOROOT) ? " noroot" : "",
+                        (c->secure_bits & 1<<SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
 
         if (c->capability_bounding_set_drop) {
                 unsigned long l;
