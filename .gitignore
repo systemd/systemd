@@ -111,6 +111,7 @@
 /test-loopback
 /test-mmap-cache
 /test-ns
+/test-path-util
 /test-prioq
 /test-replace-var
 /test-sched-prio
