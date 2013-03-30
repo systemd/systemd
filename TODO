@@ -1,4 +1,7 @@
 Bugfixes:
+* systemd-journald seems to randomly hang on shutdown, likely not handling
+  SIGTERM, shutdown blocks until we send SIGKILL at the very end.
+
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
