@@ -236,7 +236,8 @@ static struct prioq_item* find_item(Prioq *q, void *data, unsigned *idx) {
 int prioq_remove(Prioq *q, void *data, unsigned *idx) {
         struct prioq_item *i;
 
-        assert(q);
+        if (!q)
+                return 0;
 
         i = find_item(q, data, idx);
         if (!i)
@@ -263,7 +264,9 @@ int prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
 }
 
 void *prioq_peek(Prioq *q) {
-        assert(q);
+
+        if (!q)
+                return NULL;
 
         if (q->n_items <= 0)
                 return NULL;
@@ -274,7 +277,8 @@ void *prioq_peek(Prioq *q) {
 void *prioq_pop(Prioq *q) {
         void *data;
 
-        assert(q);
+        if (!q)
+                return NULL;
 
         if (q->n_items <= 0)
                 return NULL;
@@ -285,13 +289,17 @@ void *prioq_pop(Prioq *q) {
 }
 
 unsigned prioq_size(Prioq *q) {
-        assert(q);
+
+        if (!q)
+                return 0;
 
         return q->n_items;
 
 }
 bool prioq_isempty(Prioq *q) {
-        assert(q);
+
+        if (!q)
+                return true;
 
         return q->n_items <= 0;
 }
