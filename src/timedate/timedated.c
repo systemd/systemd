@@ -367,8 +367,6 @@ static int read_ntp(DBusConnection *bus) {
                         goto finish;
                 }
 
-                if (reply)
-                        dbus_message_unref(reply);
                 reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
                 if (!reply) {
                         if (streq(error.name, "org.freedesktop.DBus.Error.FileNotFound")) {
@@ -450,8 +448,6 @@ static int start_ntp(DBusConnection *bus, DBusError *error) {
                         goto finish;
                 }
 
-                if (reply)
-                        dbus_message_unref(reply);
                 reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
                 if (!reply) {
                         if (streq(error->name, "org.freedesktop.DBus.Error.FileNotFound") ||
@@ -540,8 +536,6 @@ static int enable_ntp(DBusConnection *bus, DBusError *error) {
                         }
                 }
 
-                if (reply)
-                        dbus_message_unref(reply);
                 reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
                 if (!reply) {
                         if (streq(error->name, "org.freedesktop.DBus.Error.FileNotFound")) {

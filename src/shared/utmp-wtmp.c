@@ -77,15 +77,11 @@ int utmp_get_runlevel(int *runlevel, int *previous) {
                 a = found->ut_pid & 0xFF;
                 b = (found->ut_pid >> 8) & 0xFF;
 
-                if (a < 0 || b < 0)
-                        r = -EIO;
-                else {
-                        *runlevel = a;
+                *runlevel = a;
+                if (previous)
+                        *previous = b;
 
-                        if (previous)
-                                *previous = b;
-                        r = 0;
-                }
+                r = 0;
         }
 
         endutxent();

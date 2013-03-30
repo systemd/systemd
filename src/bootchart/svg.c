@@ -823,9 +823,6 @@ static void svg_ps_bars(void) {
                 double starttime;
                 int t;
 
-                if (!ps)
-                        continue;
-
                 enc_name = xml_comment_encode(ps->name);
                 if(!enc_name)
                         continue;

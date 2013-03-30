@@ -214,7 +214,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                 exec_list(udev_enumerate, action);
                 goto exit;
         default:
-                goto exit;
+                assert_not_reached("device_type");
         }
 exit:
         udev_enumerate_unref(udev_enumerate);

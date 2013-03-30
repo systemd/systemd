@@ -241,8 +241,7 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
                         return -EINVAL;
                 base[0] = '\0';
         }
-        if (base == NULL)
-                return -EINVAL;
+
         strscpyl(base, size - (base - syspath), "/", &link_target[back * 3], NULL);
         return 0;
 }

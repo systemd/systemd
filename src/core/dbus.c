@@ -978,9 +978,8 @@ static DBusConnection* manager_bus_connect_private(Manager *m, DBusBusType type)
         }
 
         return connection;
+
 fail:
-        if (connection)
-                dbus_connection_close(connection);
         dbus_error_free(&error);
         return NULL;
 }
