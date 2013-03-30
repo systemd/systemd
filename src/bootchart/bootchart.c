@@ -96,20 +96,10 @@ static void signal_handler(int sig) {
         exiting = 1;
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_free_ char *build = NULL;
-        struct sigaction sig;
-        struct ps_struct *ps;
-        char output_file[PATH_MAX];
-        char datestr[200];
-        time_t t = 0;
-        const char *fn;
-        _cleanup_fclose_ FILE *f;
-        int gind;
-        int i, r;
-        char *init = NULL, *output = NULL;
-        struct rlimit rlim;
+#define BOOTCHART_CONF "/etc/systemd/bootchart.conf"
 
+static void parse_conf(void) {
+        char *init = NULL, *output = NULL;
         const ConfigTableItem items[] = {
                 { "Bootchart", "Samples",          config_parse_int,    0, &arg_samples_len },
                 { "Bootchart", "Frequency",        config_parse_double, 0, &arg_hz          },
@@ -123,43 +113,46 @@ int main(int argc, char *argv[]) {
                 { "Bootchart", "ScaleY",           config_parse_double, 0, &arg_scale_y     },
                 { NULL, NULL, NULL, 0, NULL }
         };
+        _cleanup_fclose_ FILE *f;
+        int r;
 
-        fn = "/etc/systemd/bootchart.conf";
-        f = fopen(fn, "re");
-        if (f) {
-            r = config_parse(fn, f, NULL, config_item_table_lookup, (void*) items, true, NULL);
-            if (r < 0)
-                    log_warning("Failed to parse configuration file: %s", strerror(-r));
+        f = fopen(BOOTCHART_CONF, "re");
+        if (!f)
+                return;
 
-            if (init != NULL)
-                    strscpy(arg_init_path, sizeof(arg_init_path), init);
-            if (output != NULL)
-                    strscpy(arg_output_path, sizeof(arg_output_path), output);
-        }
+        r = config_parse(BOOTCHART_CONF, f,
+                         NULL, config_item_table_lookup, (void*) items, true, NULL);
+        if (r < 0)
+                log_warning("Failed to parse configuration file: %s", strerror(-r));
 
-        while (1) {
-                static struct option opts[] = {
-                        {"rel",       no_argument,        NULL,  'r'},
-                        {"freq",      required_argument,  NULL,  'f'},
-                        {"samples",   required_argument,  NULL,  'n'},
-                        {"pss",       no_argument,        NULL,  'p'},
-                        {"output",    required_argument,  NULL,  'o'},
-                        {"init",      required_argument,  NULL,  'i'},
-                        {"no-filter", no_argument,        NULL,  'F'},
-                        {"cmdline",   no_argument,        NULL,  'C'},
-                        {"help",      no_argument,        NULL,  'h'},
-                        {"scale-x",   required_argument,  NULL,  'x'},
-                        {"scale-y",   required_argument,  NULL,  'y'},
-                        {"entropy",   no_argument,        NULL,  'e'},
-                        {NULL, 0, NULL, 0}
-                };
+        if (init != NULL)
+                strscpy(arg_init_path, sizeof(arg_init_path), init);
+        if (output != NULL)
+                strscpy(arg_output_path, sizeof(arg_output_path), output);
+}
 
-                gind = 0;
+static int parse_args(int argc, char *argv[]) {
+        static struct option options[] = {
+                {"rel",       no_argument,        NULL,  'r'},
+                {"freq",      required_argument,  NULL,  'f'},
+                {"samples",   required_argument,  NULL,  'n'},
+                {"pss",       no_argument,        NULL,  'p'},
+                {"output",    required_argument,  NULL,  'o'},
+                {"init",      required_argument,  NULL,  'i'},
+                {"no-filter", no_argument,        NULL,  'F'},
+                {"cmdline",   no_argument,        NULL,  'C'},
+                {"help",      no_argument,        NULL,  'h'},
+                {"scale-x",   required_argument,  NULL,  'x'},
+                {"scale-y",   required_argument,  NULL,  'y'},
+                {"entropy",   no_argument,        NULL,  'e'},
+                {NULL, 0, NULL, 0}
+        };
+        int c;
 
-                i = getopt_long(argc, argv, "erpf:n:o:i:FChx:y:", opts, &gind);
-                if (i == -1)
-                        break;
-                switch (i) {
+        while ((c = getopt_long(argc, argv, "erpf:n:o:i:FChx:y:", options, NULL)) >= 0) {
+                int r;
+
+                switch (c) {
                 case 'r':
                         arg_relative = true;
                         break;
@@ -233,13 +226,32 @@ int main(int argc, char *argv[]) {
 
         if (arg_samples_len > MAXSAMPLES) {
                 fprintf(stderr, "Error: samples exceeds maximum\n");
-                exit(EXIT_FAILURE);
+                return -EINVAL;
         }
 
         if (arg_hz <= 0.0) {
                 fprintf(stderr, "Error: Frequency needs to be > 0\n");
-                exit(EXIT_FAILURE);
+                return -EINVAL;
         }
+
+        return 0;
+}
+
+int main(int argc, char *argv[]) {
+        _cleanup_free_ char *build = NULL;
+        struct sigaction sig;
+        struct ps_struct *ps;
+        char output_file[PATH_MAX];
+        char datestr[200];
+        time_t t = 0;
+        int r;
+        struct rlimit rlim;
+
+        parse_conf();
+
+        r = parse_args(argc, argv);
+        if (r < 0)
+                return EXIT_FAILURE;
 
         /*
          * If the kernel executed us through init=/usr/lib/systemd/systemd-bootchart, then
