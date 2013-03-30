@@ -784,7 +784,7 @@ static void *message_extend_body(sd_bus_message *m, size_t align, size_t sz) {
 
 int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored) {
         struct bus_container *c;
-        size_t sz, align;
+        ssize_t align, sz;
         uint32_t k;
         void *a;
         char *e = NULL;
@@ -1590,10 +1590,12 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
         }
 
         default: {
-                size_t sz, align, rindex;
+                ssize_t sz, align;
+                size_t rindex;
 
                 align = bus_type_get_alignment(type);
                 sz = bus_type_get_size(type);
+                assert(align > 0 && sz > 0);
 
                 rindex = m->rindex;
                 r = message_peek_body(m, &rindex, align, sz, &q);
@@ -2392,10 +2394,11 @@ static int message_skip_fields(
                         (*signature)++;
 
                 } else if (bus_type_is_basic(t)) {
-                        size_t align, k;
+                        ssize_t align, k;
 
                         align = bus_type_get_alignment(t);
                         k = bus_type_get_size(t);
+                        assert(align > 0 && k > 0);
 
                         r = message_peek_fields(m, ri, align, k, NULL);
                         if (r < 0)
