@@ -288,7 +288,7 @@ int main(int argc, char *argv[]) {
         log_uptime();
 
         /* main program loop */
-        while (!exiting) {
+        for (samples = 0; !exiting && samples < arg_samples_len; samples++) {
                 int res;
                 double sample_stop;
                 struct timespec req;
@@ -315,7 +315,7 @@ int main(int argc, char *argv[]) {
                                        NULL);
 
                 /* wait for /proc to become available, discarding samples */
-                if (!(graph_start > 0.0))
+                if (graph_start <= 0.0)
                         log_uptime();
                 else
                         log_sample(samples);
@@ -334,7 +334,7 @@ int main(int argc, char *argv[]) {
                  * we'll lose all the missed samples and overrun our total
                  * time
                  */
-                if ((newint_ns > 0) || (newint_s > 0)) {
+                if (newint_ns > 0 || newint_s > 0) {
                         req.tv_sec = newint_s;
                         req.tv_nsec = newint_ns;
 
@@ -350,14 +350,8 @@ int main(int argc, char *argv[]) {
                 } else {
                         overrun++;
                         /* calculate how many samples we lost and scrap them */
-                        arg_samples_len = arg_samples_len + ((int)(newint_ns / interval));
+                        arg_samples_len -= (int)(newint_ns / interval);
                 }
-
-                samples++;
-
-                if (samples > arg_samples_len)
-                        break;
-
         }
 
         /* do some cleanup, close fd's */

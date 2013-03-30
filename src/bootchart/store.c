@@ -114,7 +114,7 @@ static int pid_cmdline_strscpy(char *buffer, size_t buf_len, int pid) {
 void log_sample(int sample) {
         static int vmstat;
         static int schedstat;
-        char buf[4095];
+        char buf[4096];
         char key[256];
         char val[256];
         char rt[256];
