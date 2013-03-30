@@ -202,15 +202,15 @@ static int bus_socket_read_auth(sd_bus *b) {
 }
 
 static int bus_socket_setup(sd_bus *b) {
-        int one;
+        int enable;
 
         assert(b);
 
         /* Enable SO_PASSCRED + SO_PASSEC. We try this on any
          * socket, just in case. */
-        one = 1;
-        setsockopt(b->fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one));
-        setsockopt(b->fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
+        enable = !b->bus_client;
+        setsockopt(b->fd, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable));
+        setsockopt(b->fd, SOL_SOCKET, SO_PASSSEC, &enable, sizeof(enable));
 
         /* Increase the buffers to a MB */
         fd_inc_rcvbuf(b->fd, 1024*1024);
@@ -467,8 +467,8 @@ static int bus_socket_make_message(sd_bus *bus, size_t size, sd_bus_message **m)
 
         r = bus_message_from_malloc(bus->rbuffer, size,
                                     bus->fds, bus->n_fds,
-                                    !bus->bus_client && bus->ucred_valid ? &bus->ucred : NULL,
-                                    !bus->bus_client && bus->label[0] ? bus->label : NULL,
+                                    bus->ucred_valid ? &bus->ucred : NULL,
+                                    bus->label[0] ? bus->label : NULL,
                                     &t);
         if (r < 0) {
                 free(b);
