@@ -30,13 +30,14 @@
 #include "macro.h"
 #include "missing.h"
 #include "strv.h"
+#include "utf8.h"
 
 #include "sd-bus.h"
 #include "bus-socket.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 
-static void iovec_advance(struct iovec *iov, unsigned *idx, size_t size) {
+static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
 
         while (size > 0) {
                 struct iovec *i = iov + *idx;
@@ -56,6 +57,23 @@ static void iovec_advance(struct iovec *iov, unsigned *idx, size_t size) {
         }
 }
 
+bool bus_socket_auth_needs_write(sd_bus *b) {
+
+        unsigned i;
+
+        if (b->auth_index >= ELEMENTSOF(b->auth_iovec))
+                return false;
+
+        for (i = b->auth_index; i < ELEMENTSOF(b->auth_iovec); i++) {
+                struct iovec *j = b->auth_iovec + i;
+
+                if (j->iov_len > 0)
+                        return true;
+        }
+
+        return false;
+}
+
 static int bus_socket_write_auth(sd_bus *b) {
         struct msghdr mh;
         ssize_t k;
@@ -63,11 +81,8 @@ static int bus_socket_write_auth(sd_bus *b) {
         assert(b);
         assert(b->state == BUS_AUTHENTICATING);
 
-        if (b->auth_index >= ELEMENTSOF(b->auth_iovec))
+        if (!bus_socket_auth_needs_write(b))
                 return 0;
-
-        if (b->auth_timeout == 0)
-                b->auth_timeout = now(CLOCK_MONOTONIC) + BUS_DEFAULT_TIMEOUT;
 
         zero(mh);
         mh.msg_iov = b->auth_iovec + b->auth_index;
@@ -82,11 +97,13 @@ static int bus_socket_write_auth(sd_bus *b) {
         return 1;
 }
 
-static int bus_socket_auth_verify(sd_bus *b) {
+static int bus_socket_auth_verify_client(sd_bus *b) {
         char *e, *f, *start;
         sd_id128_t peer;
         unsigned i;
         int r;
+
+        assert(b);
 
         /* We expect two response lines: "OK" and possibly
          * "AGREE_UNIX_FD" */
@@ -114,6 +131,8 @@ static int bus_socket_auth_verify(sd_bus *b) {
 
         if (memcmp(b->rbuffer, "OK ", 3))
                 return -EPERM;
+
+        b->auth = b->anonymous_auth ? BUS_AUTH_ANONYMOUS : BUS_AUTH_EXTERNAL;
 
         for (i = 0; i < 32; i += 2) {
                 int x, y;
@@ -150,6 +169,254 @@ static int bus_socket_auth_verify(sd_bus *b) {
         return 1;
 }
 
+static bool line_equals(const char *s, size_t m, const char *line) {
+        size_t l;
+
+        l = strlen(line);
+        if (l != m)
+                return false;
+
+        return memcmp(s, line, l) == 0;
+}
+
+static bool line_begins(const char *s, size_t m, const char *word) {
+        size_t l;
+
+        l = strlen(word);
+        if (m < l)
+                return false;
+
+        if (memcmp(s, word, l) != 0)
+                return false;
+
+        return m == l || (m > l && s[l] == ' ');
+}
+
+static int verify_anonymous_token(sd_bus *b, const char *p, size_t l) {
+        _cleanup_free_ char *token = NULL;
+
+        if (!b->anonymous_auth)
+                return 0;
+
+        if (l <= 0)
+                return 1;
+
+        assert(p[0] == ' ');
+        p++; l--;
+
+        if (l % 2 != 0)
+                return 0;
+        token = unhexmem(p, l);
+        if (!token)
+                return -ENOMEM;
+
+        if (memchr(token, 0, l/2))
+                return 0;
+
+        return !!utf8_is_valid(token);
+}
+
+static int verify_external_token(sd_bus *b, const char *p, size_t l) {
+        _cleanup_free_ char *token = NULL;
+        uid_t u;
+        int r;
+
+        /* We don't do any real authentication here. Instead, we if
+         * the owner of this bus wanted authentication he should have
+         * checked SO_PEERCRED before even creating the bus object. */
+
+        if (!b->ucred_valid)
+                return 0;
+
+        if (l <= 0)
+                return 1;
+
+        assert(p[0] == ' ');
+        p++; l--;
+
+        if (l % 2 != 0)
+                return 0;
+
+        token = unhexmem(p, l);
+        if (!token)
+                return -ENOMEM;
+
+        if (memchr(token, 0, l/2))
+                return 0;
+
+        r = parse_uid(token, &u);
+        if (r < 0)
+                return 0;
+
+        if (u != b->ucred.uid)
+                return 0;
+
+        return 1;
+}
+
+static int bus_socket_auth_write(sd_bus *b, const char *t) {
+        char *p;
+        size_t l;
+
+        assert(b);
+        assert(t);
+
+        /* We only make use of the first iovec */
+        assert(b->auth_index == 0 || b->auth_index == 1);
+
+        l = strlen(t);
+        p = malloc(b->auth_iovec[0].iov_len + l);
+        if (!p)
+                return -ENOMEM;
+
+        memcpy(p, b->auth_iovec[0].iov_base, b->auth_iovec[0].iov_len);
+        memcpy(p + b->auth_iovec[0].iov_len, t, l);
+
+        b->auth_iovec[0].iov_base = p;
+        b->auth_iovec[0].iov_len += l;
+
+        free(b->auth_buffer);
+        b->auth_buffer = p;
+        b->auth_index = 0;
+        return 0;
+}
+
+static int bus_socket_auth_write_ok(sd_bus *b) {
+        char t[3 + 32 + 2 + 1];
+
+        assert(b);
+
+        snprintf(t, sizeof(t), "OK " SD_ID128_FORMAT_STR "\r\n", SD_ID128_FORMAT_VAL(b->peer));
+        char_array_0(t);
+
+        return bus_socket_auth_write(b, t);
+}
+
+static int bus_socket_auth_verify_server(sd_bus *b) {
+        char *e;
+        const char *line;
+        size_t l;
+        bool processed = false;
+        int r;
+
+        assert(b);
+
+        if (b->rbuffer_size < 3)
+                return 0;
+
+        /* First char must be a NUL byte */
+        if (*(char*) b->rbuffer != 0)
+                return -EIO;
+
+        /* Begin with the first line */
+        if (b->auth_rbegin <= 0)
+                b->auth_rbegin = 1;
+
+        for (;;) {
+                /* Check if line is complete */
+                line = (char*) b->rbuffer + b->auth_rbegin;
+                e = memmem(line, b->rbuffer_size - b->auth_rbegin, "\r\n", 2);
+                if (!e)
+                        return processed;
+
+                l = e - line;
+
+                if (line_begins(line, l, "AUTH ANONYMOUS")) {
+
+                        r = verify_anonymous_token(b, line + 14, l - 14);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                r = bus_socket_auth_write(b, "REJECTED\r\n");
+                        else {
+                                b->auth = BUS_AUTH_ANONYMOUS;
+                                r = bus_socket_auth_write_ok(b);
+                        }
+
+                } else if (line_begins(line, l, "AUTH EXTERNAL")) {
+
+                        r = verify_external_token(b, line + 13, l - 13);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                r = bus_socket_auth_write(b, "REJECTED\r\n");
+                        else {
+                                b->auth = BUS_AUTH_EXTERNAL;
+                                r = bus_socket_auth_write_ok(b);
+                        }
+
+                } else if (line_begins(line, l, "AUTH"))
+                        r = bus_socket_auth_write(b, "REJECTED EXTERNAL ANONYMOUS\r\n");
+                else if (line_equals(line, l, "CANCEL") ||
+                         line_begins(line, l, "ERROR")) {
+
+                        b->auth = _BUS_AUTH_INVALID;
+                        r = bus_socket_auth_write(b, "REJECTED\r\n");
+
+                } else if (line_equals(line, l, "BEGIN")) {
+
+                        if (b->auth == _BUS_AUTH_INVALID)
+                                r = bus_socket_auth_write(b, "ERROR\r\n");
+                        else {
+                                /* We can't leave from the auth phase
+                                 * before we haven't written
+                                 * everything queued, so let's check
+                                 * that */
+
+                                if (bus_socket_auth_needs_write(b))
+                                        return 1;
+
+                                b->rbuffer_size -= (e + 2 - (char*) b->rbuffer);
+                                memmove(b->rbuffer, e + 2, b->rbuffer_size);
+                                return bus_start_running(b);
+                        }
+
+                } else if (line_begins(line, l, "DATA")) {
+
+                        if (b->auth == _BUS_AUTH_INVALID)
+                                r = bus_socket_auth_write(b, "ERROR\r\n");
+                        else {
+                                if (b->auth == BUS_AUTH_ANONYMOUS)
+                                        r = verify_anonymous_token(b, line + 4, l - 4);
+                                else
+                                        r = verify_external_token(b, line + 4, l - 4);
+
+                                if (r < 0)
+                                        return r;
+                                if (r == 0) {
+                                        b->auth = _BUS_AUTH_INVALID;
+                                        r = bus_socket_auth_write(b, "REJECTED\r\n");
+                                } else
+                                        r = bus_socket_auth_write_ok(b);
+                        }
+                } else if (line_equals(line, l, "NEGOTIATE_UNIX_FD")) {
+                        if (b->auth == _BUS_AUTH_INVALID || !b->negotiate_fds)
+                                r = bus_socket_auth_write(b, "ERROR\r\n");
+                        else {
+                                b->can_fds = true;
+                                r = bus_socket_auth_write(b, "AGREE_UNIX_FD\r\n");
+                        }
+                } else
+                        r = bus_socket_auth_write(b, "ERROR\r\n");
+
+                if (r < 0)
+                        return r;
+
+                b->auth_rbegin = e + 2 - (char*) b->rbuffer;
+
+                processed = true;
+        }
+}
+
+static int bus_socket_auth_verify(sd_bus *b) {
+        assert(b);
+
+        if (b->is_server)
+                return bus_socket_auth_verify_server(b);
+        else
+                return bus_socket_auth_verify_client(b);
+}
+
 static int bus_socket_read_auth(sd_bus *b) {
         struct msghdr mh;
         struct iovec iov;
@@ -157,14 +424,22 @@ static int bus_socket_read_auth(sd_bus *b) {
         ssize_t k;
         int r;
         void *p;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX) +
+                            CMSG_SPACE(sizeof(struct ucred)) +
+                            CMSG_SPACE(NAME_MAX)]; /*selinux label */
+        } control;
+        struct cmsghdr *cmsg;
 
         assert(b);
+        assert(b->state == BUS_AUTHENTICATING);
 
         r = bus_socket_auth_verify(b);
         if (r != 0)
                 return r;
 
-        n = MAX(3 + 32 + 2 + sizeof("AGREE_UNIX_FD") - 1 + 2, b->rbuffer_size * 2);
+        n = MAX(256, b->rbuffer_size * 2);
 
         if (n > BUS_AUTH_SIZE_MAX)
                 n = BUS_AUTH_SIZE_MAX;
@@ -185,14 +460,45 @@ static int bus_socket_read_auth(sd_bus *b) {
         zero(mh);
         mh.msg_iov = &iov;
         mh.msg_iovlen = 1;
+        mh.msg_control = &control;
+        mh.msg_controllen = sizeof(control);
 
-        k = recvmsg(b->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+        k = recvmsg(b->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
         if (k < 0)
                 return errno == EAGAIN ? 0 : -errno;
         if (k == 0)
                 return -ECONNRESET;
 
         b->rbuffer_size += k;
+
+        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_RIGHTS) {
+                        int j;
+
+                        /* Whut? We received fds during the auth
+                         * protocol? Somebody is playing games with
+                         * us. Close them all, and fail */
+                        j = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+                        close_many((int*) CMSG_DATA(cmsg), j);
+                        return -EIO;
+
+                } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+
+                        memcpy(&b->ucred, CMSG_DATA(cmsg), sizeof(struct ucred));
+                        b->ucred_valid = true;
+
+                } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                         cmsg->cmsg_type == SCM_SECURITY) {
+
+                        size_t l;
+                        l = cmsg->cmsg_len - CMSG_LEN(0);
+                        memcpy(&b->label, CMSG_DATA(cmsg), l);
+                        b->label[l] = 0;
+                }
+        }
 
         r = bus_socket_auth_verify(b);
         if (r != 0)
@@ -219,20 +525,56 @@ static int bus_socket_setup(sd_bus *b) {
         return 0;
 }
 
-static int bus_socket_start_auth(sd_bus *b) {
-        static const char auth_prefix[] = "\0AUTH EXTERNAL ";
-        static const char auth_suffix_with_unix_fd[] = "\r\nNEGOTIATE_UNIX_FD\r\nBEGIN\r\n";
-        static const char auth_suffix_without_unix_fd[] = "\r\nBEGIN\r\n";
-
-        char text[20 + 1]; /* enough space for a 64bit integer plus NUL */
+static int bus_socket_start_auth_client(sd_bus *b) {
         size_t l;
-        const char *auth_suffix;
+        const char *auth_suffix, *auth_prefix;
+
+        assert(b);
+
+        if (b->anonymous_auth) {
+                auth_prefix = "\0AUTH ANONYMOUS ";
+
+                /* For ANONYMOUS auth we send some arbitrary "trace" string */
+                l = 9;
+                b->auth_buffer = hexmem("anonymous", l);
+        } else {
+                char text[20 + 1]; /* enough space for a 64bit integer plus NUL */
+
+                auth_prefix = "\0AUTH EXTERNAL ";
+
+                snprintf(text, sizeof(text), "%lu", (unsigned long) geteuid());
+                char_array_0(text);
+
+                l = strlen(text);
+                b->auth_buffer = hexmem(text, l);
+        }
+
+        if (!b->auth_buffer)
+                return -ENOMEM;
+
+        if (b->negotiate_fds)
+                auth_suffix = "\r\nNEGOTIATE_UNIX_FD\r\nBEGIN\r\n";
+        else
+                auth_suffix = "\r\nBEGIN\r\n";
+
+        b->auth_iovec[0].iov_base = (void*) auth_prefix;
+        b->auth_iovec[0].iov_len = 1 + strlen(auth_prefix + 1);
+        b->auth_iovec[1].iov_base = (void*) b->auth_buffer;
+        b->auth_iovec[1].iov_len = l * 2;
+        b->auth_iovec[2].iov_base = (void*) auth_suffix;
+        b->auth_iovec[2].iov_len = strlen(auth_suffix);
+
+        return bus_socket_write_auth(b);
+}
+
+static int bus_socket_start_auth(sd_bus *b) {
         int domain = 0, r;
         socklen_t sl;
 
         assert(b);
 
         b->state = BUS_AUTHENTICATING;
+        b->auth_timeout = now(CLOCK_MONOTONIC) + BUS_DEFAULT_TIMEOUT;
 
         sl = sizeof(domain);
         r = getsockopt(b->fd, SOL_SOCKET, SO_DOMAIN, &domain, &sl);
@@ -242,25 +584,10 @@ static int bus_socket_start_auth(sd_bus *b) {
         if (domain != AF_UNIX)
                 b->negotiate_fds = false;
 
-        snprintf(text, sizeof(text), "%llu", (unsigned long long) geteuid());
-        char_array_0(text);
-
-        l = strlen(text);
-        b->auth_uid = hexmem(text, l);
-        if (!b->auth_uid)
-                return -ENOMEM;
-
-        auth_suffix = b->negotiate_fds ? auth_suffix_with_unix_fd : auth_suffix_without_unix_fd;
-
-        b->auth_iovec[0].iov_base = (void*) auth_prefix;
-        b->auth_iovec[0].iov_len = sizeof(auth_prefix) -1;
-        b->auth_iovec[1].iov_base = (void*) b->auth_uid;
-        b->auth_iovec[1].iov_len = l * 2;
-        b->auth_iovec[2].iov_base = (void*) auth_suffix;
-        b->auth_iovec[2].iov_len = strlen(auth_suffix);
-        b->auth_size = sizeof(auth_prefix) - 1 + l * 2 + sizeof(auth_suffix) - 1;
-
-        return bus_socket_write_auth(b);
+        if (b->is_server)
+                return bus_socket_read_auth(b);
+        else
+                return bus_socket_start_auth_client(b);
 }
 
 int bus_socket_connect(sd_bus *b) {

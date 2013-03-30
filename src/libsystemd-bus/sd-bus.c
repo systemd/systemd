@@ -52,7 +52,7 @@ static void bus_free(sd_bus *b) {
 
         free(b->rbuffer);
         free(b->unique_name);
-        free(b->auth_uid);
+        free(b->auth_buffer);
         free(b->address);
 
         free(b->exec_path);
@@ -194,6 +194,29 @@ int sd_bus_set_negotiate_fds(sd_bus *bus, int b) {
                 return -EPERM;
 
         bus->negotiate_fds = !!b;
+        return 0;
+}
+
+int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server) {
+        if (!bus)
+                return -EINVAL;
+        if (!b && !sd_id128_equal(server, SD_ID128_NULL))
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+
+        bus->is_server = !!b;
+        bus->peer = server;
+        return 0;
+}
+
+int sd_bus_set_anonymous(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+
+        bus->anonymous_auth = !!b;
         return 0;
 }
 
@@ -715,6 +738,9 @@ int sd_bus_start(sd_bus *bus) {
                 return -EPERM;
 
         bus->state = BUS_OPENING;
+
+        if (bus->is_server && bus->bus_client)
+                return -EINVAL;
 
         if (bus->fd >= 0)
                 r = bus_start_fd(bus);
@@ -1350,7 +1376,7 @@ int sd_bus_get_events(sd_bus *bus) {
                 flags |= POLLOUT;
         else if (bus->state == BUS_AUTHENTICATING) {
 
-                if (bus->auth_index < ELEMENTSOF(bus->auth_iovec))
+                if (bus_socket_auth_needs_write(bus))
                         flags |= POLLOUT;
 
                 flags |= POLLIN;
@@ -1426,8 +1452,8 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
 
         /* Let's make sure the first message on the bus is the HELLO
          * reply. But note that we don't actually parse the message
-         * here (we leave that to the usual reply handling), we just
-         * verify we don't let any earlier msg through. */
+         * here (we leave that to the usual handling), we just verify
+         * we don't let any earlier msg through. */
 
         if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_RETURN &&
             m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_ERROR)

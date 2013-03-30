@@ -64,6 +64,12 @@ enum bus_state {
         BUS_RUNNING
 };
 
+enum bus_auth {
+        _BUS_AUTH_INVALID,
+        BUS_AUTH_EXTERNAL,
+        BUS_AUTH_ANONYMOUS
+};
+
 struct sd_bus {
         unsigned n_ref;
         enum bus_state state;
@@ -74,6 +80,8 @@ struct sd_bus {
         bool can_fds:1;
         bool bus_client:1;
         bool ucred_valid:1;
+        bool is_server:1;
+        bool anonymous_auth:1;
 
         void *rbuffer;
         size_t rbuffer_size;
@@ -109,10 +117,11 @@ struct sd_bus {
 
         int last_connect_error;
 
+        enum bus_auth auth;
+        size_t auth_rbegin;
         struct iovec auth_iovec[3];
         unsigned auth_index;
-        size_t auth_size;
-        char *auth_uid;
+        char *auth_buffer;
         usec_t auth_timeout;
 
         struct ucred ucred;

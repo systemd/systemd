@@ -1693,7 +1693,8 @@ noinst_LTLIBRARIES += \
 noinst_tests += \
 	test-bus-marshal \
 	test-bus-signature \
-	test-bus-chat
+	test-bus-chat \
+	test-bus-server
 
 noinst_PROGRAMS += \
 	busctl
@@ -1727,6 +1728,18 @@ test_bus_chat_CFLAGS = \
 	-pthread
 
 test_bus_chat_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la \
+	libsystemd-id128-internal.la
+
+test_bus_server_SOURCES = \
+	src/libsystemd-bus/test-bus-server.c
+
+test_bus_server_CFLAGS = \
+	$(AM_CFLAGS) \
+	-pthread
+
+test_bus_server_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la \
 	libsystemd-id128-internal.la

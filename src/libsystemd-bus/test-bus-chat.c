@@ -564,9 +564,15 @@ int main(int argc, char *argv[]) {
         q = pthread_join(c1, &p);
         if (q != 0)
                 return EXIT_FAILURE;
+        if (PTR_TO_INT(p) < 0)
+                return EXIT_FAILURE;
+
         q = pthread_join(c2, &p);
         if (q != 0)
                 return EXIT_FAILURE;
+        if (PTR_TO_INT(p) < 0)
+                return EXIT_FAILURE;
+
         if (r < 0)
                 return EXIT_FAILURE;
 

@@ -1069,6 +1069,32 @@ char *hexmem(const void *p, size_t l) {
         return r;
 }
 
+void *unhexmem(const char *p, size_t l) {
+        uint8_t *r, *z;
+        const char *x;
+
+        assert(p);
+
+        z = r = malloc((l + 1) / 2 + 1);
+        if (!r)
+                return NULL;
+
+        for (x = p; x < p + l; x += 2) {
+                int a, b;
+
+                a = unhexchar(x[0]);
+                if (x+1 < p + l)
+                        b = unhexchar(x[1]);
+                else
+                        b = 0;
+
+                *(z++) = (uint8_t) a << 4 | (uint8_t) b;
+        }
+
+        *z = 0;
+        return r;
+}
+
 char octchar(int x) {
         return '0' + (x & 7);
 }

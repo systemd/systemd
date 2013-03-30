@@ -33,9 +33,7 @@ extern "C" {
 #endif
 
 /* TODO:
- * - server side
  * - allow installing match callbacks
- * - anonymous auth
  *
  * Later:
  * - add page donation logic
@@ -66,6 +64,8 @@ int sd_bus_set_fd(sd_bus *bus, int fd);
 int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]);
 int sd_bus_set_bus_client(sd_bus *bus, int b);
 int sd_bus_set_negotiate_fds(sd_bus *bus, int b);
+int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id);
+int sd_bus_set_anonymous(sd_bus *bus, int b);
 int sd_bus_start(sd_bus *ret);
 
 void sd_bus_close(sd_bus *bus);
