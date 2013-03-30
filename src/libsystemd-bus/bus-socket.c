@@ -542,6 +542,15 @@ int bus_socket_read_message(sd_bus *bus, sd_bus_message **m) {
 
                         n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
+                        if (!bus->can_fds) {
+                                /* Whut? We received fds but this
+                                 * isn't actually enabled? Close them,
+                                 * and fail */
+
+                                close_many((int*) CMSG_DATA(cmsg), n);
+                                return -EIO;
+                        }
+
                         f = realloc(bus->fds, sizeof(int) + (bus->n_fds + n));
                         if (!f) {
                                 close_many((int*) CMSG_DATA(cmsg), n);
