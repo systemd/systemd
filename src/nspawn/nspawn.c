@@ -537,8 +537,8 @@ static int setup_boot_id(const char *dest) {
         if (mount(from, to, "bind", MS_BIND, NULL) < 0) {
                 log_error("Failed to bind mount boot id: %m");
                 r = -errno;
-        } else
-                mount(from, to, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+        } else if (mount(from, to, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL))
+                log_warning("Failed to make boot id read-only: %m");
 
         unlink(from);
         return r;

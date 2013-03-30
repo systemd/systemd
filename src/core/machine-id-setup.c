@@ -235,7 +235,9 @@ int machine_id_setup(void) {
                 log_info("Installed transient /etc/machine-id file.");
 
                 /* Mark the mount read-only */
-                mount(NULL, "/etc/machine-id", NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
+                if (mount(NULL, "/etc/machine-id", NULL,
+                          MS_BIND|MS_RDONLY|MS_REMOUNT, NULL) < 0)
+                        log_warning("Failed to make transient /etc/machine-id read-only");
         }
 
 finish:
