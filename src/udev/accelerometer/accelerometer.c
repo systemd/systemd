@@ -46,6 +46,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <math.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -178,7 +179,7 @@ get_prev_orientation(struct udev_device *dev)
         return string_to_orientation(value);
 }
 
-#define SET_AXIS(axis, code_) if (ev[i].code == code_) { if (got_##axis == 0) { axis = ev[i].value; got_##axis = 1; } }
+#define SET_AXIS(axis, code_) if (ev[i].code == code_) { if (got_##axis == 0) { axis = ev[i].value; got_##axis = true; } }
 
 /* accelerometers */
 static void test_orientation(struct udev *udev,
@@ -186,54 +187,46 @@ static void test_orientation(struct udev *udev,
                              const char *devpath)
 {
         OrientationUp old, new;
-        int fd, r;
+        int _cleanup_close_ fd = -1;
         struct input_event ev[64];
-        int got_syn = 0;
-        int got_x, got_y, got_z;
+        bool got_syn = false;
+        bool got_x = false, got_y = false, got_z = false;
         int x = 0, y = 0, z = 0;
         char text[64];
 
         old = get_prev_orientation(dev);
 
-        if ((fd = open(devpath, O_RDONLY)) < 0)
+        fd = open(devpath, O_RDONLY);
+        if (fd < 0)
                 return;
 
-        got_x = got_y = got_z = 0;
-
         while (1) {
-                int i;
+                int i, r;
 
                 r = read(fd, ev, sizeof(struct input_event) * 64);
 
-                if (r < (int) sizeof(struct input_event)) {
-                        close(fd);
+                if (r < (int) sizeof(struct input_event))
                         return;
-                }
 
                 for (i = 0; i < r / (int) sizeof(struct input_event); i++) {
-                        if (got_syn == 1) {
+                        if (got_syn) {
                                 if (ev[i].type == EV_ABS) {
                                         SET_AXIS(x, ABS_X);
                                         SET_AXIS(y, ABS_Y);
                                         SET_AXIS(z, ABS_Z);
                                 }
                         }
-                        if (ev[i].type == EV_SYN && ev[i].code == SYN_REPORT) {
-                                got_syn = 1;
-                        }
+                        if (ev[i].type == EV_SYN && ev[i].code == SYN_REPORT)
+                                got_syn = true;
                         if (got_x && got_y && got_z)
                                 goto read_dev;
                 }
         }
 
 read_dev:
-        close(fd);
-
-        if (!got_x || !got_y || !got_z)
-                return;
-
         new = orientation_calc(old, x, y, z);
-        snprintf(text, sizeof(text), "ID_INPUT_ACCELEROMETER_ORIENTATION=%s", orientation_to_string(new));
+        snprintf(text, sizeof(text),
+                 "ID_INPUT_ACCELEROMETER_ORIENTATION=%s", orientation_to_string(new));
         puts(text);
 }
 
