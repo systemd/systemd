@@ -84,6 +84,7 @@
 /test-bus-marshal
 /test-bus-signature
 /test-bus-chat
+/test-bus-server
 /test-calendarspec
 /test-catalog
 /test-cgroup
