@@ -250,10 +250,12 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
                                         break;
 
                                 g = udev_list_entry_get_name(ll);
-                                b = strappend("_UDEV_DEVLINK=", g);
                                 if (g) {
-                                        IOVEC_SET_STRING(iovec[n++], b);
-                                        z++;
+                                        b = strappend("_UDEV_DEVLINK=", g);
+                                        if (b) {
+                                                IOVEC_SET_STRING(iovec[n++], b);
+                                                z++;
+                                        }
                                 }
 
                                 j++;
