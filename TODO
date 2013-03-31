@@ -52,8 +52,6 @@ Fedora 19:
 
 Features:
 
-* snapshots really should be isolatable, but currently aren't.
-
 * seems that when we follow symlinks to units we prefer the symlink
   destination path over /etc and /usr. We shouldn't do that. Instead
   /etc should always override /run+/usr and also any symlink

@@ -256,6 +256,7 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, DBusError *e, Sn
         }
 
         SNAPSHOT(u)->cleanup = cleanup;
+        u->allow_isolate = true;
         *_s = SNAPSHOT(u);
 
         return 0;
