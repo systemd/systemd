@@ -1021,7 +1021,8 @@ static bool item_equal(Item *a, Item *b) {
 }
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
-        Item *i, *existing;
+        Item _cleanup_free_ *i = NULL;
+        Item *existing;
         char _cleanup_free_
                 *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
         char type;
@@ -1047,8 +1048,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                    &n);
         if (r < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
-                r = -EIO;
-                goto finish;
+                return -EIO;
         }
 
         if (n >= 0)  {
@@ -1078,16 +1078,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case CREATE_SYMLINK:
                 if (!i->argument) {
                         log_error("[%s:%u] Symlink file requires argument.", fname, line);
-                        r = -EBADMSG;
-                        goto finish;
+                        return -EBADMSG;
                 }
                 break;
 
         case WRITE_FILE:
                 if (!i->argument) {
                         log_error("[%s:%u] Write file requires argument.", fname, line);
-                        r = -EBADMSG;
-                        goto finish;
+                        return -EBADMSG;
                 }
                 break;
 
@@ -1097,14 +1095,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (!i->argument) {
                         log_error("[%s:%u] Device file requires argument.", fname, line);
-                        r = -EBADMSG;
-                        goto finish;
+                        return -EBADMSG;
                 }
 
                 if (sscanf(i->argument, "%u:%u", &major, &minor) != 2) {
                         log_error("[%s:%u] Can't parse device file major/minor '%s'.", fname, line, i->argument);
-                        r = -EBADMSG;
-                        goto finish;
+                        return -EBADMSG;
                 }
 
                 i->major_minor = makedev(major, minor);
@@ -1113,24 +1109,20 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         default:
                 log_error("[%s:%u] Unknown file type '%c'.", fname, line, type);
-                r = -EBADMSG;
-                goto finish;
+                return -EBADMSG;
         }
 
         i->type = type;
 
         if (!path_is_absolute(i->path)) {
                 log_error("[%s:%u] Path '%s' not absolute.", fname, line, i->path);
-                r = -EBADMSG;
-                goto finish;
+                return -EBADMSG;
         }
 
         path_kill_slashes(i->path);
 
-        if (arg_prefix && !path_startswith(i->path, arg_prefix)) {
-                r = 0;
-                goto finish;
-        }
+        if (arg_prefix && !path_startswith(i->path, arg_prefix))
+                return 0;
 
         if (user && !streq(user, "-")) {
                 const char *u = user;
@@ -1138,7 +1130,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 r = get_user_creds(&u, &i->uid, NULL, NULL, NULL);
                 if (r < 0) {
                         log_error("[%s:%u] Unknown user '%s'.", fname, line, user);
-                        goto finish;
+                        return r;
                 }
 
                 i->uid_set = true;
@@ -1150,7 +1142,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 r = get_group_creds(&g, &i->gid);
                 if (r < 0) {
                         log_error("[%s:%u] Unknown group '%s'.", fname, line, group);
-                        goto finish;
+                        return r;
                 }
 
                 i->gid_set = true;
@@ -1161,8 +1153,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (sscanf(mode, "%o", &m) != 1) {
                         log_error("[%s:%u] Invalid mode '%s'.", fname, line, mode);
-                        r = -ENOENT;
-                        goto finish;
+                        return -ENOENT;
                 }
 
                 i->mode = m;
@@ -1182,8 +1173,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (parse_usec(a, &i->age) < 0) {
                         log_error("[%s:%u] Invalid age '%s'.", fname, line, age);
-                        r = -EBADMSG;
-                        goto finish;
+                        return -EBADMSG;
                 }
 
                 i->age_set = true;
@@ -1198,24 +1188,18 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (!item_equal(existing, i))
                         log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
 
-                r = 0;
-                goto finish;
+                return 0;
         }
 
         r = hashmap_put(h, i->path, i);
         if (r < 0) {
                 log_error("Failed to insert item %s: %s", i->path, strerror(-r));
-                goto finish;
+                return r;
         }
 
-        i = NULL;
-        r = 0;
+        i = NULL; /* avoid cleanup */
 
-finish:
-        if (i)
-                item_free(i);
-
-        return r;
+        return 0;
 }
 
 static int help(void) {
