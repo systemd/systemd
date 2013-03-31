@@ -1,4 +1,7 @@
 Bugfixes:
+* systemctl completion doesn't want to start failed systemd-tmpfiles-setup.service
+  systemctl --system show -p Fr<TAB> default.target doesn't show anything
+
 * systemd-journald seems to randomly hang on shutdown, likely not handling
   SIGTERM, shutdown blocks until we send SIGKILL at the very end.
 
@@ -18,6 +21,8 @@ Bugfixes:
 * make test in test/ work with separate output dir
 
 * suppress log output on shutdown when "quiet" is used
+
+* systemctl delete x.snapshot leaves no trace in logs (at least at default level).
 
 Fedora 19:
 
