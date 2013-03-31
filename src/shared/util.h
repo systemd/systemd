@@ -613,3 +613,5 @@ void *unhexmem(const char *p, size_t l);
 
 char *strextend(char **x, ...);
 char *strrep(const char *s, unsigned n);
+
+void* greedy_realloc(void **p, size_t *allocated, size_t need);

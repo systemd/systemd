@@ -33,7 +33,7 @@ extern "C" {
 #endif
 
 /* TODO:
- * - allow installing match callbacks
+ * - sd_message_handler_t needs to be renamed to sd_bus_message_handler_t
  *
  * Later:
  * - add page donation logic
@@ -98,6 +98,9 @@ int sd_bus_remove_object(sd_bus *bus, const char *path, sd_message_handler_t cal
 int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata);
 int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata);
 
+int sd_bus_add_match(sd_bus *bus, const char *match, sd_message_handler_t callback, void *userdata);
+int sd_bus_remove_match(sd_bus *bus, const char *match, sd_message_handler_t callback, void *userdata);
+
 /* Message object */
 
 int sd_bus_message_new_signal(sd_bus *bus, const char *path, const char *interface, const char *member, sd_bus_message **m);
@@ -154,8 +157,6 @@ int sd_bus_list_names(sd_bus *bus, char ***l);
 int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner);
 int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid);
 int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid);
-int sd_bus_add_match(sd_bus *bus, const char *match);
-int sd_bus_remove_match(sd_bus *bus, const char *match);
 
 /* Error structures */
 

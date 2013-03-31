@@ -27,6 +27,7 @@
 #include "sd-bus.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "bus-control.h"
 
 int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         int r;
@@ -292,14 +293,12 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
         return 0;
 }
 
-int sd_bus_add_match(sd_bus *bus, const char *match) {
+int bus_add_match_internal(sd_bus *bus, const char *match) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!match)
-                return -EINVAL;
+        assert(bus);
+        assert(match);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -318,14 +317,12 @@ int sd_bus_add_match(sd_bus *bus, const char *match) {
         return sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
 }
 
-int sd_bus_remove_match(sd_bus *bus, const char *match) {
+int bus_remove_match_internal(sd_bus *bus, const char *match) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!match)
-                return -EINVAL;
+        assert(bus);
+        assert(match);
 
         r = sd_bus_message_new_method_call(
                         bus,

@@ -168,3 +168,64 @@ bool member_name_is_valid(const char *p) {
 
         return true;
 }
+
+static bool complex_pattern_check(char c, const char *a, const char *b) {
+        bool separator = false;
+
+        for (;;) {
+                if (*a != *b)
+                        return (separator && (*a == 0 || *b == 0)) ||
+                                (*a == 0 && *b == c && b[1] == 0) ||
+                                (*b == 0 && *a == c && a[1] == 0);
+
+                if (*a == 0)
+                        return true;
+
+                separator = *a == c;
+
+                a++, b++;
+        }
+}
+
+bool namespace_complex_pattern(const char *pattern, const char *value) {
+        return complex_pattern_check('.', pattern, value);
+}
+
+bool path_complex_pattern(const char *pattern, const char *value) {
+        return complex_pattern_check('/', pattern, value);
+}
+
+static bool simple_pattern_check(char c, const char *a, const char *b) {
+        for (;;) {
+                if (*a != *b)
+                        return *a == 0 && *b == c;
+
+                if (*a == 0)
+                        return true;
+
+                a++, b++;
+        }
+}
+
+bool namespace_simple_pattern(const char *pattern, const char *value) {
+        return simple_pattern_check('.', pattern, value);
+}
+
+bool path_simple_pattern(const char *pattern, const char *value) {
+        return simple_pattern_check('/', pattern, value);
+}
+
+int bus_message_type_from_string(const char *s, uint8_t *u) {
+        if (streq(s, "signal"))
+                *u = SD_BUS_MESSAGE_TYPE_SIGNAL;
+        else if (streq(s, "method_call"))
+                *u = SD_BUS_MESSAGE_TYPE_METHOD_CALL;
+        else if (streq(s, "error"))
+                *u = SD_BUS_MESSAGE_TYPE_METHOD_ERROR;
+        else if (streq(s, "method_return"))
+                *u = SD_BUS_MESSAGE_TYPE_METHOD_RETURN;
+        else
+                return -EINVAL;
+
+        return 0;
+}

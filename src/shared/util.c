@@ -5855,3 +5855,20 @@ char *strrep(const char *s, unsigned n) {
         *p = 0;
         return r;
 }
+
+void* greedy_realloc(void **p, size_t *allocated, size_t need) {
+        size_t a;
+        void *q;
+
+        if (*allocated >= need)
+                return *p;
+
+        a = MAX(64, need * 2);
+        q = realloc(*p, a);
+        if (!q)
+                return NULL;
+
+        *p = q;
+        *allocated = a;
+        return q;
+}

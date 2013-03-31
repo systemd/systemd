@@ -32,6 +32,7 @@
 
 #include "sd-bus.h"
 #include "bus-error.h"
+#include "bus-match.h"
 
 struct reply_callback {
         sd_message_handler_t callback;
@@ -97,6 +98,7 @@ struct sd_bus {
 
         char *unique_name;
 
+        struct bus_match_node match_callbacks;
         Prioq *reply_callbacks_prioq;
         Hashmap *reply_callbacks;
         LIST_HEAD(struct filter_callback, filter_callbacks);
@@ -165,6 +167,14 @@ bool object_path_is_valid(const char *p);
 bool interface_name_is_valid(const char *p);
 bool service_name_is_valid(const char *p);
 bool member_name_is_valid(const char *p);
+
+bool namespace_complex_pattern(const char *pattern, const char *value);
+bool path_complex_pattern(const char *pattern, const char *value);
+
+bool namespace_simple_pattern(const char *pattern, const char *value);
+bool path_simple_pattern(const char *pattern, const char *value);
+
+int bus_message_type_from_string(const char *s, uint8_t *u);
 
 #define error_name_is_valid interface_name_is_valid
 

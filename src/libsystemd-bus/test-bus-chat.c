@@ -32,6 +32,13 @@
 #include "sd-bus.h"
 #include "bus-message.h"
 #include "bus-error.h"
+#include "bus-match.h"
+#include "bus-internal.h"
+
+static int match_callback(sd_bus *bus, int error, sd_bus_message *m, void *userdata) {
+        log_info("Match triggered! interface=%s member=%s", strna(sd_bus_message_get_interface(m)), strna(sd_bus_message_get_member(m)));
+        return 0;
+}
 
 static int object_callback(sd_bus *bus, int error, sd_bus_message *m, void *userdata) {
         int r;
@@ -105,6 +112,20 @@ static int server_init(sd_bus **_bus) {
                 log_error("Failed to add object: %s", strerror(-r));
                 goto fail;
         }
+
+        r = sd_bus_add_match(bus, "type='signal',interface='foo.bar',member='Notify'", match_callback, NULL);
+        if (r < 0) {
+                log_error("Failed to add match: %s", strerror(-r));
+                goto fail;
+        }
+
+        r = sd_bus_add_match(bus, "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'", match_callback, NULL);
+        if (r < 0) {
+                log_error("Failed to add match: %s", strerror(-r));
+                goto fail;
+        }
+
+        bus_match_dump(&bus->match_callbacks, 0);
 
         *_bus = bus;
         return 0;
@@ -418,6 +439,26 @@ static void* client2(void*p) {
         r = sd_bus_send(bus, m, NULL);
         if (r < 0) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                goto finish;
+        }
+
+        sd_bus_message_unref(m);
+        m = NULL;
+
+        r = sd_bus_message_new_signal(
+                        bus,
+                        "/foobar",
+                        "foo.bar",
+                        "Notify",
+                        &m);
+        if (r < 0) {
+                log_error("Failed to allocate signal: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = sd_bus_send(bus, m, NULL);
+        if (r < 0) {
+                log_error("Failed to issue signal: %s", bus_error_message(&error, -r));
                 goto finish;
         }
 

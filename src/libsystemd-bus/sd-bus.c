@@ -37,6 +37,7 @@
 #include "bus-message.h"
 #include "bus-type.h"
 #include "bus-socket.h"
+#include "bus-control.h"
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 
@@ -83,6 +84,8 @@ static void bus_free(sd_bus *b) {
         }
 
         hashmap_free(b->object_callbacks);
+
+        bus_match_free(&b->match_callbacks);
 
         free(b);
 }
@@ -1493,6 +1496,9 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
         struct filter_callback *l;
         int r;
 
+        assert(bus);
+        assert(m);
+
         LIST_FOREACH(callbacks, l, bus->filter_callbacks) {
                 r = l->callback(bus, 0, m, l->userdata);
                 if (r != 0)
@@ -1500,6 +1506,13 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
         }
 
         return 0;
+}
+
+static int process_match(sd_bus *bus, sd_bus_message *m) {
+        assert(bus);
+        assert(m);
+
+        return bus_match_run(bus, &bus->match_callbacks, 0, m);
 }
 
 static int process_builtin(sd_bus *bus, sd_bus_message *m) {
@@ -1728,6 +1741,10 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
                 return r;
 
         r = process_filter(bus, m);
+        if (r != 0)
+                return r;
+
+        r = process_match(bus, m);
         if (r != 0)
                 return r;
 
@@ -2056,4 +2073,49 @@ int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t ca
 
 int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata) {
         return bus_remove_object(bus, true, prefix, callback, userdata);
+}
+
+int sd_bus_add_match(sd_bus *bus, const char *match, sd_message_handler_t callback, void *userdata) {
+        int r = 0;
+
+        if (!bus)
+                return -EINVAL;
+        if (!match)
+                return -EINVAL;
+
+        if (bus->bus_client) {
+                r = bus_add_match_internal(bus, match);
+                if (r < 0)
+                        return r;
+        }
+
+        if (callback) {
+                r = bus_match_add(&bus->match_callbacks, match, callback, userdata, NULL);
+                if (r < 0) {
+
+                        if (bus->bus_client)
+                                bus_remove_match_internal(bus, match);
+                }
+        }
+
+        return r;
+}
+
+int sd_bus_remove_match(sd_bus *bus, const char *match, sd_message_handler_t callback, void *userdata) {
+        int r = 0, q = 0;
+
+        if (!bus)
+                return -EINVAL;
+        if (!match)
+                return -EINVAL;
+
+        if (bus->bus_client)
+                r = bus_remove_match_internal(bus, match);
+
+        if (callback)
+                q = bus_match_remove(&bus->match_callbacks, match, callback, userdata);
+
+        if (r < 0)
+                return r;
+        return q;
 }

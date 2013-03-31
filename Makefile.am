@@ -1670,6 +1670,7 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/sd-bus.h \
 	src/libsystemd-bus/sd-bus-protocol.h \
 	src/libsystemd-bus/bus-control.c \
+	src/libsystemd-bus/bus-control.h \
 	src/libsystemd-bus/bus-error.c \
 	src/libsystemd-bus/bus-error.h \
 	src/libsystemd-bus/bus-internal.c \
@@ -1681,7 +1682,9 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-signature.c \
 	src/libsystemd-bus/bus-signature.h \
 	src/libsystemd-bus/bus-type.c \
-	src/libsystemd-bus/bus-type.h
+	src/libsystemd-bus/bus-type.h \
+	src/libsystemd-bus/bus-match.c \
+	src/libsystemd-bus/bus-match.h
 
 libsystemd_bus_la_LIBADD =  \
 	libsystemd-id128-internal.la \
@@ -1694,7 +1697,8 @@ noinst_tests += \
 	test-bus-marshal \
 	test-bus-signature \
 	test-bus-chat \
-	test-bus-server
+	test-bus-server \
+	test-bus-match
 
 noinst_PROGRAMS += \
 	busctl
@@ -1740,6 +1744,17 @@ test_bus_server_CFLAGS = \
 	-pthread
 
 test_bus_server_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la \
+	libsystemd-id128-internal.la
+
+test_bus_match_SOURCES = \
+	src/libsystemd-bus/test-bus-match.c
+
+test_bus_match_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_bus_match_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la \
 	libsystemd-id128-internal.la

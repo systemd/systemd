@@ -3002,3 +3002,38 @@ int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
 
         return 0;
 }
+
+const char* bus_message_get_arg(sd_bus_message *m, unsigned i) {
+        int r;
+        const char *t;
+        char type;
+
+        assert(m);
+
+        r = sd_bus_message_rewind(m, true);
+        if (r < 0)
+                return NULL;
+
+        while (i > 0) {
+                r = sd_bus_message_peek_type(m, &type, NULL);
+                if (r < 0)
+                        return NULL;
+
+                if (type != SD_BUS_TYPE_STRING &&
+                    type != SD_BUS_TYPE_OBJECT_PATH &&
+                    type != SD_BUS_TYPE_SIGNATURE)
+                        return NULL;
+
+                r = sd_bus_message_read_basic(m, type, &t);
+                if (r < 0)
+                        return NULL;
+
+                i--;
+        }
+
+        r = sd_bus_message_rewind(m, true);
+        if (r < 0)
+                return NULL;
+
+        return t;
+}

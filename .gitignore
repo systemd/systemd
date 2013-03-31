@@ -81,9 +81,10 @@
 /systemd-user-sessions
 /systemd-vconsole-setup
 /tags
-/test-bus-marshal
-/test-bus-signature
 /test-bus-chat
+/test-bus-marshal
+/test-bus-match
+/test-bus-signature
 /test-bus-server
 /test-calendarspec
 /test-catalog

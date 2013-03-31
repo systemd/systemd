@@ -142,3 +142,5 @@ int bus_message_from_malloc(
                 const struct ucred *ucred,
                 const char *label,
                 sd_bus_message **ret);
+
+const char* bus_message_get_arg(sd_bus_message *m, unsigned i);

@@ -24,6 +24,7 @@
 
 #include "log.h"
 #include "bus-signature.h"
+#include "bus-internal.h"
 
 int main(int argc, char *argv[]) {
 
@@ -80,6 +81,36 @@ int main(int argc, char *argv[]) {
 
         assert_se(signature_is_valid("(((((((((((((((((((((((((((((((())))))))))))))))))))))))))))))))", false));
         assert_se(!signature_is_valid("((((((((((((((((((((((((((((((((()))))))))))))))))))))))))))))))))", false));
+
+        assert_se(namespace_complex_pattern("", ""));
+        assert_se(namespace_complex_pattern("foobar", "foobar"));
+        assert_se(namespace_complex_pattern("foobar.waldo", "foobar.waldo"));
+        assert_se(namespace_complex_pattern("foobar.", "foobar.waldo"));
+        assert_se(namespace_complex_pattern("foobar.waldo", "foobar."));
+        assert_se(!namespace_complex_pattern("foobar.waldo", "foobar"));
+        assert_se(!namespace_complex_pattern("foobar", "foobar.waldo"));
+        assert_se(!namespace_complex_pattern("", "foo"));
+        assert_se(!namespace_complex_pattern("foo", ""));
+        assert_se(!namespace_complex_pattern("foo.", ""));
+
+        assert_se(path_complex_pattern("", ""));
+        assert_se(path_complex_pattern("", "/"));
+        assert_se(path_complex_pattern("/", ""));
+        assert_se(path_complex_pattern("/", "/"));
+        assert_se(path_complex_pattern("/foobar/", "/"));
+        assert_se(path_complex_pattern("/foobar/", "/foobar"));
+        assert_se(path_complex_pattern("/foobar", "/foobar"));
+        assert_se(path_complex_pattern("/foobar", "/foobar/"));
+        assert_se(!path_complex_pattern("/foobar", "/foobar/waldo"));
+        assert_se(path_complex_pattern("/foobar/", "/foobar/waldo"));
+
+        assert_se(namespace_simple_pattern("", ""));
+        assert_se(namespace_simple_pattern("foobar", "foobar"));
+        assert_se(namespace_simple_pattern("foobar.waldo", "foobar.waldo"));
+        assert_se(namespace_simple_pattern("foobar", "foobar.waldo"));
+        assert_se(!namespace_simple_pattern("foobar.waldo", "foobar"));
+        assert_se(!namespace_simple_pattern("", "foo"));
+        assert_se(!namespace_simple_pattern("foo", ""));
 
         return 0;
 }
