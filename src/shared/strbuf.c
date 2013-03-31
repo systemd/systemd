@@ -95,11 +95,34 @@ void strbuf_cleanup(struct strbuf *str) {
         free(str);
 }
 
-static int strbuf_children_cmp(const void *v1, const void *v2) {
-        const struct strbuf_child_entry *n1 = v1;
-        const struct strbuf_child_entry *n2 = v2;
-
+static int strbuf_children_cmp(const struct strbuf_child_entry *n1,
+                               const struct strbuf_child_entry *n2) {
         return n1->c - n2->c;
+}
+
+static void bubbleinsert(struct strbuf_node *node,
+                         uint8_t c,
+                         struct strbuf_node *node_child) {
+
+        struct strbuf_child_entry new = {
+                .c = c,
+                .child = node_child,
+        };
+        int left = 0, right = node->children_count;
+
+        while (right > left) {
+                int middle = (right + left) / 2 ;
+                if (strbuf_children_cmp(&node->children[middle], &new) <= 0)
+                        left = middle + 1;
+                else
+                        right = middle;
+        }
+
+        memmove(node->children + left + 1, node->children + left,
+                sizeof(struct strbuf_child_entry) * (node->children_count - left));
+        node->children[left] = new;
+
+        node->children_count ++;
 }
 
 /* add string, return the index/offset into the buffer */
@@ -137,8 +160,9 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
                 /* lookup child node */
                 c = s[len - 1 - depth];
                 search.c = c;
-                child = bsearch(&search, node->children, node->children_count, sizeof(struct strbuf_child_entry),
-                                strbuf_children_cmp);
+                child = bsearch(&search, node->children, node->children_count,
+                                sizeof(struct strbuf_child_entry),
+                                (__compar_fn_t) strbuf_children_cmp);
                 if (!child)
                         break;
                 node = child->child;
@@ -171,10 +195,7 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         str->nodes_count++;
 
         node->children = child;
-        node->children[node->children_count].c = c;
-        node->children[node->children_count].child = node_child;
-        node->children_count++;
-        qsort(node->children, node->children_count, sizeof(struct strbuf_child_entry), strbuf_children_cmp);
+        bubbleinsert(node, c, node_child);
 
         return off;
 }
