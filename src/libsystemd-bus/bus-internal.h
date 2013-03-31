@@ -35,7 +35,7 @@
 #include "bus-match.h"
 
 struct reply_callback {
-        sd_message_handler_t callback;
+        sd_bus_message_handler_t callback;
         void *userdata;
         usec_t timeout;
         uint64_t serial;
@@ -43,14 +43,14 @@ struct reply_callback {
 };
 
 struct filter_callback {
-        sd_message_handler_t callback;
+        sd_bus_message_handler_t callback;
         void *userdata;
 
         LIST_FIELDS(struct filter_callback, callbacks);
 };
 
 struct object_callback {
-        sd_message_handler_t callback;
+        sd_bus_message_handler_t callback;
         void *userdata;
 
         char *path;

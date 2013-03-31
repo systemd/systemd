@@ -481,7 +481,7 @@ static int bus_match_find_compare_value(
 
 static int bus_match_add_leaf(
                 struct bus_match_node *where,
-                sd_message_handler_t callback,
+                sd_bus_message_handler_t callback,
                 void *userdata,
                 struct bus_match_node **ret) {
 
@@ -511,7 +511,7 @@ static int bus_match_add_leaf(
 
 static int bus_match_find_leaf(
                 struct bus_match_node *where,
-                sd_message_handler_t callback,
+                sd_bus_message_handler_t callback,
                 void *userdata,
                 struct bus_match_node **ret) {
 
@@ -778,7 +778,7 @@ fail:
 int bus_match_add(
                 struct bus_match_node *root,
                 const char *match,
-                sd_message_handler_t callback,
+                sd_bus_message_handler_t callback,
                 void *userdata,
                 struct bus_match_node **ret) {
 
@@ -819,7 +819,7 @@ finish:
 int bus_match_remove(
                 struct bus_match_node *root,
                 const char *match,
-                sd_message_handler_t callback,
+                sd_bus_message_handler_t callback,
                 void *userdata) {
 
         struct match_component *components = NULL;

@@ -33,9 +33,6 @@ extern "C" {
 #endif
 
 /* TODO:
- * - sd_message_handler_t needs to be renamed to sd_bus_message_handler_t
- *
- * Later:
  * - add page donation logic
  * - api for appending/reading fixed arrays
  * - merge busctl into systemctl or so?
@@ -51,7 +48,7 @@ typedef struct {
         int need_free;
 } sd_bus_error;
 
-typedef int (*sd_message_handler_t)(sd_bus *bus, int ret, sd_bus_message *m, void *userdata);
+typedef int (*sd_bus_message_handler_t)(sd_bus *bus, int ret, sd_bus_message *m, void *userdata);
 
 /* Connections */
 
@@ -78,7 +75,7 @@ int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_get_peer(sd_bus *bus, sd_id128_t *peer);
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial);
-int sd_bus_send_with_reply(sd_bus *bus, sd_bus_message *m, sd_message_handler_t callback, void *userdata, uint64_t usec, uint64_t *serial);
+int sd_bus_send_with_reply(sd_bus *bus, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec, uint64_t *serial);
 int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial);
 int sd_bus_send_with_reply_and_block(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *error, sd_bus_message **r);
 
@@ -89,17 +86,17 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
 
-int sd_bus_add_filter(sd_bus *bus, sd_message_handler_t callback, void *userdata);
-int sd_bus_remove_filter(sd_bus *bus, sd_message_handler_t callback, void *userdata);
+int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata);
 
-int sd_bus_add_object(sd_bus *bus, const char *path, sd_message_handler_t callback, void *userdata);
-int sd_bus_remove_object(sd_bus *bus, const char *path, sd_message_handler_t callback, void *userdata);
+int sd_bus_add_object(sd_bus *bus, const char *path, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_remove_object(sd_bus *bus, const char *path, sd_bus_message_handler_t callback, void *userdata);
 
-int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata);
-int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata);
+int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handler_t callback, void *userdata);
 
-int sd_bus_add_match(sd_bus *bus, const char *match, sd_message_handler_t callback, void *userdata);
-int sd_bus_remove_match(sd_bus *bus, const char *match, sd_message_handler_t callback, void *userdata);
+int sd_bus_add_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata);
+int sd_bus_remove_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata);
 
 /* Message object */
 

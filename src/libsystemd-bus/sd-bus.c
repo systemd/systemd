@@ -1117,7 +1117,7 @@ static int timeout_compare(const void *a, const void *b) {
 int sd_bus_send_with_reply(
                 sd_bus *bus,
                 sd_bus_message *m,
-                sd_message_handler_t callback,
+                sd_bus_message_handler_t callback,
                 void *userdata,
                 uint64_t usec,
                 uint64_t *serial) {
@@ -1946,7 +1946,7 @@ int sd_bus_flush(sd_bus *bus) {
         }
 }
 
-int sd_bus_add_filter(sd_bus *bus, sd_message_handler_t callback, void *userdata) {
+int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata) {
         struct filter_callback *f;
 
         if (!bus)
@@ -1964,7 +1964,7 @@ int sd_bus_add_filter(sd_bus *bus, sd_message_handler_t callback, void *userdata
         return 0;
 }
 
-int sd_bus_remove_filter(sd_bus *bus, sd_message_handler_t callback, void *userdata) {
+int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata) {
         struct filter_callback *f;
 
         if (!bus)
@@ -1987,7 +1987,7 @@ static int bus_add_object(
                 sd_bus *bus,
                 bool fallback,
                 const char *path,
-                sd_message_handler_t callback,
+                sd_bus_message_handler_t callback,
                 void *userdata) {
 
         struct object_callback *c;
@@ -2032,7 +2032,7 @@ static int bus_remove_object(
                 sd_bus *bus,
                 bool fallback,
                 const char *path,
-                sd_message_handler_t callback,
+                sd_bus_message_handler_t callback,
                 void *userdata) {
 
         struct object_callback *c;
@@ -2059,23 +2059,23 @@ static int bus_remove_object(
         return 1;
 }
 
-int sd_bus_add_object(sd_bus *bus, const char *path, sd_message_handler_t callback, void *userdata) {
+int sd_bus_add_object(sd_bus *bus, const char *path, sd_bus_message_handler_t callback, void *userdata) {
         return bus_add_object(bus, false, path, callback, userdata);
 }
 
-int sd_bus_remove_object(sd_bus *bus, const char *path, sd_message_handler_t callback, void *userdata) {
+int sd_bus_remove_object(sd_bus *bus, const char *path, sd_bus_message_handler_t callback, void *userdata) {
         return bus_remove_object(bus, false, path, callback, userdata);
 }
 
-int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata) {
+int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handler_t callback, void *userdata) {
         return bus_add_object(bus, true, prefix, callback, userdata);
 }
 
-int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_message_handler_t callback, void *userdata) {
+int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handler_t callback, void *userdata) {
         return bus_remove_object(bus, true, prefix, callback, userdata);
 }
 
-int sd_bus_add_match(sd_bus *bus, const char *match, sd_message_handler_t callback, void *userdata) {
+int sd_bus_add_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata) {
         int r = 0;
 
         if (!bus)
@@ -2101,7 +2101,7 @@ int sd_bus_add_match(sd_bus *bus, const char *match, sd_message_handler_t callba
         return r;
 }
 
-int sd_bus_remove_match(sd_bus *bus, const char *match, sd_message_handler_t callback, void *userdata) {
+int sd_bus_remove_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata) {
         int r = 0, q = 0;
 
         if (!bus)
