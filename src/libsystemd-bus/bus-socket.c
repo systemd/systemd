@@ -31,6 +31,7 @@
 #include "missing.h"
 #include "strv.h"
 #include "utf8.h"
+#include "sd-daemon.h"
 
 #include "sd-bus.h"
 #include "bus-socket.h"
@@ -589,25 +590,17 @@ static int bus_socket_start_auth_client(sd_bus *b) {
 }
 
 static int bus_socket_start_auth(sd_bus *b) {
-        int domain = 0, r;
-        socklen_t sl;
-
         assert(b);
 
         b->state = BUS_AUTHENTICATING;
         b->auth_timeout = now(CLOCK_MONOTONIC) + BUS_DEFAULT_TIMEOUT;
 
-        sl = sizeof(domain);
-        r = getsockopt(b->input_fd, SOL_SOCKET, SO_DOMAIN, &domain, &sl);
-        if (r < 0 || domain != AF_UNIX)
+        if (sd_is_socket(b->input_fd, AF_UNIX, 0, 0) <= 0)
                 b->negotiate_fds = false;
 
-        if (b->output_fd != b->input_fd) {
-                r = getsockopt(b->output_fd, SOL_SOCKET, SO_DOMAIN, &domain, &sl);
-                if (r < 0 || domain != AF_UNIX)
+        if (b->output_fd != b->input_fd)
+                if (sd_is_socket(b->output_fd, AF_UNIX, 0, 0) <= 0)
                         b->negotiate_fds = false;
-        }
-
 
         if (b->is_server)
                 return bus_socket_read_auth(b);

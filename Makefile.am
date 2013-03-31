@@ -1689,7 +1689,8 @@ libsystemd_bus_la_SOURCES = \
 
 libsystemd_bus_la_LIBADD =  \
 	libsystemd-id128-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-daemon.la
 
 noinst_LTLIBRARIES += \
 	libsystemd-bus.la
