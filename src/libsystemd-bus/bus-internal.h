@@ -74,7 +74,7 @@ enum bus_auth {
 struct sd_bus {
         unsigned n_ref;
         enum bus_state state;
-        int fd;
+        int input_fd, output_fd;
         int message_version;
 
         bool negotiate_fds:1;

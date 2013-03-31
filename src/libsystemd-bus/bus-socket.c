@@ -88,7 +88,7 @@ static int bus_socket_write_auth(sd_bus *b) {
         mh.msg_iov = b->auth_iovec + b->auth_index;
         mh.msg_iovlen = ELEMENTSOF(b->auth_iovec) - b->auth_index;
 
-        k = sendmsg(b->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+        k = sendmsg(b->output_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
         if (k < 0)
                 return errno == EAGAIN ? 0 : -errno;
 
@@ -463,7 +463,7 @@ static int bus_socket_read_auth(sd_bus *b) {
         mh.msg_control = &control;
         mh.msg_controllen = sizeof(control);
 
-        k = recvmsg(b->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
+        k = recvmsg(b->input_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
         if (k < 0)
                 return errno == EAGAIN ? 0 : -errno;
         if (k == 0)
@@ -515,12 +515,12 @@ static int bus_socket_setup(sd_bus *b) {
         /* Enable SO_PASSCRED + SO_PASSEC. We try this on any
          * socket, just in case. */
         enable = !b->bus_client;
-        setsockopt(b->fd, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable));
-        setsockopt(b->fd, SOL_SOCKET, SO_PASSSEC, &enable, sizeof(enable));
+        setsockopt(b->input_fd, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable));
+        setsockopt(b->input_fd, SOL_SOCKET, SO_PASSSEC, &enable, sizeof(enable));
 
         /* Increase the buffers to a MB */
-        fd_inc_rcvbuf(b->fd, 1024*1024);
-        fd_inc_sndbuf(b->fd, 1024*1024);
+        fd_inc_rcvbuf(b->input_fd, 1024*1024);
+        fd_inc_sndbuf(b->output_fd, 1024*1024);
 
         return 0;
 }
@@ -577,12 +577,16 @@ static int bus_socket_start_auth(sd_bus *b) {
         b->auth_timeout = now(CLOCK_MONOTONIC) + BUS_DEFAULT_TIMEOUT;
 
         sl = sizeof(domain);
-        r = getsockopt(b->fd, SOL_SOCKET, SO_DOMAIN, &domain, &sl);
-        if (r < 0)
-                return -errno;
-
-        if (domain != AF_UNIX)
+        r = getsockopt(b->input_fd, SOL_SOCKET, SO_DOMAIN, &domain, &sl);
+        if (r < 0 || domain != AF_UNIX)
                 b->negotiate_fds = false;
+
+        if (b->output_fd != b->input_fd) {
+                r = getsockopt(b->output_fd, SOL_SOCKET, SO_DOMAIN, &domain, &sl);
+                if (r < 0 || domain != AF_UNIX)
+                        b->negotiate_fds = false;
+        }
+
 
         if (b->is_server)
                 return bus_socket_read_auth(b);
@@ -594,18 +598,21 @@ int bus_socket_connect(sd_bus *b) {
         int r;
 
         assert(b);
-        assert(b->fd < 0);
+        assert(b->input_fd < 0);
+        assert(b->output_fd < 0);
         assert(b->sockaddr.sa.sa_family != AF_UNSPEC);
 
-        b->fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (b->fd < 0)
+        b->input_fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (b->input_fd < 0)
                 return -errno;
+
+        b->output_fd = b->input_fd;
 
         r = bus_socket_setup(b);
         if (r < 0)
                 return r;
 
-        r = connect(b->fd, &b->sockaddr.sa, b->sockaddr_size);
+        r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
         if (r < 0) {
                 if (errno == EINPROGRESS)
                         return 1;
@@ -617,15 +624,16 @@ int bus_socket_connect(sd_bus *b) {
 }
 
 int bus_socket_exec(sd_bus *b) {
-        int s[2];
+        int s[2], r;
         pid_t pid;
 
         assert(b);
-        assert(b->fd < 0);
+        assert(b->input_fd < 0);
+        assert(b->output_fd < 0);
         assert(b->exec_path);
 
-        b->fd = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
-        if (b->fd < 0)
+        r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
+        if (r < 0)
                 return -errno;
 
         pid = fork();
@@ -636,8 +644,9 @@ int bus_socket_exec(sd_bus *b) {
         if (pid == 0) {
                 /* Child */
 
-                close_all_fds(s, 2);
-                close_nointr_nofail(s[0]);
+                reset_all_signal_handlers();
+
+                close_all_fds(s+1, 1);
 
                 assert_se(dup3(s[1], STDIN_FILENO, 0) == STDIN_FILENO);
                 assert_se(dup3(s[1], STDOUT_FILENO, 0) == STDOUT_FILENO);
@@ -661,7 +670,7 @@ int bus_socket_exec(sd_bus *b) {
         }
 
         close_nointr_nofail(s[1]);
-        b->fd = s[0];
+        b->output_fd = b->input_fd = s[0];
 
         return bus_socket_start_auth(b);
 }
@@ -714,7 +723,7 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         mh.msg_iov = iov;
         mh.msg_iovlen = m->n_iovec;
 
-        k = sendmsg(bus->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+        k = sendmsg(bus->output_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
         if (k < 0)
                 return errno == EAGAIN ? 0 : -errno;
 
@@ -854,7 +863,7 @@ int bus_socket_read_message(sd_bus *bus, sd_bus_message **m) {
         mh.msg_control = &control;
         mh.msg_controllen = sizeof(control);
 
-        k = recvmsg(bus->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
+        k = recvmsg(bus->input_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
         if (k < 0)
                 return errno == EAGAIN ? 0 : -errno;
         if (k == 0)
@@ -924,7 +933,7 @@ int bus_socket_process_opening(sd_bus *b) {
         assert(b->state == BUS_OPENING);
 
         zero(p);
-        p.fd = b->fd;
+        p.fd = b->output_fd;
         p.events = POLLOUT;
 
         r = poll(&p, 1, 0);
@@ -934,7 +943,7 @@ int bus_socket_process_opening(sd_bus *b) {
         if (!(p.revents & (POLLOUT|POLLERR|POLLHUP)))
                 return 0;
 
-        r = getsockopt(b->fd, SOL_SOCKET, SO_ERROR, &error, &slen);
+        r = getsockopt(b->output_fd, SOL_SOCKET, SO_ERROR, &error, &slen);
         if (r < 0)
                 b->last_connect_error = errno;
         else if (error != 0)

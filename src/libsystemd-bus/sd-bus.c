@@ -48,8 +48,7 @@ static void bus_free(sd_bus *b) {
 
         assert(b);
 
-        if (b->fd >= 0)
-                close_nointr_nofail(b->fd);
+        sd_bus_close(b);
 
         free(b->rbuffer);
         free(b->unique_name);
@@ -101,7 +100,7 @@ int sd_bus_new(sd_bus **ret) {
                 return -ENOMEM;
 
         r->n_ref = 1;
-        r->fd = -1;
+        r->input_fd = r->output_fd = -1;
         r->message_version = 1;
         r->negotiate_fds = true;
 
@@ -137,15 +136,18 @@ int sd_bus_set_address(sd_bus *bus, const char *address) {
         return 0;
 }
 
-int sd_bus_set_fd(sd_bus *bus, int fd) {
+int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
         if (!bus)
                 return -EINVAL;
         if (bus->state != BUS_UNSET)
                 return -EPERM;
-        if (fd < 0)
+        if (input_fd < 0)
+                return -EINVAL;
+        if (output_fd < 0)
                 return -EINVAL;
 
-        bus->fd = fd;
+        bus->input_fd = input_fd;
+        bus->output_fd = output_fd;
         return 0;
 }
 
@@ -679,10 +681,7 @@ static int bus_start_address(sd_bus *b) {
         assert(b);
 
         for (;;) {
-                if (b->fd >= 0) {
-                        close_nointr_nofail(b->fd);
-                        b->fd = -1;
-                }
+                sd_bus_close(b);
 
                 if (b->sockaddr.sa.sa_family != AF_UNSPEC) {
 
@@ -720,14 +719,26 @@ static int bus_start_fd(sd_bus *b) {
         int r;
 
         assert(b);
+        assert(b->input_fd >= 0);
+        assert(b->output_fd >= 0);
 
-        r = fd_nonblock(b->fd, true);
+        r = fd_nonblock(b->input_fd, true);
         if (r < 0)
                 return r;
 
-        r = fd_cloexec(b->fd, true);
+        r = fd_cloexec(b->input_fd, true);
         if (r < 0)
                 return r;
+
+        if (b->input_fd != b->output_fd) {
+                r = fd_nonblock(b->output_fd, true);
+                if (r < 0)
+                        return r;
+
+                r = fd_cloexec(b->output_fd, true);
+                if (r < 0)
+                        return r;
+        }
 
         return bus_socket_take_fd(b);
 }
@@ -745,7 +756,7 @@ int sd_bus_start(sd_bus *bus) {
         if (bus->is_server && bus->bus_client)
                 return -EINVAL;
 
-        if (bus->fd >= 0)
+        if (bus->input_fd >= 0)
                 r = bus_start_fd(bus);
         else if (bus->address || bus->sockaddr.sa.sa_family != AF_UNSPEC || bus->exec_path)
                 r = bus_start_address(bus);
@@ -848,11 +859,13 @@ fail:
 void sd_bus_close(sd_bus *bus) {
         if (!bus)
                 return;
-        if (bus->fd < 0)
-                return;
 
-        close_nointr_nofail(bus->fd);
-        bus->fd = -1;
+        if (bus->input_fd >= 0)
+                close_nointr_nofail(bus->input_fd);
+        if (bus->output_fd >= 0 && bus->output_fd != bus->input_fd)
+                close_nointr_nofail(bus->output_fd);
+
+        bus->input_fd = bus->output_fd = -1;
 }
 
 sd_bus *sd_bus_ref(sd_bus *bus) {
@@ -882,7 +895,7 @@ int sd_bus_is_open(sd_bus *bus) {
         if (!bus)
                 return -EINVAL;
 
-        return bus->state != BUS_UNSET && bus->fd >= 0;
+        return bus->state != BUS_UNSET && bus->input_fd >= 0;
 }
 
 int sd_bus_can_send(sd_bus *bus, char type) {
@@ -890,7 +903,7 @@ int sd_bus_can_send(sd_bus *bus, char type) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->fd < 0)
+        if (bus->output_fd < 0)
                 return -ENOTCONN;
 
         if (type == SD_BUS_TYPE_UNIX_FD) {
@@ -941,7 +954,7 @@ static int dispatch_wqueue(sd_bus *bus) {
         assert(bus);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
-        if (bus->fd < 0)
+        if (bus->output_fd < 0)
                 return -ENOTCONN;
 
         while (bus->wqueue_size > 0) {
@@ -984,7 +997,7 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
         assert(m);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
-        if (bus->fd < 0)
+        if (bus->input_fd < 0)
                 return -ENOTCONN;
 
         if (bus->rqueue_size > 0) {
@@ -1020,7 +1033,7 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
                 return -EINVAL;
         if (bus->state == BUS_UNSET)
                 return -ENOTCONN;
-        if (bus->fd < 0)
+        if (bus->output_fd < 0)
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
@@ -1129,7 +1142,7 @@ int sd_bus_send_with_reply(
                 return -EINVAL;
         if (bus->state == BUS_UNSET)
                 return -ENOTCONN;
-        if (bus->fd < 0)
+        if (bus->output_fd < 0)
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
@@ -1211,7 +1224,7 @@ int bus_ensure_running(sd_bus *bus) {
 
         assert(bus);
 
-        if (bus->fd < 0)
+        if (bus->input_fd < 0)
                 return -ENOTCONN;
         if (bus->state == BUS_UNSET)
                 return -ENOTCONN;
@@ -1248,7 +1261,7 @@ int sd_bus_send_with_reply_and_block(
 
         if (!bus)
                 return -EINVAL;
-        if (bus->fd < 0)
+        if (bus->output_fd < 0)
                 return -ENOTCONN;
         if (bus->state == BUS_UNSET)
                 return -ENOTCONN;
@@ -1358,11 +1371,12 @@ int sd_bus_send_with_reply_and_block(
 int sd_bus_get_fd(sd_bus *bus) {
         if (!bus)
                 return -EINVAL;
-
-        if (bus->fd < 0)
+        if (bus->input_fd < 0)
                 return -ENOTCONN;
+        if (bus->input_fd != bus->output_fd)
+                return -EPERM;
 
-        return bus->fd;
+        return bus->input_fd;
 }
 
 int sd_bus_get_events(sd_bus *bus) {
@@ -1372,7 +1386,7 @@ int sd_bus_get_events(sd_bus *bus) {
                 return -EINVAL;
         if (bus->state == BUS_UNSET)
                 return -ENOTCONN;
-        if (bus->fd < 0)
+        if (bus->input_fd < 0)
                 return -ENOTCONN;
 
         if (bus->state == BUS_OPENING)
@@ -1403,7 +1417,7 @@ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
                 return -EINVAL;
         if (bus->state == BUS_UNSET)
                 return -ENOTCONN;
-        if (bus->fd < 0)
+        if (bus->input_fd < 0)
                 return -ENOTCONN;
 
         if (bus->state == BUS_AUTHENTICATING) {
@@ -1824,7 +1838,7 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->fd < 0)
+        if (bus->input_fd < 0)
                 return -ENOTCONN;
 
         switch (bus->state) {
@@ -1859,14 +1873,14 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
 }
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
-        struct pollfd p;
-        int r, e;
+        struct pollfd p[2];
+        int r, e, n;
         struct timespec ts;
         usec_t until, m;
 
         assert(bus);
 
-        if (bus->fd < 0)
+        if (bus->input_fd < 0)
                 return -ENOTCONN;
 
         e = sd_bus_get_events(bus);
@@ -1882,19 +1896,28 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         if (r == 0)
                 m = (uint64_t) -1;
         else {
-                usec_t n;
-                n = now(CLOCK_MONOTONIC);
-                m = until > n ? until - n : 0;
+                usec_t nw;
+                nw = now(CLOCK_MONOTONIC);
+                m = until > nw ? until - nw : 0;
         }
 
         if (timeout_usec != (uint64_t) -1 && (m == (uint64_t) -1 || timeout_usec < m))
                 m = timeout_usec;
 
         zero(p);
-        p.fd = bus->fd;
-        p.events = e;
+        p[0].fd = bus->input_fd;
 
-        r = ppoll(&p, 1, m == (uint64_t) -1 ? NULL : timespec_store(&ts, m), NULL);
+        if (bus->output_fd == bus->input_fd) {
+                p[0].events = e;
+                n = 1;
+        } else {
+                p[0].events = e & POLLIN;
+                p[1].fd = bus->output_fd;
+                p[1].events = e & POLLOUT;
+                n = 2;
+        }
+
+        r = ppoll(p, n, m == (uint64_t) -1 ? NULL : timespec_store(&ts, m), NULL);
         if (r < 0)
                 return -errno;
 
@@ -1907,7 +1930,7 @@ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
                 return -EINVAL;
         if (bus->state == BUS_UNSET)
                 return -ENOTCONN;
-        if (bus->fd < 0)
+        if (bus->input_fd < 0)
                 return -ENOTCONN;
         if (bus->rqueue_size > 0)
                 return 0;
@@ -1922,7 +1945,7 @@ int sd_bus_flush(sd_bus *bus) {
                 return -EINVAL;
         if (bus->state == BUS_UNSET)
                 return -ENOTCONN;
-        if (bus->fd < 0)
+        if (bus->output_fd < 0)
                 return -ENOTCONN;
 
         r = bus_ensure_running(bus);
