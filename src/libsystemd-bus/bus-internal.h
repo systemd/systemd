@@ -83,6 +83,8 @@ struct sd_bus {
         bool ucred_valid:1;
         bool is_server:1;
         bool anonymous_auth:1;
+        bool prefer_readv:1;
+        bool prefer_writev:1;
 
         void *rbuffer;
         size_t rbuffer_size;
