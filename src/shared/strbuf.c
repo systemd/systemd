@@ -158,14 +158,18 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         node_child = new0(struct strbuf_node, 1);
         if (!node_child)
                 return -ENOMEM;
-        str->nodes_count++;
         node_child->value_off = off;
         node_child->value_len = len;
 
         /* extend array, add new entry, sort for bisection */
         child = realloc(node->children, (node->children_count + 1) * sizeof(struct strbuf_child_entry));
-        if (!child)
+        if (!child) {
+                free(node_child);
                 return -ENOMEM;
+        }
+
+        str->nodes_count++;
+
         node->children = child;
         node->children[node->children_count].c = c;
         node->children[node->children_count].child = node_child;
