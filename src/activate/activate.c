@@ -137,6 +137,11 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 count ++;
         }
 
+        /** Note: we leak some fd's on error here. I doesn't matter
+         *  much, since the program will exit immediately anyway, but
+         *  would be a pain to fix.
+         */
+
         STRV_FOREACH(address, arg_listen) {
                 log_info("Opening address %s", *address);
 
@@ -166,7 +171,8 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
 static int launch(char* name, char **argv, char **env, int fds) {
         unsigned n_env = 0, length;
-        char **envp = NULL, **s;
+        char _cleanup_strv_free_ **envp = NULL;
+        char **s;
         static const char* tocopy[] = {"TERM=", "PATH=", "USER=", "HOME="};
         char _cleanup_free_ *tmp = NULL;
         unsigned i;
