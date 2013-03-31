@@ -85,9 +85,9 @@ static int server_init(sd_bus **_bus) {
                 goto fail;
         }
 
-        r = sd_bus_get_peer(bus, &id);
+        r = sd_bus_get_server_id(bus, &id);
         if (r < 0) {
-                log_error("Failed to get peer ID: %s", strerror(-r));
+                log_error("Failed to get server ID: %s", strerror(-r));
                 goto fail;
         }
 

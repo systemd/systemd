@@ -112,7 +112,7 @@ struct sd_bus {
         } sockaddr;
         socklen_t sockaddr_size;
 
-        sd_id128_t peer;
+        sd_id128_t server_id;
 
         char *address;
         unsigned address_index;

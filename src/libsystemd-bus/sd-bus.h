@@ -60,9 +60,9 @@ int sd_bus_set_address(sd_bus *bus, const char *address);
 int sd_bus_set_fd(sd_bus *bus, int fd);
 int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]);
 int sd_bus_set_bus_client(sd_bus *bus, int b);
-int sd_bus_set_negotiate_fds(sd_bus *bus, int b);
 int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id);
 int sd_bus_set_anonymous(sd_bus *bus, int b);
+int sd_bus_set_negotiate_fds(sd_bus *bus, int b);
 int sd_bus_start(sd_bus *ret);
 
 void sd_bus_close(sd_bus *bus);
@@ -72,7 +72,7 @@ sd_bus *sd_bus_unref(sd_bus *bus);
 
 int sd_bus_is_open(sd_bus *bus);
 int sd_bus_can_send(sd_bus *bus, char type);
-int sd_bus_get_peer(sd_bus *bus, sd_id128_t *peer);
+int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *peer);
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial);
 int sd_bus_send_with_reply(sd_bus *bus, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec, uint64_t *serial);

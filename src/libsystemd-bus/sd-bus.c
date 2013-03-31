@@ -200,16 +200,16 @@ int sd_bus_set_negotiate_fds(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server) {
+int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {
         if (!bus)
                 return -EINVAL;
-        if (!b && !sd_id128_equal(server, SD_ID128_NULL))
+        if (!b && !sd_id128_equal(server_id, SD_ID128_NULL))
                 return -EINVAL;
         if (bus->state != BUS_UNSET)
                 return -EPERM;
 
         bus->is_server = !!b;
-        bus->peer = server;
+        bus->server_id = server_id;
         return 0;
 }
 
@@ -604,7 +604,7 @@ static void bus_reset_parsed_address(sd_bus *b) {
         free(b->exec_path);
         b->exec_path = NULL;
         b->exec_argv = NULL;
-        b->peer = SD_ID128_NULL;
+        b->server_id = SD_ID128_NULL;
 }
 
 static int bus_parse_next_address(sd_bus *b) {
@@ -664,7 +664,7 @@ static int bus_parse_next_address(sd_bus *b) {
         }
 
         if (guid) {
-                r = sd_id128_from_string(guid, &b->peer);
+                r = sd_id128_from_string(guid, &b->server_id);
                 if (r < 0)
                         return r;
         }
@@ -907,19 +907,19 @@ int sd_bus_can_send(sd_bus *bus, char type) {
         return bus_type_is_valid(type);
 }
 
-int sd_bus_get_peer(sd_bus *bus, sd_id128_t *peer) {
+int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *server_id) {
         int r;
 
         if (!bus)
                 return -EINVAL;
-        if (!peer)
+        if (!server_id)
                 return -EINVAL;
 
         r = bus_ensure_running(bus);
         if (r < 0)
                 return r;
 
-        *peer = bus->peer;
+        *server_id = bus->server_id;
         return 0;
 }
 

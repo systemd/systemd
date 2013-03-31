@@ -146,11 +146,11 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
                 peer.bytes[i/2] = ((uint8_t) x << 4 | (uint8_t) y);
         }
 
-        if (!sd_id128_equal(b->peer, SD_ID128_NULL) &&
-            !sd_id128_equal(b->peer, peer))
+        if (!sd_id128_equal(b->server_id, SD_ID128_NULL) &&
+            !sd_id128_equal(b->server_id, peer))
                 return -EPERM;
 
-        b->peer = peer;
+        b->server_id = peer;
 
         /* And possibly check the second line, too */
 
@@ -286,7 +286,7 @@ static int bus_socket_auth_write_ok(sd_bus *b) {
 
         assert(b);
 
-        snprintf(t, sizeof(t), "OK " SD_ID128_FORMAT_STR "\r\n", SD_ID128_FORMAT_VAL(b->peer));
+        snprintf(t, sizeof(t), "OK " SD_ID128_FORMAT_STR "\r\n", SD_ID128_FORMAT_VAL(b->server_id));
         char_array_0(t);
 
         return bus_socket_auth_write(b, t);
