@@ -167,6 +167,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/core \
 	-I $(top_srcdir)/src/libudev \
 	-I $(top_srcdir)/src/udev \
+	-I $(top_srcdir)/src/libsystemd-bus \
 	$(OUR_CPPFLAGS)
 
 AM_CFLAGS = $(OUR_CFLAGS)
@@ -1666,9 +1667,9 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 libsystemd_bus_la_SOURCES = \
+	src/systemd/sd-bus.h \
+	src/systemd/sd-bus-protocol.h \
 	src/libsystemd-bus/sd-bus.c \
-	src/libsystemd-bus/sd-bus.h \
-	src/libsystemd-bus/sd-bus-protocol.h \
 	src/libsystemd-bus/bus-control.c \
 	src/libsystemd-bus/bus-control.h \
 	src/libsystemd-bus/bus-error.c \
@@ -2867,6 +2868,7 @@ systemd_journal_gatewayd_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon.la \
+	libsystemd-bus.la \
 	$(MICROHTTPD_LIBS)
 
 systemd_journal_gatewayd_CFLAGS = \

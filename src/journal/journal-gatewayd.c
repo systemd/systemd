@@ -31,9 +31,11 @@
 #include "util.h"
 #include "sd-journal.h"
 #include "sd-daemon.h"
+#include "sd-bus.h"
+#include "bus-message.h"
+#include "bus-internal.h"
 #include "logs-show.h"
 #include "microhttpd-util.h"
-#include "virt.h"
 #include "build.h"
 #include "fileio.h"
 
@@ -740,6 +742,52 @@ static int request_handler_file(
         return ret;
 }
 
+static int get_virtualization(char **v) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        const char *t;
+        char *b;
+        int r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "ss", "org.freedesktop.systemd1.Manager", "Virtualization");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(reply, "v", "s", &t);
+        if (r < 0)
+                return r;
+
+        if (isempty(t)) {
+                *v = NULL;
+                return 0;
+        }
+
+        b = strdup(t);
+        if (!b)
+                return -ENOMEM;
+
+        *v = b;
+        return 1;
+}
+
 static int request_handler_machine(
                 struct MHD_Connection *connection,
                 void *connection_cls) {
@@ -751,7 +799,7 @@ static int request_handler_machine(
         uint64_t cutoff_from, cutoff_to, usage;
         char *json;
         sd_id128_t mid, bid;
-        const char *v = "bare";
+        _cleanup_free_ char *v = NULL;
 
         assert(connection);
         assert(m);
@@ -782,7 +830,7 @@ static int request_handler_machine(
 
         parse_env_file("/etc/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL);
 
-        detect_virtualization(&v);
+        get_virtualization(&v);
 
         r = asprintf(&json,
                      "{ \"machine_id\" : \"" SD_ID128_FORMAT_STR "\","
@@ -797,7 +845,7 @@ static int request_handler_machine(
                      SD_ID128_FORMAT_VAL(bid),
                      hostname_cleanup(hostname),
                      os_name ? os_name : "Linux",
-                     v,
+                     v ? v : "bare",
                      (unsigned long long) usage,
                      (unsigned long long) cutoff_from,
                      (unsigned long long) cutoff_to);
