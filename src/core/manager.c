@@ -1230,8 +1230,7 @@ static int manager_process_notify_fd(Manager *m) {
                 if (!u) {
                         u = cgroup_unit_by_pid(m, ucred->pid);
                         if (!u) {
-                                log_warning("Cannot find unit for notify message of PID %lu.",
-                                            (unsigned long) ucred->pid);
+                                log_warning("Cannot find unit for notify message of PID %lu.", (unsigned long) ucred->pid);
                                 continue;
                         }
                 }

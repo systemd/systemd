@@ -118,8 +118,7 @@ _noreturn_ static void crash(int sig) {
 
                 pid = fork();
                 if (pid < 0)
-                        log_error("Caught <%s>, cannot fork for core dump: %s",
-                                  signal_to_string(sig), strerror(errno));
+                        log_error("Caught <%s>, cannot fork for core dump: %s", signal_to_string(sig), strerror(errno));
 
                 else if (pid == 0) {
                         struct rlimit rl;
@@ -151,15 +150,11 @@ _noreturn_ static void crash(int sig) {
                         /* Order things nicely. */
                         r = wait_for_terminate(pid, &status);
                         if (r < 0)
-                                log_error("Caught <%s>, waitpid() failed: %s",
-                                          signal_to_string(sig), strerror(-r));
+                                log_error("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(-r));
                         else if (status.si_code != CLD_DUMPED)
-                                log_error("Caught <%s>, core dump failed.",
-                                          signal_to_string(sig));
+                                log_error("Caught <%s>, core dump failed.", signal_to_string(sig));
                         else
-                                log_error("Caught <%s>, dumped core as pid %lu.",
-                                          signal_to_string(sig),
-                                          (unsigned long) pid);
+                                log_error("Caught <%s>, dumped core as pid %lu.", signal_to_string(sig), (unsigned long) pid);
                 }
         }
 
@@ -190,8 +185,7 @@ _noreturn_ static void crash(int sig) {
                         _exit(1);
                 }
 
-                log_info("Successfully spawned crash shell as pid %lu.",
-                         (unsigned long) pid);
+                log_info("Successfully spawned crash shell as pid %lu.", (unsigned long) pid);
         }
 
         log_info("Freezing execution.");

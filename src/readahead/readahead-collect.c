@@ -291,8 +291,7 @@ static int collect(const char *root) {
                 goto finish;
         }
 
-        fanotify_fd = fanotify_init(FAN_CLOEXEC|FAN_NONBLOCK,
-                                    O_RDONLY|O_LARGEFILE|O_CLOEXEC|O_NOATIME);
+        fanotify_fd = fanotify_init(FAN_CLOEXEC|FAN_NONBLOCK, O_RDONLY|O_LARGEFILE|O_CLOEXEC|O_NOATIME);
         if (fanotify_fd < 0)  {
                 log_error("Failed to create fanotify object: %m");
                 r = -errno;

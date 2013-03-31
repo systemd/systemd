@@ -263,8 +263,7 @@ static int create_socket(char **name) {
 
         zero(sa);
         sa.un.sun_family = AF_UNIX;
-        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1,
-                 "/run/systemd/ask-password/sck.%llu", random_ull());
+        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/run/systemd/ask-password/sck.%llu", random_ull());
 
         u = umask(0177);
         r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
