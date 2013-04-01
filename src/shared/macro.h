@@ -71,29 +71,27 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         const typeof( ((type *)0)->member ) *__mptr = (ptr); \
         (type *)( (char *)__mptr - offsetof(type,member) );})
 
-#ifndef MAX
-#define MAX(a,b)                                \
-        __extension__ ({                        \
-                        typeof(a) _a = (a);     \
-                        typeof(b) _b = (b);     \
-                        _a > _b ? _a : _b;      \
+#undef MAX
+#define MAX(a,b)                                 \
+        __extension__ ({                         \
+                        typeof(a) _a = (a);      \
+                        typeof(b) _b = (b);      \
+                        _a > _b ? _a : _b;       \
                 })
-#endif
 
-#define MAX3(a,b,c)                             \
-        MAX(MAX(a,b),c)
+#define MAX3(x,y,z)                              \
+        __extension__ ({                         \
+                        typeof(x) _c = MAX(x,y); \
+                        MAX(_c, z);              \
+                })
 
-#ifndef MIN
+#undef MIN
 #define MIN(a,b)                                \
         __extension__ ({                        \
                         typeof(a) _a = (a);     \
                         typeof(b) _b = (b);     \
                         _a < _b ? _a : _b;      \
                 })
-#endif
-
-#define MIN3(a,b,c)                             \
-        MIN(MIN(a,b),c)
 
 #ifndef CLAMP
 #define CLAMP(x, low, high)                                             \

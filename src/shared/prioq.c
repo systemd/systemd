@@ -159,7 +159,7 @@ int prioq_put(Prioq *q, void *data, unsigned *idx) {
                 unsigned n;
                 struct prioq_item *j;
 
-                n = MAX((q->n_items+1) * 2, 16);
+                n = MAX((q->n_items+1) * 2, 16u);
                 j = realloc(q->items, sizeof(struct prioq_item) * n);
                 if (!j)
                         return -ENOMEM;

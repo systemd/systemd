@@ -44,9 +44,6 @@
 #define kb_to_graph(m) ((m) * arg_scale_y * 0.0001)
 #define to_color(n) (192.0 - ((n) * 192.0))
 
-#define max(x, y) (((x) > (y)) ? (x) : (y))
-#define min(x, y) (((x) < (y)) ? (x) : (y))
-
 static char str[8092];
 
 #define svg(a...) do { snprintf(str, 8092, ## a); fputs(str, of); fflush(of); } while (0)
@@ -441,8 +438,8 @@ static void svg_io_bi_bar(void) {
                 int stop;
                 double tot;
 
-                start = max(i - ((range / 2) - 1), 0);
-                stop = min(i + (range / 2), samples - 1);
+                start = MAX(i - ((range / 2) - 1), 0);
+                stop = MIN(i + (range / 2), samples - 1);
 
                 tot = (double)(blockstat[stop].bi - blockstat[start].bi)
                       / (stop - start);
@@ -463,8 +460,8 @@ static void svg_io_bi_bar(void) {
                 double tot;
                 double pbi;
 
-                start = max(i - ((range / 2) - 1), 0);
-                stop = min(i + (range / 2), samples);
+                start = MAX(i - ((range / 2) - 1), 0);
+                stop = MIN(i + (range / 2), samples);
 
                 tot = (double)(blockstat[stop].bi - blockstat[start].bi)
                       / (stop - start);
@@ -517,8 +514,8 @@ static void svg_io_bo_bar(void) {
                 int stop;
                 double tot;
 
-                start = max(i - ((range / 2) - 1), 0);
-                stop = min(i + (range / 2), samples - 1);
+                start = MAX(i - ((range / 2) - 1), 0);
+                stop = MIN(i + (range / 2), samples - 1);
 
                 tot = (double)(blockstat[stop].bi - blockstat[start].bi)
                       / (stop - start);
@@ -539,8 +536,8 @@ static void svg_io_bo_bar(void) {
                 double tot;
                 double pbo;
 
-                start = max(i - ((range / 2) - 1), 0);
-                stop = min(i + (range / 2), samples);
+                start = MAX(i - ((range / 2) - 1), 0);
+                stop = MIN(i + (range / 2), samples);
 
                 tot = (double)(blockstat[stop].bo - blockstat[start].bo)
                       / (stop - start);

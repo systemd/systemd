@@ -1325,7 +1325,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 #endif
 
         /* alloca() can't take 0, hence let's allocate at least one */
-        items = alloca(sizeof(EntryItem) * MAX(1, n_iovec));
+        items = alloca(sizeof(EntryItem) * MAX(1u, n_iovec));
 
         for (i = 0; i < n_iovec; i++) {
                 uint64_t p;

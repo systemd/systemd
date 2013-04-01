@@ -455,7 +455,7 @@ static int bus_socket_read_auth(sd_bus *b) {
         if (r != 0)
                 return r;
 
-        n = MAX(256, b->rbuffer_size * 2);
+        n = MAX(256u, b->rbuffer_size * 2);
 
         if (n > BUS_AUTH_SIZE_MAX)
                 n = BUS_AUTH_SIZE_MAX;

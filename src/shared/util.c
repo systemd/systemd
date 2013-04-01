@@ -5862,7 +5862,7 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need) {
         if (*allocated >= need)
                 return *p;
 
-        a = MAX(64, need * 2);
+        a = MAX(64u, need * 2);
         q = realloc(*p, a);
         if (!q)
                 return NULL;

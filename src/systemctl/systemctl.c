@@ -328,7 +328,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
         if (!arg_full) {
                 unsigned basic_len;
-                id_len = MIN(max_id_len, 25);
+                id_len = MIN(max_id_len, 25u);
                 basic_len = 5 + id_len + 5 + active_len + sub_len;
                 if (job_count)
                         basic_len += job_len + 1;
@@ -337,7 +337,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         extra_len = columns() - basic_len;
                         /* Either UNIT already got 25, or is fully satisfied.
                          * Grant up to 25 to DESC now. */
-                        incr = MIN(extra_len, 25);
+                        incr = MIN(extra_len, 25u);
                         desc_len += incr;
                         extra_len -= incr;
                         /* split the remaining space between UNIT and DESC,
@@ -463,7 +463,7 @@ static int get_unit_list(DBusConnection *bus, DBusMessage **reply,
                 if (*c >= n_units) {
                         struct unit_info *w;
 
-                        n_units = MAX(2 * *c, 16);
+                        n_units = MAX(2 * *c, 16u);
                         w = realloc(*unit_infos, sizeof(struct unit_info) * n_units);
                         if (!w)
                                 return log_oom();
@@ -543,7 +543,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 
         if (!arg_full) {
                 unsigned basic_cols;
-                id_cols = MIN(max_id_len, 25);
+                id_cols = MIN(max_id_len, 25u);
                 basic_cols = 1 + id_cols + state_cols;
                 if (basic_cols < (unsigned) columns())
                         id_cols += MIN(columns() - basic_cols, max_id_len - id_cols);
@@ -657,7 +657,7 @@ static int list_unit_files(DBusConnection *bus, char **args) {
                         if (c >= n_units) {
                                 UnitFileList *w;
 
-                                n_units = MAX(2*c, 16);
+                                n_units = MAX(2*c, 16u);
                                 w = realloc(units, sizeof(struct UnitFileList) * n_units);
                                 if (!w)
                                         return log_oom();
@@ -694,7 +694,7 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
         int i;
         _cleanup_free_ char *n = NULL;
         size_t len = 0;
-        size_t max_len = MAX(columns(),20);
+        size_t max_len = MAX(columns(),20u);
 
         for (i = level - 1; i >= 0; i--) {
                 len += 2;
