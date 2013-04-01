@@ -1634,7 +1634,7 @@ static int socket_start(Unit *u) {
                 service = SERVICE(UNIT_DEREF(s->service));
 
                 if (UNIT(service)->load_state != UNIT_LOADED) {
-                        log_error_unit(UNIT(service)->id,
+                        log_error_unit(u->id,
                                        "Socket service %s not loaded, refusing.",
                                        UNIT(service)->id);
                         return -ENOENT;
@@ -1645,7 +1645,7 @@ static int socket_start(Unit *u) {
                 if (service->state != SERVICE_DEAD &&
                     service->state != SERVICE_FAILED &&
                     service->state != SERVICE_AUTO_RESTART) {
-                        log_error_unit(UNIT(service)->id,
+                        log_error_unit(u->id,
                                        "Socket service %s already active, refusing.",
                                        UNIT(service)->id);
                         return -EBUSY;
@@ -1653,7 +1653,7 @@ static int socket_start(Unit *u) {
 
 #ifdef HAVE_SYSV_COMPAT
                 if (service->is_sysv) {
-                        log_error_unit(UNIT(s)->id,
+                        log_error_unit(u->id,
                                        "Using SysV services for socket activation is not supported. Refusing.");
                         return -ENOENT;
                 }
