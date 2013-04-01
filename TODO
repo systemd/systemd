@@ -36,8 +36,6 @@ Fedora 19:
 * cgroup attrs:
   - update dbus interface docs in wiki
 
-* journal is not closed properly at shutdown when run in a container?
-
 * localed:
   - localectl: add listing support for X11 keymaps, by parsing /usr/share/X11/xkb/rules/xorg.lst
   - localectl: support new converted x11→console keymaps
@@ -106,13 +104,13 @@ Features:
 
 * rework specifier logic so that we can distuingish OOM errors from other errors
 
-* systemd-inhibit: refuse taking delay locks
+* systemd-inhibit: make taking delay locks useful: support sending SIGINT or SIGTERM on PrepareForSleep()
 
 * journal-or-kmsg is currently broken? See reverted commit 4a01181e460686d8b4a543b1dfa7f77c9e3c5ab8.
 
 * remove any syslog support from log.c -- we probably can't do this before split-off udev is gone for good
 
-* fedora: connect the timer units of a service to the service via Also= in [Install], and maybe introduce timers.target
+* fedora: connect the timer units of a service to the service via Also= in [Install]
 
 * fedora: F20: go timer units all the way, leave cron.daily for cron
 
@@ -198,6 +196,7 @@ Features:
   - logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
   - pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
   - logind: GetSessionByPID() should accept 0 as PID value
+  - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
