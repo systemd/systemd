@@ -313,12 +313,15 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
 
         assert(b);
 
-        if (b->rbuffer_size < 3)
+        if (b->rbuffer_size < 1)
                 return 0;
 
         /* First char must be a NUL byte */
         if (*(char*) b->rbuffer != 0)
                 return -EIO;
+
+        if (b->rbuffer_size < 3)
+                return 0;
 
         /* Begin with the first line */
         if (b->auth_rbegin <= 0)
