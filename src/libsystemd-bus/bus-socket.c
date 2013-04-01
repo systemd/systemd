@@ -235,7 +235,7 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
          * the owner of this bus wanted authentication he should have
          * checked SO_PEERCRED before even creating the bus object. */
 
-        if (!b->ucred_valid)
+        if (!b->anonymous_auth && !b->ucred_valid)
                 return 0;
 
         if (l <= 0)
@@ -258,7 +258,9 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
         if (r < 0)
                 return 0;
 
-        if (u != b->ucred.uid)
+        /* We ignore the passed value if anonymous authentication is
+         * on anyway. */
+        if (!b->anonymous_auth && u != b->ucred.uid)
                 return 0;
 
         return 1;
