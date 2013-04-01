@@ -1425,12 +1425,16 @@ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
                 return 1;
         }
 
-        if (bus->state != BUS_RUNNING && bus->state != BUS_HELLO)
+        if (bus->state != BUS_RUNNING && bus->state != BUS_HELLO) {
+                *timeout_usec = (uint64_t) -1;
                 return 0;
+        }
 
         c = prioq_peek(bus->reply_callbacks_prioq);
-        if (!c)
+        if (!c) {
+                *timeout_usec = (uint64_t) -1;
                 return 0;
+        }
 
         *timeout_usec = c->timeout;
         return 1;
