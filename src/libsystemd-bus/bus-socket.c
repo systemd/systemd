@@ -513,16 +513,23 @@ static int bus_socket_read_auth(sd_bus *b) {
                                    cmsg->cmsg_type == SCM_CREDENTIALS &&
                                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
 
-                                memcpy(&b->ucred, CMSG_DATA(cmsg), sizeof(struct ucred));
-                                b->ucred_valid = true;
+                                /* Ignore bogus data, which we might
+                                 * get on socketpair() sockets */
+                                if (((struct ucred*) CMSG_DATA(cmsg))->pid != 0) {
+                                        memcpy(&b->ucred, CMSG_DATA(cmsg), sizeof(struct ucred));
+                                        b->ucred_valid = true;
+                                }
 
                         } else if (cmsg->cmsg_level == SOL_SOCKET &&
                                    cmsg->cmsg_type == SCM_SECURITY) {
 
                                 size_t l;
+
                                 l = cmsg->cmsg_len - CMSG_LEN(0);
-                                memcpy(&b->label, CMSG_DATA(cmsg), l);
-                                b->label[l] = 0;
+                                if (l > 0) {
+                                        memcpy(&b->label, CMSG_DATA(cmsg), l);
+                                        b->label[l] = 0;
+                                }
                         }
                 }
         }
@@ -536,6 +543,7 @@ static int bus_socket_read_auth(sd_bus *b) {
 
 static int bus_socket_setup(sd_bus *b) {
         int enable;
+        socklen_t l;
 
         assert(b);
 
@@ -548,6 +556,11 @@ static int bus_socket_setup(sd_bus *b) {
         /* Increase the buffers to a MB */
         fd_inc_rcvbuf(b->input_fd, 1024*1024);
         fd_inc_sndbuf(b->output_fd, 1024*1024);
+
+        /* Get the peer for socketpair() sockets */
+        l = sizeof(b->ucred);
+        if (getsockopt(b->input_fd, SOL_SOCKET, SO_PEERCRED, &b->ucred, &l) >= 0 && l >= sizeof(b->ucred))
+                b->ucred_valid = b->ucred.pid > 0;
 
         return 0;
 }
@@ -940,16 +953,22 @@ int bus_socket_read_message(sd_bus *bus, sd_bus_message **m) {
                                    cmsg->cmsg_type == SCM_CREDENTIALS &&
                                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
 
-                                memcpy(&bus->ucred, CMSG_DATA(cmsg), sizeof(struct ucred));
-                                bus->ucred_valid = true;
+                                /* Ignore bogus data, which we might
+                                 * get on socketpair() sockets */
+                                if (((struct ucred*) CMSG_DATA(cmsg))->pid != 0) {
+                                        memcpy(&bus->ucred, CMSG_DATA(cmsg), sizeof(struct ucred));
+                                        bus->ucred_valid = true;
+                                }
 
                         } else if (cmsg->cmsg_level == SOL_SOCKET &&
                                    cmsg->cmsg_type == SCM_SECURITY) {
 
                                 size_t l;
                                 l = cmsg->cmsg_len - CMSG_LEN(0);
-                                memcpy(&bus->label, CMSG_DATA(cmsg), l);
-                                bus->label[l] = 0;
+                                if (l > 0) {
+                                        memcpy(&bus->label, CMSG_DATA(cmsg), l);
+                                        bus->label[l] = 0;
+                                }
                         }
                 }
         }
