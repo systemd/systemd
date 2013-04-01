@@ -63,6 +63,7 @@
         "  <property name=\"NConnections\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"MessageQueueMaxMessages\" type=\"x\" access=\"read\"/>\n" \
         "  <property name=\"MessageQueueMessageSize\" type=\"x\" access=\"read\"/>\n" \
+        "  <property name=\"Listen\" type=\"a(ss)\" access=\"read\"/>\n"    \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
         "  <property name=\"SmackLabel\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SmackLabelIPIn\" type=\"s\" access=\"read\"/>\n" \
@@ -98,6 +99,66 @@ const char bus_socket_invalidating_properties[] =
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_socket_result, socket_result, SocketResult);
 
+static int bus_socket_append_listen(DBusMessageIter *i, const char *property, void *data) {
+
+        Socket *s = SOCKET(data);
+        SocketPort *p;
+        DBusMessageIter array, stru;
+
+        assert(data);
+        assert(property);
+        assert(s);
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(ss)", &array))
+                return log_oom();
+
+        LIST_FOREACH(port, p, s->ports) {
+                const char *type = socket_port_type_to_string(p);
+                char _cleanup_free_ *address = NULL;
+                const char *a;
+
+                if (!dbus_message_iter_open_container(&array, DBUS_TYPE_STRUCT, NULL, &stru))
+                        return log_oom();
+
+                if (!dbus_message_iter_append_basic(&stru, DBUS_TYPE_STRING, &type))
+                        return log_oom();
+
+                switch (p->type) {
+                        case SOCKET_SOCKET: {
+                                int r;
+
+                                r = socket_address_print(&p->address, &address);
+                                if (r) {
+                                        log_error("socket_address_print failed: %s", strerror(-r));
+                                        return r;
+                                }
+                                a = address;
+                                break;
+                        }
+
+                        case SOCKET_SPECIAL:
+                        case SOCKET_MQUEUE:
+                        case SOCKET_FIFO:
+                                a = p->path;
+                                break;
+
+                        default:
+                                a = type;
+                }
+
+                if (!dbus_message_iter_append_basic(&stru, DBUS_TYPE_STRING, &a))
+                        return -ENOMEM;
+
+                if (!dbus_message_iter_close_container(&array, &stru))
+                        return -ENOMEM;
+        }
+
+        if (!dbus_message_iter_close_container(i, &array))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static const BusProperty bus_socket_properties[] = {
         { "BindIPv6Only",   bus_socket_append_bind_ipv6_only,  "s", offsetof(Socket, bind_ipv6_only)  },
         { "Backlog",        bus_property_append_unsigned,      "u", offsetof(Socket, backlog)         },
@@ -123,6 +184,7 @@ static const BusProperty bus_socket_properties[] = {
         { "Broadcast",      bus_property_append_bool,          "b", offsetof(Socket, broadcast)       },
         { "PassCredentials",bus_property_append_bool,          "b", offsetof(Socket, pass_cred)       },
         { "PassSecurity",   bus_property_append_bool,          "b", offsetof(Socket, pass_sec)        },
+        { "Listen",         bus_socket_append_listen,      "a(ss)", 0,                                },
         { "Mark",           bus_property_append_int,           "i", offsetof(Socket, mark)            },
         { "MaxConnections", bus_property_append_unsigned,      "u", offsetof(Socket, max_connections) },
         { "NConnections",   bus_property_append_unsigned,      "u", offsetof(Socket, n_connections)   },

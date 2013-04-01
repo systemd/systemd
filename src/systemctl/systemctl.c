@@ -2255,6 +2255,8 @@ typedef struct UnitStatusInfo {
         unsigned n_connections;
         bool accept;
 
+        char **listen;
+
         /* Device */
         const char *sysfs_path;
 
@@ -2380,6 +2382,19 @@ static void print_status_info(UnitStatusInfo *i) {
                 STRV_FOREACH(t, i->documentation) {
                         if (first) {
                                 printf("\t    Docs: %s\n", *t);
+                                first = false;
+                        } else
+                                printf("\t          %s\n", *t);
+                }
+        }
+
+        if (!strv_isempty(i->listen)) {
+                char **t;
+                bool first = true;
+
+                STRV_FOREACH(t, i->listen) {
+                        if (first) {
+                                printf("\t  Listen: %s\n", *t);
                                 first = false;
                         } else
                                 printf("\t          %s\n", *t);
@@ -2736,6 +2751,37 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                                 dbus_message_iter_next(&sub);
                         }
+
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Listen")) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *type, *path;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &type, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, false) >= 0) {
+                                        char * buf, **l;
+                                        if (asprintf(&buf, "%s: %s", type, path) < 0)
+                                                return -ENOMEM;
+
+                                        l = strv_append(i->listen, buf);
+                                        free(buf);
+
+                                        if (!l)
+                                                return -ENOMEM;
+
+                                        strv_free(i->listen);
+                                        i->listen = l;
+                                }
+
+                                dbus_message_iter_next(&sub);
+                        }
+
+                        return 0;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING &&
                            streq(name, "Documentation")) {
 
@@ -2866,6 +2912,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         DBusMessageIter sub, sub2;
 
                         dbus_message_iter_recurse(iter, &sub);
+
                         while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
                                 const char *type, *path;
 
@@ -2874,6 +2921,24 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                 if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &type, true) >= 0 &&
                                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, false) >= 0)
                                         printf("%s=%s\n", type, path);
+
+                                dbus_message_iter_next(&sub);
+                        }
+
+                        return 0;
+
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Listen")) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *type, *path;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &type, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, false) >= 0)
+                                        printf("Listen%s=%s\n", type, path);
 
                                 dbus_message_iter_next(&sub);
                         }
@@ -3055,6 +3120,7 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         }
 
         strv_free(info.documentation);
+        strv_free(info.listen);
 
         if (!streq_ptr(info.active_state, "active") &&
             !streq_ptr(info.active_state, "reloading") &&

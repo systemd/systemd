@@ -175,3 +175,5 @@ SocketExecCommand socket_exec_command_from_string(const char *s);
 
 const char* socket_result_to_string(SocketResult i);
 SocketResult socket_result_from_string(const char *s);
+
+const char* socket_port_type_to_string(SocketPort *p);
