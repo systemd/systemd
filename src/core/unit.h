@@ -138,8 +138,10 @@ struct Unit {
 
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
         char *source_path; /* if converted, the source file */
+        char **dropin_paths;
         usec_t fragment_mtime;
         usec_t source_mtime;
+        usec_t dropin_mtime;
 
         /* If there is something to do with this unit, then this is the installed job for it */
         Job *job;

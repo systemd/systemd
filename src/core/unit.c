@@ -408,6 +408,7 @@ void unit_free(Unit *u) {
         strv_free(u->documentation);
         free(u->fragment_path);
         free(u->source_path);
+        strv_free(u->dropin_paths);
         free(u->instance);
 
         set_free_free(u->names);
@@ -695,6 +696,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (u->source_path)
                 fprintf(f, "%s\tSource Path: %s\n", prefix, u->source_path);
+
+        STRV_FOREACH(j, u->dropin_paths)
+                fprintf(f, "%s\tDropin Path: %s\n", prefix, *j);
 
         if (u->job_timeout > 0)
                 fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout));
@@ -2553,7 +2557,10 @@ void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg
 }
 
 bool unit_need_daemon_reload(Unit *u) {
+        _cleanup_strv_free_ char **t = NULL;
+        char **path;
         struct stat st;
+        unsigned loaded_cnt, current_cnt;
 
         assert(u);
 
@@ -2578,7 +2585,30 @@ bool unit_need_daemon_reload(Unit *u) {
                         return true;
         }
 
-        return false;
+        t = unit_find_dropin_paths(u);
+        loaded_cnt = strv_length(t);
+        current_cnt = strv_length(u->dropin_paths);
+
+        if (loaded_cnt == current_cnt) {
+                if (loaded_cnt == 0)
+                        return false;
+
+                if (strv_overlap(u->dropin_paths, t)) {
+                        STRV_FOREACH(path, u->dropin_paths) {
+                                zero(st);
+                                if (stat(*path, &st) < 0)
+                                        return true;
+
+                                if (u->dropin_mtime > 0 &&
+                                    timespec_load(&st.st_mtim) > u->dropin_mtime)
+                                        return true;
+                        }
+
+                        return false;
+                } else
+                        return true;
+        } else
+                return true;
 }
 
 void unit_reset_failed(Unit *u) {

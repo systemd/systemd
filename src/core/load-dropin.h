@@ -25,4 +25,5 @@
 
 /* Read service data supplementary drop-in directories */
 
+char **unit_find_dropin_paths(Unit *u);
 int unit_load_dropin(Unit *u);

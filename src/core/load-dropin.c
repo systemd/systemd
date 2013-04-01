@@ -137,12 +137,44 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
         return 0;
 }
 
-int unit_load_dropin(Unit *u) {
+char **unit_find_dropin_paths(Unit *u) {
         Iterator i;
         char *t;
         _cleanup_strv_free_ char **strv = NULL;
+        char **configs = NULL;
         int r;
 
+        assert(u);
+
+        SET_FOREACH(t, u->names, i) {
+                char **p;
+
+                STRV_FOREACH(p, u->manager->lookup_paths.unit_path) {
+                        /* This loads the drop-in config snippets */
+                        r = process_dir(u, *p, t, ".d", _UNIT_DEPENDENCY_INVALID, &strv);
+                        if (r < 0)
+                                return NULL;
+                }
+        }
+
+        if (!strv_isempty(strv)) {
+                r = conf_files_list_strv(&configs, ".conf", NULL, (const char**) strv);
+                if (r < 0) {
+                        log_error("Failed to get list of configuration files: %s", strerror(-r));
+                        strv_free(configs);
+                        return NULL;
+                }
+
+        }
+
+        return configs;
+}
+
+int unit_load_dropin(Unit *u) {
+        Iterator i;
+        char *t, **f;
+        _cleanup_strv_free_ char **strv = NULL;
+        int r;
 
         assert(u);
 
@@ -159,30 +191,20 @@ int unit_load_dropin(Unit *u) {
                         r = process_dir(u, *p, t, ".requires", UNIT_REQUIRES, NULL);
                         if (r < 0)
                                 return r;
-
-                        /* This loads the drop-in config snippets */
-                        r = process_dir(u, *p, t, ".d", _UNIT_DEPENDENCY_INVALID, &strv);
-                        if (r < 0)
-                                return r;
                 }
         }
 
-        if (!strv_isempty(strv)) {
-                _cleanup_strv_free_ char **files = NULL;
-                char **f;
+        u->dropin_paths = unit_find_dropin_paths(u);
+        if (! u->dropin_paths)
+                return 0;
 
-                r = conf_files_list_strv(&files, ".conf", NULL, (const char**) strv);
-                if (r < 0) {
-                        log_error("Failed to get list of configuration files: %s", strerror(-r));
+        STRV_FOREACH(f, u->dropin_paths) {
+                r = config_parse(*f, NULL, UNIT_VTABLE(u)->sections, config_item_perf_lookup, (void*) load_fragment_gperf_lookup, false, u);
+                if (r < 0)
                         return r;
-                }
-
-                STRV_FOREACH(f, files) {
-                        r = config_parse(*f, NULL, UNIT_VTABLE(u)->sections, config_item_perf_lookup, (void*) load_fragment_gperf_lookup, false, u);
-                        if (r < 0)
-                                return r;
-                }
         }
+
+        u->dropin_mtime = now(CLOCK_REALTIME);
 
         return 0;
 }
