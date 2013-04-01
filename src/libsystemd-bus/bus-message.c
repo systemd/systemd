@@ -302,6 +302,7 @@ int bus_message_from_malloc(
         m->n_iovec = 1;
         m->iovec[0].iov_base = buffer;
         m->iovec[0].iov_len = length;
+        m->size = length;
 
         r = message_parse_fields(m);
         if (r < 0)
