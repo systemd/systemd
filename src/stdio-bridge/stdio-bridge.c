@@ -26,121 +26,22 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <sys/epoll.h>
+#include <sys/poll.h>
 #include <stddef.h>
 
 #include "log.h"
 #include "util.h"
 #include "socket-util.h"
-
-#define BUFFER_SIZE (64*1024)
-#define EXTRA_SIZE 16
-
-static bool initial_nul = false;
-static bool auth_over = false;
-
-static void format_uid(char *buf, size_t l) {
-        char text[20 + 1]; /* enough space for a 64bit integer plus NUL */
-        unsigned j;
-
-        assert(l > 0);
-
-        snprintf(text, sizeof(text)-1, "%llu", (unsigned long long) geteuid());
-        char_array_0(text);
-
-        memset(buf, 0, l);
-
-        for (j = 0; text[j] && j*2+2 < l; j++) {
-                buf[j*2]   = hexchar(text[j] >> 4);
-                buf[j*2+1] = hexchar(text[j] & 0xF);
-        }
-
-        buf[j*2] = 0;
-}
-
-static size_t patch_in_line(char *line, size_t l, size_t left) {
-        size_t r;
-
-        if (line[0] == 0 && !initial_nul) {
-                initial_nul = true;
-                line += 1;
-                l -= 1;
-                r = 1;
-        } else
-                r = 0;
-
-        if (l == 5 && strneq(line, "BEGIN", 5)) {
-                r += l;
-                auth_over = true;
-
-        } else if (l == 17 && strneq(line, "NEGOTIATE_UNIX_FD", 17)) {
-                memmove(line + 13, line + 17, left);
-                memcpy(line, "NEGOTIATE_NOP", 13);
-                r += 13;
-
-        } else if (l >= 14 && strneq(line, "AUTH EXTERNAL ", 14)) {
-                char uid[20*2 + 1];
-                size_t len;
-
-                format_uid(uid, sizeof(uid));
-                len = strlen(uid);
-                assert(len <= EXTRA_SIZE);
-
-                memmove(line + 14 + len, line + l, left);
-                memcpy(line + 14, uid, len);
-
-                r += 14 + len;
-        } else
-                r += l;
-
-        return r;
-}
-
-static size_t patch_in_buffer(char* in_buffer, size_t *in_buffer_full) {
-        size_t i, good = 0;
-
-        if (*in_buffer_full <= 0)
-                return *in_buffer_full;
-
-        /* If authentication is done, we don't touch anything anymore */
-        if (auth_over)
-                return *in_buffer_full;
-
-        if (*in_buffer_full < 2)
-                return 0;
-
-        for (i = 0; i <= *in_buffer_full - 2; i ++) {
-
-                /* Fully lines can be send on */
-                if (in_buffer[i] == '\r' && in_buffer[i+1] == '\n') {
-                        if (i > good) {
-                                size_t old_length, new_length;
-
-                                old_length = i - good;
-                                new_length = patch_in_line(in_buffer+good, old_length, *in_buffer_full - i);
-                                *in_buffer_full = *in_buffer_full + new_length - old_length;
-
-                                good += new_length + 2;
-
-                        } else
-                                good = i+2;
-                }
-
-                if (auth_over)
-                        break;
-        }
-
-        return good;
-}
+#include "sd-daemon.h"
+#include "sd-bus.h"
+#include "bus-internal.h"
+#include "bus-message.h"
 
 int main(int argc, char *argv[]) {
-        int r = EXIT_FAILURE, fd = -1, ep = -1;
-        union sockaddr_union sa;
-        char in_buffer[BUFFER_SIZE+EXTRA_SIZE], out_buffer[BUFFER_SIZE+EXTRA_SIZE];
-        size_t in_buffer_full = 0, out_buffer_full = 0;
-        struct epoll_event stdin_ev, stdout_ev, fd_ev;
-        bool stdin_readable = false, stdout_writable = false, fd_readable = false, fd_writable = false;
-        bool stdin_rhup = false, stdout_whup = false, fd_rhup = false, fd_whup = false;
+        _cleanup_bus_unref_ sd_bus *a = NULL, *b = NULL;
+        sd_id128_t server_id;
+        bool is_unix;
+        int r;
 
         if (argc > 1) {
                 log_error("This program takes no argument.");
@@ -151,217 +52,182 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        if ((fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0)) < 0) {
-                log_error("Failed to create socket: %s", strerror(errno));
+        is_unix =
+                sd_is_socket(STDIN_FILENO, AF_UNIX, 0, 0) > 0 &&
+                sd_is_socket(STDOUT_FILENO, AF_UNIX, 0, 0) > 0;
+
+        r = sd_bus_new(&a);
+        if (r < 0) {
+                log_error("Failed to allocate bus: %s", strerror(-r));
                 goto finish;
         }
 
-        zero(sa);
-        sa.un.sun_family = AF_UNIX;
-        strncpy(sa.un.sun_path, "/run/dbus/system_bus_socket", sizeof(sa.un.sun_path));
-
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
-                log_error("Failed to connect: %m");
+        r = sd_bus_set_address(a, "unix:path=/run/dbus/system_bus_socket");
+        if (r < 0) {
+                log_error("Failed to set address to connect to: %s", strerror(-r));
                 goto finish;
         }
 
-        fd_nonblock(STDIN_FILENO, 1);
-        fd_nonblock(STDOUT_FILENO, 1);
-
-        if ((ep = epoll_create1(EPOLL_CLOEXEC)) < 0) {
-                log_error("Failed to create epoll: %m");
+        r = sd_bus_set_negotiate_fds(a, is_unix);
+        if (r < 0) {
+                log_error("Failed to set FD negotiation: %s", strerror(-r));
                 goto finish;
         }
 
-        zero(stdin_ev);
-        stdin_ev.events = EPOLLIN|EPOLLET;
-        stdin_ev.data.fd = STDIN_FILENO;
-
-        zero(stdout_ev);
-        stdout_ev.events = EPOLLOUT|EPOLLET;
-        stdout_ev.data.fd = STDOUT_FILENO;
-
-        zero(fd_ev);
-        fd_ev.events = EPOLLIN|EPOLLOUT|EPOLLET;
-        fd_ev.data.fd = fd;
-
-        if (epoll_ctl(ep, EPOLL_CTL_ADD, STDIN_FILENO, &stdin_ev) < 0 ||
-            epoll_ctl(ep, EPOLL_CTL_ADD, STDOUT_FILENO, &stdout_ev) < 0 ||
-            epoll_ctl(ep, EPOLL_CTL_ADD, fd, &fd_ev) < 0) {
-                log_error("Failed to regiser fds in epoll: %m");
+        r = sd_bus_start(a);
+        if (r < 0) {
+                log_error("Failed to start bus client: %s", strerror(-r));
                 goto finish;
         }
 
-        do {
-                struct epoll_event ev[16];
-                ssize_t k;
-                int i, nfds;
+        r = sd_bus_get_server_id(a, &server_id);
+        if (r < 0) {
+                log_error("Failed to get server ID: %s", strerror(-r));
+                goto finish;
+        }
 
-                if ((nfds = epoll_wait(ep, ev, ELEMENTSOF(ev), -1)) < 0) {
+        r = sd_bus_new(&b);
+        if (r < 0) {
+                log_error("Failed to allocate bus: %s", strerror(-r));
+                goto finish;
+        }
 
-                        if (errno == EINTR || errno == EAGAIN)
-                                continue;
+        r = sd_bus_set_fd(b, STDIN_FILENO, STDOUT_FILENO);
+        if (r < 0) {
+                log_error("Failed to set fds: %s", strerror(-r));
+                goto finish;
+        }
 
-                        log_error("epoll_wait(): %m");
+        r = sd_bus_set_server(b, 1, server_id);
+        if (r < 0) {
+                log_error("Failed to set server mode: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = sd_bus_set_negotiate_fds(b, is_unix);
+        if (r < 0) {
+                log_error("Failed to set FD negotiation: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = sd_bus_set_anonymous(b, true);
+        if (r < 0) {
+                log_error("Failed to set anonymous authentication: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = sd_bus_start(b);
+        if (r < 0) {
+                log_error("Failed to start bus client: %s", strerror(-r));
+                goto finish;
+        }
+
+        for (;;) {
+                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+                struct pollfd p[3];
+                int events_a, events_b, fd;
+                uint64_t timeout_a, timeout_b, t;
+                struct timespec _ts, *ts;
+
+                r = sd_bus_process(a, &m);
+                if (r < 0) {
+                        log_error("Failed to process bus: %s", strerror(-r));
                         goto finish;
                 }
 
-                assert(nfds >= 1);
-
-                for (i = 0; i < nfds; i++) {
-                        if (ev[i].data.fd == STDIN_FILENO) {
-
-                                if (!stdin_rhup && (ev[i].events & (EPOLLHUP|EPOLLIN)))
-                                        stdin_readable = true;
-
-                        } else if (ev[i].data.fd == STDOUT_FILENO) {
-
-                                if (ev[i].events & EPOLLHUP) {
-                                        stdout_writable = false;
-                                        stdout_whup = true;
-                                }
-
-                                if (!stdout_whup && (ev[i].events & EPOLLOUT))
-                                        stdout_writable = true;
-
-                        } else if (ev[i].data.fd == fd) {
-
-                                if (ev[i].events & EPOLLHUP) {
-                                        fd_writable = false;
-                                        fd_whup = true;
-                                }
-
-                                if (!fd_rhup && (ev[i].events & (EPOLLHUP|EPOLLIN)))
-                                        fd_readable = true;
-
-                                if (!fd_whup && (ev[i].events & EPOLLOUT))
-                                        fd_writable = true;
+                if (m) {
+                        r = sd_bus_send(b, m, NULL);
+                        if (r < 0) {
+                                log_error("Failed to send message: %s", strerror(-r));
+                                goto finish;
                         }
                 }
 
-                while ((stdin_readable && in_buffer_full <= 0) ||
-                       (fd_writable && patch_in_buffer(in_buffer, &in_buffer_full) > 0) ||
-                       (fd_readable && out_buffer_full <= 0) ||
-                       (stdout_writable && out_buffer_full > 0)) {
+                if (r > 0)
+                        continue;
 
-                        size_t in_buffer_good = 0;
+                r = sd_bus_process(b, &m);
+                if (r < 0) {
+                        log_error("Failed to process bus: %s", strerror(-r));
+                        goto finish;
+                }
 
-                        if (stdin_readable && in_buffer_full < BUFFER_SIZE) {
-
-                                if ((k = read(STDIN_FILENO, in_buffer + in_buffer_full, BUFFER_SIZE - in_buffer_full)) < 0) {
-
-                                        if (errno == EAGAIN)
-                                                stdin_readable = false;
-                                        else if (errno == EPIPE || errno == ECONNRESET)
-                                                k = 0;
-                                        else {
-                                                log_error("read(): %m");
-                                                goto finish;
-                                        }
-                                } else
-                                        in_buffer_full += (size_t) k;
-
-                                if (k == 0) {
-                                        stdin_rhup = true;
-                                        stdin_readable = false;
-                                        shutdown(STDIN_FILENO, SHUT_RD);
-                                        close_nointr_nofail(STDIN_FILENO);
-                                }
-                        }
-
-                        in_buffer_good = patch_in_buffer(in_buffer, &in_buffer_full);
-
-                        if (fd_writable && in_buffer_good > 0) {
-
-                                if ((k = write(fd, in_buffer, in_buffer_good)) < 0) {
-
-                                        if (errno == EAGAIN)
-                                                fd_writable = false;
-                                        else if (errno == EPIPE || errno == ECONNRESET) {
-                                                fd_whup = true;
-                                                fd_writable = false;
-                                                shutdown(fd, SHUT_WR);
-                                        } else {
-                                                log_error("write(): %m");
-                                                goto finish;
-                                        }
-
-                                } else {
-                                        assert(in_buffer_full >= (size_t) k);
-                                        memmove(in_buffer, in_buffer + k, in_buffer_full - k);
-                                        in_buffer_full -= k;
-                                }
-                        }
-
-                        if (fd_readable && out_buffer_full < BUFFER_SIZE) {
-
-                                if ((k = read(fd, out_buffer + out_buffer_full, BUFFER_SIZE - out_buffer_full)) < 0) {
-
-                                        if (errno == EAGAIN)
-                                                fd_readable = false;
-                                        else if (errno == EPIPE || errno == ECONNRESET)
-                                                k = 0;
-                                        else {
-                                                log_error("read(): %m");
-                                                goto finish;
-                                        }
-                                }  else
-                                        out_buffer_full += (size_t) k;
-
-                                if (k == 0) {
-                                        fd_rhup = true;
-                                        fd_readable = false;
-                                        shutdown(fd, SHUT_RD);
-                                }
-                        }
-
-                        if (stdout_writable && out_buffer_full > 0) {
-
-                                if ((k = write(STDOUT_FILENO, out_buffer, out_buffer_full)) < 0) {
-
-                                        if (errno == EAGAIN)
-                                                stdout_writable = false;
-                                        else if (errno == EPIPE || errno == ECONNRESET) {
-                                                stdout_whup = true;
-                                                stdout_writable = false;
-                                                shutdown(STDOUT_FILENO, SHUT_WR);
-                                                close_nointr(STDOUT_FILENO);
-                                        } else {
-                                                log_error("write(): %m");
-                                                goto finish;
-                                        }
-
-                                } else {
-                                        assert(out_buffer_full >= (size_t) k);
-                                        memmove(out_buffer, out_buffer + k, out_buffer_full - k);
-                                        out_buffer_full -= k;
-                                }
+                if (m) {
+                        r = sd_bus_send(a, m, NULL);
+                        if (r < 0) {
+                                log_error("Failed to send message: %s", strerror(-r));
+                                goto finish;
                         }
                 }
 
-                if (stdin_rhup && in_buffer_full <= 0 && !fd_whup) {
-                        fd_whup = true;
-                        fd_writable = false;
-                        shutdown(fd, SHUT_WR);
+                if (r > 0)
+                        continue;
+
+                fd = sd_bus_get_fd(a);
+                if (fd < 0) {
+                        log_error("Failed to get fd: %s", strerror(-r));
+                        goto finish;
                 }
 
-                if (fd_rhup && out_buffer_full <= 0 && !stdout_whup) {
-                        stdout_whup = true;
-                        stdout_writable = false;
-                        shutdown(STDOUT_FILENO, SHUT_WR);
-                        close_nointr(STDOUT_FILENO);
+                events_a = sd_bus_get_events(a);
+                if (events_a < 0) {
+                        log_error("Failed to get events mask: %s", strerror(-r));
+                        goto finish;
                 }
 
-        } while (!stdout_whup || !fd_whup);
+                r = sd_bus_get_timeout(a, &timeout_a);
+                if (r < 0) {
+                        log_error("Failed to get timeout: %s", strerror(-r));
+                        goto finish;
+                }
 
-        r = EXIT_SUCCESS;
+                events_b = sd_bus_get_events(b);
+                if (events_b < 0) {
+                        log_error("Failed to get events mask: %s", strerror(-r));
+                        goto finish;
+                }
+
+                r = sd_bus_get_timeout(b, &timeout_b);
+                if (r < 0) {
+                        log_error("Failed to get timeout: %s", strerror(-r));
+                        goto finish;
+                }
+
+                t = timeout_a;
+                if (t == (uint64_t) -1 || (timeout_b != (uint64_t) -1 && timeout_b < timeout_a))
+                        t = timeout_b;
+
+                if (t == (uint64_t) -1)
+                        ts = NULL;
+                else {
+                        usec_t nw;
+
+                        nw = now(CLOCK_MONOTONIC);
+                        if (t > nw)
+                                t -= nw;
+                        else
+                                t = 0;
+
+                        ts = timespec_store(&_ts, t);
+                }
+
+                zero(p);
+                p[0].fd = fd;
+                p[0].events = events_a;
+                p[1].fd = STDIN_FILENO;
+                p[1].events = events_b & POLLIN;
+                p[2].fd = STDOUT_FILENO;
+                p[2].events = events_b & POLLOUT;
+
+                r = ppoll(p, ELEMENTSOF(p), ts, NULL);
+                if (r < 0) {
+                        log_error("ppoll() failed: %m");
+                        goto finish;
+                }
+        }
+
+        r = 0;
 
 finish:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        if (ep >= 0)
-                close_nointr_nofail(ep);
-
-        return r;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

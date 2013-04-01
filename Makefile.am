@@ -1612,7 +1612,9 @@ systemd_stdio_bridge_SOURCES = \
 	src/stdio-bridge/stdio-bridge.c
 
 systemd_stdio_bridge_LDADD = \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-bus.la \
+	libsystemd-daemon.la
 
 # ------------------------------------------------------------------------------
 systemd_tty_ask_password_agent_SOURCES = \
