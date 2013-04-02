@@ -250,6 +250,13 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term>%</term>
+
+                                <listitem><para>Toggle between showing CPU time as
+                                time or percentage.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term>+</term>
                                 <term>-</term>
 

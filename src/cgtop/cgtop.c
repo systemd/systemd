@@ -793,6 +793,10 @@ int main(int argc, char *argv[]) {
                         arg_order = ORDER_IO;
                         break;
 
+                case '%':
+                        arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENT : CPU_TIME;
+                        break;
+
                 case '+':
                         if (arg_delay < USEC_PER_SEC)
                                 arg_delay += USEC_PER_MSEC*250;
@@ -821,7 +825,8 @@ int main(int argc, char *argv[]) {
                 case 'h':
                         fprintf(stdout,
                                 "\t<" ON "P" OFF "> By path; <" ON "T" OFF "> By tasks; <" ON "C" OFF "> By CPU; <" ON "M" OFF "> By memory; <" ON "I" OFF "> By I/O\n"
-                                "\t<" ON "Q" OFF "> Quit; <" ON "+" OFF "> Increase delay; <" ON "-" OFF "> Decrease delay; <" ON "SPACE" OFF "> Refresh");
+                                "\t<" ON "+" OFF "> Increase delay; <" ON "-" OFF "> Decrease delay; <" ON "%%" OFF "> Toggle time\n"
+                                "\t<" ON "Q" OFF "> Quit; <" ON "SPACE" OFF "> Refresh");
                         fflush(stdout);
                         sleep(3);
                         break;
