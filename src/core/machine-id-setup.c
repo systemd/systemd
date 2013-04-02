@@ -216,7 +216,7 @@ int machine_id_setup(void) {
          * /run/machine-id as a replacement */
 
         m = umask(0022);
-        r = write_one_line_file("/run/machine-id", id);
+        r = write_string_file("/run/machine-id", id);
         umask(m);
 
         if (r < 0) {

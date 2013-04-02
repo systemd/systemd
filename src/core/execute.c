@@ -1195,7 +1195,7 @@ int exec_spawn(ExecCommand *command,
                         snprintf(t, sizeof(t), "%i", context->oom_score_adjust);
                         char_array_0(t);
 
-                        if (write_one_line_file("/proc/self/oom_score_adj", t) < 0) {
+                        if (write_string_file("/proc/self/oom_score_adj", t) < 0) {
                                 err = -errno;
                                 r = EXIT_OOM_ADJUST;
                                 goto fail_child;

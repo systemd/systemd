@@ -26,14 +26,14 @@
 #include "fileio-label.h"
 #include "label.h"
 
-int write_one_line_file_atomic_label(const char *fn, const char *line) {
+int write_string_file_atomic_label(const char *fn, const char *line) {
         int r;
 
         r = label_context_set(fn, S_IFREG);
         if (r  < 0)
                 return r;
 
-        write_one_line_file_atomic(fn, line);
+        write_string_file_atomic(fn, line);
 
         label_context_clear();
 

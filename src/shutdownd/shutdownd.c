@@ -421,7 +421,7 @@ int main(int argc, char *argv[]) {
 
                         log_info("Creating /run/nologin, blocking further logins...");
 
-                        e = write_one_line_file_atomic("/run/nologin", "System is going down.");
+                        e = write_string_file_atomic("/run/nologin", "System is going down.");
                         if (e < 0)
                                 log_error("Failed to create /run/nologin: %s", strerror(-e));
                         else

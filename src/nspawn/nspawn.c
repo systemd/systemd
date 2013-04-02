@@ -528,7 +528,7 @@ static int setup_boot_id(const char *dest) {
                  SD_ID128_FORMAT_VAL(rnd));
         char_array_0(as_uuid);
 
-        r = write_one_line_file(from, as_uuid);
+        r = write_string_file(from, as_uuid);
         if (r < 0) {
                 log_error("Failed to write boot id: %s", strerror(-r));
                 return r;

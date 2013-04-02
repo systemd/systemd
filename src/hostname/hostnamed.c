@@ -289,7 +289,7 @@ static int write_data_static_hostname(void) {
 
                 return 0;
         }
-        return write_one_line_file_atomic_label("/etc/hostname", data[PROP_STATIC_HOSTNAME]);
+        return write_string_file_atomic_label("/etc/hostname", data[PROP_STATIC_HOSTNAME]);
 }
 
 static int write_data_other(void) {

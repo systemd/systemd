@@ -57,12 +57,12 @@ int main(int argc, char *argv[]) {
 
         /* Configure the hibernation mode */
         if (streq(argv[1], "hibernate")) {
-                if (write_one_line_file("/sys/power/disk", "platform") < 0)
-                        write_one_line_file("/sys/power/disk", "shutdown");
+                if (write_string_file("/sys/power/disk", "platform") < 0)
+                        write_string_file("/sys/power/disk", "shutdown");
         } else if (streq(argv[1], "hybrid-sleep")) {
-                if (write_one_line_file("/sys/power/disk", "suspend") < 0)
-                        if (write_one_line_file("/sys/power/disk", "platform") < 0)
-                                write_one_line_file("/sys/power/disk", "shutdown");
+                if (write_string_file("/sys/power/disk", "suspend") < 0)
+                        if (write_string_file("/sys/power/disk", "platform") < 0)
+                                write_string_file("/sys/power/disk", "shutdown");
         }
 
         f = fopen("/sys/power/state", "we");

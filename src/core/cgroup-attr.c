@@ -44,7 +44,7 @@ int cgroup_attribute_apply(CGroupAttribute *a, CGroupBonding *b) {
         if (r < 0)
                 return r;
 
-        r = write_one_line_file(path, v ? v : a->value);
+        r = write_string_file(path, v ? v : a->value);
         if (r < 0)
                 log_warning("Failed to write '%s' to %s: %s", v ? v : a->value, path, strerror(-r));
 

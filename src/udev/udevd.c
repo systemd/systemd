@@ -267,7 +267,7 @@ static void worker_new(struct event *event)
                 prctl(PR_SET_PDEATHSIG, SIGTERM);
 
                 /* reset OOM score, we only protect the main daemon */
-                write_one_line_file("/proc/self/oom_score_adj", "0");
+                write_string_file("/proc/self/oom_score_adj", "0");
 
                 for (;;) {
                         struct udev_event *udev_event;
@@ -1168,7 +1168,7 @@ int main(int argc, char *argv[])
 
                 setsid();
 
-                write_one_line_file("/proc/self/oom_score_adj", "-1000");
+                write_string_file("/proc/self/oom_score_adj", "-1000");
         } else {
                 sd_notify(1, "READY=1");
         }

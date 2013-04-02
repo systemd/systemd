@@ -70,7 +70,7 @@ int main(int argc, char*argv[]) {
                 int r, q;
                 char *cgroup_user_tree = NULL;
 
-                r = write_one_line_file_atomic("/run/nologin", "System is going down.");
+                r = write_string_file_atomic("/run/nologin", "System is going down.");
                 if (r < 0)
                         log_error("Failed to create /run/nologin: %s", strerror(-r));
 

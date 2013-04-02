@@ -57,7 +57,7 @@ static int disable_utf8(int fd) {
         if (loop_write(fd, "\033%@", 3, false) < 0)
                 r = -errno;
 
-        k = write_one_line_file("/sys/module/vt/parameters/default_utf8", "0");
+        k = write_string_file("/sys/module/vt/parameters/default_utf8", "0");
         if (k < 0)
                 r = k;
 
@@ -89,7 +89,7 @@ static int enable_utf8(int fd) {
         if (loop_write(fd, "\033%G", 3, false) < 0)
                 r = -errno;
 
-        k = write_one_line_file("/sys/module/vt/parameters/default_utf8", "1");
+        k = write_string_file("/sys/module/vt/parameters/default_utf8", "1");
         if (k < 0)
                 r = k;
 

@@ -2910,7 +2910,7 @@ int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data
                 return r;
 
         mkdir_p(p, 0755);
-        return write_one_line_file_atomic_label(q, data);
+        return write_string_file_atomic_label(q, data);
 }
 
 int unit_remove_drop_in(Unit *u, bool runtime, const char *name) {

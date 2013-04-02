@@ -88,7 +88,7 @@ static int apply_sysctl(const char *property, const char *value) {
                 }
         }
 
-        k = write_one_line_file(p, value);
+        k = write_string_file(p, value);
         if (k < 0) {
                 log_full(k == -ENOENT ? LOG_DEBUG : LOG_WARNING,
                          "Failed to write '%s' to '%s': %s", value, p, strerror(-k));

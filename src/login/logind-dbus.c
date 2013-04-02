@@ -886,7 +886,7 @@ static int trigger_device(Manager *m, struct udev_device *d) {
                         goto finish;
                 }
 
-                write_one_line_file(t, "change");
+                write_string_file(t, "change");
                 free(t);
         }
 
@@ -936,7 +936,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
 
         mkdir_p_label("/etc/udev/rules.d", 0755);
         label_init("/etc");
-        r = write_one_line_file_atomic_label(file, rule);
+        r = write_string_file_atomic_label(file, rule);
         if (r < 0)
                 goto finish;
 

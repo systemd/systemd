@@ -275,7 +275,7 @@ static int write_data_local_rtc(void) {
                 }
         }
         label_init("/etc");
-        r = write_one_line_file_atomic_label("/etc/adjtime", w);
+        r = write_string_file_atomic_label("/etc/adjtime", w);
         free(w);
 
         return r;

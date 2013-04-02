@@ -677,9 +677,9 @@ int cg_delete(const char *controller, const char *path) {
 }
 
 int cg_attach(const char *controller, const char *path, pid_t pid) {
-        char *fs;
+        _cleanup_free_ char *fs = NULL;
+        char c[DECIMAL_STR_MAX(pid_t) + 2];
         int r;
-        char c[32];
 
         assert(controller);
         assert(path);
@@ -693,16 +693,12 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
                 pid = getpid();
 
         snprintf(c, sizeof(c), "%lu\n", (unsigned long) pid);
-        char_array_0(c);
 
-        r = write_one_line_file(fs, c);
-        free(fs);
-
-        return r;
+        return write_string_file(fs, c);
 }
 
 int cg_set_group_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        char *fs;
+        _cleanup_free_ char *fs = NULL;
         int r;
 
         assert(controller);
@@ -715,10 +711,7 @@ int cg_set_group_access(const char *controller, const char *path, mode_t mode, u
         if (r < 0)
                 return r;
 
-        r = chmod_and_chown(fs, mode, uid, gid);
-        free(fs);
-
-        return r;
+        return chmod_and_chown(fs, mode, uid, gid);
 }
 
 int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid, int sticky) {
@@ -857,7 +850,8 @@ int cg_install_release_agent(const char *controller, const char *agent) {
                         goto finish;
                 }
 
-                if ((r = write_one_line_file(fs, line)) < 0)
+                r = write_string_file(fs, line);
+                if (r < 0)
                         goto finish;
 
         } else if (!streq(sc, agent)) {
@@ -878,7 +872,7 @@ int cg_install_release_agent(const char *controller, const char *agent) {
         sc = strstrip(contents);
 
         if (streq(sc, "0")) {
-                if ((r = write_one_line_file(fs, "1\n")) < 0)
+                if ((r = write_string_file(fs, "1\n")) < 0)
                         goto finish;
 
                 r = 1;

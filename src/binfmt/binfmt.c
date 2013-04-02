@@ -62,7 +62,7 @@ static int delete_rule(const char *rule) {
         if (!fn)
                 return log_oom();
 
-        return write_one_line_file(fn, "-1");
+        return write_string_file(fn, "-1");
 }
 
 static int apply_rule(const char *rule) {
@@ -70,7 +70,7 @@ static int apply_rule(const char *rule) {
 
         delete_rule(rule);
 
-        r = write_one_line_file("/proc/sys/fs/binfmt_misc/register", rule);
+        r = write_string_file("/proc/sys/fs/binfmt_misc/register", rule);
         if (r < 0) {
                 log_error("Failed to add binary format: %s", strerror(-r));
                 return r;
@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* Flush out all rules */
-                write_one_line_file("/proc/sys/fs/binfmt_misc/status", "-1");
+                write_string_file("/proc/sys/fs/binfmt_misc/status", "-1");
 
                 STRV_FOREACH(f, files) {
                         k = apply_file(*f, true);

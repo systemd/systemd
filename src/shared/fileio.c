@@ -24,7 +24,7 @@
 #include "util.h"
 #include "strv.h"
 
-int write_one_line_file(const char *fn, const char *line) {
+int write_string_file(const char *fn, const char *line) {
         _cleanup_fclose_ FILE *f = NULL;
 
         assert(fn);
@@ -49,7 +49,7 @@ int write_one_line_file(const char *fn, const char *line) {
         return 0;
 }
 
-int write_one_line_file_atomic(const char *fn, const char *line) {
+int write_string_file_atomic(const char *fn, const char *line) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
