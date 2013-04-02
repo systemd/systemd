@@ -49,7 +49,8 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd-cgtop <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+                        <command>systemd-cgtop</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -58,10 +59,14 @@
 
                 <para><command>systemd-cgtop</command> shows the top
                 control groups of the local Linux control group
-                hierarchy, ordered by their CPU, memory and disk I/O load. The
+                hierarchy, ordered by their CPU, memory, or disk I/O load. The
                 display is refreshed in regular intervals (by default
                 every 1s), similar in style to
-                <citerefentry><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+                <citerefentry><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+                If <command>systemd-cgtop</command> is not connected
+                to a tty, only one iteration is performed and no
+                columns headers are printed. This mode is suitable for
+                scripting.</para>
 
                 <para>Resource usage is only accounted for control
                 groups in the relevant hierarchy, i.e. CPU usage is

@@ -19,9 +19,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#define __STDC_FORMAT_MACROS
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <alloca.h>
 #include <getopt.h>
@@ -68,6 +70,11 @@ static enum {
         ORDER_MEMORY,
         ORDER_IO
 } arg_order = ORDER_CPU;
+
+static enum {
+        CPU_PERCENT,
+        CPU_TIME,
+} arg_cpu_type = CPU_PERCENT;
 
 static void group_free(Group *g) {
         assert(g);
@@ -372,16 +379,22 @@ static int group_compare(const void*a, const void *b) {
                 return 1;
 
         if (arg_order == ORDER_CPU) {
-                if (x->cpu_valid && y->cpu_valid) {
-
-                        if (x->cpu_fraction > y->cpu_fraction)
+                if (arg_cpu_type == CPU_PERCENT) {
+                        if (x->cpu_valid && y->cpu_valid) {
+                                if (x->cpu_fraction > y->cpu_fraction)
+                                        return -1;
+                                else if (x->cpu_fraction < y->cpu_fraction)
+                                        return 1;
+                        } else if (x->cpu_valid)
                                 return -1;
-                        else if (x->cpu_fraction < y->cpu_fraction)
+                        else if (y->cpu_valid)
                                 return 1;
-                } else if (x->cpu_valid)
-                        return -1;
-                else if (y->cpu_valid)
-                        return 1;
+                } else {
+                        if (x->cpu_usage > y->cpu_usage)
+                                return -1;
+                        else if (x->cpu_usage < y->cpu_usage)
+                                return 1;
+                }
         }
 
         if (arg_order == ORDER_TASKS) {
@@ -424,17 +437,23 @@ static int group_compare(const void*a, const void *b) {
         return strcmp(x->path, y->path);
 }
 
+#define ON ANSI_HIGHLIGHT_ON
+#define OFF ANSI_HIGHLIGHT_OFF
+
 static int display(Hashmap *a) {
         Iterator i;
         Group *g;
         Group **array;
-        unsigned rows, path_columns, n = 0, j;
+        signed path_columns;
+        unsigned rows, n = 0, j, maxtcpu = 0, maxtpath = 0;
+        char cpu_title[21];
 
         assert(a);
 
         /* Set cursor to top left corner and clear screen */
-        fputs("\033[H"
-              "\033[2J", stdout);
+        if (on_tty())
+                fputs("\033[H"
+                      "\033[2J", stdout);
 
         array = alloca(sizeof(Group*) * hashmap_size(a));
 
@@ -444,33 +463,51 @@ static int display(Hashmap *a) {
 
         qsort(array, n, sizeof(Group*), group_compare);
 
+        /* Find the longest names in one run */
+        for (j = 0; j < n; j++) {
+                unsigned cputlen, pathtlen;
+                snprintf(cpu_title, sizeof(cpu_title), "%"PRIu64, array[j]->cpu_usage);
+                cputlen = strlen(cpu_title);
+                maxtcpu = MAX(maxtcpu, cputlen);
+                pathtlen = strlen(array[j]->path);
+                maxtpath = MAX(maxtpath, pathtlen);
+        }
+
+        if (arg_cpu_type == CPU_PERCENT)
+                snprintf(cpu_title, sizeof(cpu_title), "%6s", "%CPU");
+        else
+                snprintf(cpu_title, sizeof(cpu_title), "%*s", maxtcpu, "CPU Time");
+
         rows = lines();
         if (rows <= 10)
                 rows = 10;
 
-        path_columns = columns() - 42;
-        if (path_columns < 10)
-                path_columns = 10;
+        if (on_tty()) {
+                path_columns = columns() - 36 - strlen(cpu_title);
+                if (path_columns < 10)
+                        path_columns = 10;
 
-        printf("%s%-*s%s %s%7s%s %s%6s%s %s%8s%s %s%8s%s %s%8s%s\n\n",
-               arg_order == ORDER_PATH   ? ANSI_HIGHLIGHT_ON : "", path_columns, "Path",
-                      arg_order == ORDER_PATH   ? ANSI_HIGHLIGHT_OFF : "",
-               arg_order == ORDER_TASKS  ? ANSI_HIGHLIGHT_ON : "", "Tasks",
-                      arg_order == ORDER_TASKS  ? ANSI_HIGHLIGHT_OFF : "",
-               arg_order == ORDER_CPU    ? ANSI_HIGHLIGHT_ON : "", "%CPU",
-                      arg_order == ORDER_CPU    ? ANSI_HIGHLIGHT_OFF : "",
-               arg_order == ORDER_MEMORY ? ANSI_HIGHLIGHT_ON : "", "Memory",
-                      arg_order == ORDER_MEMORY ? ANSI_HIGHLIGHT_OFF : "",
-               arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_ON : "", "Input/s",
-                      arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_OFF : "",
-               arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_ON : "", "Output/s",
-                      arg_order == ORDER_IO     ? ANSI_HIGHLIGHT_OFF : "");
+                printf("%s%-*s%s %s%7s%s %s%s%s %s%8s%s %s%8s%s %s%8s%s\n\n",
+                       arg_order == ORDER_PATH ? ON : "", path_columns, "Path",
+                       arg_order == ORDER_PATH ? OFF : "",
+                       arg_order == ORDER_TASKS ? ON : "", "Tasks",
+                       arg_order == ORDER_TASKS ? OFF : "",
+                       arg_order == ORDER_CPU ? ON : "", cpu_title,
+                       arg_order == ORDER_CPU ? OFF : "",
+                       arg_order == ORDER_MEMORY ? ON : "", "Memory",
+                       arg_order == ORDER_MEMORY ? OFF : "",
+                       arg_order == ORDER_IO ? ON : "", "Input/s",
+                       arg_order == ORDER_IO ? OFF : "",
+                       arg_order == ORDER_IO ? ON : "", "Output/s",
+                       arg_order == ORDER_IO ? OFF : "");
+        } else
+                path_columns = maxtpath;
 
         for (j = 0; j < n; j++) {
                 char *p;
                 char m[FORMAT_BYTES_MAX];
 
-                if (j + 5 > rows)
+                if (on_tty() && j + 5 > rows)
                         break;
 
                 g = array[j];
@@ -484,10 +521,13 @@ static int display(Hashmap *a) {
                 else
                         fputs("       -", stdout);
 
-                if (g->cpu_valid)
-                        printf(" %6.1f", g->cpu_fraction*100);
+                if (arg_cpu_type == CPU_PERCENT)
+                        if (g->cpu_valid)
+                                printf(" %6.1f", g->cpu_fraction*100);
+                        else
+                                fputs("      -", stdout);
                 else
-                        fputs("      -", stdout);
+                        printf(" %*"PRIu64, maxtcpu, g->cpu_usage);
 
                 if (g->memory_valid)
                         printf(" %8s", format_bytes(m, sizeof(m), g->memory));
@@ -519,7 +559,8 @@ static void help(void) {
                "  -c                  Order by CPU load\n"
                "  -m                  Order by memory load\n"
                "  -i                  Order by IO load\n"
-               "  -d --delay=DELAY    Specify delay\n"
+               "     --cpu[=TYPE]     Show CPU usage as time or percentage (default)\n"
+               "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
                "     --depth=DEPTH    Maximum traversal depth (default: %d)\n",
@@ -535,6 +576,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_DEPTH,
+                ARG_CPU_TYPE
         };
 
         static const struct option options[] = {
@@ -544,6 +586,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "iterations", required_argument, NULL, 'n'         },
                 { "batch",      no_argument,       NULL, 'b'         },
                 { "depth",      required_argument, NULL, ARG_DEPTH   },
+                { "cpu",        optional_argument, NULL, ARG_CPU_TYPE},
                 { NULL,         0,                 NULL, 0           }
         };
 
@@ -564,6 +607,17 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         version();
                         return 0;
+
+                case ARG_CPU_TYPE:
+                        if (optarg) {
+                                if (strcmp(optarg, "time") == 0)
+                                        arg_cpu_type = CPU_TIME;
+                                else if (strcmp(optarg, "percentage") == 0)
+                                        arg_cpu_type = CPU_PERCENT;
+                                else
+                                        return -EINVAL;
+                        }
+                        break;
 
                 case ARG_DEPTH:
                         r = safe_atou(optarg, &arg_depth);
@@ -655,6 +709,9 @@ int main(int argc, char *argv[]) {
         }
 
         signal(SIGWINCH, columns_lines_cache_reset);
+
+        if (!on_tty())
+                arg_iterations = 1;
 
         while (!quit) {
                 Hashmap *c;
@@ -763,8 +820,8 @@ int main(int argc, char *argv[]) {
                 case '?':
                 case 'h':
                         fprintf(stdout,
-                                "\t<" ANSI_HIGHLIGHT_ON "P" ANSI_HIGHLIGHT_OFF "> By path; <" ANSI_HIGHLIGHT_ON "T" ANSI_HIGHLIGHT_OFF "> By tasks; <" ANSI_HIGHLIGHT_ON "C" ANSI_HIGHLIGHT_OFF "> By CPU; <" ANSI_HIGHLIGHT_ON "M" ANSI_HIGHLIGHT_OFF "> By memory; <" ANSI_HIGHLIGHT_ON "I" ANSI_HIGHLIGHT_OFF "> By I/O\n"
-                                "\t<" ANSI_HIGHLIGHT_ON "Q" ANSI_HIGHLIGHT_OFF "> Quit; <" ANSI_HIGHLIGHT_ON "+" ANSI_HIGHLIGHT_OFF "> Increase delay; <" ANSI_HIGHLIGHT_ON "-" ANSI_HIGHLIGHT_OFF "> Decrease delay; <" ANSI_HIGHLIGHT_ON "SPACE" ANSI_HIGHLIGHT_OFF "> Refresh");
+                                "\t<" ON "P" OFF "> By path; <" ON "T" OFF "> By tasks; <" ON "C" OFF "> By CPU; <" ON "M" OFF "> By memory; <" ON "I" OFF "> By I/O\n"
+                                "\t<" ON "Q" OFF "> Quit; <" ON "+" OFF "> Increase delay; <" ON "-" OFF "> Decrease delay; <" ON "SPACE" OFF "> Refresh");
                         fflush(stdout);
                         sleep(3);
                         break;
@@ -776,8 +833,6 @@ int main(int argc, char *argv[]) {
                         break;
                 }
         }
-
-        log_info("Exiting.");
 
         r = 0;
 
