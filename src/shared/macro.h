@@ -67,9 +67,11 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
  * @member: the name of the member within the struct.
  *
  */
-#define container_of(ptr, type, member) ({ \
-        const typeof( ((type *)0)->member ) *__mptr = (ptr); \
-        (type *)( (char *)__mptr - offsetof(type,member) );})
+#define container_of(ptr, type, member)                                 \
+        __extension__ ({                                                \
+                        const typeof( ((type *)0)->member ) *__mptr = (ptr); \
+                        (type *)( (char *)__mptr - offsetof(type,member) ); \
+                })
 
 #undef MAX
 #define MAX(a,b)                                 \
@@ -254,5 +256,15 @@ do {                                                                    \
                 }                                                       \
         }                                                               \
 } while(false)
+
+/* Returns the number of chars needed to format variables of the
+ * specified type as a decimal string. Adds in extra space for a
+ * negative '-' prefix. */
+
+#define DECIMAL_STR_MAX(type)                                           \
+        (1+(sizeof(type) <= 1 ? 3 :                                     \
+            sizeof(type) <= 2 ? 5 :                                     \
+            sizeof(type) <= 4 ? 10 :                                    \
+            sizeof(type) <= 8 ? 20 : sizeof(int[-2*(sizeof(type) > 8)])))
 
 #include "log.h"

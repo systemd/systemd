@@ -447,14 +447,13 @@ char *split_quoted(const char *c, size_t *l, char **state) {
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         int r;
         _cleanup_fclose_ FILE *f = NULL;
-        char fn[PATH_MAX], line[LINE_MAX], *p;
+        char fn[sizeof("/proc/")-1 + DECIMAL_STR_MAX(pid_t) + sizeof("/stat")], line[LINE_MAX], *p;
         long unsigned ppid;
 
         assert(pid > 0);
         assert(_ppid);
 
         assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
-        char_array_0(fn);
 
         f = fopen(fn, "re");
         if (!f)
@@ -491,13 +490,12 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
 
 int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
         _cleanup_fclose_ FILE *f = NULL;
-        char fn[PATH_MAX], line[LINE_MAX], *p;
+        char fn[sizeof("/proc/")-1 + DECIMAL_STR_MAX(pid_t) + sizeof("/stat")], line[LINE_MAX], *p;
 
         assert(pid > 0);
         assert(st);
 
         assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
-        char_array_0(fn);
 
         f = fopen(fn, "re");
         if (!f)
@@ -2611,7 +2609,7 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 
 int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
         int k;
-        char fn[PATH_MAX], *s, *b, *p;
+        char fn[sizeof("/dev/char/")-1 + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *s, *b, *p;
         dev_t devnr;
 
         assert(r);
@@ -2621,7 +2619,6 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
                 return k;
 
         snprintf(fn, sizeof(fn), "/dev/char/%u:%u", major(devnr), minor(devnr));
-        char_array_0(fn);
 
         k = readlink_malloc(fn, &s);
         if (k < 0) {
@@ -4762,7 +4759,7 @@ static const char *const __signal_table[] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(__signal, int);
 
 const char *signal_to_string(int signo) {
-        static __thread char buf[12];
+        static __thread char buf[sizeof("RTMIN+")-1 + DECIMAL_STR_MAX(int) + 1];
         const char *name;
 
         name = __signal_to_string(signo);
@@ -4770,10 +4767,10 @@ const char *signal_to_string(int signo) {
                 return name;
 
         if (signo >= SIGRTMIN && signo <= SIGRTMAX)
-                snprintf(buf, sizeof(buf) - 1, "RTMIN+%d", signo - SIGRTMIN);
+                snprintf(buf, sizeof(buf), "RTMIN+%d", signo - SIGRTMIN);
         else
-                snprintf(buf, sizeof(buf) - 1, "%d", signo);
-        char_array_0(buf);
+                snprintf(buf, sizeof(buf), "%d", signo);
+
         return buf;
 }
 
@@ -5041,7 +5038,7 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
 }
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value) {
-        char path[sizeof("/proc/")-1+10+sizeof("/environ")], *value = NULL;
+        char path[sizeof("/proc/")-1 + DECIMAL_STR_MAX(pid_t) + sizeof("/environ")], *value = NULL;
         int r;
         FILE *f;
         bool done = false;
@@ -5054,7 +5051,6 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
                 pid = getpid();
 
         snprintf(path, sizeof(path), "/proc/%lu/environ", (unsigned long) pid);
-        char_array_0(path);
 
         f = fopen(path, "re");
         if (!f)
