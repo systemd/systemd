@@ -50,6 +50,8 @@ Fedora 19:
 
 Features:
 
+* add sd_journal_get_timeout() and sd_journal_get_events(9
+
 * seems that when we follow symlinks to units we prefer the symlink
   destination path over /etc and /usr. We shouldn't do that. Instead
   /etc should always override /run+/usr and also any symlink
