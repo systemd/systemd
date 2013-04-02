@@ -83,7 +83,7 @@ int log_metav(
                 int line,
                 const char *func,
                 const char *format,
-                va_list ap);
+                va_list ap) _printf_attr_(5,0);
 
 int log_meta_object(
                 int level,
@@ -102,14 +102,14 @@ int log_metav_object(
                 const char *object_name,
                 const char *object,
                 const char *format,
-                va_list ap);
+                va_list ap) _printf_attr_(7,0);
 
 int log_struct_internal(
                 int level,
                 const char *file,
                 int line,
                 const char *func,
-                const char *format, ...) _sentinel_;
+                const char *format, ...) _printf_attr_(5,0) _sentinel_;
 
 int log_oom_internal(
                 const char *file,

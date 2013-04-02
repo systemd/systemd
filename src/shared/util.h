@@ -361,8 +361,8 @@ int pipe_eof(int fd);
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
-int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char *format, va_list ap);
-int status_printf(const char *status, bool ellipse, bool ephemeral, const char *format, ...);
+int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char *format, va_list ap) _printf_attr_(4,0);
+int status_printf(const char *status, bool ellipse, bool ephemeral, const char *format, ...) _printf_attr_(4,5);
 int status_welcome(void);
 
 int fd_columns(int fd);
