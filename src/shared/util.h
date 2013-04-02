@@ -615,3 +615,9 @@ char *strextend(char **x, ...);
 char *strrep(const char *s, unsigned n);
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need);
+
+static inline void reset_errno(int *saved_errno) {
+        errno = *saved_errno;
+}
+
+#define PROTECT_ERRNO __attribute__((cleanup(reset_errno))) int _saved_errno_ = errno

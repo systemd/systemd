@@ -598,18 +598,14 @@ int log_dump_internal(
         const char *func,
         char *buffer) {
 
-        int saved_errno, r;
+        PROTECT_ERRNO;
 
         /* This modifies the buffer... */
 
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return 0;
 
-        saved_errno = errno;
-        r = log_dispatch(level, file, line, func, NULL, NULL, buffer);
-        errno = saved_errno;
-
-        return r;
+        return log_dispatch(level, file, line, func, NULL, NULL, buffer);
 }
 
 int log_metav(
@@ -620,20 +616,16 @@ int log_metav(
         const char *format,
         va_list ap) {
 
+        PROTECT_ERRNO;
         char buffer[LINE_MAX];
-        int saved_errno, r;
 
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return 0;
 
-        saved_errno = errno;
         vsnprintf(buffer, sizeof(buffer), format, ap);
         char_array_0(buffer);
 
-        r = log_dispatch(level, file, line, func, NULL, NULL, buffer);
-        errno = saved_errno;
-
-        return r;
+        return log_dispatch(level, file, line, func, NULL, NULL, buffer);
 }
 
 int log_meta(
@@ -663,21 +655,17 @@ int log_metav_object(
         const char *format,
         va_list ap) {
 
+        PROTECT_ERRNO;
         char buffer[LINE_MAX];
-        int saved_errno, r;
 
         if (_likely_(LOG_PRI(level) > log_max_level))
                 return 0;
 
-        saved_errno = errno;
         vsnprintf(buffer, sizeof(buffer), format, ap);
         char_array_0(buffer);
 
-        r = log_dispatch(level, file, line, func,
-                         object_name, object, buffer);
-        errno = saved_errno;
-
-        return r;
+        return log_dispatch(level, file, line, func,
+                            object_name, object, buffer);
 }
 
 int log_meta_object(
@@ -735,7 +723,7 @@ int log_struct_internal(
                 const char *func,
                 const char *format, ...) {
 
-        int saved_errno;
+        PROTECT_ERRNO;
         va_list ap;
         int r;
 
@@ -747,8 +735,6 @@ int log_struct_internal(
 
         if ((level & LOG_FACMASK) == 0)
                 level = log_facility | LOG_PRI(level);
-
-        saved_errno = errno;
 
         if ((log_target == LOG_TARGET_AUTO ||
              log_target == LOG_TARGET_JOURNAL_OR_KMSG ||
@@ -843,7 +829,6 @@ int log_struct_internal(
                         r = -EINVAL;
         }
 
-        errno = saved_errno;
         return r;
 }
 

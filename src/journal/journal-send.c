@@ -112,12 +112,11 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
 }
 
 static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct iovec **_iov) {
+        PROTECT_ERRNO;
         int r, n = 0, i = 0, j;
         struct iovec *iov = NULL;
-        int saved_errno;
 
         assert(_iov);
-        saved_errno = errno;
 
         if (extra > 0) {
                 n = MAX(extra * 2, extra + 4);
@@ -163,7 +162,6 @@ static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct 
 
         *_iov = iov;
 
-        errno = saved_errno;
         return i;
 
 fail:
@@ -172,7 +170,6 @@ fail:
 
         free(iov);
 
-        errno = saved_errno;
         return r;
 }
 
@@ -202,14 +199,14 @@ finish:
 }
 
 _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
+        PROTECT_ERRNO;
         int fd, buffer_fd;
         struct iovec *w;
         uint64_t *l;
-        int r, i, j = 0;
+        int i, j = 0;
         struct msghdr mh;
         struct sockaddr_un sa;
         ssize_t k;
-        int saved_errno;
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -227,24 +224,18 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (_unlikely_(n <= 0))
                 return -EINVAL;
 
-        saved_errno = errno;
-
         w = alloca(sizeof(struct iovec) * n * 5 + 3);
         l = alloca(sizeof(uint64_t) * n);
 
         for (i = 0; i < n; i++) {
                 char *c, *nl;
 
-                if (_unlikely_(!iov[i].iov_base || iov[i].iov_len <= 1)) {
-                        r = -EINVAL;
-                        goto finish;
-                }
+                if (_unlikely_(!iov[i].iov_base || iov[i].iov_len <= 1))
+                        return -EINVAL;
 
                 c = memchr(iov[i].iov_base, '=', iov[i].iov_len);
-                if (_unlikely_(!c || c == iov[i].iov_base)) {
-                        r = -EINVAL;
-                        goto finish;
-                }
+                if (_unlikely_(!c || c == iov[i].iov_base))
+                        return -EINVAL;
 
                 have_syslog_identifier = have_syslog_identifier ||
                         (c == (char *) iov[i].iov_base + 17 &&
@@ -252,10 +243,8 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
 
                 nl = memchr(iov[i].iov_base, '\n', iov[i].iov_len);
                 if (nl) {
-                        if (_unlikely_(nl < c)) {
-                                r = -EINVAL;
-                                goto finish;
-                        }
+                        if (_unlikely_(nl < c))
+                                return -EINVAL;
 
                         /* Already includes a newline? Bummer, then
                          * let's write the variable name, then a
@@ -300,10 +289,8 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         }
 
         fd = journal_fd();
-        if (_unlikely_(fd < 0)) {
-                r = fd;
-                goto finish;
-        }
+        if (_unlikely_(fd < 0))
+                return fd;
 
         zero(sa);
         sa.sun_family = AF_UNIX;
@@ -316,37 +303,29 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         mh.msg_iovlen = j;
 
         k = sendmsg(fd, &mh, MSG_NOSIGNAL);
-        if (k >= 0) {
-                r = 0;
-                goto finish;
-        }
+        if (k >= 0)
+                return 0;
 
-        if (errno != EMSGSIZE && errno != ENOBUFS) {
-                r = -errno;
-                goto finish;
-        }
+        if (errno != EMSGSIZE && errno != ENOBUFS)
+                return -errno;
 
         /* Message doesn't fit... Let's dump the data in a temporary
          * file and just pass a file descriptor of it to the other
          * side */
 
         buffer_fd = mkostemp(path, O_CLOEXEC|O_RDWR);
-        if (buffer_fd < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (buffer_fd < 0)
+                return -errno;
 
         if (unlink(path) < 0) {
                 close_nointr_nofail(buffer_fd);
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         n = writev(buffer_fd, w, j);
         if (n < 0) {
                 close_nointr_nofail(buffer_fd);
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         mh.msg_iov = NULL;
@@ -367,24 +346,15 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         k = sendmsg(fd, &mh, MSG_NOSIGNAL);
         close_nointr_nofail(buffer_fd);
 
-        if (k < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (k < 0)
+                return -errno;
 
-        r = 0;
-
-finish:
-        errno = saved_errno;
-
-        return r;
+        return 0;
 }
 
 static int fill_iovec_perror_and_send(const char *message, int skip, struct iovec iov[]) {
-        size_t n, k, r;
-        int saved_errno;
-
-        saved_errno = errno;
+        PROTECT_ERRNO;
+        size_t n, k;
 
         k = isempty(message) ? 0 : strlen(message) + 2;
         n = 8 + k + 256 + 1;
@@ -394,7 +364,7 @@ static int fill_iovec_perror_and_send(const char *message, int skip, struct iove
                 char* j;
 
                 errno = 0;
-                j = strerror_r(saved_errno, buffer + 8 + k, n - 8 - k);
+                j = strerror_r(_saved_errno_, buffer + 8 + k, n - 8 - k);
                 if (errno == 0) {
                         char error[6 + 10 + 1]; /* for a 32bit value */
 
@@ -408,24 +378,18 @@ static int fill_iovec_perror_and_send(const char *message, int skip, struct iove
                                 memcpy(buffer + 8 + k - 2, ": ", 2);
                         }
 
-                        snprintf(error, sizeof(error), "ERRNO=%u", saved_errno);
+                        snprintf(error, sizeof(error), "ERRNO=%u", _saved_errno_);
                         char_array_0(error);
 
                         IOVEC_SET_STRING(iov[skip+0], "PRIORITY=3");
                         IOVEC_SET_STRING(iov[skip+1], buffer);
                         IOVEC_SET_STRING(iov[skip+2], error);
 
-                        r = sd_journal_sendv(iov, skip + 3);
-
-                        errno = saved_errno;
-                        return r;
+                        return sd_journal_sendv(iov, skip + 3);
                 }
 
-                if (errno != ERANGE) {
-                        r = -errno;
-                        errno = saved_errno;
-                        return r;
-                }
+                if (errno != ERANGE)
+                        return -errno;
 
                 n *= 2;
         }

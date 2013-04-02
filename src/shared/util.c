@@ -207,14 +207,12 @@ int close_nointr(int fd) {
 }
 
 void close_nointr_nofail(int fd) {
-        int saved_errno = errno;
+        PROTECT_ERRNO;
 
         /* like close_nointr() but cannot fail, and guarantees errno
          * is unchanged */
 
         assert_se(close_nointr(fd) == 0);
-
-        errno = saved_errno;
 }
 
 void close_many(const int fds[], unsigned n_fd) {
