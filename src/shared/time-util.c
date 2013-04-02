@@ -256,7 +256,7 @@ char *format_timespan(char *buf, size_t l, usec_t t) {
                 return p;
         }
 
-        /* The result of this function can be parsed with parse_usec */
+        /* The result of this function can be parsed with parse_sec */
 
         for (i = 0; i < ELEMENTSOF(table); i++) {
                 int k;
@@ -382,14 +382,14 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
         } else if (t[0] == '+') {
 
-                r = parse_usec(t+1, &plus);
+                r = parse_sec(t+1, &plus);
                 if (r < 0)
                         return r;
 
                 goto finish;
         } else if (t[0] == '-') {
 
-                r = parse_usec(t+1, &minus);
+                r = parse_sec(t+1, &minus);
                 if (r < 0)
                         return r;
 
@@ -402,7 +402,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
                 if (!z)
                         return -ENOMEM;
 
-                r = parse_usec(z, &minus);
+                r = parse_sec(z, &minus);
                 if (r < 0)
                         return r;
 
@@ -497,7 +497,7 @@ finish:
         return 0;
 }
 
-int parse_usec(const char *t, usec_t *usec) {
+int parse_sec(const char *t, usec_t *usec) {
         static const struct {
                 const char *suffix;
                 usec_t usec;

@@ -355,7 +355,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_INTERVAL:
-                        r = parse_usec(optarg, &arg_interval);
+                        r = parse_sec(optarg, &arg_interval);
                         if (r < 0 || arg_interval <= 0) {
                                 log_error("Failed to parse sealing key change interval: %s", optarg);
                                 return -EINVAL;

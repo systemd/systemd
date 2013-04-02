@@ -127,7 +127,7 @@ static int parse_one_option(const char *option) {
                 opt_type = CRYPT_PLAIN;
         else if (startswith(option, "timeout=")) {
 
-                if (parse_usec(option+8, &opt_timeout) < 0) {
+                if (parse_sec(option+8, &opt_timeout) < 0) {
                         log_error("timeout= parse failure, ignoring.");
                         return 0;
                 }

@@ -90,7 +90,7 @@ $1.ControlGroupModify,           config_parse_bool,                  0,         
 $1.ControlGroupPersistent,       config_parse_tristate,              0,                             offsetof($1, exec_context.control_group_persistent)'
 )m4_dnl
 m4_define(`KILL_CONTEXT_CONFIG_ITEMS',
-`$1.SendSIGKILL,                  config_parse_bool,                  0,                             offsetof($1, kill_context.send_sigkill)
+`$1.SendSIGKILL,                 config_parse_bool,                  0,                             offsetof($1, kill_context.send_sigkill)
 $1.KillMode,                     config_parse_kill_mode,             0,                             offsetof($1, kill_context.kill_mode)
 $1.KillSignal,                   config_parse_kill_signal,           0,                             offsetof($1, kill_context.kill_signal)'
 )m4_dnl
@@ -122,7 +122,7 @@ Unit.DefaultDependencies,        config_parse_bool,                  0,         
 Unit.OnFailureIsolate,           config_parse_bool,                  0,                             offsetof(Unit, on_failure_isolate)
 Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Unit, ignore_on_isolate)
 Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,                             offsetof(Unit, ignore_on_snapshot)
-Unit.JobTimeoutSec,              config_parse_usec,                  0,                             offsetof(Unit, job_timeout)
+Unit.JobTimeoutSec,              config_parse_sec,                   0,                             offsetof(Unit, job_timeout)
 Unit.ConditionPathExists,        config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         0
 Unit.ConditionPathExistsGlob,    config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    0
 Unit.ConditionPathIsDirectory,   config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   0
@@ -147,12 +147,12 @@ Service.ExecStartPost,           config_parse_exec,                  SERVICE_EXE
 Service.ExecReload,              config_parse_exec,                  SERVICE_EXEC_RELOAD,           offsetof(Service, exec_command)
 Service.ExecStop,                config_parse_exec,                  SERVICE_EXEC_STOP,             offsetof(Service, exec_command)
 Service.ExecStopPost,            config_parse_exec,                  SERVICE_EXEC_STOP_POST,        offsetof(Service, exec_command)
-Service.RestartSec,              config_parse_usec,                  0,                             offsetof(Service, restart_usec)
+Service.RestartSec,              config_parse_sec,                   0,                             offsetof(Service, restart_usec)
 Service.TimeoutSec,              config_parse_service_timeout,       0,                             offsetof(Service, timeout_start_usec)
 Service.TimeoutStartSec,         config_parse_service_timeout,       0,                             offsetof(Service, timeout_start_usec)
 Service.TimeoutStopSec,          config_parse_service_timeout,       0,                             offsetof(Service, timeout_stop_usec)
-Service.WatchdogSec,             config_parse_usec,                  0,                             offsetof(Service, watchdog_usec)
-Service.StartLimitInterval,      config_parse_usec,                  0,                             offsetof(Service, start_limit.interval)
+Service.WatchdogSec,             config_parse_sec,                   0,                             offsetof(Service, watchdog_usec)
+Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Service, start_limit.interval)
 Service.StartLimitBurst,         config_parse_unsigned,              0,                             offsetof(Service, start_limit.burst)
 Service.StartLimitAction,        config_parse_start_limit_action,    0,                             offsetof(Service, start_limit_action)
 Service.Type,                    config_parse_service_type,          0,                             offsetof(Service, type)
@@ -188,7 +188,7 @@ Socket.ExecStartPre,             config_parse_exec,                  SOCKET_EXEC
 Socket.ExecStartPost,            config_parse_exec,                  SOCKET_EXEC_START_POST,        offsetof(Socket, exec_command)
 Socket.ExecStopPre,              config_parse_exec,                  SOCKET_EXEC_STOP_PRE,          offsetof(Socket, exec_command)
 Socket.ExecStopPost,             config_parse_exec,                  SOCKET_EXEC_STOP_POST,         offsetof(Socket, exec_command)
-Socket.TimeoutSec,               config_parse_usec,                  0,                             offsetof(Socket, timeout_usec)
+Socket.TimeoutSec,               config_parse_sec,                   0,                             offsetof(Socket, timeout_usec)
 Socket.DirectoryMode,            config_parse_mode,                  0,                             offsetof(Socket, directory_mode)
 Socket.SocketMode,               config_parse_mode,                  0,                             offsetof(Socket, socket_mode)
 Socket.Accept,                   config_parse_bool,                  0,                             offsetof(Socket, accept)
@@ -221,7 +221,7 @@ Mount.Where,                     config_parse_path,                  0,         
 Mount.Options,                   config_parse_string,                0,                             offsetof(Mount, parameters_fragment.options)
 Mount.Type,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.fstype)
 Mount.FsckPassNo,                config_parse_fsck_passno,           0,                             offsetof(Mount, parameters_fragment.passno)
-Mount.TimeoutSec,                config_parse_usec,                  0,                             offsetof(Mount, timeout_usec)
+Mount.TimeoutSec,                config_parse_sec,                   0,                             offsetof(Mount, timeout_usec)
 Mount.DirectoryMode,             config_parse_mode,                  0,                             offsetof(Mount, directory_mode)
 EXEC_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
@@ -231,7 +231,7 @@ Automount.DirectoryMode,         config_parse_mode,                  0,         
 m4_dnl
 Swap.What,                       config_parse_path,                  0,                             offsetof(Swap, parameters_fragment.what)
 Swap.Priority,                   config_parse_int,                   0,                             offsetof(Swap, parameters_fragment.priority)
-Swap.TimeoutSec,                 config_parse_usec,                  0,                             offsetof(Swap, timeout_usec)
+Swap.TimeoutSec,                 config_parse_sec,                   0,                             offsetof(Swap, timeout_usec)
 EXEC_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 m4_dnl

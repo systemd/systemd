@@ -80,5 +80,5 @@ void dual_timestamp_deserialize(const char *value, dual_timestamp *t);
 
 int parse_timestamp(const char *t, usec_t *usec);
 
-int parse_usec(const char *t, usec_t *usec);
+int parse_sec(const char *t, usec_t *usec);
 int parse_nsec(const char *t, nsec_t *nsec);

@@ -1171,7 +1171,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         a++;
                 }
 
-                if (parse_usec(a, &i->age) < 0) {
+                if (parse_sec(a, &i->age) < 0) {
                         log_error("[%s:%u] Invalid age '%s'.", fname, line, age);
                         return -EBADMSG;
                 }

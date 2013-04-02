@@ -1186,7 +1186,7 @@ int config_parse_timer(
 
                 id = CLOCK_REALTIME;
         } else {
-                if (parse_usec(rvalue, &u) < 0) {
+                if (parse_sec(rvalue, &u) < 0) {
                         log_error("[%s:%u] Failed to parse timer value, ignoring: %s", filename, line, rvalue);
                         return 0;
                 }
@@ -1471,7 +1471,7 @@ int config_parse_service_timeout(
         assert(rvalue);
         assert(s);
 
-        r = config_parse_usec(filename, line, section, lvalue, ltype, rvalue, data, userdata);
+        r = config_parse_sec(filename, line, section, lvalue, ltype, rvalue, data, userdata);
         if (r < 0)
                 return r;
 
@@ -2395,7 +2395,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_socket_listen,         "SOCKET [...]" },
                 { config_parse_socket_bind,           "SOCKETBIND" },
                 { config_parse_socket_bindtodevice,   "NETWORKINTERFACE" },
-                { config_parse_usec,                  "SECONDS" },
+                { config_parse_sec,                   "SECONDS" },
                 { config_parse_nsec,                  "NANOSECONDS" },
                 { config_parse_path_strv,             "PATH [...]" },
                 { config_parse_unit_requires_mounts_for, "PATH [...]" },

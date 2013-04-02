@@ -520,7 +520,7 @@ static int mount_fix_timeouts(Mount *m) {
         if (!t)
                 return -ENOMEM;
 
-        r = parse_usec(t, &u);
+        r = parse_sec(t, &u);
         free(t);
 
         if (r < 0) {

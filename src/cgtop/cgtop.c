@@ -629,7 +629,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'd':
-                        r = parse_usec(optarg, &arg_delay);
+                        r = parse_sec(optarg, &arg_delay);
                         if (r < 0 || arg_delay <= 0) {
                                 log_error("Failed to parse delay parameter.");
                                 return -EINVAL;

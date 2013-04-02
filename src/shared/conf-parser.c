@@ -792,7 +792,7 @@ int config_parse_path_strv(
         return 0;
 }
 
-int config_parse_usec(
+int config_parse_sec(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -809,7 +809,7 @@ int config_parse_usec(
         assert(rvalue);
         assert(data);
 
-        if (parse_usec(rvalue, usec) < 0) {
+        if (parse_sec(rvalue, usec) < 0) {
                 log_error("[%s:%u] Failed to parse time value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
