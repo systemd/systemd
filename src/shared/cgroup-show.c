@@ -282,7 +282,7 @@ int show_cgroup(const char *controller, const char *path, const char *prefix, un
 }
 
 static int show_extra_pids(const char *controller, const char *path, const char *prefix, unsigned n_columns, const pid_t pids[], unsigned n_pids, OutputFlags flags) {
-        pid_t *copy;
+        pid_t _cleanup_free_ *copy = NULL;
         unsigned i, j;
         int r;
 
@@ -303,13 +303,11 @@ static int show_extra_pids(const char *controller, const char *path, const char 
                 return -ENOMEM;
 
         for (i = 0, j = 0; i < n_pids; i++) {
-                char *k;
+                char _cleanup_free_ *k = NULL;
 
                 r = cg_get_by_pid(controller, pids[i], &k);
-                if (r < 0) {
-                        free(copy);
+                if (r < 0)
                         return r;
-                }
 
                 if (path_startswith(k, path))
                         continue;
@@ -319,7 +317,6 @@ static int show_extra_pids(const char *controller, const char *path, const char 
 
         show_pid_array(copy, j, prefix, n_columns, true, false, false, flags);
 
-        free(copy);
         return 0;
 }
 
