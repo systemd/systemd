@@ -698,7 +698,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%s\tSource Path: %s\n", prefix, u->source_path);
 
         STRV_FOREACH(j, u->dropin_paths)
-                fprintf(f, "%s\tDropin Path: %s\n", prefix, *j);
+                fprintf(f, "%s\tDropIn Path: %s\n", prefix, *j);
 
         if (u->job_timeout > 0)
                 fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout));
