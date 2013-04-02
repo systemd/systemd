@@ -216,7 +216,7 @@ static int write_data_timezone(void) {
 
 static int write_data_local_rtc(void) {
         int r;
-        char *s, *w;
+        char _cleanup_free_ *s = NULL, *w = NULL;
 
         r = read_full_file("/etc/adjtime", &s, NULL);
         if (r < 0) {
@@ -234,55 +234,42 @@ static int write_data_local_rtc(void) {
                 size_t a, b;
 
                 p = strchr(s, '\n');
-                if (!p) {
-                        free(s);
+                if (!p)
                         return -EIO;
-                }
 
                 p = strchr(p+1, '\n');
-                if (!p) {
-                        free(s);
+                if (!p)
                         return -EIO;
-                }
 
                 p++;
                 e = strchr(p, '\n');
-                if (!e) {
-                        free(s);
+                if (!e)
                         return -EIO;
-                }
 
                 a = p - s;
                 b = strlen(e);
 
                 w = new(char, a + (tz.local_rtc ? 5 : 3) + b + 1);
-                if (!w) {
-                        free(s);
+                if (!w)
                         return -ENOMEM;
-                }
 
                 *(char*) mempcpy(stpcpy(mempcpy(w, s, a), tz.local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
-                        free(w);
-
-                        if (unlink("/etc/adjtime") < 0) {
+                        if (unlink("/etc/adjtime") < 0)
                                 if (errno != ENOENT)
                                         return -errno;
-                        }
 
                         return 0;
                 }
         }
         label_init("/etc");
-        r = write_string_file_atomic_label("/etc/adjtime", w);
-        free(w);
-
-        return r;
+        return write_string_file_atomic_label("/etc/adjtime", w);
 }
 
 static char** get_ntp_services(void) {
-        char **r = NULL, **files, **i;
+        char _cleanup_strv_free_ **r = NULL, **files;
+        char **i;
         int k;
 
         k = conf_files_list(&files, ".list", NULL,
@@ -295,14 +282,14 @@ static char** get_ntp_services(void) {
                 return NULL;
 
         STRV_FOREACH(i, files) {
-                FILE *f;
+                FILE _cleanup_fclose_ *f;
 
                 f = fopen(*i, "re");
                 if (!f)
                         continue;
 
                 for (;;) {
-                        char line[PATH_MAX], *l, **q;
+                        char line[PATH_MAX], *l;
 
                         if (!fgets(line, sizeof(line), f)) {
 
@@ -316,22 +303,16 @@ static char** get_ntp_services(void) {
                         if (l[0] == 0 || l[0] == '#')
                                 continue;
 
-                        q = strv_append(r, l);
-                        if (!q) {
+                        if (strv_extend(&r, l) < 0)
                                 log_oom();
-                                break;
-                        }
-
-                        strv_free(r);
-                        r = q;
+                        return NULL;
                 }
-
-                fclose(f);
         }
 
-        strv_free(files);
+        i = r;
+        r = NULL; /* avoid cleanup */
 
-        return strv_uniq(r);
+        return strv_uniq(i);
 }
 
 static int read_ntp(DBusConnection *bus) {
