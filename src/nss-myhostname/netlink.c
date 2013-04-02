@@ -35,8 +35,6 @@
 #include <stdlib.h>
 
 #include "ifconf.h"
-#include "macro.h"
-#include "util.h"
 
 #define SEQ 4711
 
@@ -172,27 +170,33 @@ int ifconf_acquire_addresses(struct address **_list, unsigned *_n_list) {
         int r, on = 1;
         struct address *list = NULL;
         unsigned n_list = 0;
-        int _cleanup_close_ fd;
+        int fd;
 
         fd = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
         if (fd < 0)
                 return -errno;
 
-        if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on)) < 0)
-                return -errno;
+        if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on)) < 0) {
+                r = -errno;
+                goto finish;
+        }
 
-        if (send(fd, &req, req.hdr.nlmsg_len, 0) < 0)
-                return -errno;
+        if (send(fd, &req, req.hdr.nlmsg_len, 0) < 0) {
+                r = -errno;
+                goto finish;
+        }
 
         while((r = read_reply(fd, &list, &n_list)) == 0)
                 ;
+
+finish:
+        close(fd);
 
         if (r < 0) {
                 free(list);
                 return r;
         }
 
-        assert(n_list == 0 || list);
         qsort(list, n_list, sizeof(struct address), address_compare);
 
         *_list = list;
