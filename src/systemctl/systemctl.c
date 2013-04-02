@@ -2255,6 +2255,7 @@ typedef struct UnitStatusInfo {
         unsigned n_connections;
         bool accept;
 
+        /* Pairs of type, path */
         char **listen;
 
         /* Device */
@@ -2282,8 +2283,19 @@ static void print_status_info(UnitStatusInfo *i) {
                 on_tty() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF |
                 arg_full * OUTPUT_FULL_WIDTH;
+        int maxlen = 8; /* a value that'll suffice most of the time */
+        char **t, **t2;
 
         assert(i);
+
+        STRV_FOREACH_PAIR(t, t2, i->listen)
+                maxlen = MAX(maxlen, (int)(sizeof("Listen") - 1 + strlen(*t)));
+        if (i->accept)
+                maxlen = MAX(maxlen, (int)sizeof("Accept") - 1);
+        if (i->main_pid > 0)
+                maxlen = MAX(maxlen, (int)sizeof("Main PID") - 1);
+        else if (i->control_pid > 0)
+                maxlen = MAX(maxlen, (int)sizeof("Control") - 1);
 
         /* This shows pretty information about a unit. See
          * print_property() for a low-level property printer */
@@ -2296,7 +2308,7 @@ static void print_status_info(UnitStatusInfo *i) {
         printf("\n");
 
         if (i->following)
-                printf("\t  Follow: unit currently follows state of %s\n", i->following);
+                printf(" %*s: unit currently follows state of %s\n", maxlen, "Follow", i->following);
 
         if (streq_ptr(i->load_state, "error")) {
                 on = ansi_highlight_red(true);
@@ -2307,13 +2319,17 @@ static void print_status_info(UnitStatusInfo *i) {
         path = i->source_path ? i->source_path : i->fragment_path;
 
         if (i->load_error)
-                printf("\t  Loaded: %s%s%s (Reason: %s)\n", on, strna(i->load_state), off, i->load_error);
+                printf(" %*s: %s%s%s (Reason: %s)\n",
+                       maxlen, "Loaded", on, strna(i->load_state), off, i->load_error);
         else if (path && i->unit_file_state)
-                printf("\t  Loaded: %s%s%s (%s; %s)\n", on, strna(i->load_state), off, path, i->unit_file_state);
+                printf(" %*s: %s%s%s (%s; %s)\n",
+                       maxlen, "Loaded", on, strna(i->load_state), off, path, i->unit_file_state);
         else if (path)
-                printf("\t  Loaded: %s%s%s (%s)\n", on, strna(i->load_state), off, path);
+                printf(" %*s: %s%s%s (%s)\n",
+                       maxlen, "Loaded", on, strna(i->load_state), off, path);
         else
-                printf("\t  Loaded: %s%s%s\n", on, strna(i->load_state), off);
+                printf(" %*s: %s%s%s\n",
+                       maxlen, "Loaded", on, strna(i->load_state), off);
 
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
 
@@ -2327,16 +2343,11 @@ static void print_status_info(UnitStatusInfo *i) {
                 on = off = "";
 
         if (ss)
-                printf("\t  Active: %s%s (%s)%s",
-                       on,
-                       strna(i->active_state),
-                       ss,
-                       off);
+                printf(" %*s: %s%s (%s)%s",
+                       maxlen, "Active",  on, strna(i->active_state), ss, off);
         else
-                printf("\t  Active: %s%s%s",
-                       on,
-                       strna(i->active_state),
-                       off);
+                printf(" %*s: %s%s%s",
+                       maxlen, "Active", on, strna(i->active_state), off);
 
         if (!isempty(i->result) && !streq(i->result, "success"))
                 printf(" (Result: %s)", i->result);
@@ -2363,57 +2374,37 @@ static void print_status_info(UnitStatusInfo *i) {
                 s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
 
                 if (s1)
-                        printf("\t          start condition failed at %s; %s\n", s2, s1);
+                        printf(" %*s start condition failed at %s; %s\n", maxlen, "", s2, s1);
                 else if (s2)
-                        printf("\t          start condition failed at %s\n", s2);
+                        printf(" %*s start condition failed at %s\n", maxlen, "", s2);
         }
 
         if (i->sysfs_path)
-                printf("\t  Device: %s\n", i->sysfs_path);
+                printf(" %*s: %s\n", maxlen, "Device", i->sysfs_path);
         if (i->where)
-                printf("\t   Where: %s\n", i->where);
+                printf(" %*s: %s\n", maxlen, "Where", i->where);
         if (i->what)
-                printf("\t    What: %s\n", i->what);
+                printf(" %*s: %s\n", maxlen, "What", i->what);
 
-        if (!strv_isempty(i->documentation)) {
-                char **t;
-                bool first = true;
+        STRV_FOREACH(t, i->documentation)
+                printf(" %*s: %s\n", maxlen, t == i->documentation ? "Docs" : "", *t);
 
-                STRV_FOREACH(t, i->documentation) {
-                        if (first) {
-                                printf("\t    Docs: %s\n", *t);
-                                first = false;
-                        } else
-                                printf("\t          %s\n", *t);
-                }
-        }
-
-        if (!strv_isempty(i->listen)) {
-                char **t;
-                bool first = true;
-
-                STRV_FOREACH(t, i->listen) {
-                        if (first) {
-                                printf("\t  Listen: %s\n", *t);
-                                first = false;
-                        } else
-                                printf("\t          %s\n", *t);
-                }
-        }
+        STRV_FOREACH_PAIR(t, t2, i->listen)
+                printf(" %*s%s: %s\n", maxlen - (int)strlen(*t), "Listen", *t, *t2);
 
         if (i->accept)
-                printf("\tAccepted: %u; Connected: %u\n", i->n_accepted, i->n_connections);
+                printf(" %*s: %u; Connected: %u\n", maxlen, "Accepted", i->n_accepted, i->n_connections);
 
         LIST_FOREACH(exec, p, i->exec) {
-                _cleanup_free_ char *t = NULL;
+                _cleanup_free_ char *argv = NULL;
                 bool good;
 
                 /* Only show exited processes here */
                 if (p->code == 0)
                         continue;
 
-                t = strv_join(p->argv, " ");
-                printf("\t Process: %u %s=%s ", p->pid, p->name, strna(t));
+                argv = strv_join(p->argv, " ");
+                printf(" %*s: %u %s=%s ", maxlen, "Process", p->pid, p->name, strna(argv));
 
                 good = is_clean_exit_lsb(p->code, p->status, NULL);
                 if (!good) {
@@ -2449,16 +2440,14 @@ static void print_status_info(UnitStatusInfo *i) {
         }
 
         if (i->main_pid > 0 || i->control_pid > 0) {
-                printf("\t");
-
                 if (i->main_pid > 0) {
-                        printf("Main PID: %u", (unsigned) i->main_pid);
+                        printf(" %*s: %u", maxlen, "Main PID", (unsigned) i->main_pid);
 
                         if (i->running) {
-                                _cleanup_free_ char *t = NULL;
-                                get_process_comm(i->main_pid, &t);
-                                if (t)
-                                        printf(" (%s)", t);
+                                _cleanup_free_ char *comm = NULL;
+                                get_process_comm(i->main_pid, &comm);
+                                if (comm)
+                                        printf(" (%s)", comm);
                         } else if (i->exit_code > 0) {
                                 printf(" (code=%s, ", sigchld_code_to_string(i->exit_code));
 
@@ -2475,32 +2464,32 @@ static void print_status_info(UnitStatusInfo *i) {
                                         printf("signal=%s", signal_to_string(i->exit_status));
                                 printf(")");
                         }
+
+                        if (i->control_pid > 0)
+                                printf(";");
                 }
 
-                if (i->main_pid > 0 && i->control_pid > 0)
-                        printf(";");
-
                 if (i->control_pid > 0) {
-                        _cleanup_free_ char *t = NULL;
+                        _cleanup_free_ char *c = NULL;
 
-                        printf(" Control: %u", (unsigned) i->control_pid);
+                        printf(" %*s: %u", i->main_pid ? 0 : maxlen, "Control", (unsigned) i->control_pid);
 
-                        get_process_comm(i->control_pid, &t);
-                        if (t)
-                                printf(" (%s)", t);
+                        get_process_comm(i->control_pid, &c);
+                        if (c)
+                                printf(" (%s)", c);
                 }
 
                 printf("\n");
         }
 
         if (i->status_text)
-                printf("\t  Status: \"%s\"\n", i->status_text);
+                printf(" %*s: \"%s\"\n", maxlen, "Status", i->status_text);
 
         if (i->default_control_group &&
             (i->main_pid > 0 || i->control_pid > 0 || cg_is_empty_by_spec(i->default_control_group, false) == 0)) {
                 unsigned c;
 
-                printf("\t  CGroup: %s\n", i->default_control_group);
+                printf(" %*s: %s\n", maxlen, "CGroup", i->default_control_group);
 
                 if (arg_transport != TRANSPORT_SSH) {
                         unsigned k = 0;
@@ -2763,18 +2752,14 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                                 if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &type, true) >= 0 &&
                                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, false) >= 0) {
-                                        char * buf, **l;
-                                        if (asprintf(&buf, "%s: %s", type, path) < 0)
-                                                return -ENOMEM;
+                                        int r;
 
-                                        l = strv_append(i->listen, buf);
-                                        free(buf);
-
-                                        if (!l)
-                                                return -ENOMEM;
-
-                                        strv_free(i->listen);
-                                        i->listen = l;
+                                        r = strv_extend(&i->listen, type);
+                                        if (r < 0)
+                                                return r;
+                                        r = strv_extend(&i->listen, path);
+                                        if (r < 0)
+                                                return r;
                                 }
 
                                 dbus_message_iter_next(&sub);
@@ -2790,16 +2775,13 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         dbus_message_iter_recurse(iter, &sub);
                         while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING) {
                                 const char *s;
-                                char **l;
+                                int r;
 
                                 dbus_message_iter_get_basic(&sub, &s);
 
-                                l = strv_append(i->documentation, s);
-                                if (!l)
-                                        return -ENOMEM;
-
-                                strv_free(i->documentation);
-                                i->documentation = l;
+                                r = strv_extend(&i->documentation, s);
+                                if (r < 0)
+                                        return r;
 
                                 dbus_message_iter_next(&sub);
                         }
