@@ -522,6 +522,37 @@ int load_env_file(const char *fname, const char *newline, char ***rl) {
         return 0;
 }
 
+static void write_env_var(FILE *f, const char *v) {
+        const char *p;
+
+        p = strchr(v, '=');
+        if (!p) {
+                /* Fallback */
+                fputs(v, f);
+                fputc('\n', f);
+                return;
+        }
+
+        p++;
+        fwrite(v, 1, p-v, f);
+
+        if (string_has_cc(p) || chars_intersect(p, WHITESPACE "\'\"\\")) {
+                fputc('\"', f);
+
+                for (; *p; p++) {
+                        if (strchr("\'\"\\", *p))
+                                fputc('\\', f);
+
+                        fputc(*p, f);
+                }
+
+                fputc('\"', f);
+        } else
+                fputs(p, f);
+
+        fputc('\n', f);
+}
+
 int write_env_file(const char *fname, char **l) {
         char **i;
         char _cleanup_free_ *p = NULL;
@@ -535,10 +566,8 @@ int write_env_file(const char *fname, char **l) {
         fchmod_umask(fileno(f), 0644);
 
         errno = 0;
-        STRV_FOREACH(i, l) {
-                fputs(*i, f);
-                fputc('\n', f);
-        }
+        STRV_FOREACH(i, l)
+                write_env_var(f, *i);
 
         fflush(f);
 

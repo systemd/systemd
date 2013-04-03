@@ -32,8 +32,9 @@ static void test_parse_env_file(void) {
         int fd, r;
         FILE *f;
         _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL, *six = NULL, *seven = NULL;
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
+        unsigned k;
 
         fd = mkostemp(t, O_CLOEXEC);
         assert_se(fd >= 0);
@@ -90,9 +91,31 @@ static void test_parse_env_file(void) {
         assert_se(r >= 0);
 
         STRV_FOREACH(i, a)
-                log_info("Got: %s", *i);
+                log_info("Got: <%s>", *i);
+
+        assert_se(streq(a[0], "one=BAR"));
+        assert_se(streq(a[1], "two=bar"));
+        assert_se(streq(a[2], "three=333\nxxxx"));
+        assert_se(streq(a[3], "four=44\"44"));
+        assert_se(streq(a[4], "five=55\'55FIVEcinco"));
+        assert_se(streq(a[5], "six=seis sechs sis"));
+        assert_se(streq(a[6], "seven="));
+        assert_se(a[7] == NULL);
+
+        r = write_env_file("/tmp/test-fileio", a);
+        assert_se(r >= 0);
+
+        r = load_env_file("/tmp/test-fileio", NULL, &b);
+        assert_se(r >= 0);
+
+        k = 0;
+        STRV_FOREACH(i, b) {
+                log_info("Got2: <%s>", *i);
+                assert_se(streq(*i, a[k++]));
+        }
 
         unlink(t);
+        unlink("/tmp/test-fileio");
 }
 
 int main(int argc, char *argv[]) {
