@@ -355,7 +355,7 @@ static int write_data_locale(void) {
         int r, p;
         char **l = NULL;
 
-        r = load_env_file("/etc/locale.conf", &l);
+        r = load_env_file("/etc/locale.conf", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -494,7 +494,7 @@ static int write_data_vconsole(void) {
         int r;
         char **l = NULL;
 
-        r = load_env_file("/etc/vconsole.conf", &l);
+        r = load_env_file("/etc/vconsole.conf", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 

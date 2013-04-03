@@ -1741,7 +1741,7 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                         return -EINVAL;
                 }
                 for (n = 0; n < count; n++) {
-                        k = load_env_file(pglob.gl_pathv[n], &p);
+                        k = load_env_file(pglob.gl_pathv[n], NULL, &p);
                         if (k < 0) {
                                 if (ignore)
                                         continue;

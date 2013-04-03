@@ -177,169 +177,348 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
         return 0;
 }
 
-int parse_env_file(
+static int parse_env_file_internal(
                 const char *fname,
-                const char *separator, ...) {
+                const char *newline,
+                int (*push) (const char *key, char *value, void *userdata),
+                void *userdata) {
 
-        int r = 0;
-        char *contents = NULL, *p;
+        _cleanup_free_ char *contents = NULL, *key = NULL;
+        size_t key_alloc = 0, n_key = 0, value_alloc = 0, n_value = 0, last_whitespace = (size_t) -1;
+        char *p, *value = NULL;
+        int r;
+
+        enum {
+                PRE_KEY,
+                KEY,
+                PRE_EQUAL,
+                PRE_VALUE,
+                VALUE,
+                VALUE_ESCAPE,
+                SINGLE_QUOTE_VALUE,
+                SINGLE_QUOTE_VALUE_ESCAPE,
+                DOUBLE_QUOTE_VALUE,
+                DOUBLE_QUOTE_VALUE_ESCAPE,
+                COMMENT,
+                COMMENT_ESCAPE
+        } state = PRE_KEY;
 
         assert(fname);
-        assert(separator);
+        assert(newline);
 
         r = read_full_file(fname, &contents, NULL);
         if (r < 0)
                 return r;
 
-        p = contents;
-        for (;;) {
-                const char *key = NULL;
+        for (p = contents; *p; p++) {
+                char c = *p;
 
-                p += strspn(p, separator);
-                p += strspn(p, WHITESPACE);
+                switch (state) {
 
-                if (!*p)
-                        break;
-
-                if (!strchr(COMMENTS, *p)) {
-                        va_list ap;
-                        char **value;
-
-                        va_start(ap, separator);
-                        while ((key = va_arg(ap, char *))) {
-                                size_t n;
-                                char *v;
-
-                                value = va_arg(ap, char **);
-
-                                n = strlen(key);
-                                if (!strneq(p, key, n) ||
-                                    p[n] != '=')
-                                        continue;
-
-                                p += n + 1;
-                                n = strcspn(p, separator);
-
-                                if (n >= 2 &&
-                                    strchr(QUOTES, p[0]) &&
-                                    p[n-1] == p[0])
-                                        v = strndup(p+1, n-2);
-                                else
-                                        v = strndup(p, n);
-
-                                if (!v) {
+                case PRE_KEY:
+                        if (strchr(COMMENTS, c))
+                                state = COMMENT;
+                        else if (!strchr(WHITESPACE, c)) {
+                                state = KEY;
+                                if (!greedy_realloc((void**) &key, &key_alloc, n_key+2)) {
                                         r = -ENOMEM;
-                                        va_end(ap);
                                         goto fail;
                                 }
 
-                                if (v[0] == '\0') {
-                                        /* return empty value strings as NULL */
-                                        free(v);
-                                        v = NULL;
+                                key[n_key++] = c;
+                        }
+                        break;
+
+                case KEY:
+                        if (strchr(newline, c)) {
+                                state = PRE_KEY;
+                                n_key = 0;
+                        } else if (strchr(WHITESPACE, c))
+                                state = PRE_EQUAL;
+                        else if (c == '=')
+                                state = PRE_VALUE;
+                        else {
+                                if (!greedy_realloc((void**) &key, &key_alloc, n_key+2)) {
+                                        r = -ENOMEM;
+                                        goto fail;
                                 }
 
-                                free(*value);
-                                *value = v;
-
-                                p += n;
-
-                                r ++;
-                                break;
+                                key[n_key++] = c;
                         }
-                        va_end(ap);
-                }
 
-                if (!key)
-                        p += strcspn(p, separator);
+                        break;
+
+                case PRE_EQUAL:
+                        if (strchr(newline, c)) {
+                                state = PRE_KEY;
+                                n_key = 0;
+                        } else if (c == '=')
+                                state = PRE_VALUE;
+                        else if (!strchr(WHITESPACE, c)) {
+                                n_key = 0;
+                                state = COMMENT;
+                        }
+
+                        break;
+
+                case PRE_VALUE:
+                        if (strchr(newline, c)) {
+                                state = PRE_KEY;
+                                key[n_key] = 0;
+
+                                if (value)
+                                        value[n_value] = 0;
+
+                                r = push(key, value, userdata);
+                                if (r < 0)
+                                        goto fail;
+
+                                n_key = 0;
+                                value = NULL;
+                                value_alloc = n_value = 0;
+                        } else if (c == '\'')
+                                state = SINGLE_QUOTE_VALUE;
+                        else if (c == '\"')
+                                state = DOUBLE_QUOTE_VALUE;
+                        else if (c == '\\')
+                                state = VALUE_ESCAPE;
+                        else if (!strchr(WHITESPACE, c)) {
+                                state = VALUE;
+
+                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                value[n_value++] = c;
+                        }
+
+                        break;
+
+                case VALUE:
+                        if (strchr(newline, c)) {
+                                state = PRE_KEY;
+                                key[n_key] = 0;
+
+                                if (value)
+                                        value[n_value] = 0;
+
+                                /* Chomp off trailing whitespace */
+                                if (last_whitespace != (size_t) -1)
+                                        value[last_whitespace] = 0;
+
+                                r = push(key, value, userdata);
+                                if (r < 0)
+                                        goto fail;
+
+                                n_key = 0;
+                                value = NULL;
+                                value_alloc = n_value = 0;
+                        } else if (c == '\\') {
+                                state = VALUE_ESCAPE;
+                                last_whitespace = (size_t) -1;
+                        } else {
+                                if (!strchr(WHITESPACE, c))
+                                        last_whitespace = (size_t) -1;
+                                else if (last_whitespace == (size_t) -1)
+                                        last_whitespace = n_value;
+
+                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                value[n_value++] = c;
+                        }
+
+                        break;
+
+                case VALUE_ESCAPE:
+                        state = VALUE;
+
+                        if (!strchr(newline, c)) {
+                                /* Escaped newlines we eat up entirely */
+                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                value[n_value++] = c;
+                        }
+                        break;
+
+                case SINGLE_QUOTE_VALUE:
+                        if (c == '\'')
+                                state = PRE_VALUE;
+                        else if (c == '\\')
+                                state = SINGLE_QUOTE_VALUE_ESCAPE;
+                        else {
+                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                value[n_value++] = c;
+                        }
+
+                        break;
+
+                case SINGLE_QUOTE_VALUE_ESCAPE:
+                        state = SINGLE_QUOTE_VALUE;
+
+                        if (!strchr(newline, c)) {
+                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                value[n_value++] = c;
+                        }
+                        break;
+
+                case DOUBLE_QUOTE_VALUE:
+                        if (c == '\"')
+                                state = PRE_VALUE;
+                        else if (c == '\\')
+                                state = DOUBLE_QUOTE_VALUE_ESCAPE;
+                        else {
+                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                value[n_value++] = c;
+                        }
+
+                        break;
+
+                case DOUBLE_QUOTE_VALUE_ESCAPE:
+                        state = DOUBLE_QUOTE_VALUE;
+
+                        if (!strchr(newline, c)) {
+                                if (!greedy_realloc((void**) &value, &value_alloc, n_value+2)) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                value[n_value++] = c;
+                        }
+                        break;
+
+                case COMMENT:
+                        if (c == '\\')
+                                state = COMMENT_ESCAPE;
+                        else if (strchr(newline, c))
+                                state = PRE_KEY;
+                        break;
+
+                case COMMENT_ESCAPE:
+                        state = COMMENT;
+                        break;
+                }
         }
 
+        if (state == PRE_VALUE ||
+            state == VALUE ||
+            state == VALUE_ESCAPE ||
+            state == SINGLE_QUOTE_VALUE ||
+            state == SINGLE_QUOTE_VALUE_ESCAPE ||
+            state == DOUBLE_QUOTE_VALUE ||
+            state == DOUBLE_QUOTE_VALUE_ESCAPE) {
+
+                key[n_key] = 0;
+
+                if (value)
+                        value[n_value] = 0;
+
+                r = push(key, value, userdata);
+                if (r < 0)
+                        goto fail;
+        }
+
+        return 0;
+
 fail:
-        free(contents);
+        free(value);
         return r;
 }
 
-int load_env_file(const char *fname, char ***rl) {
+static int parse_env_file_push(const char *key, char *value, void *userdata) {
+        const char *k;
+        va_list* ap = (va_list*) userdata;
+        va_list aq;
 
-        _cleanup_fclose_ FILE *f;
-        _cleanup_strv_free_ char **m = NULL;
-        _cleanup_free_ char *c = NULL;
+        va_copy(aq, *ap);
 
-        assert(fname);
-        assert(rl);
+        while ((k = va_arg(aq, const char *))) {
+                char **v;
 
-        /* This reads an environment file, but will not complain about
-         * any invalid assignments, that needs to be done by the
-         * caller */
+                v = va_arg(aq, char **);
 
-        f = fopen(fname, "re");
-        if (!f)
-                return -errno;
-
-        while (!feof(f)) {
-                char l[LINE_MAX], *p, *cs, *b;
-
-                if (!fgets(l, sizeof(l), f)) {
-                        if (ferror(f))
-                                return -errno;
-
-                        /* The previous line was a continuation line?
-                         * Let's process it now, before we leave the
-                         * loop */
-                        if (c)
-                                goto process;
-
-                        break;
+                if (streq(key, k)) {
+                        va_end(aq);
+                        free(*v);
+                        *v = value;
+                        return 1;
                 }
+        }
 
-                /* Is this a continuation line? If so, just append
-                 * this to c, and go to next line right-away */
-                cs = endswith(l, "\\\n");
-                if (cs) {
-                        *cs = '\0';
-                        b = strappend(c, l);
-                        if (!b)
-                                return -ENOMEM;
+        va_end(aq);
 
-                        free(c);
-                        c = b;
-                        continue;
-                }
+        free(value);
+        return 0;
+}
 
-                /* If the previous line was a continuation line,
-                 * append the current line to it */
-                if (c) {
-                        b = strappend(c, l);
-                        if (!b)
-                                return -ENOMEM;
+int parse_env_file(
+                const char *fname,
+                const char *newline, ...) {
 
-                        free(c);
-                        c = b;
-                }
+        va_list ap;
+        int r;
 
-        process:
-                p = strstrip(c ? c : l);
+        if (!newline)
+                newline = NEWLINE;
 
-                if (*p && !strchr(COMMENTS, *p)) {
-                        _cleanup_free_ char *u;
-                        int k;
+        va_start(ap, newline);
+        r = parse_env_file_internal(fname, newline, parse_env_file_push, &ap);
+        va_end(ap);
 
-                        u = normalize_env_assignment(p);
-                        if (!u)
-                                return -ENOMEM;
+        return r;
+}
 
-                        k = strv_extend(&m, u);
-                        if (k < 0)
-                                return -ENOMEM;
-                }
+static int load_env_file_push(const char *key, char *value, void *userdata) {
+        char ***m = userdata;
+        char *p;
+        int r;
 
-                free(c);
-                c = NULL;
+        p = strjoin(key, "=", strempty(value), NULL);
+        if (!p)
+                return -ENOMEM;
+
+        r = strv_push(m, p);
+        if (r < 0) {
+                free(p);
+                return r;
+        }
+
+        free(value);
+        return 0;
+}
+
+int load_env_file(const char *fname, const char *newline, char ***rl) {
+        char **m = NULL;
+        int r;
+
+        if (!newline)
+                newline = NEWLINE;
+
+        r = parse_env_file_internal(fname, newline, load_env_file_push, &m);
+        if (r < 0) {
+                strv_free(m);
+                return r;
         }
 
         *rl = m;
-        m = NULL;
-
         return 0;
 }
 

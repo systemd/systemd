@@ -303,7 +303,7 @@ static int write_data_other(void) {
         char **l = NULL;
         int r, p;
 
-        r = load_env_file("/etc/machine-info", &l);
+        r = load_env_file("/etc/machine-info", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 

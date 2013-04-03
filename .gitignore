@@ -95,6 +95,7 @@
 /test-efivars
 /test-engine
 /test-env-replace
+/test-fileio
 /test-hostname
 /test-id128
 /test-inhibit

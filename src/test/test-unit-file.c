@@ -180,19 +180,19 @@ static void test_config_parse_exec(void) {
         exec_command_free_list(c);
 }
 
-#define env_file_1 \
-        "a\n"      \
-        "b\\\n"    \
-        "c\n"      \
-        "d\\\n"    \
-        "e\\\n"    \
-        "f\n"      \
-        "g\\ \n"   \
-        "h\n"      \
-        "i\\"
+#define env_file_1                              \
+        "a=a\n"                                 \
+        "b=b\\\n"                               \
+        "c\n"                                   \
+        "d=d\\\n"                               \
+        "e\\\n"                                 \
+        "f\n"                                   \
+        "g=g\\ \n"                              \
+        "h=h\n"                                 \
+        "i=i\\"
 
-#define env_file_2 \
-        "a\\\n"
+#define env_file_2                              \
+        "a=a\\\n"
 
 #define env_file_3 \
         "#SPAMD_ARGS=\"-d --socketpath=/var/lib/bulwark/spamd \\\n" \
@@ -208,14 +208,14 @@ static void test_load_env_file_1(void) {
         assert(fd >= 0);
         assert_se(write(fd, env_file_1, sizeof(env_file_1)) == sizeof(env_file_1));
 
-        r = load_env_file(name, &data);
+        r = load_env_file(name, NULL, &data);
         assert(r == 0);
-        assert(streq(data[0], "a"));
-        assert(streq(data[1], "bc"));
-        assert(streq(data[2], "def"));
-        assert(streq(data[3], "g\\"));
-        assert(streq(data[4], "h"));
-        assert(streq(data[5], "i\\"));
+        assert(streq(data[0], "a=a"));
+        assert(streq(data[1], "b=bc"));
+        assert(streq(data[2], "d=def"));
+        assert(streq(data[3], "g=g "));
+        assert(streq(data[4], "h=h"));
+        assert(streq(data[5], "i=i"));
         assert(data[6] == NULL);
         unlink(name);
 }
@@ -229,9 +229,9 @@ static void test_load_env_file_2(void) {
         assert(fd >= 0);
         assert_se(write(fd, env_file_2, sizeof(env_file_2)) == sizeof(env_file_2));
 
-        r = load_env_file(name, &data);
+        r = load_env_file(name, NULL, &data);
         assert(r == 0);
-        assert(streq(data[0], "a"));
+        assert(streq(data[0], "a=a"));
         assert(data[1] == NULL);
         unlink(name);
 }
@@ -245,7 +245,7 @@ static void test_load_env_file_3(void) {
         assert(fd >= 0);
         assert_se(write(fd, env_file_3, sizeof(env_file_3)) == sizeof(env_file_3));
 
-        r = load_env_file(name, &data);
+        r = load_env_file(name, NULL, &data);
         assert(r == 0);
         assert(data == NULL);
         unlink(name);
@@ -272,7 +272,7 @@ static void test_install_printf(void) {
         assert_se((host = gethostname_malloc()));
 
 #define expect(src, pattern, result)                                    \
-        {                                                               \
+        do {                                                            \
                 char _cleanup_free_ *t = install_full_printf(&src, pattern); \
                 char _cleanup_free_                                     \
                         *d1 = strdup(i.name),                           \
@@ -289,7 +289,7 @@ static void test_install_printf(void) {
                 strcpy(i.name, d1);                                     \
                 strcpy(i.path, d2);                                     \
                 strcpy(i.user, d3);                                     \
-        }
+        } while(false)
 
         assert_se(setenv("USER", "root", 1) == 0);
 
