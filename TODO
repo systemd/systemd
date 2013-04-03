@@ -74,8 +74,6 @@ Features:
 
 * teach ConditionKernelCommandLine= globs or regexes (in order to match foobar={no,0,off})
 
-* hostnamectl: when a passed pretty hostname also qualifies as low-level name, then only set low-level name, and unset the pretty hostname
-
 * we should log capabilities too
 
 * Support SO_REUSEPORT with socket activation:
@@ -128,8 +126,6 @@ Features:
 
 * man: add a link to socket activation blog from systemd.socket(5)
 
-* systemctl status: show drop-in snippets for service files in addition to service file path themesevles.
-
 * man: add more examples to man pages
 
 * man: maybe sort directives in man pages, and take sections from --help and apply them to man too
@@ -148,8 +144,6 @@ Features:
   file name. i.e. foobar.de_DE.catalog would set the default entry
   name for the entries to de_DE if they aren't explicitly suffixed
   individually.
-
-* figure out what we do about hostnames/fqdn in hostnamectl/hostnamed
 
 * use "log level" rather than "log priority" everywhere
 
