@@ -231,10 +231,12 @@ int efi_get_boot_option(
         if (title_size > l - offsetof(struct boot_option, title))
                 return -EINVAL;
 
-        s = utf16_to_utf8(header->title, title_size);
-        if (!s) {
-                err = -ENOMEM;
-                goto err;
+        if (title) {
+                s = utf16_to_utf8(header->title, title_size);
+                if (!s) {
+                        err = -ENOMEM;
+                        goto err;
+                }
         }
 
         if (header->path_len > 0) {
@@ -270,12 +272,13 @@ int efi_get_boot_option(
                                 if (dpath->drive.signature_type != 0x02)
                                         continue;
 
-                                efi_guid_to_id128(dpath->drive.signature, &p_uuid);
+                                if (part_uuid)
+                                        efi_guid_to_id128(dpath->drive.signature, &p_uuid);
                                 continue;
                         }
 
                         /* Sub-Type 4 – File Path */
-                        if (dpath->sub_type == 0x04) {
+                        if (dpath->sub_type == 0x04 && !p && path) {
                                 p = utf16_to_utf8(dpath->path, dpath->length-4);
                                 continue;
                         }
