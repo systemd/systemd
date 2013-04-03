@@ -170,6 +170,9 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
         for (j = 0, p = buf; j < 16; j++) {
                 int a, b;
 
+                if (p >= buf + k)
+                        return -EIO;
+
                 if (*p == '-')
                         p++;
 
