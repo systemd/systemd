@@ -176,11 +176,11 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                        const char *key, const char *value) {
         size_t i = 0;
         int err = 0;
+        struct trie_node _cleanup_free_ *child = NULL;
 
         for (;;) {
                 size_t p;
                 uint8_t c;
-                struct trie_node *child;
 
                 for (p = 0; (c = trie->strings->buf[node->prefix_off + p]); p++) {
                         char *s;
@@ -254,6 +254,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                 }
 
                 node = child;
+                child = NULL; /* avoid cleanup */
                 i++;
         }
 out:
