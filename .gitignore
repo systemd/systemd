@@ -123,6 +123,7 @@
 /test-strbuf
 /test-strv
 /test-strxcpyx
+/test-time
 /test-udev
 /test-unit-file
 /test-unit-name

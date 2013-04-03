@@ -22,6 +22,7 @@
 ***/
 
 #include <stdio.h>
+#include <inttypes.h>
 
 typedef uint64_t usec_t;
 typedef uint64_t nsec_t;

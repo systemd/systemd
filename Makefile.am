@@ -1088,7 +1088,8 @@ noinst_tests += \
 	test-strip-tab-ansi \
 	test-cgroup-util \
 	test-prioq \
-	test-fileio
+	test-fileio \
+	test-time
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1195,6 +1196,15 @@ test_fileio_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_fileio_LDADD = \
+	libsystemd-core.la
+
+test_time_SOURCES = \
+	src/test/test-time.c
+
+test_time_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_time_LDADD = \
 	libsystemd-core.la
 
 test_log_SOURCES = \

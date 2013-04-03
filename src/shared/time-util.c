@@ -534,15 +534,25 @@ int parse_sec(const char *t, usec_t *usec) {
 
         const char *p;
         usec_t r = 0;
+        bool something = false;
 
         assert(t);
         assert(usec);
 
         p = t;
-        do {
-                long long l;
+        for (;;) {
+                long long l, z = 0;
                 char *e;
-                unsigned i;
+                unsigned i, n = 0;
+
+                p += strspn(p, WHITESPACE);
+
+                if (*p == 0) {
+                        if (!something)
+                                return -EINVAL;
+
+                        break;
+                }
 
                 errno = 0;
                 l = strtoll(p, &e, 10);
@@ -553,22 +563,45 @@ int parse_sec(const char *t, usec_t *usec) {
                 if (l < 0)
                         return -ERANGE;
 
-                if (e == p)
+                if (*e == '.') {
+                        char *b = e + 1;
+
+                        errno = 0;
+                        z = strtoll(b, &e, 10);
+                        if (errno > 0)
+                                return -errno;
+
+                        if (z < 0)
+                                return -ERANGE;
+
+                        if (e == b)
+                                return -EINVAL;
+
+                        n = e - b;
+
+                } else if (e == p)
                         return -EINVAL;
 
                 e += strspn(e, WHITESPACE);
 
                 for (i = 0; i < ELEMENTSOF(table); i++)
                         if (startswith(e, table[i].suffix)) {
-                                r += (usec_t) l * table[i].usec;
+                                usec_t k = (usec_t) z * table[i].usec;
+
+                                for (; n > 0; n--)
+                                        k /= 10;
+
+                                r += (usec_t) l * table[i].usec + k;
                                 p = e + strlen(table[i].suffix);
+
+                                something = true;
                                 break;
                         }
 
                 if (i >= ELEMENTSOF(table))
                         return -EINVAL;
 
-        } while (*p != 0);
+        }
 
         *usec = r;
 
@@ -614,15 +647,25 @@ int parse_nsec(const char *t, nsec_t *nsec) {
 
         const char *p;
         nsec_t r = 0;
+        bool something = false;
 
         assert(t);
         assert(nsec);
 
         p = t;
-        do {
-                long long l;
+        for (;;) {
+                long long l, z = 0;
                 char *e;
-                unsigned i;
+                unsigned i, n = 0;
+
+                p += strspn(p, WHITESPACE);
+
+                if (*p == 0) {
+                        if (!something)
+                                return -EINVAL;
+
+                        break;
+                }
 
                 errno = 0;
                 l = strtoll(p, &e, 10);
@@ -633,22 +676,45 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                 if (l < 0)
                         return -ERANGE;
 
-                if (e == p)
+                if (*e == '.') {
+                        char *b = e + 1;
+
+                        errno = 0;
+                        z = strtoll(b, &e, 10);
+                        if (errno > 0)
+                                return -errno;
+
+                        if (z < 0)
+                                return -ERANGE;
+
+                        if (e == b)
+                                return -EINVAL;
+
+                        n = e - b;
+
+                } else if (e == p)
                         return -EINVAL;
 
                 e += strspn(e, WHITESPACE);
 
                 for (i = 0; i < ELEMENTSOF(table); i++)
                         if (startswith(e, table[i].suffix)) {
-                                r += (nsec_t) l * table[i].nsec;
+                                nsec_t k = (nsec_t) z * table[i].nsec;
+
+                                for (; n > 0; n--)
+                                        k /= 10;
+
+                                r += (nsec_t) l * table[i].nsec + k;
                                 p = e + strlen(table[i].suffix);
+
+                                something = true;
                                 break;
                         }
 
                 if (i >= ELEMENTSOF(table))
                         return -EINVAL;
 
-        } while (*p != 0);
+        }
 
         *nsec = r;
 
