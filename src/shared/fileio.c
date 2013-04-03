@@ -35,9 +35,7 @@ int write_string_file(const char *fn, const char *line) {
                 return -errno;
 
         errno = 0;
-        if (fputs(line, f) < 0)
-                return errno ? -errno : -EIO;
-
+        fputs(line, f);
         if (!endswith(line, "\n"))
                 fputc('\n', f);
 
@@ -64,11 +62,7 @@ int write_string_file_atomic(const char *fn, const char *line) {
         fchmod_umask(fileno(f), 0644);
 
         errno = 0;
-        if (fputs(line, f) < 0) {
-                r = -errno;
-                goto finish;
-        }
-
+        fputs(line, f);
         if (!endswith(line, "\n"))
                 fputc('\n', f);
 
@@ -83,7 +77,6 @@ int write_string_file_atomic(const char *fn, const char *line) {
                         r = 0;
         }
 
-finish:
         if (r < 0)
                 unlink(p);
 
@@ -571,12 +564,9 @@ int write_env_file(const char *fname, char **l) {
 
         fflush(f);
 
-        if (ferror(f)) {
-                if (errno > 0)
-                        r = -errno;
-                else
-                        r = -EIO;
-        } else {
+        if (ferror(f))
+                r = errno ? -errno : -EIO;
+        else {
                 if (rename(p, fname) < 0)
                         r = -errno;
                 else
