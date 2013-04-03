@@ -189,7 +189,7 @@ static int killall(int sig, Set *pids) {
 
 void broadcast_signal(int sig, bool wait_for_exit) {
         sigset_t mask, oldmask;
-        Set *pids;
+        Set *pids = NULL;
 
         if (wait_for_exit)
                 pids = set_new(trivial_hash_func, trivial_compare_func);
