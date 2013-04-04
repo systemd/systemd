@@ -331,19 +331,19 @@ static int pretty_boot_time(DBusConnection *bus, char **_buf) {
 
         size = strpcpyf(&ptr, size, "Startup finished in ");
         if (t->firmware_time)
-                size = strpcpyf(&ptr, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), t->firmware_time - t->loader_time));
+                size = strpcpyf(&ptr, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), t->firmware_time - t->loader_time, USEC_PER_MSEC));
         if (t->loader_time)
-                size = strpcpyf(&ptr, size, "%s (loader) + ", format_timespan(ts, sizeof(ts), t->loader_time));
+                size = strpcpyf(&ptr, size, "%s (loader) + ", format_timespan(ts, sizeof(ts), t->loader_time, USEC_PER_MSEC));
         if (t->kernel_time)
-                size = strpcpyf(&ptr, size, "%s (kernel) + ", format_timespan(ts, sizeof(ts), t->kernel_done_time));
+                size = strpcpyf(&ptr, size, "%s (kernel) + ", format_timespan(ts, sizeof(ts), t->kernel_done_time, USEC_PER_MSEC));
         if (t->initrd_time > 0)
-                size = strpcpyf(&ptr, size, "%s (initrd) + ", format_timespan(ts, sizeof(ts), t->userspace_time - t->initrd_time));
+                size = strpcpyf(&ptr, size, "%s (initrd) + ", format_timespan(ts, sizeof(ts), t->userspace_time - t->initrd_time, USEC_PER_MSEC));
 
-        size = strpcpyf(&ptr, size, "%s (userspace) ", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time));
+        size = strpcpyf(&ptr, size, "%s (userspace) ", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
         if (t->kernel_time > 0)
-                size = strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time));
+                size = strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
         else
-                size = strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time));
+                size = strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
 
         ptr = strdup(buf);
         if (!ptr)
@@ -530,7 +530,7 @@ static int analyze_plot(DBusConnection *bus) {
                 b = u->ixt * SCALE_X > width * 2 / 3;
                 if (u->time)
                         svg_text(b, u->ixt, y, "%s (%s)",
-                                 u->name, format_timespan(ts, sizeof(ts), u->time));
+                                 u->name, format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC));
                 else
                         svg_text(b, u->ixt, y, "%s", u->name);
                 y++;
@@ -559,7 +559,7 @@ static int analyze_blame(DBusConnection *bus) {
                 char ts[FORMAT_TIMESPAN_MAX];
 
                 if (times[i].time > 0)
-                        printf("%16s %s\n", format_timespan(ts, sizeof(ts), times[i].time), times[i].name);
+                        printf("%16s %s\n", format_timespan(ts, sizeof(ts), times[i].time, USEC_PER_MSEC), times[i].name);
         }
 
         free_unit_times(times, (unsigned) n);

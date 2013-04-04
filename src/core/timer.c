@@ -177,7 +177,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                                 "%s%s: %s\n",
                                 prefix,
                                 timer_base_to_string(v->base),
-                                strna(format_timespan(timespan1, sizeof(timespan1), v->value)));
+                                strna(format_timespan(timespan1, sizeof(timespan1), v->value, 0)));
                 }
         }
 }
@@ -330,7 +330,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                 log_debug_unit(UNIT(t)->id,
                                "%s: Monotonic timer elapses in %s.",
                                UNIT(t)->id,
-                               format_timespan(buf, sizeof(buf), t->next_elapse_monotonic > ts.monotonic ? t->next_elapse_monotonic - ts.monotonic : 0));
+                               format_timespan(buf, sizeof(buf), t->next_elapse_monotonic > ts.monotonic ? t->next_elapse_monotonic - ts.monotonic : 0, 0));
 
                 r = unit_watch_timer(UNIT(t), CLOCK_MONOTONIC, false, t->next_elapse_monotonic, &t->monotonic_watch);
                 if (r < 0)

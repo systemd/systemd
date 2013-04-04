@@ -2944,8 +2944,8 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                                         printf("%s={ value=%s ; next_elapse=%s }\n",
                                                base,
-                                               format_timespan(timespan1, sizeof(timespan1), value),
-                                               format_timespan(timespan2, sizeof(timespan2), next_elapse));
+                                               format_timespan(timespan1, sizeof(timespan1), value, 0),
+                                               format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
                                 }
 
                                 dbus_message_iter_next(&sub);

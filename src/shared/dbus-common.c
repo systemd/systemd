@@ -1097,7 +1097,7 @@ int generic_print_property(const char *name, DBusMessageIter *iter, bool all) {
                 } else if (strstr(name, "USec")) {
                         char timespan[FORMAT_TIMESPAN_MAX];
 
-                        printf("%s=%s\n", name, format_timespan(timespan, sizeof(timespan), u));
+                        printf("%s=%s\n", name, format_timespan(timespan, sizeof(timespan), u, 0));
                 } else
                         printf("%s=%llu\n", name, (unsigned long long) u);
 

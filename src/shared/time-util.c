@@ -225,7 +225,7 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         return buf;
 }
 
-char *format_timespan(char *buf, size_t l, usec_t t) {
+char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         static const struct {
                 const char *suffix;
                 usec_t usec;
@@ -243,6 +243,7 @@ char *format_timespan(char *buf, size_t l, usec_t t) {
 
         unsigned i;
         char *p = buf;
+        bool something = false;
 
         assert(buf);
         assert(l > 0);
@@ -250,17 +251,23 @@ char *format_timespan(char *buf, size_t l, usec_t t) {
         if (t == (usec_t) -1)
                 return NULL;
 
-        if (t == 0) {
-                snprintf(p, l, "0");
-                p[l-1] = 0;
-                return p;
-        }
-
         /* The result of this function can be parsed with parse_sec */
 
         for (i = 0; i < ELEMENTSOF(table); i++) {
                 int k;
                 size_t n;
+                bool done = false;
+                usec_t a, b;
+
+                if (t == 0 || t < accuracy) {
+                        if (!something) {
+                                snprintf(p, l, "0");
+                                p[l-1] = 0;
+                                return p;
+                        }
+
+                        break;
+                }
 
                 if (t < table[i].usec)
                         continue;
@@ -268,13 +275,55 @@ char *format_timespan(char *buf, size_t l, usec_t t) {
                 if (l <= 1)
                         break;
 
-                k = snprintf(p, l, "%s%llu%s", p > buf ? " " : "", (unsigned long long) (t / table[i].usec), table[i].suffix);
+                a = t / table[i].usec;
+                b = t % table[i].usec;
+
+                /* Let's see if we should shows this in dot notation */
+                if (t < USEC_PER_MINUTE && b > 0) {
+                        usec_t cc;
+                        int j;
+
+                        j = 0;
+                        for (cc = table[i].usec; cc > 1; cc /= 10)
+                                j++;
+
+                        for (cc = accuracy; cc > 1; cc /= 10) {
+                                b /= 10;
+                                j--;
+                        }
+
+                        if (j > 0) {
+                                k = snprintf(p, l,
+                                             "%s%llu.%0*llu%s",
+                                             p > buf ? " " : "",
+                                             (unsigned long long) a,
+                                             j,
+                                             (unsigned long long) b,
+                                             table[i].suffix);
+
+                                t = 0;
+                                done = true;
+                        }
+                }
+
+                /* No? Then let's show it normally */
+                if (!done) {
+                        k = snprintf(p, l,
+                                     "%s%llu%s",
+                                     p > buf ? " " : "",
+                                     (unsigned long long) a,
+                                     table[i].suffix);
+
+                        t = b;
+                }
+
                 n = MIN((size_t) k, l);
 
                 l -= n;
                 p += n;
 
-                t %= table[i].usec;
+
+                something = true;
         }
 
         *p = 0;

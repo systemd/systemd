@@ -701,7 +701,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%s\tDropIn Path: %s\n", prefix, *j);
 
         if (u->job_timeout > 0)
-                fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout));
+                fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->job_timeout, 0));
 
         condition_dump_list(u->conditions, f, prefix);
 

@@ -423,7 +423,7 @@ int mount_setup(bool loaded_policy) {
                 after_relabel = now(CLOCK_MONOTONIC);
 
                 log_info("Relabelled /dev and /run in %s.",
-                         format_timespan(timespan, sizeof(timespan), after_relabel - before_relabel));
+                         format_timespan(timespan, sizeof(timespan), after_relabel - before_relabel, 0));
         }
 
         /* Create a few default symlinks, which are normally created

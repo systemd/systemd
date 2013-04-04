@@ -2415,10 +2415,10 @@ void manager_check_finished(Manager *m) {
                                            "INITRD_USEC=%llu", (unsigned long long) initrd_usec,
                                            "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
                                            "MESSAGE=Startup finished in %s (kernel) + %s (initrd) + %s (userspace) = %s.",
-                                           format_timespan(kernel, sizeof(kernel), kernel_usec),
-                                           format_timespan(initrd, sizeof(initrd), initrd_usec),
-                                           format_timespan(userspace, sizeof(userspace), userspace_usec),
-                                           format_timespan(sum, sizeof(sum), total_usec),
+                                           format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
+                                           format_timespan(initrd, sizeof(initrd), initrd_usec, USEC_PER_MSEC),
+                                           format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
+                                           format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC),
                                            NULL);
                 } else {
                         kernel_usec = m->userspace_timestamp.monotonic - m->kernel_timestamp.monotonic;
@@ -2430,9 +2430,9 @@ void manager_check_finished(Manager *m) {
                                            "KERNEL_USEC=%llu", (unsigned long long) kernel_usec,
                                            "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
                                            "MESSAGE=Startup finished in %s (kernel) + %s (userspace) = %s.",
-                                           format_timespan(kernel, sizeof(kernel), kernel_usec),
-                                           format_timespan(userspace, sizeof(userspace), userspace_usec),
-                                           format_timespan(sum, sizeof(sum), total_usec),
+                                           format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
+                                           format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
+                                           format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC),
                                            NULL);
                 }
         } else {
@@ -2444,7 +2444,7 @@ void manager_check_finished(Manager *m) {
                                    MESSAGE_ID(SD_MESSAGE_STARTUP_FINISHED),
                                    "USERSPACE_USEC=%llu", (unsigned long long) userspace_usec,
                                    "MESSAGE=Startup finished in %s.",
-                                   format_timespan(sum, sizeof(sum), total_usec),
+                                   format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC),
                                    NULL);
         }
 
@@ -2452,7 +2452,7 @@ void manager_check_finished(Manager *m) {
 
         sd_notifyf(false,
                    "READY=1\nSTATUS=Startup finished in %s.",
-                   format_timespan(sum, sizeof(sum), total_usec));
+                   format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC));
 }
 
 static int create_generator_dir(Manager *m, char **generator, const char *name) {

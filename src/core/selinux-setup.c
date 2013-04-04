@@ -101,7 +101,7 @@ int selinux_setup(bool *loaded_policy) {
                after_load = now(CLOCK_MONOTONIC);
 
                log_info("Successfully loaded SELinux policy in %s.",
-                         format_timespan(timespan, sizeof(timespan), after_load - before_load));
+                        format_timespan(timespan, sizeof(timespan), after_load - before_load, 0));
 
                *loaded_policy = true;
 

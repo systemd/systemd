@@ -60,7 +60,7 @@ static int update_timeout(void) {
                 }
 
                 watchdog_timeout = (usec_t) sec * USEC_PER_SEC;
-                log_info("Set hardware watchdog to %s.", format_timespan(buf, sizeof(buf), watchdog_timeout));
+                log_info("Set hardware watchdog to %s.", format_timespan(buf, sizeof(buf), watchdog_timeout, 0));
 
                 flags = WDIOS_ENABLECARD;
                 r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);

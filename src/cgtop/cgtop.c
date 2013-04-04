@@ -803,7 +803,7 @@ int main(int argc, char *argv[]) {
                         else
                                 arg_delay += USEC_PER_SEC;
 
-                        fprintf(stdout, "\nIncreased delay to %s.", format_timespan(h, sizeof(h), arg_delay));
+                        fprintf(stdout, "\nIncreased delay to %s.", format_timespan(h, sizeof(h), arg_delay, 0));
                         fflush(stdout);
                         sleep(1);
                         break;
@@ -816,7 +816,7 @@ int main(int argc, char *argv[]) {
                         else
                                 arg_delay -= USEC_PER_SEC;
 
-                        fprintf(stdout, "\nDecreased delay to %s.", format_timespan(h, sizeof(h), arg_delay));
+                        fprintf(stdout, "\nDecreased delay to %s.", format_timespan(h, sizeof(h), arg_delay, 0));
                         fflush(stdout);
                         sleep(1);
                         break;

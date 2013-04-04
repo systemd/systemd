@@ -1752,7 +1752,7 @@ int main(int argc, char *argv[]) {
                 after_startup = now(CLOCK_MONOTONIC);
                 log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
                          "Loaded units and determined initial transaction in %s.",
-                          format_timespan(timespan, sizeof(timespan), after_startup - before_startup));
+                         format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 0));
 
                 if (arg_action == ACTION_TEST) {
                         printf("-> By jobs:\n");

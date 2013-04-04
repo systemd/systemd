@@ -79,8 +79,58 @@ static void test_parse_nsec(void) {
         assert_se(parse_nsec(".s ", &u) < 0);
 }
 
+static void test_format_timespan_one(usec_t x, usec_t accuracy) {
+        char *r;
+        char l[FORMAT_TIMESPAN_MAX];
+        usec_t y;
+
+        log_info("%llu     (at accuracy %llu)", (unsigned long long) x, (unsigned long long) accuracy);
+
+        r = format_timespan(l, sizeof(l), x, accuracy);
+        assert_se(r);
+
+        log_info(" = <%s>", l);
+
+        assert_se(parse_sec(l, &y) >= 0);
+
+        log_info(" = %llu", (unsigned long long) y);
+
+        if (accuracy <= 0)
+                accuracy = 1;
+
+        assert_se(x / accuracy == y / accuracy);
+}
+
+static void test_format_timespan(usec_t accuracy) {
+        test_format_timespan_one(0, accuracy);
+        test_format_timespan_one(1, accuracy);
+        test_format_timespan_one(1*USEC_PER_SEC, accuracy);
+        test_format_timespan_one(999*USEC_PER_MSEC, accuracy);
+        test_format_timespan_one(1234567, accuracy);
+        test_format_timespan_one(12, accuracy);
+        test_format_timespan_one(123, accuracy);
+        test_format_timespan_one(1234, accuracy);
+        test_format_timespan_one(12345, accuracy);
+        test_format_timespan_one(123456, accuracy);
+        test_format_timespan_one(1234567, accuracy);
+        test_format_timespan_one(12345678, accuracy);
+        test_format_timespan_one(1200000, accuracy);
+        test_format_timespan_one(1230000, accuracy);
+        test_format_timespan_one(1230000, accuracy);
+        test_format_timespan_one(1234000, accuracy);
+        test_format_timespan_one(1234500, accuracy);
+        test_format_timespan_one(1234560, accuracy);
+        test_format_timespan_one(1234567, accuracy);
+        test_format_timespan_one(986087, accuracy);
+        test_format_timespan_one(500 * USEC_PER_MSEC, accuracy);
+        test_format_timespan_one(9*USEC_PER_YEAR/5 - 23, accuracy);
+}
+
 int main(int argc, char *argv[]) {
         test_parse_sec();
         test_parse_nsec();
+        test_format_timespan(1);
+        test_format_timespan(USEC_PER_MSEC);
+        test_format_timespan(USEC_PER_SEC);
         return 0;
 }

@@ -36,8 +36,8 @@ int main(int argc, char* argv[]) {
                 return 1;
         }
 
-        log_info("Firmware began %s before kernel.", format_timespan(s, sizeof(s), fw.monotonic));
-        log_info("Loader began %s before kernel.", format_timespan(s, sizeof(s), l.monotonic));
+        log_info("Firmware began %s before kernel.", format_timespan(s, sizeof(s), fw.monotonic, 0));
+        log_info("Loader began %s before kernel.", format_timespan(s, sizeof(s), l.monotonic, 0));
 
         log_info("Firmware began %s.", format_timestamp(s, sizeof(s), fw.realtime));
         log_info("Loader began %s.", format_timestamp(s, sizeof(s), l.realtime));

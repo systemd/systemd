@@ -804,7 +804,7 @@ static int setup_keys(void) {
                 fprintf(stderr,
                         ANSI_HIGHLIGHT_OFF "\n"
                         "The sealing key is automatically changed every %s.\n",
-                        format_timespan(tsb, sizeof(tsb), arg_interval));
+                        format_timespan(tsb, sizeof(tsb), arg_interval, 0));
 
                 hn = gethostname_malloc();
 
@@ -878,10 +878,10 @@ static int verify(sd_journal *j) {
                                         log_info("=> Validated from %s to %s, final %s entries not sealed.",
                                                  format_timestamp(a, sizeof(a), first),
                                                  format_timestamp(b, sizeof(b), validated),
-                                                 format_timespan(c, sizeof(c), last > validated ? last - validated : 0));
+                                                 format_timespan(c, sizeof(c), last > validated ? last - validated : 0, 0));
                                 } else if (last > 0)
                                         log_info("=> No sealing yet, %s of entries not sealed.",
-                                                 format_timespan(c, sizeof(c), last - first));
+                                                 format_timespan(c, sizeof(c), last - first, 0));
                                 else
                                         log_info("=> No sealing yet, no entries in file.");
                         }

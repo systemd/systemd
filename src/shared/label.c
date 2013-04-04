@@ -82,7 +82,7 @@ int label_init(const char *prefix) {
                 l = after_mallinfo.uordblks > before_mallinfo.uordblks ? after_mallinfo.uordblks - before_mallinfo.uordblks : 0;
 
                 log_debug("Successfully loaded SELinux database in %s, size on heap is %iK.",
-                          format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp),
+                          format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp, 0),
                           (l+1023)/1024);
         }
 #endif
