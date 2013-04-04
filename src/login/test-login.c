@@ -183,12 +183,23 @@ int main(int argc, char* argv[]) {
         r = sd_login_monitor_new("session", &m);
         assert_se(r >= 0);
 
-        zero(pollfd);
-        pollfd.fd = sd_login_monitor_get_fd(m);
-        pollfd.events = sd_login_monitor_get_events(m);
 
         for (n = 0; n < 5; n++) {
-                r = poll(&pollfd, 1, -1);
+                usec_t timeout, nw;
+
+                zero(pollfd);
+                assert_se((pollfd.fd = sd_login_monitor_get_fd(m)) >= 0);
+                assert_se((pollfd.events = sd_login_monitor_get_events(m)) >= 0);
+
+                assert_se(sd_login_monitor_get_timeout(m, &timeout) >= 0);
+
+                nw = now(CLOCK_MONOTONIC);
+
+                r = poll(&pollfd, 1,
+                         timeout == (uint64_t) -1 ? -1 :
+                         timeout > nw ? (int) ((timeout - nw) / 1000) :
+                         0);
+
                 assert_se(r >= 0);
 
                 sd_login_monitor_flush(m);

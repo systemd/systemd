@@ -804,5 +804,23 @@ _public_ int sd_login_monitor_get_events(sd_login_monitor *m) {
         if (!m)
                 return -EINVAL;
 
+        /* For now we will only return POLLIN here, since we don't
+         * need anything else ever for inotify.  However, let's have
+         * this API to keep our options open should we later on need
+         * it. */
         return POLLIN;
+}
+
+_public_ int sd_login_monitor_get_timeout(sd_login_monitor *m, uint64_t *timeout_usec) {
+
+        if (!m)
+                return -EINVAL;
+        if (!timeout_usec)
+                return -EINVAL;
+
+        /* For now we will only return (uint64_t) -1, since we don't
+         * need any timeout. However, let's have this API to keep our
+         * options open should we later on need it. */
+        *timeout_usec = (uint64_t) -1;
+        return 0;
 }

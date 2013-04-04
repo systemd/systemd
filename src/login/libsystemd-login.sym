@@ -62,4 +62,5 @@ global:
 LIBSYSTEMD_LOGIN_201 {
 global:
         sd_login_monitor_get_events;
+        sd_login_monitor_get_timeout;
 } LIBSYSTEMD_LOGIN_198;

@@ -23,6 +23,7 @@
 ***/
 
 #include <sys/types.h>
+#include <inttypes.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -158,6 +159,9 @@ int sd_login_monitor_get_fd(sd_login_monitor *m);
 
 /* Get poll() mask to monitor */
 int sd_login_monitor_get_events(sd_login_monitor *m);
+
+/* Get timeout for poll(), as usec value relative to CLOCK_MONOTONIC's epoch */
+int sd_login_monitor_get_timeout(sd_login_monitor *m, uint64_t *timeout_usec);
 
 #ifdef __cplusplus
 }
