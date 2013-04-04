@@ -1994,6 +1994,30 @@ _public_ int sd_journal_get_events(sd_journal *j) {
         return POLLIN;
 }
 
+_public_ int sd_journal_get_timeout(sd_journal *j, uint64_t *timeout_usec) {
+        int fd;
+
+        if (!j)
+                return -EINVAL;
+        if (!timeout_usec)
+                return -EINVAL;
+
+        fd = sd_journal_get_fd(j);
+        if (fd < 0)
+                return fd;
+
+        if (!j->on_network) {
+                *timeout_usec = (uint64_t) -1;
+                return 0;
+        }
+
+        /* If we are on the network we need to regularly check for
+         * changes manually */
+
+        *timeout_usec = j->last_process_usec + JOURNAL_FILES_RECHECK_USEC;
+        return 1;
+}
+
 static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
         Directory *d;
         int r;
@@ -2076,6 +2100,8 @@ _public_ int sd_journal_process(sd_journal *j) {
         if (!j)
                 return -EINVAL;
 
+        j->last_process_usec = now(CLOCK_MONOTONIC);
+
         for (;;) {
                 struct inotify_event *e;
                 ssize_t l;
@@ -2109,6 +2135,7 @@ _public_ int sd_journal_process(sd_journal *j) {
 
 _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
         int r;
+        uint64_t t;
 
         assert(j);
 
@@ -2127,12 +2154,18 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
                 return determine_change(j);
         }
 
-        if (j->on_network) {
-                /* If we are on the network we need to regularly check
-                 * for changes manually */
+        r = sd_journal_get_timeout(j, &t);
+        if (r < 0)
+                return r;
 
-                if (timeout_usec == (uint64_t) -1 || timeout_usec > JOURNAL_FILES_RECHECK_USEC)
-                        timeout_usec = JOURNAL_FILES_RECHECK_USEC;
+        if (t != (uint64_t) -1) {
+                usec_t n;
+
+                n = now(CLOCK_MONOTONIC);
+                t = t > n ? t - n : 0;
+
+                if (timeout_usec == (uint64_t) -1 || timeout_usec > t)
+                        timeout_usec = t;
         }
 
         do {

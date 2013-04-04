@@ -126,6 +126,8 @@ struct sd_journal {
         size_t data_threshold;
 
         Set *errors;
+
+        usec_t last_process_usec;
 };
 
 char *journal_make_match_string(sd_journal *j);

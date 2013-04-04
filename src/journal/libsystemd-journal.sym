@@ -97,4 +97,5 @@ global:
 LIBSYSTEMD_JOURNAL_201 {
 global:
         sd_journal_get_events;
+        sd_journal_get_timeout;
 } LIBSYSTEMD_JOURNAL_198;
