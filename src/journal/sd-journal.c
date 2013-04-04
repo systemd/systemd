@@ -1981,6 +1981,19 @@ _public_ int sd_journal_get_fd(sd_journal *j) {
         return j->inotify_fd;
 }
 
+_public_ int sd_journal_get_events(sd_journal *j) {
+        int fd;
+
+        if (!j)
+                return -EINVAL;
+
+        fd = sd_journal_get_fd(j);
+        if (fd < 0)
+                return fd;
+
+        return POLLIN;
+}
+
 static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
         Directory *d;
         int r;

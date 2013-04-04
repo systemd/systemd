@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/poll.h>
 #include <time.h>
 #include <getopt.h>
 #include <signal.h>
