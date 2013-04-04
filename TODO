@@ -2,9 +2,6 @@ Bugfixes:
 * systemctl completion doesn't want to start failed systemd-tmpfiles-setup.service
   systemctl --system show -p Fr<TAB> default.target doesn't show anything
 
-* systemd-journald seems to randomly hang on shutdown, likely not handling
-  SIGTERM, shutdown blocks until we send SIGKILL at the very end.
-
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
@@ -50,7 +47,7 @@ Fedora 19:
 
 Features:
 
-* add sd_journal_get_timeout() and sd_journal_get_events(9
+* add sd_journal_get_timeout() + sd_login_monitor_get_timeout() to public API
 
 * seems that when we follow symlinks to units we prefer the symlink
   destination path over /etc and /usr. We shouldn't do that. Instead
