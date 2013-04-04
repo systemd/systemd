@@ -215,6 +215,23 @@
                                 mapping.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><command>list-x11-keymap-models</command></term>
+                                <term><command>list-x11-keymap-layouts</command></term>
+                                <term><command>list-x11-keymap-variants [LAYOUT]</command></term>
+                                <term><command>list-x11-keymap-options</command></term>
+
+                                <listitem><para>List available X11
+                                keymap models, layouts, variants and
+                                options, useful for configuration with
+                                <command>set-keymap</command>. The
+                                command
+                                <command>list-x11-keymap-variants</command>
+                                optionally takes a layout parameter to
+                                limit the output to the variants
+                                suitable for the specific
+                                layout.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
         </refsect1>
