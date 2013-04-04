@@ -23,6 +23,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/inotify.h>
+#include <sys/poll.h>
 
 #include "util.h"
 #include "cgroup-util.h"
@@ -796,4 +797,12 @@ _public_ int sd_login_monitor_get_fd(sd_login_monitor *m) {
                 return -EINVAL;
 
         return MONITOR_TO_FD(m);
+}
+
+_public_ int sd_login_monitor_get_events(sd_login_monitor *m) {
+
+        if (!m)
+                return -EINVAL;
+
+        return POLLIN;
 }

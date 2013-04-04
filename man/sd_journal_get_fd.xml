@@ -115,11 +115,11 @@
                 below.</para>
 
                 <para><function>sd_journal_get_events()</function>
-                will return the
-                <citerefentry><refentrytitle>poll</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                mask to wait for. This function will return a
-                combination of POLLIN and POLLOUT and similar to fill
-                into the <literal>.events</literal> field of
+                will return the <function>poll()</function> mask to
+                wait for. This function will return a combination of
+                <literal>POLLIN</literal> and
+                <literal>POLLOUT</literal> and similar to fill into
+                the <literal>.events</literal> field of
                 <literal>struct pollfd</literal>.</para>
 
                 <para><function>sd_journal_reliable_fd()</function>
@@ -134,7 +134,7 @@
                 <function>sd_journal_get_fd()</function> are
                 sufficient as only source for wake-ups.</para>
 
-                <para>After each <literal>poll()</literal> wake-up
+                <para>After each <function>poll()</function> wake-up
                 <function>sd_journal_process()</function> needs to be
                 called to process events. This call will also indicate
                 what kind of change has been detected (see below; note
@@ -169,9 +169,9 @@
                 errno-style error code.</para>
 
                 <para><function>sd_journal_get_events()</function>
-                returns a combination of POLLIN, POLLOUT and suchlike
-                on success or a negative errno-style error
-                code.</para>
+                returns a combination of <literal>POLLIN</literal>,
+                <literal>POLLOUT</literal> and suchlike on success or
+                a negative errno-style error code.</para>
 
                 <para><function>sd_journal_reliable_fd()</function>
                 returns a positive integer if the file descriptor

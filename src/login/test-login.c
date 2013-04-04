@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
 
         zero(pollfd);
         pollfd.fd = sd_login_monitor_get_fd(m);
-        pollfd.events = POLLIN;
+        pollfd.events = sd_login_monitor_get_events(m);
 
         for (n = 0; n < 5; n++) {
                 r = poll(&pollfd, 1, -1);

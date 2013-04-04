@@ -58,3 +58,8 @@ LIBSYSTEMD_LOGIN_198 {
 global:
         sd_session_get_tty;
 } LIBSYSTEMD_LOGIN_186;
+
+LIBSYSTEMD_LOGIN_201 {
+global:
+        sd_login_monitor_get_events;
+} LIBSYSTEMD_LOGIN_198;
