@@ -454,18 +454,17 @@ static int item_set_perms(Item *i, const char *path) {
 static int write_one_file(Item *i, const char *path) {
         int r, e, fd, flags;
         struct stat st;
-        mode_t u;
 
         flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND :
                 i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
 
-        u = umask(0);
-        label_context_set(path, S_IFREG);
-        fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW, i->mode);
-        e = errno;
-        label_context_clear();
-        umask(u);
-        errno = e;
+        RUN_WITH_UMASK(0) {
+                label_context_set(path, S_IFREG);
+                fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW, i->mode);
+                e = errno;
+                label_context_clear();
+                errno = e;
+        }
 
         if (fd < 0) {
                 if (i->type == WRITE_FILE && errno == ENOENT)
@@ -629,7 +628,6 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
 
 static int create_item(Item *i) {
         int r, e;
-        mode_t u;
         struct stat st;
 
         assert(i);
@@ -658,10 +656,10 @@ static int create_item(Item *i) {
         case TRUNCATE_DIRECTORY:
         case CREATE_DIRECTORY:
 
-                u = umask(0);
-                mkdir_parents_label(i->path, 0755);
-                r = mkdir(i->path, i->mode);
-                umask(u);
+                RUN_WITH_UMASK(0000) {
+                        mkdir_parents_label(i->path, 0755);
+                        r = mkdir(i->path, i->mode);
+                }
 
                 if (r < 0 && errno != EEXIST) {
                         log_error("Failed to create directory %s: %m", i->path);
@@ -686,9 +684,9 @@ static int create_item(Item *i) {
 
         case CREATE_FIFO:
 
-                u = umask(0);
-                r = mkfifo(i->path, i->mode);
-                umask(u);
+                RUN_WITH_UMASK(0000) {
+                        r = mkfifo(i->path, i->mode);
+                }
 
                 if (r < 0 && errno != EEXIST) {
                         log_error("Failed to create fifo %s: %m", i->path);
@@ -757,13 +755,13 @@ static int create_item(Item *i) {
 
                 file_type = (i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
 
-                u = umask(0);
-                label_context_set(i->path, file_type);
-                r = mknod(i->path, i->mode | file_type, i->major_minor);
-                e = errno;
-                label_context_clear();
-                umask(u);
-                errno = e;
+                RUN_WITH_UMASK(0000) {
+                        label_context_set(i->path, file_type);
+                        r = mknod(i->path, i->mode | file_type, i->major_minor);
+                        e = errno;
+                        label_context_clear();
+                        errno = e;
+                }
 
                 if (r < 0 && errno != EEXIST) {
                         log_error("Failed to create device node %s: %m", i->path);

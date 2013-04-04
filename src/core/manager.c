@@ -1984,7 +1984,6 @@ void manager_dispatch_bus_query_pid_done(
 
 int manager_open_serialization(Manager *m, FILE **_f) {
         char *path = NULL;
-        mode_t saved_umask;
         int fd;
         FILE *f;
 
@@ -1998,9 +1997,9 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         if (!path)
                 return -ENOMEM;
 
-        saved_umask = umask(0077);
-        fd = mkostemp(path, O_RDWR|O_CLOEXEC);
-        umask(saved_umask);
+        RUN_WITH_UMASK(0077) {
+                fd = mkostemp(path, O_RDWR|O_CLOEXEC);
+        }
 
         if (fd < 0) {
                 free(path);
@@ -2515,7 +2514,6 @@ void manager_run_generators(Manager *m) {
         DIR *d = NULL;
         const char *generator_path;
         const char *argv[5];
-        mode_t u;
         int r;
 
         assert(m);
@@ -2549,9 +2547,9 @@ void manager_run_generators(Manager *m) {
         argv[3] = m->generator_unit_path_late;
         argv[4] = NULL;
 
-        u = umask(0022);
-        execute_directory(generator_path, d, (char**) argv);
-        umask(u);
+        RUN_WITH_UMASK(0022) {
+                execute_directory(generator_path, d, (char**) argv);
+        }
 
         trim_generator_dir(m, &m->generator_unit_path);
         trim_generator_dir(m, &m->generator_unit_path_early);

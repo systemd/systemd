@@ -616,8 +616,22 @@ char *strrep(const char *s, unsigned n);
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need);
 
-static inline void reset_errno(int *saved_errno) {
+static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
 }
 
-#define PROTECT_ERRNO __attribute__((cleanup(reset_errno))) int _saved_errno_ = errno
+#define PROTECT_ERRNO __attribute__((cleanup(_reset_errno_))) int _saved_errno_ = errno
+
+struct umask_struct {
+        mode_t mask;
+        bool quit;
+};
+
+static inline void _reset_umask_(struct umask_struct *s) {
+        umask(s->mask);
+};
+
+#define RUN_WITH_UMASK(mask)                                            \
+        for (__attribute__((cleanup(_reset_umask_))) struct umask_struct _saved_umask_ = { umask(mask), false }; \
+             !_saved_umask_.quit ;                                      \
+             _saved_umask_.quit = true)

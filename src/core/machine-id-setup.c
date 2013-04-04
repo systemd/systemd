@@ -155,30 +155,26 @@ int machine_id_setup(void) {
         bool writable;
         struct stat st;
         char id[34]; /* 32 + \n + \0 */
-        mode_t m;
 
-        m = umask(0000);
+        RUN_WITH_UMASK(0000) {
+                /* We create this 0444, to indicate that this isn't really
+                 * something you should ever modify. Of course, since the file
+                 * will be owned by root it doesn't matter much, but maybe
+                 * people look. */
 
-        /* We create this 0444, to indicate that this isn't really
-         * something you should ever modify. Of course, since the file
-         * will be owned by root it doesn't matter much, but maybe
-         * people look. */
+                fd = open("/etc/machine-id", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
+                if (fd >= 0)
+                        writable = true;
+                else {
+                        fd = open("/etc/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        if (fd < 0) {
+                                log_error("Cannot open /etc/machine-id: %m");
+                                return -errno;
+                        }
 
-        fd = open("/etc/machine-id", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
-        if (fd >= 0)
-                writable = true;
-        else {
-                fd = open("/etc/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0) {
-                        umask(m);
-                        log_error("Cannot open /etc/machine-id: %m");
-                        return -errno;
+                        writable = false;
                 }
-
-                writable = false;
         }
-
-        umask(m);
 
         if (fstat(fd, &st) < 0) {
                 log_error("fstat() failed: %m");
@@ -215,10 +211,9 @@ int machine_id_setup(void) {
         /* Hmm, we couldn't write it? So let's write it to
          * /run/machine-id as a replacement */
 
-        m = umask(0022);
-        r = write_string_file("/run/machine-id", id);
-        umask(m);
-
+        RUN_WITH_UMASK(0022) {
+                r = write_string_file("/run/machine-id", id);
+        }
         if (r < 0) {
                 log_error("Cannot write /run/machine-id: %s", strerror(-r));
 

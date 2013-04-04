@@ -5732,12 +5732,12 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *sear
 int create_tmp_dir(char template[], char** dir_name) {
         int r = 0;
         char *d, *dt;
-        mode_t _cleanup_umask_ u;
 
         assert(dir_name);
 
-        u = umask(0077);
-        d = mkdtemp(template);
+        RUN_WITH_UMASK(0077) {
+                d = mkdtemp(template);
+        }
         if (!d) {
                 log_error("Can't create directory %s: %m", template);
                 return -errno;
@@ -5749,9 +5749,10 @@ int create_tmp_dir(char template[], char** dir_name) {
                 goto fail3;
         }
 
-        umask(0000);
-        r = mkdir(dt, 0777);
-        if (r) {
+        RUN_WITH_UMASK(0000) {
+                r = mkdir(dt, 0777);
+        }
+        if (r < 0) {
                 log_error("Can't create directory %s: %m", dt);
                 r = -errno;
                 goto fail2;
