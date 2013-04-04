@@ -338,6 +338,16 @@ static void test_hostname_is_valid(void) {
         assert(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
 }
 
+static void test_u64log2(void) {
+        assert(u64log2(0) == 0);
+        assert(u64log2(8) == 3);
+        assert(u64log2(9) == 3);
+        assert(u64log2(15) == 3);
+        assert(u64log2(16) == 4);
+        assert(u64log2(1024*1024) == 20);
+        assert(u64log2(1024*1024+5) == 20);
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -363,6 +373,7 @@ int main(int argc, char *argv[]) {
         test_memdup_multiply();
         test_bus_path_escape();
         test_hostname_is_valid();
+        test_u64log2();
 
         return 0;
 }

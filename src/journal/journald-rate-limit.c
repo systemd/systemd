@@ -170,21 +170,6 @@ fail:
         return NULL;
 }
 
-static uint64_t u64log2(uint64_t n) {
-        unsigned r;
-
-        if (n <= 1)
-                return 0;
-
-        r = 0;
-        for (;;) {
-                n = n >> 1;
-                if (!n)
-                        return r;
-                r++;
-        }
-}
-
 static unsigned burst_modulate(unsigned burst, uint64_t available) {
         unsigned k;
 

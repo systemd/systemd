@@ -635,3 +635,7 @@ static inline void _reset_umask_(struct umask_struct *s) {
         for (__attribute__((cleanup(_reset_umask_))) struct umask_struct _saved_umask_ = { umask(mask), false }; \
              !_saved_umask_.quit ;                                      \
              _saved_umask_.quit = true)
+
+static inline unsigned u64log2(uint64_t n) {
+        return (n > 1) ? __builtin_clzll(n) ^ 63U : 0;
+}
