@@ -251,6 +251,12 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         if (t == (usec_t) -1)
                 return NULL;
 
+        if (t <= 0) {
+                snprintf(p, l, "0");
+                p[l-1] = 0;
+                return p;
+        }
+
         /* The result of this function can be parsed with parse_sec */
 
         for (i = 0; i < ELEMENTSOF(table); i++) {
@@ -259,15 +265,11 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 bool done = false;
                 usec_t a, b;
 
-                if (t == 0 || t < accuracy) {
-                        if (!something) {
-                                snprintf(p, l, "0");
-                                p[l-1] = 0;
-                                return p;
-                        }
-
+                if (t <= 0)
                         break;
-                }
+
+                if (t < accuracy && something)
+                        break;
 
                 if (t < table[i].usec)
                         continue;
@@ -321,7 +323,6 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
 
                 l -= n;
                 p += n;
-
 
                 something = true;
         }
