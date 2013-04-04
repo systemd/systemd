@@ -96,7 +96,9 @@ int main(int argc, char *argv[]) {
                 GDBusMessage *g;
                 char *p;
 
+#if !defined(GLIB_VERSION_2_36)
                 g_type_init();
+#endif
 
                 g = g_dbus_message_new_from_blob(buffer, sz, 0, NULL);
                 p = g_dbus_message_print(g, 0);
