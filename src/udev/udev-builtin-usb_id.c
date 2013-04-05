@@ -151,11 +151,12 @@ static void set_scsi_type(char *to, const char *from, size_t len)
 
 static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len)
 {
-        char *filename = NULL;
-        int fd;
+        char _cleanup_free_ *filename = NULL;
+        int _cleanup_close_ fd = -1;
         ssize_t size;
         unsigned char buf[18 + 65535];
-        unsigned int pos, strpos;
+        int pos = 0;
+        unsigned strpos = 0;
         struct usb_interface_descriptor {
                 u_int8_t        bLength;
                 u_int8_t        bDescriptorType;
@@ -167,27 +168,20 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
                 u_int8_t        bInterfaceProtocol;
                 u_int8_t        iInterface;
         } __attribute__((packed));
-        int err = 0;
 
-        if (asprintf(&filename, "%s/descriptors", udev_device_get_syspath(dev)) < 0) {
-                err = -1;
-                goto out;
-        }
+        if (asprintf(&filename, "%s/descriptors", udev_device_get_syspath(dev)) < 0)
+                return log_oom();
+
         fd = open(filename, O_RDONLY|O_CLOEXEC);
         if (fd < 0) {
                 fprintf(stderr, "error opening USB device 'descriptors' file\n");
-                err = -1;
-                goto out;
-        }
-        size = read(fd, buf, sizeof(buf));
-        close(fd);
-        if (size < 18 || size == sizeof(buf)) {
-                err = -1;
-                goto out;
+                return -errno;
         }
 
-        pos = 0;
-        strpos = 0;
+        size = read(fd, buf, sizeof(buf));
+        if (size < 18 || size == sizeof(buf))
+                return -EIO;
+
         ifs_str[0] = '\0';
         while (pos < size && strpos+7 < len-2) {
                 struct usb_interface_descriptor *desc;
@@ -213,13 +207,13 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
                 memcpy(&ifs_str[strpos], if_str, 8),
                 strpos += 7;
         }
+
         if (strpos > 0) {
                 ifs_str[strpos++] = ':';
                 ifs_str[strpos++] = '\0';
         }
-out:
-        free(filename);
-        return err;
+
+        return 0;
 }
 
 /*
