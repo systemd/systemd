@@ -2265,3 +2265,66 @@ int sd_bus_call_method(
 
         return sd_bus_send_with_reply_and_block(bus, m, 0, error, reply);
 }
+
+int sd_bus_reply_method_return(
+                sd_bus *bus,
+                sd_bus_message *call,
+                const char *types, ...) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        va_list ap;
+        int r;
+
+        if (!bus)
+                return -EINVAL;
+        if (!call)
+                return -EINVAL;
+        if (!call->sealed)
+                return -EPERM;
+        if (call->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+                return -EINVAL;
+
+        if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 0;
+
+        r = sd_bus_message_new_method_return(bus, call, &m);
+        if (r < 0)
+                return r;
+
+        va_start(ap, types);
+        r = bus_message_append_ap(m, types, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(bus, m, NULL);
+}
+
+int sd_bus_reply_method_error(
+                sd_bus *bus,
+                sd_bus_message *call,
+                const sd_bus_error *e) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        if (!bus)
+                return -EINVAL;
+        if (!call)
+                return -EINVAL;
+        if (!call->sealed)
+                return -EPERM;
+        if (call->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+                return -EINVAL;
+        if (!sd_bus_error_is_set(e))
+                return -EINVAL;
+
+        if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 0;
+
+        r = sd_bus_message_new_method_error(bus, call, e, &m);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(bus, m, NULL);
+}
