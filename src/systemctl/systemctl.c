@@ -2387,7 +2387,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf(" %*s: %s\n", maxlen, "What", i->what);
 
         STRV_FOREACH(t, i->documentation)
-                printf(" %*s: %s\n", maxlen, t == i->documentation ? "Docs" : "", *t);
+                printf(" %*s %s\n", maxlen+1, t == i->documentation ? "Docs:" : "", *t);
 
         STRV_FOREACH_PAIR(t, t2, i->listen)
                 printf(" %*s%s: %s\n", maxlen - (int)strlen(*t), "Listen", *t, *t2);
@@ -2494,10 +2494,13 @@ static void print_status_info(UnitStatusInfo *i) {
                 if (arg_transport != TRANSPORT_SSH) {
                         unsigned k = 0;
                         pid_t extra[2];
+                        char prefix[maxlen + 4];
+                        memset(prefix, ' ', sizeof(prefix) - 1);
+                        prefix[sizeof(prefix) - 1] = '\0';
 
                         c = columns();
-                        if (c > 18)
-                                c -= 18;
+                        if (c > sizeof(prefix) - 1)
+                                c -= sizeof(prefix) - 1;
                         else
                                 c = 0;
 
@@ -2507,7 +2510,8 @@ static void print_status_info(UnitStatusInfo *i) {
                         if (i->control_pid > 0)
                                 extra[k++] = i->control_pid;
 
-                        show_cgroup_and_extra_by_spec(i->default_control_group, "\t\t  ", c, false, extra, k, flags);
+                        show_cgroup_and_extra_by_spec(i->default_control_group, prefix,
+                                                      c, false, extra, k, flags);
                 }
         }
 
