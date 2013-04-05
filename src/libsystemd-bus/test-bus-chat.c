@@ -206,13 +206,13 @@ static int server(sd_bus *bus) {
                         client2_gone = true;
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Slow")) {
 
+                        sleep(1);
+
                         r = sd_bus_reply_method_return(bus, m, NULL);
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
                         }
-
-                        sleep(1);
 
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "FileDescriptor")) {
                         int fd;
@@ -305,31 +305,18 @@ static void* client1(void*p) {
                 goto finish;
         }
 
-        sd_bus_message_unref(m);
-        m = NULL;
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.systemd.test",
                         "/",
                         "org.freedesktop.systemd.test",
                         "FileDescriptor",
-                        &m);
+                        &error,
+                        NULL,
+                        "h",
+                        pp[1]);
         if (r < 0) {
-                log_error("Failed to allocate method call: %s", strerror(-r));
-                goto finish;
-        }
-
-        r = sd_bus_message_append(m, "h", pp[1]);
-        if (r < 0) {
-                log_error("Failed to append string: %s", strerror(-r));
-                goto finish;
-        }
-
-        sd_bus_message_unref(reply);
-        reply = NULL;
-        r = sd_bus_send_with_reply_and_block(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue method call: %s", strerror(-r));
                 goto finish;
         }
 
@@ -352,12 +339,11 @@ finish:
                                 "org.freedesktop.systemd.test",
                                 "ExitClient1",
                                 &q);
-                if (r < 0) {
+                if (r < 0)
                         log_error("Failed to allocate method call: %s", strerror(-r));
-                        goto finish;
-                }
+                else
+                        sd_bus_send(bus, q, NULL);
 
-                sd_bus_send(bus, q, NULL);
                 sd_bus_flush(bus);
                 sd_bus_unref(bus);
         }

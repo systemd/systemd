@@ -1314,7 +1314,12 @@ int sd_bus_send_with_reply_and_block(
                                 /* Found a match! */
 
                                 if (incoming->header->type == SD_BUS_MESSAGE_TYPE_METHOD_RETURN) {
-                                        *reply = incoming;
+
+                                        if (reply)
+                                                *reply = incoming;
+                                        else
+                                                sd_bus_message_unref(incoming);
+
                                         return 0;
                                 }
 
