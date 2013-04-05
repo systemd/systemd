@@ -404,7 +404,9 @@ _outputmodes() {
 
 __systemctl()
 {
-  systemctl --full --no-legend --no-pager "$@"
+  local -a _modes
+  _modes=("--user" "--system")
+  systemctl ${words:*_modes} --full --no-legend --no-pager "$@"
 }
 
 
@@ -556,7 +558,7 @@ done
 (( $+functions[_systemctl_delete] )) || _systemctl_delete()
 {
   compadd "$@" - $(__systemctl list-units --type snapshot --all \
-    | cut -d' ' -f1  2>/dev/null ) || _message "no snampshot found"
+    | cut -d' ' -f1  2>/dev/null ) || _message "no snapshot found"
 }
 
 # Completion functions for ENVS
