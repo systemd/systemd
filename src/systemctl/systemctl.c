@@ -2225,6 +2225,8 @@ typedef struct UnitStatusInfo {
         const char *source_path;
         const char *default_control_group;
 
+        char **dropin_paths;
+
         const char *load_error;
         const char *result;
 
@@ -2330,6 +2332,34 @@ static void print_status_info(UnitStatusInfo *i) {
         else
                 printf(" %*s: %s%s%s\n",
                        maxlen, "Loaded", on, strna(i->load_state), off);
+
+        if (!strv_isempty(i->dropin_paths)) {
+                char ** dropin;
+                char * dir = NULL;
+                bool last = false;
+
+                STRV_FOREACH(dropin, i->dropin_paths) {
+                        if (! dir || last) {
+                                printf("  %*s ", maxlen, dir ? "" : "Drop-In:");
+
+                                free(dir);
+
+                                if (path_get_parent(*dropin, &dir) < 0) {
+                                        log_oom();
+                                        return;
+                                }
+
+                                printf("%s\n %*s  %s ", dir, maxlen, "",
+                                       draw_special_char(DRAW_TREE_RIGHT));
+                        }
+
+                        last = ! (*(dropin + 1) && startswith(*(dropin + 1), dir));
+
+                        printf("%s%s", path_get_file_name(*dropin), last ? "\n" : ", ");
+                }
+
+                free(dir);
+        }
 
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
 
@@ -2771,6 +2801,11 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                         return 0;
 
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING && streq(name, "DropInPaths")) {
+                        int r = bus_parse_strv_iter(iter, &i->dropin_paths);
+                        if (r < 0)
+                                return r;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING &&
                            streq(name, "Documentation")) {
 
@@ -3106,6 +3141,7 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         }
 
         strv_free(info.documentation);
+        strv_free(info.dropin_paths);
         strv_free(info.listen);
 
         if (!streq_ptr(info.active_state, "active") &&
