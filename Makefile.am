@@ -222,7 +222,7 @@ define add-wants
 	  $(MKDIR_P) -m 0755 $$dir && \
 	  cd $$dir && \
 	  rm -f $$what && \
-	  for i in $$what; do ln -s ../$$i . || exit $$? ; done )
+	  for i in $$what; do $(LN_S) ../$$i . || exit $$? ; done )
 endef
 
 install-directories-hook:
@@ -240,7 +240,7 @@ define install-aliases
 	$(MKDIR_P) /$(DESTDIR)$$dir && \
 	while [ -n "$$1" ]; do \
 		rm -f $(DESTDIR)$$dir/$$2 && \
-		ln -s $$1 $(DESTDIR)$$dir/$$2 && \
+		$(LN_S) $$1 $(DESTDIR)$$dir/$$2 && \
 		shift 2 || exit $$?; \
 	done
 endef
