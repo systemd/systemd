@@ -1845,6 +1845,10 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
         if (bus->input_fd < 0)
                 return -ENOTCONN;
 
+        /* We don't allow recursively invoking sd_bus_process(). */
+        if (bus->processing)
+                return -EBUSY;
+
         switch (bus->state) {
 
         case BUS_UNSET:
@@ -1870,7 +1874,11 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
         case BUS_RUNNING:
         case BUS_HELLO:
 
-                return process_running(bus, ret);
+                bus->processing = true;
+                r = process_running(bus, ret);
+                bus->processing = false;
+
+                return r;
         }
 
         assert_not_reached("Unknown state");

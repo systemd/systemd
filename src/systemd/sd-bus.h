@@ -34,7 +34,6 @@ extern "C" {
 
 /* TODO:
  * - allow registration/removl of callbacks from within callbacks
- * - don't allow recursive processing
  *
  * - add page donation logic
  * - api for appending/reading fixed arrays
