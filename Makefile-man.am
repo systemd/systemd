@@ -139,7 +139,9 @@ MANPAGES_ALIAS += \
 	man/sd_journal_get_catalog_for_message_id.3 \
 	man/sd_journal_get_cutoff_monotonic_usec.3 \
 	man/sd_journal_get_data_threshold.3 \
+	man/sd_journal_get_events.3 \
 	man/sd_journal_get_monotonic_usec.3 \
+	man/sd_journal_get_timeout.3 \
 	man/sd_journal_next_skip.3 \
 	man/sd_journal_open_directory.3 \
 	man/sd_journal_perror.3 \
@@ -233,7 +235,9 @@ man/sd_journal_flush_matches.3: man/sd_journal_add_match.3
 man/sd_journal_get_catalog_for_message_id.3: man/sd_journal_get_catalog.3
 man/sd_journal_get_cutoff_monotonic_usec.3: man/sd_journal_get_cutoff_realtime_usec.3
 man/sd_journal_get_data_threshold.3: man/sd_journal_get_data.3
+man/sd_journal_get_events.3: man/sd_journal_get_fd.3
 man/sd_journal_get_monotonic_usec.3: man/sd_journal_get_realtime_usec.3
+man/sd_journal_get_timeout.3: man/sd_journal_get_fd.3
 man/sd_journal_next_skip.3: man/sd_journal_next.3
 man/sd_journal_open_directory.3: man/sd_journal_open.3
 man/sd_journal_perror.3: man/sd_journal_print.3
@@ -415,7 +419,13 @@ man/sd_journal_get_cutoff_monotonic_usec.html: man/sd_journal_get_cutoff_realtim
 man/sd_journal_get_data_threshold.html: man/sd_journal_get_data.html
 	$(html-alias)
 
+man/sd_journal_get_events.html: man/sd_journal_get_fd.html
+	$(html-alias)
+
 man/sd_journal_get_monotonic_usec.html: man/sd_journal_get_realtime_usec.html
+	$(html-alias)
+
+man/sd_journal_get_timeout.html: man/sd_journal_get_fd.html
 	$(html-alias)
 
 man/sd_journal_next_skip.html: man/sd_journal_next.html
@@ -779,7 +789,9 @@ MANPAGES_ALIAS += \
 	man/sd_get_uids.3 \
 	man/sd_login_monitor.3 \
 	man/sd_login_monitor_flush.3 \
+	man/sd_login_monitor_get_events.3 \
 	man/sd_login_monitor_get_fd.3 \
+	man/sd_login_monitor_get_timeout.3 \
 	man/sd_login_monitor_unref.3 \
 	man/sd_pid_get_owner_uid.3 \
 	man/sd_pid_get_unit.3 \
@@ -801,7 +813,9 @@ man/sd_get_sessions.3: man/sd_get_seats.3
 man/sd_get_uids.3: man/sd_get_seats.3
 man/sd_login_monitor.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_flush.3: man/sd_login_monitor_new.3
+man/sd_login_monitor_get_events.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
+man/sd_login_monitor_get_timeout.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
 man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
 man/sd_pid_get_unit.3: man/sd_pid_get_session.3
@@ -831,7 +845,13 @@ man/sd_login_monitor.html: man/sd_login_monitor_new.html
 man/sd_login_monitor_flush.html: man/sd_login_monitor_new.html
 	$(html-alias)
 
+man/sd_login_monitor_get_events.html: man/sd_login_monitor_new.html
+	$(html-alias)
+
 man/sd_login_monitor_get_fd.html: man/sd_login_monitor_new.html
+	$(html-alias)
+
+man/sd_login_monitor_get_timeout.html: man/sd_login_monitor_new.html
 	$(html-alias)
 
 man/sd_login_monitor_unref.html: man/sd_login_monitor_new.html
