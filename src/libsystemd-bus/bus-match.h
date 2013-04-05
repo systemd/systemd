@@ -54,12 +54,13 @@ struct bus_match_node {
 
         union {
                 struct {
-                        uint8_t u8;
                         char *str;
+                        uint8_t u8;
                 } value;
                 struct {
                         sd_bus_message_handler_t callback;
                         void *userdata;
+                        unsigned last_iteration;
                 } leaf;
                 struct {
                         /* If this is set, then the child is NULL */

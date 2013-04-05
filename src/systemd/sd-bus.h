@@ -33,8 +33,6 @@ extern "C" {
 #endif
 
 /* TODO:
- * - allow registration/removl of callbacks from within callbacks
- *
  * - add page donation logic
  * - api for appending/reading fixed arrays
  * - merge busctl into systemctl or so?

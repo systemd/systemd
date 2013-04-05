@@ -212,6 +212,9 @@ int bus_match_run(
         if (!node)
                 return 0;
 
+        if (bus && bus->match_callbacks_modified)
+                return 0;
+
         /* Not these special semantics: when traversing the tree we
          * usually let bus_match_run() when called for a node
          * recursively invoke bus_match_run(). There's are two
@@ -240,6 +243,13 @@ int bus_match_run(
                 return bus_match_run(bus, node->child, ret, m);
 
         case BUS_MATCH_LEAF:
+
+                if (bus) {
+                        if (node->leaf.last_iteration == bus->iteration_counter)
+                                return 0;
+
+                        node->leaf.last_iteration = bus->iteration_counter;
+                }
 
                 /* Run the callback. And then invoke siblings. */
                 assert(node->leaf.callback);
@@ -322,6 +332,9 @@ int bus_match_run(
                                 return r;
                 }
         }
+
+        if (bus && bus->match_callbacks_modified)
+                return 0;
 
         /* And now, let's invoke our siblings */
         return bus_match_run(bus, node->next, ret, m);

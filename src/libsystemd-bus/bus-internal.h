@@ -46,6 +46,8 @@ struct filter_callback {
         sd_bus_message_handler_t callback;
         void *userdata;
 
+        unsigned last_iteration;
+
         LIST_FIELDS(struct filter_callback, callbacks);
 };
 
@@ -55,6 +57,8 @@ struct object_callback {
 
         char *path;
         bool is_fallback;
+
+        unsigned last_iteration;
 };
 
 enum bus_state {
@@ -86,6 +90,9 @@ struct sd_bus {
         bool prefer_readv:1;
         bool prefer_writev:1;
         bool processing:1;
+        bool match_callbacks_modified:1;
+        bool filter_callbacks_modified:1;
+        bool object_callbacks_modified:1;
 
         void *rbuffer;
         size_t rbuffer_size;
@@ -139,6 +146,7 @@ struct sd_bus {
         char **exec_argv;
 
         uint64_t hello_serial;
+        unsigned iteration_counter;
 };
 
 static inline void bus_unrefp(sd_bus **b) {

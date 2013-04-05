@@ -1517,20 +1517,47 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
-        LIST_FOREACH(callbacks, l, bus->filter_callbacks) {
-                r = l->callback(bus, 0, m, l->userdata);
-                if (r != 0)
-                        return r;
-        }
+        do {
+                bus->filter_callbacks_modified = false;
+
+                LIST_FOREACH(callbacks, l, bus->filter_callbacks) {
+
+                        if (bus->filter_callbacks_modified)
+                                break;
+
+                        /* Don't run this more than once per iteration */
+                        if (l->last_iteration == bus->iteration_counter)
+                                continue;
+
+                        l->last_iteration = bus->iteration_counter;
+
+                        r = l->callback(bus, 0, m, l->userdata);
+                        if (r != 0)
+                                return r;
+
+                }
+
+        } while (bus->filter_callbacks_modified);
 
         return 0;
 }
 
 static int process_match(sd_bus *bus, sd_bus_message *m) {
+        int r;
+
         assert(bus);
         assert(m);
 
-        return bus_match_run(bus, &bus->match_callbacks, 0, m);
+        do {
+                bus->match_callbacks_modified = false;
+
+                r = bus_match_run(bus, &bus->match_callbacks, 0, m);
+                if (r != 0)
+                        return r;
+
+        } while (bus->match_callbacks_modified);
+
+        return 0;
 }
 
 static int process_builtin(sd_bus *bus, sd_bus_message *m) {
@@ -1588,9 +1615,9 @@ static int process_object(sd_bus *bus, sd_bus_message *m) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_INIT;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         struct object_callback *c;
-        char *p;
         int r;
         bool found = false;
+        size_t pl;
 
         assert(bus);
         assert(m);
@@ -1601,35 +1628,53 @@ static int process_object(sd_bus *bus, sd_bus_message *m) {
         if (hashmap_isempty(bus->object_callbacks))
                 return 0;
 
-        c = hashmap_get(bus->object_callbacks, m->path);
-        if (c) {
-                r = c->callback(bus, 0, m, c->userdata);
-                if (r != 0)
-                        return r;
+        pl = strlen(m->path);
 
-                found = true;
-        }
+        do {
+                char p[pl+1];
 
-        /* Look for fallback prefixes */
-        p = strdupa(m->path);
-        for (;;) {
-                char *e;
+                bus->object_callbacks_modified = false;
 
-                e = strrchr(p, '/');
-                if (e == p || !e)
-                        break;
+                c = hashmap_get(bus->object_callbacks, m->path);
+                if (c && c->last_iteration != bus->iteration_counter) {
 
-                *e = 0;
+                        c->last_iteration = bus->iteration_counter;
 
-                c = hashmap_get(bus->object_callbacks, p);
-                if (c && c->is_fallback) {
                         r = c->callback(bus, 0, m, c->userdata);
                         if (r != 0)
                                 return r;
 
                         found = true;
                 }
-        }
+
+                /* Look for fallback prefixes */
+                strcpy(p, m->path);
+                for (;;) {
+                        char *e;
+
+                        if (bus->object_callbacks_modified)
+                                break;
+
+                        e = strrchr(p, '/');
+                        if (e == p || !e)
+                                break;
+
+                        *e = 0;
+
+                        c = hashmap_get(bus->object_callbacks, p);
+                        if (c && c->last_iteration != bus->iteration_counter && c->is_fallback) {
+
+                                c->last_iteration = bus->iteration_counter;
+
+                                r = c->callback(bus, 0, m, c->userdata);
+                                if (r != 0)
+                                        return r;
+
+                                found = true;
+                        }
+                }
+
+        } while (bus->object_callbacks_modified);
 
         /* We found some handlers but none wanted to take this, then
          * return this -- with one exception, we can handle
@@ -1749,6 +1794,8 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
 
         assert(bus);
         assert(m);
+
+        bus->iteration_counter++;
 
         r = process_hello(bus, m);
         if (r != 0)
@@ -1995,6 +2042,7 @@ int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *user
         f->callback = callback;
         f->userdata = userdata;
 
+        bus->filter_callbacks_modified = true;
         LIST_PREPEND(struct filter_callback, callbacks, bus->filter_callbacks, f);
         return 0;
 }
@@ -2009,6 +2057,7 @@ int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *u
 
         LIST_FOREACH(callbacks, f, bus->filter_callbacks) {
                 if (f->callback == callback && f->userdata == userdata) {
+                        bus->filter_callbacks_modified = true;
                         LIST_REMOVE(struct filter_callback, callbacks, bus->filter_callbacks, f);
                         free(f);
                         return 1;
@@ -2053,6 +2102,7 @@ static int bus_add_object(
         c->userdata = userdata;
         c->is_fallback = fallback;
 
+        bus->object_callbacks_modified = true;
         r = hashmap_put(bus->object_callbacks, c->path, c);
         if (r < 0) {
                 free(c->path);
@@ -2086,6 +2136,7 @@ static int bus_remove_object(
         if (c->callback != callback || c->userdata != userdata || c->is_fallback != fallback)
                 return 0;
 
+        bus->object_callbacks_modified = true;
         assert_se(c == hashmap_remove(bus->object_callbacks, c->path));
 
         free(c->path);
@@ -2125,6 +2176,7 @@ int sd_bus_add_match(sd_bus *bus, const char *match, sd_bus_message_handler_t ca
         }
 
         if (callback) {
+                bus->match_callbacks_modified = true;
                 r = bus_match_add(&bus->match_callbacks, match, callback, userdata, NULL);
                 if (r < 0) {
 
@@ -2147,8 +2199,10 @@ int sd_bus_remove_match(sd_bus *bus, const char *match, sd_bus_message_handler_t
         if (bus->bus_client)
                 r = bus_remove_match_internal(bus, match);
 
-        if (callback)
+        if (callback) {
+                bus->match_callbacks_modified = true;
                 q = bus_match_remove(&bus->match_callbacks, match, callback, userdata);
+        }
 
         if (r < 0)
                 return r;
