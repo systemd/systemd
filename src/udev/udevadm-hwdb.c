@@ -84,14 +84,12 @@ static int trie_children_cmp(const void *v1, const void *v2) {
 
 static int node_add_child(struct trie *trie, struct trie_node *node, struct trie_node *node_child, uint8_t c) {
         struct trie_child_entry *child;
-        int err = 0;
 
         /* extend array, add new entry, sort for bisection */
         child = realloc(node->children, (node->children_count + 1) * sizeof(struct trie_child_entry));
-        if (!child) {
-                err = -ENOMEM;
-                goto out;
-        }
+        if (!child)
+                return -ENOMEM;
+
         node->children = child;
         trie->children_count++;
         node->children[node->children_count].c = c;
@@ -99,8 +97,8 @@ static int node_add_child(struct trie *trie, struct trie_node *node, struct trie
         node->children_count++;
         qsort(node->children, node->children_count, sizeof(struct trie_child_entry), trie_children_cmp);
         trie->nodes_count++;
-out:
-        return err;
+
+        return 0;
 }
 
 static struct trie_node *node_lookup(const struct trie_node *node, uint8_t c) {
@@ -176,53 +174,51 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                        const char *key, const char *value) {
         size_t i = 0;
         int err = 0;
-        struct trie_node _cleanup_free_ *child = NULL;
 
         for (;;) {
                 size_t p;
                 uint8_t c;
+                struct trie_node *child;
 
                 for (p = 0; (c = trie->strings->buf[node->prefix_off + p]); p++) {
-                        char *s;
+                        char _cleanup_free_ *s = NULL;
                         ssize_t off;
+                        struct trie_node _cleanup_free_ *new_child = NULL;
 
                         if (c == search[i + p])
                                 continue;
 
                         /* split node */
-                        child = calloc(sizeof(struct trie_node), 1);
-                        if (!child) {
-                                err = -ENOMEM;
-                                goto out;
-                        }
+                        new_child = calloc(sizeof(struct trie_node), 1);
+                        if (!new_child)
+                                return -ENOMEM;
 
                         /* move values from parent to child */
-                        child->prefix_off = node->prefix_off + p+1;
-                        child->children = node->children;
-                        child->children_count = node->children_count;
-                        child->values = node->values;
-                        child->values_count = node->values_count;
+                        new_child->prefix_off = node->prefix_off + p+1;
+                        new_child->children = node->children;
+                        new_child->children_count = node->children_count;
+                        new_child->values = node->values;
+                        new_child->values_count = node->values_count;
 
                         /* update parent; use strdup() because the source gets realloc()d */
                         s = strndup(trie->strings->buf + node->prefix_off, p);
-                        if (!s) {
-                                err = -ENOMEM;
-                                goto out;
-                        }
+                        if (!s)
+                                return -ENOMEM;
+
                         off = strbuf_add_string(trie->strings, s, p);
-                        free(s);
-                        if (off < 0) {
-                                err = off;
-                                goto out;
-                        }
+                        if (off < 0)
+                                return off;
+
                         node->prefix_off = off;
                         node->children = NULL;
                         node->children_count = 0;
                         node->values = NULL;
                         node->values_count = 0;
-                        err = node_add_child(trie, node, child, c);
+                        err = node_add_child(trie, node, new_child, c);
                         if (err)
-                                goto out;
+                                return err;
+
+                        new_child = NULL; /* avoid cleanup */
                         break;
                 }
                 i += p;
@@ -237,28 +233,28 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
 
                         /* new child */
                         child = calloc(sizeof(struct trie_node), 1);
-                        if (!child) {
-                                err = -ENOMEM;
-                                goto out;
-                        }
+                        if (!child)
+                                return -ENOMEM;
+
                         off = strbuf_add_string(trie->strings, search + i+1, strlen(search + i+1));
                         if (off < 0) {
-                                err = off;
-                                goto out;
+                                free(child);
+                                return off;
                         }
+
                         child->prefix_off = off;
                         err = node_add_child(trie, node, child, c);
-                        if (err)
-                                goto out;
+                        if (err) {
+                                free(child);
+                                return err;
+                        }
+
                         return trie_node_add_value(trie, child, key, value);
                 }
 
                 node = child;
-                child = NULL; /* avoid cleanup */
                 i++;
         }
-out:
-        return err;
 }
 
 struct trie_f {
