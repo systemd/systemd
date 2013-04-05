@@ -2420,7 +2420,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf(" %*s %s\n", maxlen+1, t == i->documentation ? "Docs:" : "", *t);
 
         STRV_FOREACH_PAIR(t, t2, i->listen)
-                printf(" %*s%s: %s\n", maxlen - (int)strlen(*t), "Listen", *t, *t2);
+                printf(" %*s %s (%s)\n", maxlen+1, t == i->listen ? "Listen:" : "", *t2, *t);
 
         if (i->accept)
                 printf(" %*s: %u; Connected: %u\n", maxlen, "Accepted", i->n_accepted, i->n_connections);
