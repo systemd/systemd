@@ -46,7 +46,7 @@ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
 }
 
 int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         uint32_t ret;
         int r;
 
@@ -55,21 +55,17 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
         if (!name)
                 return -EINVAL;
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/",
                         "org.freedesktop.DBus",
                         "RequestName",
-                        &m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "su", name, flags);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
+                        NULL,
+                        &reply,
+                        "su",
+                        name,
+                        flags);
         if (r < 0)
                 return r;
 
@@ -81,7 +77,7 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
 }
 
 int sd_bus_release_name(sd_bus *bus, const char *name) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         uint32_t ret;
         int r;
 
@@ -90,21 +86,16 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
         if (!name)
                 return -EINVAL;
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/",
                         "org.freedesktop.DBus",
                         "ReleaseName",
-                        &m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "s", name);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
+                        NULL,
+                        &reply,
+                        "s",
+                        name);
         if (r < 0)
                 return r;
 
@@ -116,7 +107,7 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
 }
 
 int sd_bus_list_names(sd_bus *bus, char ***l) {
-        _cleanup_bus_message_unref_ sd_bus_message *m1 = NULL, *reply1 = NULL, *m2 = NULL, *reply2 = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply1 = NULL, *reply2 = NULL;
         char **x = NULL;
         int r;
 
@@ -125,31 +116,27 @@ int sd_bus_list_names(sd_bus *bus, char ***l) {
         if (!l)
                 return -EINVAL;
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/",
                         "org.freedesktop.DBus",
                         "ListNames",
-                        &m1);
+                        NULL,
+                        &reply1,
+                        NULL);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/",
                         "org.freedesktop.DBus",
                         "ListActivatableNames",
-                        &m2);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_send_with_reply_and_block(bus, m1, 0, NULL, &reply1);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_send_with_reply_and_block(bus, m2, 0, NULL, &reply2);
+                        NULL,
+                        &reply2,
+                        NULL);
         if (r < 0)
                 return r;
 
@@ -170,7 +157,7 @@ int sd_bus_list_names(sd_bus *bus, char ***l) {
 }
 
 int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         const char *found;
         int r;
 
@@ -179,21 +166,16 @@ int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
         if (!name)
                 return -EINVAL;
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/",
                         "org.freedesktop.DBus",
                         "GetNameOwner",
-                        &m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "s", name);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
+                        NULL,
+                        &reply,
+                        "s",
+                        name);
         if (r < 0)
                 return r;
 
@@ -215,7 +197,7 @@ int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
 }
 
 int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         uint32_t u;
         int r;
 
@@ -226,21 +208,16 @@ int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
         if (!uid)
                 return -EINVAL;
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/",
                         "org.freedesktop.DBus",
                         "GetConnectionUnixUser",
-                        &m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "s", name);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
+                        NULL,
+                        &reply,
+                        "s",
+                        name);
         if (r < 0)
                 return r;
 
@@ -253,7 +230,7 @@ int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
 }
 
 int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         uint32_t u;
         int r;
 
@@ -264,21 +241,16 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
         if (!pid)
                 return -EINVAL;
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/",
                         "org.freedesktop.DBus",
                         "GetConnectionUnixProcessID",
-                        &m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "s", name);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
+                        NULL,
+                        &reply,
+                        "s",
+                        name);
         if (r < 0)
                 return r;
 
@@ -294,49 +266,33 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
 }
 
 int bus_add_match_internal(sd_bus *bus, const char *match) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
-        int r;
-
         assert(bus);
         assert(match);
 
-        r = sd_bus_message_new_method_call(
+        return sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/",
                         "org.freedesktop.DBus",
                         "AddMatch",
-                        &m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "s", match);
-        if (r < 0)
-                return r;
-
-        return sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
+                        NULL,
+                        NULL,
+                        "s",
+                        match);
 }
 
 int bus_remove_match_internal(sd_bus *bus, const char *match) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
-        int r;
-
         assert(bus);
         assert(match);
 
-        r = sd_bus_message_new_method_call(
+        return sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
                         "/",
                         "org.freedesktop.DBus",
                         "RemoveMatch",
-                        &m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "s", match);
-        if (r < 0)
-                return r;
-
-        return sd_bus_send_with_reply_and_block(bus, m, 0, NULL, &reply);
+                        NULL,
+                        NULL,
+                        "s",
+                        match);
 }

@@ -53,13 +53,7 @@ static int object_callback(sd_bus *bus, int error, sd_bus_message *m, void *user
 
                 log_info("Invoked Foobar() on %s", sd_bus_message_get_path(m));
 
-                r = sd_bus_message_new_method_return(bus, m, &reply);
-                if (r < 0) {
-                        log_error("Failed to allocate return: %s", strerror(-r));
-                        return r;
-                }
-
-                r = sd_bus_send(bus, reply, NULL);
+                r = sd_bus_reply_method_return(bus, m, NULL);
                 if (r < 0) {
                         log_error("Failed to send reply: %s", strerror(-r));
                         return r;
@@ -142,7 +136,7 @@ static int server(sd_bus *bus) {
         bool client1_gone = false, client2_gone = false;
 
         while (!client1_gone || !client2_gone) {
-                _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
                 pid_t pid = 0;
 
                 r = sd_bus_process(bus, &m);
@@ -179,12 +173,6 @@ static int server(sd_bus *bus) {
                                 goto fail;
                         }
 
-                        r = sd_bus_message_new_method_return(bus, m, &reply);
-                        if (r < 0) {
-                                log_error("Failed to allocate return: %s", strerror(-r));
-                                goto fail;
-                        }
-
                         lowercase = strdup(hello);
                         if (!lowercase) {
                                 r = log_oom();
@@ -193,34 +181,34 @@ static int server(sd_bus *bus) {
 
                         ascii_strlower(lowercase);
 
-                        r = sd_bus_message_append(reply, "s", lowercase);
+                        r = sd_bus_reply_method_return(bus, m, "s", lowercase);
                         if (r < 0) {
-                                log_error("Failed to append message: %s", strerror(-r));
+                                log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
                         }
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient1")) {
 
-                        r = sd_bus_message_new_method_return(bus, m, &reply);
+                        r = sd_bus_reply_method_return(bus, m, NULL);
                         if (r < 0) {
-                                log_error("Failed to allocate return: %s", strerror(-r));
+                                log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
                         }
 
                         client1_gone = true;
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient2")) {
 
-                        r = sd_bus_message_new_method_return(bus, m, &reply);
+                        r = sd_bus_reply_method_return(bus, m, NULL);
                         if (r < 0) {
-                                log_error("Failed to allocate return: %s", strerror(-r));
+                                log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
                         }
 
                         client2_gone = true;
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Slow")) {
 
-                        r = sd_bus_message_new_method_return(bus, m, &reply);
+                        r = sd_bus_reply_method_return(bus, m, NULL);
                         if (r < 0) {
-                                log_error("Failed to allocate return: %s", strerror(-r));
+                                log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
                         }
 
@@ -244,34 +232,21 @@ static int server(sd_bus *bus) {
 
                         close_nointr_nofail(fd);
 
-                        r = sd_bus_message_new_method_return(bus, m, &reply);
-                        if (r < 0) {
-                                log_error("Failed to allocate return: %s", strerror(-r));
-                                goto fail;
-                        }
-
-                } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
-
-                        r = sd_bus_message_new_method_error(
-                                        bus, m,
-                                        &SD_BUS_ERROR_MAKE("org.freedesktop.DBus.Error.UnknownMethod", "Unknown method."),
-                                        &reply);
-                        if (r < 0) {
-                                log_error("Failed to allocate return: %s", strerror(-r));
-                                goto fail;
-                        }
-                }
-
-                if (reply) {
-                        r = sd_bus_send(bus, reply, NULL);
+                        r = sd_bus_reply_method_return(bus, m, NULL);
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
                         }
 
-                        /* log_info("Sent"); */
-                        /* bus_message_dump(reply); */
-                        /* sd_bus_message_rewind(reply, true); */
+                } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
+
+                        r = sd_bus_reply_method_error(
+                                        bus, m,
+                                        &SD_BUS_ERROR_MAKE("org.freedesktop.DBus.Error.UnknownMethod", "Unknown method."));
+                        if (r < 0) {
+                                log_error("Failed to send reply: %s", strerror(-r));
+                                goto fail;
+                        }
                 }
         }
 
@@ -301,27 +276,18 @@ static void* client1(void*p) {
                 goto finish;
         }
 
-        r = sd_bus_message_new_method_call(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.systemd.test",
                         "/",
                         "org.freedesktop.systemd.test",
                         "LowerCase",
-                        &m);
+                        &error,
+                        &reply,
+                        "s",
+                        "HELLO");
         if (r < 0) {
-                log_error("Failed to allocate method call: %s", strerror(-r));
-                goto finish;
-        }
-
-        r = sd_bus_message_append(m, "s", "HELLO");
-        if (r < 0) {
-                log_error("Failed to append string: %s", strerror(-r));
-                goto finish;
-        }
-
-        r = sd_bus_send_with_reply_and_block(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue method call: %s", strerror(-r));
                 goto finish;
         }
 
