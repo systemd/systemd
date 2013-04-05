@@ -254,8 +254,18 @@ int main(int argc, char **argv) {
 
         utf8 = is_locale_utf8();
 
-        r = 0;
+        r = parse_env_file("/etc/vconsole.conf", NEWLINE,
+                           "KEYMAP", &vc_keymap,
+                           "KEYMAP_TOGGLE", &vc_keymap_toggle,
+                           "FONT", &vc_font,
+                           "FONT_MAP", &vc_font_map,
+                           "FONT_UNIMAP", &vc_font_unimap,
+                           NULL);
 
+        if (r < 0 && r != -ENOENT)
+                log_warning("Failed to read /etc/vconsole.conf: %s", strerror(-r));
+
+        /* Let the kernel command line override /etc/vconsole.conf */
         if (detect_container(NULL) <= 0) {
                 r = parse_env_file("/proc/cmdline", WHITESPACE,
                                    "vconsole.keymap", &vc_keymap,
@@ -267,21 +277,6 @@ int main(int argc, char **argv) {
 
                 if (r < 0 && r != -ENOENT)
                         log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
-        }
-
-        /* Hmm, nothing set on the kernel cmd line? Then let's
-         * try /etc/vconsole.conf */
-        if (r <= 0) {
-                r = parse_env_file("/etc/vconsole.conf", NEWLINE,
-                                   "KEYMAP", &vc_keymap,
-                                   "KEYMAP_TOGGLE", &vc_keymap_toggle,
-                                   "FONT", &vc_font,
-                                   "FONT_MAP", &vc_font_map,
-                                   "FONT_UNIMAP", &vc_font_unimap,
-                                   NULL);
-
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/vconsole.conf: %s", strerror(-r));
         }
 
         if (utf8)
