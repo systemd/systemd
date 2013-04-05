@@ -251,9 +251,11 @@ static int server(sd_bus *bus) {
                         }
 
                 } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
-                        const sd_bus_error e = SD_BUS_ERROR_INIT_CONST("org.freedesktop.DBus.Error.UnknownMethod", "Unknown method.");
 
-                        r = sd_bus_message_new_method_error(bus, m, &e, &reply);
+                        r = sd_bus_message_new_method_error(
+                                        bus, m,
+                                        &SD_BUS_ERROR_MAKE("org.freedesktop.DBus.Error.UnknownMethod", "Unknown method."),
+                                        &reply);
                         if (r < 0) {
                                 log_error("Failed to allocate return: %s", strerror(-r));
                                 goto fail;
@@ -287,7 +289,7 @@ fail:
 static void* client1(void*p) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
         sd_bus *bus = NULL;
-        sd_bus_error error = SD_BUS_ERROR_INIT;
+        sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *hello;
         int r;
         int pp[2] = { -1, -1 };
@@ -413,7 +415,7 @@ static int quit_callback(sd_bus *b, int ret, sd_bus_message *m, void *userdata) 
 static void* client2(void*p) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
         sd_bus *bus = NULL;
-        sd_bus_error error = SD_BUS_ERROR_INIT;
+        sd_bus_error error = SD_BUS_ERROR_NULL;
         bool quit = false;
         const char *mid;
         int r;

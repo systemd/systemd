@@ -1592,7 +1592,7 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
 
                 r = sd_bus_message_append(reply, "s", sd_id128_to_string(id, sid));
         } else {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_INIT;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 sd_bus_error_set(&error,
                                  "org.freedesktop.DBus.Error.UnknownMethod",
@@ -1612,7 +1612,7 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int process_object(sd_bus *bus, sd_bus_message *m) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_INIT;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         struct object_callback *c;
         int r;
@@ -1857,7 +1857,7 @@ static int process_running(sd_bus *bus, sd_bus_message **ret) {
 
         if (m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL) {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_INIT;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 sd_bus_error_set(&error, "org.freedesktop.DBus.Error.UnknownObject", "Unknown object '%s'.", m->path);
 

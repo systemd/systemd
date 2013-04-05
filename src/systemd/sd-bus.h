@@ -162,8 +162,8 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid);
 
 /* Error structures */
 
-#define SD_BUS_ERROR_INIT {NULL, NULL, 0}
-#define SD_BUS_ERROR_INIT_CONST(name, message) {(name), (message), 0}
+#define SD_BUS_ERROR_NULL ((sd_bus_error) {NULL, NULL, 0})
+#define SD_BUS_ERROR_MAKE(name, message) ((sd_bus_error) {(name), (message), 0})
 
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *format, ...);
