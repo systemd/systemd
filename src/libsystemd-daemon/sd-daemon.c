@@ -47,7 +47,7 @@
 #include <stddef.h>
 #include <limits.h>
 
-#if defined(__linux__)
+#if defined(__linux__) && !defined(SD_DAEMON_DISABLE_MQ)
 #  include <mqueue.h>
 #endif
 
@@ -387,7 +387,7 @@ _sd_export_ int sd_is_socket_unix(int fd, int type, int listening, const char *p
 }
 
 _sd_export_ int sd_is_mq(int fd, const char *path) {
-#if !defined(__linux__)
+#if !defined(__linux__) || defined(SD_DAEMON_DISABLE_MQ)
         return 0;
 #else
         struct mq_attr attr;
