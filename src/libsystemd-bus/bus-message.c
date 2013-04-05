@@ -1241,7 +1241,7 @@ int sd_bus_message_close_container(sd_bus_message *m) {
         return 0;
 }
 
-static int message_append_ap(
+int bus_message_append_ap(
                 sd_bus_message *m,
                 const char *types,
                 va_list ap) {
@@ -1327,7 +1327,7 @@ static int message_append_ap(
 
                                 n = va_arg(ap, unsigned);
                                 for (i = 0; i < n; i++) {
-                                        r = message_append_ap(m, s, ap);
+                                        r = bus_message_append_ap(m, s, ap);
                                         if (r < 0)
                                                 return r;
                                 }
@@ -1349,7 +1349,7 @@ static int message_append_ap(
                         if (r < 0)
                                 return r;
 
-                        r = message_append_ap(m, s, ap);
+                        r = bus_message_append_ap(m, s, ap);
                         if (r < 0)
                                 return r;
 
@@ -1377,7 +1377,7 @@ static int message_append_ap(
 
                                 t += k - 1;
 
-                                r = message_append_ap(m, s, ap);
+                                r = bus_message_append_ap(m, s, ap);
                                 if (r < 0)
                                         return r;
 
@@ -1407,10 +1407,10 @@ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
         if (m->sealed)
                 return -EPERM;
         if (!types)
-                return -EINVAL;
+                return 0;
 
         va_start(ap, types);
-        r = message_append_ap(m, types, ap);
+        r = bus_message_append_ap(m, types, ap);
         va_end(ap);
 
         return r;

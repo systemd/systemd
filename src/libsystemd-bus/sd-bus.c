@@ -2208,3 +2208,60 @@ int sd_bus_remove_match(sd_bus *bus, const char *match, sd_bus_message_handler_t
                 return r;
         return q;
 }
+
+int sd_bus_emit_signal(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *member,
+                const char *types, ...) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        va_list ap;
+        int r;
+
+        if (!bus)
+                return -EINVAL;
+
+        r = sd_bus_message_new_signal(bus, path, interface, member, &m);
+        if (r < 0)
+                return r;
+
+        va_start(ap, types);
+        r = bus_message_append_ap(m, types, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(bus, m, NULL);
+}
+
+int sd_bus_call_method(
+                sd_bus *bus,
+                const char *destination,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_bus_error *error,
+                sd_bus_message **reply,
+                const char *types, ...) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        va_list ap;
+        int r;
+
+        if (!bus)
+                return -EINVAL;
+
+        r = sd_bus_message_new_method_call(bus, destination, path, interface, member, &m);
+        if (r < 0)
+                return r;
+
+        va_start(ap, types);
+        r = bus_message_append_ap(m, types, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send_with_reply_and_block(bus, m, 0, error, reply);
+}

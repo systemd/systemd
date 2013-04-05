@@ -145,6 +145,11 @@ int sd_bus_message_exit_container(sd_bus_message *m);
 int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents);
 int sd_bus_message_rewind(sd_bus_message *m, int complete);
 
+/* Convenience calls */
+
+int sd_bus_emit_signal(sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, ...);
+int sd_bus_call_method(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, sd_bus_message **reply, const char *types, ...);
+
 /* Bus management */
 
 int sd_bus_get_unique_name(sd_bus *bus, const char **unique);

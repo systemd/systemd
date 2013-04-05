@@ -144,3 +144,5 @@ int bus_message_from_malloc(
                 sd_bus_message **ret);
 
 const char* bus_message_get_arg(sd_bus_message *m, unsigned i);
+
+int bus_message_append_ap(sd_bus_message *m, const char *types, va_list ap);
