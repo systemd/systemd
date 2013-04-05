@@ -173,7 +173,6 @@ char **unit_find_dropin_paths(Unit *u) {
 int unit_load_dropin(Unit *u) {
         Iterator i;
         char *t, **f;
-        _cleanup_strv_free_ char **strv = NULL;
         int r;
 
         assert(u);

@@ -89,7 +89,6 @@ static const char* database = NULL;
 
 static void test_catalog_update(void) {
         int r;
-        char _cleanup_free_ *path = NULL;
 
         static char name[] = "/tmp/test-catalog.XXXXXX";
         r = mkstemp(name);
