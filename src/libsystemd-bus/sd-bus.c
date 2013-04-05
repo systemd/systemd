@@ -1167,7 +1167,7 @@ int sd_bus_send_with_reply(
         if (r < 0)
                 return r;
 
-        c = new(struct reply_callback, 1);
+        c = new0(struct reply_callback, 1);
         if (!c)
                 return -ENOMEM;
 
@@ -2036,7 +2036,7 @@ int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *user
         if (!callback)
                 return -EINVAL;
 
-        f = new(struct filter_callback, 1);
+        f = new0(struct filter_callback, 1);
         if (!f)
                 return -ENOMEM;
         f->callback = callback;
@@ -2088,7 +2088,7 @@ static int bus_add_object(
         if (r < 0)
                 return r;
 
-        c = new(struct object_callback, 1);
+        c = new0(struct object_callback, 1);
         if (!c)
                 return -ENOMEM;
 
