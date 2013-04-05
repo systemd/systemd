@@ -1250,7 +1250,9 @@ int bus_message_append_ap(
         int r;
 
         assert(m);
-        assert(types);
+
+        if (!types)
+                return 0;
 
         for (t = types; *t; t++) {
                 switch (*t) {
