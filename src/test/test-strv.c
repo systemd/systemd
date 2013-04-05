@@ -161,7 +161,7 @@ static void test_strv_overlap(void) {
 }
 
 static void test_strv_sort(void) {
-        const char * const input_table[] = {
+        const char* input_table[] = {
                 "durian",
                 "apple",
                 "citrus",
