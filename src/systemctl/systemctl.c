@@ -2349,7 +2349,7 @@ static void print_status_info(UnitStatusInfo *i) {
                                         return;
                                 }
 
-                                printf("%s\n %*s  %s ", dir, maxlen, "",
+                                printf("%s\n %*s  %s", dir, maxlen, "",
                                        draw_special_char(DRAW_TREE_RIGHT));
                         }
 
