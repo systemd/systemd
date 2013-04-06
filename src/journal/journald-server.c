@@ -555,8 +555,10 @@ static void dispatch_message_real(
         assert(n + N_IOVEC_META_FIELDS <= m);
 
         if (ucred) {
+#ifdef HAVE_AUDIT
                 uint32_t audit;
                 uid_t loginuid;
+#endif
 
                 realuid = ucred->uid;
 
@@ -596,6 +598,7 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], cmdline);
                 }
 
+#ifdef HAVE_AUDIT
                 r = audit_session_from_pid(ucred->pid, &audit);
                 if (r >= 0)
                         if (asprintf(&audit_session, "_AUDIT_SESSION=%lu", (unsigned long) audit) >= 0)
@@ -605,6 +608,7 @@ static void dispatch_message_real(
                 if (r >= 0)
                         if (asprintf(&audit_loginuid, "_AUDIT_LOGINUID=%lu", (unsigned long) loginuid) >= 0)
                                 IOVEC_SET_STRING(iovec[n++], audit_loginuid);
+#endif
 
                 t = shortened_cgroup_path(ucred->pid);
                 if (t) {
