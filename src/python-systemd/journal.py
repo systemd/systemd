@@ -23,7 +23,6 @@ from __future__ import division
 
 import sys as _sys
 import datetime as _datetime
-import functools as _functools
 import uuid as _uuid
 import traceback as _traceback
 import os as _os
@@ -221,7 +220,7 @@ class Reader(_Reader):
         have been added or removed).
         """
         us = -1 if timeout is None else int(timeout * 1000000)
-        return super(Reader, self).wait(timeout)
+        return super(Reader, self).wait(us)
 
     def seek_realtime(self, realtime):
         """Seek to a matching journal entry nearest to `realtime` time.
