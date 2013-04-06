@@ -45,7 +45,7 @@ typedef struct EpollData {
 
 static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
         EpollData _cleanup_free_ *e = NULL;
-        struct epoll_event ev = { .data.ptr = e };
+        struct epoll_event ev = {};
 
         assert(watch);
 
@@ -58,6 +58,7 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
         e->is_timeout = false;
 
         ev.events = bus_flags_to_events(watch);
+        ev.data.ptr = e;
 
         if (epoll_ctl(PTR_TO_INT(data), EPOLL_CTL_ADD, e->fd, &ev) < 0) {
 
