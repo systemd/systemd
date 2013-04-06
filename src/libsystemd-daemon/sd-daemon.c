@@ -278,11 +278,8 @@ _sd_export_ int sd_is_socket(int fd, int family, int type, int listening) {
                 return r;
 
         if (family > 0) {
-                union sockaddr_union sockaddr;
-                socklen_t l;
-
-                memset(&sockaddr, 0, sizeof(sockaddr));
-                l = sizeof(sockaddr);
+                union sockaddr_union sockaddr = {};
+                socklen_t l = sizeof(sockaddr);
 
                 if (getsockname(fd, &sockaddr.sa, &l) < 0)
                         return -errno;
@@ -297,8 +294,8 @@ _sd_export_ int sd_is_socket(int fd, int family, int type, int listening) {
 }
 
 _sd_export_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port) {
-        union sockaddr_union sockaddr;
-        socklen_t l;
+        union sockaddr_union sockaddr = {};
+        socklen_t l = sizeof(sockaddr);
         int r;
 
         if (family != 0 && family != AF_INET && family != AF_INET6)
@@ -307,9 +304,6 @@ _sd_export_ int sd_is_socket_inet(int fd, int family, int type, int listening, u
         r = sd_is_socket_internal(fd, type, listening);
         if (r <= 0)
                 return r;
-
-        memset(&sockaddr, 0, sizeof(sockaddr));
-        l = sizeof(sockaddr);
 
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
                 return -errno;
@@ -343,16 +337,13 @@ _sd_export_ int sd_is_socket_inet(int fd, int family, int type, int listening, u
 }
 
 _sd_export_ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) {
-        union sockaddr_union sockaddr;
-        socklen_t l;
+        union sockaddr_union sockaddr = {};
+        socklen_t l = sizeof(sockaddr);
         int r;
 
         r = sd_is_socket_internal(fd, type, listening);
         if (r <= 0)
                 return r;
-
-        memset(&sockaddr, 0, sizeof(sockaddr));
-        l = sizeof(sockaddr);
 
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
                 return -errno;

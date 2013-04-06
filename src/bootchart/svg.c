@@ -978,12 +978,11 @@ static void svg_ps_bars(void) {
 
 static void svg_top_ten_cpu(void) {
         struct ps_struct *top[10];
-        struct ps_struct emptyps;
+        struct ps_struct emptyps = {};
         struct ps_struct *ps;
         int n, m;
 
-        memset(&emptyps, 0, sizeof(struct ps_struct));
-        for (n=0; n < 10; n++)
+        for (n = 0; n < (int) ELEMENTSOF(top); n++)
                 top[n] = &emptyps;
 
         /* walk all ps's and setup ptrs */
@@ -1011,12 +1010,11 @@ static void svg_top_ten_cpu(void) {
 
 static void svg_top_ten_pss(void) {
         struct ps_struct *top[10];
-        struct ps_struct emptyps;
+        struct ps_struct emptyps = {};
         struct ps_struct *ps;
         int n, m;
 
-        memset(&emptyps, 0, sizeof(struct ps_struct));
-        for (n=0; n < 10; n++)
+        for (n = 0; n < (int) ELEMENTSOF(top); n++)
                 top[n] = &emptyps;
 
         /* walk all ps's and setup ptrs */

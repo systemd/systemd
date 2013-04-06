@@ -32,6 +32,8 @@
 #include <arpa/inet.h>
 
 #include "ifconf.h"
+#include "macro.h"
+#include "util.h"
 
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over
  * 127.0.0.1 that it can be translated back to the local hostname. For
@@ -41,8 +43,6 @@
 #define LOCALADDRESS_IPV4 (htonl(0x7F000002))
 #define LOCALADDRESS_IPV6 &in6addr_loopback
 #define LOOPBACK_INTERFACE "lo"
-
-#define ALIGN(a) (((a+sizeof(void*)-1)/sizeof(void*))*sizeof(void*))
 
 enum nss_status _nss_myhostname_gethostbyname4_r(
                 const char *name,
@@ -96,14 +96,13 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 int32_t *ttlp) {
 
         unsigned lo_ifi;
-        char hn[HOST_NAME_MAX+1];
+        char hn[HOST_NAME_MAX+1] = {};
         size_t l, idx, ms;
         char *r_name;
         struct gaih_addrtuple *r_tuple, *r_tuple_prev = NULL;
         struct address *addresses = NULL, *a;
         unsigned n_addresses = 0, n;
 
-        memset(hn, 0, sizeof(hn));
         if (gethostname(hn, sizeof(hn)-1) < 0) {
                 *errnop = errno;
                 *h_errnop = NO_RECOVERY;
@@ -312,7 +311,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 int32_t *ttlp,
                 char **canonp) {
 
-        char hn[HOST_NAME_MAX+1];
+        char hn[HOST_NAME_MAX+1] = {};
 
         if (af == AF_UNSPEC)
                 af = AF_INET;
@@ -323,7 +322,6 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        memset(hn, 0, sizeof(hn));
         if (gethostname(hn, sizeof(hn)-1) < 0) {
                 *errnop = errno;
                 *h_errnop = NO_RECOVERY;
@@ -380,8 +378,9 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 int *errnop, int *h_errnop,
                 int32_t *ttlp) {
 
-        char hn[HOST_NAME_MAX+1];
-        struct address *addresses = NULL, *a;
+        char hn[HOST_NAME_MAX+1] = {};
+        struct address _cleanup_free_ *addresses = NULL;
+        struct address *a;
         unsigned n_addresses = 0, n;
 
         if (len != PROTO_ADDRESS_SIZE(af)) {
@@ -419,13 +418,9 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         *errnop = ENOENT;
         *h_errnop = HOST_NOT_FOUND;
 
-        free(addresses);
         return NSS_STATUS_NOTFOUND;
 
 found:
-        free(addresses);
-
-        memset(hn, 0, sizeof(hn));
         if (gethostname(hn, sizeof(hn)-1) < 0) {
                 *errnop = errno;
                 *h_errnop = NO_RECOVERY;

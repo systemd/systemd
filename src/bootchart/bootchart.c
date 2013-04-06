@@ -239,7 +239,9 @@ static int parse_args(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *build = NULL;
-        struct sigaction sig;
+        struct sigaction sig = {
+                .sa_handler = signal_handler,
+        };
         struct ps_struct *ps;
         char output_file[PATH_MAX];
         char datestr[200];
@@ -279,8 +281,6 @@ int main(int argc, char *argv[]) {
         }
 
         /* handle TERM/INT nicely */
-        memset(&sig, 0, sizeof(struct sigaction));
-        sig.sa_handler = signal_handler;
         sigaction(SIGHUP, &sig, NULL);
 
         interval = (1.0 / arg_hz) * 1000000000.0;
