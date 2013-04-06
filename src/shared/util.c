@@ -80,6 +80,16 @@ char **saved_argv = NULL;
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
+#define PROCFS_PATH_LEN (sizeof("/proc/")-1 + DECIMAL_STR_MAX(pid_t))
+
+#define FORMAT_PROCFS_PATH(buffer, path, pid)                                                           \
+        do {                                                                                            \
+                assert_cc(sizeof(buffer) == (PROCFS_PATH_LEN + 1 + sizeof(path)));                      \
+                snprintf(buffer, sizeof(buffer) - 1, "/proc/%lu/%s", (unsigned long) pid, path);        \
+                char_array_0(buffer);                                                                   \
+        } while(0)
+
+
 size_t page_size(void) {
         static __thread size_t pgsz = 0;
         long r;
@@ -571,12 +581,9 @@ int get_process_comm(pid_t pid, char **name) {
         if (pid == 0)
                 r = read_one_line_file("/proc/self/comm", name);
         else {
-                char *p;
-                if (asprintf(&p, "/proc/%lu/comm", (unsigned long) pid) < 0)
-                        return -ENOMEM;
-
-                r = read_one_line_file(p, name);
-                free(p);
+                char path[PROCFS_PATH_LEN + sizeof("/comm")];
+                FORMAT_PROCFS_PATH(path, "comm", pid);
+                r = read_one_line_file(path, name);
         }
 
         return r;
@@ -592,12 +599,9 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         if (pid == 0)
                 f = fopen("/proc/self/cmdline", "re");
         else {
-                char *p;
-                if (asprintf(&p, "/proc/%lu/cmdline", (unsigned long) pid) < 0)
-                        return -ENOMEM;
-
-                f = fopen(p, "re");
-                free(p);
+                char path[PROCFS_PATH_LEN + sizeof("/cmdline")];
+                FORMAT_PROCFS_PATH(path, "cmdline", pid);
+                f = fopen(path, "re");
         }
 
         if (!f)
@@ -684,7 +688,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 }
 
 int is_kernel_thread(pid_t pid) {
-        char *p;
+        char path[PROCFS_PATH_LEN + sizeof("/cmdline")];
         size_t count;
         char c;
         bool eof;
@@ -693,11 +697,8 @@ int is_kernel_thread(pid_t pid) {
         if (pid == 0)
                 return 0;
 
-        if (asprintf(&p, "/proc/%lu/cmdline", (unsigned long) pid) < 0)
-                return -ENOMEM;
-
-        f = fopen(p, "re");
-        free(p);
+        FORMAT_PROCFS_PATH(path, "cmdline", pid);
+        f = fopen(path, "re");
 
         if (!f)
                 return -errno;
@@ -722,12 +723,9 @@ int get_process_exe(pid_t pid, char **name) {
         if (pid == 0)
                 r = readlink_malloc("/proc/self/exe", name);
         else {
-                char *p;
-                if (asprintf(&p, "/proc/%lu/exe", (unsigned long) pid) < 0)
-                        return -ENOMEM;
-
-                r = readlink_malloc(p, name);
-                free(p);
+                char path[PROCFS_PATH_LEN + sizeof("/exe")];
+                FORMAT_PROCFS_PATH(path, "exe", pid);
+                r = readlink_malloc(path, name);
         }
 
         return r;
@@ -735,7 +733,7 @@ int get_process_exe(pid_t pid, char **name) {
 
 static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
+        char path[PROCFS_PATH_LEN + sizeof("/status")];
         char line[LINE_MAX];
 
         assert(field);
@@ -744,10 +742,8 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         if (pid == 0)
                 return getuid();
 
-        if (asprintf(&p, "/proc/%lu/status", (unsigned long) pid) < 0)
-                return -ENOMEM;
-
-        f = fopen(p, "re");
+        FORMAT_PROCFS_PATH(path, "status", pid);
+        f = fopen(path, "re");
         if (!f)
                 return -errno;
 
