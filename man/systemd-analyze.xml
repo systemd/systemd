@@ -58,7 +58,7 @@
                         <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> plot <arg choice="opt">&gt; file.svg</arg></command>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> dot </command>
+                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> dot <arg choice="opt">pattern...</arg> </command>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -103,6 +103,10 @@
                 <option>--order</option> or <option>--require</option>
                 is passed the generated graph will show both ordering
                 and requirement dependencies.</para>
+
+                <para>Optional patterns may be given at the end. The
+                relationship is printed if any of these matches either
+                lefthand or righthand node.</para>
 
                 <para>If no command is passed <command>systemd-analyze
                 time</command> is implied.</para>
@@ -155,6 +159,26 @@
                                 shown. If neither is passed, shows
                                 dependencies of all these
                                 types.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--from-pattern=</option></term>
+                                <term><option>--to-pattern=</option></term>
+
+                                <listitem><para>When used in
+                                conjunction with the
+                                <command>dot</command> command (see
+                                above), selects which relationships
+                                are shown in the dependency graph.
+                                They both require
+                                <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                patterns as arguments, which are
+                                matched against lefthand and
+                                righthand, respectively, nodes of a
+                                relationship. Each of these can be
+                                used more than once which means a
+                                unit name must match one of given
+                                values.</para></listitem>
                         </varlistentry>
                 </variablelist>
 

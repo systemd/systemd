@@ -25,6 +25,7 @@
 #include <getopt.h>
 #include <locale.h>
 #include <sys/utsname.h>
+#include <fnmatch.h>
 
 #include "install.h"
 #include "log.h"
@@ -33,6 +34,7 @@
 #include "util.h"
 #include "strxcpyx.h"
 #include "fileio.h"
+#include "strv.h"
 
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y 20.0
@@ -60,6 +62,8 @@ static enum dot {
         DEP_ORDER,
         DEP_REQUIRE
 } arg_dot = DEP_ALL;
+static char** arg_dot_from_patterns = NULL;
+static char** arg_dot_to_patterns = NULL;
 
 struct boot_times {
         usec_t firmware_time;
@@ -578,7 +582,7 @@ static int analyze_time(DBusConnection *bus) {
         return 0;
 }
 
-static int graph_one_property(const char *name, const char *prop, DBusMessageIter *iter) {
+static int graph_one_property(const char *name, const char *prop, DBusMessageIter *iter, char* patterns[]) {
 
         static const char * const colors[] = {
                 "Requires",              "[color=\"black\"]",
@@ -621,9 +625,42 @@ static int graph_one_property(const char *name, const char *prop, DBusMessageIte
                      dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID;
                      dbus_message_iter_next(&sub)) {
                         const char *s;
+                        char **p;
+                        bool match_found = true;
 
                         assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
                         dbus_message_iter_get_basic(&sub, &s);
+
+                        STRV_FOREACH(p, arg_dot_from_patterns) {
+                                match_found = false;
+                                if (fnmatch(*p, name, 0) == 0) {
+                                        match_found = true;
+                                        break;
+                                }
+                        }
+                        if (!match_found)
+                                continue;
+
+                        STRV_FOREACH(p, arg_dot_to_patterns) {
+                                match_found = false;
+                                if (fnmatch(*p, s, 0) == 0) {
+                                        match_found = true;
+                                        break;
+                                }
+                        }
+                        if (!match_found)
+                                continue;
+
+                        STRV_FOREACH(p, patterns) {
+                                match_found = false;
+                                if (fnmatch(*p, name, 0) == 0 || fnmatch(*p, s, 0) == 0) {
+                                        match_found = true;
+                                        break;
+                                }
+                        }
+                        if (!match_found)
+                                continue;
+
                         printf("\t\"%s\"->\"%s\" %s;\n", name, s, c);
                 }
         }
@@ -631,7 +668,7 @@ static int graph_one_property(const char *name, const char *prop, DBusMessageIte
         return 0;
 }
 
-static int graph_one(DBusConnection *bus, const struct unit_info *u) {
+static int graph_one(DBusConnection *bus, const struct unit_info *u, char *patterns[]) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *interface = "org.freedesktop.systemd1.Unit";
         int r;
@@ -675,7 +712,7 @@ static int graph_one(DBusConnection *bus, const struct unit_info *u) {
                 }
 
                 dbus_message_iter_recurse(&sub2, &sub3);
-                r = graph_one_property(u->id, prop, &sub3);
+                r = graph_one_property(u->id, prop, &sub3, patterns);
                 if (r < 0)
                         return r;
         }
@@ -683,7 +720,7 @@ static int graph_one(DBusConnection *bus, const struct unit_info *u) {
         return 0;
 }
 
-static int dot(DBusConnection *bus) {
+static int dot(DBusConnection *bus, char* patterns[]) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
         int r;
@@ -718,7 +755,7 @@ static int dot(DBusConnection *bus) {
                 if (r < 0)
                         return -EIO;
 
-                r = graph_one(bus, &u);
+                r = graph_one(bus, &u, patterns);
                 if (r < 0)
                         return r;
         }
@@ -763,7 +800,9 @@ static int parse_argv(int argc, char *argv[])
                 ARG_ORDER,
                 ARG_REQUIRE,
                 ARG_USER,
-                ARG_SYSTEM
+                ARG_SYSTEM,
+                ARG_DOT_FROM_PATTERN,
+                ARG_DOT_TO_PATTERN
         };
 
         static const struct option options[] = {
@@ -773,6 +812,8 @@ static int parse_argv(int argc, char *argv[])
                 { "require",   no_argument,       NULL, ARG_REQUIRE   },
                 { "user",      no_argument,       NULL, ARG_USER      },
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
+                { "from-pattern", required_argument, NULL, ARG_DOT_FROM_PATTERN},
+                { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN  },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -804,6 +845,14 @@ static int parse_argv(int argc, char *argv[])
 
                 case ARG_REQUIRE:
                         arg_dot = DEP_REQUIRE;
+                        break;
+
+                case ARG_DOT_FROM_PATTERN:
+                        arg_dot_from_patterns = strv_append(arg_dot_from_patterns, optarg);
+                        break;
+
+                case ARG_DOT_TO_PATTERN:
+                        arg_dot_to_patterns = strv_append(arg_dot_to_patterns, optarg);
                         break;
 
                 case -1:
@@ -844,10 +893,12 @@ int main(int argc, char *argv[]) {
         else if (streq(argv[optind], "plot"))
                 r = analyze_plot(bus);
         else if (streq(argv[optind], "dot"))
-                r = dot(bus);
+                r = dot(bus, argv+optind+1);
         else
                 log_error("Unknown operation '%s'.", argv[optind]);
 
+        strv_free(arg_dot_from_patterns);
+        strv_free(arg_dot_to_patterns);
         dbus_connection_unref(bus);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
