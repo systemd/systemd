@@ -535,8 +535,11 @@ static void dispatch_message_real(
                 const char *label, size_t label_len,
                 const char *unit_id) {
 
-        char _cleanup_free_ *pid = NULL, *uid = NULL, *gid = NULL,
-                *source_time = NULL, *boot_id = NULL, *machine_id = NULL,
+        char pid[sizeof("_PID=") + DECIMAL_STR_MAX(ucred->pid)],
+                uid[sizeof("_UID=") + DECIMAL_STR_MAX(ucred->uid)],
+                gid[sizeof("_GID=") + DECIMAL_STR_MAX(ucred->gid)];
+
+        char _cleanup_free_ *source_time = NULL, *boot_id = NULL, *machine_id = NULL,
                 *comm = NULL, *cmdline = NULL, *hostname = NULL,
                 *audit_session = NULL, *audit_loginuid = NULL,
                 *exe = NULL, *cgroup = NULL, *session = NULL,
@@ -562,14 +565,17 @@ static void dispatch_message_real(
 
                 realuid = ucred->uid;
 
-                if (asprintf(&pid, "_PID=%lu", (unsigned long) ucred->pid) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], pid);
+                snprintf(pid, sizeof(pid) - 1, "_PID=%lu", (unsigned long) ucred->pid);
+                char_array_0(pid);
+                IOVEC_SET_STRING(iovec[n++], pid);
 
-                if (asprintf(&uid, "_UID=%lu", (unsigned long) ucred->uid) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], uid);
+                snprintf(uid, sizeof(uid) - 1, "_UID=%lu", (unsigned long) ucred->uid);
+                char_array_0(uid);
+                IOVEC_SET_STRING(iovec[n++], uid);
 
-                if (asprintf(&gid, "_GID=%lu", (unsigned long) ucred->gid) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], gid);
+                snprintf(gid, sizeof(gid) - 1, "_GID=%lu", (unsigned long) ucred->gid);
+                char_array_0(gid);
+                IOVEC_SET_STRING(iovec[n++], gid);
 
                 r = get_process_comm(ucred->pid, &t);
                 if (r >= 0) {
