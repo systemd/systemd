@@ -851,11 +851,15 @@ static int parse_argv(int argc, char *argv[])
                         break;
 
                 case ARG_DOT_FROM_PATTERN:
-                        arg_dot_from_patterns = strv_append(arg_dot_from_patterns, optarg);
+                        if (strv_extend(&arg_dot_from_patterns, optarg) < 0)
+                                return log_oom();
+
                         break;
 
                 case ARG_DOT_TO_PATTERN:
-                        arg_dot_to_patterns = strv_append(arg_dot_to_patterns, optarg);
+                        if (strv_extend(&arg_dot_to_patterns, optarg) < 0)
+                                return log_oom();
+
                         break;
 
                 case -1:
