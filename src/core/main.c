@@ -1088,7 +1088,7 @@ static int version(void) {
         return 0;
 }
 
-static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool serialize_jobs) {
+static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching_root) {
         FILE *f = NULL;
         FDSet *fds = NULL;
         int r;
@@ -1113,7 +1113,7 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool serialize
                 goto fail;
         }
 
-        r = manager_serialize(m, f, fds, serialize_jobs);
+        r = manager_serialize(m, f, fds, switching_root);
         if (r < 0) {
                 log_error("Failed to serialize state: %s", strerror(-r));
                 goto fail;
@@ -1780,7 +1780,7 @@ int main(int argc, char *argv[]) {
 
                 case MANAGER_REEXECUTE:
 
-                        if (prepare_reexecute(m, &serialization, &fds, true) < 0)
+                        if (prepare_reexecute(m, &serialization, &fds, false) < 0)
                                 goto finish;
 
                         reexecute = true;
@@ -1794,7 +1794,7 @@ int main(int argc, char *argv[]) {
                         m->switch_root = m->switch_root_init = NULL;
 
                         if (!switch_root_init)
-                                if (prepare_reexecute(m, &serialization, &fds, false) < 0)
+                                if (prepare_reexecute(m, &serialization, &fds, true) < 0)
                                         goto finish;
 
                         reexecute = true;
