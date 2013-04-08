@@ -538,15 +538,15 @@ static void dispatch_message_real(
         char pid[sizeof("_PID=") + DECIMAL_STR_MAX(ucred->pid)],
                 uid[sizeof("_UID=") + DECIMAL_STR_MAX(ucred->uid)],
                 gid[sizeof("_GID=") + DECIMAL_STR_MAX(ucred->gid)],
-                source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=" + DECIMAL_STR_MAX(usec_t))];
+                source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=" + DECIMAL_STR_MAX(usec_t))],
+                boot_id[sizeof("_BOOT_ID=") + 32] = "_BOOT_ID=",
+                machine_id[sizeof("_MACHINE_ID=") + 32] = "_MACHINE_ID=";
 
-        char _cleanup_free_ *boot_id = NULL, *machine_id = NULL,
-                *comm = NULL, *cmdline = NULL, *hostname = NULL,
+        char _cleanup_free_ *comm = NULL, *cmdline = NULL, *hostname = NULL,
                 *audit_session = NULL, *audit_loginuid = NULL,
                 *exe = NULL, *cgroup = NULL, *session = NULL,
                 *owner_uid = NULL, *unit = NULL, *selinux_context = NULL;
 
-        char idbuf[33];
         sd_id128_t id;
         int r;
         char *t;
@@ -689,14 +689,16 @@ static void dispatch_message_real(
          * redundant since the entry includes this in-line
          * anyway. However, we need this indexed, too. */
         r = sd_id128_get_boot(&id);
-        if (r >= 0)
-                if (asprintf(&boot_id, "_BOOT_ID=%s", sd_id128_to_string(id, idbuf)) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], boot_id);
+        if (r >= 0) {
+                sd_id128_to_string(id, boot_id + sizeof("_BOOT_ID=") - 1);
+                IOVEC_SET_STRING(iovec[n++], boot_id);
+        }
 
         r = sd_id128_get_machine(&id);
-        if (r >= 0)
-                if (asprintf(&machine_id, "_MACHINE_ID=%s", sd_id128_to_string(id, idbuf)) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], machine_id);
+        if (r >= 0) {
+                sd_id128_to_string(id, machine_id + sizeof("_MACHINE_ID") - 1);
+                IOVEC_SET_STRING(iovec[n++], machine_id);
+        }
 
         t = gethostname_malloc();
         if (t) {
