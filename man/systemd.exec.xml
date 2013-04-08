@@ -825,8 +825,11 @@
                                 in specific paths in specific kernel
                                 controller hierarchies. It is not
                                 recommended to manipulate the service
-                                control group path in the systemd
-                                named hierarchy. For details about
+                                control group path in the private
+                                systemd named hierarchy
+                                (i.e. <literal>name=systemd</literal>),
+                                and doing this might result in
+                                undefined behaviour. For details about
                                 control groups see <ulink
                                 url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.</para>
 
