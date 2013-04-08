@@ -697,7 +697,13 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         return write_string_file(fs, c);
 }
 
-int cg_set_group_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid) {
+int cg_set_group_access(
+                const char *controller,
+                const char *path,
+                mode_t mode,
+                uid_t uid,
+                gid_t gid) {
+
         _cleanup_free_ char *fs = NULL;
         int r;
 

@@ -1547,8 +1547,7 @@ int exec_spawn(ExecCommand *command,
          * outside of the cgroup) and in the parent (so that we can be
          * sure that when we kill the cgroup the process will be
          * killed too). */
-        if (cgroup_bondings)
-                cgroup_bonding_install_list(cgroup_bondings, pid, cgroup_suffix);
+        cgroup_bonding_install_list(cgroup_bondings, pid, cgroup_suffix);
 
         exec_status_start(&command->exec_status, pid);
 
