@@ -446,7 +446,7 @@ static int display(Hashmap *a) {
         Group **array;
         signed path_columns;
         unsigned rows, n = 0, j, maxtcpu = 0, maxtpath = 0;
-        char cpu_title[21];
+        char buffer[MAX3(21, FORMAT_BYTES_MAX, FORMAT_TIMESPAN_MAX)];
 
         assert(a);
 
@@ -466,24 +466,25 @@ static int display(Hashmap *a) {
         /* Find the longest names in one run */
         for (j = 0; j < n; j++) {
                 unsigned cputlen, pathtlen;
-                snprintf(cpu_title, sizeof(cpu_title), "%"PRIu64, array[j]->cpu_usage);
-                cputlen = strlen(cpu_title);
+
+                format_timespan(buffer, sizeof(buffer), (nsec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0);
+                cputlen = strlen(buffer);
                 maxtcpu = MAX(maxtcpu, cputlen);
                 pathtlen = strlen(array[j]->path);
                 maxtpath = MAX(maxtpath, pathtlen);
         }
 
         if (arg_cpu_type == CPU_PERCENT)
-                snprintf(cpu_title, sizeof(cpu_title), "%6s", "%CPU");
+                snprintf(buffer, sizeof(buffer), "%6s", "%CPU");
         else
-                snprintf(cpu_title, sizeof(cpu_title), "%*s", maxtcpu, "CPU Time");
+                snprintf(buffer, sizeof(buffer), "%*s", maxtcpu, "CPU Time");
 
         rows = lines();
         if (rows <= 10)
                 rows = 10;
 
         if (on_tty()) {
-                path_columns = columns() - 36 - strlen(cpu_title);
+                path_columns = columns() - 36 - strlen(buffer);
                 if (path_columns < 10)
                         path_columns = 10;
 
@@ -492,7 +493,7 @@ static int display(Hashmap *a) {
                        arg_order == ORDER_PATH ? OFF : "",
                        arg_order == ORDER_TASKS ? ON : "", "Tasks",
                        arg_order == ORDER_TASKS ? OFF : "",
-                       arg_order == ORDER_CPU ? ON : "", cpu_title,
+                       arg_order == ORDER_CPU ? ON : "", buffer,
                        arg_order == ORDER_CPU ? OFF : "",
                        arg_order == ORDER_MEMORY ? ON : "", "Memory",
                        arg_order == ORDER_MEMORY ? OFF : "",
@@ -505,7 +506,6 @@ static int display(Hashmap *a) {
 
         for (j = 0; j < n; j++) {
                 char *p;
-                char m[FORMAT_BYTES_MAX];
 
                 if (on_tty() && j + 5 > rows)
                         break;
@@ -521,24 +521,24 @@ static int display(Hashmap *a) {
                 else
                         fputs("       -", stdout);
 
-                if (arg_cpu_type == CPU_PERCENT)
+                if (arg_cpu_type == CPU_PERCENT) {
                         if (g->cpu_valid)
                                 printf(" %6.1f", g->cpu_fraction*100);
                         else
                                 fputs("      -", stdout);
-                else
-                        printf(" %*"PRIu64, maxtcpu, g->cpu_usage);
+                } else
+                        printf(" %*s", maxtcpu, format_timespan(buffer, sizeof(buffer), (nsec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
 
                 if (g->memory_valid)
-                        printf(" %8s", format_bytes(m, sizeof(m), g->memory));
+                        printf(" %8s", format_bytes(buffer, sizeof(buffer), g->memory));
                 else
                         fputs("        -", stdout);
 
                 if (g->io_valid) {
                         printf(" %8s",
-                               format_bytes(m, sizeof(m), g->io_input_bps));
+                               format_bytes(buffer, sizeof(buffer), g->io_input_bps));
                         printf(" %8s",
-                               format_bytes(m, sizeof(m), g->io_output_bps));
+                               format_bytes(buffer, sizeof(buffer), g->io_output_bps));
                 } else
                         fputs("        -        -", stdout);
 
