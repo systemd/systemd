@@ -602,7 +602,7 @@ static int next_for_match(
                                         return r;
 
                                 if ((direction == DIRECTION_DOWN ? cp >= after_offset : cp <= after_offset) &&
-                                    (np == 0 || (direction == DIRECTION_DOWN ? cp > np : np < cp))) {
+                                    (np == 0 || (direction == DIRECTION_DOWN ? cp > np : cp < np))) {
                                         np = cp;
                                         continue_looking = true;
                                 }
