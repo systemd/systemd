@@ -45,6 +45,9 @@ Fedora 19:
   http://lists.freedesktop.org/archives/systemd-devel/2013-February/009021.html
 
 Features:
+* move /usr/lib/modules/$(uname -r)/modules.devname parsing from udevd to
+   kmod static-nodes
+  call kmod as an early service, and drop CAP_MKNOD from udevd.service
 
 * systemd-delta needs to be made aware of *.d/*.conf drop-in files for
   units.
