@@ -1,5 +1,71 @@
 systemd System and Service Manager
 
+CHANGES WITH 201:
+
+        * journalctl --update-catalog now understands a new --root=
+          option to operate on catalogs found in a different root
+          directory.
+
+        * During shutdown after systemd has terminated all running
+          services a final killing loop kills all remaining left-over
+          processes. We will now print the name of these processes
+          when we send SIGKILL to them, since this usually indicates a
+          problem.
+
+        * If /etc/crypttab refers to password files stored on
+          configured mount points automatic dependencies will now be
+          generated to ensure the specific mount is established first
+          before the key file is attempted to be read.
+
+        * 'systemctl status' will now show information about the
+          network sockets a socket unit is listening on.
+
+        * 'systemctl status' will also shown information about any
+          drop-in configuration file for units. (Drop-In configuration
+          files in this context are files such as
+          /etc/systemd/systemd/foobar.service.d/*.conf)
+
+        * systemd-cgtop now optionally shows summed up CPU times of
+          cgroups. Press '%' while running cgtop to switch between
+          percentage and absolute mode. This is useful to determine
+          which cgroups use up the most CPU time over the entire
+          runtime of the system. systemd-cgtop has also been updated
+          to be 'pipeable' for processing with further shell tools.
+
+        * 'hostnamectl set-hostname' will now allow setting of FQDN
+          hostnames.
+
+        * The formatting and parsing of time span values has been
+          changed. The parser now understands fractional expressions
+          such as "5.5h". The formatter will now output fractional
+          expressions for all time spans under 1min, i.e. "5.123456s"
+          rather than "5s 123ms 456us". For time spans under 1s
+          millisecond values are shown, for those under 1ms
+          microsecond values are shown. This should greatly improve
+          all time-related output of systemd.
+
+        * libsystemd-login and libsystemd-journal gained new
+          functions for querying the poll() events mask and poll()
+          timeout value for integration into arbitrary event
+          loops.
+
+        * localectl gained the ability to list available X11 keymaps
+          (models, layouts, variants, options).
+
+        * 'systemd-analyze dot' gained the ability to filter for
+          specific units via shell-style globs, to create smaller,
+          more useful graphs. I.e. it's now possible to create simple
+          graphs of all the dependencies between only target units, or
+          of all units that Avahi has dependencies with.
+
+        Contributions from: Cristian Rodríguez, Dr. Tilmann Bubeck,
+        Harald Hoyer, Holger Hans Peter Freyther, Kay Sievers, Kelly
+        Anderson, Koen Kooi, Lennart Poettering, Maksim Melnikau,
+        Marc-Antoine Perennou, Marius Vollmer, Martin Pitt, Michal
+        Schmidt, Oleksii Shevchuk, Ronny Chevalier, Simon McVittie,
+        Steven Hiscocks, Thomas Weißschuh, Umut Tezduyar, Václav
+        Pavlín, Zbigniew Jędrzejewski-Szmek, Łukasz Stelmach
+
 CHANGES WITH 200:
 
         * The boot-time readahead implementation for rotating media
