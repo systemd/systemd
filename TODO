@@ -46,6 +46,9 @@ Fedora 19:
 
 Features:
 
+* systemd-delta needs to be made aware of *.d/*.conf drop-in files for
+  units.
+
 * seems that when we follow symlinks to units we prefer the symlink
   destination path over /etc and /usr. We shouldn't do that. Instead
   /etc should always override /run+/usr and also any symlink
