@@ -23,6 +23,8 @@ Bugfixes:
 
 Fedora 19:
 
+* fix match logic to add another level of disjunction/conjunction
+
 * make anaconda write timeout=0 for encrypted devices
 
 * external: maybe it is time to patch procps so that "ps" links to
@@ -45,6 +47,11 @@ Fedora 19:
   http://lists.freedesktop.org/archives/systemd-devel/2013-February/009021.html
 
 Features:
+
+* make the coredump collector tool move itself into the user's cgroup
+  so that the coredump is properly written to the user's own journal
+  file.
+
 * move /usr/lib/modules/$(uname -r)/modules.devname parsing from udevd to
    kmod static-nodes
   call kmod as an early service, and drop CAP_MKNOD from udevd.service
