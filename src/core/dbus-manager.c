@@ -290,8 +290,8 @@
         "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"RuntimeWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n" \
-        "  <property name=\"ShutdownWatchdogUSec\" type=\"s\" access=\"readwrite\"/>\n" \
+        "  <property name=\"RuntimeWatchdogUSec\" type=\"t\" access=\"readwrite\"/>\n" \
+        "  <property name=\"ShutdownWatchdogUSec\" type=\"t\" access=\"readwrite\"/>\n" \
         "  <property name=\"Virtualization\" type=\"s\" access=\"read\"/>\n"
 
 #define BUS_MANAGER_INTERFACE_END                                       \
