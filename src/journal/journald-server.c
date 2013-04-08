@@ -537,9 +537,10 @@ static void dispatch_message_real(
 
         char pid[sizeof("_PID=") + DECIMAL_STR_MAX(ucred->pid)],
                 uid[sizeof("_UID=") + DECIMAL_STR_MAX(ucred->uid)],
-                gid[sizeof("_GID=") + DECIMAL_STR_MAX(ucred->gid)];
+                gid[sizeof("_GID=") + DECIMAL_STR_MAX(ucred->gid)],
+                source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=" + DECIMAL_STR_MAX(usec_t))];
 
-        char _cleanup_free_ *source_time = NULL, *boot_id = NULL, *machine_id = NULL,
+        char _cleanup_free_ *boot_id = NULL, *machine_id = NULL,
                 *comm = NULL, *cmdline = NULL, *hostname = NULL,
                 *audit_session = NULL, *audit_loginuid = NULL,
                 *exe = NULL, *cgroup = NULL, *session = NULL,
@@ -678,9 +679,10 @@ static void dispatch_message_real(
         }
 
         if (tv) {
-                if (asprintf(&source_time, "_SOURCE_REALTIME_TIMESTAMP=%llu",
-                             (unsigned long long) timeval_load(tv)) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], source_time);
+                snprintf(source_time, sizeof(source_time) - 1, "_SOURCE_REALTIME_TIMESTAMP=%llu",
+                         (unsigned long long) timeval_load(tv));
+                char_array_0(source_time);
+                IOVEC_SET_STRING(iovec[n++], source_time);
         }
 
         /* Note that strictly speaking storing the boot id here is
