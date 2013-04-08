@@ -37,6 +37,8 @@
 #include "special.h"
 #include "cgroup-util.h"
 
+/* Make sure to not make this larger than the maximum journal entry
+ * size. See ENTRY_SIZE_MAX in journald-native.c. */
 #define COREDUMP_MAX (768*1024*1024)
 
 enum {
