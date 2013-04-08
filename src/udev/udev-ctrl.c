@@ -73,6 +73,7 @@ struct udev_ctrl_connection {
 struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
 {
         struct udev_ctrl *uctrl;
+        const int on = 1;
 
         uctrl = calloc(1, sizeof(struct udev_ctrl));
         if (uctrl == NULL)
@@ -91,6 +92,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
                 uctrl->bound = true;
                 uctrl->sock = fd;
         }
+        setsockopt(uctrl->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 
         uctrl->saddr.sun_family = AF_LOCAL;
         strscpy(uctrl->saddr.sun_path, sizeof(uctrl->saddr.sun_path), "/run/udev/control");
