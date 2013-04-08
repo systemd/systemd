@@ -626,40 +626,48 @@ static int graph_one_property(const char *name, const char *prop, DBusMessageIte
                      dbus_message_iter_next(&sub)) {
                         const char *s;
                         char **p;
-                        bool match_found = true;
+                        bool match_found;
 
                         assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
                         dbus_message_iter_get_basic(&sub, &s);
 
-                        STRV_FOREACH(p, arg_dot_from_patterns) {
+                        if (!strv_isempty(arg_dot_from_patterns)) {
                                 match_found = false;
-                                if (fnmatch(*p, name, 0) == 0) {
-                                        match_found = true;
-                                        break;
-                                }
-                        }
-                        if (!match_found)
-                                continue;
 
-                        STRV_FOREACH(p, arg_dot_to_patterns) {
-                                match_found = false;
-                                if (fnmatch(*p, s, 0) == 0) {
-                                        match_found = true;
-                                        break;
-                                }
-                        }
-                        if (!match_found)
-                                continue;
+                                STRV_FOREACH(p, arg_dot_from_patterns)
+                                        if (fnmatch(*p, name, 0) == 0) {
+                                                match_found = true;
+                                                break;
+                                        }
 
-                        STRV_FOREACH(p, patterns) {
-                                match_found = false;
-                                if (fnmatch(*p, name, 0) == 0 || fnmatch(*p, s, 0) == 0) {
-                                        match_found = true;
-                                        break;
-                                }
+                                if (!match_found)
+                                        continue;
                         }
-                        if (!match_found)
-                                continue;
+
+                        if (!strv_isempty(arg_dot_to_patterns)) {
+                                match_found = false;
+
+                                STRV_FOREACH(p, arg_dot_to_patterns)
+                                        if (fnmatch(*p, s, 0) == 0) {
+                                                match_found = true;
+                                                break;
+                                        }
+
+                                if (!match_found)
+                                        continue;
+                        }
+
+                        if (!strv_isempty(patterns)) {
+                                match_found = false;
+
+                                STRV_FOREACH(p, patterns)
+                                        if (fnmatch(*p, name, 0) == 0 || fnmatch(*p, s, 0) == 0) {
+                                                match_found = true;
+                                                break;
+                                        }
+                                if (!match_found)
+                                        continue;
+                        }
 
                         printf("\t\"%s\"->\"%s\" %s;\n", name, s, c);
                 }

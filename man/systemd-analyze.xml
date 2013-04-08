@@ -93,20 +93,21 @@
                 been started at what time, highlighting the time they
                 spent on initialization.</para>
 
-                <para><command>systemd-analyze dot</command>
-                Generate textual dependency graph description in dot
-                format for further processing with the GraphViz
+                <para><command>systemd-analyze dot</command> Generate
+                textual dependency graph description in dot format for
+                further processing with the GraphViz
                 <citerefentry><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 tool. Use a command line like <command>systemd-analyze
-                dot | dot -Tsvg > systemd.svg</command> to generate
-                a graphical dependency tree. Unless
+                dot | dot -Tsvg > systemd.svg</command> to generate a
+                graphical dependency tree. Unless
                 <option>--order</option> or <option>--require</option>
                 is passed the generated graph will show both ordering
-                and requirement dependencies.</para>
-
-                <para>Optional patterns may be given at the end. The
-                relationship is printed if any of these matches either
-                lefthand or righthand node.</para>
+                and requirement dependencies. Optional pattern
+                globbing style specifications
+                (e.g. <filename>*.target</filename>) may be given at
+                the end. A unit dependency is included in the graph if
+                any of these patterns match either the origin or
+                destination node.</para>
 
                 <para>If no command is passed <command>systemd-analyze
                 time</command> is implied.</para>
@@ -189,6 +190,23 @@
 
                 <para>On success 0 is returned, a non-zero failure
                 code otherwise.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Examples</title>
+
+                <para>This plots all dependencies of any unit whose
+                name starts with "<literal>avahi-daemon.</literal>":</para>
+
+                <programlisting>$ systemd-analyze dot 'avahi-daemon.*' | dot -Tsvg > avahi.svg
+$ eog avahi.svg</programlisting>
+
+                <para>This plots the dependencies between all known target units:</para>
+
+                <programlisting>systemd-analyze dot --to-pattern='*.target' --from-patter='*.target' | dot -Tsvg > targets.svg
+$ eog targets.svg</programlisting>
+
+
         </refsect1>
 
         <refsect1>
