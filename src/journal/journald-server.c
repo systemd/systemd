@@ -543,9 +543,12 @@ static void dispatch_message_real(
                 machine_id[sizeof("_MACHINE_ID=") + 32] = "_MACHINE_ID=";
 
         char _cleanup_free_ *comm = NULL, *cmdline = NULL, *hostname = NULL,
-                *audit_session = NULL, *audit_loginuid = NULL,
                 *exe = NULL, *cgroup = NULL, *session = NULL,
                 *owner_uid = NULL, *unit = NULL, *selinux_context = NULL;
+
+#ifdef HAVE_AUDIT
+        char _cleanup_free_ *audit_session = NULL, *audit_loginuid = NULL;
+#endif
 
         sd_id128_t id;
         int r;
