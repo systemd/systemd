@@ -1045,6 +1045,11 @@ int exec_spawn(ExecCommand *command,
         if (r < 0)
                 return r;
 
+        /* We must initialize the attributes in the parent, before we
+        fork, because we really need them initialized before making
+        the process a member of the group (which we do in both the
+        child and the parent), and we cannot really apply them twice
+        (due to 'append' style attributes) */
         cgroup_attribute_apply_list(cgroup_attributes, cgroup_bondings);
 
         if (context->private_tmp && !context->tmp_dir && !context->var_tmp_dir) {
@@ -1267,7 +1272,12 @@ int exec_spawn(ExecCommand *command,
                         if (cgroup_bondings && context->control_group_modify) {
                                 err = cgroup_bonding_set_group_access_list(cgroup_bondings, 0755, uid, gid);
                                 if (err >= 0)
-                                        err = cgroup_bonding_set_task_access_list(cgroup_bondings, 0644, uid, gid, context->control_group_persistent);
+                                        err = cgroup_bonding_set_task_access_list(
+                                                        cgroup_bondings,
+                                                        0644,
+                                                        uid,
+                                                        gid,
+                                                        context->control_group_persistent);
                                 if (err < 0) {
                                         r = EXIT_CGROUP;
                                         goto fail_child;
@@ -1278,7 +1288,12 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (cgroup_bondings && !set_access && context->control_group_persistent >= 0)  {
-                        err = cgroup_bonding_set_task_access_list(cgroup_bondings, (mode_t) -1, (uid_t) -1, (uid_t) -1, context->control_group_persistent);
+                        err = cgroup_bonding_set_task_access_list(
+                                        cgroup_bondings,
+                                        (mode_t) -1,
+                                        (uid_t) -1,
+                                        (uid_t) -1,
+                                        context->control_group_persistent);
                         if (err < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail_child;

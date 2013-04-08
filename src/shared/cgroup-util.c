@@ -714,8 +714,15 @@ int cg_set_group_access(const char *controller, const char *path, mode_t mode, u
         return chmod_and_chown(fs, mode, uid, gid);
 }
 
-int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid, int sticky) {
-        char *fs;
+int cg_set_task_access(
+                const char *controller,
+                const char *path,
+                mode_t mode,
+                uid_t uid,
+                gid_t gid,
+                int sticky) {
+
+        _cleanup_free_ char *fs = NULL, *procs = NULL;
         int r;
 
         assert(controller);
@@ -742,10 +749,8 @@ int cg_set_task_access(const char *controller, const char *path, mode_t mode, ui
                  * mode from the file itself */
 
                 r = lstat(fs, &st);
-                if (r < 0) {
-                        free(fs);
+                if (r < 0)
                         return -errno;
-                }
 
                 if (mode == (mode_t) -1)
                         /* No mode set, we just shall set the sticky bit */
@@ -756,9 +761,15 @@ int cg_set_task_access(const char *controller, const char *path, mode_t mode, ui
         }
 
         r = chmod_and_chown(fs, mode, uid, gid);
-        free(fs);
+        if (r < 0)
+                return r;
 
-        return r;
+        /* Always keep values for "cgroup.procs" in sync with "tasks" */
+        r = cg_get_path(controller, path, "cgroup.procs", &procs);
+        if (r < 0)
+                return r;
+
+        return chmod_and_chown(procs, mode, uid, gid);
 }
 
 int cg_get_by_pid(const char *controller, pid_t pid, char **path) {

@@ -111,7 +111,7 @@ void cgroup_bonding_trim_list(CGroupBonding *first, bool delete_root) {
 }
 
 int cgroup_bonding_install(CGroupBonding *b, pid_t pid, const char *cgroup_suffix) {
-        char *p = NULL;
+        _cleanup_free_ char *p = NULL;
         const char *path;
         int r;
 
@@ -128,8 +128,6 @@ int cgroup_bonding_install(CGroupBonding *b, pid_t pid, const char *cgroup_suffi
                 path = b->path;
 
         r = cg_create_and_attach(b->controller, path, pid);
-        free(p);
-
         if (r < 0)
                 return r;
 
