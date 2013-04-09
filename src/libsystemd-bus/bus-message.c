@@ -1241,12 +1241,54 @@ int sd_bus_message_close_container(sd_bus_message *m) {
         return 0;
 }
 
+
+typedef struct {
+        const char *types;
+        unsigned n_struct;
+        unsigned n_array;
+} TypeStack;
+
+static int type_stack_push(TypeStack *stack, unsigned max, unsigned *i, const char *types, unsigned n_struct, unsigned n_array) {
+        assert(stack);
+        assert(max > 0);
+
+        if (*i >= max)
+                return -EINVAL;
+
+        stack[*i].types = types;
+        stack[*i].n_struct = n_struct;
+        stack[*i].n_array = n_array;
+        (*i)++;
+
+        return 0;
+}
+
+static int type_stack_pop(TypeStack *stack, unsigned max, unsigned *i, const char **types, unsigned *n_struct, unsigned *n_array) {
+        assert(stack);
+        assert(max > 0);
+        assert(types);
+        assert(n_struct);
+        assert(n_array);
+
+        if (*i <= 0)
+                return 0;
+
+        (*i)--;
+        *types = stack[*i].types;
+        *n_struct = stack[*i].n_struct;
+        *n_array = stack[*i].n_array;
+
+        return 1;
+}
+
 int bus_message_append_ap(
                 sd_bus_message *m,
                 const char *types,
                 va_list ap) {
 
-        const char *t;
+        unsigned n_array, n_struct;
+        TypeStack stack[BUS_CONTAINER_DEPTH];
+        unsigned stack_ptr = 0;
         int r;
 
         assert(m);
@@ -1254,7 +1296,34 @@ int bus_message_append_ap(
         if (!types)
                 return 0;
 
-        for (t = types; *t; t++) {
+        n_array = (unsigned) -1;
+        n_struct = strlen(types);
+
+        for (;;) {
+                const char *t;
+
+                if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
+                        r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                t = types;
+                if (n_array != (unsigned) -1)
+                        n_array --;
+                else {
+                        types ++;
+                        n_struct--;
+                }
+
                 switch (*t) {
 
                 case SD_BUS_TYPE_BYTE: {
@@ -1316,26 +1385,27 @@ int bus_message_append_ap(
                                 return r;
 
                         {
-                                unsigned i, n;
                                 char s[k + 1];
-
                                 memcpy(s, t + 1, k);
                                 s[k] = 0;
-                                t += k;
 
                                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_ARRAY, s);
                                 if (r < 0)
                                         return r;
-
-                                n = va_arg(ap, unsigned);
-                                for (i = 0; i < n; i++) {
-                                        r = bus_message_append_ap(m, s, ap);
-                                        if (r < 0)
-                                                return r;
-                                }
-
-                                r = sd_bus_message_close_container(m);
                         }
+
+                        if (n_array == (unsigned) -1) {
+                                types += k;
+                                n_struct -= k;
+                        }
+
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
+                        if (r < 0)
+                                return r;
+
+                        types = t + 1;
+                        n_struct = k;
+                        n_array = va_arg(ap, unsigned);
 
                         break;
                 }
@@ -1351,11 +1421,14 @@ int bus_message_append_ap(
                         if (r < 0)
                                 return r;
 
-                        r = bus_message_append_ap(m, s, ap);
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
                         if (r < 0)
                                 return r;
 
-                        r = sd_bus_message_close_container(m);
+                        types = s;
+                        n_struct = strlen(s);
+                        n_array = (unsigned) -1;
+
                         break;
                 }
 
@@ -1376,15 +1449,20 @@ int bus_message_append_ap(
                                 r = sd_bus_message_open_container(m, *t == SD_BUS_TYPE_STRUCT_BEGIN ? SD_BUS_TYPE_STRUCT : SD_BUS_TYPE_DICT_ENTRY, s);
                                 if (r < 0)
                                         return r;
-
-                                t += k - 1;
-
-                                r = bus_message_append_ap(m, s, ap);
-                                if (r < 0)
-                                        return r;
-
-                                r = sd_bus_message_close_container(m);
                         }
+
+                        if (n_array == (unsigned) -1) {
+                                types += k - 1;
+                                n_struct -= k - 1;
+                        }
+
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
+                        if (r < 0)
+                                return r;
+
+                        types = t + 1;
+                        n_struct = k - 2;
+                        n_array = (unsigned) -1;
 
                         break;
                 }
@@ -2090,54 +2168,20 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete) {
 
         return !isempty(c->signature);
 }
+static int message_read_ap(
+                sd_bus_message *m,
+                const char *types,
+                va_list ap) {
 
-typedef struct {
-        const char *types;
-        unsigned n_struct;
-        unsigned n_array;
-} TypeStack;
-
-static int type_stack_push(TypeStack *stack, unsigned max, unsigned *i, const char *types, unsigned n_struct, unsigned n_array) {
-        assert(stack);
-        assert(max > 0);
-
-        if (*i >= max)
-                return -EINVAL;
-
-        stack[*i].types = types;
-        stack[*i].n_struct = n_struct;
-        stack[*i].n_array = n_array;
-        (*i)++;
-
-        return 0;
-}
-
-static int type_stack_pop(TypeStack *stack, unsigned max, unsigned *i, const char **types, unsigned *n_struct, unsigned *n_array) {
-        assert(stack);
-        assert(max > 0);
-        assert(types);
-        assert(n_struct);
-        assert(n_array);
-
-        if (*i <= 0)
-                return 0;
-
-        (*i)--;
-        *types = stack[*i].types;
-        *n_struct = stack[*i].n_struct;
-        *n_array = stack[*i].n_array;
-
-        return 1;
-}
-
-static int message_read_ap(sd_bus_message *m, const char *types, va_list ap) {
         unsigned n_array, n_struct;
         TypeStack stack[BUS_CONTAINER_DEPTH];
         unsigned stack_ptr = 0;
         int r;
 
         assert(m);
-        assert(types);
+
+        if (!types)
+                return 0;
 
         /* Ideally, we'd just call ourselves recursively on every
          * complex type. However, the state of a va_list that is
@@ -2152,7 +2196,7 @@ static int message_read_ap(sd_bus_message *m, const char *types, va_list ap) {
         for (;;) {
                 const char *t;
 
-                if (n_array == 0 || (n_struct == 0 && n_array == (unsigned) -1)) {
+                if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
                         r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array);
                         if (r < 0)
                                 return r;
