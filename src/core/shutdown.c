@@ -274,6 +274,9 @@ int main(int argc, char *argv[]) {
 
                 if (prepare_new_root() >= 0 &&
                     pivot_to_new_root() >= 0) {
+
+                        log_info("Returning to initrd...");
+
                         execv("/shutdown", argv);
                         log_error("Failed to execute shutdown binary: %m");
                 }
