@@ -2398,6 +2398,7 @@ dist_udevkeymap_DATA = \
 	keymaps/hewlett-packard-tablet \
 	keymaps/hewlett-packard-tx2 \
 	keymaps/hewlett-packard_elitebook-8440p \
+	keymaps/hewlett-packard_elitebook-8460p \
 	keymaps/hewlett-packard-hdx9494nr \
 	keymaps/ibm-thinkpad-usb-keyboard-trackpoint \
 	keymaps/inventec-symphony_6.0_7.0 \

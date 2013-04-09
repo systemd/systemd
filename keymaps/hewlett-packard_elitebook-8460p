@@ -1,0 +1,3 @@
+0xF8 wlan # Wireless HW switch button
+0xB3 prog1 # Fn+F11 - Ambient Light Sensor button
+0xB1 prog2 # Fn+ESC - System information button
