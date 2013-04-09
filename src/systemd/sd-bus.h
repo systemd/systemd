@@ -33,8 +33,6 @@ extern "C" {
 #endif
 
 /* TODO:
- * - rewrite message_read_ap() and message_append_ap() to be non-recursive.
- *
  * - add page donation logic
  * - api for appending/reading fixed arrays
  * - merge busctl into systemctl or so?
