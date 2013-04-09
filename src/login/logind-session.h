@@ -37,6 +37,15 @@ typedef enum SessionState {
         _SESSION_STATE_INVALID = -1
 } SessionState;
 
+typedef enum SessionClass {
+        SESSION_USER,
+        SESSION_GREETER,
+        SESSION_LOCK_SCREEN,
+        SESSION_BACKGROUND,
+        _SESSION_CLASS_MAX,
+        _SESSION_CLASS_INVALID = -1
+} SessionClass;
+
 typedef enum SessionType {
         SESSION_UNSPECIFIED,
         SESSION_TTY,
@@ -44,14 +53,6 @@ typedef enum SessionType {
         _SESSION_TYPE_MAX,
         _SESSION_TYPE_INVALID = -1
 } SessionType;
-
-typedef enum SessionClass {
-        SESSION_USER,
-        SESSION_GREETER,
-        SESSION_LOCK_SCREEN,
-        _SESSION_CLASS_MAX,
-        _SESSION_CLASS_INVALID = -1
-} SessionClass;
 
 typedef enum KillWho {
         KILL_LEADER,

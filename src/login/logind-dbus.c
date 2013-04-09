@@ -353,21 +353,28 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 return -EINVAL;
 
         dbus_message_iter_get_basic(&iter, &type);
-        t = session_type_from_string(type);
+        if (isempty(type))
+                t = _SESSION_TYPE_INVALID;
+        else {
+                t = session_type_from_string(type);
+                if (t < 0)
+                        return -EINVAL;
+        }
 
-        if (t < 0 ||
-            !dbus_message_iter_next(&iter) ||
+        if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
                 return -EINVAL;
 
         dbus_message_iter_get_basic(&iter, &class);
         if (isempty(class))
-                c = SESSION_USER;
-        else
+                c = _SESSION_CLASS_INVALID;
+        else {
                 c = session_class_from_string(class);
+                if (c < 0)
+                        return -EINVAL;
+        }
 
-        if (c < 0 ||
-            !dbus_message_iter_next(&iter) ||
+        if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
                 return -EINVAL;
 
@@ -440,6 +447,22 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BOOLEAN)
                 return -EINVAL;
+
+        if (t == _SESSION_TYPE_INVALID) {
+                if (!isempty(display))
+                        t = SESSION_X11;
+                else if (!isempty(tty))
+                        t = SESSION_TTY;
+                else
+                        t = SESSION_UNSPECIFIED;
+        }
+
+        if (c == _SESSION_CLASS_INVALID) {
+                if (!isempty(display) || !isempty(tty))
+                        c = SESSION_USER;
+                else
+                        c = SESSION_BACKGROUND;
+        }
 
         dbus_message_iter_get_basic(&iter, &remote);
 
@@ -993,7 +1016,6 @@ static int have_multiple_sessions(
          * count, and non-login sessions do not count either. */
         HASHMAP_FOREACH(session, m->sessions, i)
                 if (session->class == SESSION_USER &&
-                    (session->type == SESSION_TTY || session->type == SESSION_X11) &&
                     session->user->uid != uid)
                         return true;
 
