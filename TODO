@@ -14,18 +14,12 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-* add 'set -e' to scripts in test/
-* make test in test/ work with separate output dir
-
-* suppress log output on shutdown when "quiet" is used
-
-* systemctl delete x.snapshot leaves no trace in logs (at least at default level).
-
 Fedora 19:
 
 * fix match logic to add another level of disjunction/conjunction
 
 * make anaconda write timeout=0 for encrypted devices
+  https://bugzilla.redhat.com/show_bug.cgi?id=861123
 
 * external: maybe it is time to patch procps so that "ps" links to
   libsystemd-logind to print a pretty service name, seat name, session
@@ -38,8 +32,6 @@ Fedora 19:
 * localed:
   - localectl: support new converted x11→console keymaps
 
-* logind: Class property should probably know "background" or so as value for cron jobs, and the inhibition checks should filter those out too.
-
 * timer logic is confused by units which are skipped due to failing condition
   http://lists.freedesktop.org/archives/systemd-devel/2013-February/008816.html
 
@@ -47,6 +39,13 @@ Fedora 19:
   http://lists.freedesktop.org/archives/systemd-devel/2013-February/009021.html
 
 Features:
+
+* add 'set -e' to scripts in test/
+* make test in test/ work with separate output dir
+
+* suppress log output on shutdown when "quiet" is used
+
+* systemctl delete x.snapshot leaves no trace in logs (at least at default level).
 
 * make the coredump collector tool move itself into the user's cgroup
   so that the coredump is properly written to the user's own journal
