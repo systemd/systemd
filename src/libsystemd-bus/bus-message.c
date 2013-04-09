@@ -2091,14 +2091,89 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete) {
         return !isempty(c->signature);
 }
 
+typedef struct {
+        const char *types;
+        unsigned n_struct;
+        unsigned n_array;
+} TypeStack;
+
+static int type_stack_push(TypeStack *stack, unsigned max, unsigned *i, const char *types, unsigned n_struct, unsigned n_array) {
+        assert(stack);
+        assert(max > 0);
+
+        if (*i >= max)
+                return -EINVAL;
+
+        stack[*i].types = types;
+        stack[*i].n_struct = n_struct;
+        stack[*i].n_array = n_array;
+        (*i)++;
+
+        return 0;
+}
+
+static int type_stack_pop(TypeStack *stack, unsigned max, unsigned *i, const char **types, unsigned *n_struct, unsigned *n_array) {
+        assert(stack);
+        assert(max > 0);
+        assert(types);
+        assert(n_struct);
+        assert(n_array);
+
+        if (*i <= 0)
+                return 0;
+
+        (*i)--;
+        *types = stack[*i].types;
+        *n_struct = stack[*i].n_struct;
+        *n_array = stack[*i].n_array;
+
+        return 1;
+}
+
 static int message_read_ap(sd_bus_message *m, const char *types, va_list ap) {
-        const char *t;
+        unsigned n_array, n_struct;
+        TypeStack stack[BUS_CONTAINER_DEPTH];
+        unsigned stack_ptr = 0;
         int r;
 
         assert(m);
         assert(types);
 
-        for (t = types; *t; t++) {
+        /* Ideally, we'd just call ourselves recursively on every
+         * complex type. However, the state of a va_list that is
+         * passed to a function is undefined after that function
+         * returns. This means we need to docode the va_list linearly
+         * in a single stackframe. We hence implement our own
+         * home-grown stack in an array. */
+
+        n_array = (unsigned) -1;
+        n_struct = strlen(types);
+
+        for (;;) {
+                const char *t;
+
+                if (n_array == 0 || (n_struct == 0 && n_array == (unsigned) -1)) {
+                        r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                t = types;
+                if (n_array != (unsigned) -1)
+                        n_array --;
+                else {
+                        types ++;
+                        n_struct--;
+                }
+
                 switch (*t) {
 
                 case SD_BUS_TYPE_BYTE:
@@ -2118,6 +2193,11 @@ static int message_read_ap(sd_bus_message *m, const char *types, va_list ap) {
 
                         p = va_arg(ap, void*);
                         r = sd_bus_message_read_basic(m, *t, p);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -ENXIO;
+
                         break;
                 }
 
@@ -2129,28 +2209,29 @@ static int message_read_ap(sd_bus_message *m, const char *types, va_list ap) {
                                 return r;
 
                         {
-                                unsigned i, n;
                                 char s[k + 1];
-
                                 memcpy(s, t + 1, k);
                                 s[k] = 0;
-                                t += k;
 
                                 r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, s);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
                                         return -ENXIO;
-
-                                n = va_arg(ap, unsigned);
-                                for (i = 0; i < n; i++) {
-                                        r = message_read_ap(m, s, ap);
-                                        if (r < 0)
-                                                return r;
-                                }
-
-                                r = sd_bus_message_exit_container(m);
                         }
+
+                        if (n_array == (unsigned) -1) {
+                                types += k;
+                                n_struct -= k;
+                        }
+
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
+                        if (r < 0)
+                                return r;
+
+                        types = t + 1;
+                        n_struct = k;
+                        n_array = va_arg(ap, unsigned);
 
                         break;
                 }
@@ -2168,13 +2249,14 @@ static int message_read_ap(sd_bus_message *m, const char *types, va_list ap) {
                         if (r == 0)
                                 return -ENXIO;
 
-                        r = message_read_ap(m, s, ap);
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
-                                return -ENXIO;
 
-                        r = sd_bus_message_exit_container(m);
+                        types = s;
+                        n_struct = strlen(s);
+                        n_array = (unsigned) -1;
+
                         break;
                 }
 
@@ -2196,29 +2278,27 @@ static int message_read_ap(sd_bus_message *m, const char *types, va_list ap) {
                                         return r;
                                 if (r == 0)
                                         return -ENXIO;
-
-                                t += k - 1;
-
-                                r = message_read_ap(m, s, ap);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        return -ENXIO;
-
-                                r = sd_bus_message_exit_container(m);
                         }
+
+                        if (n_array == (unsigned) -1) {
+                                types += k - 1;
+                                n_struct -= k - 1;
+                        }
+
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
+                        if (r < 0)
+                                return r;
+
+                        types = t + 1;
+                        n_struct = k - 2;
+                        n_array = (unsigned) -1;
 
                         break;
                 }
 
                 default:
-                        r = -EINVAL;
+                        return -EINVAL;
                 }
-
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ENXIO;
         }
 
         return 1;
