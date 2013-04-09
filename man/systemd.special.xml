@@ -937,7 +937,7 @@
                                         to be pulled in by the first
                                         remote mount showing up it
                                         should use
-                                        <filename>remote-fs-setup.target</filename>
+                                        <filename>network-online.target</filename>
                                         (see above).</para>
 
                                         <para>Again, this target unit
