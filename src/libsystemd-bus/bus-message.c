@@ -1710,18 +1710,13 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         break;
 
                 case SD_BUS_TYPE_UNIX_FD: {
-                        int copy;
                         uint32_t j;
 
                         j = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
                         if (j >= m->n_fds)
                                 return -EBADMSG;
 
-                        copy = fcntl(m->fds[j], F_DUPFD_CLOEXEC, 3);
-                        if (copy < 0)
-                                return -errno;
-
-                        *(int*) p = copy;
+                        *(int*) p = m->fds[j];
                         break;
                 }
 

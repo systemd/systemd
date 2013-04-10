@@ -230,8 +230,6 @@ static int server(sd_bus *bus) {
                                 goto fail;
                         }
 
-                        close_nointr_nofail(fd);
-
                         r = sd_bus_reply_method_return(bus, m, NULL);
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));
