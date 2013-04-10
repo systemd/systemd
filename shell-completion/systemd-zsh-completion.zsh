@@ -416,7 +416,7 @@ _systemctl_all_units()
   if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS ) &&
     ! _retrieve_cache SYS_ALL_UNITS;
   then
-    _sys_all_units=( $(__systemctl list-units --all | { while read a b; do echo "$a"; done; }) )
+    _sys_all_units=( $(__systemctl list-units --all | { while read a b; do echo " $a"; done; }) )
     _store_cache SYS_ALL_UNITS _sys_all_units
   fi
 }
@@ -429,7 +429,7 @@ _systemctl_really_all_units()
   if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS ) &&
     ! _retrieve_cache SYS_REALLY_ALL_UNITS;
   then
-    all_unit_files=( $(__systemctl list-unit-files | { while read a b; do echo "$a"; done; }) )
+    all_unit_files=( $(__systemctl list-unit-files | { while read a b; do echo " $a"; done; }) )
     _systemctl_all_units
     really_all_units=($_sys_all_units $all_unit_files)
     _sys_really_all_units=(${(u)really_all_units})
@@ -449,17 +449,17 @@ _filter_units_by_property() {
     unit=${units[i]}
     prop=${(f)"$(_call_program units "$service show --no-pager --property="$property" ${unit} 2>/dev/null")"}
     if [[ "${prop}" = "$property=$value" ]]; then
-      echo "${unit}"
+      echo " ${unit}"
     fi
   done
 }
 
-_systemctl_active_units()  {_sys_active_units=(  $(__systemctl list-units          | { while read a b; do echo "$a"; done; }) )}
-_systemctl_inactive_units(){_sys_inactive_units=($(__systemctl list-units --all    | { while read a b c d; do [[ $c == "inactive" ]] && echo "$a"; done; }) )}
-_systemctl_failed_units()  {_sys_failed_units=(  $(__systemctl list-units --failed | { while read a b; do echo "$a"; done; }) )}
-_systemctl_enabled_units() {_sys_enabled_units=( $(__systemctl list-unit-files     | { while read a b; do [[ $b == "enabled" ]] && echo "$a"; done; }) )}
-_systemctl_disabled_units(){_sys_disabled_units=($(__systemctl list-unit-files     | { while read a b; do [[ $b == "disabled" ]] && echo "$a"; done; }) )}
-_systemctl_masked_units()  {_sys_masked_units=(  $(__systemctl list-unit-files     | { while read a b; do [[ $b == "masked" ]] && echo "$a"; done; }) )}
+_systemctl_active_units()  {_sys_active_units=(  $(__systemctl list-units          | { while read a b; do echo " $a"; done; }) )}
+_systemctl_inactive_units(){_sys_inactive_units=($(__systemctl list-units --all    | { while read a b c d; do [[ $c == "inactive" ]] && echo " $a"; done; }) )}
+_systemctl_failed_units()  {_sys_failed_units=(  $(__systemctl list-units --failed | { while read a b; do echo " $a"; done; }) )}
+_systemctl_enabled_units() {_sys_enabled_units=( $(__systemctl list-unit-files     | { while read a b; do [[ $b == "enabled" ]] && echo " $a"; done; }) )}
+_systemctl_disabled_units(){_sys_disabled_units=($(__systemctl list-unit-files     | { while read a b; do [[ $b == "disabled" ]] && echo " $a"; done; }) )}
+_systemctl_masked_units()  {_sys_masked_units=(  $(__systemctl list-unit-files     | { while read a b; do [[ $b == "masked" ]] && echo " $a"; done; }) )}
 
 # Completion functions for ALL_UNITS
 for fun in is-active is-failed is-enabled status show mask preset ; do
@@ -535,7 +535,7 @@ for fun in restart reload-or-restart ; do
     _systemctl_all_units
     compadd "$@" - $( _filter_units_by_property CanStart yes \
       ${_sys_all_units[*]} | while read line; do \
-      [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || echo "$line"; \
+      [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || echo " $line"; \
       done )
   }
 done
@@ -572,7 +572,7 @@ for fun in set-environment unset-environment ; do
     fi
 
     compadd "$@" ${suf} - $(systemctl show-environment \
-      | while read line; do echo "${line%%\=}";done )
+      | while read line; do echo " ${line%%\=}";done )
   }
 done
 
@@ -638,9 +638,9 @@ _journal_fields() {
 }
 
 
-_loginctl_all_sessions(){_sys_all_sessions=($(loginctl list-sessions | { while read a b; do echo "$a"; done; }) )}
-_loginctl_all_users()   {_sys_all_users=(   $(loginctl list-users    | { while read a b; do echo "$a"; done; }) )}
-_loginctl_all_seats()   {_sys_all_seats=(   $(loginctl list-seats    | { while read a b; do echo "$a"; done; }) )}
+_loginctl_all_sessions(){_sys_all_sessions=($(loginctl list-sessions | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_users()   {_sys_all_users=(   $(loginctl list-users    | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_seats()   {_sys_all_seats=(   $(loginctl list-seats    | { while read a b; do echo " $a"; done; }) )}
 
 # Completion functions for SESSIONS
 for fun in session-status show-session activate lock-session unlock-session terminate-session kill-session ; do
