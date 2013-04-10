@@ -1516,6 +1516,20 @@ int exec_spawn(ExecCommand *command,
 
                 final_env = strv_env_clean(final_env);
 
+                if (_unlikely_(log_get_max_level() >= LOG_PRI(LOG_DEBUG))) {
+                        line = exec_command_line(final_argv);
+                        if (line) {
+                                log_open();
+                                log_struct_unit(LOG_DEBUG,
+                                                unit_id,
+                                                "EXECUTABLE=%s", command->path,
+                                                "MESSAGE=Executing: %s",
+                                                line, NULL);
+                                log_close();
+                                free(line);
+                                line = NULL;
+                        }
+                }
                 execve(command->path, final_argv, final_env);
                 err = -errno;
                 r = EXIT_EXEC;
