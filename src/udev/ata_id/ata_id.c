@@ -51,65 +51,58 @@ static int disk_scsi_inquiry_command(int      fd,
                                      void    *buf,
                                      size_t   buf_len)
 {
-        struct sg_io_v4 io_v4;
-        uint8_t cdb[6];
-        uint8_t sense[32];
+        uint8_t cdb[6] = {
+                /*
+                 * INQUIRY, see SPC-4 section 6.4
+                 */
+                [0] = 0x12,                /* OPERATION CODE: INQUIRY */
+                [3] = (buf_len >> 8),      /* ALLOCATION LENGTH */
+                [4] = (buf_len & 0xff),
+        };
+        uint8_t sense[32] = {};
+        struct sg_io_v4 io_v4 = {
+                .guard = 'Q',
+                .protocol = BSG_PROTOCOL_SCSI,
+                .subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD,
+                .request_len = sizeof(cdb),
+                .request = (uintptr_t) cdb,
+                .max_response_len = sizeof(sense),
+                .response = (uintptr_t) sense,
+                .din_xfer_len = buf_len,
+                .din_xferp = (uintptr_t) buf,
+                .timeout = COMMAND_TIMEOUT_MSEC,
+        };
         int ret;
-
-        /*
-         * INQUIRY, see SPC-4 section 6.4
-         */
-        memset(cdb, 0, sizeof(cdb));
-        cdb[0] = 0x12;                         /* OPERATION CODE: INQUIRY */
-        cdb[3] = (buf_len >> 8);         /* ALLOCATION LENGTH */
-        cdb[4] = (buf_len & 0xff);
-
-        memset(sense, 0, sizeof(sense));
-
-        memset(&io_v4, 0, sizeof(struct sg_io_v4));
-        io_v4.guard = 'Q';
-        io_v4.protocol = BSG_PROTOCOL_SCSI;
-        io_v4.subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD;
-        io_v4.request_len = sizeof (cdb);
-        io_v4.request = (uintptr_t) cdb;
-        io_v4.max_response_len = sizeof (sense);
-        io_v4.response = (uintptr_t) sense;
-        io_v4.din_xfer_len = buf_len;
-        io_v4.din_xferp = (uintptr_t) buf;
-        io_v4.timeout = COMMAND_TIMEOUT_MSEC;
 
         ret = ioctl(fd, SG_IO, &io_v4);
         if (ret != 0) {
                 /* could be that the driver doesn't do version 4, try version 3 */
                 if (errno == EINVAL) {
-                        struct sg_io_hdr io_hdr;
-
-                        memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
-                        io_hdr.interface_id = 'S';
-                        io_hdr.cmdp = (unsigned char*) cdb;
-                        io_hdr.cmd_len = sizeof (cdb);
-                        io_hdr.dxferp = buf;
-                        io_hdr.dxfer_len = buf_len;
-                        io_hdr.sbp = sense;
-                        io_hdr.mx_sb_len = sizeof (sense);
-                        io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
-                        io_hdr.timeout = COMMAND_TIMEOUT_MSEC;
+                        struct sg_io_hdr io_hdr = {
+                                .interface_id = 'S',
+                                .cmdp = (unsigned char*) cdb,
+                                .cmd_len = sizeof (cdb),
+                                .dxferp = buf,
+                                .dxfer_len = buf_len,
+                                .sbp = sense,
+                                .mx_sb_len = sizeof(sense),
+                                .dxfer_direction = SG_DXFER_FROM_DEV,
+                                .timeout = COMMAND_TIMEOUT_MSEC,
+                        };
 
                         ret = ioctl(fd, SG_IO, &io_hdr);
                         if (ret != 0)
-                                goto out;
+                                return ret;
 
                         /* even if the ioctl succeeds, we need to check the return value */
                         if (!(io_hdr.status == 0 &&
                               io_hdr.host_status == 0 &&
                               io_hdr.driver_status == 0)) {
                                 errno = EIO;
-                                ret = -1;
-                                goto out;
+                                return -1;
                         }
-                } else {
-                        goto out;
-                }
+                } else
+                        return ret;
         }
 
         /* even if the ioctl succeeds, we need to check the return value */
@@ -117,172 +110,156 @@ static int disk_scsi_inquiry_command(int      fd,
               io_v4.transport_status == 0 &&
               io_v4.driver_status == 0)) {
                 errno = EIO;
-                ret = -1;
-                goto out;
+                return -1;
         }
 
- out:
-        return ret;
+        return 0;
 }
 
 static int disk_identify_command(int          fd,
                                  void         *buf,
                                  size_t          buf_len)
 {
-        struct sg_io_v4 io_v4;
-        uint8_t cdb[12];
-        uint8_t sense[32];
-        uint8_t *desc = sense+8;
+        uint8_t cdb[12] = {
+                /*
+                 * ATA Pass-Through 12 byte command, as described in
+                 *
+                 *  T10 04-262r8 ATA Command Pass-Through
+                 *
+                 * from http://www.t10.org/ftp/t10/document.04/04-262r8.pdf
+                 */
+                [0] = 0xa1,     /* OPERATION CODE: 12 byte pass through */
+                [1] = 4 << 1,   /* PROTOCOL: PIO Data-in */
+                [2] = 0x2e,     /* OFF_LINE=0, CK_COND=1, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
+                [3] = 0,        /* FEATURES */
+                [4] = 1,        /* SECTORS */
+                [5] = 0,        /* LBA LOW */
+                [6] = 0,        /* LBA MID */
+                [7] = 0,        /* LBA HIGH */
+                [8] = 0 & 0x4F, /* SELECT */
+                [9] = 0xEC,     /* Command: ATA IDENTIFY DEVICE */
+        };
+        uint8_t sense[32] = {};
+        uint8_t *desc = sense + 8;
+        struct sg_io_v4 io_v4 = {
+                .guard = 'Q',
+                .protocol = BSG_PROTOCOL_SCSI,
+                .subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD,
+                .request_len = sizeof(cdb),
+                .request = (uintptr_t) cdb,
+                .max_response_len = sizeof(sense),
+                .response = (uintptr_t) sense,
+                .din_xfer_len = buf_len,
+                .din_xferp = (uintptr_t) buf,
+                .timeout = COMMAND_TIMEOUT_MSEC,
+        };
         int ret;
-
-        /*
-         * ATA Pass-Through 12 byte command, as described in
-         *
-         *  T10 04-262r8 ATA Command Pass-Through
-         *
-         * from http://www.t10.org/ftp/t10/document.04/04-262r8.pdf
-         */
-        memset(cdb, 0, sizeof(cdb));
-        cdb[0] = 0xa1;                        /* OPERATION CODE: 12 byte pass through */
-        cdb[1] = 4 << 1;                /* PROTOCOL: PIO Data-in */
-        cdb[2] = 0x2e;                        /* OFF_LINE=0, CK_COND=1, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
-        cdb[3] = 0;                        /* FEATURES */
-        cdb[4] = 1;                        /* SECTORS */
-        cdb[5] = 0;                        /* LBA LOW */
-        cdb[6] = 0;                        /* LBA MID */
-        cdb[7] = 0;                        /* LBA HIGH */
-        cdb[8] = 0 & 0x4F;                /* SELECT */
-        cdb[9] = 0xEC;                        /* Command: ATA IDENTIFY DEVICE */;
-        memset(sense, 0, sizeof(sense));
-
-        memset(&io_v4, 0, sizeof(struct sg_io_v4));
-        io_v4.guard = 'Q';
-        io_v4.protocol = BSG_PROTOCOL_SCSI;
-        io_v4.subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD;
-        io_v4.request_len = sizeof (cdb);
-        io_v4.request = (uintptr_t) cdb;
-        io_v4.max_response_len = sizeof (sense);
-        io_v4.response = (uintptr_t) sense;
-        io_v4.din_xfer_len = buf_len;
-        io_v4.din_xferp = (uintptr_t) buf;
-        io_v4.timeout = COMMAND_TIMEOUT_MSEC;
 
         ret = ioctl(fd, SG_IO, &io_v4);
         if (ret != 0) {
                 /* could be that the driver doesn't do version 4, try version 3 */
                 if (errno == EINVAL) {
-                        struct sg_io_hdr io_hdr;
-
-                        memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
-                        io_hdr.interface_id = 'S';
-                        io_hdr.cmdp = (unsigned char*) cdb;
-                        io_hdr.cmd_len = sizeof (cdb);
-                        io_hdr.dxferp = buf;
-                        io_hdr.dxfer_len = buf_len;
-                        io_hdr.sbp = sense;
-                        io_hdr.mx_sb_len = sizeof (sense);
-                        io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
-                        io_hdr.timeout = COMMAND_TIMEOUT_MSEC;
+                        struct sg_io_hdr io_hdr = {
+                                .interface_id = 'S',
+                                .cmdp = (unsigned char*) cdb,
+                                .cmd_len = sizeof (cdb),
+                                .dxferp = buf,
+                                .dxfer_len = buf_len,
+                                .sbp = sense,
+                                .mx_sb_len = sizeof (sense),
+                                .dxfer_direction = SG_DXFER_FROM_DEV,
+                                .timeout = COMMAND_TIMEOUT_MSEC,
+                        };
 
                         ret = ioctl(fd, SG_IO, &io_hdr);
                         if (ret != 0)
-                                goto out;
-                } else {
-                        goto out;
-                }
+                                return ret;
+                } else
+                        return ret;
         }
 
         if (!(sense[0] == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c)) {
                 errno = EIO;
-                ret = -1;
-                goto out;
+                return -1;
         }
 
- out:
-        return ret;
+        return 0;
 }
 
 static int disk_identify_packet_device_command(int          fd,
                                                void         *buf,
                                                size_t          buf_len)
 {
-        struct sg_io_v4 io_v4;
-        uint8_t cdb[16];
-        uint8_t sense[32];
-        uint8_t *desc = sense+8;
+        uint8_t cdb[16] = {
+                /*
+                 * ATA Pass-Through 16 byte command, as described in
+                 *
+                 *  T10 04-262r8 ATA Command Pass-Through
+                 *
+                 * from http://www.t10.org/ftp/t10/document.04/04-262r8.pdf
+                 */
+                [0] = 0x85,   /* OPERATION CODE: 16 byte pass through */
+                [1] = 4 << 1, /* PROTOCOL: PIO Data-in */
+                [2] = 0x2e,   /* OFF_LINE=0, CK_COND=1, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
+                [3] = 0,      /* FEATURES */
+                [4] = 0,      /* FEATURES */
+                [5] = 0,      /* SECTORS */
+                [6] = 1,      /* SECTORS */
+                [7] = 0,      /* LBA LOW */
+                [8] = 0,      /* LBA LOW */
+                [9] = 0,      /* LBA MID */
+                [10] = 0,     /* LBA MID */
+                [11] = 0,     /* LBA HIGH */
+                [12] = 0,     /* LBA HIGH */
+                [13] = 0,     /* DEVICE */
+                [14] = 0xA1,  /* Command: ATA IDENTIFY PACKET DEVICE */
+                [15] = 0,     /* CONTROL */
+        };
+        uint8_t sense[32] = {};
+        uint8_t *desc = sense + 8;
+        struct sg_io_v4 io_v4 = {
+                .guard = 'Q',
+                .protocol = BSG_PROTOCOL_SCSI,
+                .subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD,
+                .request_len = sizeof (cdb),
+                .request = (uintptr_t) cdb,
+                .max_response_len = sizeof (sense),
+                .response = (uintptr_t) sense,
+                .din_xfer_len = buf_len,
+                .din_xferp = (uintptr_t) buf,
+                .timeout = COMMAND_TIMEOUT_MSEC,
+        };
         int ret;
-
-        /*
-         * ATA Pass-Through 16 byte command, as described in
-         *
-         *  T10 04-262r8 ATA Command Pass-Through
-         *
-         * from http://www.t10.org/ftp/t10/document.04/04-262r8.pdf
-         */
-        memset(cdb, 0, sizeof(cdb));
-        cdb[0] = 0x85;                        /* OPERATION CODE: 16 byte pass through */
-        cdb[1] = 4 << 1;                /* PROTOCOL: PIO Data-in */
-        cdb[2] = 0x2e;                        /* OFF_LINE=0, CK_COND=1, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
-        cdb[3] = 0;                        /* FEATURES */
-        cdb[4] = 0;                        /* FEATURES */
-        cdb[5] = 0;                        /* SECTORS */
-        cdb[6] = 1;                        /* SECTORS */
-        cdb[7] = 0;                        /* LBA LOW */
-        cdb[8] = 0;                        /* LBA LOW */
-        cdb[9] = 0;                        /* LBA MID */
-        cdb[10] = 0;                        /* LBA MID */
-        cdb[11] = 0;                        /* LBA HIGH */
-        cdb[12] = 0;                        /* LBA HIGH */
-        cdb[13] = 0;                        /* DEVICE */
-        cdb[14] = 0xA1;                        /* Command: ATA IDENTIFY PACKET DEVICE */;
-        cdb[15] = 0;                        /* CONTROL */
-        memset(sense, 0, sizeof(sense));
-
-        memset(&io_v4, 0, sizeof(struct sg_io_v4));
-        io_v4.guard = 'Q';
-        io_v4.protocol = BSG_PROTOCOL_SCSI;
-        io_v4.subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD;
-        io_v4.request_len = sizeof (cdb);
-        io_v4.request = (uintptr_t) cdb;
-        io_v4.max_response_len = sizeof (sense);
-        io_v4.response = (uintptr_t) sense;
-        io_v4.din_xfer_len = buf_len;
-        io_v4.din_xferp = (uintptr_t) buf;
-        io_v4.timeout = COMMAND_TIMEOUT_MSEC;
 
         ret = ioctl(fd, SG_IO, &io_v4);
         if (ret != 0) {
                 /* could be that the driver doesn't do version 4, try version 3 */
                 if (errno == EINVAL) {
-                        struct sg_io_hdr io_hdr;
-
-                        memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
-                        io_hdr.interface_id = 'S';
-                        io_hdr.cmdp = (unsigned char*) cdb;
-                        io_hdr.cmd_len = sizeof (cdb);
-                        io_hdr.dxferp = buf;
-                        io_hdr.dxfer_len = buf_len;
-                        io_hdr.sbp = sense;
-                        io_hdr.mx_sb_len = sizeof (sense);
-                        io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
-                        io_hdr.timeout = COMMAND_TIMEOUT_MSEC;
+                        struct sg_io_hdr io_hdr = {
+                                .interface_id = 'S',
+                                .cmdp = (unsigned char*) cdb,
+                                .cmd_len = sizeof (cdb),
+                                .dxferp = buf,
+                                .dxfer_len = buf_len,
+                                .sbp = sense,
+                                .mx_sb_len = sizeof (sense),
+                                .dxfer_direction = SG_DXFER_FROM_DEV,
+                                .timeout = COMMAND_TIMEOUT_MSEC,
+                        };
 
                         ret = ioctl(fd, SG_IO, &io_hdr);
                         if (ret != 0)
-                                goto out;
-                } else {
-                        goto out;
-                }
+                                return ret;
+                } else
+                        return ret;
         }
 
         if (!(sense[0] == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c)) {
                 errno = EIO;
-                ret = -1;
-                goto out;
+                return -1;
         }
 
- out:
-        return ret;
+        return 0;
 }
 
 /**
@@ -348,9 +325,9 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offs
  * non-zero with errno set.
  */
 static int disk_identify(struct udev *udev,
-                         int               fd,
-                         uint8_t      out_identify[512],
-                         int              *out_is_packet_device)
+                         int fd,
+                         uint8_t out_identify[512],
+                         int *out_is_packet_device)
 {
         int ret;
         uint8_t inquiry_buf[36];
@@ -360,7 +337,7 @@ static int disk_identify(struct udev *udev,
         int is_packet_device;
 
         /* init results */
-        memset(out_identify, '\0', 512);
+        zero(out_identify);
         is_packet_device = 0;
 
         /* If we were to use ATA PASS_THROUGH (12) on an ATAPI device
