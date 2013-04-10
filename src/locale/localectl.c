@@ -37,6 +37,7 @@
 #include "pager.h"
 #include "set.h"
 #include "path-util.h"
+#include "utf8.h"
 
 static bool arg_no_pager = false;
 static enum transport {
@@ -357,6 +358,9 @@ static int add_locales_from_archive(Set *locales) {
                 char *z;
 
                 if (e[i].locrec_offset == 0)
+                        continue;
+
+                if (!utf8_is_valid((char*) p + e[i].name_offset))
                         continue;
 
                 z = strdup((char*) p + e[i].name_offset);
