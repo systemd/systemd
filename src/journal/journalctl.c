@@ -1035,7 +1035,7 @@ int main(int argc, char *argv[]) {
                 char _cleanup_free_ *copy = NULL;
                 if (arg_root) {
                         copy = strjoin(arg_root, "/", CATALOG_DATABASE, NULL);
-                        if (!database) {
+                        if (!copy) {
                                 r = log_oom();
                                 goto finish;
                         }
