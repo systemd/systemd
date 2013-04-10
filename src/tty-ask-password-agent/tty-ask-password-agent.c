@@ -339,7 +339,7 @@ static int parse_password(const char *filename, char **wall) {
                 }
 
                 if (arg_plymouth) {
-                        char **passwords = NULL;
+                        _cleanup_strv_free_ char **passwords = NULL;
 
                         if ((r = ask_password_plymouth(message, not_after, filename, accept_cached, &passwords)) >= 0) {
                                 char **p;
