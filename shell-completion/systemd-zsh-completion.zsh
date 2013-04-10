@@ -455,7 +455,7 @@ _filter_units_by_property() {
 }
 
 _systemctl_active_units()  {_sys_active_units=(  $(__systemctl list-units          | { while read a b; do echo " $a"; done; }) )}
-_systemctl_inactive_units(){_sys_inactive_units=($(__systemctl list-units --all    | { while read a b c d; do [[ $c == "inactive" ]] && echo " $a"; done; }) )}
+_systemctl_inactive_units(){_sys_inactive_units=($(__systemctl list-units --all    | { while read a b c d; do [[ $c == "inactive" || $c == "failed" ]] && echo " $a"; done; }) )}
 _systemctl_failed_units()  {_sys_failed_units=(  $(__systemctl list-units --failed | { while read a b; do echo " $a"; done; }) )}
 _systemctl_enabled_units() {_sys_enabled_units=( $(__systemctl list-unit-files     | { while read a b; do [[ $b == "enabled" ]] && echo " $a"; done; }) )}
 _systemctl_disabled_units(){_sys_disabled_units=($(__systemctl list-unit-files     | { while read a b; do [[ $b == "disabled" ]] && echo " $a"; done; }) )}
@@ -475,7 +475,8 @@ for fun in disable reenable ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     _systemctl_enabled_units
-    compadd "$@" -a - _sys_enabled_units
+    _systemctl_disabled_units
+    compadd "$@" -a - _sys_enabled_units _sys_disabled_units
   }
 done
 

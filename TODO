@@ -1,6 +1,5 @@
 Bugfixes:
-* systemctl completion doesn't want to start failed systemd-tmpfiles-setup.service
-  systemctl --system show -p Fr<TAB> default.target doesn't show anything
+* systemctl --system show -p Fr<TAB> default.target doesn't show anything
 
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
