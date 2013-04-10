@@ -710,6 +710,8 @@ int session_stop(Session *s) {
         if (s->started)
                 session_send_signal(s, false);
 
+        s->started = false;
+
         if (s->seat) {
                 if (s->seat->active == s)
                         seat_set_active(s->seat, NULL);
@@ -720,8 +722,6 @@ int session_stop(Session *s) {
 
         user_send_changed(s->user, "Sessions\0");
         user_save(s->user);
-
-        s->started = false;
 
         return r;
 }
