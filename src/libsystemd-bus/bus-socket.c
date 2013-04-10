@@ -877,7 +877,7 @@ int bus_socket_read_message(sd_bus *bus, sd_bus_message **m) {
                             CMSG_SPACE(NAME_MAX)]; /*selinux label */
         } control;
         struct cmsghdr *cmsg;
-        bool handle_cmsg;
+        bool handle_cmsg = false;
 
         assert(bus);
         assert(m);
