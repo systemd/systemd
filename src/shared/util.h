@@ -647,4 +647,11 @@ static inline bool logind_running(void) {
         return access("/run/systemd/seats/", F_OK) >= 0;
 }
 
+static inline unsigned decimal_str_max(unsigned x) {
+        unsigned ans = 1;
+        while (x /= 10)
+                ans ++;
+        return ans;
+}
+
 int unlink_noerrno(const char *path);

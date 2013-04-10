@@ -895,13 +895,84 @@ static int list_dependencies(DBusConnection *bus, char **args) {
         return list_dependencies_one(bus, u, 0, NULL, 0);
 }
 
+struct job_info {
+        uint32_t id;
+        char *name, *type, *state;
+};
+
+static void list_jobs_print(struct job_info* jobs, size_t n) {
+        size_t i;
+        struct job_info *j;
+        const char *on, *off;
+        bool shorten = false;
+
+        assert(n == 0 || jobs);
+
+        if (n == 0) {
+                on = ansi_highlight_green(true);
+                off = ansi_highlight_green(false);
+
+                printf("%sNo jobs running.%s\n", on, off);
+                return;
+        }
+
+        pager_open_if_enabled();
+
+        {
+                /* JOB UNIT TYPE STATE */
+                unsigned l0 = 3, l1 = 4, l2 = 4, l3 = 5;
+
+                for (i = 0, j = jobs; i < n; i++, j++) {
+                        assert(j->name && j->type && j->state);
+                        l0 = MAX(l0, decimal_str_max(j->id));
+                        l1 = MAX(l1, strlen(j->name));
+                        l2 = MAX(l2, strlen(j->type));
+                        l3 = MAX(l3, strlen(j->state));
+                }
+
+                if (!arg_full && l0 + 1 + l1 + l2 + 1 + l3 > columns()) {
+                        l1 = MAX(33u, columns() - l0 - l2 - l3 - 3);
+                        shorten = true;
+                }
+
+                if (on_tty())
+                        printf("%*s %-*s %-*s %-*s\n",
+                               l0, "JOB",
+                               l1, "UNIT",
+                               l2, "TYPE",
+                               l3, "STATE");
+
+                for (i = 0, j = jobs; i < n; i++, j++) {
+                        char _cleanup_free_ *e = NULL;
+
+                        if (streq(j->state, "running")) {
+                                on = ansi_highlight(true);
+                                off = ansi_highlight(false);
+                        } else
+                                on = off = "";
+
+                        e = shorten ? ellipsize(j->name, l1, 33) : NULL;
+                        printf("%*u %s%-*s%s %-*s %s%-*s%s\n",
+                               l0, j->id,
+                               on, l1, e ? e : j->name, off,
+                               l2, j->type,
+                               on, l3, j->state, off);
+                }
+        }
+
+        on = ansi_highlight(true);
+        off = ansi_highlight(false);
+
+        if (on_tty())
+                printf("\n%s%zu jobs listed%s.\n", on, n, off);
+}
+
 static int list_jobs(DBusConnection *bus, char **args) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusMessageIter iter, sub, sub2;
-        unsigned k = 0;
         int r;
-
-        pager_open_if_enabled();
+        struct job_info *jobs = NULL;
+        size_t size = 0, used = 0;
 
         r = bus_method_call_with_reply(
                         bus,
@@ -924,13 +995,9 @@ static int list_jobs(DBusConnection *bus, char **args) {
 
         dbus_message_iter_recurse(&iter, &sub);
 
-        if (on_tty())
-                printf("%4s %-25s %-15s %-7s\n", "JOB", "UNIT", "TYPE", "STATE");
-
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 const char *name, *type, *state, *job_path, *unit_path;
                 uint32_t id;
-                char _cleanup_free_ *e = NULL;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
                         log_error("Failed to parse reply.");
@@ -946,19 +1013,37 @@ static int list_jobs(DBusConnection *bus, char **args) {
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &job_path, true) < 0 ||
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_path, false) < 0) {
                         log_error("Failed to parse reply.");
-                        return -EIO;
+                        r = -EIO;
+                        goto finish;
                 }
 
-                e = arg_full ? NULL : ellipsize(name, 25, 33);
-                printf("%4u %-25s %-15s %-7s\n", id, e ? e : name, type, state);
+                if (!greedy_realloc((void**) &jobs, &size,
+                                    sizeof(struct job_info) * (used + 1))) {
+                        r = log_oom();
+                        goto finish;
+                }
 
-                k++;
+                jobs[used++] = (struct job_info) { id,
+                                                   strdup(name),
+                                                   strdup(type),
+                                                   strdup(state) };
+                if (!jobs[used-1].name || !jobs[used-1].type || !jobs[used-1].state) {
+                        r = log_oom();
+                        goto finish;
+                }
 
                 dbus_message_iter_next(&sub);
         }
 
-        if (on_tty())
-                printf("\n%u jobs listed.\n", k);
+        list_jobs_print(jobs, used);
+
+ finish:
+        while (used--) {
+                free(jobs[used].name);
+                free(jobs[used].type);
+                free(jobs[used].state);
+        }
+        free(jobs);
 
         return 0;
 }
