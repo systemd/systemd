@@ -21,9 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <string.h>
-#include <dbus/dbus.h>
-
 #define BUS_ERROR_NO_SUCH_UNIT "org.freedesktop.systemd1.NoSuchUnit"
 #define BUS_ERROR_NO_SUCH_JOB "org.freedesktop.systemd1.NoSuchJob"
 #define BUS_ERROR_NOT_SUBSCRIBED "org.freedesktop.systemd1.NotSubscribed"
@@ -43,13 +40,3 @@
 #define BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC "org.freedesktop.systemd1.TransactionOrderIsCyclic"
 #define BUS_ERROR_SHUTTING_DOWN "org.freedesktop.systemd1.ShuttingDown"
 #define BUS_ERROR_NO_SUCH_PROCESS "org.freedesktop.systemd1.NoSuchProcess"
-
-static inline const char *bus_error(const DBusError *e, int r) {
-        if (e && e->message)
-                return e->message;
-
-        if (r >= 0)
-                return strerror(r);
-
-        return strerror(-r);
-}

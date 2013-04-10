@@ -92,7 +92,7 @@ int bus_connect_system_ssh(const char *user, const char *host, DBusConnection **
 int bus_connect_system_polkit(DBusConnection **_bus, DBusError *error);
 
 const char *bus_error_message(const DBusError *error);
-const char *bus_error_message_or_strerror(const DBusError *error, int err);
+const char *bus_error(const DBusError *e, int r);
 
 typedef int (*BusPropertyCallback)(DBusMessageIter *iter, const char *property, void *data);
 typedef int (*BusPropertySetCallback)(DBusMessageIter *iter, const char *property, void *data);

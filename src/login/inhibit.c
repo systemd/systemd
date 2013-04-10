@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) {
 
                 r = print_inhibitors(bus, &error);
                 if (r < 0) {
-                        log_error("Failed to list inhibitors: %s", bus_error_message_or_strerror(&error, -r));
+                        log_error("Failed to list inhibitors: %s", bus_error(&error, r));
                         goto finish;
                 }
 
@@ -266,7 +266,7 @@ int main(int argc, char *argv[]) {
                 free(w);
 
                 if (fd < 0) {
-                        log_error("Failed to inhibit: %s", bus_error_message_or_strerror(&error, -r));
+                        log_error("Failed to inhibit: %s", bus_error(&error, r));
                         r = fd;
                         goto finish;
                 }

@@ -46,7 +46,7 @@
 #include "dbus-socket.h"
 #include "missing.h"
 #include "special.h"
-#include "bus-errors.h"
+#include "dbus-common.h"
 #include "label.h"
 #include "exit-status.h"
 #include "def.h"

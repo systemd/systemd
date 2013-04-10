@@ -258,12 +258,11 @@ const char *bus_error_message(const DBusError *error) {
         return error->message;
 }
 
-const char *bus_error_message_or_strerror(const DBusError *error, int err) {
-
+const char *bus_error(const DBusError *error, int err) {
         if (error && dbus_error_is_set(error))
                 return bus_error_message(error);
 
-        return strerror(err);
+        return strerror(err < 0 ? -err : err);
 }
 
 DBusHandlerResult bus_default_message_handler(

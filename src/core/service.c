@@ -36,7 +36,7 @@
 #include "unit-printf.h"
 #include "dbus-service.h"
 #include "special.h"
-#include "bus-errors.h"
+#include "dbus-common.h"
 #include "exit-status.h"
 #include "def.h"
 #include "path-util.h"

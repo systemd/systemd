@@ -40,7 +40,7 @@
 #include "fdset.h"
 #include "special.h"
 #include "conf-parser.h"
-#include "bus-errors.h"
+#include "dbus-common.h"
 #include "missing.h"
 #include "label.h"
 #include "build.h"

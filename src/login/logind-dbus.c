@@ -2457,7 +2457,7 @@ int manager_dispatch_delayed(Manager *manager) {
         dbus_error_init(&error);
         r = execute_shutdown_or_sleep(manager, manager->action_what, manager->action_unit, &error);
         if (r < 0) {
-                log_warning("Failed to send delayed message: %s", bus_error_message_or_strerror(&error, -r));
+                log_warning("Failed to send delayed message: %s", bus_error(&error, r));
                 dbus_error_free(&error);
 
                 manager->action_unit = NULL;

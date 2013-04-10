@@ -24,6 +24,7 @@
 
 #include "transaction.h"
 #include "bus-errors.h"
+#include "dbus-common.h"
 
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 
