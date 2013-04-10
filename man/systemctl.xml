@@ -133,10 +133,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--all</option></term>
 
         <listitem>
-          <para>When listing units, show all units, regardless of
+          <para>When listing units, show all internally loaded units, regardless of
           their state, including inactive units. When showing
           unit/job/manager properties, show all properties regardless
           whether they are set or not.</para>
+          <para>To list all units installed on disk, use the command
+          <command>list-unit-files</command> instead.</para>
         </listitem>
       </varlistentry>
 
