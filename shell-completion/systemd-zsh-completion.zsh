@@ -536,7 +536,7 @@ for fun in restart reload-or-restart ; do
     _systemctl_all_units
     compadd "$@" - $( _filter_units_by_property CanStart yes \
       ${_sys_all_units[*]} | while read line; do \
-      [[ "$line" =~ \.(device|snapshot|socket|timer)$ ]] || echo " $line"; \
+      [[ "$line" =~ \.device$ ]] || echo " $line"; \
       done )
   }
 done

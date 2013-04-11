@@ -92,21 +92,22 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--type=</option></term>
 
         <listitem>
-          <para>The argument should be a unit type name such as
-          <option>service</option> and <option>socket</option>, or a
-          unit load state such as <option>loaded</option> and
-          <option>masked</option>.
-          </para>
+          <para>The argument should be a comma separated list of unit
+          types such as <option>service</option> and
+          <option>socket</option>, or unit load states such as
+          <option>loaded</option> and <option>masked</option>
+          (types and states can be mixed).</para>
 
-          <para>If the argument is a unit type, when listing units,
-          limit display to certain unit types. If not specified units
+          <para>If one of the arguments is a unit type, when listing
+          units, limit display to certain unit types. Otherwise units
           of all types will be shown.</para>
 
-          <para>If the argument is a unit load state, when listing
-          units, limit display to certain unit types. If not specified
-          units of in all load states will be shown.</para>
+          <para>If one of the arguments is a unit load state, when
+          listing units, limit display to certain unit
+          types. Otherwise units of in all load states will be
+          shown.</para>
 
-          <para>As a special case, if the argument is
+          <para>As a special case, if one of the arguments is
           <option>help</option>, a list of allowed values will be
           printed and the program will exit.</para>
         </listitem>

@@ -68,9 +68,9 @@
 #include "socket-util.h"
 #include "fileio.h"
 
-static const char *arg_type = NULL;
-static const char *arg_load_state = NULL;
-static char **arg_property = NULL;
+static char **arg_types = NULL;
+static char **arg_load_states = NULL;
+static char **arg_properties = NULL;
 static bool arg_all = false;
 static const char *arg_job_mode = "replace";
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
@@ -295,9 +295,9 @@ static bool output_show_unit(const struct unit_info *u) {
         if (arg_failed)
                 return streq(u->active_state, "failed");
 
-        return (!arg_type || ((dot = strrchr(u->id, '.')) &&
-                              streq(dot+1, arg_type))) &&
-                (!arg_load_state || streq(u->load_state, arg_load_state)) &&
+        return (!arg_types || ((dot = strrchr(u->id, '.')) &&
+                               strv_find(arg_types, dot+1))) &&
+                (!arg_load_states || strv_find(arg_load_states, u->load_state)) &&
                 (arg_all || !(streq(u->active_state, "inactive")
                               || u->following[0]) || u->job_id > 0);
 }
@@ -524,7 +524,7 @@ static int compare_unit_file_list(const void *a, const void *b) {
 static bool output_show_unit_file(const UnitFileList *u) {
         const char *dot;
 
-        return !arg_type || ((dot = strrchr(u->path, '.')) && streq(dot+1, arg_type));
+        return !arg_types || ((dot = strrchr(u->path, '.')) && strv_find(arg_types, dot+1));
 }
 
 static void output_unit_file_list(const UnitFileList *units, unsigned c) {
@@ -2946,7 +2946,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
         /* This is a low-level property printer, see
          * print_status_info() for the nicer output */
 
-        if (arg_property && !strv_find(arg_property, name))
+        if (arg_properties && !strv_find(arg_properties, name))
                 return 0;
 
         switch (dbus_message_iter_get_arg_type(iter)) {
@@ -4504,45 +4504,67 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         puts(SYSTEMD_FEATURES);
                         return 0;
 
-                case 't':
-                        if (streq(optarg, "help")) {
-                                help_types();
-                                return 0;
-                        }
-
-                        if (unit_type_from_string(optarg) >= 0) {
-                                arg_type = optarg;
-                                break;
-                        }
-                        if (unit_load_state_from_string(optarg) >= 0) {
-                                arg_load_state = optarg;
-                                break;
-                        }
-                        log_error("Unkown unit type or load state '%s'.",
-                                  optarg);
-                        log_info("Use -t help to see a list of allowed values.");
-                        return -EINVAL;
-                case 'p': {
+                case 't': {
                         char *word, *state;
                         size_t size;
+
+                        FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
+                                char _cleanup_free_ *type;
+
+                                type = strndup(word, size);
+                                if (!type)
+                                        return -ENOMEM;
+
+                                if (streq(type, "help")) {
+                                        help_types();
+                                        return 0;
+                                }
+
+                                if (unit_type_from_string(type) >= 0) {
+                                        if (strv_push(&arg_types, type))
+                                                return log_oom();
+                                        type = NULL;
+                                        continue;
+                                }
+
+                                if (unit_load_state_from_string(optarg) >= 0) {
+                                        if (strv_push(&arg_load_states, type))
+                                                return log_oom();
+                                        type = NULL;
+                                        continue;
+                                }
+
+                                log_error("Unkown unit type or load state '%s'.", type);
+                                log_info("Use -t help to see a list of allowed values.");
+                                return -EINVAL;
+                        }
+
+                        break;
+                }
+
+                case 'p': {
                         /* Make sure that if the empty property list
                            was specified, we won't show any properties. */
-                        const char *source = isempty(optarg) ? " " : optarg;
+                        if (isempty(optarg) && !arg_properties) {
+                                arg_properties = strv_new(NULL, NULL);
+                                if (!arg_properties)
+                                        return log_oom();
+                        } else {
+                                char *word, *state;
+                                size_t size;
 
-                        FOREACH_WORD_SEPARATOR(word, size, source, ",", state) {
-                                char _cleanup_free_ *prop;
-                                char **tmp;
+                                FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
+                                        char *prop;
 
-                                prop = strndup(word, size);
-                                if (!prop)
-                                        return -ENOMEM;
+                                        prop = strndup(word, size);
+                                        if (!prop)
+                                                return log_oom();
 
-                                tmp = strv_append(arg_property, prop);
-                                if (!tmp)
-                                        return -ENOMEM;
-
-                                strv_free(arg_property);
-                                arg_property = tmp;
+                                        if (strv_push(&arg_properties, prop)) {
+                                                free(prop);
+                                                return log_oom();
+                                        }
+                                }
                         }
 
                         /* If the user asked for a particular
@@ -5725,7 +5747,9 @@ finish:
 
         dbus_shutdown();
 
-        strv_free(arg_property);
+        strv_free(arg_types);
+        strv_free(arg_load_states);
+        strv_free(arg_properties);
 
         pager_close();
         ask_password_agent_close();
