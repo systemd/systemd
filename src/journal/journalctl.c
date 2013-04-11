@@ -604,6 +604,10 @@ static int add_this_boot(sd_journal *j) {
                 return r;
         }
 
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -627,13 +631,16 @@ static int add_unit(sd_journal *j) {
         if (r < 0)
                 return r;
 
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
 static int add_priorities(sd_journal *j) {
         char match[] = "PRIORITY=0";
         int i, r;
-
         assert(j);
 
         if (arg_priorities == 0xFF)
@@ -649,6 +656,10 @@ static int add_priorities(sd_journal *j) {
                                 return r;
                         }
                 }
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -1106,11 +1117,11 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return EXIT_FAILURE;
 
-        r = add_matches(j, argv + optind);
+        r = add_priorities(j);
         if (r < 0)
                 return EXIT_FAILURE;
 
-        r = add_priorities(j);
+        r = add_matches(j, argv + optind);
         if (r < 0)
                 return EXIT_FAILURE;
 

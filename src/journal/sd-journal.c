@@ -203,7 +203,7 @@ static void match_free_if_empty(Match *m) {
 }
 
 _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
-        Match *l2, *l3, *add_here = NULL, *m;
+        Match *l3, *l4, *add_here = NULL, *m;
         le64_t le_hash;
 
         if (!j)
@@ -218,44 +218,52 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         if (!match_is_valid(data, size))
                 return -EINVAL;
 
-        /* level 0: OR term
-         * level 1: AND terms
-         * level 2: OR terms
-         * level 3: concrete matches */
+        /* level 0: AND term
+         * level 1: OR terms
+         * level 2: AND terms
+         * level 3: OR terms
+         * level 4: concrete matches */
 
         if (!j->level0) {
-                j->level0 = match_new(NULL, MATCH_OR_TERM);
+                j->level0 = match_new(NULL, MATCH_AND_TERM);
                 if (!j->level0)
                         return -ENOMEM;
         }
 
         if (!j->level1) {
-                j->level1 = match_new(j->level0, MATCH_AND_TERM);
+                j->level1 = match_new(j->level0, MATCH_OR_TERM);
                 if (!j->level1)
                         return -ENOMEM;
         }
 
-        assert(j->level0->type == MATCH_OR_TERM);
-        assert(j->level1->type == MATCH_AND_TERM);
+        if (!j->level2) {
+                j->level2 = match_new(j->level1, MATCH_AND_TERM);
+                if (!j->level2)
+                        return -ENOMEM;
+        }
+
+        assert(j->level0->type == MATCH_AND_TERM);
+        assert(j->level1->type == MATCH_OR_TERM);
+        assert(j->level2->type == MATCH_AND_TERM);
 
         le_hash = htole64(hash64(data, size));
 
-        LIST_FOREACH(matches, l2, j->level1->matches) {
-                assert(l2->type == MATCH_OR_TERM);
+        LIST_FOREACH(matches, l3, j->level2->matches) {
+                assert(l3->type == MATCH_OR_TERM);
 
-                LIST_FOREACH(matches, l3, l2->matches) {
-                        assert(l3->type == MATCH_DISCRETE);
+                LIST_FOREACH(matches, l4, l3->matches) {
+                        assert(l4->type == MATCH_DISCRETE);
 
                         /* Exactly the same match already? Then ignore
                          * this addition */
-                        if (l3->le_hash == le_hash &&
-                            l3->size == size &&
-                            memcmp(l3->data, data, size) == 0)
+                        if (l4->le_hash == le_hash &&
+                            l4->size == size &&
+                            memcmp(l4->data, data, size) == 0)
                                 return 0;
 
                         /* Same field? Then let's add this to this OR term */
-                        if (same_field(data, size, l3->data, l3->size)) {
-                                add_here = l2;
+                        if (same_field(data, size, l4->data, l4->size)) {
+                                add_here = l3;
                                 break;
                         }
                 }
@@ -265,7 +273,7 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         }
 
         if (!add_here) {
-                add_here = match_new(j->level1, MATCH_OR_TERM);
+                add_here = match_new(j->level2, MATCH_OR_TERM);
                 if (!add_here)
                         goto fail;
         }
@@ -288,6 +296,9 @@ fail:
         if (add_here)
                 match_free_if_empty(add_here);
 
+        if (j->level2)
+                match_free_if_empty(j->level2);
+
         if (j->level1)
                 match_free_if_empty(j->level1);
 
@@ -297,9 +308,7 @@ fail:
         return -ENOMEM;
 }
 
-_public_ int sd_journal_add_disjunction(sd_journal *j) {
-        Match *m;
-
+_public_ int sd_journal_add_conjunction(sd_journal *j) {
         assert(j);
 
         if (!j->level0)
@@ -311,11 +320,28 @@ _public_ int sd_journal_add_disjunction(sd_journal *j) {
         if (!j->level1->matches)
                 return 0;
 
-        m = match_new(j->level0, MATCH_AND_TERM);
-        if (!m)
-                return -ENOMEM;
+        j->level1 = NULL;
+        j->level2 = NULL;
 
-        j->level1 = m;
+        return 0;
+}
+
+_public_ int sd_journal_add_disjunction(sd_journal *j) {
+        assert(j);
+
+        if (!j->level0)
+                return 0;
+
+        if (!j->level1)
+                return 0;
+
+        if (!j->level2)
+                return 0;
+
+        if (!j->level2->matches)
+                return 0;
+
+        j->level2 = NULL;
         return 0;
 }
 
@@ -380,7 +406,7 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
         if (j->level0)
                 match_free(j->level0);
 
-        j->level0 = j->level1 = NULL;
+        j->level0 = j->level1 = j->level2 = NULL;
 
         detach_location(j);
 }

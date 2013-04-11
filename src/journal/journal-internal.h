@@ -113,7 +113,7 @@ struct sd_journal {
 
         int inotify_fd;
 
-        Match *level0, *level1;
+        Match *level0, *level1, *level2;
 
         unsigned current_invalidate_counter, last_invalidate_counter;
 
