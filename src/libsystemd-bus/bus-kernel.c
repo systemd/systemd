@@ -156,6 +156,9 @@ int bus_kernel_take_fd(sd_bus *b) {
         if (r < 0)
                 return -errno;
 
+        if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello.id) < 0)
+                return -ENOMEM;
+
         b->is_kernel = true;
 
         r = bus_start_running(b);
