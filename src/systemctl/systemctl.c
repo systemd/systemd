@@ -353,8 +353,8 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 char _cleanup_free_ *e = NULL;
-                const char *on_loaded, *off_loaded;
-                const char *on_active, *off_active;
+                const char *on_loaded, *off_loaded, *on = "";
+                const char *on_active, *off_active, *off = "";
 
                 if (!output_show_unit(u))
                         continue;
@@ -373,21 +373,21 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 n_shown++;
 
                 if (streq(u->load_state, "error")) {
-                        on_loaded = ansi_highlight_red(true);
-                        off_loaded = ansi_highlight_red(false);
+                        on_loaded = on = ansi_highlight_red(true);
+                        off_loaded = off = ansi_highlight_red(false);
                 } else
                         on_loaded = off_loaded = "";
 
                 if (streq(u->active_state, "failed")) {
-                        on_active = ansi_highlight_red(true);
-                        off_active = ansi_highlight_red(false);
+                        on_active = on = ansi_highlight_red(true);
+                        off_active = off = ansi_highlight_red(false);
                 } else
                         on_active = off_active = "";
 
                 e = arg_full ? NULL : ellipsize(u->id, id_len, 33);
 
-                printf("%-*s %s%-6s%s %s%-*s %-*s%s %-*s",
-                       id_len, e ? e : u->id,
+                printf("%s%-*s%s %s%-6s%s %s%-*s %-*s%s %-*s",
+                       on, id_len, e ? e : u->id, off,
                        on_loaded, u->load_state, off_loaded,
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
