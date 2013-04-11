@@ -19,9 +19,6 @@ Fedora 19:
 
 * fix match logic to add another level of disjunction/conjunction
 
-* make anaconda write timeout=0 for encrypted devices
-  https://bugzilla.redhat.com/show_bug.cgi?id=861123
-
 * external: maybe it is time to patch procps so that "ps" links to
   libsystemd-logind to print a pretty service name, seat name, session
   name in its output. Currently it only shows cgroup membership, but
