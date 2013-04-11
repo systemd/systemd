@@ -965,7 +965,7 @@ static int dispatch_wqueue(sd_bus *bus) {
                 } else if (r == 0)
                         /* Didn't do anything this time */
                         return ret;
-                else if (bus->windex >= bus->wqueue[0]->size) {
+                else if (bus->windex >= bus_message_size(bus->wqueue[0])) {
                         /* Fully written. Let's drop the entry from
                          * the queue.
                          *
@@ -1066,7 +1066,7 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
                 if (r < 0) {
                         sd_bus_close(bus);
                         return r;
-                } else if (idx < m->size)  {
+                } else if (idx < bus_message_size(m))  {
                         /* Wasn't fully written. So let's remember how
                          * much was written. Note that the first entry
                          * of the wqueue array is always allocated so

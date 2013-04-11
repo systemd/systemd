@@ -302,7 +302,6 @@ int bus_message_from_malloc(
         m->n_iovec = 1;
         m->iovec[0].iov_base = buffer;
         m->iovec[0].iov_len = length;
-        m->size = length;
 
         r = message_parse_fields(m);
         if (r < 0)
@@ -2794,42 +2793,6 @@ static int message_parse_fields(sd_bus_message *m) {
         return 0;
 }
 
-static void setup_iovec(sd_bus_message *m) {
-        assert(m);
-        assert(m->sealed);
-
-        m->n_iovec = 0;
-        m->size = 0;
-
-        m->iovec[m->n_iovec].iov_base = m->header;
-        m->iovec[m->n_iovec].iov_len = sizeof(*m->header);
-        m->size += m->iovec[m->n_iovec].iov_len;
-        m->n_iovec++;
-
-        if (m->fields) {
-                m->iovec[m->n_iovec].iov_base = m->fields;
-                m->iovec[m->n_iovec].iov_len = m->header->fields_size;
-                m->size += m->iovec[m->n_iovec].iov_len;
-                m->n_iovec++;
-
-                if (m->header->fields_size % 8 != 0) {
-                        static const uint8_t padding[7] = { 0, 0, 0, 0, 0, 0, 0 };
-
-                        m->iovec[m->n_iovec].iov_base = (void*) padding;
-                        m->iovec[m->n_iovec].iov_len = 8 - m->header->fields_size % 8;
-                        m->size += m->iovec[m->n_iovec].iov_len;
-                        m->n_iovec++;
-                }
-        }
-
-        if (m->body) {
-                m->iovec[m->n_iovec].iov_base = m->body;
-                m->iovec[m->n_iovec].iov_len = m->header->body_size;
-                m->size += m->iovec[m->n_iovec].iov_len;
-                m->n_iovec++;
-        }
-}
-
 int bus_message_seal(sd_bus_message *m, uint64_t serial) {
         int r;
 
@@ -2856,8 +2819,6 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
 
         m->header->serial = serial;
         m->sealed = true;
-
-        setup_iovec(m);
 
         return 0;
 }
@@ -3074,22 +3035,31 @@ int bus_message_dump(sd_bus_message *m) {
 
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
         size_t total;
-        unsigned i;
         void *p, *e;
 
         assert(m);
         assert(buffer);
         assert(sz);
 
-        for (i = 0, total = 0; i < m->n_iovec; i++)
-                total += m->iovec[i].iov_len;
+        total = bus_message_size(m);
 
         p = malloc(total);
         if (!p)
                 return -ENOMEM;
 
-        for (i = 0, e = p; i < m->n_iovec; i++)
-                e = mempcpy(e, m->iovec[i].iov_base, m->iovec[i].iov_len);
+        e = mempcpy(p, m->header, sizeof(*m->header));
+
+        if (m->fields) {
+                e = mempcpy(e, m->fields, m->header->fields_size);
+
+                if (m->header->fields_size % 8 != 0)
+                        e = mempset(e, 0, 8 - (m->header->fields_size % 8));
+        }
+
+        if (m->body)
+                e = mempcpy(e, m->body, m->header->body_size);
+
+        assert(total == (size_t) ((uint8_t*) e - (uint8_t*) p));
 
         *buffer = p;
         *sz = total;
@@ -3161,4 +3131,14 @@ const char* bus_message_get_arg(sd_bus_message *m, unsigned i) {
                 return NULL;
 
         return t;
+}
+
+size_t bus_message_size(sd_bus_message *m) {
+        assert(m);
+        assert(m->sealed);
+
+        return
+                sizeof(*m->header) +
+                ALIGN8(m->header->fields_size) +
+                m->header->body_size;
 }

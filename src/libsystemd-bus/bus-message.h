@@ -92,7 +92,6 @@ struct sd_bus_message {
 
         struct iovec iovec[4];
         unsigned n_iovec;
-        size_t size;
 
         char *peeked_signature;
 };
@@ -146,3 +145,5 @@ int bus_message_from_malloc(
 const char* bus_message_get_arg(sd_bus_message *m, unsigned i);
 
 int bus_message_append_ap(sd_bus_message *m, const char *types, va_list ap);
+
+size_t bus_message_size(sd_bus_message *m);
