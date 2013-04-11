@@ -82,6 +82,7 @@
 /systemd-vconsole-setup
 /tags
 /test-bus-chat
+/test-bus-kernel
 /test-bus-marshal
 /test-bus-match
 /test-bus-signature

@@ -1724,7 +1724,8 @@ noinst_tests += \
 	test-bus-signature \
 	test-bus-chat \
 	test-bus-server \
-	test-bus-match
+	test-bus-match \
+	test-bus-kernel
 
 noinst_PROGRAMS += \
 	busctl
@@ -1781,6 +1782,17 @@ test_bus_match_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_bus_match_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la \
+	libsystemd-id128-internal.la
+
+test_bus_kernel_SOURCES = \
+	src/libsystemd-bus/test-bus-kernel.c
+
+test_bus_kernel_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_bus_kernel_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la \
 	libsystemd-id128-internal.la

@@ -28,6 +28,7 @@
 #include "macro.h"
 #include "sd-bus.h"
 #include "kdbus.h"
+#include "time-util.h"
 
 struct bus_container {
         char enclosing;
