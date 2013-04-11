@@ -709,6 +709,17 @@ const char *sd_bus_message_get_label(sd_bus_message *m) {
         return m->label;
 }
 
+int sd_bus_message_get_timestamp(sd_bus_message *m, uint64_t *usec) {
+        if (!m)
+                return -EINVAL;
+
+        if (m->timestamp <= 0)
+                return -ENOENT;
+
+        *usec = m->timestamp;
+        return 0;
+}
+
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member) {
         if (!m)
                 return -EINVAL;
@@ -2922,6 +2933,8 @@ int bus_message_dump(sd_bus_message *m) {
                 printf("\tgid=%lu\n", (unsigned long) m->gid);
         if (m->pid_starttime != 0)
                 printf("\tpid_starttime=%llu\n", (unsigned long long) m->pid_starttime);
+        if (m->timestamp)
+                printf("\ttimestamp=%llu\n", (unsigned long long) m->timestamp);
 
         r = sd_bus_message_rewind(m, true);
         if (r < 0) {

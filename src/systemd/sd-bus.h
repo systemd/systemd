@@ -127,6 +127,7 @@ int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid);
 int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid);
 int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec);
 const char *sd_bus_message_get_label(sd_bus_message *m);
+int sd_bus_message_get_timestamp(sd_bus_message *m, uint64_t *usec);
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member);
 int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member);

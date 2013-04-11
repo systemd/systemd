@@ -225,6 +225,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         struct bus_header *h = NULL;
         size_t total, n_bytes = 0, idx = 0;
         struct kdbus_creds *creds = NULL;
+        uint64_t nsec = 0;
         int r;
 
         assert(bus);
@@ -266,6 +267,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                 } else if (d->type == KDBUS_MSG_SRC_CREDS)
                         creds = &d->creds;
+                else if (d->type == KDBUS_MSG_TIMESTAMP)
+                        nsec = d->ts_ns;
         }
 
         if (!h)
@@ -312,6 +315,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                 m->tid = creds->tid;
                 m->uid_valid = m->gid_valid = true;
         }
+
+        m->timestamp = nsec / NSEC_PER_USEC;
 
         r = bus_message_parse_fields(m);
         if (r < 0) {

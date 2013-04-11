@@ -68,6 +68,7 @@ struct sd_bus_message {
         pid_t pid;
         pid_t tid;
         usec_t pid_starttime;
+        usec_t timestamp;
 
         bool sealed:1;
         bool dont_send:1;
