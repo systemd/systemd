@@ -305,6 +305,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         }
 
         if (creds) {
+                m->pid_starttime = creds->starttime / NSEC_PER_USEC;
                 m->uid = creds->uid;
                 m->gid = creds->gid;
                 m->pid = creds->pid;

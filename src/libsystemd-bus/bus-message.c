@@ -692,6 +692,16 @@ int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid) {
         return 0;
 }
 
+int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec) {
+        if (!m)
+                return -EINVAL;
+        if (m->pid_starttime <= 0)
+                return -ENOENT;
+
+        *usec = m->pid_starttime;
+        return 0;
+}
+
 const char *sd_bus_message_get_label(sd_bus_message *m) {
         if (!m)
                 return NULL;
@@ -2910,7 +2920,8 @@ int bus_message_dump(sd_bus_message *m) {
                 printf("\tuid=%lu\n", (unsigned long) m->uid);
         if (m->gid_valid)
                 printf("\tgid=%lu\n", (unsigned long) m->gid);
-
+        if (m->pid_starttime != 0)
+                printf("\tpid_starttime=%llu\n", (unsigned long long) m->pid_starttime);
 
         r = sd_bus_message_rewind(m, true);
         if (r < 0) {
