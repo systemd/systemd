@@ -1700,6 +1700,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-internal.h \
 	src/libsystemd-bus/bus-socket.c \
 	src/libsystemd-bus/bus-socket.h \
+	src/libsystemd-bus/bus-kernel.c \
+	src/libsystemd-bus/bus-kernel.h \
 	src/libsystemd-bus/bus-message.c \
 	src/libsystemd-bus/bus-message.h \
 	src/libsystemd-bus/bus-signature.c \
@@ -4104,6 +4106,10 @@ hwdb-update:
 	        http://standards.ieee.org/develop/regauth/oui/oui.txt \
 	        http://standards.ieee.org/develop/regauth/iab/iab.txt && \
 	./ids-update.pl )
+
+kdbus-update:
+	( cd $(top_srcdir)/src/libsystemd-bus/ && \
+	wget -N https://d-bus.googlecode.com/git/kdbus.h )
 
 upload: all distcheck
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/

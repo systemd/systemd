@@ -25,6 +25,7 @@
 #include "util.h"
 #include "utf8.h"
 #include "strv.h"
+#include "time-util.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -32,7 +33,6 @@
 #include "bus-type.h"
 #include "bus-signature.h"
 
-static int message_parse_fields(sd_bus_message *m);
 static int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored);
 
 static void reset_containers(sd_bus_message *m) {
@@ -61,6 +61,9 @@ static void message_free(sd_bus_message *m) {
 
         if (m->free_body)
                 free(m->body);
+
+        if (m->free_kdbus)
+                free(m->kdbus);
 
         if (m->free_fds) {
                 close_many(m->fds, m->n_fds);
@@ -225,19 +228,19 @@ static int message_append_field_uint32(sd_bus_message *m, uint8_t h, uint32_t x)
         return 0;
 }
 
-int bus_message_from_malloc(
+int bus_message_from_header(
                 void *buffer,
                 size_t length,
                 int *fds,
                 unsigned n_fds,
                 const struct ucred *ucred,
                 const char *label,
+                size_t extra,
                 sd_bus_message **ret) {
 
         sd_bus_message *m;
         struct bus_header *h;
-        size_t total, fs, bs, label_sz, a;
-        int r;
+        size_t a, label_sz;
 
         assert(buffer || length <= 0);
         assert(fds || n_fds <= 0);
@@ -256,24 +259,16 @@ int bus_message_from_malloc(
         if (h->type == _SD_BUS_MESSAGE_TYPE_INVALID)
                 return -EBADMSG;
 
-        if (h->endian == SD_BUS_NATIVE_ENDIAN) {
-                fs = h->fields_size;
-                bs = h->body_size;
-        } else if (h->endian == SD_BUS_REVERSE_ENDIAN) {
-                fs = bswap_32(h->fields_size);
-                bs = bswap_32(h->body_size);
-        } else
+        if (h->endian != SD_BUS_LITTLE_ENDIAN &&
+            h->endian != SD_BUS_BIG_ENDIAN)
                 return -EBADMSG;
 
-        total = sizeof(struct bus_header) + ALIGN8(fs) + bs;
-        if (length != total)
-                return -EBADMSG;
+        a = ALIGN(sizeof(sd_bus_message)) + ALIGN(extra);
 
         if (label) {
                 label_sz = strlen(label);
-                a = ALIGN(sizeof(sd_bus_message)) + label_sz + 1;
-        } else
-                a = sizeof(sd_bus_message);
+                a += label_sz + 1;
+        }
 
         m = malloc0(a);
         if (!m)
@@ -282,8 +277,6 @@ int bus_message_from_malloc(
         m->n_ref = 1;
         m->sealed = true;
         m->header = h;
-        m->fields = (uint8_t*) buffer + sizeof(struct bus_header);
-        m->body = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN8(fs);
         m->fds = fds;
         m->n_fds = n_fds;
 
@@ -295,15 +288,43 @@ int bus_message_from_malloc(
         }
 
         if (label) {
-                m->label = (char*) m + ALIGN(sizeof(sd_bus_message));
+                m->label = (char*) m + ALIGN(sizeof(sd_bus_message)) + ALIGN(extra);
                 memcpy(m->label, label, label_sz + 1);
         }
+
+        *ret = m;
+        return 0;
+}
+
+int bus_message_from_malloc(
+                void *buffer,
+                size_t length,
+                int *fds,
+                unsigned n_fds,
+                const struct ucred *ucred,
+                const char *label,
+                sd_bus_message **ret) {
+
+        sd_bus_message *m;
+        int r;
+
+        r = bus_message_from_header(buffer, length, fds, n_fds, ucred, label, 0, &m);
+        if (r < 0)
+                return r;
+
+        if (length != BUS_MESSAGE_SIZE(m)) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        m->fields = (uint8_t*) buffer + sizeof(struct bus_header);
+        m->body = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
 
         m->n_iovec = 1;
         m->iovec[0].iov_base = buffer;
         m->iovec[0].iov_len = length;
 
-        r = message_parse_fields(m);
+        r = bus_message_parse_fields(m);
         if (r < 0)
                 goto fail;
 
@@ -2600,7 +2621,7 @@ static int message_skip_fields(
         }
 }
 
-static int message_parse_fields(sd_bus_message *m) {
+int bus_message_parse_fields(sd_bus_message *m) {
         size_t ri;
         int r;
         uint32_t unix_fds = 0;
@@ -3041,7 +3062,7 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
         assert(buffer);
         assert(sz);
 
-        total = bus_message_size(m);
+        total = BUS_MESSAGE_SIZE(m);
 
         p = malloc(total);
         if (!p)
@@ -3133,12 +3154,21 @@ const char* bus_message_get_arg(sd_bus_message *m, unsigned i) {
         return t;
 }
 
-size_t bus_message_size(sd_bus_message *m) {
-        assert(m);
-        assert(m->sealed);
+int bus_header_size(struct bus_header *h, size_t *sum) {
+        size_t fs, bs;
 
-        return
-                sizeof(*m->header) +
-                ALIGN8(m->header->fields_size) +
-                m->header->body_size;
+        assert(h);
+        assert(sum);
+
+        if (h->endian == SD_BUS_NATIVE_ENDIAN) {
+                fs = h->fields_size;
+                bs = h->body_size;
+        } else if (h->endian == SD_BUS_REVERSE_ENDIAN) {
+                fs = bswap_32(h->fields_size);
+                bs = bswap_32(h->body_size);
+        } else
+                return -EBADMSG;
+
+        *sum = sizeof(struct bus_header) + ALIGN8(fs) + bs;
+        return 0;
 }

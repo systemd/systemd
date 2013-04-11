@@ -27,6 +27,7 @@
 
 #include "macro.h"
 #include "sd-bus.h"
+#include "kdbus.h"
 
 struct bus_container {
         char enclosing;
@@ -74,11 +75,13 @@ struct sd_bus_message {
         bool free_header:1;
         bool free_fields:1;
         bool free_body:1;
+        bool free_kdbus:1;
         bool free_fds:1;
 
         struct bus_header *header;
         void *fields;
         void *body;
+        struct kdbus_msg *kdbus;
 
         char *label;
 
@@ -94,6 +97,8 @@ struct sd_bus_message {
         unsigned n_iovec;
 
         char *peeked_signature;
+
+        usec_t timeout;
 };
 
 #define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_NATIVE_ENDIAN)
@@ -122,6 +127,13 @@ static inline uint32_t BUS_MESSAGE_FIELDS_SIZE(sd_bus_message *m) {
         return BUS_MESSAGE_BSWAP32(m, m->header->fields_size);
 }
 
+static inline uint32_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
+        return
+                sizeof(struct bus_header) +
+                ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)) +
+                BUS_MESSAGE_BODY_SIZE(m);
+}
+
 static inline void bus_message_unrefp(sd_bus_message **m) {
         sd_bus_message_unref(*m);
 }
@@ -132,6 +144,16 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial);
 int bus_message_dump(sd_bus_message *m);
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l);
+
+int bus_message_from_header(
+                void *header,
+                size_t length,
+                int *fds,
+                unsigned n_fds,
+                const struct ucred *ucred,
+                const char *label,
+                size_t extra,
+                sd_bus_message **ret);
 
 int bus_message_from_malloc(
                 void *buffer,
@@ -146,4 +168,6 @@ const char* bus_message_get_arg(sd_bus_message *m, unsigned i);
 
 int bus_message_append_ap(sd_bus_message *m, const char *types, va_list ap);
 
-size_t bus_message_size(sd_bus_message *m);
+int bus_message_parse_fields(sd_bus_message *m);
+
+int bus_header_size(struct bus_header *h, size_t *sum);

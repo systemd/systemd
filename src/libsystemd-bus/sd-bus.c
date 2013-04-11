@@ -37,6 +37,7 @@
 #include "bus-message.h"
 #include "bus-type.h"
 #include "bus-socket.h"
+#include "bus-kernel.h"
 #include "bus-control.h"
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
@@ -259,7 +260,7 @@ static int bus_send_hello(sd_bus *bus) {
 
         assert(bus);
 
-        if (!bus->bus_client)
+        if (!bus->bus_client || bus->is_kernel)
                 return 0;
 
         r = sd_bus_message_new_method_call(
@@ -596,6 +597,41 @@ fail:
         return r;
 }
 
+static int parse_kernel_address(sd_bus *b, const char **p, char **guid) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(b);
+        assert(p);
+        assert(*p);
+        assert(guid);
+
+        while (**p != 0 && **p != ';') {
+                r = parse_address_key(p, "guid", guid);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "path", &path);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                skip_address_key(p);
+        }
+
+        if (!path)
+                return -EINVAL;
+
+        free(b->kernel);
+        b->kernel = path;
+        path = NULL;
+
+        return 0;
+}
+
 static void bus_reset_parsed_address(sd_bus *b) {
         assert(b);
 
@@ -606,6 +642,8 @@ static void bus_reset_parsed_address(sd_bus *b) {
         b->exec_path = NULL;
         b->exec_argv = NULL;
         b->server_id = SD_ID128_NULL;
+        free(b->kernel);
+        b->kernel = NULL;
 }
 
 static int bus_parse_next_address(sd_bus *b) {
@@ -657,6 +695,14 @@ static int bus_parse_next_address(sd_bus *b) {
 
                         break;
 
+                } else if (startswith(a, "kernel:")) {
+
+                        a += 7;
+                        r = parse_kernel_address(b, &a, &guid);
+                        if (r < 0)
+                                return r;
+
+                        break;
                 }
 
                 a = strchr(a, ';');
@@ -697,6 +743,13 @@ static int bus_start_address(sd_bus *b) {
                                 return r;
 
                         b->last_connect_error = -r;
+                } else if (b->kernel) {
+
+                        r = bus_kernel_connect(b);
+                        if (r >= 0)
+                                return r;
+
+                        b->last_connect_error = -r;
                 }
 
                 r = bus_parse_next_address(b);
@@ -715,6 +768,7 @@ int bus_next_address(sd_bus *b) {
 }
 
 static int bus_start_fd(sd_bus *b) {
+        struct stat st;
         int r;
 
         assert(b);
@@ -739,7 +793,13 @@ static int bus_start_fd(sd_bus *b) {
                         return r;
         }
 
-        return bus_socket_take_fd(b);
+        if (fstat(b->input_fd, &st) < 0)
+                return -errno;
+
+        if (S_ISCHR(b->input_fd))
+                return bus_kernel_take_fd(b);
+        else
+                return bus_socket_take_fd(b);
 }
 
 int sd_bus_start(sd_bus *bus) {
@@ -757,7 +817,7 @@ int sd_bus_start(sd_bus *bus) {
 
         if (bus->input_fd >= 0)
                 r = bus_start_fd(bus);
-        else if (bus->address || bus->sockaddr.sa.sa_family != AF_UNSPEC || bus->exec_path)
+        else if (bus->address || bus->sockaddr.sa.sa_family != AF_UNSPEC || bus->exec_path || bus->kernel)
                 r = bus_start_address(bus);
         else
                 return -EINVAL;
@@ -958,14 +1018,18 @@ static int dispatch_wqueue(sd_bus *bus) {
 
         while (bus->wqueue_size > 0) {
 
-                r = bus_socket_write_message(bus, bus->wqueue[0], &bus->windex);
+                if (bus->is_kernel)
+                        r = bus_kernel_write_message(bus, bus->wqueue[0]);
+                else
+                        r = bus_socket_write_message(bus, bus->wqueue[0], &bus->windex);
+
                 if (r < 0) {
                         sd_bus_close(bus);
                         return r;
                 } else if (r == 0)
                         /* Didn't do anything this time */
                         return ret;
-                else if (bus->windex >= bus_message_size(bus->wqueue[0])) {
+                else if (bus->is_kernel || bus->windex >= BUS_MESSAGE_SIZE(bus->wqueue[0])) {
                         /* Fully written. Let's drop the entry from
                          * the queue.
                          *
@@ -1010,7 +1074,11 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
 
         /* Try to read a new message */
         do {
-                r = bus_socket_read_message(bus, &z);
+                if (bus->is_kernel)
+                        r = bus_kernel_read_message(bus, &z);
+                else
+                        r = bus_socket_read_message(bus, &z);
+
                 if (r < 0) {
                         sd_bus_close(bus);
                         return r;
@@ -1062,11 +1130,15 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         if ((bus->state == BUS_RUNNING || bus->state == BUS_HELLO) && bus->wqueue_size <= 0) {
                 size_t idx = 0;
 
-                r = bus_socket_write_message(bus, m, &idx);
+                if (bus->is_kernel)
+                        r = bus_kernel_write_message(bus, m);
+                else
+                        r = bus_socket_write_message(bus, m, &idx);
+
                 if (r < 0) {
                         sd_bus_close(bus);
                         return r;
-                } else if (idx < bus_message_size(m))  {
+                } else if (!bus->is_kernel && idx < BUS_MESSAGE_SIZE(m))  {
                         /* Wasn't fully written. So let's remember how
                          * much was written. Note that the first entry
                          * of the wqueue array is always allocated so
@@ -1304,7 +1376,10 @@ int sd_bus_send_with_reply_and_block(
                         room = true;
                 }
 
-                r = bus_socket_read_message(bus, &incoming);
+                if (bus->is_kernel)
+                        r = bus_kernel_read_message(bus, &incoming);
+                else
+                        r = bus_socket_read_message(bus, &incoming);
                 if (r < 0)
                         return r;
                 if (incoming) {

@@ -81,6 +81,7 @@ struct sd_bus {
         int input_fd, output_fd;
         int message_version;
 
+        bool is_kernel:1;
         bool negotiate_fds:1;
         bool can_fds:1;
         bool bus_client:1;
@@ -121,6 +122,8 @@ struct sd_bus {
                 struct sockaddr_in6 in6;
         } sockaddr;
         socklen_t sockaddr_size;
+
+        char *kernel;
 
         sd_id128_t server_id;
 

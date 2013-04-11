@@ -762,7 +762,7 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         assert(idx);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
-        if (*idx >= bus_message_size(m))
+        if (*idx >= BUS_MESSAGE_SIZE(m))
                 return 0;
 
         bus_message_setup_iovec(m);
