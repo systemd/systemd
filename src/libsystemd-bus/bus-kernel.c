@@ -378,7 +378,7 @@ int bus_kernel_create(const char *name, char **s) {
         if (!p)
                 return -ENOMEM;
 
-        if (ioctl(fd, KDBUS_CMD_BUS_MAKE, &fname) < 0) {
+        if (ioctl(fd, KDBUS_CMD_BUS_MAKE, fname) < 0) {
                 close_nointr_nofail(fd);
                 free(p);
                 return -errno;
