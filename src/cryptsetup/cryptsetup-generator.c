@@ -233,7 +233,7 @@ static int create_disk(
         return 0;
 }
 
-static int parse_proc_cmdline(char ***arg_proc_cmdline_disks) {
+static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char **arg_proc_cmdline_keyfile) {
         char _cleanup_free_ *line = NULL;
         char *w = NULL, *state = NULL;
         int r;
@@ -300,6 +300,21 @@ static int parse_proc_cmdline(char ***arg_proc_cmdline_disks) {
                                         return log_oom();
                         }
 
+                } else if (startswith(word, "luks.key=")) {
+                        *arg_proc_cmdline_keyfile = strdup(word + 9);
+                        if (! arg_proc_cmdline_keyfile)
+                                return log_oom();
+
+                } else if (startswith(word, "rd.luks.key=")) {
+
+                        if (in_initrd()) {
+                                if (*arg_proc_cmdline_keyfile)
+                                        free(*arg_proc_cmdline_keyfile);
+                                *arg_proc_cmdline_keyfile = strdup(word + 12);
+                                if (!arg_proc_cmdline_keyfile)
+                                        return log_oom();
+                        }
+
                 } else if (startswith(word, "luks.") ||
                            (in_initrd() && startswith(word, "rd.luks."))) {
 
@@ -319,6 +334,7 @@ int main(int argc, char *argv[]) {
         char **i;
         char _cleanup_strv_free_ **arg_proc_cmdline_disks_done = NULL;
         char _cleanup_strv_free_ **arg_proc_cmdline_disks = NULL;
+        char _cleanup_free_ *arg_proc_cmdline_keyfile = NULL;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -334,7 +350,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline(&arg_proc_cmdline_disks) < 0)
+        if (parse_proc_cmdline(&arg_proc_cmdline_disks, &arg_proc_cmdline_keyfile) < 0)
                 return EXIT_FAILURE;
 
         if (!arg_enabled)
@@ -425,7 +441,7 @@ int main(int argc, char *argv[]) {
                 if (!name || !device)
                         return log_oom();
 
-                if (create_disk(name, device, NULL, "timeout=0") < 0)
+                if (create_disk(name, device, arg_proc_cmdline_keyfile, "timeout=0") < 0)
                         r = EXIT_FAILURE;
         }
 

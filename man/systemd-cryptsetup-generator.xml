@@ -128,7 +128,31 @@
                                 (initrd) while
                                 <varname>luks.uuid=</varname> is
                                 honored by both the main system and
-                                the initrd.</para></listitem>
+                                the initrd.</para>
+                                <para>If /etc/crypttab contains entries with
+                                the same UUID, then the options for this entry
+                                will be used.</para>
+                                <para>If /etc/crypttab exists, only those UUID
+                                specified on the kernel command line
+                                will be activated in the initrd or the real root.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>luks.key=</varname></term>
+                                <term><varname>rd.luks.key=</varname></term>
+
+                                <listitem><para>Takes a password file as argument.</para>
+                                <para>For those entries specified with
+                                <varname>rd.luks.uuid=</varname> or <varname>luks.uuid=</varname>,
+                                the password file will be set to the password file specified by
+                                <varname>rd.luks.key=</varname> or <varname>luks.key</varname></para>
+                                <para><varname>rd.luks.key=</varname>
+                                is honored only by initial RAM disk
+                                (initrd) while
+                                <varname>luks.key=</varname> is
+                                honored by both the main system and
+                                the initrd.</para>
+                                </listitem>
                         </varlistentry>
                 </variablelist>
         </refsect1>

@@ -237,6 +237,8 @@
                                 <term><varname>rd.luks.crypttab=</varname></term>
                                 <term><varname>luks.uuid=</varname></term>
                                 <term><varname>rd.luks.uuid=</varname></term>
+                                <term><varname>luks.key=</varname></term>
+                                <term><varname>rd.luks.key=</varname></term>
 
                                 <listitem>
                                         <para>Configures the LUKS
