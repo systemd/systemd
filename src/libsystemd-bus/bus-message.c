@@ -265,7 +265,7 @@ int bus_message_from_malloc(
         } else
                 return -EBADMSG;
 
-        total = sizeof(struct bus_header) + ALIGN_TO(fs, 8) + bs;
+        total = sizeof(struct bus_header) + ALIGN8(fs) + bs;
         if (length != total)
                 return -EBADMSG;
 
@@ -283,7 +283,7 @@ int bus_message_from_malloc(
         m->sealed = true;
         m->header = h;
         m->fields = (uint8_t*) buffer + sizeof(struct bus_header);
-        m->body = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN_TO(fs, 8);
+        m->body = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN8(fs);
         m->fds = fds;
         m->n_fds = n_fds;
 
