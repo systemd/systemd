@@ -1,4 +1,6 @@
 Bugfixes:
+* timedatectl: NTP enabled: n/a
+
 * systemctl --system show -p Fr<TAB> default.target doesn't show anything
 
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
