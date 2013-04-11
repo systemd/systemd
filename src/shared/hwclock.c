@@ -163,8 +163,7 @@ int hwclock_set_time(const struct tm *tm) {
 }
 
 int hwclock_is_localtime(void) {
-        FILE *f;
-        bool local = false;
+        FILE _cleanup_fclose_ *f;
 
         /*
          * The third line of adjtime is "UTC" or "LOCAL" or nothing.
@@ -181,19 +180,16 @@ int hwclock_is_localtime(void) {
                 b = fgets(line, sizeof(line), f) &&
                         fgets(line, sizeof(line), f) &&
                         fgets(line, sizeof(line), f);
-
-                fclose(f);
-
                 if (!b)
                         return -EIO;
 
                 truncate_nl(line);
-                local = streq(line, "LOCAL");
+                return streq(line, "LOCAL");
 
         } else if (errno != ENOENT)
                 return -errno;
 
-        return local;
+        return 0;
 }
 
 int hwclock_set_timezone(int *min) {
