@@ -175,7 +175,7 @@ int bus_kernel_connect(sd_bus *b) {
         assert(b->kernel);
 
         b->input_fd = open(b->kernel, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (b->input_fd)
+        if (b->input_fd < 0)
                 return -errno;
 
         b->output_fd = b->input_fd;
