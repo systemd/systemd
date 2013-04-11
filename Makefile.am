@@ -427,6 +427,7 @@ nodist_systemunit_DATA = \
 	units/systemd-kexec.service \
 	units/systemd-fsck@.service \
 	units/systemd-fsck-root.service \
+	units/systemd-static-nodes.service \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
@@ -468,6 +469,7 @@ EXTRA_DIST += \
 	units/systemd-fsck@.service.in \
 	units/systemd-fsck-root.service.in \
 	units/user@.service.in \
+	units/systemd-static-nodes.service \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
@@ -1939,11 +1941,13 @@ CLEANFILES += \
 	src/udev/udev.pc
 
 EXTRA_DIST += \
+	units/systemd-static-nodes.service.in \
 	units/systemd-udevd.service.in \
 	units/systemd-udev-trigger.service.in \
 	units/systemd-udev-settle.service.in
 
 CLEANFILES += \
+	units/systemd-static-nodes.service \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service
@@ -1952,6 +1956,7 @@ SOCKETS_TARGET_WANTS += \
 	systemd-udevd-control.socket \
 	systemd-udevd-kernel.socket
 SYSINIT_TARGET_WANTS += \
+	systemd-static-nodes.service \
 	systemd-udevd.service \
 	systemd-udev-trigger.service
 
