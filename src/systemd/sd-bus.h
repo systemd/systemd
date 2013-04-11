@@ -33,6 +33,7 @@ extern "C" {
 #endif
 
 /* TODO:
+ * - instead of adding in padding iovec when sending simply extend header buffer
  * - add page donation logic
  * - api for appending/reading fixed arrays
  * - merge busctl into systemctl or so?

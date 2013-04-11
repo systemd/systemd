@@ -55,6 +55,7 @@ static void bus_free(sd_bus *b) {
         free(b->unique_name);
         free(b->auth_buffer);
         free(b->address);
+        free(b->kernel);
 
         free(b->exec_path);
         strv_free(b->exec_argv);

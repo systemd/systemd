@@ -83,7 +83,9 @@ static int bus_message_setup_kmsg(sd_bus_message *m) {
 
         assert(m);
         assert(m->sealed);
-        assert(!m->kdbus);
+
+        if (m->kdbus)
+                return 0;
 
         if (m->destination) {
                 r = parse_unique_name(m->destination, &unique);
@@ -140,8 +142,10 @@ static int bus_message_setup_kmsg(sd_bus_message *m) {
         if (m->body)
                 append_payload_vec(&d, m->body, m->header->body_size);
 
-        m->kdbus->size = (uint8_t*) m - (uint8_t*) m->kdbus;
+        m->kdbus->size = (uint8_t*) d - (uint8_t*) m->kdbus;
         assert(m->kdbus->size <= sz);
+
+        m->free_kdbus = true;
 
         return 0;
 }
@@ -282,14 +286,14 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         continue;
 
                 l = d->size - offsetof(struct kdbus_msg_data, data);
-
                 if (idx == sizeof(struct bus_header) &&
                     l == BUS_MESSAGE_FIELDS_SIZE(m))
                         m->fields = d->data;
                 else if (idx == sizeof(struct bus_header) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)) &&
                          l == BUS_MESSAGE_BODY_SIZE(m))
                         m->body = d->data;
-                else {
+                else if (!(idx == 0 && l == sizeof(struct bus_header)) &&
+                         !(idx == sizeof(struct bus_header) + BUS_MESSAGE_FIELDS_SIZE(m))) {
                         sd_bus_message_unref(m);
                         return -EBADMSG;
                 }
@@ -339,7 +343,7 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
                 if (errno == EAGAIN)
                         return 0;
 
-                if (errno != EMSGSIZE)
+                if (errno != ENOBUFS)
                         return -errno;
 
                 sz *= 2;

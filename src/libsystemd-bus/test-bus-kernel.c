@@ -29,7 +29,8 @@
 int main(int argc, char *argv[]) {
         _cleanup_close_ int bus_ref = -1;
         _cleanup_free_ char *bus_name = NULL, *address = NULL;
-        const char *ua = NULL, *ub = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        const char *ua = NULL, *ub = NULL, *the_string = NULL;
         sd_bus *a, *b;
         int r;
 
@@ -66,6 +67,17 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         printf("unique b: %s\n", ub);
+
+        r = sd_bus_emit_signal(a, "/foo", "waldo.com", "Piep", "s", "I am a string");
+        assert_se(r >= 0);
+
+        r = sd_bus_process(b, &m);
+        assert_se(r > 0);
+        assert_se(m);
+
+        r = sd_bus_message_read(m, "s", &the_string);
+        assert_se(r >= 0);
+        assert_se(streq(the_string, "I am a string"));
 
         sd_bus_unref(a);
         sd_bus_unref(b);
