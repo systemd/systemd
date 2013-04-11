@@ -618,6 +618,8 @@ char *strextend(char **x, ...);
 char *strrep(const char *s, unsigned n);
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need);
+#define GREEDY_REALLOC(array, allocated, need) \
+        greedy_realloc((void**) &(array), &(allocated), (sizeof *array) * (need))
 
 static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;

@@ -725,7 +725,7 @@ static int parse_match(
                                 }
                         }
 
-                        if (!greedy_realloc((void**) &value, &value_allocated, j + 2)) {
+                        if (!GREEDY_REALLOC(value, value_allocated, j + 2)) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
@@ -744,8 +744,7 @@ static int parse_match(
                 } else
                         u = 0;
 
-                if (!greedy_realloc((void**) &components, &components_allocated,
-                                    (n_components + 1) * sizeof(struct match_component))) {
+                if (!GREEDY_REALLOC(components, components_allocated, n_components + 1)) {
                         r = -ENOMEM;
                         goto fail;
                 }
