@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
         bus_ref = bus_kernel_create("deine-mutter", &bus_name);
         assert_se(bus_ref >= 0);
 
-        address = strappend("kernel:", bus_name);
+        address = strappend("kernel:path=", bus_name);
         assert_se(address);
 
         r = sd_bus_new(&a);
@@ -60,12 +60,15 @@ int main(int argc, char *argv[]) {
         r = sd_bus_get_unique_name(a, &ua);
         assert_se(r >= 0);
 
-        printf("unique a: %s", ua);
+        printf("unique a: %s\n", ua);
 
         r = sd_bus_get_unique_name(b, &ub);
         assert_se(r >= 0);
 
-        printf("unique b: %s", ub);
+        printf("unique b: %s\n", ub);
+
+        sd_bus_unref(a);
+        sd_bus_unref(b);
 
         return 0;
 }
