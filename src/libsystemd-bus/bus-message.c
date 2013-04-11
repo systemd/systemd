@@ -2902,6 +2902,16 @@ int bus_message_dump(sd_bus_message *m) {
                strna(m->error.message),
                yes_no(m->sealed));
 
+        if (m->pid != 0)
+                printf("\tpid=%lu\n", (unsigned long) m->pid);
+        if (m->tid != 0)
+                printf("\ttid=%lu\n", (unsigned long) m->tid);
+        if (m->uid_valid)
+                printf("\tuid=%lu\n", (unsigned long) m->uid);
+        if (m->gid_valid)
+                printf("\tgid=%lu\n", (unsigned long) m->gid);
+
+
         r = sd_bus_message_rewind(m, true);
         if (r < 0) {
                 log_error("Failed to rewind: %s", strerror(-r));

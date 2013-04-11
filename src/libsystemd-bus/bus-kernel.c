@@ -224,6 +224,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         _cleanup_free_ int *fds = NULL;
         struct bus_header *h = NULL;
         size_t total, n_bytes = 0, idx = 0;
+        struct kdbus_creds *creds = NULL;
         int r;
 
         assert(bus);
@@ -262,7 +263,9 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         fds = f;
                         memcpy(fds + n_fds, d->fds, j);
                         n_fds += j;
-                }
+
+                } else if (d->type == KDBUS_MSG_SRC_CREDS)
+                        creds = &d->creds;
         }
 
         if (!h)
@@ -299,6 +302,14 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                 }
 
                 idx += l;
+        }
+
+        if (creds) {
+                m->uid = creds->uid;
+                m->gid = creds->gid;
+                m->pid = creds->pid;
+                m->tid = creds->tid;
+                m->uid_valid = m->gid_valid = true;
         }
 
         r = bus_message_parse_fields(m);

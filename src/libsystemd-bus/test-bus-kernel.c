@@ -75,6 +75,9 @@ int main(int argc, char *argv[]) {
         assert_se(r > 0);
         assert_se(m);
 
+        bus_message_dump(m);
+        assert_se(sd_bus_message_rewind(m, true) >= 0);
+
         r = sd_bus_message_read(m, "s", &the_string);
         assert_se(r >= 0);
         assert_se(streq(the_string, "I am a string"));
