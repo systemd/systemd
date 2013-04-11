@@ -173,6 +173,14 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--show-types</option></term>
+
+        <listitem>
+          <para>When showing sockets, show the type of the socket.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--irreversible</option></term>
 
         <listitem>
@@ -479,6 +487,31 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>This is the default command.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><command>list-sockets</command></term>
+
+        <listitem>
+          <para>List socket units ordered by the listening address. Produces output
+          similar to
+          <programlisting>
+LISTEN           UNIT                        ACTIVATES
+/dev/initctl     systemd-initctl.socket      systemd-initctl.service
+...
+[::]:22          sshd.socket                 sshd.service
+kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
+
+5 sockets listed.
+          </programlisting>
+          Note: because the addresses might contains spaces, this output
+          is not suitable for programatic consumption.
+          </para>
+
+          <para>See also the options <option>--show-types</option>,
+          <option>--all</option>, and <option>--failed</option>.</para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><command>start <replaceable>NAME</replaceable>...</command></term>
 

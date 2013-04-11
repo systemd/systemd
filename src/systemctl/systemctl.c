@@ -80,6 +80,7 @@ static bool arg_no_pager = false;
 static bool arg_no_wtmp = false;
 static bool arg_no_wall = false;
 static bool arg_no_reload = false;
+static bool arg_show_types = false;
 static bool arg_ignore_inhibitors = false;
 static bool arg_dry = false;
 static bool arg_quiet = false;
@@ -429,7 +430,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 static int get_unit_list(DBusConnection *bus, DBusMessage **reply,
                          struct unit_info **unit_infos, unsigned *c) {
         DBusMessageIter iter, sub;
-        unsigned n_units = 0;
+        size_t size = 0;
         int r;
 
         assert(bus);
@@ -458,29 +459,14 @@ static int get_unit_list(DBusConnection *bus, DBusMessage **reply,
         dbus_message_iter_recurse(&iter, &sub);
 
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                struct unit_info *u;
+                if (!GREEDY_REALLOC(*unit_infos, size, *c + 1))
+                        return log_oom();
 
-                if (*c >= n_units) {
-                        struct unit_info *w;
-
-                        n_units = MAX(2 * *c, 16u);
-                        w = realloc(*unit_infos, sizeof(struct unit_info) * n_units);
-                        if (!w)
-                                return log_oom();
-
-                        *unit_infos = w;
-                }
-
-                u = *unit_infos + *c;
-
-                bus_parse_unit_info(&sub, u);
+                bus_parse_unit_info(&sub, *unit_infos + *c);
+                (*c)++;
 
                 dbus_message_iter_next(&sub);
-                (*c)++;
         }
-
-        if (*c > 0)
-                qsort(*unit_infos, *c, sizeof(struct unit_info), compare_unit_info);
 
         return 0;
 }
@@ -497,8 +483,276 @@ static int list_units(DBusConnection *bus, char **args) {
         if (r < 0)
                 return r;
 
-        if (c > 0)
-                output_units_list(unit_infos, c);
+        qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
+
+        output_units_list(unit_infos, c);
+
+        return 0;
+}
+
+static int get_triggered_units(DBusConnection *bus, const char* unit_path,
+                               char*** triggered)
+{
+        const char *interface = "org.freedesktop.systemd1.Unit",
+                   *triggers_property = "Triggers";
+        DBusMessage _cleanup_dbus_message_unref_ *reply = NULL;
+        DBusMessageIter iter, sub;
+        int r;
+
+        r = bus_method_call_with_reply(bus,
+                                       "org.freedesktop.systemd1",
+                                       unit_path,
+                                       "org.freedesktop.DBus.Properties",
+                                       "Get",
+                                       &reply,
+                                       NULL,
+                                       DBUS_TYPE_STRING, &interface,
+                                       DBUS_TYPE_STRING, &triggers_property,
+                                       DBUS_TYPE_INVALID);
+        if (r < 0)
+                return r;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+                log_error("Failed to parse reply.");
+                return -EBADMSG;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+        dbus_message_iter_recurse(&sub, &iter);
+        sub = iter;
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *unit;
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
+                        log_error("Failed to parse reply.");
+                        return -EBADMSG;
+                }
+
+                dbus_message_iter_get_basic(&sub, &unit);
+                r = strv_extend(triggered, unit);
+                if (r < 0)
+                        return r;
+
+                dbus_message_iter_next(&sub);
+        }
+
+        return 0;
+}
+
+static int get_listening(DBusConnection *bus, const char* unit_path,
+                         char*** listen, unsigned *c)
+{
+        const char *interface = "org.freedesktop.systemd1.Socket",
+                   *listen_property = "Listen";
+        DBusMessage _cleanup_dbus_message_unref_ *reply = NULL;
+        DBusMessageIter iter, sub;
+        int r;
+
+        r = bus_method_call_with_reply(bus,
+                                       "org.freedesktop.systemd1",
+                                       unit_path,
+                                       "org.freedesktop.DBus.Properties",
+                                       "Get",
+                                       &reply,
+                                       NULL,
+                                       DBUS_TYPE_STRING, &interface,
+                                       DBUS_TYPE_STRING, &listen_property,
+                                       DBUS_TYPE_INVALID);
+        if (r < 0)
+                return r;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+                log_error("Failed to parse reply.");
+                return -EBADMSG;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+        dbus_message_iter_recurse(&sub, &iter);
+        sub = iter;
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                DBusMessageIter sub2;
+                const char *type, *path;
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
+                        log_error("Failed to parse reply.");
+                        return -EBADMSG;
+                }
+
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &type, true) >= 0 &&
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, false) >= 0) {
+                        r = strv_extend(listen, type);
+                        if (r < 0)
+                                return r;
+
+                        r = strv_extend(listen, path);
+                        if (r < 0)
+                                return r;
+
+                        (*c) ++;
+                }
+
+                dbus_message_iter_next(&sub);
+        }
+
+        return 0;
+}
+
+struct socket_info {
+        const char* id;
+
+        char* type;
+        char* path;
+
+        /* Note: triggered is a list here, although it almost certainly
+         * will always be one unit. Nevertheless, dbus API allows for multiple
+         * values, so let's follow that.*/
+        char** triggered;
+
+        /* The strv above is shared. free is set only in the first one. */
+        bool own_triggered;
+};
+
+static int socket_info_compare(struct socket_info *a, struct socket_info *b) {
+        int o = strcmp(a->path, b->path);
+        if (o == 0)
+                o = strcmp(a->type, b->type);
+        return o;
+}
+
+static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
+        struct socket_info *s;
+        unsigned pathlen = sizeof("LISTEN") - 1,
+                typelen = (sizeof("TYPE") - 1) * arg_show_types,
+                socklen = sizeof("UNIT") - 1,
+                servlen = sizeof("ACTIVATES") - 1;
+        const char *on, *off;
+
+        for (s = socket_infos; s < socket_infos + cs; s++) {
+                char **a;
+                unsigned tmp = 0;
+
+                socklen = MAX(socklen, strlen(s->id));
+                if (arg_show_types)
+                        typelen = MAX(typelen, strlen(s->type));
+                pathlen = MAX(pathlen, strlen(s->path));
+
+                STRV_FOREACH(a, s->triggered)
+                        tmp += strlen(*a) + 2*(a != s->triggered);
+                servlen = MAX(servlen, tmp);
+        }
+
+        if (cs) {
+                printf("%-*s %-*.*s%-*s %s\n",
+                       pathlen, "LISTEN",
+                       typelen + arg_show_types, typelen + arg_show_types, "TYPE ",
+                       socklen, "UNIT",
+                       "ACTIVATES");
+
+                for (s = socket_infos; s < socket_infos + cs; s++) {
+                        char **a;
+
+                        if (arg_show_types)
+                                printf("%-*s %-*s %-*s",
+                                       pathlen, s->path, typelen, s->type, socklen, s->id);
+                        else
+                                printf("%-*s %-*s",
+                                       pathlen, s->path, socklen, s->id);
+                        STRV_FOREACH(a, s->triggered)
+                                printf("%s %s",
+                                       a == s->triggered ? "" : ",", *a);
+                        printf("\n");
+                }
+
+                on = ansi_highlight(true);
+                off = ansi_highlight(false);
+                printf("\n");
+        } else {
+                on = ansi_highlight_red(true);
+                off = ansi_highlight_red(false);
+        }
+
+        printf("%s%u sockets listed.%s\n", on, cs, off);
+        if (!arg_all)
+                printf("Pass --all to see loaded but inactive sockets, too.\n");
+
+        return 0;
+}
+
+static int list_sockets(DBusConnection *bus, char **args) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_free_ struct unit_info *unit_infos = NULL;
+        struct socket_info *socket_infos = NULL;
+        const struct unit_info *u;
+        struct socket_info *s;
+        unsigned cu = 0, cs = 0;
+        size_t size = 0;
+        int r;
+
+        pager_open_if_enabled();
+
+        r = get_unit_list(bus, &reply, &unit_infos, &cu);
+        if (r < 0)
+                return r;
+
+        for (u = unit_infos; u < unit_infos + cu; u++) {
+                const char *dot;
+                char _cleanup_strv_free_ **listen = NULL, **triggered = NULL;
+                unsigned c = 0, i;
+
+                if (!output_show_unit(u))
+                        continue;
+
+                if ((dot = strrchr(u->id, '.')) && !streq(dot+1, "socket"))
+                        continue;
+
+                r = get_triggered_units(bus, u->unit_path, &triggered);
+                if (r < 0)
+                        goto cleanup;
+
+                r = get_listening(bus, u->unit_path, &listen, &c);
+                if (r < 0)
+                        goto cleanup;
+
+                if (!GREEDY_REALLOC(socket_infos, size, cs + c)) {
+                        r = log_oom();
+                        goto cleanup;
+                }
+
+                for (i = 0; i < c; i++)
+                        socket_infos[cs + i] = (struct socket_info) {
+                                .id = u->id,
+                                .type = listen[i*2],
+                                .path = listen[i*2 + 1],
+                                .triggered = triggered,
+                                .own_triggered = i==0,
+                        };
+
+                /* from this point on we will cleanup those socket_infos */
+                cs += c;
+                free(listen);
+                listen = triggered = NULL; /* avoid cleanup */
+        }
+
+        qsort(socket_infos, cs, sizeof(struct socket_info),
+              (__compar_fn_t) socket_info_compare);
+
+        output_sockets_list(socket_infos, cs);
+
+ cleanup:
+        assert(cs == 0 || socket_infos);
+        for (s = socket_infos; s < socket_infos + cs; s++) {
+                free(s->type);
+                free(s->path);
+                if (s->own_triggered)
+                        strv_free(s->triggered);
+        }
+        free(socket_infos);
 
         return 0;
 }
@@ -3280,6 +3534,8 @@ static int show_all(const char* verb, DBusConnection *bus, bool show_properties,
         if (r < 0)
                 return r;
 
+        qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
+
         for (u = unit_infos; u < unit_infos + c; u++) {
                 char _cleanup_free_ *p = NULL;
 
@@ -4237,6 +4493,8 @@ static int systemctl_help(void) {
                "     --full           Don't ellipsize unit names on output\n"
                "     --fail           When queueing a new job, fail if conflicting jobs are\n"
                "                      pending\n"
+               "     --irreversible   Create jobs which cannot be implicitly cancelled\n"
+               "     --show-types     When showing sockets, explictly show their type\n"
                "     --ignore-dependencies\n"
                "                      When queueing a new job, ignore all its dependencies\n"
                "  -i --ignore-inhibitors\n"
@@ -4432,6 +4690,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_FAIL = 0x100,
+                ARG_SHOW_TYPES,
                 ARG_IRREVERSIBLE,
                 ARG_IGNORE_DEPENDENCIES,
                 ARG_VERSION,
@@ -4458,6 +4717,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "type",      required_argument, NULL, 't'           },
                 { "property",  required_argument, NULL, 'p'           },
                 { "all",       no_argument,       NULL, 'a'           },
+                { "show-types", no_argument,      NULL, ARG_SHOW_TYPES },
                 { "failed",    no_argument,       NULL, ARG_FAILED    },
                 { "full",      no_argument,       NULL, ARG_FULL      },
                 { "fail",      no_argument,       NULL, ARG_FAIL      },
@@ -4577,6 +4837,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 'a':
                         arg_all = true;
+                        break;
+
+                case ARG_SHOW_TYPES:
+                        arg_show_types = true;
                         break;
 
                 case ARG_FAIL:
@@ -5280,6 +5544,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
         } verbs[] = {
                 { "list-units",            LESS,  1, list_units        },
                 { "list-unit-files",       EQUAL, 1, list_unit_files   },
+                { "list-sockets",          LESS,  1, list_sockets      },
                 { "list-jobs",             EQUAL, 1, list_jobs         },
                 { "clear-jobs",            EQUAL, 1, daemon_reload     },
                 { "load",                  MORE,  2, load_unit         },
