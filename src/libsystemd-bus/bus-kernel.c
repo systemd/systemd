@@ -339,7 +339,7 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
                 if (errno == EAGAIN)
                         return 0;
 
-                if (errno != -EMSGSIZE)
+                if (errno != EMSGSIZE)
                         return -errno;
 
                 sz *= 2;

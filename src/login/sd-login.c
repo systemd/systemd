@@ -730,7 +730,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
 
         fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
         if (fd < 0)
-                return errno;
+                return -errno;
 
         if (!category || streq(category, "seat")) {
                 k = inotify_add_watch(fd, "/run/systemd/seats/", IN_MOVED_TO|IN_DELETE);

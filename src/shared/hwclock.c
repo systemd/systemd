@@ -190,7 +190,7 @@ int hwclock_is_localtime(void) {
                 truncate_nl(line);
                 local = streq(line, "LOCAL");
 
-        } else if (errno != -ENOENT)
+        } else if (errno != ENOENT)
                 return -errno;
 
         return local;

@@ -5259,7 +5259,7 @@ int get_home_dir(char **_h) {
         errno = 0;
         p = getpwuid(u);
         if (!p)
-                return errno ? -errno : -ESRCH;
+                return errno > 0 ? -errno : -ESRCH;
 
         if (!path_is_absolute(p->pw_dir))
                 return -EINVAL;

@@ -1637,7 +1637,7 @@ UnitFileState unit_file_get_state(
                         return state;
 
                 r = unit_file_can_install(&paths, root_dir, path, true);
-                if (r < 0 && errno != -ENOENT)
+                if (r < 0 && errno != ENOENT)
                         return r;
                 else if (r > 0)
                         return UNIT_FILE_DISABLED;

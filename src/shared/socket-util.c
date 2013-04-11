@@ -204,7 +204,7 @@ int socket_address_parse_netlink(SocketAddress *a, const char *s) {
 
         errno = 0;
         if (sscanf(s, "%ms %u", &sfamily, &group) < 1)
-                return errno ? -errno : -EINVAL;
+                return errno > 0 ? -errno : -EINVAL;
 
         family = netlink_family_from_string(sfamily);
         if (family < 0)

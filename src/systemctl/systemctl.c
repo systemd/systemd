@@ -5260,7 +5260,7 @@ static int talk_initctl(void) {
         r = loop_write(fd, &request, sizeof(request), false) != sizeof(request);
         if (r) {
                 log_error("Failed to write to "INIT_FIFO": %m");
-                return errno ? -errno : -EIO;
+                return errno > 0 ? -errno : -EIO;
         }
 
         return 1;

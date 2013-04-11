@@ -65,7 +65,7 @@ static int touch(const char *path) {
                 if (close(fd) >= 0)
                         break;
 
-                if (errno != -EINTR)
+                if (errno != EINTR)
                         return -errno;
         }
 
