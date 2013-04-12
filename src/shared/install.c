@@ -1735,7 +1735,7 @@ int unit_file_preset(
                 unsigned *n_changes) {
 
         LookupPaths _cleanup_lookup_paths_free_ paths = {};
-        InstallContext _cleanup_install_context_done_ plus = {}, minus = {NULL};
+        InstallContext _cleanup_install_context_done_ plus = {}, minus = {};
         char **i;
         char _cleanup_free_ *config_path = NULL;
         Set _cleanup_set_free_free_ *remove_symlinks_to = NULL;

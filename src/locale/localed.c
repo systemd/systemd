@@ -118,21 +118,7 @@ static const char * const names[_PROP_MAX] = {
         [PROP_LC_IDENTIFICATION] = "LC_IDENTIFICATION"
 };
 
-static char *data[_PROP_MAX] = {
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL
-};
+static char *data[_PROP_MAX] = {};
 
 typedef struct State {
         char *x11_layout, *x11_model, *x11_variant, *x11_options;
