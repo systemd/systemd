@@ -158,6 +158,9 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         assert(b);
 
+        if (b->is_server)
+                return -EINVAL;
+
         r = ioctl(b->input_fd, KDBUS_CMD_HELLO, &hello);
         if (r < 0)
                 return -errno;
@@ -166,6 +169,7 @@ int bus_kernel_take_fd(sd_bus *b) {
                 return -ENOMEM;
 
         b->is_kernel = true;
+        b->bus_client = true;
 
         r = bus_start_running(b);
         if (r < 0)
@@ -179,6 +183,9 @@ int bus_kernel_connect(sd_bus *b) {
         assert(b->input_fd < 0);
         assert(b->output_fd < 0);
         assert(b->kernel);
+
+        if (b->is_server)
+                return -EINVAL;
 
         b->input_fd = open(b->kernel, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (b->input_fd < 0)
@@ -339,7 +346,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
 int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
         struct kdbus_msg *k;
-        size_t sz = 128;
+        size_t sz = 1024;
         int r;
 
         assert(bus);

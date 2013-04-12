@@ -54,26 +54,46 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 return -EINVAL;
         if (!name)
                 return -EINVAL;
+        if (!bus->bus_client)
+                return -EINVAL;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "RequestName",
-                        NULL,
-                        &reply,
-                        "su",
-                        name,
-                        flags);
-        if (r < 0)
-                return r;
+        if (bus->is_kernel) {
+                struct kdbus_cmd_name *n;
+                size_t l;
 
-        r = sd_bus_message_read(reply, "u", &ret);
-        if (r < 0)
-                return r;
+                l = strlen(name);
+                n = alloca(offsetof(struct kdbus_cmd_name, name) + l + 1);
+                n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
+                n->flags = flags;
+                n->id = 0;
+                memcpy(n->name, name, l+1);
 
-        return ret;
+                r = ioctl(bus->input_fd, KDBUS_CMD_NAME_ACQUIRE, n);
+                if (r < 0)
+                        return -errno;
+
+                return n->flags;
+        } else {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "RequestName",
+                                NULL,
+                                &reply,
+                                "su",
+                                name,
+                                flags);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(reply, "u", &ret);
+                if (r < 0)
+                        return r;
+
+                return ret;
+        }
 }
 
 int sd_bus_release_name(sd_bus *bus, const char *name) {
@@ -85,23 +105,43 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 return -EINVAL;
         if (!name)
                 return -EINVAL;
+        if (!bus->bus_client)
+                return -EINVAL;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "ReleaseName",
-                        NULL,
-                        &reply,
-                        "s",
-                        name);
-        if (r < 0)
-                return r;
+        if (bus->is_kernel) {
+                struct kdbus_cmd_name *n;
+                size_t l;
 
-        r = sd_bus_message_read(reply, "u", &ret);
-        if (r < 0)
-                return r;
+                l = strlen(name);
+                n = alloca(offsetof(struct kdbus_cmd_name, name) + l + 1);
+                n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
+                n->flags = 0;
+                n->id = 0;
+                memcpy(n->name, name, l+1);
+
+                r = ioctl(bus->input_fd, KDBUS_CMD_NAME_RELEASE, n);
+                if (r < 0)
+                        return -errno;
+
+                return n->flags;
+        } else {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "ReleaseName",
+                                NULL,
+                                &reply,
+                                "s",
+                                name);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(reply, "u", &ret);
+                if (r < 0)
+                        return r;
+        }
 
         return ret;
 }

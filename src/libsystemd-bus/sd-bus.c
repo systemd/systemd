@@ -280,7 +280,7 @@ static int bus_send_hello(sd_bus *bus) {
 int bus_start_running(sd_bus *bus) {
         assert(bus);
 
-        if (bus->bus_client) {
+        if (bus->bus_client && !bus->is_kernel) {
                 bus->state = BUS_HELLO;
                 return 1;
         }
