@@ -80,8 +80,8 @@ static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 #endif
 static usec_t arg_since, arg_until;
 static bool arg_since_set = false, arg_until_set = false;
-static const char *arg_unit = NULL;
-static bool arg_unit_system;
+static char **arg_system_units = NULL;
+static char **arg_user_units = NULL;
 static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
@@ -437,13 +437,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'u':
-                        arg_unit = optarg;
-                        arg_unit_system = true;
+                        r = strv_extend(&arg_system_units, optarg);
+                        if (r < 0)
+                                return log_oom();
                         break;
 
                 case ARG_USER_UNIT:
-                        arg_unit = optarg;
-                        arg_unit_system = false;
+                        r = strv_extend(&arg_user_units, optarg);
+                        if (r < 0)
+                                return log_oom();
                         break;
 
                 case '?':
@@ -611,25 +613,39 @@ static int add_this_boot(sd_journal *j) {
         return 0;
 }
 
-static int add_unit(sd_journal *j) {
+static int add_units(sd_journal *j) {
         _cleanup_free_ char *u = NULL;
         int r;
+        char **i;
 
         assert(j);
 
-        if (isempty(arg_unit))
-                return 0;
-
-        u = unit_name_mangle(arg_unit);
-        if (!u)
-                return log_oom();
-
-        if (arg_unit_system)
+        STRV_FOREACH(i, arg_system_units) {
+                u = unit_name_mangle(*i);
+                if (!u)
+                        return log_oom();
                 r = add_matches_for_unit(j, u);
-        else
+                if (r < 0)
+                        return r;
+                r = sd_journal_add_disjunction(j);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(i, arg_user_units) {
+                u = unit_name_mangle(*i);
+                if (!u)
+                        return log_oom();
+
                 r = add_matches_for_user_unit(j, u, getuid());
-        if (r < 0)
-                return r;
+                if (r < 0)
+                        return r;
+
+                r = sd_journal_add_disjunction(j);
+                if (r < 0)
+                        return r;
+
+        }
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)
@@ -1113,7 +1129,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return EXIT_FAILURE;
 
-        r = add_unit(j);
+        r = add_units(j);
+        strv_free(arg_system_units);
+        strv_free(arg_user_units);
+
         if (r < 0)
                 return EXIT_FAILURE;
 

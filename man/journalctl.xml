@@ -332,7 +332,8 @@
                                 (<literal>_SYSTEMD_UNIT=</literal>)
                                 and additional matches for messages
                                 from systemd and messages about
-                                coredumps for the specified unit.
+                                coredumps for the specified unit.</para>
+                                <para>This parameter can be specified multiple times.
                                 </para></listitem>
                         </varlistentry>
 
@@ -346,7 +347,8 @@
                                 and <literal>_UID=</literal>) and
                                 additional matches for messages from
                                 session systemd and messages about
-                                coredumps for the specified unit.
+                                coredumps for the specified unit.</para>
+                                <para>This parameter can be specified multiple times.
                                 </para></listitem>
                         </varlistentry>
 
