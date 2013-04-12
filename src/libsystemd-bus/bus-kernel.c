@@ -109,7 +109,7 @@ static int bus_message_setup_kmsg(sd_bus_message *m) {
                 sz += ALIGN8(offsetof(struct kdbus_msg, data) + dl + 1);
         }
 
-        m->kdbus = malloc0(sz);
+        m->kdbus = aligned_alloc(8, sz);
         if (!m->kdbus)
                 return -ENOMEM;
 
@@ -355,10 +355,11 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
         for (;;) {
                 void *q;
 
-                q = realloc(bus->rbuffer, sz);
+                q = aligned_alloc(8, sz);
                 if (!q)
                         return -errno;
 
+                free(bus->rbuffer);
                 k = bus->rbuffer = q;
                 k->size = sz;
 
