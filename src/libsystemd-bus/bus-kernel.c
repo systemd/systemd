@@ -69,13 +69,26 @@ static void append_payload_vec(struct kdbus_msg_data **d, const void *p, size_t 
 
 static void append_destination(struct kdbus_msg_data **d, const char *s, size_t length) {
         assert(d);
-        assert(d);
+        assert(s);
 
         *d = ALIGN8_PTR(*d);
 
         (*d)->size = offsetof(struct kdbus_msg_data, str) + length + 1;
         (*d)->type = KDBUS_MSG_DST_NAME;
         memcpy((*d)->str, s, length + 1);
+
+        *d = (struct kdbus_msg_data*) ((uint8_t*) *d + (*d)->size);
+}
+
+static void append_bloom(struct kdbus_msg_data **d, const void *p, size_t length) {
+        assert(d);
+        assert(p);
+
+        *d = ALIGN8_PTR(*d);
+
+        (*d)->size = offsetof(struct kdbus_msg_data, data) + length;
+        (*d)->type = KDBUS_MSG_BLOOM;
+        memcpy((*d)->data, p, length);
 
         *d = (struct kdbus_msg_data*) ((uint8_t*) *d + (*d)->size);
 }
@@ -107,6 +120,8 @@ static int bus_message_setup_kmsg(sd_bus_message *m) {
         /* Add in fixed header, fields header, fields header padding and payload */
         sz += 4 * ALIGN8(offsetof(struct kdbus_msg_data, vec) + sizeof(struct kdbus_vec));
 
+        sz += ALIGN8(offsetof(struct kdbus_msg_data, data) + 5);
+
         /* Add in well-known destination header */
         if (well_known) {
                 dl = strlen(m->destination);
@@ -124,7 +139,7 @@ static int bus_message_setup_kmsg(sd_bus_message *m) {
                 ((m->header->flags & SD_BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_FLAGS_NO_AUTO_START : 0);
         m->kdbus->dst_id =
                 well_known ? 0 :
-                m->destination ? unique : (uint64_t) -1;
+                m->destination ? unique : KDBUS_DST_ID_BROADCAST;
         m->kdbus->payload_type = KDBUS_PAYLOAD_DBUS1;
         m->kdbus->cookie = m->header->serial;
 
@@ -149,6 +164,9 @@ static int bus_message_setup_kmsg(sd_bus_message *m) {
 
         if (m->body)
                 append_payload_vec(&d, m->body, m->header->body_size);
+
+        if (m->kdbus->dst_id == KDBUS_DST_ID_BROADCAST)
+                append_bloom(&d, "bloom", 5);
 
         m->kdbus->size = (uint8_t*) d - (uint8_t*) m->kdbus;
         assert(m->kdbus->size <= sz);
