@@ -693,6 +693,8 @@ AC_DEFINE_UNQUOTED(TELINIT, ["$TELINIT"], [Path to telinit])
 
 AC_SUBST(TELINIT)
 
+AC_CHECK_HEADERS_ONCE([valgrind/memcheck.h])
+
 # ------------------------------------------------------------------------------
 have_myhostname=no
 AC_ARG_ENABLE(myhostname, AS_HELP_STRING([--disable-myhostname], [disable nss-myhostname support]))

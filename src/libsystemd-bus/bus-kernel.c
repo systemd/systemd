@@ -19,6 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#ifdef HAVE_VALGRIND_MEMCHECK_H
+#include <valgrind/memcheck.h>
+#endif
+
 #include <fcntl.h>
 
 #include "util.h"
@@ -31,8 +35,6 @@
         for ((d) = (k)->data;                                           \
              (uint8_t*) (d) < (uint8_t*) (k) + (k)->size;               \
              (d) = (struct kdbus_msg_data*) ((uint8_t*) (d) + ALIGN8((d)->size)))
-
-
 
 static int parse_unique_name(const char *s, uint64_t *id) {
         int r;
@@ -352,6 +354,11 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
 
                 k = bus->rbuffer = q;
                 k->size = sz;
+
+                /* Let's tell valgrind that there's really no need to
+                 * initialize this fully. This should be removed again
+                 * when valgrind learned the kdbus ioctls natively. */
+                VALGRIND_MAKE_MEM_DEFINED(k, sz);
 
                 r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, bus->rbuffer);
                 if (r >= 0)
