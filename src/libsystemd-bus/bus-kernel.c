@@ -358,7 +358,9 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
                 /* Let's tell valgrind that there's really no need to
                  * initialize this fully. This should be removed again
                  * when valgrind learned the kdbus ioctls natively. */
+#ifdef HAVE_VALGRIND_MEMCHECK_H
                 VALGRIND_MAKE_MEM_DEFINED(k, sz);
+#endif
 
                 r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, bus->rbuffer);
                 if (r >= 0)
