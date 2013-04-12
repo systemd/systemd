@@ -65,6 +65,8 @@
 #error "Wut? Pointers are neither 4 nor 8 bytes long?"
 #endif
 
+#define ALIGN8_PTR(p) ((void*) ALIGN8((unsigned long) p))
+
 static inline size_t ALIGN_TO(size_t l, size_t ali) {
         return ((l + ali - 1) & ~(ali - 1));
 }

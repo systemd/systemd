@@ -141,7 +141,6 @@ bool service_name_is_valid(const char *p) {
                 return false;
 
         return true;
-
 }
 
 bool member_name_is_valid(const char *p) {

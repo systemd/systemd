@@ -57,23 +57,27 @@ static void append_payload_vec(struct kdbus_msg_data **d, const void *p, size_t 
         assert(p);
         assert(sz > 0);
 
+        *d = ALIGN8_PTR(*d);
+
         (*d)->size = offsetof(struct kdbus_msg_data, vec) + sizeof(struct kdbus_vec);
         (*d)->type = KDBUS_MSG_PAYLOAD_VEC;
         (*d)->vec.address = (uint64_t) p;
         (*d)->vec.size = sz;
 
-        *d = (struct kdbus_msg_data*) ((uint8_t*) *d + ALIGN8((*d)->size));
+        *d = (struct kdbus_msg_data*) ((uint8_t*) *d + (*d)->size);
 }
 
 static void append_destination(struct kdbus_msg_data **d, const char *s, size_t length) {
         assert(d);
         assert(d);
 
+        *d = ALIGN8_PTR(*d);
+
         (*d)->size = offsetof(struct kdbus_msg_data, str) + length + 1;
         (*d)->type = KDBUS_MSG_DST_NAME;
         memcpy((*d)->str, s, length + 1);
 
-        *d = (struct kdbus_msg_data*) ((uint8_t*) *d + ALIGN8((*d)->size));
+        *d = (struct kdbus_msg_data*) ((uint8_t*) *d + (*d)->size);
 }
 
 static int bus_message_setup_kmsg(sd_bus_message *m) {
