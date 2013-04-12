@@ -106,6 +106,9 @@ int main(int argc, char *argv[]) {
 
                 bus_message_dump(m);
                 assert_se(sd_bus_message_rewind(m, true) >= 0);
+
+                if (sd_bus_message_is_method_call(m, "an.inter.face", "AMethod"))
+                        break;
         }
 
         r = sd_bus_release_name(a, "net.x0pointer.foobar");
