@@ -43,6 +43,7 @@
 /systemd-random-seed-load.service
 /systemd-random-seed-save.service
 /systemd-initctl.service
+/systemd-static-nodes.service
 /getty@.service
 /systemd-update-utmp-runlevel.service
 /systemd-update-utmp-shutdown.service

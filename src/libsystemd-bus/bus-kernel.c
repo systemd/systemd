@@ -409,7 +409,7 @@ int bus_kernel_create(const char *name, char **s) {
         fname = alloca(offsetof(struct kdbus_cmd_fname, name) + DECIMAL_STR_MAX(uid_t) + 1 + l + 1);
         sprintf(fname->name, "%lu-%s", (unsigned long) getuid(), name);
         fname->size = offsetof(struct kdbus_cmd_fname, name) + strlen(fname->name) + 1;
-        fname->kernel_flags = KDBUS_CMD_FNAME_ACCESS_WORLD | KDBUS_CMD_FNAME_POLICY_NONE;
+        fname->kernel_flags = KDBUS_CMD_FNAME_ACCESS_WORLD | KDBUS_CMD_FNAME_POLICY_OPEN;
         fname->user_flags = 0;
 
         p = strjoin("/dev/kdbus/", fname->name, "/bus", NULL);
