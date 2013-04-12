@@ -69,9 +69,9 @@ static void append_destination(struct kdbus_msg_data **d, const char *s, size_t 
         assert(d);
         assert(d);
 
-        (*d)->size = offsetof(struct kdbus_msg_data, data) + length + 1;
+        (*d)->size = offsetof(struct kdbus_msg_data, str) + length + 1;
         (*d)->type = KDBUS_MSG_DST_NAME;
-        memcpy((*d)->data, s, length + 1);
+        memcpy((*d)->str, s, length + 1);
 
         *d = (struct kdbus_msg_data*) ((uint8_t*) *d + ALIGN8((*d)->size));
 }
@@ -211,7 +211,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return errno == EAGAIN ? 0 : -errno;
 
-        return 0;
+        return 1;
 }
 
 static void close_kdbus_msg(struct kdbus_msg *k) {
@@ -235,6 +235,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         size_t total, n_bytes = 0, idx = 0;
         struct kdbus_creds *creds = NULL;
         uint64_t nsec = 0;
+        const char *destination = NULL;
         int r;
 
         assert(bus);
@@ -278,6 +279,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         creds = &d->creds;
                 else if (d->type == KDBUS_MSG_TIMESTAMP)
                         nsec = d->ts_ns;
+                else if (d->type == KDBUS_MSG_DST_NAME)
+                        destination = d->str;
         }
 
         if (!h)
@@ -331,6 +334,23 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (r < 0) {
                 sd_bus_message_unref(m);
                 return r;
+        }
+
+        if (k->src_id == KDBUS_SRC_ID_KERNEL)
+                m->sender = "org.freedesktop.DBus";
+        else {
+                snprintf(m->sender_buffer, sizeof(m->sender_buffer), ":1.%llu", (unsigned long long) k->src_id);
+                m->sender = m->sender_buffer;
+        }
+
+        if (!m->destination) {
+                if (destination)
+                        m->destination = destination;
+                else if (k->dst_id != KDBUS_DST_ID_WELL_KNOWN_NAME &&
+                         k->dst_id != KDBUS_DST_ID_BROADCAST) {
+                        snprintf(m->destination_buffer, sizeof(m->destination_buffer), ":1.%llu", (unsigned long long) k->dst_id);
+                        m->destination = m->destination_buffer;
+                }
         }
 
         /* We take possession of the kmsg struct now */
@@ -389,7 +409,7 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
         else
                 close_kdbus_msg(k);
 
-        return r;
+        return r < 0 ? r : 1;
 }
 
 int bus_kernel_create(const char *name, char **s) {

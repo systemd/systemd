@@ -105,6 +105,7 @@ struct kdbus_msg_data {
 	union {
 		/* inline data */
 		__u8 data[0];
+                char str[0];
 		__u32 data_u32[0];
 		__u64 data_u64[0];
 

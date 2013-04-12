@@ -102,6 +102,9 @@ struct sd_bus_message {
         char *peeked_signature;
 
         usec_t timeout;
+
+        char sender_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
+        char destination_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
 };
 
 #define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_NATIVE_ENDIAN)
