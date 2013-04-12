@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         r = sd_bus_release_name(a, "net.0pointer.foobar");
-        assert_se(r < 0);
+        assert_se(r >= 0);
 
         sd_bus_unref(a);
         sd_bus_unref(b);
