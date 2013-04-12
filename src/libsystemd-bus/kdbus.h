@@ -70,6 +70,7 @@ enum {
 	KDBUS_MSG_TIMESTAMP,		/* .ts_ns of CLOCK_MONOTONIC */
 	KDBUS_MSG_SRC_CREDS,		/* .creds */
 	KDBUS_MSG_SRC_COMM,		/* optional */
+	KDBUS_MSG_SRC_THREAD_COMM,	/* optional */
 	KDBUS_MSG_SRC_EXE,		/* optional */
 	KDBUS_MSG_SRC_CMDLINE,		/* optional */
 	KDBUS_MSG_SRC_CGROUP,		/* optional, specified which one */
@@ -360,3 +361,11 @@ enum kdbus_cmd {
 	KDBUS_CMD_EP_POLICY_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x70, struct kdbus_cmd_policy),
 };
 #endif
+
+/* Think about:
+ *
+ * - allow HELLO to change unique names
+ * - allow HELLO without assigning a unique name at all
+ * - when receive fails due to too small buffer return real size
+ * - when receiving maybe allow read-only mmaping into reciving process memory space or so?
+ */
