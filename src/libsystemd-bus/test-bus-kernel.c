@@ -85,8 +85,28 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
         assert_se(streq(the_string, "I am a string"));
 
+        sd_bus_message_unref(m);
+        m = NULL;
+
         r = sd_bus_request_name(a, "net.0pointer.foobar", 0);
         assert_se(r >= 0);
+
+        r = sd_bus_message_new_method_call(b, "net.0pointer.foobar", "/a/path", "an.inter.face", "AMethod", &m);
+        assert_se(r >= 0);
+
+        r = sd_bus_send(b, m, NULL);
+        assert_se(r >= 0);
+
+        for (;;) {
+                sd_bus_message_unref(m);
+                m = NULL;
+                r = sd_bus_process(a, &m);
+                assert_se(r > 0);
+                assert_se(m);
+
+                bus_message_dump(m);
+                assert_se(sd_bus_message_rewind(m, true) >= 0);
+        }
 
         r = sd_bus_release_name(a, "net.0pointer.foobar");
         assert_se(r >= 0);
