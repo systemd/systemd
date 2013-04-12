@@ -117,6 +117,8 @@ static int bus_message_setup_kmsg(sd_bus_message *m) {
         if (!m->kdbus)
                 return -ENOMEM;
 
+        memset(m->kdbus, 0, sz);
+
         m->kdbus->flags =
                 ((m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_FLAGS_EXPECT_REPLY) |
                 ((m->header->flags & SD_BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_FLAGS_NO_AUTO_START : 0);
