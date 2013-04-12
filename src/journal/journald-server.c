@@ -538,7 +538,7 @@ static void dispatch_message_real(
         char pid[sizeof("_PID=") + DECIMAL_STR_MAX(ucred->pid)],
                 uid[sizeof("_UID=") + DECIMAL_STR_MAX(ucred->uid)],
                 gid[sizeof("_GID=") + DECIMAL_STR_MAX(ucred->gid)],
-                source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=" + DECIMAL_STR_MAX(usec_t))],
+                source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)],
                 boot_id[sizeof("_BOOT_ID=") + 32] = "_BOOT_ID=",
                 machine_id[sizeof("_MACHINE_ID=") + 32] = "_MACHINE_ID=";
 
@@ -699,7 +699,7 @@ static void dispatch_message_real(
 
         r = sd_id128_get_machine(&id);
         if (r >= 0) {
-                sd_id128_to_string(id, machine_id + sizeof("_MACHINE_ID") - 1);
+                sd_id128_to_string(id, machine_id + sizeof("_MACHINE_ID=") - 1);
                 IOVEC_SET_STRING(iovec[n++], machine_id);
         }
 
