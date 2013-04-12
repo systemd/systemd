@@ -35,6 +35,9 @@ int main(int argc, char *argv[]) {
         int r;
 
         bus_ref = bus_kernel_create("deine-mutter", &bus_name);
+        if (bus_ref == -ENOENT)
+                return EXIT_TEST_SKIP;
+
         assert_se(bus_ref >= 0);
 
         address = strappend("kernel:path=", bus_name);
