@@ -44,7 +44,7 @@ static unsigned opt_tries = 0;
 static bool opt_readonly = false;
 static bool opt_verify = false;
 static bool opt_discards = false;
-static usec_t opt_timeout = DEFAULT_TIMEOUT_USEC;
+static usec_t opt_timeout = 0;
 
 /* Options Debian's crypttab knows we don't:
 
