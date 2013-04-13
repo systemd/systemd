@@ -53,6 +53,11 @@ struct kdbus_audit {
 	__u64 loginuid;
 };
 
+struct kdbus_timestamp {
+	__u64 monotonic_ns;
+	__u64 realtime_ns;
+};
+
 #define KDBUS_SRC_ID_KERNEL		(0)
 #define KDBUS_DST_ID_WELL_KNOWN_NAME	(0)
 #define KDBUS_MATCH_SRC_ID_ANY		(~0ULL)
@@ -70,7 +75,7 @@ enum {
 
 	/* Filled in by kernelspace */
 	KDBUS_MSG_SRC_NAMES	= 0x200,/* NUL separated string list with well-known names of source */
-	KDBUS_MSG_TIMESTAMP,		/* .ts_ns of CLOCK_MONOTONIC */
+	KDBUS_MSG_TIMESTAMP,		/* .timestamp */
 	KDBUS_MSG_SRC_CREDS,		/* .creds */
 	KDBUS_MSG_SRC_PID_COMM,		/* optional, in .str */
 	KDBUS_MSG_SRC_TID_COMM,		/* optional, in .str */
@@ -110,17 +115,15 @@ struct kdbus_msg_data {
 		/* inline data */
 		__u8 data[0];
 		char str[0];
-		__u32 data_u32[0];
-		__u64 data_u64[0];
 
 		/* data vector */
 		struct kdbus_vec vec;
 
 		/* specific fields */
 		int fds[0];				/* int array of file descriptors */
-		__u64 ts_ns;				/* timestamp in nanoseconds */
 		struct kdbus_creds creds;
 		struct kdbus_audit audit;
+		struct kdbus_timestamp timestamp;
 		struct kdbus_manager_msg_name_change name_change;
 		struct kdbus_manager_msg_id_change id_change;
 	};

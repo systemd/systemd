@@ -118,15 +118,16 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         sz = offsetof(struct kdbus_msg, data);
 
-        /* Add in fixed header, fields header, fields header padding and payload */
-        sz += 4 * ALIGN8(offsetof(struct kdbus_msg_data, vec) + sizeof(struct kdbus_vec));
+        /* Add in fixed header, fields header and payload */
+        sz += 3 * ALIGN8(offsetof(struct kdbus_msg_data, vec) + sizeof(struct kdbus_vec));
 
+        /* Add space for bloom filter */
         sz += ALIGN8(offsetof(struct kdbus_msg_data, data) + b->bloom_size);
 
         /* Add in well-known destination header */
         if (well_known) {
                 dl = strlen(m->destination);
-                sz += ALIGN8(offsetof(struct kdbus_msg, data) + dl + 1);
+                sz += ALIGN8(offsetof(struct kdbus_msg_data, str) + dl + 1);
         }
 
         m->kdbus = aligned_alloc(8, sz);
@@ -153,15 +154,8 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         append_payload_vec(&d, m->header, sizeof(*m->header));
 
-        if (m->fields) {
-                append_payload_vec(&d, m->fields, m->header->fields_size);
-
-                if (m->header->fields_size % 8 != 0) {
-                        static const uint8_t padding[7] = {};
-
-                        append_payload_vec(&d, padding, 8 - (m->header->fields_size % 8));
-                }
-        }
+        if (m->fields)
+                append_payload_vec(&d, m->fields, ALIGN8(m->header->fields_size));
 
         if (m->body)
                 append_payload_vec(&d, m->body, m->header->body_size);
@@ -184,7 +178,18 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 }
 
 int bus_kernel_take_fd(sd_bus *b) {
-        struct kdbus_cmd_hello hello = {};
+        struct kdbus_cmd_hello hello = {
+                .conn_flags =
+                        KDBUS_CMD_HELLO_ACCEPT_FD|
+                        KDBUS_CMD_HELLO_ACCEPT_MMAP|
+                        KDBUS_CMD_HELLO_ATTACH_COMM|
+                        KDBUS_CMD_HELLO_ATTACH_EXE|
+                        KDBUS_CMD_HELLO_ATTACH_CMDLINE|
+                        KDBUS_CMD_HELLO_ATTACH_CGROUP|
+                        KDBUS_CMD_HELLO_ATTACH_CAPS|
+                        KDBUS_CMD_HELLO_ATTACH_SECLABEL|
+                        KDBUS_CMD_HELLO_ATTACH_AUDIT
+        };
         int r;
 
         assert(b);
@@ -271,9 +276,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         _cleanup_free_ int *fds = NULL;
         struct bus_header *h = NULL;
         size_t total, n_bytes = 0, idx = 0;
-        struct kdbus_creds *creds = NULL;
-        uint64_t nsec = 0;
-        const char *destination = NULL;
+        const char *destination = NULL, *seclabel = NULL;
         int r;
 
         assert(bus);
@@ -313,12 +316,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         memcpy(fds + n_fds, d->fds, j);
                         n_fds += j;
 
-                } else if (d->type == KDBUS_MSG_SRC_CREDS)
-                        creds = &d->creds;
-                else if (d->type == KDBUS_MSG_TIMESTAMP)
-                        nsec = d->ts_ns;
-                else if (d->type == KDBUS_MSG_DST_NAME)
+                } else if (d->type == KDBUS_MSG_DST_NAME)
                         destination = d->str;
+                else if (d->type == KDBUS_MSG_SRC_SECLABEL)
+                        seclabel = d->str;
         }
 
         if (!h)
@@ -331,42 +332,46 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (n_bytes != total)
                 return -EBADMSG;
 
-        r = bus_message_from_header(h, sizeof(struct bus_header), fds, n_fds, NULL, NULL, 0, &m);
+        r = bus_message_from_header(h, sizeof(struct bus_header), fds, n_fds, NULL, seclabel, 0, &m);
         if (r < 0)
                 return r;
 
         KDBUS_MSG_FOREACH_DATA(d, k) {
                 size_t l;
 
-                if (d->type != KDBUS_MSG_PAYLOAD)
-                        continue;
-
                 l = d->size - offsetof(struct kdbus_msg_data, data);
-                if (idx == sizeof(struct bus_header) &&
-                    l == BUS_MESSAGE_FIELDS_SIZE(m))
-                        m->fields = d->data;
-                else if (idx == sizeof(struct bus_header) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)) &&
-                         l == BUS_MESSAGE_BODY_SIZE(m))
-                        m->body = d->data;
-                else if (!(idx == 0 && l == sizeof(struct bus_header)) &&
-                         !(idx == sizeof(struct bus_header) + BUS_MESSAGE_FIELDS_SIZE(m))) {
-                        sd_bus_message_unref(m);
-                        return -EBADMSG;
-                }
 
-                idx += l;
+                if (d->type == KDBUS_MSG_PAYLOAD) {
+
+                        if (idx == sizeof(struct bus_header) &&
+                            l == ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)))
+                                m->fields = d->data;
+                        else if (idx == sizeof(struct bus_header) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)) &&
+                                 l == BUS_MESSAGE_BODY_SIZE(m))
+                                m->body = d->data;
+                        else if (!(idx == 0 && l == sizeof(struct bus_header))) {
+                                sd_bus_message_unref(m);
+                                return -EBADMSG;
+                        }
+
+                        idx += l;
+                } else if (d->type == KDBUS_MSG_SRC_CREDS) {
+                        m->pid_starttime = d->creds.starttime / NSEC_PER_USEC;
+                        m->uid = d->creds.uid;
+                        m->gid = d->creds.gid;
+                        m->pid = d->creds.pid;
+                        m->tid = d->creds.tid;
+                        m->uid_valid = m->gid_valid = true;
+                } else if (d->type == KDBUS_MSG_TIMESTAMP) {
+                        m->realtime = d->timestamp.realtime_ns / NSEC_PER_USEC;
+                        m->monotonic = d->timestamp.monotonic_ns / NSEC_PER_USEC;
+                } else if (d->type == KDBUS_MSG_SRC_PID_COMM)
+                        m->comm = d->str;
+                else if (d->type == KDBUS_MSG_SRC_TID_COMM)
+                        m->tid_comm = d->str;
+                else if (d->type == KDBUS_MSG_SRC_EXE)
+                        m->exe = d->str;
         }
-
-        if (creds) {
-                m->pid_starttime = creds->starttime / NSEC_PER_USEC;
-                m->uid = creds->uid;
-                m->gid = creds->gid;
-                m->pid = creds->pid;
-                m->tid = creds->tid;
-                m->uid_valid = m->gid_valid = true;
-        }
-
-        m->timestamp = nsec / NSEC_PER_USEC;
 
         r = bus_message_parse_fields(m);
         if (r < 0) {

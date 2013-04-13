@@ -159,7 +159,7 @@ static int server(sd_bus *bus) {
                         continue;
 
                 sd_bus_message_get_pid(m, &pid);
-                log_info("Got message! member=%s pid=%lu label=%s", strna(sd_bus_message_get_member(m)), (unsigned long) pid, strna(sd_bus_message_get_label(m)));
+                log_info("Got message! member=%s pid=%lu label=%s", strna(sd_bus_message_get_member(m)), (unsigned long) pid, strna(sd_bus_message_get_selinux_context(m)));
                 /* bus_message_dump(m); */
                 /* sd_bus_message_rewind(m, true); */
 

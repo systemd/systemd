@@ -68,7 +68,8 @@ struct sd_bus_message {
         pid_t pid;
         pid_t tid;
         usec_t pid_starttime;
-        usec_t timestamp;
+        usec_t monotonic;
+        usec_t realtime;
 
         bool sealed:1;
         bool dont_send:1;
@@ -96,7 +97,7 @@ struct sd_bus_message {
         struct bus_container root_container, *containers;
         unsigned n_containers;
 
-        struct iovec iovec[4];
+        struct iovec iovec[3];
         unsigned n_iovec;
 
         char *peeked_signature;
@@ -105,6 +106,10 @@ struct sd_bus_message {
 
         char sender_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
         char destination_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
+
+        const char *exe;
+        const char *comm;
+        const char *tid_comm;
 };
 
 #define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_NATIVE_ENDIAN)

@@ -702,22 +702,54 @@ int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec) {
         return 0;
 }
 
-const char *sd_bus_message_get_label(sd_bus_message *m) {
+const char *sd_bus_message_get_selinux_context(sd_bus_message *m) {
         if (!m)
                 return NULL;
 
         return m->label;
 }
 
-int sd_bus_message_get_timestamp(sd_bus_message *m, uint64_t *usec) {
+int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec) {
         if (!m)
                 return -EINVAL;
 
-        if (m->timestamp <= 0)
+        if (m->monotonic <= 0)
                 return -ENOENT;
 
-        *usec = m->timestamp;
+        *usec = m->monotonic;
         return 0;
+}
+
+int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec) {
+        if (!m)
+                return -EINVAL;
+
+        if (m->realtime <= 0)
+                return -ENOENT;
+
+        *usec = m->realtime;
+        return 0;
+}
+
+const char *sd_bus_message_get_comm(sd_bus_message *m) {
+        if (!m)
+                return NULL;
+
+        return m->comm;
+}
+
+const char *sd_bus_message_get_tid_comm(sd_bus_message *m) {
+        if (!m)
+                return NULL;
+
+        return m->tid_comm;
+}
+
+const char *sd_bus_message_get_exe(sd_bus_message *m) {
+        if (!m)
+                return NULL;
+
+        return m->exe;
 }
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member) {
@@ -2837,6 +2869,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
 int bus_message_seal(sd_bus_message *m, uint64_t serial) {
         int r;
+        size_t l, a;
 
         assert(m);
 
@@ -2857,6 +2890,22 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
                 r = message_append_field_uint32(m, SD_BUS_MESSAGE_HEADER_UNIX_FDS, m->n_fds);
                 if (r < 0)
                         return r;
+        }
+
+        l = BUS_MESSAGE_FIELDS_SIZE(m);
+        a = ALIGN8(l) - l;
+
+        if (a > 0) {
+                /* Add padding at the end, since we know the body
+                 * needs to start at an 8 byte alignment. */
+                void *p;
+
+                p = message_extend_fields(m, 1, a);
+                if (!p)
+                        return -ENOMEM;
+
+                memset(p, 0, a);
+                m->header->fields_size -= a;
         }
 
         m->header->serial = serial;
@@ -2933,8 +2982,18 @@ int bus_message_dump(sd_bus_message *m) {
                 printf("\tgid=%lu\n", (unsigned long) m->gid);
         if (m->pid_starttime != 0)
                 printf("\tpid_starttime=%llu\n", (unsigned long long) m->pid_starttime);
-        if (m->timestamp)
-                printf("\ttimestamp=%llu\n", (unsigned long long) m->timestamp);
+        if (m->monotonic != 0)
+                printf("\tmonotonic=%llu\n", (unsigned long long) m->monotonic);
+        if (m->realtime != 0)
+                printf("\trealtime=%llu\n", (unsigned long long) m->realtime);
+        if (m->exe)
+                printf("\texe=[%s]\n", m->exe);
+        if (m->comm)
+                printf("\tcomm=[%s]\n", m->comm);
+        if (m->tid_comm)
+                printf("\ttid_comm=[%s]\n", m->tid_comm);
+        if (m->label)
+                printf("\tlabel=[%s]\n", m->label);
 
         r = sd_bus_message_rewind(m, true);
         if (r < 0) {

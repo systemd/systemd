@@ -77,15 +77,8 @@ static void bus_message_setup_iovec(sd_bus_message *m) {
 
         append_iovec(m, m->header, sizeof(*m->header));
 
-        if (m->fields) {
-                append_iovec(m, m->fields, m->header->fields_size);
-
-                if (m->header->fields_size % 8 != 0) {
-                        static const uint8_t padding[7] = {};
-
-                        append_iovec(m, padding, 8 - (m->header->fields_size % 8));
-                }
-        }
+        if (m->fields)
+                append_iovec(m, m->fields, ALIGN8(m->header->fields_size));
 
         if (m->body)
                 append_iovec(m, m->body, m->header->body_size);

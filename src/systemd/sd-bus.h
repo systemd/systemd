@@ -33,11 +33,13 @@ extern "C" {
 #endif
 
 /* TODO:
- * - instead of adding in padding iovec when sending simply extend header buffer
  * - add page donation logic
  * - api for appending/reading fixed arrays
  * - merge busctl into systemctl or so?
  * - default policy (allow uid == 0 and our own uid)
+ *
+ * - enforce alignment of pointers passed in
+ * - negotiation for attach attributes
  */
 
 typedef struct sd_bus sd_bus;
@@ -121,13 +123,17 @@ const char *sd_bus_message_get_destination(sd_bus_message *m);
 const char *sd_bus_message_get_sender(sd_bus_message *m);
 const sd_bus_error *sd_bus_message_get_error(sd_bus_message *m);
 
+int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec);
+int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec);
 int sd_bus_message_get_uid(sd_bus_message *m, uid_t *uid);
 int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid);
 int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid);
 int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid);
 int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec);
-const char *sd_bus_message_get_label(sd_bus_message *m);
-int sd_bus_message_get_timestamp(sd_bus_message *m, uint64_t *usec);
+const char *sd_bus_message_get_selinux_context(sd_bus_message *m);
+const char *sd_bus_message_get_comm(sd_bus_message *m);
+const char *sd_bus_message_get_tid_comm(sd_bus_message *m);
+const char *sd_bus_message_get_exe(sd_bus_message *m);
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member);
 int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member);
