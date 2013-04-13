@@ -93,13 +93,14 @@ static void append_bloom(struct kdbus_msg_data **d, const void *p, size_t length
         *d = (struct kdbus_msg_data*) ((uint8_t*) *d + (*d)->size);
 }
 
-static int bus_message_setup_kmsg(sd_bus_message *m) {
+static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         struct kdbus_msg_data *d;
         bool well_known;
         uint64_t unique;
         size_t sz, dl;
         int r;
 
+        assert(b);
         assert(m);
         assert(m->sealed);
 
@@ -120,7 +121,7 @@ static int bus_message_setup_kmsg(sd_bus_message *m) {
         /* Add in fixed header, fields header, fields header padding and payload */
         sz += 4 * ALIGN8(offsetof(struct kdbus_msg_data, vec) + sizeof(struct kdbus_vec));
 
-        sz += ALIGN8(offsetof(struct kdbus_msg_data, data) + 5);
+        sz += ALIGN8(offsetof(struct kdbus_msg_data, data) + b->bloom_size);
 
         /* Add in well-known destination header */
         if (well_known) {
@@ -165,8 +166,14 @@ static int bus_message_setup_kmsg(sd_bus_message *m) {
         if (m->body)
                 append_payload_vec(&d, m->body, m->header->body_size);
 
-        if (m->kdbus->dst_id == KDBUS_DST_ID_BROADCAST)
-                append_bloom(&d, "bloom", 5);
+        if (m->kdbus->dst_id == KDBUS_DST_ID_BROADCAST) {
+                void *p;
+
+                /* For now, let's add a mask all bloom filter */
+                p = alloca(b->bloom_size);
+                memset(p, 0xFF, b->bloom_size);
+                append_bloom(&d, p, b->bloom_size);
+        }
 
         m->kdbus->size = (uint8_t*) d - (uint8_t*) m->kdbus;
         assert(m->kdbus->size <= sz);
@@ -189,9 +196,16 @@ int bus_kernel_take_fd(sd_bus *b) {
         if (r < 0)
                 return -errno;
 
+        /* The higher 32bit of both flags fields are considered
+         * 'incompatible flags'. Refuse them all for now. */
+        if (hello.bus_flags > 0xFFFFFFFFULL ||
+            hello.conn_flags > 0xFFFFFFFFULL)
+                return -ENOTSUP;
+
         if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello.id) < 0)
                 return -ENOMEM;
 
+        b->bloom_size = hello.bloom_size;
         b->is_kernel = true;
         b->bus_client = true;
 
@@ -227,7 +241,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
         assert(m);
         assert(bus->state == BUS_RUNNING);
 
-        r = bus_message_setup_kmsg(m);
+        r = bus_message_setup_kmsg(bus, m);
         if (r < 0)
                 return r;
 
@@ -437,7 +451,7 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
 }
 
 int bus_kernel_create(const char *name, char **s) {
-        struct kdbus_cmd_fname *fname;
+        struct kdbus_cmd_bus_make *make;
         size_t l;
         int fd;
         char *p;
@@ -450,17 +464,18 @@ int bus_kernel_create(const char *name, char **s) {
                 return -errno;
 
         l = strlen(name);
-        fname = alloca(offsetof(struct kdbus_cmd_fname, name) + DECIMAL_STR_MAX(uid_t) + 1 + l + 1);
-        sprintf(fname->name, "%lu-%s", (unsigned long) getuid(), name);
-        fname->size = offsetof(struct kdbus_cmd_fname, name) + strlen(fname->name) + 1;
-        fname->kernel_flags = KDBUS_CMD_FNAME_ACCESS_WORLD | KDBUS_CMD_FNAME_POLICY_OPEN;
-        fname->user_flags = 0;
+        make = alloca(offsetof(struct kdbus_cmd_bus_make, name) + DECIMAL_STR_MAX(uid_t) + 1 + l + 1);
+        sprintf(make->name, "%lu-%s", (unsigned long) getuid(), name);
+        make->size = offsetof(struct kdbus_cmd_bus_make, name) + strlen(make->name) + 1;
+        make->flags = KDBUS_ACCESS_WORLD | KDBUS_POLICY_OPEN;
+        make->bus_flags = 0;
+        make->bloom_size = 16;
 
-        p = strjoin("/dev/kdbus/", fname->name, "/bus", NULL);
+        p = strjoin("/dev/kdbus/", make->name, "/bus", NULL);
         if (!p)
                 return -ENOMEM;
 
-        if (ioctl(fd, KDBUS_CMD_BUS_MAKE, fname) < 0) {
+        if (ioctl(fd, KDBUS_CMD_BUS_MAKE, make) < 0) {
                 close_nointr_nofail(fd);
                 free(p);
                 return -errno;

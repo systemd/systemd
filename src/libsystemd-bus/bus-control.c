@@ -64,7 +64,7 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 l = strlen(name);
                 n = alloca(offsetof(struct kdbus_cmd_name, name) + l + 1);
                 n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
-                n->flags = flags;
+                n->name_flags = flags;
                 n->id = 0;
                 memcpy(n->name, name, l+1);
 
@@ -72,7 +72,7 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 if (r < 0)
                         return -errno;
 
-                return n->flags;
+                return n->name_flags;
         } else {
                 r = sd_bus_call_method(
                                 bus,
@@ -115,7 +115,7 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 l = strlen(name);
                 n = alloca(offsetof(struct kdbus_cmd_name, name) + l + 1);
                 n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
-                n->flags = 0;
+                n->name_flags = 0;
                 n->id = 0;
                 memcpy(n->name, name, l+1);
 
@@ -123,7 +123,7 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 if (r < 0)
                         return -errno;
 
-                return n->flags;
+                return n->name_flags;
         } else {
                 r = sd_bus_call_method(
                                 bus,
