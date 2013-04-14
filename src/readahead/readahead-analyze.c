@@ -34,10 +34,10 @@
 
 int main_analyze(const char *pack_path) {
         char line[LINE_MAX];
-        FILE *pack;
+        FILE _cleanup_fclose_ *pack = NULL;
         int a;
         int missing = 0;
-        off_t tsize = 0;
+        size_t tsize = 0;
 
         if (!pack_path)
                 pack_path = "/.readahead";
@@ -105,7 +105,7 @@ int main_analyze(const char *pack_path) {
                 }
 
                 if (stat(path, &st) == 0) {
-                        off_t size;
+                        size_t size;
 
                         if (sections == 0)
                                 size = st.st_size;
@@ -114,10 +114,10 @@ int main_analyze(const char *pack_path) {
 
                         tsize += size;
 
-                        printf("  %4d%% (%2d) %12ld: %s\n",
-                                sections ? (int) (size * 100 / st.st_size) : 100,
+                        printf("  %4zd%% (%2d) %12zd: %s\n",
+                                sections && st.st_size ? size * 100 / st.st_size : 100,
                                 sections ? sections : 1,
-                                (unsigned long)size,
+                                size,
                                 path);
                 } else {
                         printf("  %4dp (%2d) %12s: %s (MISSING)\n",
@@ -130,21 +130,17 @@ int main_analyze(const char *pack_path) {
 
         }
 
-        fclose(pack);
-
         printf("\nHOST:    %s"
                "TYPE:    %c\n"
                "MISSING: %d\n"
-               "TOTAL:   %llu\n",
+               "TOTAL:   %zu\n",
                line,
                a,
                missing,
-               (unsigned long long) tsize);
+               tsize);
 
         return EXIT_SUCCESS;
 
 fail:
-        if(pack)
-                fclose(pack);
         return EXIT_FAILURE;
 }
