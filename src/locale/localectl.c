@@ -627,7 +627,7 @@ static int list_x11_keymaps(DBusConnection *bus, char **args, unsigned n) {
                 return -EINVAL;
         }
 
-        f = fopen("/usr/share/X11/xkb/rules/xorg.lst", "re");
+        f = fopen("/usr/share/X11/xkb/rules/base.lst", "re");
         if (!f) {
                 log_error("Failed to open keyboard mapping list. %m");
                 return -errno;
