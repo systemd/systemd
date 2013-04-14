@@ -475,6 +475,7 @@ int bus_kernel_create(const char *name, char **s) {
 
         l = strlen(name);
         make = alloca(offsetof(struct kdbus_cmd_bus_make, name) + DECIMAL_STR_MAX(uid_t) + 1 + l + 1);
+        memset(make, 0, offsetof(struct kdbus_cmd_bus_make, name));
         sprintf(make->name, "%lu-%s", (unsigned long) getuid(), name);
         make->size = offsetof(struct kdbus_cmd_bus_make, name) + strlen(make->name) + 1;
         make->flags = KDBUS_ACCESS_WORLD | KDBUS_POLICY_OPEN;
