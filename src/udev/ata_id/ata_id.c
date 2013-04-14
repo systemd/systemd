@@ -334,11 +334,10 @@ static int disk_identify(struct udev *udev,
         int peripheral_device_type;
         int all_nul_bytes;
         int n;
-        int is_packet_device;
+        int is_packet_device = 0;
 
         /* init results */
-        zero(out_identify);
-        is_packet_device = 0;
+        memzero(out_identify, 512);
 
         /* If we were to use ATA PASS_THROUGH (12) on an ATAPI device
          * we could accidentally blank media. This is because MMC's BLANK
@@ -402,7 +401,7 @@ static int disk_identify(struct udev *udev,
 
 out:
         if (out_is_packet_device != NULL)
-          *out_is_packet_device = is_packet_device;
+                *out_is_packet_device = is_packet_device;
         return ret;
 }
 
