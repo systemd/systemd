@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 
         printf("unique b: %s\n", ub);
 
-        r = sd_bus_emit_signal(a, "/foo", "waldo.com", "Piep", "s", "I am a string");
+        r = sd_bus_emit_signal(a, "/foo/bar/waldo", "waldo.com", "Piep", "sss", "I am a string", "/this/is/a/path", "and.this.a.domain.name");
         assert_se(r >= 0);
 
         r = sd_bus_process(b, &m);

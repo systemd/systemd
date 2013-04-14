@@ -241,3 +241,16 @@ int bus_message_type_from_string(const char *s, uint8_t *u) {
 
         return 0;
 }
+
+const char *bus_message_type_to_string(uint8_t u) {
+        if (u == SD_BUS_MESSAGE_TYPE_SIGNAL)
+                return "signal";
+        else if (u == SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+                return "method_call";
+        else if (u == SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+                return "error";
+        else if (u == SD_BUS_MESSAGE_TYPE_METHOD_RETURN)
+                 return "method_return";
+        else
+                return NULL;
+}

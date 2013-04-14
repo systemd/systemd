@@ -30,6 +30,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-kernel.h"
+#include "bus-bloom.h"
 
 #define KDBUS_MSG_FOREACH_DATA(d, k)                                    \
         for ((d) = (k)->data;                                           \
@@ -80,17 +81,83 @@ static void append_destination(struct kdbus_msg_data **d, const char *s, size_t 
         *d = (struct kdbus_msg_data*) ((uint8_t*) *d + (*d)->size);
 }
 
-static void append_bloom(struct kdbus_msg_data **d, const void *p, size_t length) {
+static void* append_bloom(struct kdbus_msg_data **d, size_t length) {
+        void *r;
+
         assert(d);
-        assert(p);
 
         *d = ALIGN8_PTR(*d);
 
         (*d)->size = offsetof(struct kdbus_msg_data, data) + length;
         (*d)->type = KDBUS_MSG_BLOOM;
-        memcpy((*d)->data, p, length);
+        r = (*d)->data;
 
         *d = (struct kdbus_msg_data*) ((uint8_t*) *d + (*d)->size);
+
+        return r;
+}
+
+static int bus_message_setup_bloom(sd_bus_message *m, void *bloom) {
+        unsigned i;
+        int r;
+
+        assert(m);
+        assert(bloom);
+
+        memset(bloom, 0, BLOOM_SIZE);
+
+        bloom_add_pair(bloom, "message-type", bus_message_type_to_string(m->header->type));
+
+        if (m->interface)
+                bloom_add_pair(bloom, "interface", m->interface);
+        if (m->member)
+                bloom_add_pair(bloom, "member", m->member);
+        if (m->path) {
+                bloom_add_pair(bloom, "path", m->path);
+                bloom_add_prefixes(bloom, "path-slash-prefix", m->path, '/');
+        }
+
+        r = sd_bus_message_rewind(m, true);
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < 64; i++) {
+                char type;
+                const char *t;
+                char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
+                char *e;
+
+                r = sd_bus_message_peek_type(m, &type, NULL);
+                if (r < 0)
+                        return r;
+
+                if (type != SD_BUS_TYPE_STRING &&
+                    type != SD_BUS_TYPE_OBJECT_PATH &&
+                    type != SD_BUS_TYPE_SIGNATURE)
+                        break;
+
+                r = sd_bus_message_read_basic(m, type, &t);
+                if (r < 0)
+                        return r;
+
+                e = stpcpy(buf, "arg");
+                if (i < 10)
+                        *(e++) = '0' + i;
+                else {
+                        *(e++) = '0' + (i / 10);
+                        *(e++) = '0' + (i % 10);
+                }
+
+                *e = 0;
+                bloom_add_pair(bloom, buf, t);
+
+                strcpy(e, "-dot-prefix");
+                bloom_add_prefixes(bloom, buf, t, '.');
+                strcpy(e, "-slash-prefix");
+                bloom_add_prefixes(bloom, buf, t, '/');
+        }
+
+        return 0;
 }
 
 static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
@@ -122,7 +189,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         sz += 3 * ALIGN8(offsetof(struct kdbus_msg_data, vec) + sizeof(struct kdbus_vec));
 
         /* Add space for bloom filter */
-        sz += ALIGN8(offsetof(struct kdbus_msg_data, data) + b->bloom_size);
+        sz += ALIGN8(offsetof(struct kdbus_msg_data, data) + BLOOM_SIZE);
 
         /* Add in well-known destination header */
         if (well_known) {
@@ -164,9 +231,13 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 void *p;
 
                 /* For now, let's add a mask all bloom filter */
-                p = alloca(b->bloom_size);
-                memset(p, 0xFF, b->bloom_size);
-                append_bloom(&d, p, b->bloom_size);
+                p = append_bloom(&d, BLOOM_SIZE);
+                r = bus_message_setup_bloom(m, p);
+                if (r < 0) {
+                        free(m->kdbus);
+                        m->kdbus = NULL;
+                        return -r;
+                }
         }
 
         m->kdbus->size = (uint8_t*) d - (uint8_t*) m->kdbus;
@@ -207,10 +278,12 @@ int bus_kernel_take_fd(sd_bus *b) {
             hello.conn_flags > 0xFFFFFFFFULL)
                 return -ENOTSUP;
 
+        if (hello.bloom_size != BLOOM_SIZE)
+                return -ENOTSUP;
+
         if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello.id) < 0)
                 return -ENOMEM;
 
-        b->bloom_size = hello.bloom_size;
         b->is_kernel = true;
         b->bus_client = true;
 
@@ -479,7 +552,9 @@ int bus_kernel_create(const char *name, char **s) {
         make->size = offsetof(struct kdbus_cmd_bus_make, name) + strlen(make->name) + 1;
         make->flags = KDBUS_ACCESS_WORLD | KDBUS_POLICY_OPEN;
         make->bus_flags = 0;
-        make->bloom_size = 16;
+        make->bloom_size = BLOOM_SIZE;
+
+        assert_cc(BLOOM_SIZE % 8 == 0);
 
         p = strjoin("/dev/kdbus/", make->name, "/bus", NULL);
         if (!p)

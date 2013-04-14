@@ -680,7 +680,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/calendarspec.h \
 	src/shared/fileio.c \
 	src/shared/fileio.h \
-	src/shared/output-mode.h
+	src/shared/output-mode.h \
+	src/shared/MurmurHash3.c \
+	src/shared/MurmurHash3.h
 
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -1711,7 +1713,9 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-type.c \
 	src/libsystemd-bus/bus-type.h \
 	src/libsystemd-bus/bus-match.c \
-	src/libsystemd-bus/bus-match.h
+	src/libsystemd-bus/bus-match.h \
+	src/libsystemd-bus/bus-bloom.c \
+	src/libsystemd-bus/bus-bloom.h
 
 libsystemd_bus_la_LIBADD =  \
 	libsystemd-id128-internal.la \

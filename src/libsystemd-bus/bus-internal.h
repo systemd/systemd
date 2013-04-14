@@ -150,8 +150,6 @@ struct sd_bus {
 
         uint64_t hello_serial;
         unsigned iteration_counter;
-
-        uint64_t bloom_size;
 };
 
 static inline void bus_unrefp(sd_bus **b) {
@@ -191,6 +189,7 @@ bool namespace_simple_pattern(const char *pattern, const char *value);
 bool path_simple_pattern(const char *pattern, const char *value);
 
 int bus_message_type_from_string(const char *s, uint8_t *u);
+const char *bus_message_type_to_string(uint8_t u);
 
 #define error_name_is_valid interface_name_is_valid
 
