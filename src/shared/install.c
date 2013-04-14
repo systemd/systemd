@@ -1699,7 +1699,7 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
                         if (!*l)
                                 continue;
 
-                        if (strchr(COMMENTS, *l))
+                        if (strchr(COMMENTS "\n", *l))
                                 continue;
 
                         if (first_word(l, "enable")) {

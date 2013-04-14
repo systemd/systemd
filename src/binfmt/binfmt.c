@@ -110,7 +110,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
                 p = strstrip(l);
                 if (!*p)
                         continue;
-                if (strchr(COMMENTS, *p))
+                if (strchr(COMMENTS "\n", *p))
                         continue;
 
                 k = apply_rule(p);

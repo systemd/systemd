@@ -199,6 +199,17 @@ static void test_config_parse_exec(void) {
         "#--nouser-config                                     \\\n" \
         "normal=line"
 
+#define env_file_4 \
+       "# Generated\n" \
+       "\n" \
+       "HWMON_MODULES=\"coretemp f71882fg\"\n" \
+       "\n" \
+       "# For compatibility reasons\n" \
+       "\n" \
+       "MODULE_0=coretemp\n" \
+       "MODULE_1=f71882fg"
+
+
 static void test_load_env_file_1(void) {
         char _cleanup_strv_free_ **data = NULL;
         int r;
@@ -250,6 +261,25 @@ static void test_load_env_file_3(void) {
         assert(data == NULL);
         unlink(name);
 }
+
+static void test_load_env_file_4(void) {
+        char _cleanup_strv_free_ **data = NULL;
+        int r;
+
+        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        int _cleanup_close_ fd = mkstemp(name);
+        assert(fd >= 0);
+        assert_se(write(fd, env_file_4, sizeof(env_file_4)) == sizeof(env_file_4));
+
+        r = load_env_file(name, NULL, &data);
+        assert(r == 0);
+        assert(streq(data[0], "HWMON_MODULES=coretemp f71882fg"));
+        assert(streq(data[1], "MODULE_0=coretemp"));
+        assert(streq(data[2], "MODULE_1=f71882fg"));
+        assert(data[3] == NULL);
+        unlink(name);
+}
+
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnonnull"
@@ -327,6 +357,7 @@ int main(int argc, char *argv[]) {
         test_load_env_file_1();
         test_load_env_file_2();
         test_load_env_file_3();
+        test_load_env_file_4();
         test_install_printf();
 
         return 0;

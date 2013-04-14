@@ -149,7 +149,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 if (!*p)
                         continue;
 
-                if (strchr(COMMENTS, *p))
+                if (strchr(COMMENTS "\n", *p))
                         continue;
 
                 value = strchr(p, '=');

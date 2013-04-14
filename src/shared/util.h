@@ -52,7 +52,7 @@ union dirent_storage {
 #define WHITESPACE " \t\n\r"
 #define NEWLINE "\n\r"
 #define QUOTES "\"\'"
-#define COMMENTS "#;\n"
+#define COMMENTS "#;"
 
 #define FORMAT_BYTES_MAX 8
 

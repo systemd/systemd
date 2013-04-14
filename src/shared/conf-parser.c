@@ -174,7 +174,7 @@ static int parse_line(
         if (!*l)
                 return 0;
 
-        if (strchr(COMMENTS, *l))
+        if (strchr(COMMENTS "\n", *l))
                 return 0;
 
         if (startswith(l, ".include ")) {

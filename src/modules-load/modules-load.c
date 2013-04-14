@@ -206,7 +206,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 l = strstrip(line);
                 if (!*l)
                         continue;
-                if (strchr(COMMENTS, *l))
+                if (strchr(COMMENTS "\n", *l))
                         continue;
 
                 k = load_module(ctx, l);

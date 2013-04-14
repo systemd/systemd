@@ -180,7 +180,7 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                         continue;
                 }
 
-                if (strchr(COMMENTS, line[0]))
+                if (strchr(COMMENTS "\n", line[0]))
                         continue;
 
                 if (empty_line &&
