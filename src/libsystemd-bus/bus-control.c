@@ -19,6 +19,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#ifdef HAVE_VALGRIND_MEMCHECK_H
+#include <valgrind/memcheck.h>
+#endif
+
 #include <stddef.h>
 #include <errno.h>
 
@@ -67,6 +71,10 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 n->name_flags = flags;
                 n->id = 0;
                 memcpy(n->name, name, l+1);
+
+#ifdef HAVE_VALGRIND_MEMCHECK_H
+                VALGRIND_MAKE_MEM_DEFINED(n, n->size);
+#endif
 
                 r = ioctl(bus->input_fd, KDBUS_CMD_NAME_ACQUIRE, n);
                 if (r < 0)
@@ -119,6 +127,9 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 n->id = 0;
                 memcpy(n->name, name, l+1);
 
+#ifdef HAVE_VALGRIND_MEMCHECK_H
+                VALGRIND_MAKE_MEM_DEFINED(n, n->size);
+#endif
                 r = ioctl(bus->input_fd, KDBUS_CMD_NAME_RELEASE, n);
                 if (r < 0)
                         return -errno;
