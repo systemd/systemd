@@ -354,7 +354,11 @@ enum {
 struct kdbus_cmd_match_item {
 	__u64 size;
 	__u64 type;
-	__u8 data[0];
+	union {
+		__u64 id;
+		__u8 data[0];
+		char str[0];
+	};
 };
 
 struct kdbus_cmd_match {
