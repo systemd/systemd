@@ -529,11 +529,11 @@ static void write_env_var(FILE *f, const char *v) {
         p++;
         fwrite(v, 1, p-v, f);
 
-        if (string_has_cc(p) || chars_intersect(p, WHITESPACE "\'\"\\")) {
+        if (string_has_cc(p) || chars_intersect(p, WHITESPACE "\'\"\\`$")) {
                 fputc('\"', f);
 
                 for (; *p; p++) {
-                        if (strchr("\'\"\\", *p))
+                        if (strchr("\'\"\\`$", *p))
                                 fputc('\\', f);
 
                         fputc(*p, f);
