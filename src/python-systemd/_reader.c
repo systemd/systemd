@@ -22,6 +22,7 @@
 #include <Python.h>
 #include <structmember.h>
 #include <datetime.h>
+#include <time.h>
 #include <stdio.h>
 
 #include <systemd/sd-journal.h>
@@ -132,8 +133,7 @@ PyDoc_STRVAR(Reader_fileno__doc__,
              "See man:sd_journal_get_fd(3).");
 static PyObject* Reader_fileno(Reader *self, PyObject *args)
 {
-    int fd;
-    fd = sd_journal_get_fd(self->j);
+    int fd = sd_journal_get_fd(self->j);
     set_error(fd, NULL, NULL);
     if (fd < 0)
         return NULL;
@@ -148,12 +148,83 @@ PyDoc_STRVAR(Reader_reliable_fd__doc__,
              "See man:sd_journal_reliable_fd(3).");
 static PyObject* Reader_reliable_fd(Reader *self, PyObject *args)
 {
-    int r;
-    r = sd_journal_reliable_fd(self->j);
+    int r = sd_journal_reliable_fd(self->j);
     set_error(r, NULL, NULL);
     if (r < 0)
         return NULL;
     return PyBool_FromLong(r);
+}
+
+
+PyDoc_STRVAR(Reader_get_events__doc__,
+             "get_events() -> int\n\n"
+             "Returns a mask of poll() events to wait for on the file\n"
+             "descriptor returned by .fileno().\n\n"
+             "See man:sd_journal_get_events(3) for further discussion.");
+static PyObject* Reader_get_events(Reader *self, PyObject *args)
+{
+    int r = sd_journal_get_events(self->j);
+    set_error(r, NULL, NULL);
+    if (r < 0)
+        return NULL;
+    return long_FromLong(r);
+}
+
+
+PyDoc_STRVAR(Reader_get_timeout__doc__,
+             "get_timeout() -> int or None\n\n"
+             "Returns a timeout value for usage in poll(), the time since the\n"
+             "epoch of clock_gettime(2) in microseconds, or None if no timeout\n"
+             "is necessary.\n\n"
+             "The return value must be converted to a relative timeout in \n"
+             "milliseconds if it is to be used as an argument for poll().\n"
+             "See man:sd_journal_get_timeout(3) for further discussion.");
+static PyObject* Reader_get_timeout(Reader *self, PyObject *args)
+{
+    int r;
+    uint64_t t;
+
+    r = sd_journal_get_timeout(self->j, &t);
+    set_error(r, NULL, NULL);
+    if (r < 0)
+        return NULL;
+
+    if (t == (uint64_t) -1)
+        Py_RETURN_NONE;
+
+    assert_cc(sizeof(unsigned long long) == sizeof(t));
+    return PyLong_FromUnsignedLongLong(t);
+}
+
+
+PyDoc_STRVAR(Reader_get_timeout_ms__doc__,
+             "get_timeout_ms() -> int\n\n"
+             "Returns a timeout value suitable for usage in poll(), the value\n"
+             "returned by .get_timeout() converted to relative ms, or -1 if\n"
+             "no timeout is necessary.");
+static PyObject* Reader_get_timeout_ms(Reader *self, PyObject *args)
+{
+    int r;
+    uint64_t t;
+
+    r = sd_journal_get_timeout(self->j, &t);
+    set_error(r, NULL, NULL);
+    if (r < 0)
+        return NULL;
+
+    if (t == (uint64_t) -1)
+        return PyLong_FromLong(-1);
+    else {
+        struct timespec ts;
+        uint64_t n;
+        int msec;
+
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        n = (uint64_t) ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+        msec = t > n ? (int) ((t - n + 999) / 1000) : 0;
+
+        return PyLong_FromLong(msec);
+    }
 }
 
 
@@ -620,6 +691,30 @@ static PyObject* Reader_seek_monotonic(Reader *self, PyObject *args)
 }
 
 
+PyDoc_STRVAR(Reader_process__doc__,
+             "process() -> state change (integer)\n\n"
+             "Process events and reset the readable state of the file\n"
+             "descriptor returned by .fileno().\n\n"
+             "Will return constants: NOP if no change; APPEND if new\n"
+             "entries have been added to the end of the journal; and\n"
+             "INVALIDATE if journal files have been added or removed.\n\n"
+             "See man:sd_journal_process(3) for further discussion.");
+static PyObject* Reader_process(Reader *self, PyObject *args)
+{
+    int r;
+
+    assert(!args);
+
+    Py_BEGIN_ALLOW_THREADS
+    r = sd_journal_process(self->j);
+    Py_END_ALLOW_THREADS
+    if (set_error(r, NULL, NULL) < 0)
+        return NULL;
+
+    return long_FromLong(r);
+}
+
+
 PyDoc_STRVAR(Reader_wait__doc__,
              "wait([timeout]) -> state change (integer)\n\n"
              "Wait for a change in the journal. Argument `timeout` specifies\n"
@@ -905,6 +1000,9 @@ static PyGetSetDef Reader_getsetters[] = {
 static PyMethodDef Reader_methods[] = {
     {"fileno",          (PyCFunction) Reader_fileno, METH_NOARGS, Reader_fileno__doc__},
     {"reliable_fd",     (PyCFunction) Reader_reliable_fd, METH_NOARGS, Reader_reliable_fd__doc__},
+    {"get_events",      (PyCFunction) Reader_get_events, METH_NOARGS, Reader_get_events__doc__},
+    {"get_timeout",     (PyCFunction) Reader_get_timeout, METH_NOARGS, Reader_get_timeout__doc__},
+    {"get_timeout_ms",  (PyCFunction) Reader_get_timeout_ms, METH_NOARGS, Reader_get_timeout_ms__doc__},
     {"close",           (PyCFunction) Reader_close, METH_NOARGS, Reader_close__doc__},
     {"get_usage",       (PyCFunction) Reader_get_usage, METH_NOARGS, Reader_get_usage__doc__},
     {"__enter__",       (PyCFunction) Reader___enter__, METH_NOARGS, Reader___enter____doc__},
@@ -922,6 +1020,7 @@ static PyMethodDef Reader_methods[] = {
     {"seek_tail",       (PyCFunction) Reader_seek_tail, METH_NOARGS, Reader_seek_tail__doc__},
     {"seek_realtime",   (PyCFunction) Reader_seek_realtime, METH_VARARGS, Reader_seek_realtime__doc__},
     {"seek_monotonic",  (PyCFunction) Reader_seek_monotonic, METH_VARARGS, Reader_seek_monotonic__doc__},
+    {"process",         (PyCFunction) Reader_process, METH_NOARGS, Reader_process__doc__},
     {"wait",            (PyCFunction) Reader_wait, METH_VARARGS, Reader_wait__doc__},
     {"seek_cursor",     (PyCFunction) Reader_seek_cursor, METH_VARARGS, Reader_seek_cursor__doc__},
     {"get_cursor",      (PyCFunction) Reader_get_cursor, METH_NOARGS, Reader_get_cursor__doc__},
