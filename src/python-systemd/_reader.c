@@ -331,6 +331,21 @@ static PyObject* Reader_next(Reader *self, PyObject *args)
     return PyBool_FromLong(r);
 }
 
+PyDoc_STRVAR(Reader_previous__doc__,
+             "previous([skip]) -> bool\n\n"
+             "Go to the previous log entry. Optional skip value means to \n"
+             "go to the `skip`\\-th previous log entry.\n"
+             "Returns False if at start of file, True otherwise.");
+static PyObject* Reader_previous(Reader *self, PyObject *args)
+{
+    int64_t skip = 1LL;
+    if (!PyArg_ParseTuple(args, "|L:previous", &skip))
+        return NULL;
+
+    return PyObject_CallMethod((PyObject *)self, (char*) "_next",
+                               (char*) "L", -skip);
+}
+
 
 static int extract(const char* msg, size_t msg_len,
                    PyObject **key, PyObject **value) {
@@ -399,23 +414,15 @@ static PyObject* Reader_get(Reader *self, PyObject *args)
 }
 
 
-PyDoc_STRVAR(Reader_get_next__doc__,
-             "get_next([skip]) -> dict\n\n"
-             "Return dictionary of the next log entry. Optional skip value will\n"
-             "return the `skip`\\-th log entry. Returns an empty dict on EOF.");
-static PyObject* Reader_get_next(Reader *self, PyObject *args)
+PyDoc_STRVAR(Reader_get_all__doc__,
+             "_get_all() -> dict\n\n"
+             "Return dictionary of the current log entry.");
+static PyObject* Reader_get_all(Reader *self, PyObject *args)
 {
-    PyObject _cleanup_Py_DECREF_ *tmp = NULL;
     PyObject *dict;
     const void *msg;
     size_t msg_len;
     int r;
-
-    tmp = Reader_next(self, args);
-    if (!tmp)
-        return NULL;
-    if (tmp == Py_False) /* EOF */
-        return PyDict_New();
 
     dict = PyDict_New();
     if (!dict)
@@ -535,22 +542,6 @@ static PyObject* Reader_get_monotonic(Reader *self, PyObject *args)
 
     return tuple;
 }
-
-
-PyDoc_STRVAR(Reader_get_previous__doc__,
-             "get_previous([skip]) -> dict\n\n"
-             "Return dictionary of the previous log entry. Optional skip value\n"
-             "will return the -`skip`\\-th log entry. Equivalent to get_next(-skip).");
-static PyObject* Reader_get_previous(Reader *self, PyObject *args)
-{
-    int64_t skip = 1LL;
-    if (!PyArg_ParseTuple(args, "|L:get_previous", &skip))
-        return NULL;
-
-    return PyObject_CallMethod((PyObject *)self, (char*) "get_next",
-                               (char*) "L", -skip);
-}
-
 
 PyDoc_STRVAR(Reader_add_match__doc__,
              "add_match(match) -> None\n\n"
@@ -806,32 +797,6 @@ static PyObject* Reader_test_cursor(Reader *self, PyObject *args)
     return PyBool_FromLong(r);
 }
 
-
-static PyObject* Reader_iter(PyObject *self)
-{
-    Py_INCREF(self);
-    return self;
-}
-
-static PyObject* Reader_iternext(PyObject *self)
-{
-    PyObject *dict;
-    Py_ssize_t dict_size;
-
-    dict = PyObject_CallMethod(self, (char*) "get_next", (char*) "");
-    if (PyErr_Occurred())
-        return NULL;
-    dict_size = PyDict_Size(dict);
-    if ((int64_t) dict_size > 0LL) {
-        return dict;
-    } else {
-        Py_DECREF(dict);
-        PyErr_SetNone(PyExc_StopIteration);
-        return NULL;
-    }
-}
-
-
 PyDoc_STRVAR(Reader_query_unique__doc__,
              "query_unique(field) -> a set of values\n\n"
              "Return a set of unique values appearing in journal for the\n"
@@ -1007,12 +972,12 @@ static PyMethodDef Reader_methods[] = {
     {"get_usage",       (PyCFunction) Reader_get_usage, METH_NOARGS, Reader_get_usage__doc__},
     {"__enter__",       (PyCFunction) Reader___enter__, METH_NOARGS, Reader___enter____doc__},
     {"__exit__",        (PyCFunction) Reader___exit__, METH_VARARGS, Reader___exit____doc__},
-    {"next",            (PyCFunction) Reader_next, METH_VARARGS, Reader_next__doc__},
-    {"get",             (PyCFunction) Reader_get, METH_VARARGS, Reader_get__doc__},
-    {"get_next",        (PyCFunction) Reader_get_next, METH_VARARGS, Reader_get_next__doc__},
-    {"get_previous",    (PyCFunction) Reader_get_previous, METH_VARARGS, Reader_get_previous__doc__},
-    {"get_realtime",    (PyCFunction) Reader_get_realtime, METH_NOARGS, Reader_get_realtime__doc__},
-    {"get_monotonic",   (PyCFunction) Reader_get_monotonic, METH_NOARGS, Reader_get_monotonic__doc__},
+    {"_next",           (PyCFunction) Reader_next, METH_VARARGS, Reader_next__doc__},
+    {"_previous",       (PyCFunction) Reader_previous, METH_VARARGS, Reader_previous__doc__},
+    {"_get",            (PyCFunction) Reader_get, METH_VARARGS, Reader_get__doc__},
+    {"_get_all",        (PyCFunction) Reader_get_all, METH_NOARGS, Reader_get_all__doc__},
+    {"_get_realtime",   (PyCFunction) Reader_get_realtime, METH_NOARGS, Reader_get_realtime__doc__},
+    {"_get_monotonic",  (PyCFunction) Reader_get_monotonic, METH_NOARGS, Reader_get_monotonic__doc__},
     {"add_match",       (PyCFunction) Reader_add_match, METH_VARARGS|METH_KEYWORDS, Reader_add_match__doc__},
     {"add_disjunction", (PyCFunction) Reader_add_disjunction, METH_NOARGS, Reader_add_disjunction__doc__},
     {"flush_matches",   (PyCFunction) Reader_flush_matches, METH_NOARGS, Reader_flush_matches__doc__},
@@ -1023,7 +988,7 @@ static PyMethodDef Reader_methods[] = {
     {"process",         (PyCFunction) Reader_process, METH_NOARGS, Reader_process__doc__},
     {"wait",            (PyCFunction) Reader_wait, METH_VARARGS, Reader_wait__doc__},
     {"seek_cursor",     (PyCFunction) Reader_seek_cursor, METH_VARARGS, Reader_seek_cursor__doc__},
-    {"get_cursor",      (PyCFunction) Reader_get_cursor, METH_NOARGS, Reader_get_cursor__doc__},
+    {"_get_cursor",     (PyCFunction) Reader_get_cursor, METH_NOARGS, Reader_get_cursor__doc__},
     {"test_cursor",     (PyCFunction) Reader_test_cursor, METH_VARARGS, Reader_test_cursor__doc__},
     {"query_unique",    (PyCFunction) Reader_query_unique, METH_VARARGS, Reader_query_unique__doc__},
     {"get_catalog",     (PyCFunction) Reader_get_catalog, METH_NOARGS, Reader_get_catalog__doc__},
@@ -1056,8 +1021,8 @@ static PyTypeObject ReaderType = {
     0,                                        /* tp_clear */
     0,                                        /* tp_richcompare */
     0,                                        /* tp_weaklistoffset */
-    Reader_iter,                              /* tp_iter */
-    Reader_iternext,                          /* tp_iternext */
+    0,                                        /* tp_iter */
+    0,                                        /* tp_iternext */
     Reader_methods,                           /* tp_methods */
     0,                                        /* tp_members */
     Reader_getsetters,                        /* tp_getset */

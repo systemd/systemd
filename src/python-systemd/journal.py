@@ -176,6 +176,25 @@ class Reader(_Reader):
                 result[key] = self._convert_field(key, value)
         return result
 
+    def __iter__(self):
+        """Part of iterator protocol.
+        Returns self.
+        """
+        return self
+
+    if _sys.version_info >= (3,):
+        def __next__(self):
+            """Part of iterator protocol.
+            Returns self.get_next().
+            """
+            return self.get_next()
+    else:
+        def next(self):
+            """Part of iterator protocol.
+            Returns self.get_next().
+            """
+            return self.get_next()
+
     def add_match(self, *args, **kwargs):
         """Add one or more matches to the filter journal log entries.
         All matches of different field are combined in a logical AND,
@@ -190,15 +209,35 @@ class Reader(_Reader):
             super(Reader, self).add_match(arg)
 
     def get_next(self, skip=1):
-        """Return the next log entry as a dictionary of fields.
+        """Return the next log entry as a mapping type, currently
+        a standard dictionary of fields.
 
         Optional skip value will return the `skip`\-th log entry.
 
         Entries will be processed with converters specified during
         Reader creation.
         """
-        return self._convert_entry(
-            super(Reader, self).get_next(skip))
+        if super(Reader, self)._next(skip):
+            entry = super(Reader, self)._get_all()
+            if entry:
+                entry['__REALTIME_TIMESTAMP'] =  self._get_realtime()
+                entry['__MONOTONIC_TIMESTAMP']  = self._get_monotonic()
+                entry['__CURSOR']  = self._get_cursor()
+                return self._convert_entry(entry)
+        return dict()
+
+    def get_previous(self, skip=1):
+        """Return the previous log entry as a mapping type,
+        currently a standard dictionary of fields.
+
+        Optional skip value will return the -`skip`\-th log entry.
+
+        Entries will be processed with converters specified during
+        Reader creation.
+
+        Equivilent to get_next(-skip).
+        """
+        return self.get_next(-skip)
 
     def query_unique(self, field):
         """Return unique values appearing in the journal for given `field`.
