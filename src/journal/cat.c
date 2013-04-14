@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 
 #include <systemd/sd-journal.h>
 
