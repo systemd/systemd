@@ -251,6 +251,10 @@ int bus_match_run(
                         node->leaf.last_iteration = bus->iteration_counter;
                 }
 
+                r = sd_bus_message_rewind(m, true);
+                if (r < 0)
+                        return r;
+
                 /* Run the callback. And then invoke siblings. */
                 assert(node->leaf.callback);
                 r = node->leaf.callback(bus, ret, m, node->leaf.userdata);

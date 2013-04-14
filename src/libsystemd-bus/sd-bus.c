@@ -1584,6 +1584,10 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         if (c->timeout != 0)
                 prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
 
+        r = sd_bus_message_rewind(m, true);
+        if (r < 0)
+                return r;
+
         r = c->callback(bus, 0, m, c->userdata);
         free(c);
 
@@ -1610,6 +1614,10 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                                 continue;
 
                         l->last_iteration = bus->iteration_counter;
+
+                        r = sd_bus_message_rewind(m, true);
+                        if (r < 0)
+                                return r;
 
                         r = l->callback(bus, 0, m, l->userdata);
                         if (r != 0)
@@ -1720,6 +1728,10 @@ static int process_object(sd_bus *bus, sd_bus_message *m) {
 
                         c->last_iteration = bus->iteration_counter;
 
+                        r = sd_bus_message_rewind(m, true);
+                        if (r < 0)
+                                return r;
+
                         r = c->callback(bus, 0, m, c->userdata);
                         if (r != 0)
                                 return r;
@@ -1745,6 +1757,10 @@ static int process_object(sd_bus *bus, sd_bus_message *m) {
                         if (c && c->last_iteration != bus->iteration_counter && c->is_fallback) {
 
                                 c->last_iteration = bus->iteration_counter;
+
+                                r = sd_bus_message_rewind(m, true);
+                                if (r < 0)
+                                        return r;
 
                                 r = c->callback(bus, 0, m, c->userdata);
                                 if (r != 0)
@@ -1930,6 +1946,10 @@ static int process_running(sd_bus *bus, sd_bus_message **ret) {
                 goto null_message;
 
         if (ret) {
+                r = sd_bus_message_rewind(m, true);
+                if (r < 0)
+                        return r;
+
                 *ret = m;
                 m = NULL;
                 return 1;
