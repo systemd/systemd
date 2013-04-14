@@ -175,10 +175,10 @@ static PyObject* Reader_close(Reader *self, PyObject *args)
 
 PyDoc_STRVAR(Reader_get_usage__doc__,
              "get_usage() -> int\n\n"
-             "Returns the total disk space currently used by journal"
-             "files (in bytes). If `SD_JOURNAL_LOCAL_ONLY` was"
-             "passed when opening the journal this value will only reflect"
-             "the size of journal files of the local host, otherwise"
+             "Returns the total disk space currently used by journal\n"
+             "files (in bytes). If `SD_JOURNAL_LOCAL_ONLY` was\n"
+             "passed when opening the journal this value will only reflect\n"
+             "the size of journal files of the local host, otherwise\n"
              "of all hosts.\n\n"
              "This method invokes sd_journal_get_usage().\n"
              "See man:sd_journal_get_usage(3).");
@@ -628,7 +628,8 @@ PyDoc_STRVAR(Reader_wait__doc__,
              "then block forever.\n\n"
              "Will return constants: NOP if no change; APPEND if new\n"
              "entries have been added to the end of the journal; and\n"
-             "INVALIDATE if journal files have been added or removed.");
+             "INVALIDATE if journal files have been added or removed.\n\n"
+             "See man:sd_journal_wait(3) for further discussion.");
 static PyObject* Reader_wait(Reader *self, PyObject *args)
 {
     int r;
