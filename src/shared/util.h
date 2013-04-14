@@ -657,3 +657,11 @@ static inline unsigned decimal_str_max(unsigned x) {
 }
 
 int unlink_noerrno(const char *path);
+
+#define alloca0(n)                                                      \
+        ({                                                              \
+                char *__new;                                            \
+                size_t __len = n;                                       \
+                __new = alloca(__len);                                  \
+                (void *) memset(__new, 0, __len);                       \
+        })

@@ -66,10 +66,9 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 size_t l;
 
                 l = strlen(name);
-                n = alloca(offsetof(struct kdbus_cmd_name, name) + l + 1);
+                n = alloca0(offsetof(struct kdbus_cmd_name, name) + l + 1);
                 n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
                 n->name_flags = flags;
-                n->id = 0;
                 memcpy(n->name, name, l+1);
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
@@ -121,10 +120,8 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 size_t l;
 
                 l = strlen(name);
-                n = alloca(offsetof(struct kdbus_cmd_name, name) + l + 1);
+                n = alloca0(offsetof(struct kdbus_cmd_name, name) + l + 1);
                 n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
-                n->name_flags = 0;
-                n->id = 0;
                 memcpy(n->name, name, l+1);
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
