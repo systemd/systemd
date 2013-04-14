@@ -49,8 +49,6 @@ static int object_callback(sd_bus *bus, int error, sd_bus_message *m, void *user
                 return 0;
 
         if (sd_bus_message_is_method_call(m, "org.object.test", "Foobar")) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-
                 log_info("Invoked Foobar() on %s", sd_bus_message_get_path(m));
 
                 r = sd_bus_reply_method_return(bus, m, NULL);
@@ -260,7 +258,7 @@ fail:
 }
 
 static void* client1(void*p) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         sd_bus *bus = NULL;
         sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *hello;
