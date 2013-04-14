@@ -146,7 +146,7 @@ static bool value_node_test(
         case BUS_MATCH_MEMBER:
         case BUS_MATCH_PATH:
         case BUS_MATCH_ARG ... BUS_MATCH_ARG_LAST:
-                return streq(node->value.str, value_str);
+                return streq_ptr(node->value.str, value_str);
 
         case BUS_MATCH_ARG_NAMESPACE ... BUS_MATCH_ARG_NAMESPACE_LAST:
                 return namespace_simple_pattern(node->value.str, value_str);

@@ -3263,8 +3263,8 @@ int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
 
 const char* bus_message_get_arg(sd_bus_message *m, unsigned i) {
         int r;
-        const char *t;
-        char type;
+        const char *t = NULL;
+        unsigned j;
 
         assert(m);
 
@@ -3272,7 +3272,9 @@ const char* bus_message_get_arg(sd_bus_message *m, unsigned i) {
         if (r < 0)
                 return NULL;
 
-        while (i > 0) {
+        for (j = 0; j <= i; j++) {
+                char type;
+
                 r = sd_bus_message_peek_type(m, &type, NULL);
                 if (r < 0)
                         return NULL;
@@ -3285,13 +3287,7 @@ const char* bus_message_get_arg(sd_bus_message *m, unsigned i) {
                 r = sd_bus_message_read_basic(m, type, &t);
                 if (r < 0)
                         return NULL;
-
-                i--;
         }
-
-        r = sd_bus_message_rewind(m, true);
-        if (r < 0)
-                return NULL;
 
         return t;
 }

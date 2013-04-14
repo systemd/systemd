@@ -171,6 +171,12 @@ bool member_name_is_valid(const char *p) {
 static bool complex_pattern_check(char c, const char *a, const char *b) {
         bool separator = false;
 
+        if (!a && !b)
+                return true;
+
+        if (!a || !b)
+                return false;
+
         for (;;) {
                 if (*a != *b)
                         return (separator && (*a == 0 || *b == 0)) ||
@@ -195,6 +201,13 @@ bool path_complex_pattern(const char *pattern, const char *value) {
 }
 
 static bool simple_pattern_check(char c, const char *a, const char *b) {
+
+        if (!a && !b)
+                return true;
+
+        if (!a || !b)
+                return false;
+
         for (;;) {
                 if (*a != *b)
                         return *a == 0 && *b == c;
