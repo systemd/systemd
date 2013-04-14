@@ -70,6 +70,8 @@ static void message_free(sd_bus_message *m) {
                 free(m->fds);
         }
 
+        free(m->cmdline_array);
+
         reset_containers(m);
         free(m->root_container.signature);
 
@@ -750,6 +752,38 @@ const char *sd_bus_message_get_exe(sd_bus_message *m) {
                 return NULL;
 
         return m->exe;
+}
+
+int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline) {
+        size_t n, i;
+        const char *p;
+        bool first;
+
+        if (!m)
+                return -EINVAL;
+
+        if (!m->cmdline)
+                return -ENOENT;
+
+        for (p = m->cmdline, n = 0; p < m->cmdline + m->cmdline_length; p++)
+                if (*p == 0)
+                        n++;
+
+        m->cmdline_array = new(char*, n + 1);
+        if (!m->cmdline_array)
+                return -ENOMEM;
+
+        for (p = m->cmdline, i = 0, first = true; p < m->cmdline + m->cmdline_length; p++) {
+                if (first)
+                        m->cmdline_array[i++] = (char*) p;
+
+                first = *p == 0;
+        }
+
+        m->cmdline_array[i] = NULL;
+        *cmdline = m->cmdline_array;
+
+        return 0;
 }
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member) {
@@ -2928,6 +2962,7 @@ int sd_bus_message_set_destination(sd_bus_message *m, const char *destination) {
 }
 
 int bus_message_dump(sd_bus_message *m) {
+        char **cmdline = NULL;
         unsigned level = 1;
         int r;
 
@@ -2994,6 +3029,20 @@ int bus_message_dump(sd_bus_message *m) {
                 printf("\ttid_comm=[%s]\n", m->tid_comm);
         if (m->label)
                 printf("\tlabel=[%s]\n", m->label);
+
+        if (sd_bus_message_get_cmdline(m, &cmdline) >= 0) {
+                char **c;
+
+                fputs("\tcmdline=[", stdout);
+                STRV_FOREACH(c, cmdline) {
+                        if (c != cmdline)
+                                putchar(' ');
+
+                        fputs(*c, stdout);
+                }
+
+                fputs("]\n", stdout);
+        }
 
         r = sd_bus_message_rewind(m, true);
         if (r < 0) {

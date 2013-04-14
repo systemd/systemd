@@ -110,6 +110,11 @@ struct sd_bus_message {
         const char *exe;
         const char *comm;
         const char *tid_comm;
+
+        const char *cmdline;
+        size_t cmdline_length;
+
+        char **cmdline_array;
 };
 
 #define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_NATIVE_ENDIAN)

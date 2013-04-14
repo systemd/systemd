@@ -134,6 +134,7 @@ const char *sd_bus_message_get_selinux_context(sd_bus_message *m);
 const char *sd_bus_message_get_comm(sd_bus_message *m);
 const char *sd_bus_message_get_tid_comm(sd_bus_message *m);
 const char *sd_bus_message_get_exe(sd_bus_message *m);
+int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline);
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member);
 int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member);

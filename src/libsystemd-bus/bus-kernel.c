@@ -371,6 +371,11 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         m->tid_comm = d->str;
                 else if (d->type == KDBUS_MSG_SRC_EXE)
                         m->exe = d->str;
+                else if (d->type == KDBUS_MSG_SRC_CMDLINE) {
+                        m->cmdline = d->str;
+                        m->cmdline_length = l;
+                } else
+                        log_debug("Got unknown field from kernel %llu", d->type);
         }
 
         r = bus_message_parse_fields(m);
