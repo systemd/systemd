@@ -130,10 +130,11 @@ int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid);
 int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid);
 int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid);
 int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec);
-const char *sd_bus_message_get_selinux_context(sd_bus_message *m);
-const char *sd_bus_message_get_comm(sd_bus_message *m);
-const char *sd_bus_message_get_tid_comm(sd_bus_message *m);
-const char *sd_bus_message_get_exe(sd_bus_message *m);
+int sd_bus_message_get_selinux_context(sd_bus_message *m, const char **r);
+int sd_bus_message_get_comm(sd_bus_message *m, const char **r);
+int sd_bus_message_get_tid_comm(sd_bus_message *m, const char **r);
+int sd_bus_message_get_exe(sd_bus_message *m, const char **r);
+int sd_bus_message_get_cgroup(sd_bus_message *m, const char **r);
 int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline);
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member);

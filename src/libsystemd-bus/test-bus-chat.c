@@ -136,6 +136,7 @@ static int server(sd_bus *bus) {
         while (!client1_gone || !client2_gone) {
                 _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
                 pid_t pid = 0;
+                const char *label = NULL;
 
                 r = sd_bus_process(bus, &m);
                 if (r < 0) {
@@ -157,7 +158,11 @@ static int server(sd_bus *bus) {
                         continue;
 
                 sd_bus_message_get_pid(m, &pid);
-                log_info("Got message! member=%s pid=%lu label=%s", strna(sd_bus_message_get_member(m)), (unsigned long) pid, strna(sd_bus_message_get_selinux_context(m)));
+                sd_bus_message_get_selinux_context(m, &label);
+                log_info("Got message! member=%s pid=%lu label=%s",
+                         strna(sd_bus_message_get_member(m)),
+                         (unsigned long) pid,
+                         strna(label));
                 /* bus_message_dump(m); */
                 /* sd_bus_message_rewind(m, true); */
 

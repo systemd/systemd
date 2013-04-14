@@ -447,7 +447,9 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                 else if (d->type == KDBUS_MSG_SRC_CMDLINE) {
                         m->cmdline = d->str;
                         m->cmdline_length = l;
-                } else
+                } else if (d->type == KDBUS_MSG_SRC_CGROUP)
+                        m->cgroup = d->str;
+                else
                         log_debug("Got unknown field from kernel %llu", d->type);
         }
 
@@ -553,7 +555,7 @@ int bus_kernel_create(const char *name, char **s) {
         make->flags = KDBUS_ACCESS_WORLD | KDBUS_POLICY_OPEN;
         make->bus_flags = 0;
         make->bloom_size = BLOOM_SIZE;
-
+        make->cgroup_id = 1;
         assert_cc(BLOOM_SIZE % 8 == 0);
 
         p = strjoin("/dev/kdbus/", make->name, "/bus", NULL);

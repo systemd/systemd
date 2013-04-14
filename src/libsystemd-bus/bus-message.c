@@ -657,8 +657,10 @@ const sd_bus_error *sd_bus_message_get_error(sd_bus_message *m) {
 int sd_bus_message_get_uid(sd_bus_message *m, uid_t *uid) {
         if (!m)
                 return -EINVAL;
+        if (!uid)
+                return -EINVAL;
         if (!m->uid_valid)
-                return -ENOENT;
+                return -ESRCH;
 
         *uid = m->uid;
         return 0;
@@ -667,8 +669,10 @@ int sd_bus_message_get_uid(sd_bus_message *m, uid_t *uid) {
 int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid) {
         if (!m)
                 return -EINVAL;
+        if (!gid)
+                return -EINVAL;
         if (!m->gid_valid)
-                return -ENOENT;
+                return -ESRCH;
 
         *gid = m->gid;
         return 0;
@@ -677,8 +681,10 @@ int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid) {
 int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid) {
         if (!m)
                 return -EINVAL;
+        if (!pid)
+                return -EINVAL;
         if (m->pid <= 0)
-                return -ENOENT;
+                return -ESRCH;
 
         *pid = m->pid;
         return 0;
@@ -687,8 +693,10 @@ int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid) {
 int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid) {
         if (!m)
                 return -EINVAL;
+        if (!tid)
+                return -EINVAL;
         if (m->tid <= 0)
-                return -ENOENT;
+                return -ESRCH;
 
         *tid = m->tid;
         return 0;
@@ -697,26 +705,32 @@ int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid) {
 int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec) {
         if (!m)
                 return -EINVAL;
+        if (!usec)
+                return -EINVAL;
         if (m->pid_starttime <= 0)
-                return -ENOENT;
+                return -ESRCH;
 
         *usec = m->pid_starttime;
         return 0;
 }
 
-const char *sd_bus_message_get_selinux_context(sd_bus_message *m) {
+int sd_bus_message_get_selinux_context(sd_bus_message *m, const char **ret) {
         if (!m)
-                return NULL;
+                return -EINVAL;
+        if (!m->label)
+                return -ESRCH;
 
-        return m->label;
+        *ret = m->label;
+        return 0;
 }
 
 int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec) {
         if (!m)
                 return -EINVAL;
-
+        if (!usec)
+                return -EINVAL;
         if (m->monotonic <= 0)
-                return -ENOENT;
+                return -ESRCH;
 
         *usec = m->monotonic;
         return 0;
@@ -725,33 +739,61 @@ int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec) {
 int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec) {
         if (!m)
                 return -EINVAL;
-
+        if (!usec)
+                return -EINVAL;
         if (m->realtime <= 0)
-                return -ENOENT;
+                return -ESRCH;
 
         *usec = m->realtime;
         return 0;
 }
 
-const char *sd_bus_message_get_comm(sd_bus_message *m) {
+int sd_bus_message_get_comm(sd_bus_message *m, const char **ret) {
         if (!m)
-                return NULL;
+                return -EINVAL;
+        if (!ret)
+                return -EINVAL;
+        if (!m->comm)
+                return -ESRCH;
 
-        return m->comm;
+        *ret = m->comm;
+        return 0;
 }
 
-const char *sd_bus_message_get_tid_comm(sd_bus_message *m) {
+int sd_bus_message_get_tid_comm(sd_bus_message *m, const char **ret) {
         if (!m)
-                return NULL;
+                return -EINVAL;
+        if (!ret)
+                return -EINVAL;
+        if (!m->tid_comm)
+                return -ESRCH;
 
-        return m->tid_comm;
+        *ret = m->tid_comm;
+        return 0;
 }
 
-const char *sd_bus_message_get_exe(sd_bus_message *m) {
+int sd_bus_message_get_exe(sd_bus_message *m, const char **ret) {
         if (!m)
-                return NULL;
+                return -EINVAL;
+        if (!ret)
+                return -EINVAL;
+        if (!m->exe)
+                return -ESRCH;
 
-        return m->exe;
+        *ret = m->exe;
+        return 0;
+}
+
+int sd_bus_message_get_cgroup(sd_bus_message *m, const char **ret) {
+        if (!m)
+                return -EINVAL;
+        if (!ret)
+                return -EINVAL;
+        if (!m->cgroup)
+                return -ESRCH;
+
+        *ret = m->cgroup;
+        return 0;
 }
 
 int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline) {
@@ -3029,6 +3071,8 @@ int bus_message_dump(sd_bus_message *m) {
                 printf("\ttid_comm=[%s]\n", m->tid_comm);
         if (m->label)
                 printf("\tlabel=[%s]\n", m->label);
+        if (m->cgroup)
+                printf("\tcgroup=[%s]\n", m->cgroup);
 
         if (sd_bus_message_get_cmdline(m, &cmdline) >= 0) {
                 char **c;
