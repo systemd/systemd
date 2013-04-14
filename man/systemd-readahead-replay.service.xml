@@ -56,7 +56,12 @@
                 <para><filename>systemd-readahead-collect.service</filename></para>
                 <para><filename>systemd-readahead-done.service</filename></para>
                 <para><filename>systemd-readahead-done.timer</filename></para>
-                <para><filename>/usr/lib/systemd/systemd-readahead</filename></para>
+                <cmdsynopsis>
+                        <command>/usr/lib/systemd/systemd-readahead/systemd-readahead</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="plain">COMMAND</arg>
+                        <arg choice="opt">DIRECTORY | FILE</arg>
+                </cmdsynopsis>
         </refsynopsisdiv>
 
         <refsect1>
@@ -101,6 +106,95 @@
                 <filename>systemd-readahead-collect.service</filename>
                 will also defragment and rearrange files on disk to
                 optimize subsequent boot times.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para><filename>systemd-readahead</filename> understands
+                the following options:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>-h</option></term>
+                                <term><option>--help</option></term>
+
+                                <listitem><para>Prints a short help text
+                                and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--max-files=</option></term>
+
+                                <listitem><para>Maximum number of
+                                files to read ahead. Only valid
+                                for thes <command>collect</command>
+                                command.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--file-size-max=</option></term>
+
+                                <listitem><para>Maximum size of files
+                                (in bytes) to read ahead. Only valid
+                                for the <command>collect</command>
+                                and <command>replay</command>
+                                commands.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--timeout=</option></term>
+
+                                <listitem><para>Maximum time (in usec)
+                                to to spend collecting data. Only valid
+                                for the <command>collect</command>
+                                command.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Commands</title>
+
+                <para>The following commands are understood by
+                <filename>systemd-readahead</filename>:</para> <variablelist>
+                        <varlistentry>
+                                <term><command>collect
+                                [<replaceable>DIRECTORY</replaceable>]</command></term>
+                                <listitem>
+                                        <para>Collect read-ahead data on
+                                        early boot. When terminating it will
+                                        write out a pack file to the indicated
+                                        directory containing the read-ahead
+                                        data. </para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>replay
+                                [<replaceable>DIRECTORY</replaceable>]</command></term>
+                                <listitem>
+                                        <para>Perform read-ahead on the
+                                        specified directory tree.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>analyze
+                                [<replaceable>FILE</replaceable>]</command></term>
+                                <listitem>
+                                        <para>Dumps the content of the
+                                        read-ahead pack file to the
+                                        terminal. The output lists
+                                        approximately for each file
+                                        how much will be read-ahead by
+                                        the <command>replay</command>
+                                        command.</para>
+                                </listitem>
+                        </varlistentry>
+
+                </variablelist>
         </refsect1>
 
         <refsect1>
