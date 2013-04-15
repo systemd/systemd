@@ -3080,7 +3080,8 @@ systemd_bootchart_SOURCES = \
 	src/bootchart/svg.h
 
 systemd_bootchart_LDADD = \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-journal.la
 
 rootlibexec_PROGRAMS += \
 	systemd-bootchart

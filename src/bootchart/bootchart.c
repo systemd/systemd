@@ -48,6 +48,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <systemd/sd-journal.h>
 
 #include "util.h"
 #include "fileio.h"
@@ -97,6 +98,8 @@ static void signal_handler(int sig) {
 }
 
 #define BOOTCHART_CONF "/etc/systemd/bootchart.conf"
+
+#define BOOTCHART_MAX (16*1024*1024)
 
 static void parse_conf(void) {
         char *init = NULL, *output = NULL;
@@ -235,6 +238,54 @@ static int parse_args(int argc, char *argv[]) {
         }
 
         return 0;
+}
+
+static void do_journal_append(char *file)
+{
+        struct iovec iovec[5];
+        int r, f, j = 0;
+        ssize_t n;
+        char _cleanup_free_ *bootchart_file = NULL, *bootchart_message = NULL,
+                *p = NULL;
+
+        bootchart_file = strappend("BOOTCHART_FILE=", file);
+        if (bootchart_file)
+                IOVEC_SET_STRING(iovec[j++], bootchart_file);
+
+        IOVEC_SET_STRING(iovec[j++], "MESSAGE_ID=9f26aa562cf440c2b16c773d0479b518");
+        IOVEC_SET_STRING(iovec[j++], "PRIORITY=7");
+        bootchart_message = strjoin("MESSAGE=Bootchart created: ", file, NULL);
+        if (bootchart_message)
+                IOVEC_SET_STRING(iovec[j++], bootchart_message);
+
+        p = malloc(9 + BOOTCHART_MAX);
+        if (!p) {
+                r = log_oom();
+                return;
+        }
+
+        memcpy(p, "BOOTCHART=", 10);
+
+        f = open(file, O_RDONLY);
+        if (f < 0) {
+                log_error("Failed to read bootchart data: %s\n", strerror(-errno));
+                return;
+        }
+        n = loop_read(f, p + 10, BOOTCHART_MAX, false);
+        if (n < 0) {
+                log_error("Failed to read bootchart data: %s\n", strerror(-n));
+                close(f);
+                return;
+        }
+        close(f);
+
+        iovec[j].iov_base = p;
+        iovec[j].iov_len = 10 + n;
+        j++;
+
+        r = sd_journal_sendv(iovec, j);
+        if (r < 0)
+                log_error("Failed to send bootchart: %s", strerror(-r));
 }
 
 int main(int argc, char *argv[]) {
@@ -381,6 +432,8 @@ int main(int argc, char *argv[]) {
         svg_do(build);
 
         fprintf(stderr, "systemd-bootchart wrote %s\n", output_file);
+
+        do_journal_append(output_file);
 
         if (of)
                 fclose(of);
