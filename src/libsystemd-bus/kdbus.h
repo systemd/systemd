@@ -114,6 +114,8 @@ struct kdbus_msg_data {
 	union {
 		/* inline data */
 		__u8 data[0];
+		__u32 data32[0];
+		__u64 data64[0];
 		char str[0];
 
 		/* data vector */
@@ -163,7 +165,7 @@ struct kdbus_msg {
 		__u64 cookie_reply;	/* cookie we reply to */
 		__u64 timeout_ns;	/* timespan to wait for reply */
 	};
-	struct kdbus_msg_data data[0];
+	struct kdbus_msg_data items[0];
 };
 
 enum {
@@ -329,7 +331,7 @@ enum {
 struct kdbus_cmd_name_info_item {
 	__u64 size;
 	__u64 type;
-	__u8 data[0];
+	__u8 items[0];
 };
 
 struct kdbus_cmd_name_info {

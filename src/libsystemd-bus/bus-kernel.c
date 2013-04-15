@@ -32,10 +32,10 @@
 #include "bus-kernel.h"
 #include "bus-bloom.h"
 
-#define KDBUS_MSG_FOREACH_DATA(d, k)                                    \
-        for ((d) = (k)->data;                                           \
+#define KDBUS_FOREACH_ITEM(i, k)                                        \
+        for ((i) = (k)->items;                                          \
              (uint8_t*) (d) < (uint8_t*) (k) + (k)->size;               \
-             (d) = (struct kdbus_msg_data*) ((uint8_t*) (d) + ALIGN8((d)->size)))
+             (i) = (struct kdbus_msg_data*) ((uint8_t*) (i) + ALIGN8((i)->size)))
 
 static int parse_unique_name(const char *s, uint64_t *id) {
         int r;
@@ -183,7 +183,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         } else
                 well_known = false;
 
-        sz = offsetof(struct kdbus_msg, data);
+        sz = offsetof(struct kdbus_msg, items);
 
         /* Add in fixed header, fields header and payload */
         sz += 3 * ALIGN8(offsetof(struct kdbus_msg_data, vec) + sizeof(struct kdbus_vec));
@@ -214,7 +214,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         m->kdbus->timeout_ns = m->timeout * NSEC_PER_USEC;
 
-        d = m->kdbus->data;
+        d = m->kdbus->items;
 
         if (well_known)
                 append_destination(&d, m->destination, dl);
@@ -333,7 +333,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
 static void close_kdbus_msg(struct kdbus_msg *k) {
         struct kdbus_msg_data *d;
 
-        KDBUS_MSG_FOREACH_DATA(d, k) {
+        KDBUS_FOREACH_ITEM(d, k) {
 
                 if (d->type != KDBUS_MSG_UNIX_FDS)
                         continue;
@@ -359,7 +359,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (k->payload_type != KDBUS_PAYLOAD_DBUS1)
                 return 0;
 
-        KDBUS_MSG_FOREACH_DATA(d, k) {
+        KDBUS_FOREACH_ITEM(d, k) {
                 size_t l;
 
                 l = d->size - offsetof(struct kdbus_msg_data, data);
@@ -409,7 +409,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (r < 0)
                 return r;
 
-        KDBUS_MSG_FOREACH_DATA(d, k) {
+        KDBUS_FOREACH_ITEM(d, k) {
                 size_t l;
 
                 l = d->size - offsetof(struct kdbus_msg_data, data);
