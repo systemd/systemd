@@ -34,7 +34,7 @@
 
 #define KDBUS_FOREACH_ITEM(i, k)                                        \
         for ((i) = (k)->items;                                          \
-             (uint8_t*) (d) < (uint8_t*) (k) + (k)->size;               \
+             (uint8_t*) (i) < (uint8_t*) (k) + (k)->size;               \
              (i) = (struct kdbus_msg_data*) ((uint8_t*) (i) + ALIGN8((i)->size)))
 
 static int parse_unique_name(const char *s, uint64_t *id) {
