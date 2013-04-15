@@ -31,6 +31,7 @@
 #include "macro.h"
 #include "strv.h"
 #include "set.h"
+#include "missing.h"
 
 #include "sd-bus.h"
 #include "bus-internal.h"
@@ -841,7 +842,7 @@ int sd_bus_open_system(sd_bus **ret) {
         if (r < 0)
                 return r;
 
-        e = getenv("DBUS_SYSTEM_BUS_ADDRESS");
+        e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
         if (e) {
                 r = sd_bus_set_address(b, e);
                 if (r < 0)
@@ -879,13 +880,13 @@ int sd_bus_open_user(sd_bus **ret) {
         if (r < 0)
                 return r;
 
-        e = getenv("DBUS_SESSION_BUS_ADDRESS");
+        e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
         if (e) {
                 r = sd_bus_set_address(b, e);
                 if (r < 0)
                         goto fail;
         } else {
-                e = getenv("XDG_RUNTIME_DIR");
+                e = secure_getenv("XDG_RUNTIME_DIR");
                 if (!e) {
                         r = -ENOENT;
                         goto fail;

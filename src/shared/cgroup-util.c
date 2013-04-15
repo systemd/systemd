@@ -1148,8 +1148,6 @@ int cg_get_user_path(char **path) {
 char **cg_shorten_controllers(char **controllers) {
         char **f, **t;
 
-        controllers = strv_uniq(controllers);
-
         if (!controllers)
                 return controllers;
 
@@ -1175,11 +1173,11 @@ char **cg_shorten_controllers(char **controllers) {
         }
 
         *t = NULL;
-        return controllers;
+        return strv_uniq(controllers);
 }
 
 int cg_pid_get_cgroup(pid_t pid, char **root, char **cgroup) {
-        char *cg_process, *cg_init, *p;
+        char *cg_process, *cg_init, *p, *q;
         int r;
 
         assert(pid >= 0);
@@ -1202,11 +1200,8 @@ int cg_pid_get_cgroup(pid_t pid, char **root, char **cgroup) {
         else if (streq(cg_init, "/"))
                 cg_init[0] = 0;
 
-        if (startswith(cg_process, cg_init))
-                p = cg_process + strlen(cg_init);
-        else
-                p = cg_process;
-
+        q = startswith(cg_process, cg_init);
+        p = q ? q : cg_process;
         free(cg_init);
 
         if (cgroup) {
@@ -1230,84 +1225,126 @@ int cg_pid_get_cgroup(pid_t pid, char **root, char **cgroup) {
         return 0;
 }
 
-static int instance_unit_from_cgroup(char *cgroup){
-        char *at;
-
-        assert(cgroup);
-
-        at = strstr(cgroup, "@.");
-        if (at) {
-                /* This is a templated service */
-
-                char *i;
-                char _cleanup_free_ *i2 = NULL, *s = NULL;
-
-                i = strchr(at, '/');
-                if (!i || !i[1]) /* disallow empty instances */
-                        return -EINVAL;
-
-                s = strndup(at + 1, i - at - 1);
-                i2 = strdup(i + 1);
-                if (!s || !i2)
-                        return -ENOMEM;
-
-                strcpy(at + 1, i2);
-                strcat(at + 1, s);
-        }
-
-        return 0;
-}
-
 /* non-static only for testing purposes */
-int cgroup_to_unit(char *cgroup, char **unit){
-        int r;
-        char *p;
+int cg_cgroup_to_unit(const char *cgroup, char **unit){
+        char *p, *e, *c, *s, *k;
 
         assert(cgroup);
         assert(unit);
 
-        r = instance_unit_from_cgroup(cgroup);
-        if (r < 0)
-                return r;
+        e = strchrnul(cgroup, '/');
+        c = strndupa(cgroup, e - cgroup);
 
-        p = strrchr(cgroup, '/');
-        assert(p);
-
-        r = unit_name_is_valid(p + 1, true);
-        if (!r)
+        /* Could this be a valid unit name? */
+        if (!unit_name_is_valid(c, true))
                 return -EINVAL;
 
-        *unit = strdup(p + 1);
-        if (!*unit)
+        if (!unit_name_is_template(c))
+                s = strdup(c);
+        else {
+                if (*e != '/')
+                        return -EINVAL;
+
+                e += strspn(e, "/");
+                p = strchrnul(e, '/');
+
+                /* Don't allow empty instance strings */
+                if (p == e)
+                        return -EINVAL;
+
+                k = strndupa(e, p - e);
+
+                s = unit_name_replace_instance(c, k);
+        }
+
+        if (!s)
                 return -ENOMEM;
 
+        *unit = s;
         return 0;
 }
 
-static int cg_pid_get(const char *prefix, pid_t pid, char **unit) {
-        int r;
-        char _cleanup_free_ *cgroup = NULL;
+int cg_path_get_unit(const char *path, char **unit) {
+        const char *e;
 
-        assert(pid >= 0);
+        assert(path);
+        assert(unit);
+
+        e = path_startswith(path, "/system/");
+        if (!e)
+                return -ENOENT;
+
+        return cg_cgroup_to_unit(e, unit);
+}
+
+int cg_pid_get_unit(pid_t pid, char **unit) {
+        char _cleanup_free_ *cgroup = NULL;
+        int r;
+
         assert(unit);
 
         r = cg_pid_get_cgroup(pid, NULL, &cgroup);
         if (r < 0)
                 return r;
 
-        if (!startswith(cgroup, prefix))
-                return -ENOENT;
-
-        r = cgroup_to_unit(cgroup, unit);
-        return r;
+        return cg_path_get_unit(cgroup, unit);
 }
 
-int cg_pid_get_unit(pid_t pid, char **unit) {
-        return cg_pid_get("/system/", pid, unit);
+static const char *skip_label(const char *e) {
+        assert(e);
+
+        e += strspn(e, "/");
+        e = strchr(e, '/');
+        if (!e)
+                return NULL;
+
+        e += strspn(e, "/");
+        return e;
+}
+
+int cg_path_get_user_unit(const char *path, char **unit) {
+        const char *e;
+
+        assert(path);
+        assert(unit);
+
+        /* We always have to parse the path from the beginning as unit
+         * cgroups might have arbitrary child cgroups and we shouldn't get
+         * confused by those */
+
+        e = path_startswith(path, "/user/");
+        if (!e)
+                return -ENOENT;
+
+        /* Skip the user name */
+        e = skip_label(e);
+        if (!e)
+                return -ENOENT;
+
+        /* Skip the session ID */
+        e = skip_label(e);
+        if (!e)
+                return -ENOENT;
+
+        /* Skip the systemd cgroup */
+        e = skip_label(e);
+        if (!e)
+                return -ENOENT;
+
+        return cg_cgroup_to_unit(e, unit);
 }
 
 int cg_pid_get_user_unit(pid_t pid, char **unit) {
-        return cg_pid_get("/user/", pid, unit);
+        char _cleanup_free_ *cgroup = NULL;
+        int r;
+
+        assert(unit);
+
+        r = cg_pid_get_cgroup(pid, NULL, &cgroup);
+        if (r < 0)
+                return r;
+
+        return cg_path_get_user_unit(cgroup, unit);
 }
 
 int cg_controller_from_attr(const char *attr, char **controller) {
