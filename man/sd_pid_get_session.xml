@@ -45,6 +45,7 @@
         <refnamediv>
                 <refname>sd_pid_get_session</refname>
                 <refname>sd_pid_get_unit</refname>
+                <refname>sd_pid_get_user_unit</refname>
                 <refname>sd_pid_get_owner_uid</refname>
                 <refpurpose>Determine session, service or owner of a session of a specific PID</refpurpose>
         </refnamediv>
@@ -61,6 +62,12 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_pid_get_unit</function></funcdef>
+                                <paramdef>pid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>char** <parameter>unit</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_pid_get_user_unit</function></funcdef>
                                 <paramdef>pid_t <parameter>pid</parameter></paramdef>
                                 <paramdef>char** <parameter>unit</parameter></paramdef>
                         </funcprototype>
@@ -91,17 +98,27 @@
                 call after use.</para>
 
                 <para><function>sd_pid_get_unit()</function> may be
-                used to determine the systemd unit (i.e. system
+                used to determine the systemd system unit (i.e. system
                 service) identifier of a process identified by the
-                specified process identifier. The unit name is a short
-                string, suitable for usage in file system paths. Note
-                that not all processes are part of a unit/service
+                specified PID. The unit name is a short string,
+                suitable for usage in file system paths. Note that not
+                all processes are part of a system unit/service
                 (e.g. user processes, or kernel threads). For
-                processes not being part of a systemd unit/system
-                service this function will fail. The returned string
-                needs to be freed with the libc
+                processes not being part of a systemd system unit this
+                function will fail. (More specifically: this call will
+                not work for processes that are part of user units,
+                use <function>sd_pid_get_user_unit()</function> for
+                that.)  The returned string needs to be freed with the
+                libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
+
+                <para><function>sd_pid_get_user_unit()</function> may
+                be used to determine the systemd user unit (i.e. user
+                service) identifier of a process identified by the
+                specified PID. This is similar to
+                <function>sd_pid_get_unit()</function> but applies to
+                user units instead of system units.</para>
 
                 <para><function>sd_pid_get_owner_uid()</function> may
                 be used to determine the Unix user identifier of the
@@ -131,7 +148,8 @@
                 <title>Notes</title>
 
                 <para>The <function>sd_pid_get_session()</function>,
-                <function>sd_pid_get_pid()</function>, and
+                <function>sd_pid_get_unit()</function>,
+                <function>sd_pid_get_user_unit()</function>, and
                 <function>sd_pid_get_owner_uid()</function> interfaces
                 are available as shared library, which can be compiled
                 and linked to with the

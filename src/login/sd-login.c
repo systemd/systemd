@@ -84,6 +84,17 @@ _public_ int sd_pid_get_unit(pid_t pid, char **unit) {
         return cg_pid_get_unit(pid, unit);
 }
 
+_public_ int sd_pid_get_user_unit(pid_t pid, char **unit) {
+
+        if (pid < 0)
+                return -EINVAL;
+
+        if (!unit)
+                return -EINVAL;
+
+        return cg_pid_get_user_unit(pid, unit);
+}
+
 _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         int r;
         char *root, *cgroup, *p, *cc;
