@@ -63,7 +63,7 @@ struct kdbus_timestamp {
 #define KDBUS_MATCH_SRC_ID_ANY		(~0ULL)
 #define KDBUS_DST_ID_BROADCAST		(~0ULL)
 
-/* Message Data Types */
+/* Message Item Types */
 enum {
 	/* Filled in by userspace */
 	KDBUS_MSG_NULL,			/* empty record */
@@ -103,12 +103,12 @@ struct kdbus_vec {
 };
 
 /**
- * struct  kdbus_msg_data - chain of data blocks
+ * struct  kdbus_msg_item - chain of data blocks
  *
  * size: overall data record size
- * type: kdbus_msg_data_type of data
+ * type: kdbus_msg_item type of data
  */
-struct kdbus_msg_data {
+struct kdbus_msg_item {
 	__u64 size;
 	__u64 type;
 	union {
@@ -148,8 +148,7 @@ enum {
  * set by userspace:
  * dst_id: destination id
  * flags: KDBUS_MSG_FLAGS_*
- * data_size: overall message size
- * data: data records
+ * items: data records
  *
  * set by kernel:
  * src_id: who sent the message
@@ -165,7 +164,7 @@ struct kdbus_msg {
 		__u64 cookie_reply;	/* cookie we reply to */
 		__u64 timeout_ns;	/* timespan to wait for reply */
 	};
-	struct kdbus_msg_data items[0];
+	struct kdbus_msg_item items[0];
 };
 
 enum {

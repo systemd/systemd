@@ -35,7 +35,7 @@
 #define KDBUS_FOREACH_ITEM(i, k)                                        \
         for ((i) = (k)->items;                                          \
              (uint8_t*) (i) < (uint8_t*) (k) + (k)->size;               \
-             (i) = (struct kdbus_msg_data*) ((uint8_t*) (i) + ALIGN8((i)->size)))
+             (i) = (struct kdbus_msg_item *) ((uint8_t*) (i) + ALIGN8((i)->size)))
 
 static int parse_unique_name(const char *s, uint64_t *id) {
         int r;
@@ -53,46 +53,46 @@ static int parse_unique_name(const char *s, uint64_t *id) {
         return 1;
 }
 
-static void append_payload_vec(struct kdbus_msg_data **d, const void *p, size_t sz) {
+static void append_payload_vec(struct kdbus_msg_item **d, const void *p, size_t sz) {
         assert(d);
         assert(p);
         assert(sz > 0);
 
         *d = ALIGN8_PTR(*d);
 
-        (*d)->size = offsetof(struct kdbus_msg_data, vec) + sizeof(struct kdbus_vec);
+        (*d)->size = offsetof(struct kdbus_msg_item, vec) + sizeof(struct kdbus_vec);
         (*d)->type = KDBUS_MSG_PAYLOAD_VEC;
         (*d)->vec.address = (uint64_t) p;
         (*d)->vec.size = sz;
 
-        *d = (struct kdbus_msg_data*) ((uint8_t*) *d + (*d)->size);
+        *d = (struct kdbus_msg_item *) ((uint8_t*) *d + (*d)->size);
 }
 
-static void append_destination(struct kdbus_msg_data **d, const char *s, size_t length) {
+static void append_destination(struct kdbus_msg_item **d, const char *s, size_t length) {
         assert(d);
         assert(s);
 
         *d = ALIGN8_PTR(*d);
 
-        (*d)->size = offsetof(struct kdbus_msg_data, str) + length + 1;
+        (*d)->size = offsetof(struct kdbus_msg_item, str) + length + 1;
         (*d)->type = KDBUS_MSG_DST_NAME;
         memcpy((*d)->str, s, length + 1);
 
-        *d = (struct kdbus_msg_data*) ((uint8_t*) *d + (*d)->size);
+        *d = (struct kdbus_msg_item *) ((uint8_t*) *d + (*d)->size);
 }
 
-static void* append_bloom(struct kdbus_msg_data **d, size_t length) {
+static void* append_bloom(struct kdbus_msg_item **d, size_t length) {
         void *r;
 
         assert(d);
 
         *d = ALIGN8_PTR(*d);
 
-        (*d)->size = offsetof(struct kdbus_msg_data, data) + length;
+        (*d)->size = offsetof(struct kdbus_msg_item, data) + length;
         (*d)->type = KDBUS_MSG_BLOOM;
         r = (*d)->data;
 
-        *d = (struct kdbus_msg_data*) ((uint8_t*) *d + (*d)->size);
+        *d = (struct kdbus_msg_item *) ((uint8_t*) *d + (*d)->size);
 
         return r;
 }
@@ -161,7 +161,7 @@ static int bus_message_setup_bloom(sd_bus_message *m, void *bloom) {
 }
 
 static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
-        struct kdbus_msg_data *d;
+        struct kdbus_msg_item *d;
         bool well_known;
         uint64_t unique;
         size_t sz, dl;
@@ -186,15 +186,15 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         sz = offsetof(struct kdbus_msg, items);
 
         /* Add in fixed header, fields header and payload */
-        sz += 3 * ALIGN8(offsetof(struct kdbus_msg_data, vec) + sizeof(struct kdbus_vec));
+        sz += 3 * ALIGN8(offsetof(struct kdbus_msg_item, vec) + sizeof(struct kdbus_vec));
 
         /* Add space for bloom filter */
-        sz += ALIGN8(offsetof(struct kdbus_msg_data, data) + BLOOM_SIZE);
+        sz += ALIGN8(offsetof(struct kdbus_msg_item, data) + BLOOM_SIZE);
 
         /* Add in well-known destination header */
         if (well_known) {
                 dl = strlen(m->destination);
-                sz += ALIGN8(offsetof(struct kdbus_msg_data, str) + dl + 1);
+                sz += ALIGN8(offsetof(struct kdbus_msg_item, str) + dl + 1);
         }
 
         m->kdbus = aligned_alloc(8, sz);
@@ -331,20 +331,20 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
 }
 
 static void close_kdbus_msg(struct kdbus_msg *k) {
-        struct kdbus_msg_data *d;
+        struct kdbus_msg_item *d;
 
         KDBUS_FOREACH_ITEM(d, k) {
 
                 if (d->type != KDBUS_MSG_UNIX_FDS)
                         continue;
 
-                close_many(d->fds, (d->size - offsetof(struct kdbus_msg_data, fds)) / sizeof(int));
+                close_many(d->fds, (d->size - offsetof(struct kdbus_msg_item, fds)) / sizeof(int));
         }
 }
 
 static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_message **ret) {
         sd_bus_message *m = NULL;
-        struct kdbus_msg_data *d;
+        struct kdbus_msg_item *d;
         unsigned n_payload = 0, n_fds = 0;
         _cleanup_free_ int *fds = NULL;
         struct bus_header *h = NULL;
@@ -362,7 +362,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         KDBUS_FOREACH_ITEM(d, k) {
                 size_t l;
 
-                l = d->size - offsetof(struct kdbus_msg_data, data);
+                l = d->size - offsetof(struct kdbus_msg_item, data);
 
                 if (d->type == KDBUS_MSG_PAYLOAD) {
 
@@ -412,7 +412,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         KDBUS_FOREACH_ITEM(d, k) {
                 size_t l;
 
-                l = d->size - offsetof(struct kdbus_msg_data, data);
+                l = d->size - offsetof(struct kdbus_msg_item, data);
 
                 if (d->type == KDBUS_MSG_PAYLOAD) {
 
