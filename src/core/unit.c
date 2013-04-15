@@ -1456,7 +1456,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 if (ns != os && ns == UNIT_FAILED) {
                         log_struct_unit(LOG_NOTICE,
                                    u->id,
-                                   "MESSAGE=Unit %s entered failed state", u->id,
+                                   "MESSAGE=Unit %s entered failed state.", u->id,
                                    NULL);
                         unit_trigger_on_failure(u);
                 }
