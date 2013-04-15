@@ -1726,7 +1726,7 @@ int main(int argc, char *argv[]) {
 
         /* Always create the directories people can create inotify
          * watches in. Note that some applications might check for the
-         * existance of /run/systemd/seats/ to determine whether
+         * existence of /run/systemd/seats/ to determine whether
          * logind is available, so please always make sure this check
          * stays in. */
         mkdir_label("/run/systemd/seats", 0755);

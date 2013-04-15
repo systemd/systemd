@@ -4494,7 +4494,7 @@ static int systemctl_help(void) {
                "     --fail           When queueing a new job, fail if conflicting jobs are\n"
                "                      pending\n"
                "     --irreversible   Create jobs which cannot be implicitly cancelled\n"
-               "     --show-types     When showing sockets, explictly show their type\n"
+               "     --show-types     When showing sockets, explicitly show their type\n"
                "     --ignore-dependencies\n"
                "                      When queueing a new job, ignore all its dependencies\n"
                "  -i --ignore-inhibitors\n"
@@ -4794,7 +4794,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         continue;
                                 }
 
-                                log_error("Unkown unit type or load state '%s'.", type);
+                                log_error("Unknown unit type or load state '%s'.", type);
                                 log_info("Use -t help to see a list of allowed values.");
                                 return -EINVAL;
                         }

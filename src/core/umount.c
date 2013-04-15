@@ -418,7 +418,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                          *
                          * Mount points can be stacked. If a mount
                          * point is stacked below / or /usr, we
-                         * cannnot umount or remount it directly,
+                         * cannot umount or remount it directly,
                          * since there is no way to refer to the
                          * underlying mount. There's nothing we can do
                          * about it for the general case, but we can

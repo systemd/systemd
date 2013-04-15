@@ -1518,7 +1518,7 @@ if ($list[0]) {
         }
 }
 
-print "$error errors occured\n\n";
+print "$error errors occurred\n\n";
 
 # cleanup
 system("rm", "-rf", "$udev_dev");

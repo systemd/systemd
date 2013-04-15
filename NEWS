@@ -136,7 +136,7 @@ CHANGES WITH 199:
         * The udev daemon now sets the default number of worker
           processes executed in parallel based on the number of available
           CPUs instead of the amount of available RAM. This is supposed
-          to provide a more reliable default and limit a too agressive
+          to provide a more reliable default and limit a too aggressive
           paralellism for setups with 1000s of devices connected.
 
         Contributions from: Auke Kok, Colin Walters, Cristian
@@ -592,7 +592,7 @@ CHANGES WITH 196:
           the underlying file system of a journal file is capable of
           properly reporting file change notifications, or whether
           applications that want to reflect journal changes "live"
-          need to recheck journal files continously in appropriate
+          need to recheck journal files continuously in appropriate
           time intervals.
 
         * It is now possible to set the "age" field for tmpfiles
@@ -925,7 +925,7 @@ CHANGES WITH 190:
         * There's now a new RPM macro definition for the system preset
           dir: %_presetdir.
 
-        * journald will now warn if it can't foward a message to the
+        * journald will now warn if it can't forward a message to the
           syslog daemon because it's socket is full.
 
         * timedated will no longer write or process /etc/timezone,
@@ -1060,7 +1060,7 @@ CHANGES WITH 188:
           the maximum number of iterations to run for. It also gained
           -b, to run in batch mode (accepting no input).
 
-        * The suffix ".service" may now be ommited on most systemctl
+        * The suffix ".service" may now be omitted on most systemctl
           command lines involving service unit names.
 
         * There's a new bus call in logind to lock all sessions, as
@@ -1549,7 +1549,7 @@ CHANGES WITH 44:
 
         * Show /etc/os-release data in systemd-analyze output
 
-        * Many bugfixes for the journal, including endianess fixes and
+        * Many bugfixes for the journal, including endianness fixes and
           ensuring that disk space enforcement works
 
         * sd-login.h is C++ comptaible again

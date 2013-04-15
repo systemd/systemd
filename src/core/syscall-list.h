@@ -24,7 +24,7 @@
 
 #if defined __x86_64__ && defined __ILP32__
 /* The x32 ABI defines all of its syscalls with bit 30 set, which causes
-   issues when attempting to use syscalls as simple indicies into an array.
+   issues when attempting to use syscalls as simple indices into an array.
    Instead, use the syscall id & ~SYSCALL_MASK as the index, and | the
    internal id with the syscall mask as needed.
 */

@@ -155,7 +155,7 @@
                                 this option is changed, and make sure
                                 the new configuration file is included
                                 in it. Otherwise the initrd might
-                                mount the controller hierachies in a
+                                mount the controller hierarchies in a
                                 different configuration than intended,
                                 and the main system cannot remount
                                 them anymore.</para></listitem>

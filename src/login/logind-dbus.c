@@ -66,7 +66,7 @@
         "  <method name=\"CreateSession\">\n"                           \
         "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
         "   <arg name=\"leader\" type=\"u\" direction=\"in\"/>\n"       \
-        "   <arg name=\"sevice\" type=\"s\" direction=\"in\"/>\n"       \
+        "   <arg name=\"service\" type=\"s\" direction=\"in\"/>\n"      \
         "   <arg name=\"type\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"class\" type=\"s\" direction=\"in\"/>\n"        \
         "   <arg name=\"seat\" type=\"s\" direction=\"in\"/>\n"         \

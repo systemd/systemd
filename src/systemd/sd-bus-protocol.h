@@ -66,7 +66,7 @@ enum {
         SD_BUS_TYPE_DICT_ENTRY_END   = '}',
 };
 
-/* Endianess */
+/* Endianness */
 
 enum {
         _SD_BUS_INVALID_ENDIAN = 0,

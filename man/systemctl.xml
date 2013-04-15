@@ -755,7 +755,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         unit name, plus a control group specification in the syntax
         <replaceable>CONTROLLER</replaceable>:<replaceable>PATH</replaceable>
         or <replaceable>CONTROLLER</replaceable>. In the latter syntax
-        (where the path is ommitted) the default unit control group
+        (where the path is omitted) the default unit control group
         path is implied. Examples: <literal>cpu</literal> or
         <literal>cpu:/foo/bar</literal>. If a unit is removed from a
         control group hierarchy all its processes will be moved to the

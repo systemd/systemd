@@ -26,7 +26,7 @@
 #include "strbuf.h"
 
 /*
- * Strbuf stores given strings in a single continous allocated memory
+ * Strbuf stores given strings in a single continuous allocated memory
  * area. Identical strings are de-duplicated and return the same offset
  * as the first string stored. If the tail of a string already exists
  * in the buffer, the tail is returned.

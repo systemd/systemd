@@ -108,7 +108,7 @@
                 comparing cursors is not possible. Use this call to
                 verify after an invocation of
                 <citerefentry><refentrytitle>sd_journal_seek_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                whether the entry being seeked to was actually found
+                whether the entry being sought to was actually found
                 in the journal or the next closest entry was used
                 instead.</para>
         </refsect1>

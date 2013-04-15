@@ -380,7 +380,7 @@
 
                 <para>Note: the paths listed above are set at
                 compilation time and differ between distributions. The
-                "authorative" list is printed by
+                "authoritative" list is printed by
                 <command>systemd</command> at during start and daemon
                 reconfiguration.</para>
 

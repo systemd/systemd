@@ -55,7 +55,7 @@ struct udev_rules {
         unsigned int token_cur;
         unsigned int token_max;
 
-        /* all key strings are copied and de-duplicated in a single continous string buffer */
+        /* all key strings are copied and de-duplicated in a single continuous string buffer */
         struct strbuf *strbuf;
 
         /* during rule parsing, uid/gid lookup results are cached */
