@@ -38,6 +38,9 @@ Fedora 19:
 
 Features:
 
+* explicitly disallow changing the cgroup path of units in the
+  name=systemd hierarchy, unless it is outside of /system
+
 * add 'set -e' to scripts in test/
 * make test in test/ work with separate output dir
 
