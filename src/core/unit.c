@@ -914,8 +914,8 @@ int unit_load(Unit *u) {
         if (u->on_failure_isolate &&
             set_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
 
-                log_error("More than one OnFailure= dependencies specified for %s but OnFailureIsolate= enabled. Refusing.",
-                          u->id);
+                log_error_unit(u->id,
+                               "More than one OnFailure= dependencies specified for %s but OnFailureIsolate= enabled. Refusing.", u->id);
 
                 r = -EINVAL;
                 goto fail;
@@ -934,7 +934,8 @@ fail:
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
 
-        log_debug("Failed to load configuration for %s: %s", u->id, strerror(-r));
+        log_debug_unit(u->id, "Failed to load configuration for %s: %s",
+                       u->id, strerror(-r));
 
         return r;
 }
@@ -1031,10 +1032,10 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
                                SD_MESSAGE_UNIT_RELOADING;
 
         log_struct_unit(LOG_INFO,
-                   u->id,
-                   MESSAGE_ID(mid),
-                   "MESSAGE=%s", buf,
-                   NULL);
+                        u->id,
+                        MESSAGE_ID(mid),
+                        "MESSAGE=%s", buf,
+                        NULL);
 }
 #pragma GCC diagnostic pop
 
@@ -1067,13 +1068,14 @@ int unit_start(Unit *u) {
          * but we don't want to recheck the condition in that case. */
         if (state != UNIT_ACTIVATING &&
             !unit_condition_test(u)) {
-                log_debug("Starting of %s requested but condition failed. Ignoring.", u->id);
+                log_debug_unit(u->id, "Starting of %s requested but condition failed. Ignoring.", u->id);
                 return -EALREADY;
         }
 
         /* Forward to the main object, if we aren't it. */
         if ((following = unit_following(u))) {
-                log_debug("Redirecting start request from %s to %s.", u->id, following->id);
+                log_debug_unit(u->id, "Redirecting start request from %s to %s.",
+                               u->id, following->id);
                 return unit_start(following);
         }
 
@@ -1124,7 +1126,8 @@ int unit_stop(Unit *u) {
                 return -EALREADY;
 
         if ((following = unit_following(u))) {
-                log_debug("Redirecting stop request from %s to %s.", u->id, following->id);
+                log_debug_unit(u->id, "Redirecting stop request from %s to %s.",
+                               u->id, following->id);
                 return unit_stop(following);
         }
 
@@ -1164,7 +1167,8 @@ int unit_reload(Unit *u) {
                 return -ENOEXEC;
 
         if ((following = unit_following(u))) {
-                log_debug("Redirecting reload request from %s to %s.", u->id, following->id);
+                log_debug_unit(u->id, "Redirecting reload request from %s to %s.",
+                               u->id, following->id);
                 return unit_reload(following);
         }
 
@@ -1217,7 +1221,7 @@ static void unit_check_unneeded(Unit *u) {
                 if (unit_pending_active(other))
                         return;
 
-        log_info("Service %s is not needed anymore. Stopping.", u->id);
+        log_info_unit(u->id, "Service %s is not needed anymore. Stopping.", u->id);
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
         manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
@@ -1309,13 +1313,14 @@ void unit_trigger_on_failure(Unit *u) {
         if (set_size(u->dependencies[UNIT_ON_FAILURE]) <= 0)
                 return;
 
-        log_info("Triggering OnFailure= dependencies of %s.", u->id);
+        log_info_unit(u->id, "Triggering OnFailure= dependencies of %s.", u->id);
 
         SET_FOREACH(other, u->dependencies[UNIT_ON_FAILURE], i) {
                 int r;
 
-                if ((r = manager_add_job(u->manager, JOB_START, other, u->on_failure_isolate ? JOB_ISOLATE : JOB_REPLACE, true, NULL, NULL)) < 0)
-                        log_error("Failed to enqueue OnFailure= job: %s", strerror(-r));
+                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_isolate ? JOB_ISOLATE : JOB_REPLACE, true, NULL, NULL);
+                if (r < 0)
+                        log_error_unit(u->id, "Failed to enqueue OnFailure= job: %s", strerror(-r));
         }
 }
 
@@ -1454,10 +1459,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         check_unneeded_dependencies(u);
 
                 if (ns != os && ns == UNIT_FAILED) {
-                        log_struct_unit(LOG_NOTICE,
-                                   u->id,
-                                   "MESSAGE=Unit %s entered failed state.", u->id,
-                                   NULL);
+                        log_notice_unit(u->id,
+                                        "MESSAGE=Unit %s entered failed state.", u->id);
                         unit_trigger_on_failure(u);
                 }
         }

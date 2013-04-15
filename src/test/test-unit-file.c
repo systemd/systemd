@@ -352,6 +352,9 @@ static void test_install_printf(void) {
 
 int main(int argc, char *argv[]) {
 
+        log_parse_environment();
+        log_open();
+
         test_unit_file_get_set();
         test_config_parse_exec();
         test_load_env_file_1();
