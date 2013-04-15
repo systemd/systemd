@@ -341,140 +341,40 @@ int config_parse(
         return 0;
 }
 
-int config_parse_int(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        int *i = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atoi(rvalue, i);
-        if (r < 0) {
-                log_error("[%s:%u] Failed to parse numeric value, ingoring: %s", filename, line, rvalue);
-                return 0;
+#define DEFINE_PARSER(type, vartype, conv_func)                         \
+        int config_parse_##type(const char *filename,                   \
+                                unsigned line,                          \
+                                const char *section,                    \
+                                const char *lvalue,                     \
+                                int ltype,                              \
+                                const char *rvalue,                     \
+                                void *data,                             \
+                                void *userdata) {                       \
+                                                                        \
+                vartype *i = data;                                      \
+                int r;                                                  \
+                                                                        \
+                assert(filename);                                       \
+                assert(lvalue);                                         \
+                assert(rvalue);                                         \
+                assert(data);                                           \
+                                                                        \
+                r = conv_func(rvalue, i);                               \
+                if (r < 0)                                              \
+                        log_error("[%s:%u] Failed to parse %s value, ignoring: %s", \
+                                  filename, line, #vartype, rvalue);    \
+                                                                        \
+                return 0;                                               \
         }
 
-        return 0;
-}
+DEFINE_PARSER(int, int, safe_atoi)
+DEFINE_PARSER(long, long, safe_atoli)
+DEFINE_PARSER(uint64, uint64_t, safe_atou64)
+DEFINE_PARSER(unsigned, unsigned, safe_atou)
+DEFINE_PARSER(double, double, safe_atod)
+DEFINE_PARSER(nsec, nsec_t, parse_nsec)
+DEFINE_PARSER(sec, usec_t, parse_sec)
 
-int config_parse_long(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        long *i = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atoli(rvalue, i);
-        if (r < 0) {
-                log_error("[%s:%u] Failed to parse numeric value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-int config_parse_uint64(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint64_t *u = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atou64(rvalue, u);
-        if (r < 0) {
-                log_error("[%s:%u] Failed to parse numeric value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-int config_parse_unsigned(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        unsigned *u = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atou(rvalue, u);
-        if (r < 0) {
-                log_error("[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
-                return r;
-        }
-
-        return 0;
-}
-
-int config_parse_double(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        double *d = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atod(rvalue, d);
-        if (r < 0) {
-                log_error("[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
-                return r;
-        }
-
-        return 0;
-}
 
 int config_parse_bytes_size(
                 const char *filename,
@@ -769,56 +669,6 @@ int config_parse_path_strv(
                 r = strv_extend(sv, n);
                 if (r < 0)
                         return log_oom();
-        }
-
-        return 0;
-}
-
-int config_parse_sec(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        usec_t *usec = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (parse_sec(rvalue, usec) < 0) {
-                log_error("[%s:%u] Failed to parse time value, ignoring: %s", filename, line, rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-int config_parse_nsec(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        nsec_t *nsec = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (parse_nsec(rvalue, nsec) < 0) {
-                log_error("[%s:%u] Failed to parse time value, ignoring: %s", filename, line, rvalue);
-                return 0;
         }
 
         return 0;
