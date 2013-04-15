@@ -40,7 +40,7 @@ int cgroup_bonding_realize(CGroupBonding *b) {
         assert(b->path);
         assert(b->controller);
 
-        r = cg_create(b->controller, b->path);
+        r = cg_create(b->controller, b->path, NULL);
         if (r < 0) {
                 log_warning("Failed to create cgroup %s:%s: %s", b->controller, b->path, strerror(-r));
                 return r;
@@ -319,9 +319,9 @@ int cgroup_bonding_is_empty_list(CGroupBonding *first) {
 }
 
 int manager_setup_cgroup(Manager *m) {
-        char *current = NULL, *path = NULL;
+        _cleanup_free_ char *current = NULL, *path = NULL;
         int r;
-        char suffix[32];
+        char suffix[sizeof("/systemd-") + DECIMAL_STR_MAX(pid_t)];
 
         assert(m);
 
@@ -335,7 +335,7 @@ int manager_setup_cgroup(Manager *m) {
         r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &current);
         if (r < 0) {
                 log_error("Cannot determine cgroup we are running in: %s", strerror(-r));
-                goto finish;
+                return r;
         }
 
         if (m->running_as == SYSTEMD_SYSTEM)
@@ -354,35 +354,35 @@ int manager_setup_cgroup(Manager *m) {
         } else {
                 /* We need a new root cgroup */
                 m->cgroup_hierarchy = NULL;
-                if (asprintf(&m->cgroup_hierarchy, "%s%s", streq(current, "/") ? "" : current, suffix) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (asprintf(&m->cgroup_hierarchy, "%s%s", streq(current, "/") ? "" : current, suffix) < 0)
+                        return log_oom();
         }
 
         /* 2. Show data */
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, NULL, &path);
         if (r < 0) {
                 log_error("Cannot find cgroup mount point: %s", strerror(-r));
-                goto finish;
+                return r;
         }
 
         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
 
         /* 3. Install agent */
-        r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
-        if (r < 0)
-                log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
-        else if (r > 0)
-                log_debug("Installed release agent.");
-        else
-                log_debug("Release agent already installed.");
+        if (m->running_as == SYSTEMD_SYSTEM) {
+                r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
+                if (r < 0)
+                        log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
+                else if (r > 0)
+                        log_debug("Installed release agent.");
+                else
+                        log_debug("Release agent already installed.");
+        }
 
         /* 4. Realize the group */
         r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, 0);
         if (r < 0) {
                 log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
-                goto finish;
+                return r;
         }
 
         /* 5. And pin it, so that it cannot be unmounted */
@@ -392,19 +392,21 @@ int manager_setup_cgroup(Manager *m) {
         m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
         if (r < 0) {
                 log_error("Failed to open pin file: %m");
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
-        log_debug("Created root group.");
-
+        /* 6. Remove non-existing controllers from the default controllers list */
         cg_shorten_controllers(m->default_controllers);
 
-finish:
-        free(current);
-        free(path);
+        /* 7. Let's create the user and machine hierarchies
+         * right-away, so that people can inotify on them, if they
+         * wish, without this being racy. */
+        if (m->running_as == SYSTEMD_SYSTEM) {
+                cg_create(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, "../user");
+                cg_create(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, "../machine");
+        }
 
-        return r;
+        return 0;
 }
 
 void manager_shutdown_cgroup(Manager *m, bool delete) {

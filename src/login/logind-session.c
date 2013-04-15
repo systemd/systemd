@@ -442,9 +442,9 @@ static int session_create_one_group(Session *s, const char *controller, const ch
         if (s->leader > 0) {
                 r = cg_create_and_attach(controller, path, s->leader);
                 if (r < 0)
-                        r = cg_create(controller, path);
+                        r = cg_create(controller, path, NULL);
         } else
-                r = cg_create(controller, path);
+                r = cg_create(controller, path, NULL);
 
         if (r < 0)
                 return r;

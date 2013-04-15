@@ -36,14 +36,14 @@
 #include "util.h"
 #include "mkdir.h"
 
-int cg_create(const char *controller, const char *path) {
+int cg_create(const char *controller, const char *path, const char *suffix) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
         assert(controller);
         assert(path);
 
-        r = cg_get_path_and_check(controller, path, NULL, &fs);
+        r = cg_get_path_and_check(controller, path, suffix, &fs);
         if (r < 0)
                 return r;
 
@@ -69,7 +69,7 @@ int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
         assert(path);
         assert(pid >= 0);
 
-        r = cg_create(controller, path);
+        r = cg_create(controller, path, NULL);
         if (r < 0)
                 return r;
 
