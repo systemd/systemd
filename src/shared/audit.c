@@ -34,6 +34,7 @@
 #include "util.h"
 #include "log.h"
 #include "fileio.h"
+#include "virt.h"
 
 int audit_session_from_pid(pid_t pid, uint32_t *id) {
         char *s;
@@ -44,6 +45,10 @@ int audit_session_from_pid(pid_t pid, uint32_t *id) {
 
         if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
                 return -ENOENT;
+
+        /* Audit doesn't support containers right now */
+        if (detect_container(NULL) > 0)
+                return -ENOTSUP;
 
         if (pid == 0)
                 r = read_one_line_file("/proc/self/sessionid", &s);
@@ -89,6 +94,10 @@ int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
 
         if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
                 return -ENOENT;
+
+        /* Audit doesn't support containers right now */
+        if (detect_container(NULL) > 0)
+                return -ENOTSUP;
 
         if (pid == 0)
                 r = read_one_line_file("/proc/self/loginuid", &s);
