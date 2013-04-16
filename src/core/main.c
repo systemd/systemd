@@ -421,77 +421,30 @@ static int parse_proc_cmdline_word(const char *word) {
         return 0;
 }
 
-static int config_parse_level2(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        log_set_max_level_from_string(rvalue);
-        return 0;
+#define DEFINE_SETTER(name, func)                       \
+        static int name(                                \
+                        const char *filename,           \
+                        unsigned line,                  \
+                        const char *section,            \
+                        const char *lvalue,             \
+                        int ltype,                      \
+                        const char *rvalue,             \
+                        void *data,                     \
+                        void *userdata) {               \
+                                                        \
+                assert(filename);                       \
+                assert(lvalue);                         \
+                assert(rvalue);                         \
+                                                        \
+                func(rvalue);                           \
+                return 0;                               \
 }
 
-static int config_parse_target(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+DEFINE_SETTER(config_parse_level2, log_set_max_level_from_string)
+DEFINE_SETTER(config_parse_target, log_set_target_from_string)
+DEFINE_SETTER(config_parse_color, log_show_color_from_string)
+DEFINE_SETTER(config_parse_location, log_show_location_from_string)
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        log_set_target_from_string(rvalue);
-        return 0;
-}
-
-static int config_parse_color(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        log_show_color_from_string(rvalue);
-        return 0;
-}
-
-static int config_parse_location(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        log_show_location_from_string(rvalue);
-        return 0;
-}
 
 static int config_parse_cpu_affinity2(
                 const char *filename,
