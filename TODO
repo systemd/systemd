@@ -38,6 +38,8 @@ Fedora 19:
 
 Features:
 
+* move session owner code from sd-login.c to cgroup-util.c
+
 * decimal_str_max() should become a type-safe macro
 
 * show-cgroup.c uses its own ulog10 implementation

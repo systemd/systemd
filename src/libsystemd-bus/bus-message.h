@@ -115,6 +115,10 @@ struct sd_bus_message {
         const char *cmdline;
         size_t cmdline_length;
         char **cmdline_array;
+
+        char *session;
+        char *unit;
+        char *user_unit;
 };
 
 #define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_NATIVE_ENDIAN)

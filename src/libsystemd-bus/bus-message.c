@@ -26,6 +26,7 @@
 #include "utf8.h"
 #include "strv.h"
 #include "time-util.h"
+#include "cgroup-util.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -76,6 +77,10 @@ static void message_free(sd_bus_message *m) {
         free(m->root_container.signature);
 
         free(m->peeked_signature);
+
+        free(m->unit);
+        free(m->user_unit);
+        free(m->session);
         free(m);
 }
 
@@ -793,6 +798,66 @@ int sd_bus_message_get_cgroup(sd_bus_message *m, const char **ret) {
                 return -ESRCH;
 
         *ret = m->cgroup;
+        return 0;
+}
+
+int sd_bus_message_get_unit(sd_bus_message *m, const char **ret) {
+        int r;
+
+        if (!m)
+                return -EINVAL;
+        if (!ret)
+                return -EINVAL;
+        if (!m->cgroup)
+                return -ESRCH;
+
+        if (!m->unit) {
+                r = cg_path_get_unit(m->cgroup, &m->unit);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = m->unit;
+        return 0;
+}
+
+int sd_bus_message_get_user_unit(sd_bus_message *m, const char **ret) {
+        int r;
+
+        if (!m)
+                return -EINVAL;
+        if (!ret)
+                return -EINVAL;
+        if (!m->cgroup)
+                return -ESRCH;
+
+        if (!m->user_unit) {
+                r = cg_path_get_user_unit(m->cgroup, &m->user_unit);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = m->user_unit;
+        return 0;
+}
+
+int sd_bus_message_get_session(sd_bus_message *m, const char **ret) {
+        int r;
+
+        if (!m)
+                return -EINVAL;
+        if (!ret)
+                return -EINVAL;
+        if (!m->cgroup)
+                return -ESRCH;
+
+        if (!m->session) {
+                r = cg_path_get_session(m->cgroup, &m->session);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = m->session;
         return 0;
 }
 
@@ -3004,6 +3069,7 @@ int sd_bus_message_set_destination(sd_bus_message *m, const char *destination) {
 }
 
 int bus_message_dump(sd_bus_message *m) {
+        const char *u = NULL, *uu = NULL, *s = NULL;
         char **cmdline = NULL;
         unsigned level = 1;
         int r;
@@ -3073,6 +3139,16 @@ int bus_message_dump(sd_bus_message *m) {
                 printf("\tlabel=[%s]\n", m->label);
         if (m->cgroup)
                 printf("\tcgroup=[%s]\n", m->cgroup);
+
+        sd_bus_message_get_unit(m, &u);
+        if (u)
+                printf("\tunit=[%s]\n", u);
+        sd_bus_message_get_user_unit(m, &uu);
+        if (uu)
+                printf("\tuser_unit=[%s]\n", uu);
+        sd_bus_message_get_session(m, &s);
+        if (s)
+                printf("\tsession=[%s]\n", s);
 
         if (sd_bus_message_get_cmdline(m, &cmdline) >= 0) {
                 char **c;
