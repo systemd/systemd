@@ -123,11 +123,12 @@ void server_process_native_message(
 
                 /* A property follows */
 
-                if (n+N_IOVEC_META_FIELDS >= m) {
+                /* n received properties, +1 for _TRANSPORT */
+                if (n + 1 + N_IOVEC_META_FIELDS >= m) {
                         struct iovec *c;
                         unsigned u;
 
-                        u = MAX((n+N_IOVEC_META_FIELDS+1) * 2U, 4U);
+                        u = MAX((n + 1 + N_IOVEC_META_FIELDS) * 2U, 4U);
                         c = realloc(iovec, u * sizeof(struct iovec));
                         if (!c) {
                                 log_oom();
