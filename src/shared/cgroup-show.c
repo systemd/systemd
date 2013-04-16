@@ -40,17 +40,6 @@ static int compare(const void *a, const void *b) {
         return 0;
 }
 
-static unsigned ilog10(unsigned long ul) {
-        int n = 0;
-
-        while (ul > 0) {
-                n++;
-                ul /= 10;
-        }
-
-        return n;
-}
-
 static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsigned n_columns, bool extra, bool more, bool kernel_threads, OutputFlags flags) {
         unsigned i, m, pid_width;
         pid_t biggest = 0;
@@ -71,7 +60,7 @@ static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsi
                         pids[m++] = pids[i];
         }
         n_pids = m;
-        pid_width = ilog10(biggest);
+        pid_width = DECIMAL_STR_WIDTH(biggest);
 
         /* And sort */
         qsort(pids, n_pids, sizeof(pid_t), compare);

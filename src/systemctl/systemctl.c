@@ -1178,7 +1178,7 @@ static void list_jobs_print(struct job_info* jobs, size_t n) {
 
                 for (i = 0, j = jobs; i < n; i++, j++) {
                         assert(j->name && j->type && j->state);
-                        l0 = MAX(l0, decimal_str_max(j->id));
+                        l0 = MAX(l0, DECIMAL_STR_WIDTH(j->id));
                         l1 = MAX(l1, strlen(j->name));
                         l2 = MAX(l2, strlen(j->type));
                         l3 = MAX(l3, strlen(j->state));

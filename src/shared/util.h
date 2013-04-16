@@ -649,19 +649,21 @@ static inline bool logind_running(void) {
         return access("/run/systemd/seats/", F_OK) >= 0;
 }
 
-static inline unsigned decimal_str_max(unsigned x) {
-        unsigned ans = 1;
-        while (x /= 10)
-                ans ++;
-        return ans;
-}
+#define DECIMAL_STR_WIDTH(x)                            \
+        ({                                              \
+                typeof(x) _x_ = (x);                    \
+                unsigned ans = 1;                       \
+                while (_x_ /= 10)                       \
+                        ans++;                          \
+                ans;                                    \
+        })
 
 int unlink_noerrno(const char *path);
 
-#define alloca0(n)                                                      \
-        ({                                                              \
-                char *__new;                                            \
-                size_t __len = n;                                       \
-                __new = alloca(__len);                                  \
-                (void *) memset(__new, 0, __len);                       \
+#define alloca0(n)                                      \
+        ({                                              \
+                char *_new_;                            \
+                size_t _len_ = n;                       \
+                _new_ = alloca(_len_);                  \
+                (void *) memset(_new_, 0, _len_);       \
         })
