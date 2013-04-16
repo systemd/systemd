@@ -737,7 +737,9 @@ int log_struct_internal(
                 char header[LINE_MAX];
                 struct iovec iovec[17] = {};
                 unsigned n = 0, i;
-                struct msghdr mh;
+                struct msghdr mh = {
+                        .msg_iov = iovec,
+                };
                 static const char nl = '\n';
 
                 /* If the journal is available do structured logging */
@@ -775,8 +777,6 @@ int log_struct_internal(
                         format = va_arg(ap, char *);
                 }
 
-                zero(mh);
-                mh.msg_iov = iovec;
                 mh.msg_iovlen = n;
 
                 if (sendmsg(journal_fd, &mh, MSG_NOSIGNAL) < 0)

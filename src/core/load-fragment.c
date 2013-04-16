@@ -1314,7 +1314,7 @@ int config_parse_path_spec(const char *unit,
         Path *p = data;
         PathSpec *s;
         PathType b;
-        char *k;
+        char _cleanup_free_ *k = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1348,17 +1348,15 @@ int config_parse_path_spec(const char *unit,
         if (!path_is_absolute(k)) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Path is not absolute, ignoring: %s", k);
-                free(k);
                 return 0;
         }
 
         s = new0(PathSpec, 1);
-        if (!s) {
-                free(k);
+        if (!s)
                 return log_oom();
-        }
 
         s->path = path_kill_slashes(k);
+        k = NULL;
         s->type = b;
         s->inotify_fd = -1;
 

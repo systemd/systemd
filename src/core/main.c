@@ -688,7 +688,8 @@ static int parse_config_file(void) {
 }
 
 static int parse_proc_cmdline(void) {
-        char *line, *w, *state;
+        char _cleanup_free_ *line = NULL;
+        char *w, *state;
         int r;
         size_t l;
 
@@ -697,34 +698,27 @@ static int parse_proc_cmdline(void) {
         if (detect_container(NULL) > 0)
                 return 0;
 
-        if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return 0;
         }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
-                char *word;
+                char _cleanup_free_ *word;
 
-                if (!(word = strndup(w, l))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                word = strndup(w, l);
+                if (!word)
+                        return log_oom();
 
                 r = parse_proc_cmdline_word(word);
                 if (r < 0) {
                         log_error("Failed on cmdline argument %s: %s", word, strerror(-r));
-                        free(word);
-                        goto finish;
+                        return r;
                 }
-
-                free(word);
         }
 
-        r = 0;
-
-finish:
-        free(line);
-        return r;
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
