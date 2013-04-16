@@ -413,3 +413,15 @@ int path_is_read_only_fs(const char *path) {
 
         return !!(st.f_flag & ST_RDONLY);
 }
+
+int path_is_os_tree(const char *path) {
+        char *p;
+        int r;
+
+        /* We use /etc/os-release as flag file if something is an OS */
+
+        p = strappenda(path, "/etc/os-release");
+        r = access(p, F_OK);
+
+        return r < 0 ? 0 : 1;
+}

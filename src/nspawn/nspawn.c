@@ -918,20 +918,6 @@ static int drop_capabilities(void) {
         return capability_bounding_set_drop(~arg_retain, false);
 }
 
-static int is_os_tree(const char *path) {
-        int r;
-        char *p;
-        /* We use /bin/sh as flag file if something is an OS */
-
-        if (asprintf(&p, "%s/bin/sh", path) < 0)
-                return -ENOMEM;
-
-        r = access(p, F_OK);
-        free(p);
-
-        return r < 0 ? 0 : 1;
-}
-
 static int process_pty(int master, pid_t pid, sigset_t *mask) {
 
         char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
@@ -1240,7 +1226,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (is_os_tree(arg_directory) <= 0) {
+        if (path_is_os_tree(arg_directory) <= 0) {
                 log_error("Directory %s doesn't look like an OS root directory. Refusing.", arg_directory);
                 goto finish;
         }

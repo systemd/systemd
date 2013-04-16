@@ -684,3 +684,15 @@ int unlink_noerrno(const char *path);
                 _new_ = alloca(_len_);                  \
                 (void *) memset(_new_, 0, _len_);       \
         })
+
+#define strappenda(a, b)                                \
+        ({                                              \
+                const char *_a_ = (a), *_b_ = (b);      \
+                char *_c_;                              \
+                size_t _x_, _y_;                        \
+                _x_ = strlen(_a_);                      \
+                _y_ = strlen(_b_);                      \
+                _c_ = alloca(_x_ + _y_ + 1);            \
+                strcpy(stpcpy(_c_, _a_), _b_);          \
+                _c_;                                    \
+        })
