@@ -66,11 +66,15 @@
 #error "Wut? Pointers are neither 4 nor 8 bytes long?"
 #endif
 
+#define ALIGN_PTR(p) ((void*) ALIGN((unsigned long) p))
+#define ALIGN4_PTR(p) ((void*) ALIGN4((unsigned long) p))
 #define ALIGN8_PTR(p) ((void*) ALIGN8((unsigned long) p))
 
 static inline size_t ALIGN_TO(size_t l, size_t ali) {
         return ((l + ali - 1) & ~(ali - 1));
 }
+
+#define ALIGN_TO_PTR(p, ali) ((void*) ALIGN_TO((unsigned long) p))
 
 #define ELEMENTSOF(x) (sizeof(x)/sizeof((x)[0]))
 

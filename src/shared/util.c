@@ -80,15 +80,14 @@ char **saved_argv = NULL;
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
-#define PROCFS_PATH_LEN (sizeof("/proc/")-1 + DECIMAL_STR_MAX(pid_t))
-
-#define FORMAT_PROCFS_PATH(buffer, path, pid)                                                           \
-        do {                                                                                            \
-                assert_cc(sizeof(buffer) == (PROCFS_PATH_LEN + 1 + sizeof(path)));                      \
-                snprintf(buffer, sizeof(buffer) - 1, "/proc/%lu/%s", (unsigned long) pid, path);        \
-                char_array_0(buffer);                                                                   \
-        } while(0)
-
+#define procfs_file_alloca(pid, field)                                  \
+        ({                                                              \
+                pid_t _pid_ = (pid);                                    \
+                char *_r_;                                              \
+                _r_ = alloca(sizeof("/proc/") -1 + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
+                sprintf(_r_, "/proc/%lu/" field, (unsigned long) _pid_); \
+                _r_;                                                    \
+        })
 
 size_t page_size(void) {
         static __thread size_t pgsz = 0;
@@ -468,15 +467,20 @@ char *split_quoted(const char *c, size_t *l, char **state) {
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         int r;
         _cleanup_fclose_ FILE *f = NULL;
-        char fn[sizeof("/proc/")-1 + DECIMAL_STR_MAX(pid_t) + sizeof("/stat")], line[LINE_MAX], *p;
+        char line[LINE_MAX];
         long unsigned ppid;
+        const char *p;
 
-        assert(pid > 0);
+        assert(pid >= 0);
         assert(_ppid);
 
-        assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
+        if (pid == 0) {
+                *_ppid = getppid();
+                return 0;
+        }
 
-        f = fopen(fn, "re");
+        p = procfs_file_alloca(pid, "stat");
+        f = fopen(p, "re");
         if (!f)
                 return -errno;
 
@@ -511,14 +515,18 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
 
 int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
         _cleanup_fclose_ FILE *f = NULL;
-        char fn[sizeof("/proc/")-1 + DECIMAL_STR_MAX(pid_t) + sizeof("/stat")], line[LINE_MAX], *p;
+        char line[LINE_MAX];
+        const char *p;
 
-        assert(pid > 0);
+        assert(pid >= 0);
         assert(st);
 
-        assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
+        if (pid == 0)
+                p = "/proc/self/stat";
+        else
+                p = procfs_file_alloca(pid, "stat");
 
-        f = fopen(fn, "re");
+        f = fopen(p, "re");
         if (!f)
                 return -errno;
 
@@ -585,60 +593,60 @@ char *truncate_nl(char *s) {
 }
 
 int get_process_comm(pid_t pid, char **name) {
-        int r;
+        const char *p;
 
         assert(name);
+        assert(pid >= 0);
 
         if (pid == 0)
-                r = read_one_line_file("/proc/self/comm", name);
-        else {
-                char path[PROCFS_PATH_LEN + sizeof("/comm")];
-                FORMAT_PROCFS_PATH(path, "comm", pid);
-                r = read_one_line_file(path, name);
-        }
+                p = "/proc/self/comm";
+        else
+                p = procfs_file_alloca(pid, "comm");
 
-        return r;
+        return read_one_line_file(p, name);
 }
 
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
+        _cleanup_fclose_ FILE *f = NULL;
         char *r = NULL, *k;
+        const char *p;
         int c;
-        FILE *f;
 
         assert(line);
+        assert(pid >= 0);
 
         if (pid == 0)
-                f = fopen("/proc/self/cmdline", "re");
-        else {
-                char path[PROCFS_PATH_LEN + sizeof("/cmdline")];
-                FORMAT_PROCFS_PATH(path, "cmdline", pid);
-                f = fopen(path, "re");
-        }
+                p = "/proc/self/cmdline";
+        else
+                p = procfs_file_alloca(pid, "cmdline");
 
+        f = fopen(p, "re");
         if (!f)
                 return -errno;
+
         if (max_length == 0) {
-                size_t len = 1;
+                size_t len = 0, allocated = 0;
+
                 while ((c = getc(f)) != EOF) {
-                        k = realloc(r, len+1);
-                        if (k == NULL) {
+
+                        if (!GREEDY_REALLOC(r, allocated, len+2)) {
                                 free(r);
-                                fclose(f);
                                 return -ENOMEM;
                         }
-                        r = k;
-                        r[len-1] = isprint(c) ? c : ' ';
-                        r[len] = 0;
-                        len++;
+
+                        r[len++] = isprint(c) ? c : ' ';
                 }
+
+                if (len > 0)
+                        r[len-1] = 0;
+
         } else {
                 bool space = false;
                 size_t left;
+
                 r = new(char, max_length);
-                if (!r) {
-                        fclose(f);
+                if (!r)
                         return -ENOMEM;
-                }
 
                 k = r;
                 left = max_length;
@@ -671,8 +679,6 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                         *k = 0;
         }
 
-        fclose(f);
-
         /* Kernel threads have no argv[] */
         if (r == NULL || r[0] == 0) {
                 char *t;
@@ -699,7 +705,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 }
 
 int is_kernel_thread(pid_t pid) {
-        char path[PROCFS_PATH_LEN + sizeof("/cmdline")];
+        const char *p;
         size_t count;
         char c;
         bool eof;
@@ -708,9 +714,10 @@ int is_kernel_thread(pid_t pid) {
         if (pid == 0)
                 return 0;
 
-        FORMAT_PROCFS_PATH(path, "cmdline", pid);
-        f = fopen(path, "re");
+        assert(pid > 0);
 
+        p = procfs_file_alloca(pid, "cmdline");
+        f = fopen(p, "re");
         if (!f)
                 return -errno;
 
@@ -726,26 +733,25 @@ int is_kernel_thread(pid_t pid) {
         return 0;
 }
 
-int get_process_exe(pid_t pid, char **name) {
-        int r;
 
+int get_process_exe(pid_t pid, char **name) {
+        const char *p;
+
+        assert(pid >= 0);
         assert(name);
 
         if (pid == 0)
-                r = readlink_malloc("/proc/self/exe", name);
-        else {
-                char path[PROCFS_PATH_LEN + sizeof("/exe")];
-                FORMAT_PROCFS_PATH(path, "exe", pid);
-                r = readlink_malloc(path, name);
-        }
+                p = "/proc/self/exe";
+        else
+                p = procfs_file_alloca(pid, "exe");
 
-        return r;
+        return readlink_malloc(p, name);
 }
 
 static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         _cleanup_fclose_ FILE *f = NULL;
-        char path[PROCFS_PATH_LEN + sizeof("/status")];
         char line[LINE_MAX];
+        const char *p;
 
         assert(field);
         assert(uid);
@@ -753,8 +759,8 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
         if (pid == 0)
                 return getuid();
 
-        FORMAT_PROCFS_PATH(path, "status", pid);
-        f = fopen(path, "re");
+        p = procfs_file_alloca(pid, "status");
+        f = fopen(p, "re");
         if (!f)
                 return -errno;
 
@@ -781,6 +787,7 @@ int get_process_uid(pid_t pid, uid_t *uid) {
 }
 
 int get_process_gid(pid_t pid, gid_t *gid) {
+        assert_cc(sizeof(uid_t) == sizeof(gid_t));
         return get_process_id(pid, "Gid:", gid);
 }
 
@@ -2566,26 +2573,28 @@ int getttyname_harder(int fd, char **r) {
 }
 
 int get_ctty_devnr(pid_t pid, dev_t *d) {
-        int k;
-        char line[LINE_MAX], *p, *fn;
+        _cleanup_fclose_ FILE *f = NULL;
+        char line[LINE_MAX], *p;
         unsigned long ttynr;
-        FILE *f;
+        const char *fn;
+        int k;
 
-        if (asprintf(&fn, "/proc/%lu/stat", (unsigned long) (pid <= 0 ? getpid() : pid)) < 0)
-                return -ENOMEM;
+        assert(pid >= 0);
+        assert(d);
+
+        if (pid == 0)
+                fn = "/proc/self/stat";
+        else
+                fn = procfs_file_alloca(pid, "stat");
 
         f = fopen(fn, "re");
-        free(fn);
         if (!f)
                 return -errno;
 
         if (!fgets(line, sizeof(line), f)) {
                 k = feof(f) ? -EIO : -errno;
-                fclose(f);
                 return k;
         }
-
-        fclose(f);
 
         p = strrchr(line, ')');
         if (!p)
@@ -5031,19 +5040,21 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
 }
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value) {
-        char path[sizeof("/proc/")-1 + DECIMAL_STR_MAX(pid_t) + sizeof("/environ")], *value = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        char *value = NULL;
         int r;
-        FILE *f;
         bool done = false;
         size_t l;
+        const char *path;
 
+        assert(pid >= 0);
         assert(field);
         assert(_value);
 
         if (pid == 0)
-                pid = getpid();
-
-        snprintf(path, sizeof(path), "/proc/%lu/environ", (unsigned long) pid);
+                path = "/proc/self/environ";
+        else
+                path = procfs_file_alloca(pid, "environ");
 
         f = fopen(path, "re");
         if (!f)
@@ -5072,10 +5083,8 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
 
                 if (memcmp(line, field, l) == 0 && line[l] == '=') {
                         value = strdup(line + l + 1);
-                        if (!value) {
-                                r = -ENOMEM;
-                                break;
-                        }
+                        if (!value)
+                                return -ENOMEM;
 
                         r = 1;
                         break;
@@ -5083,11 +5092,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
 
         } while (!done);
 
-        fclose(f);
-
-        if (r >= 0)
-                *_value = value;
-
+        *_value = value;
         return r;
 }
 

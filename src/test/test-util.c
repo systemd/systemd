@@ -348,6 +348,51 @@ static void test_u64log2(void) {
         assert(u64log2(1024*1024+5) == 20);
 }
 
+static void test_get_process_comm(void) {
+        _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL;
+        unsigned long long b;
+        pid_t e;
+        uid_t u;
+        gid_t g;
+        dev_t h;
+        int r;
+
+        assert_se(get_process_comm(1, &a) >= 0);
+        log_info("pid1 comm: '%s'", a);
+
+        assert_se(get_starttime_of_pid(1, &b) >= 0);
+        log_info("pid1 starttime: '%llu'", b);
+
+        assert_se(get_process_cmdline(1, 0, true, &c) >= 0);
+        log_info("pid1 cmdline: '%s'", c);
+
+        assert_se(get_process_cmdline(1, 8, false, &d) >= 0);
+        log_info("pid1 cmdline truncated: '%s'", d);
+
+        assert_se(get_parent_of_pid(1, &e) >= 0);
+        log_info("pid1 ppid: '%llu'", (unsigned long long) e);
+        assert_se(e == 0);
+
+        assert_se(is_kernel_thread(1) == 0);
+
+        r = get_process_exe(1, &f);
+        assert_se(r >= 0 || r == -EACCES);
+        log_info("pid1 exe: '%s'", strna(f));
+
+        assert_se(get_process_uid(1, &u) == 0);
+        log_info("pid1 uid: '%llu'", (unsigned long long) u);
+        assert_se(u == 0);
+
+        assert_se(get_process_gid(1, &g) == 0);
+        log_info("pid1 gid: '%llu'", (unsigned long long) g);
+        assert_se(g == 0);
+
+        assert(get_ctty_devnr(1, &h) == -ENOENT);
+
+        getenv_for_pid(1, "PATH", &i);
+        log_info("pid1 $PATH: '%s'", strna(i));
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -374,6 +419,7 @@ int main(int argc, char *argv[]) {
         test_bus_path_escape();
         test_hostname_is_valid();
         test_u64log2();
+        test_get_process_comm();
 
         return 0;
 }
