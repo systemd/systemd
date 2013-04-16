@@ -420,36 +420,6 @@ void server_vacuum(Server *s) {
         s->cached_available_space_timestamp = 0;
 }
 
-static char *shortened_cgroup_path(pid_t pid) {
-        int r;
-        char _cleanup_free_ *process_path = NULL, *init_path = NULL;
-        char *path;
-
-        assert(pid > 0);
-
-        r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, pid, &process_path);
-        if (r < 0)
-                return NULL;
-
-        r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &init_path);
-        if (r < 0)
-                return NULL;
-
-        if (endswith(init_path, "/system"))
-                init_path[strlen(init_path) - 7] = 0;
-        else if (streq(init_path, "/"))
-                init_path[0] = 0;
-
-        if (startswith(process_path, init_path)) {
-                path = strdup(process_path + strlen(init_path));
-        } else {
-                path = process_path;
-                process_path = NULL;
-        }
-
-        return path;
-}
-
 bool shall_try_append_again(JournalFile *f, int r) {
 
         /* -E2BIG            Hit configured limit
@@ -620,8 +590,8 @@ static void dispatch_message_real(
                                 IOVEC_SET_STRING(iovec[n++], audit_loginuid);
 #endif
 
-                t = shortened_cgroup_path(ucred->pid);
-                if (t) {
+                r = cg_pid_get_path(NULL, ucred->pid, &t);
+                if (r >= 0) {
                         cgroup = strappend("_SYSTEMD_CGROUP=", t);
                         free(t);
 
@@ -630,7 +600,8 @@ static void dispatch_message_real(
                 }
 
 #ifdef HAVE_LOGIND
-                if (sd_pid_get_session(ucred->pid, &t) >= 0) {
+                r = cg_pid_get_session(ucred->pid, &t);
+                if (r >= 0) {
                         session = strappend("_SYSTEMD_SESSION=", t);
                         free(t);
 
@@ -773,7 +744,7 @@ void server_dispatch_message(
                 const char *unit_id,
                 int priority) {
 
-        int rl;
+        int rl, r;
         char _cleanup_free_ *path = NULL;
         char *c;
 
@@ -789,8 +760,8 @@ void server_dispatch_message(
         if (!ucred)
                 goto finish;
 
-        path = shortened_cgroup_path(ucred->pid);
-        if (!path)
+        r = cg_pid_get_path_shifted(ucred->pid, NULL, &path);
+        if (r < 0)
                 goto finish;
 
         /* example: /user/lennart/3/foobar

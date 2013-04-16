@@ -203,6 +203,21 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-M</option></term>
+                                <term><option>--machine=</option></term>
+
+                                <listitem><para>Sets the machine name
+                                for this container. This name may be
+                                used to identify this container on the
+                                host, and is used to initialize the
+                                container's hostname (which the
+                                container can choose to override,
+                                however). If not specified the last
+                                component of the root directory of the
+                                container is used.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--uuid=</option></term>
 
                                 <listitem><para>Set the specified uuid

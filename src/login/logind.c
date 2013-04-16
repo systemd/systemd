@@ -1100,21 +1100,18 @@ int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user) {
 }
 
 int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
-        char *p;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(m);
         assert(pid >= 1);
         assert(session);
 
-        r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, pid, &p);
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &p);
         if (r < 0)
                 return r;
 
-        r = manager_get_session_by_cgroup(m, p, session);
-        free(p);
-
-        return r;
+        return manager_get_session_by_cgroup(m, p, session);
 }
 
 void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {

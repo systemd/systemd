@@ -68,4 +68,5 @@ global:
 LIBSYSTEMD_LOGIN_202 {
 global:
         sd_pid_get_user_unit;
+        sd_pid_get_machine_name;
 } LIBSYSTEMD_LOGIN_201;

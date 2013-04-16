@@ -320,8 +320,9 @@ int cgroup_bonding_is_empty_list(CGroupBonding *first) {
 
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *current = NULL, *path = NULL;
+        char suffix_buffer[sizeof("/systemd-") + DECIMAL_STR_MAX(pid_t)];
+        const char *suffix;
         int r;
-        char suffix[sizeof("/systemd-") + DECIMAL_STR_MAX(pid_t)];
 
         assert(m);
 
@@ -332,17 +333,17 @@ int manager_setup_cgroup(Manager *m) {
         }
 
         /* 1. Determine hierarchy */
-        r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &current);
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &current);
         if (r < 0) {
                 log_error("Cannot determine cgroup we are running in: %s", strerror(-r));
                 return r;
         }
 
         if (m->running_as == SYSTEMD_SYSTEM)
-                strcpy(suffix, "/system");
+                suffix = "/system";
         else {
-                snprintf(suffix, sizeof(suffix), "/systemd-%lu", (unsigned long) getpid());
-                char_array_0(suffix);
+                sprintf(suffix_buffer, "/systemd-%lu", (unsigned long) getpid());
+                suffix = suffix_buffer;
         }
 
         free(m->cgroup_hierarchy);
@@ -350,11 +351,14 @@ int manager_setup_cgroup(Manager *m) {
                 /* We probably got reexecuted and can continue to use our root cgroup */
                 m->cgroup_hierarchy = current;
                 current = NULL;
-
         } else {
                 /* We need a new root cgroup */
-                m->cgroup_hierarchy = NULL;
-                if (asprintf(&m->cgroup_hierarchy, "%s%s", streq(current, "/") ? "" : current, suffix) < 0)
+                if (streq(current, "/"))
+                        m->cgroup_hierarchy = strdup(suffix);
+                else
+                        m->cgroup_hierarchy = strappend(current, suffix);
+
+                if (!m->cgroup_hierarchy)
                         return log_oom();
         }
 
@@ -509,7 +513,7 @@ Unit* cgroup_unit_by_pid(Manager *m, pid_t pid) {
         if (pid <= 1)
                 return NULL;
 
-        if (cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, pid, &group) < 0)
+        if (cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &group) < 0)
                 return NULL;
 
         l = hashmap_get(m->cgroup_bondings, group);

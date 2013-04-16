@@ -506,7 +506,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
 
         dbus_message_iter_get_basic(&iter, &kill_processes);
 
-        r = cg_pid_get_cgroup(leader, NULL, &cgroup);
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, leader, &cgroup);
         if (r < 0)
                 goto fail;
 

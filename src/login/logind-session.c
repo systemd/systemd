@@ -436,7 +436,6 @@ static int session_create_one_group(Session *s, const char *controller, const ch
         int r;
 
         assert(s);
-        assert(controller);
         assert(path);
 
         if (s->leader > 0) {

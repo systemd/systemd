@@ -44,11 +44,12 @@ int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, 
 
 int cg_split_spec(const char *spec, char **controller, char **path);
 int cg_join_spec(const char *controller, const char *path, char **spec);
-int cg_fix_path(const char *path, char **result);
+int cg_mangle_path(const char *path, char **result);
 
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs);
 int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **fs);
-int cg_get_by_pid(const char *controller, pid_t pid, char **path);
+
+int cg_pid_get_path(const char *controller, pid_t pid, char **path);
 
 int cg_trim(const char *controller, const char *path, bool delete_root);
 
@@ -68,16 +69,24 @@ int cg_is_empty(const char *controller, const char *path, bool ignore_self);
 int cg_is_empty_by_spec(const char *spec, bool ignore_self);
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self);
 
+int cg_get_root_path(char **path);
+int cg_get_system_path(char **path);
 int cg_get_user_path(char **path);
+int cg_get_machine_path(char **path);
 
+int cg_path_get_session(const char *path, char **session);
 int cg_path_get_unit(const char *path, char **unit);
 int cg_path_get_user_unit(const char *path, char **unit);
+int cg_path_get_machine_name(const char *path, char **machine);
 
-int cg_pid_get_cgroup(pid_t pid, char **root, char **cgroup);
+int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup);
+
+int cg_pid_get_session(pid_t pid, char **session);
 int cg_pid_get_unit(pid_t pid, char **unit);
 int cg_pid_get_user_unit(pid_t pid, char **unit);
+int cg_pid_get_machine_name(pid_t pid, char **machine);
 
-int cg_cgroup_to_unit(const char *cgroup, char **unit);
+int cg_path_decode_unit(const char *cgroup, char **unit);
 
 char **cg_shorten_controllers(char **controllers);
 

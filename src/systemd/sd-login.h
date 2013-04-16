@@ -64,12 +64,16 @@ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid);
 
 /* Get systemd unit (i.e. service) name from PID, for system
  * services. This will return an error for non-service processes. */
-int sd_pid_get_unit(pid_t, char **unit);
+int sd_pid_get_unit(pid_t pid, char **unit);
 
 /* Get systemd unit (i.e. service) name from PID, for user
  * services. This will return an error for non-user-service
  * processes. */
-int sd_pid_get_user_unit(pid_t, char **unit);
+int sd_pid_get_user_unit(pid_t pid, char **unit);
+
+/* Get machine name from PID, for processes assigned to VM or
+ * container. This will return an error for non-service processes. */
+int sd_pid_get_machine_name(pid_t pid, char **name);
 
 /* Get state from uid. Possible states: offline, lingering, online, active, closing */
 int sd_uid_get_state(uid_t uid, char**state);

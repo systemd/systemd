@@ -1104,7 +1104,7 @@ int main(int argc, char *argv[])
                 }
 
                 /* get our own cgroup, we regularly kill everything udev has left behind */
-                if (cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &udev_cgroup) < 0)
+                if (cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &udev_cgroup) < 0)
                         udev_cgroup = NULL;
         } else {
                 /* open control and netlink socket */

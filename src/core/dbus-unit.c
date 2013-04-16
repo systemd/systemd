@@ -1034,7 +1034,7 @@ int bus_unit_cgroup_unset(Unit *u, DBusMessageIter *iter) {
         unit_remove_drop_in(u, runtime, controller);
 
         /* Try to migrate the old group away */
-        if (cg_get_by_pid(controller, 0, &target) >= 0)
+        if (cg_pid_get_path(controller, 0, &target) >= 0)
                 cgroup_bonding_migrate_to(u->cgroup_bondings, target, false);
 
         cgroup_bonding_free(b, true);

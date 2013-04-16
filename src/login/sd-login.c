@@ -33,51 +33,19 @@
 #include "fileio.h"
 
 _public_ int sd_pid_get_session(pid_t pid, char **session) {
-        int r;
-        char *cgroup, *p;
-
         if (pid < 0)
                 return -EINVAL;
 
         if (!session)
                 return -EINVAL;
 
-        r = cg_pid_get_cgroup(pid, NULL, &cgroup);
-        if (r < 0)
-                return r;
-
-        if (!startswith(cgroup, "/user/")) {
-                free(cgroup);
-                return -ENOENT;
-        }
-
-        p = strchr(cgroup + 6, '/');
-        if (!p) {
-                free(cgroup);
-                return -ENOENT;
-        }
-
-        p++;
-        if (startswith(p, "shared/") || streq(p, "shared")) {
-                free(cgroup);
-                return -ENOENT;
-        }
-
-        p = strndup(p, strcspn(p, "/"));
-        free(cgroup);
-
-        if (!p)
-                return -ENOMEM;
-
-        *session = p;
-        return 0;
+        return cg_pid_get_session(pid, session);
 }
 
 _public_ int sd_pid_get_unit(pid_t pid, char **unit) {
 
         if (pid < 0)
                 return -EINVAL;
-
         if (!unit)
                 return -EINVAL;
 
@@ -88,11 +56,20 @@ _public_ int sd_pid_get_user_unit(pid_t pid, char **unit) {
 
         if (pid < 0)
                 return -EINVAL;
-
         if (!unit)
                 return -EINVAL;
 
         return cg_pid_get_user_unit(pid, unit);
+}
+
+_public_ int sd_pid_get_machine_name(pid_t pid, char **name) {
+
+        if (pid < 0)
+                return -EINVAL;
+        if (!name)
+                return -EINVAL;
+
+        return cg_pid_get_machine_name(pid, name);
 }
 
 _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
@@ -106,7 +83,7 @@ _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         if (!uid)
                 return -EINVAL;
 
-        r = cg_pid_get_cgroup(pid, &root, &cgroup);
+        r = cg_pid_get_path_shifted(pid, &root, &cgroup);
         if (r < 0)
                 return r;
 

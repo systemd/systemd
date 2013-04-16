@@ -47,7 +47,8 @@
                 <refname>sd_pid_get_unit</refname>
                 <refname>sd_pid_get_user_unit</refname>
                 <refname>sd_pid_get_owner_uid</refname>
-                <refpurpose>Determine session, service or owner of a session of a specific PID</refpurpose>
+                <refname>sd_pid_get_machine_name</refname>
+                <refpurpose>Determine session, service, owner of a session or container/VM of a specific PID</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -76,6 +77,12 @@
                                 <funcdef>int <function>sd_pid_get_owner_uid</function></funcdef>
                                 <paramdef>pid_t <parameter>pid</parameter></paramdef>
                                 <paramdef>uid_t* <parameter>uid</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_pid_get_machine_name</function></funcdef>
+                                <paramdef>pid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>char** <parameter>name</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -108,7 +115,7 @@
                 function will fail. (More specifically: this call will
                 not work for processes that are part of user units,
                 use <function>sd_pid_get_user_unit()</function> for
-                that.)  The returned string needs to be freed with the
+                that.) The returned string needs to be freed with the
                 libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
@@ -131,6 +138,14 @@
                 and not being a shared process of a user this function
                 will fail.</para>
 
+                <para><function>sd_pid_machine_name()</function> may
+                be used to determine the name of the VM or container
+                is a member of. The machine name is a short string,
+                suitable for usage in file system paths. The returned
+                string needs to be freed with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
+
                 <para>If the <literal>pid</literal> parameter of any
                 of these functions is passed as 0 the operation is
                 executed for the calling process.</para>
@@ -149,10 +164,11 @@
 
                 <para>The <function>sd_pid_get_session()</function>,
                 <function>sd_pid_get_unit()</function>,
-                <function>sd_pid_get_user_unit()</function>, and
-                <function>sd_pid_get_owner_uid()</function> interfaces
-                are available as shared library, which can be compiled
-                and linked to with the
+                <function>sd_pid_get_user_unit()</function>,
+                <function>sd_pid_get_owner_uid()</function> and
+                <function>sd_pid_get_machine_name()</function>
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
                 <literal>libsystemd-login</literal>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
