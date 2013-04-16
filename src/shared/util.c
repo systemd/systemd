@@ -3837,19 +3837,24 @@ bool hostname_is_valid(const char *s) {
 
 char* hostname_cleanup(char *s) {
         char *p, *d;
+        bool dot;
 
-        for (p = s, d = s; *p; p++)
-                if ((*p >= 'a' && *p <= 'z') ||
-                    (*p >= 'A' && *p <= 'Z') ||
-                    (*p >= '0' && *p <= '9') ||
-                    *p == '-' ||
-                    *p == '_' ||
-                    *p == '.')
+        for (p = s, d = s, dot = true; *p; p++) {
+                if (*p == '.') {
+                        if (dot || p[1] == 0)
+                                continue;
+
+                        dot = true;
+                } else
+                        dot = false;
+
+                if (hostname_valid_char(*p))
                         *(d++) = *p;
+        }
 
         *d = 0;
-
         strshorten(s, HOST_NAME_MAX);
+
         return s;
 }
 
