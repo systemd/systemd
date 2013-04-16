@@ -1041,16 +1041,13 @@ int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **sess
                 return 1;
         }
 
-        p = strdup(cgroup);
-        if (!p)
-                return log_oom();
+        p = strdupa(cgroup);
 
         for (;;) {
                 char *e;
 
                 e = strrchr(p, '/');
                 if (!e || e == p) {
-                        free(p);
                         *session = NULL;
                         return 0;
                 }
@@ -1059,7 +1056,6 @@ int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **sess
 
                 s = hashmap_get(m->session_cgroups, p);
                 if (s) {
-                        free(p);
                         *session = s;
                         return 1;
                 }
@@ -1080,7 +1076,7 @@ int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user) {
                 return 1;
         }
 
-        p = strdup(cgroup);
+        p = strdupa(cgroup);
         if (!p)
                 return log_oom();
 
@@ -1089,7 +1085,6 @@ int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user) {
 
                 e = strrchr(p, '/');
                 if (!e || e == p) {
-                        free(p);
                         *user = NULL;
                         return 0;
                 }
@@ -1098,7 +1093,6 @@ int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user) {
 
                 u = hashmap_get(m->user_cgroups, p);
                 if (u) {
-                        free(p);
                         *user = u;
                         return 1;
                 }
