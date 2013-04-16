@@ -487,8 +487,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         if (r < 0)
                 return -EINVAL;
 
-        if (strv_contains(controllers, "systemd") ||
-            !dbus_message_iter_next(&iter) ||
+        if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
             dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRING) {
                 r = -EINVAL;
@@ -499,8 +498,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         if (r < 0)
                 goto fail;
 
-        if (strv_contains(reset_controllers, "systemd") ||
-            !dbus_message_iter_next(&iter) ||
+        if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BOOLEAN) {
                 r = -EINVAL;
                 goto fail;
@@ -611,11 +609,11 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         session->type = t;
         session->class = c;
         session->remote = remote;
-        session->controllers = controllers;
-        session->reset_controllers = reset_controllers;
         session->kill_processes = kill_processes;
         session->vtnr = vtnr;
 
+        session->controllers = cg_shorten_controllers(controllers);
+        session->reset_controllers = cg_shorten_controllers(reset_controllers);
         controllers = reset_controllers = NULL;
 
         if (!isempty(tty)) {
