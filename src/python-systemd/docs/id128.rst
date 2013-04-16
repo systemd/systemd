@@ -36,3 +36,4 @@
    .. autoattribute:: systemd.id128.SD_MESSAGE_UNIT_STARTING
    .. autoattribute:: systemd.id128.SD_MESSAGE_UNIT_STOPPED
    .. autoattribute:: systemd.id128.SD_MESSAGE_UNIT_STOPPING
+   .. autoattribute:: systemd.id128.SD_MESSAGE_CONFIG_ERROR

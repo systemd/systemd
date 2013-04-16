@@ -21,6 +21,8 @@
 
 #include <unistd.h>
 
+#include <systemd/sd-messages.h>
+
 #include "conf-parser.h"
 #include "special.h"
 #include "dbus-common.h"

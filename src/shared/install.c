@@ -921,15 +921,15 @@ static int install_info_add_auto(
                 return install_info_add(c, name_or_path, NULL);
 }
 
-static int config_parse_also(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+static int config_parse_also(const char *unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
+                             void *userdata) {
 
         char *w;
         size_t l;
@@ -956,15 +956,15 @@ static int config_parse_also(
         return 0;
 }
 
-static int config_parse_user(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+static int config_parse_user(const char *unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
+                             void *userdata) {
 
         InstallInfo *i = data;
         char* printed;
@@ -1016,7 +1016,8 @@ static int unit_file_load(
                 return -ENOMEM;
         }
 
-        r = config_parse(path, f, NULL, config_item_table_lookup, (void*) items, true, info);
+        r = config_parse(NULL, path, f, NULL,
+                         config_item_table_lookup, (void*) items, true, info);
         if (r < 0)
                 return r;
 

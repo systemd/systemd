@@ -55,6 +55,7 @@
 #include "env-util.h"
 #include "hwclock.h"
 #include "sd-daemon.h"
+#include "sd-messages.h"
 
 #include "mount-setup.h"
 #include "loopback-setup.h"
@@ -421,40 +422,47 @@ static int parse_proc_cmdline_word(const char *word) {
         return 0;
 }
 
-#define DEFINE_SETTER(name, func)                       \
-        static int name(                                \
-                        const char *filename,           \
-                        unsigned line,                  \
-                        const char *section,            \
-                        const char *lvalue,             \
-                        int ltype,                      \
-                        const char *rvalue,             \
-                        void *data,                     \
-                        void *userdata) {               \
-                                                        \
-                assert(filename);                       \
-                assert(lvalue);                         \
-                assert(rvalue);                         \
-                                                        \
-                func(rvalue);                           \
-                return 0;                               \
-}
+#define DEFINE_SETTER(name, func, descr)                              \
+        static int name(const char *unit,                             \
+                        const char *filename,                         \
+                        unsigned line,                                \
+                        const char *section,                          \
+                        const char *lvalue,                           \
+                        int ltype,                                    \
+                        const char *rvalue,                           \
+                        void *data,                                   \
+                        void *userdata) {                             \
+                                                                      \
+                int r;                                                \
+                                                                      \
+                assert(filename);                                     \
+                assert(lvalue);                                       \
+                assert(rvalue);                                       \
+                                                                      \
+                r = func(rvalue);                                     \
+                if (r < 0)                                            \
+                        log_syntax(unit, LOG_ERR, filename, line, -r, \
+                                   "Invalid " descr "'%s': %s",       \
+                                   rvalue, strerror(-r));             \
+                                                                      \
+                return 0;                                             \
+        }
 
-DEFINE_SETTER(config_parse_level2, log_set_max_level_from_string)
-DEFINE_SETTER(config_parse_target, log_set_target_from_string)
-DEFINE_SETTER(config_parse_color, log_show_color_from_string)
-DEFINE_SETTER(config_parse_location, log_show_location_from_string)
+DEFINE_SETTER(config_parse_level2, log_set_max_level_from_string, "log level")
+DEFINE_SETTER(config_parse_target, log_set_target_from_string, "target")
+DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color" )
+DEFINE_SETTER(config_parse_location, log_show_location_from_string, "location")
 
 
-static int config_parse_cpu_affinity2(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+static int config_parse_cpu_affinity2(const char *unit,
+                                      const char *filename,
+                                      unsigned line,
+                                      const char *section,
+                                      const char *lvalue,
+                                      int ltype,
+                                      const char *rvalue,
+                                      void *data,
+                                      void *userdata) {
 
         char *w;
         size_t l;
@@ -482,7 +490,8 @@ static int config_parse_cpu_affinity2(
                                 return log_oom();
 
                 if (r < 0 || cpu >= ncpus) {
-                        log_error("[%s:%u] Failed to parse CPU affinity: %s", filename, line, rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, -r,
+                                   "Failed to parse CPU affinity '%s'", rvalue);
                         CPU_FREE(c);
                         return -EBADMSG;
                 }
@@ -492,7 +501,7 @@ static int config_parse_cpu_affinity2(
 
         if (c) {
                 if (sched_setaffinity(0, CPU_ALLOC_SIZE(ncpus), c) < 0)
-                        log_warning("Failed to set CPU affinity: %m");
+                        log_warning_unit(unit, "Failed to set CPU affinity: %m");
 
                 CPU_FREE(c);
         }
@@ -520,15 +529,15 @@ static void free_join_controllers(void) {
         arg_join_controllers = NULL;
 }
 
-static int config_parse_join_controllers(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+static int config_parse_join_controllers(const char *unit,
+                                         const char *filename,
+                                         unsigned line,
+                                         const char *section,
+                                         const char *lvalue,
+                                         int ltype,
+                                         const char *rvalue,
+                                         void *data,
+                                         void *userdata) {
 
         unsigned n = 0;
         char *state, *w;
@@ -671,7 +680,7 @@ static int parse_config_file(void) {
                 return 0;
         }
 
-        r = config_parse(fn, f, "Manager\0", config_item_table_lookup, (void*) items, false, NULL);
+        r = config_parse(NULL, fn, f, "Manager\0", config_item_table_lookup, (void*) items, false, NULL);
         if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 
