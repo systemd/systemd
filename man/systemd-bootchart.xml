@@ -92,7 +92,11 @@
                 </para>
                 <para>
                         Bootchart graphs are by default written
-                        time-stamped in <filename>/run/log</filename>.
+                        time-stamped in <filename>/run/log</filename>
+                        and saved to the journal with
+                        <varname>MESSAGE_ID=9f26aa562cf440c2b16c773d0479b518</varname>.
+                        Journal field <varname>BOOTCHART=</varname> contains
+                        the bootchart in SVG format.
                 </para>
 
         </refsect1>
