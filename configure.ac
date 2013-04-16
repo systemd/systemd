@@ -86,9 +86,9 @@ GOBJECT_INTROSPECTION_CHECK([1.31.1])
    AM_CONDITIONAL([HAVE_INTROSPECTION], [false])
    enable_introspection=no])
 
-AC_PATH_TOOL(OBJCOPY, objcopy)
-AC_PATH_TOOL(STRINGS, strings)
-AC_PATH_TOOL(GPERF, gperf)
+AC_CHECK_TOOL(OBJCOPY, objcopy)
+AC_CHECK_TOOL(STRINGS, strings)
+AC_CHECK_TOOL(GPERF, gperf)
 if test -z "$GPERF" ; then
         AC_MSG_ERROR([*** gperf not found])
 fi
