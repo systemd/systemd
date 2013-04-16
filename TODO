@@ -38,6 +38,20 @@ Fedora 19:
 
 Features:
 
+* decimal_str_max() should become a type-safe macro
+
+* show-cgroup.c uses its own ulog10 implementation
+
+* cgroup-util: verify syntax of cgroup controllers
+
+* cgtop: make cgtop useful in a container
+
+* make sure cg_pid_get_path() works properly for co-mounted controllers
+
+* nspawn: ensure syntax of --uuid= argument is correct
+
+* nspawn: detect whether something is an OS by checking for /etc/os-release
+
 * explicitly disallow changing the cgroup path of units in the
   name=systemd hierarchy, unless it is outside of /system
 
