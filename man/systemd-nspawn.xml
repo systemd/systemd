@@ -397,7 +397,7 @@
                 (as viewed from the outside) of the launched process,
                 and it can be used to enter the container.</para>
 
-                <programlisting># nsenter -muinpt $PID</programlisting>
+                <programlisting># nsenter -m -u -i -n -p -t $PID</programlisting>
 
                 <para><citerefentry><refentrytitle>nsenter</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 is part of
