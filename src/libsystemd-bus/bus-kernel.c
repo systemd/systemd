@@ -32,10 +32,12 @@
 #include "bus-kernel.h"
 #include "bus-bloom.h"
 
-#define KDBUS_FOREACH_ITEM(i, k)                                        \
-        for ((i) = (k)->items;                                          \
-             (uint8_t*) (i) < (uint8_t*) (k) + (k)->size;               \
-             (i) = (struct kdbus_msg_item *) ((uint8_t*) (i) + ALIGN8((i)->size)))
+#define KDBUS_ITEM_NEXT(item) \
+        (typeof(item))(((uint8_t *)item) + ALIGN8((item)->size))
+#define KDBUS_ITEM_FOREACH(item, head)                                          \
+        for (item = (head)->items;                                              \
+             (uint8_t *)(item) < (uint8_t *)(head) + (head)->size;              \
+             item = KDBUS_ITEM_NEXT(item))
 
 static int parse_unique_name(const char *s, uint64_t *id) {
         int r;
@@ -333,7 +335,7 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
 static void close_kdbus_msg(struct kdbus_msg *k) {
         struct kdbus_msg_item *d;
 
-        KDBUS_FOREACH_ITEM(d, k) {
+        KDBUS_ITEM_FOREACH(d, k) {
 
                 if (d->type != KDBUS_MSG_UNIX_FDS)
                         continue;
@@ -359,7 +361,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (k->payload_type != KDBUS_PAYLOAD_DBUS1)
                 return 0;
 
-        KDBUS_FOREACH_ITEM(d, k) {
+        KDBUS_ITEM_FOREACH(d, k) {
                 size_t l;
 
                 l = d->size - offsetof(struct kdbus_msg_item, data);
@@ -409,7 +411,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (r < 0)
                 return r;
 
-        KDBUS_FOREACH_ITEM(d, k) {
+        KDBUS_ITEM_FOREACH(d, k) {
                 size_t l;
 
                 l = d->size - offsetof(struct kdbus_msg_item, data);
