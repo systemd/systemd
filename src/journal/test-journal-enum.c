@@ -25,6 +25,7 @@
 #include "sd-journal.h"
 #include "macro.h"
 #include "util.h"
+#include "journal-internal.h"
 
 int main(int argc, char *argv[]) {
         unsigned n = 0;

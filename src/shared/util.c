@@ -5277,26 +5277,6 @@ int get_home_dir(char **_h) {
         return 0;
 }
 
-void fclosep(FILE **f) {
-        if (*f)
-                fclose(*f);
-}
-
-void pclosep(FILE **f) {
-        if (*f)
-                pclose(*f);
-}
-
-void closep(int *fd) {
-        if (*fd >= 0)
-                close_nointr_nofail(*fd);
-}
-
-void closedirp(DIR **d) {
-        if (*d)
-                closedir(*d);
-}
-
 bool filename_is_safe(const char *p) {
 
         if (isempty(p))

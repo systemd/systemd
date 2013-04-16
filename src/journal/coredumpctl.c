@@ -35,6 +35,7 @@
 #include "path-util.h"
 #include "pager.h"
 #include "macro.h"
+#include "journal-internal.h"
 
 static enum {
         ACTION_NONE,

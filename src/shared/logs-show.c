@@ -30,6 +30,7 @@
 #include "util.h"
 #include "utf8.h"
 #include "hashmap.h"
+#include "journal-internal.h"
 
 #define PRINT_THRESHOLD 128
 #define JSON_THRESHOLD 4096

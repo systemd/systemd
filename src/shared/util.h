@@ -38,7 +38,6 @@
 #include <stddef.h>
 #include <unistd.h>
 
-#include <systemd/sd-journal.h>
 #include "macro.h"
 #include "time-util.h"
 
@@ -527,19 +526,37 @@ static inline void freep(void *p) {
         free(*(void**) p);
 }
 
-void fclosep(FILE **f);
-void pclosep(FILE **f);
-void closep(int *fd);
-void closedirp(DIR **d);
+static inline void fclosep(FILE **f) {
+        if (*f)
+                fclose(*f);
+}
+
+static inline void pclosep(FILE **f) {
+        if (*f)
+                pclose(*f);
+}
+
+static inline void closep(int *fd) {
+        if (*fd >= 0)
+                close_nointr_nofail(*fd);
+}
+
+static inline void closedirp(DIR **d) {
+        if (*d)
+                closedir(*d);
+}
+
 static inline void umaskp(mode_t *u) {
         umask(*u);
 }
 
-static inline void journal_closep(sd_journal **j) {
-        sd_journal_close(*j);
-}
-
-#define _cleanup_globfree_ __attribute__((cleanup(globfree)))
+#define _cleanup_free_ _cleanup_(freep)
+#define _cleanup_fclose_ _cleanup_(fclosep)
+#define _cleanup_pclose_ _cleanup_(pclosep)
+#define _cleanup_close_ _cleanup_(closep)
+#define _cleanup_closedir_ _cleanup_(closedirp)
+#define _cleanup_umask_ _cleanup_(umaskp)
+#define _cleanup_globfree_ _cleanup_(globfree)
 
 _malloc_  static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b == 0 || a > ((size_t) -1) / b))
@@ -608,7 +625,7 @@ int create_tmp_dir(char template[], char** dir_name);
 
 static inline void *mempset(void *s, int c, size_t n) {
         memset(s, c, n);
-        return (char*)s + n;
+        return (uint8_t*)s + n;
 }
 
 char *hexmem(const void *p, size_t l);
@@ -619,7 +636,7 @@ char *strrep(const char *s, unsigned n);
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need);
 #define GREEDY_REALLOC(array, allocated, need) \
-        greedy_realloc((void**) &(array), &(allocated), (sizeof *array) * (need))
+        greedy_realloc((void**) &(array), &(allocated), sizeof((array)[0]) * (need))
 
 static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;

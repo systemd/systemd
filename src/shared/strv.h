@@ -34,6 +34,8 @@ static inline void strv_freep(char ***l) {
         strv_free(*l);
 }
 
+#define _cleanup_strv_free_ _cleanup_(strv_freep)
+
 char **strv_copy(char * const *l) _malloc_;
 unsigned strv_length(char * const *l);
 

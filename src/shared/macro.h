@@ -45,6 +45,7 @@
 #define _weakref_(x) __attribute__((weakref(#x)))
 #define _introspect_(x) __attribute__((section("introspect." x)))
 #define _alignas_(x) __attribute__((aligned(__alignof(x))))
+#define _cleanup_(x) __attribute__((cleanup(x)))
 
 /* automake test harness */
 #define EXIT_TEST_SKIP 77
@@ -213,17 +214,6 @@ static inline size_t IOVEC_INCREMENT(struct iovec *i, unsigned n, size_t k) {
 
         return k;
 }
-
-#define _cleanup_free_ __attribute__((cleanup(freep)))
-#define _cleanup_fclose_ __attribute__((cleanup(fclosep)))
-#define _cleanup_pclose_ __attribute__((cleanup(pclosep)))
-#define _cleanup_close_ __attribute__((cleanup(closep)))
-#define _cleanup_closedir_ __attribute__((cleanup(closedirp)))
-#define _cleanup_umask_ __attribute__((cleanup(umaskp)))
-#define _cleanup_set_free_ __attribute__((cleanup(set_freep)))
-#define _cleanup_set_free_free_ __attribute__((cleanup(set_free_freep)))
-#define _cleanup_strv_free_ __attribute__((cleanup(strv_freep)))
-#define _cleanup_journal_close_ __attribute__((cleanup(journal_closep)))
 
 #define VA_FORMAT_ADVANCE(format, ap)                                   \
 do {                                                                    \
