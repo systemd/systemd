@@ -24,6 +24,7 @@
 #endif
 
 #include <fcntl.h>
+#include <malloc.h>
 
 #include "util.h"
 
@@ -199,7 +200,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 sz += ALIGN8(offsetof(struct kdbus_msg_item, str) + dl + 1);
         }
 
-        m->kdbus = aligned_alloc(8, sz);
+        m->kdbus = memalign(8, sz);
         if (!m->kdbus)
                 return -ENOMEM;
 
@@ -500,7 +501,7 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
         for (;;) {
                 void *q;
 
-                q = aligned_alloc(8, sz);
+                q = memalign(8, sz);
                 if (!q)
                         return -errno;
 
