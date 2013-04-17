@@ -32,8 +32,7 @@
 #define TIMEOUT_USEC (10 * USEC_PER_SEC)
 
 static bool ignore_proc(pid_t pid) {
-        char buf[PATH_MAX];
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         char c;
         size_t count;
         uid_t uid;
@@ -51,15 +50,11 @@ static bool ignore_proc(pid_t pid) {
         if (uid != 0)
                 return false;
 
-        snprintf(buf, sizeof(buf), "/proc/%lu/cmdline", (unsigned long) pid);
-        char_array_0(buf);
-
-        f = fopen(buf, "re");
+        f = fopen(procfs_file_alloca(pid, "cmdline"), "re");
         if (!f)
                 return true; /* not really, but has the desired effect */
 
         count = fread(&c, 1, 1, f);
-        fclose(f);
 
         /* Kernel threads have an empty cmdline */
         if (count <= 0)

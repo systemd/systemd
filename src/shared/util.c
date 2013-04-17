@@ -80,15 +80,6 @@ char **saved_argv = NULL;
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
-#define procfs_file_alloca(pid, field)                                  \
-        ({                                                              \
-                pid_t _pid_ = (pid);                                    \
-                char *_r_;                                              \
-                _r_ = alloca(sizeof("/proc/") -1 + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
-                sprintf(_r_, "/proc/%lu/" field, (unsigned long) _pid_); \
-                _r_;                                                    \
-        })
-
 size_t page_size(void) {
         static __thread size_t pgsz = 0;
         long r;

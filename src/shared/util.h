@@ -21,6 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <alloca.h>
 #include <inttypes.h>
 #include <time.h>
 #include <sys/time.h>
@@ -695,4 +696,13 @@ int unlink_noerrno(const char *path);
                 _c_ = alloca(_x_ + _y_ + 1);            \
                 strcpy(stpcpy(_c_, _a_), _b_);          \
                 _c_;                                    \
+        })
+
+#define procfs_file_alloca(pid, field)                                  \
+        ({                                                              \
+                pid_t _pid_ = (pid);                                    \
+                char *_r_;                                              \
+                _r_ = alloca(sizeof("/proc/") -1 + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
+                sprintf(_r_, "/proc/%lu/" field, (unsigned long) _pid_); \
+                _r_;                                                    \
         })
