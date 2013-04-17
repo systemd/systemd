@@ -14,7 +14,7 @@ After=default.target
 Before=shutdown.target
 
 [Timer]
-OnActiveSec=10s
+OnActiveSec=30s
 
 [Install]
 Also=systemd-readahead-collect.service
