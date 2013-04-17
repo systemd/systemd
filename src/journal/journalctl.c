@@ -1123,6 +1123,12 @@ int main(int argc, char *argv[]) {
                 const void *data;
                 size_t size;
 
+                r = sd_journal_set_data_threshold(j, 0);
+                if (r < 0) {
+                        log_error("Failed to unset data size threshold");
+                        return EXIT_FAILURE;
+                }
+
                 r = sd_journal_query_unique(j, arg_field);
                 if (r < 0) {
                         log_error("Failed to query unique data objects: %s", strerror(-r));
