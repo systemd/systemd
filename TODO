@@ -13,6 +13,8 @@ Bugfixes:
 
 Fedora 19:
 
+* timedatectl: NTP enabled: n/a
+
 * fix match logic to add another level of disjunction/conjunction
 
 * external: maybe it is time to patch procps so that "ps" links to
@@ -34,13 +36,17 @@ Fedora 19:
 
 Features:
 
+* logind: add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
+
+* we need dynamic units
+
+* nss-myhostname should also resolve 'localhost' so that /etc/hosts becomes optional.
+
 * add s.th. like "systemctl set-log-level debug"
 
+* sd-login: allow enumerating machines and add inotify iface
+
 * move session owner code from sd-login.c to cgroup-util.c
-
-* decimal_str_max() should become a type-safe macro
-
-* show-cgroup.c uses its own ulog10 implementation
 
 * cgroup-util: verify syntax of cgroup controllers
 
@@ -49,8 +55,6 @@ Features:
 * make sure cg_pid_get_path() works properly for co-mounted controllers
 
 * nspawn: ensure syntax of --uuid= argument is correct
-
-* nspawn: detect whether something is an OS by checking for /etc/os-release
 
 * explicitly disallow changing the cgroup path of units in the
   name=systemd hierarchy, unless it is outside of /system
