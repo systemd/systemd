@@ -23,8 +23,6 @@
 
 #include <stdbool.h>
 
-typedef struct ExecContext ExecContext;
-
 int setup_tmpdirs(char **tmp_dir, char **var_tmp_dir);
 int setup_namespace(char **read_write_dirs,
                     char **read_only_dirs,
