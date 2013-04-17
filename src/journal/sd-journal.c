@@ -1248,11 +1248,11 @@ static void check_network(sd_journal *j, int fd) {
                 return;
 
         j->on_network =
-                (long)sfs.f_type == (long)CIFS_MAGIC_NUMBER ||
-                sfs.f_type == CODA_SUPER_MAGIC ||
-                sfs.f_type == NCP_SUPER_MAGIC ||
-                sfs.f_type == NFS_SUPER_MAGIC ||
-                sfs.f_type == SMB_SUPER_MAGIC;
+                (unsigned) sfs.f_type == CIFS_MAGIC_NUMBER ||
+                (unsigned) sfs.f_type == CODA_SUPER_MAGIC ||
+                (unsigned) sfs.f_type == NCP_SUPER_MAGIC ||
+                (unsigned) sfs.f_type == NFS_SUPER_MAGIC ||
+                (unsigned) sfs.f_type == SMB_SUPER_MAGIC;
 }
 
 static int add_file(sd_journal *j, const char *prefix, const char *filename) {
