@@ -36,11 +36,20 @@ Fedora 19:
 
 Features:
 
+* if pam_systemd is invoked by su from a process that is outside of a
+  any session we should probably just become a NOP, since that's
+  usually not a real user session but just some system code that just
+  needs setuid().
+
+* add a pam module that passes the hdd passphrase into the PAM stack and then expires it, for usage by gdm auto-login.
+
+* add a pam module that on password changes updates any LUKS slot where the password matches
+
 * maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
 
 * timedatctl, localectl: possibly make some commands work without the daemon, for chroot situations...
 
-* nspawn: expose init PID and UUID as cgroup EAs
+* nspawn: expose init PID, UUID, root directory as cgroup EAs. names should be: 'user.machine_id', 'user.init_pid', 'user.root_directory'.
 
 * logind: consider making suspend inhibitor locks non-session specific, but keep suspend-key inhibitor locks session specific
 
