@@ -209,7 +209,9 @@ static int parse_env_file_internal(
                 switch (state) {
 
                 case PRE_KEY:
-                        if (strchr(COMMENTS, c))
+                        if (startswith(p, "export "))
+                                p+=6;
+                        else if (strchr(COMMENTS, c))
                                 state = COMMENT;
                         else if (!strchr(WHITESPACE, c)) {
                                 state = KEY;
@@ -255,7 +257,7 @@ static int parse_env_file_internal(
                         break;
 
                 case PRE_VALUE:
-                        if (strchr(newline, c)) {
+                        if (strchr(newline, c) || strchr(COMMENTS, c)) {
                                 state = PRE_KEY;
                                 key[n_key] = 0;
 

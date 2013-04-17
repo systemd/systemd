@@ -31,7 +31,7 @@ static void test_parse_env_file(void) {
         char t[] = "/tmp/test-parse-env-file-XXXXXX";
         int fd, r;
         FILE *f;
-        _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL, *six = NULL, *seven = NULL;
+        _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL, *six = NULL, *seven = NULL, *eight = NULL, *nine = NULL;
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
         unsigned k;
@@ -53,7 +53,9 @@ static void test_parse_env_file(void) {
               "five = \'55\\\'55\' \"FIVE\" cinco   \n"
               "six = seis sechs\\\n"
               " sis\n"
-              "seven=", f);
+              "export seven=\"sevenval\"#comment\n"
+              "eight=#comment\n"
+              "nine=", f);
 
         fflush(f);
         fclose(f);
@@ -67,6 +69,8 @@ static void test_parse_env_file(void) {
                        "five", &five,
                        "six", &six,
                        "seven", &seven,
+                       "eight", &eight,
+                       "nine", &nine,
                        NULL);
 
         assert_se(r >= 0);
@@ -78,6 +82,8 @@ static void test_parse_env_file(void) {
         log_info("five=[%s]", strna(five));
         log_info("six=[%s]", strna(six));
         log_info("seven=[%s]", strna(seven));
+        log_info("eight=[%s]", strna(eight));
+        log_info("nine=[%s]", strna(nine));
 
         assert_se(streq(one, "BAR"));
         assert_se(streq(two, "bar"));
@@ -85,7 +91,9 @@ static void test_parse_env_file(void) {
         assert_se(streq(four, "44\"44"));
         assert_se(streq(five, "55\'55FIVEcinco"));
         assert_se(streq(six, "seis sechs sis"));
-        assert_se(seven == NULL);
+        assert_se(streq(seven, "sevenval"));
+        assert_se(eight == NULL);
+        assert_se(nine == NULL);
 
         r = load_env_file(t, NULL, &a);
         assert_se(r >= 0);
@@ -99,8 +107,10 @@ static void test_parse_env_file(void) {
         assert_se(streq(a[3], "four=44\"44"));
         assert_se(streq(a[4], "five=55\'55FIVEcinco"));
         assert_se(streq(a[5], "six=seis sechs sis"));
-        assert_se(streq(a[6], "seven="));
-        assert_se(a[7] == NULL);
+        assert_se(streq(a[6], "seven=sevenval"));
+        assert_se(streq(a[7], "eight="));
+        assert_se(streq(a[8], "nine="));
+        assert_se(a[9] == NULL);
 
         r = write_env_file("/tmp/test-fileio", a);
         assert_se(r >= 0);
