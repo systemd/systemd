@@ -4009,11 +4009,11 @@ static int enable_sysv_units(char **args) {
         r = 0;
         for (f = 1; args[f]; f++) {
                 const char *name;
-                char *p;
+                char _cleanup_free_ *p = NULL, *q = NULL;
                 bool found_native = false, found_sysv;
                 unsigned c = 1;
                 const char *argv[6] = { "/sbin/chkconfig", NULL, NULL, NULL, NULL };
-                char **k, *l, *q = NULL;
+                char **k, *l;
                 int j;
                 pid_t pid;
                 siginfo_t status;
@@ -4027,8 +4027,6 @@ static int enable_sysv_units(char **args) {
                         continue;
 
                 STRV_FOREACH(k, paths.unit_path) {
-                        p = NULL;
-
                         if (!isempty(arg_root))
                                 asprintf(&p, "%s/%s/%s", arg_root, *k, name);
                         else
@@ -4041,6 +4039,7 @@ static int enable_sysv_units(char **args) {
 
                         found_native = access(p, F_OK) >= 0;
                         free(p);
+                        p = NULL;
 
                         if (found_native)
                                 break;
@@ -4049,7 +4048,6 @@ static int enable_sysv_units(char **args) {
                 if (found_native)
                         continue;
 
-                p = NULL;
                 if (!isempty(arg_root))
                         asprintf(&p, "%s/" SYSTEM_SYSVINIT_PATH "/%s", arg_root, name);
                 else
@@ -4062,10 +4060,8 @@ static int enable_sysv_units(char **args) {
                 p[strlen(p) - sizeof(".service") + 1] = 0;
                 found_sysv = access(p, F_OK) >= 0;
 
-                if (!found_sysv) {
-                        free(p);
+                if (!found_sysv)
                         continue;
-                }
 
                 /* Mark this entry, so that we don't try enabling it as native unit */
                 args[f] = (char*) "";
@@ -4083,8 +4079,6 @@ static int enable_sysv_units(char **args) {
 
                 l = strv_join((char**)argv, " ");
                 if (!l) {
-                        free(q);
-                        free(p);
                         r = log_oom();
                         goto finish;
                 }
@@ -4095,8 +4089,6 @@ static int enable_sysv_units(char **args) {
                 pid = fork();
                 if (pid < 0) {
                         log_error("Failed to fork: %m");
-                        free(p);
-                        free(q);
                         r = -errno;
                         goto finish;
                 } else if (pid == 0) {
@@ -4105,9 +4097,6 @@ static int enable_sysv_units(char **args) {
                         execv(argv[0], (char**) argv);
                         _exit(EXIT_FAILURE);
                 }
-
-                free(p);
-                free(q);
 
                 j = wait_for_terminate(pid, &status);
                 if (j < 0) {
