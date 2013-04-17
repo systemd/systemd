@@ -90,6 +90,8 @@ typedef struct TZ {
 } TZ;
 
 static TZ tz = {
+        .zone = NULL,
+        .local_rtc = false,
         .can_ntp = -1,
         .use_ntp = -1,
 };
@@ -303,9 +305,10 @@ static char** get_ntp_services(void) {
                         if (l[0] == 0 || l[0] == '#')
                                 continue;
 
-                        if (strv_extend(&r, l) < 0)
+                        if (strv_extend(&r, l) < 0) {
                                 log_oom();
-                        return NULL;
+                                return NULL;
+                        }
                 }
         }
 
