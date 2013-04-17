@@ -268,7 +268,7 @@ static void do_journal_append(char *file)
 
         f = open(file, O_RDONLY);
         if (f < 0) {
-                log_error("Failed to read bootchart data: %s\n", strerror(-errno));
+                log_error("Failed to read bootchart data: %m\n");
                 return;
         }
         n = loop_read(f, p + 10, BOOTCHART_MAX, false);
