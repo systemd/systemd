@@ -798,13 +798,13 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+16</term>
+                                <term>SIGRTMAX-14</term>
 
                                 <listitem><para>Immediately reboots the machine with kexec.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+20</term>
+                                <term>SIGRTMAX-10</term>
 
                                 <listitem><para>Enables display of
                                 status messages on the console, as
@@ -815,7 +815,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+21</term>
+                                <term>SIGRTMAX-9</term>
 
                                 <listitem><para>Disables display of
                                 status messages on the console, as
@@ -826,23 +826,23 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+22</term>
-                                <term>SIGRTMIN+23</term>
+                                <term>SIGRTMAX-8</term>
+                                <term>SIGRTMAX-7</term>
 
                                 <listitem><para>Sets the log level to
                                 <literal>debug</literal>
                                 (or <literal>info</literal> on
-                                <literal>SIGRTMIN+23</literal>), as
+                                <literal>SIGRTMAX-7</literal>), as
                                 controlled via
                                 <varname>systemd.log_level=debug</varname>
                                 (or <varname>systemd.log_level=info</varname>
-                                on <literal>SIGRTMIN+23</literal>) on
+                                on <literal>SIGRTMAX-7</literal>) on
                                 the kernel command
                                 line.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+24</term>
+                                <term>SIGRTMIN+24 (SIGRTMAX-6)</term>
 
                                 <listitem><para>Immediately exits the
                                 manager (only available for --user
@@ -850,28 +850,28 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+26</term>
-                                <term>SIGRTMIN+27</term>
-                                <term>SIGRTMIN+28</term>
-                                <term>SIGRTMIN+29</term>
+                                <term>SIGRTMAX-4</term>
+                                <term>SIGRTMAX-3</term>
+                                <term>SIGRTMAX-2</term>
+                                <term>SIGRTMAX-1</term>
 
                                 <listitem><para>Sets the log level to
                                 <literal>journal-or-kmsg</literal>
                                 (or <literal>console</literal> on
-                                <literal>SIGRTMIN+27</literal>,
+                                <literal>SIGRTMAX-3</literal>,
                                 <literal>kmsg</literal> on
-                                <literal>SIGRTMIN+28</literal>,
+                                <literal>SIGRTMAX-2</literal>,
                                 or <literal>syslog-or-kmsg</literal>
-                                on <literal>SIGRTMIN+29</literal>), as
+                                on <literal>SIGRTMAX-1</literal>), as
                                 controlled via
                                 <varname>systemd.log_target=journal-or-kmsg</varname>
                                 (or <varname>systemd.log_target=console</varname>
-                                on <literal>SIGRTMIN+27</literal>,
+                                on <literal>SIGRTMAX-3</literal>,
                                 <varname>systemd.log_target=kmsg</varname>
-                                on <literal>SIGRTMIN+28</literal>,
+                                on <literal>SIGRTMAX-2</literal>,
                                 or
                                 <varname>systemd.log_target=syslog-or-kmsg</varname>
-                                on <literal>SIGRTMIN+29</literal>) on
+                                on <literal>SIGRTMAX-1</literal>) on
                                 the kernel command
                                 line.</para></listitem>
                         </varlistentry>
