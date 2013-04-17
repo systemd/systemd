@@ -492,7 +492,8 @@ static int setup_timezone(const char *dest) {
 }
 
 static int setup_resolv_conf(const char *dest) {
-        char *where;
+        char _cleanup_free_ *where = NULL;
+        _cleanup_close_ int fd = -1;
 
         assert(dest);
 
@@ -504,12 +505,18 @@ static int setup_resolv_conf(const char *dest) {
         if (!where)
                 return log_oom();
 
+        fd = open(where, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+
         /* We don't really care for the results of this really. If it
          * fails, it fails, but meh... */
-        if (mount("/etc/resolv.conf", where, "bind", MS_BIND, NULL) >= 0)
-                mount("/etc/resolv.conf", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
-
-        free(where);
+        if (mount("/etc/resolv.conf", where, "bind", MS_BIND, NULL) < 0)
+                log_warning("Failed to bind mount /etc/resolv.conf: %m");
+        else
+                if (mount("/etc/resolv.conf", where, "bind",
+                          MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0) {
+                        log_error("Failed to remount /etc/resolv.conf readonly: %m");
+                        return -errno;
+                }
 
         return 0;
 }
