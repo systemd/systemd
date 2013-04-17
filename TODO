@@ -36,6 +36,14 @@ Fedora 19:
 
 Features:
 
+* maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
+
+* timedatctl, localectl: possibly make some commands work without the daemon, for chroot situations...
+
+* nspawn: expose init PID and UUID as cgroup EAs
+
+* logind: consider making suspend inhibitor locks non-session specific, but keep suspend-key inhibitor locks session specific
+
 * logind: add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
 
 * we need dynamic units
