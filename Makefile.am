@@ -560,7 +560,7 @@ noinst_DATA += \
 CLEANFILES += \
 	man/index.html
 
-XML_GLOB = $(wildcard $(top_srcdir)/man/*.xml)
+XML_GLOB = $(wildcard $(top_srcdir)/man/*.xml $(top_builddir)/man/*.xml)
 NON_INDEX_XML_FILES = $(filter-out man/systemd.index.xml,$(XML_FILES))
 SOURCE_XML_FILES = $(filter-out man/systemd.directives.xml,$(NON_INDEX_XML_FILES))
 
@@ -1715,7 +1715,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-match.c \
 	src/libsystemd-bus/bus-match.h \
 	src/libsystemd-bus/bus-bloom.c \
-	src/libsystemd-bus/bus-bloom.h
+	src/libsystemd-bus/bus-bloom.h \
+	src/libsystemd-bus/kdbus.h
 
 libsystemd_bus_la_LIBADD =  \
 	libsystemd-id128-internal.la \

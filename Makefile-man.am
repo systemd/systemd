@@ -793,8 +793,10 @@ MANPAGES_ALIAS += \
 	man/sd_login_monitor_get_fd.3 \
 	man/sd_login_monitor_get_timeout.3 \
 	man/sd_login_monitor_unref.3 \
+	man/sd_pid_get_machine_name.3 \
 	man/sd_pid_get_owner_uid.3 \
 	man/sd_pid_get_unit.3 \
+	man/sd_pid_get_user_unit.3 \
 	man/sd_seat_can_multi_session.3 \
 	man/sd_seat_get_sessions.3 \
 	man/sd_session_get_class.3 \
@@ -817,8 +819,10 @@ man/sd_login_monitor_get_events.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_timeout.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
+man/sd_pid_get_machine_name.3: man/sd_pid_get_session.3
 man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
 man/sd_pid_get_unit.3: man/sd_pid_get_session.3
+man/sd_pid_get_user_unit.3: man/sd_pid_get_session.3
 man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
 man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
 man/sd_session_get_class.3: man/sd_session_is_active.3
@@ -857,10 +861,16 @@ man/sd_login_monitor_get_timeout.html: man/sd_login_monitor_new.html
 man/sd_login_monitor_unref.html: man/sd_login_monitor_new.html
 	$(html-alias)
 
+man/sd_pid_get_machine_name.html: man/sd_pid_get_session.html
+	$(html-alias)
+
 man/sd_pid_get_owner_uid.html: man/sd_pid_get_session.html
 	$(html-alias)
 
 man/sd_pid_get_unit.html: man/sd_pid_get_session.html
+	$(html-alias)
+
+man/sd_pid_get_user_unit.html: man/sd_pid_get_session.html
 	$(html-alias)
 
 man/sd_seat_can_multi_session.html: man/sd_seat_get_active.html
