@@ -34,6 +34,8 @@ Fedora 19:
 
 Features:
 
+* add s.th. like "systemctl set-log-level debug"
+
 * move session owner code from sd-login.c to cgroup-util.c
 
 * decimal_str_max() should become a type-safe macro
