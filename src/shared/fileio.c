@@ -184,7 +184,6 @@ static int parse_env_file_internal(
         enum {
                 PRE_KEY,
                 KEY,
-                PRE_EQUAL,
                 PRE_VALUE,
                 VALUE,
                 VALUE_ESCAPE,
@@ -209,9 +208,7 @@ static int parse_env_file_internal(
                 switch (state) {
 
                 case PRE_KEY:
-                        if (startswith(p, "export "))
-                                p+=6;
-                        else if (strchr(COMMENTS, c))
+                        if (strchr(COMMENTS, c))
                                 state = COMMENT;
                         else if (!strchr(WHITESPACE, c)) {
                                 state = KEY;
@@ -228,9 +225,7 @@ static int parse_env_file_internal(
                         if (strchr(newline, c)) {
                                 state = PRE_KEY;
                                 n_key = 0;
-                        } else if (strchr(WHITESPACE, c))
-                                state = PRE_EQUAL;
-                        else if (c == '=')
+                        } else if (c == '=')
                                 state = PRE_VALUE;
                         else {
                                 if (!greedy_realloc((void**) &key, &key_alloc, n_key+2)) {
@@ -243,19 +238,6 @@ static int parse_env_file_internal(
 
                         break;
 
-                case PRE_EQUAL:
-                        if (strchr(newline, c)) {
-                                state = PRE_KEY;
-                                n_key = 0;
-                        } else if (c == '=')
-                                state = PRE_VALUE;
-                        else if (!strchr(WHITESPACE, c)) {
-                                n_key = 0;
-                                state = COMMENT;
-                        }
-
-                        break;
-
                 case PRE_VALUE:
                         if (strchr(newline, c) || strchr(COMMENTS, c)) {
                                 state = PRE_KEY;
@@ -263,6 +245,10 @@ static int parse_env_file_internal(
 
                                 if (value)
                                         value[n_value] = 0;
+
+                                /* strip trailing whitespace from key */
+                                while(strchr(WHITESPACE, key[--n_key]))
+                                        key[n_key]=0;
 
                                 r = push(key, value, userdata);
                                 if (r < 0)
@@ -301,6 +287,10 @@ static int parse_env_file_internal(
                                 /* Chomp off trailing whitespace */
                                 if (last_whitespace != (size_t) -1)
                                         value[last_whitespace] = 0;
+
+                                /* strip trailing whitespace from key */
+                                while(strchr(WHITESPACE, key[--n_key]))
+                                        key[n_key]=0;
 
                                 r = push(key, value, userdata);
                                 if (r < 0)
@@ -425,6 +415,10 @@ static int parse_env_file_internal(
 
                 if (value)
                         value[n_value] = 0;
+
+                /* strip trailing whitespace from key */
+                while(strchr(WHITESPACE, key[--n_key]))
+                        key[n_key]=0;
 
                 r = push(key, value, userdata);
                 if (r < 0)

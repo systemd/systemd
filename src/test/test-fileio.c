@@ -26,12 +26,14 @@
 #include "util.h"
 #include "fileio.h"
 #include "strv.h"
+#include "env-util.h"
 
 static void test_parse_env_file(void) {
         char t[] = "/tmp/test-parse-env-file-XXXXXX";
         int fd, r;
         FILE *f;
-        _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL, *six = NULL, *seven = NULL, *eight = NULL, *nine = NULL;
+        _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL,
+                        *six = NULL, *seven = NULL, *eight = NULL, *nine = NULL, *ten = NULL;
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
         unsigned k;
@@ -53,47 +55,13 @@ static void test_parse_env_file(void) {
               "five = \'55\\\'55\' \"FIVE\" cinco   \n"
               "six = seis sechs\\\n"
               " sis\n"
-              "export seven=\"sevenval\"#comment\n"
+              "seven=\"sevenval\"#comment\n"
               "eight=#comment\n"
-              "nine=", f);
+              "export nine=nineval\n"
+              "ten=", f);
 
         fflush(f);
         fclose(f);
-
-        r = parse_env_file(
-                        t, NULL,
-                       "one", &one,
-                       "two", &two,
-                       "three", &three,
-                       "four", &four,
-                       "five", &five,
-                       "six", &six,
-                       "seven", &seven,
-                       "eight", &eight,
-                       "nine", &nine,
-                       NULL);
-
-        assert_se(r >= 0);
-
-        log_info("one=[%s]", strna(one));
-        log_info("two=[%s]", strna(two));
-        log_info("three=[%s]", strna(three));
-        log_info("four=[%s]", strna(four));
-        log_info("five=[%s]", strna(five));
-        log_info("six=[%s]", strna(six));
-        log_info("seven=[%s]", strna(seven));
-        log_info("eight=[%s]", strna(eight));
-        log_info("nine=[%s]", strna(nine));
-
-        assert_se(streq(one, "BAR"));
-        assert_se(streq(two, "bar"));
-        assert_se(streq(three, "333\nxxxx"));
-        assert_se(streq(four, "44\"44"));
-        assert_se(streq(five, "55\'55FIVEcinco"));
-        assert_se(streq(six, "seis sechs sis"));
-        assert_se(streq(seven, "sevenval"));
-        assert_se(eight == NULL);
-        assert_se(nine == NULL);
 
         r = load_env_file(t, NULL, &a);
         assert_se(r >= 0);
@@ -109,8 +77,11 @@ static void test_parse_env_file(void) {
         assert_se(streq(a[5], "six=seis sechs sis"));
         assert_se(streq(a[6], "seven=sevenval"));
         assert_se(streq(a[7], "eight="));
-        assert_se(streq(a[8], "nine="));
-        assert_se(a[9] == NULL);
+        assert_se(streq(a[8], "export nine=nineval"));
+        assert_se(streq(a[9], "ten="));
+        assert_se(a[10] == NULL);
+
+        strv_env_clean_log(a, "/tmp/test-fileio");
 
         r = write_env_file("/tmp/test-fileio", a);
         assert_se(r >= 0);
@@ -123,6 +94,44 @@ static void test_parse_env_file(void) {
                 log_info("Got2: <%s>", *i);
                 assert_se(streq(*i, a[k++]));
         }
+
+        r = parse_env_file(
+                        t, NULL,
+                       "one", &one,
+                       "two", &two,
+                       "three", &three,
+                       "four", &four,
+                       "five", &five,
+                       "six", &six,
+                       "seven", &seven,
+                       "eight", &eight,
+                       "export nine", &nine,
+                       "ten", &ten,
+                       NULL);
+
+        assert_se(r >= 0);
+
+        log_info("one=[%s]", strna(one));
+        log_info("two=[%s]", strna(two));
+        log_info("three=[%s]", strna(three));
+        log_info("four=[%s]", strna(four));
+        log_info("five=[%s]", strna(five));
+        log_info("six=[%s]", strna(six));
+        log_info("seven=[%s]", strna(seven));
+        log_info("eight=[%s]", strna(eight));
+        log_info("export nine=[%s]", strna(nine));
+        log_info("ten=[%s]", strna(nine));
+
+        assert_se(streq(one, "BAR"));
+        assert_se(streq(two, "bar"));
+        assert_se(streq(three, "333\nxxxx"));
+        assert_se(streq(four, "44\"44"));
+        assert_se(streq(five, "55\'55FIVEcinco"));
+        assert_se(streq(six, "seis sechs sis"));
+        assert_se(streq(seven, "sevenval"));
+        assert_se(eight == NULL);
+        assert_se(streq(nine, "nineval"));
+        assert_se(ten == NULL);
 
         unlink(t);
         unlink("/tmp/test-fileio");

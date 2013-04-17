@@ -376,7 +376,7 @@ char *strv_env_get(char **l, const char *name) {
         return strv_env_get_n(l, name, strlen(name));
 }
 
-char **strv_env_clean(char **e) {
+char **strv_env_clean_log(char **e, const char *message) {
         char **p, **q;
         int k = 0;
 
@@ -385,6 +385,8 @@ char **strv_env_clean(char **e) {
                 bool duplicate = false;
 
                 if (!env_assignment_is_valid(*p)) {
+                        if (message)
+                                log_error("Ignoring invalid environment '%s': %s", *p, message);
                         free(*p);
                         continue;
                 }
@@ -406,4 +408,8 @@ char **strv_env_clean(char **e) {
 
         e[k] = NULL;
         return e;
+}
+
+char **strv_env_clean(char **e) {
+        return strv_env_clean_log(e, NULL);
 }
