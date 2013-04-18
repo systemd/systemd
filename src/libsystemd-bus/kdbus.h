@@ -2,6 +2,8 @@
  * Copyright (C) 2013 Kay Sievers
  * Copyright (C) 2013 Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  * Copyright (C) 2013 Linux Foundation
+ * Copyright (C) 2013 Lennart Poettering
+ * Copyright (C) 2013 Daniel Mack <daniel@zonque.org>
  *
  * kdbus is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the
@@ -92,7 +94,6 @@ enum {
 	KDBUS_MSG_NAME_CHANGE,		/* .name_change */
 	KDBUS_MSG_ID_ADD,		/* .id_change */
 	KDBUS_MSG_ID_REMOVE,		/* .id_change */
-	KDBUS_MSG_ID_CHANGE,		/* .id_change */
 	KDBUS_MSG_REPLY_TIMEOUT,	/* empty, but .reply_cookie in .kdbus_msg is filled in */
 	KDBUS_MSG_REPLY_DEAD,		/* dito */
 };
@@ -227,7 +228,35 @@ enum {
 	KDBUS_POLICY_OPEN	=  4,
 };
 
+/* Items to append to kdbus_cmd_bus_make, kdbus_cmd_ep_make and
+ * kdbus_cmd_ns_make */
+
+enum {
+	KDBUS_CMD_MAKE_NONE,
+	KDBUS_CMD_MAKE_NAME,
+	KDBUS_CMD_MAKE_CGROUP,	/* the cgroup hierarchy ID for which to attach
+				 * cgroup membership paths * to messages. */
+	KDBUS_CMD_MAKE_CRED,	/* allow translator services which connect
+				 * to the bus on behalf of somebody else,
+				 * allow specifiying the credentials of the
+				 * client to connect on behalf on. Needs
+				 * privileges */
+
+};
+
+struct kdbus_cmd_make_item {
+	__u64 size;
+	__u64 type;
+	union {
+		__u8 data[0];
+		__u64 data64[0];
+		char str[0];
+	};
+};
+
 struct kdbus_cmd_hello {
+	__u64 size;
+
 	/* userspace → kernel, kernel → userspace */
 	__u64 conn_flags;	/* userspace specifies its
 				 * capabilities and more, kernel
@@ -236,26 +265,16 @@ struct kdbus_cmd_hello {
 				 * capabilities by returning an error
 				 * from KDBUS_CMD_HELLO */
 
-	/* userspace → kernel */
-	__u64 pid;		/* To allow translator services which
-				 * connect to the bus on behalf of
-				 * somebody else, allow specifiying
-				 * the PID of the client to connect on
-				 * behalf on. Normal clients should
-				 * pass this as 0 (i.e. to do things
-				 * under their own PID). Priviliged
-				 * clients can pass != 0, to operate
-				 * on behalf of somebody else. */
-
 	/* kernel → userspace */
 	__u64 bus_flags;	/* this is .flags copied verbatim from
 				 * from original KDBUS_CMD_BUS_MAKE
 				 * ioctl. It's intended to be useful
 				 * to do negotiation of features of
 				 * the payload that is transfreted. */
-	__u64 id;		/* peer id */
+	__u64 id;		/* id assigned to this connection */
 	__u64 bloom_size;	/* The bloom filter size chosen by the
 				 * bus owner */
+	struct kdbus_cmd_make_item items[0];
 };
 
 struct kdbus_cmd_bus_make {
@@ -268,12 +287,9 @@ struct kdbus_cmd_bus_make {
 				 * copied verbatim into the bus
 				 * structure and returned from
 				 * KDBUS_CMD_HELLO, later */
-	__u64 cgroup_id;	/* the cgroup hierarchy ID for which
-				 * to attach cgroup membership paths
-				 * to messages. 0 if no cgroup data
-				 * shall be attached. */
-	__u64 bloom_size;	/* Size of the bloom filter for this bus. */
-	char name[0];
+	__u64 bloom_size;	/* size of the bloom filter for this bus */
+	struct kdbus_cmd_make_item items[0];
+
 };
 
 struct kdbus_cmd_ep_make {
@@ -284,7 +300,7 @@ struct kdbus_cmd_ep_make {
 				 * same way as for
 				 * KDBUS_CMD_BUS_MAKE. Unused for
 				 * now. */
-	char name[0];
+	struct kdbus_cmd_make_item items[0];
 };
 
 struct kdbus_cmd_ns_make {
@@ -295,7 +311,7 @@ struct kdbus_cmd_ns_make {
 				 * same way as for
 				 * KDBUS_CMD_BUS_MAKE. Unused for
 				 * now. */
-	char name[0];
+	struct kdbus_cmd_make_item items[0];
 };
 
 enum {
@@ -322,15 +338,15 @@ struct kdbus_cmd_names {
 };
 
 enum {
-	KDBUS_CMD_NAME_INFO_ITEM_NAME,
-	KDBUS_CMD_NAME_INFO_ITEM_SECLABEL,
-	KDBUS_CMD_NAME_INFO_ITEM_AUDIT,
+	KDBUS_CMD_NAME_INFO_ITEM_NAME,		/* userspace → kernel */
+	KDBUS_CMD_NAME_INFO_ITEM_SECLABEL,	/* kernel → userspace */
+	KDBUS_CMD_NAME_INFO_ITEM_AUDIT,		/* kernel → userspace */
 };
 
 struct kdbus_cmd_name_info_item {
 	__u64 size;
 	__u64 type;
-	__u8 items[0];
+	__u8 data[0];
 };
 
 struct kdbus_cmd_name_info {
@@ -338,7 +354,7 @@ struct kdbus_cmd_name_info {
 	__u64 flags;
 	__u64 id;			/* either ID, or 0 and _ITEM_NAME follows */
 	struct kdbus_creds creds;
-	struct kdbus_cmd_name_info_item item[0]; /* list of item records */
+	struct kdbus_cmd_name_info_item items[0]; /* list of item records */
 };
 
 enum {
@@ -349,7 +365,6 @@ enum {
 	KDBUS_CMD_MATCH_NAME_CHANGE,	/* Matches a name string against KDBUS_MSG_NAME_CHANGE */
 	KDBUS_CMD_MATCH_ID_ADD,		/* Matches an ID against KDBUS_MSG_ID_ADD */
 	KDBUS_CMD_MATCH_ID_REMOVE,	/* Matches an ID against KDBUS_MSG_ID_REMOVE */
-	KDBUS_CMD_MATCH_ID_CHANGE,	/* Matches an ID against KDBUS_MSG_ID_CHANGE */
 };
 
 struct kdbus_cmd_match_item {
