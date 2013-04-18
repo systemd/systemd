@@ -1772,7 +1772,8 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                                 return k;
                          }
                         /* Log invalid environment variables with filename */
-                        p = strv_env_clean_log(p, pglob.gl_pathv[n]);
+			if (p)
+	                        p = strv_env_clean_log(p, pglob.gl_pathv[n]);
 
                         if (r == NULL)
                                 r = p;
