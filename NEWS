@@ -53,6 +53,13 @@ CHANGES WITH 202:
           found the tool will now automatically fall back to prompting
           the user.
 
+        * Python systemd.journal module was updated to wrap recently
+          added functions from libsystemd-journal. The interface was
+          changed to bring the low level interface in s.j._Reader
+          closer to the C API, and the high level interface in
+          s.j.Reader was updated to wrap and convert all data about
+          an entry.
+
         Contributions from: Anatol Pomozov, Auke Kok, Harald Hoyer,
         Henrik Grindal Bakken, Josh Triplett, Kay Sievers, Lennart
         Poettering, Lukas Nykryn, Mantas Mikulėnas Marius Vollmer,
