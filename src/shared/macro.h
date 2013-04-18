@@ -264,24 +264,6 @@ do {                                                                    \
         }                                                               \
 } while(false)
 
-/* Remove this macro, when the kernel has f_type as unsigned int or long
- * for every architecure. Currently some 64bit architecures (like s390x)
- * have int in the kernel, but long in userspace for f_type, so glibc
- * extends the int to long and carries over the sign. Negative numbers are
- * caused by the 32bit magic constants in linux/magic.h stuffed into the
- * signed int in the kernel and these negative numbers are extended to
- * long, which cannot be simply compared to the magic constants anymore.
- */
-#define F_TYPE_CMP(f_type, magic)                                       \
-        __extension__ ({                                                \
-                        __SWORD_TYPE _f = (f_type);                     \
-                        const __SWORD_TYPE _c = (magic);                \
-                        const int _c32 = 1 ? (magic)                    \
-                                    : sizeof((int[magic]){0});          \
-                        (_f == _c || _f == _c32 );                      \
-                })
-
-
 /* Returns the number of chars needed to format variables of the
  * specified type as a decimal string. Adds in extra space for a
  * negative '-' prefix. */

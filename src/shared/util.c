@@ -2779,9 +2779,8 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
 
 static int is_temporary_fs(struct statfs *s) {
         assert(s);
-        return
-                F_TYPE_CMP(s->f_type, TMPFS_MAGIC) ||
-                F_TYPE_CMP(s->f_type, RAMFS_MAGIC);
+        return s->f_type == (__SWORD_TYPE) TMPFS_MAGIC ||
+                s->f_type == (__SWORD_TYPE) RAMFS_MAGIC;
 }
 
 int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
