@@ -219,9 +219,10 @@
                                 <listitem><para>Specify the timeout
                                 for querying for a password. If no
                                 unit is specified seconds is used.
-                                Supported units are s, ms,
-                                us, min, h, d. A timeout of 0 waits
-                                indefinitely.</para></listitem>
+                                Supported units are s, ms, us, min, h,
+                                d. A timeout of 0 waits indefinitely
+                                (which is the
+                                default).</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
