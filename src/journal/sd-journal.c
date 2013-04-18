@@ -109,6 +109,9 @@ static void set_location(sd_journal *j, LocationType type, JournalFile *f, Objec
 
         init_location(&j->current_location, type, f, o);
 
+        if (j->current_file)
+                j->current_file->current_offset = 0;
+
         j->current_file = f;
         j->current_field = 0;
 
