@@ -567,11 +567,31 @@ static PyObject* Reader_add_match(Reader *self, PyObject *args, PyObject *keywds
 
 PyDoc_STRVAR(Reader_add_disjunction__doc__,
              "add_disjunction() -> None\n\n"
-             "Inserts a logical OR between matches added before and afterwards.");
+             "Inserts a logical OR between matches added since previous\n"
+             "add_disjunction() or add_conjunction() and the next\n"
+             "add_disjunction() or add_conjunction().\n\n"
+             "See man:sd_journal_add_disjunction(3) for explanation.");
 static PyObject* Reader_add_disjunction(Reader *self, PyObject *args)
 {
     int r;
     r = sd_journal_add_disjunction(self->j);
+    set_error(r, NULL, NULL);
+    if (r < 0)
+        return NULL;
+    Py_RETURN_NONE;
+}
+
+
+PyDoc_STRVAR(Reader_add_conjunction__doc__,
+             "add_conjunction() -> None\n\n"
+             "Inserts a logical AND between matches added since previous\n"
+             "add_disjunction() or add_conjunction() and the next\n"
+             "add_disjunction() or add_conjunction().\n\n"
+             "See man:sd_journal_add_disjunction(3) for explanation.");
+static PyObject* Reader_add_conjunction(Reader *self, PyObject *args)
+{
+    int r;
+    r = sd_journal_add_conjunction(self->j);
     set_error(r, NULL, NULL);
     if (r < 0)
         return NULL;
@@ -980,6 +1000,7 @@ static PyMethodDef Reader_methods[] = {
     {"_get_monotonic",  (PyCFunction) Reader_get_monotonic, METH_NOARGS, Reader_get_monotonic__doc__},
     {"add_match",       (PyCFunction) Reader_add_match, METH_VARARGS|METH_KEYWORDS, Reader_add_match__doc__},
     {"add_disjunction", (PyCFunction) Reader_add_disjunction, METH_NOARGS, Reader_add_disjunction__doc__},
+    {"add_conjunction", (PyCFunction) Reader_add_conjunction, METH_NOARGS, Reader_add_conjunction__doc__},
     {"flush_matches",   (PyCFunction) Reader_flush_matches, METH_NOARGS, Reader_flush_matches__doc__},
     {"seek_head",       (PyCFunction) Reader_seek_head, METH_NOARGS, Reader_seek_head__doc__},
     {"seek_tail",       (PyCFunction) Reader_seek_tail, METH_NOARGS, Reader_seek_tail__doc__},
