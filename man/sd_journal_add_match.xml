@@ -45,6 +45,7 @@
         <refnamediv>
                 <refname>sd_journal_add_match</refname>
                 <refname>sd_journal_add_disjunction</refname>
+                <refname>sd_journal_add_conjunction</refname>
                 <refname>sd_journal_flush_matches</refname>
                 <refpurpose>Add or remove entry matches</refpurpose>
         </refnamediv>
@@ -62,6 +63,11 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_add_disjunction</function></funcdef>
+                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_add_conjunction</function></funcdef>
                                 <paramdef>sd_journal* <parameter>j</parameter></paramdef>
                         </funcprototype>
 
@@ -105,21 +111,45 @@
                 <para><function>sd_journal_add_disjunction()</function>
                 may be used to insert a disjunction (i.e. logical OR)
                 in the match list. If this call is invoked all
-                previously added matches are combined in an OR with
-                all matches added afterwards, until
-                <function>sd_journal_add_disjunction()</function> is
-                invoked again to begin the next OR term. The
+                previously added matches since the last invocation of
+                <function>sd_journal_add_disjunction()</function> or
+                <function>sd_journal_add_conjunction()</function> are
+                combined in an OR with all matches added afterwards,
+                until
+                <function>sd_journal_add_disjunction()</function> or
+                <function>sd_journal_add_conjunction()</function> is
+                invoked again to begin the next OR or AND
+                term. </para>
+
+                <para><function>sd_journal_add_conjunction()</function>
+                may be used to insert a conjunction (i.e. logical AND)
+                in the match list. If this call is invoked all
+                previously added matches since the last invocation of
+                <function>sd_journal_add_conjunction()</function> are
+                combined in an AND with all matches added afterwards,
+                until
+                <function>sd_journal_add_conjunction()</function> is
+                invoked again to begin the next AND term. The
                 combination of
-                <function>sd_journal_add_match()</function> and
-                <function>sd_journal_add_disjunction()</function> may
+                <function>sd_journal_add_match()</function>,
+                <function>sd_journal_add_disjunction()</function> and
+                <function>sd_journal_add_conjunction()</function> may
                 be used to build complex search terms, even though
-                full logical expressions are not available.</para>
+                full logical expressions are not available. Note that
+                <function>sd_journal_add_conjunction()</function>
+                operates one level 'higher' than
+                <function>sd_journal_add_disjunction()</function>. It
+                is hence possible to build an expression of AND terms,
+                consisting of OR terms, consisting of AND terms,
+                consisting of OR terms of matches (the latter OR
+                expression is implicitly created for matches with the
+                same field name, see above).</para>
 
                 <para><function>sd_journal_flush_matches()</function>
-                may be used to flush all matches and disjunction terms
-                again. After this call all filtering is removed and
-                all entries in the journal will be iterated
-                again.</para>
+                may be used to flush all matches, disjunction and
+                conjunction terms again. After this call all filtering
+                is removed and all entries in the journal will be
+                iterated again.</para>
 
                 <para>Note that filtering via matches only applies to
                 the way the journal is read, it has no effect on storage
@@ -129,8 +159,9 @@
         <refsect1>
                 <title>Return Value</title>
 
-                <para><function>sd_journal_add_match()</function> and
-                <function>sd_journal_add_disjunction()</function>
+                <para><function>sd_journal_add_match()</function>,
+                <function>sd_journal_add_disjunction()</function> and
+                <function>sd_journal_add_conjunction()</function>
                 return 0 on success or a negative errno-style error
                 code. <function>sd_journal_flush_matches()</function>
                 returns nothing.</para>
@@ -140,10 +171,11 @@
                 <title>Notes</title>
 
                 <para>The <function>sd_journal_add_match()</function>,
-                <function>sd_journal_add_disjunction()</function> and
-                <function>sd_journal_flush_matches()</function> interfaces are
-                available as shared library, which can be compiled and
-                linked to with the
+                <function>sd_journal_add_disjunction()</function>,
+                <function>sd_journal_add_conjunction()</function> and
+                <function>sd_journal_flush_matches()</function>
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
                 <literal>libsystemd-journal</literal>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
