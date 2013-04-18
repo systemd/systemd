@@ -179,8 +179,9 @@
                 be used to determine the class of the session
                 identified by the specified session identifier. The
                 returned string is one of <literal>user</literal>,
-                <literal>greeter</literal> or
-                <literal>lock-screen</literal> and needs to be freed
+                <literal>greeter</literal>,
+                <literal>lock-screen</literal>, or
+                <literal>background</literal> and needs to be freed
                 with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
