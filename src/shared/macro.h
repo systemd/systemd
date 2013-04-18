@@ -272,7 +272,7 @@ do {                                                                    \
  * signed int in the kernel and these negative numbers are extended to
  * long, which cannot be simply compared to the magic constants anymore.
  */
-#define CMP_F_TYPE(f, c)                                                \
+#define F_TYPE_CMP(f, c)                                                \
         __extension__ ({                                                \
                         __SWORD_TYPE _f = (f);                          \
                         const __SWORD_TYPE _c = (c);                    \
