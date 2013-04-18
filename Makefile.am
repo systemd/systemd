@@ -3467,8 +3467,8 @@ systemd_logind_CFLAGS = \
 
 systemd_logind_LDADD = \
 	libsystemd-label.la \
-	libsystemd-shared.la \
 	libsystemd-audit.la \
+	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	libsystemd-dbus.la \
 	libudev.la
