@@ -13,10 +13,6 @@ Bugfixes:
 
 Fedora 19:
 
-* timedatectl: NTP enabled: n/a
-
-* fix match logic to add another level of disjunction/conjunction
-
 * external: maybe it is time to patch procps so that "ps" links to
   libsystemd-logind to print a pretty service name, seat name, session
   name in its output. Currently it only shows cgroup membership, but
@@ -35,6 +31,9 @@ Fedora 19:
   http://lists.freedesktop.org/archives/systemd-devel/2013-February/009021.html
 
 Features:
+
+* dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
+  should be able to safely try another attempt when the bus call LoadUnit() is invoked.
 
 * for instanced unit drop-ins we should look in foo@bar.service.d/ as well as foo@.service.d/
 
