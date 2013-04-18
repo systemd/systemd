@@ -74,7 +74,8 @@ _public_ int sd_pid_get_machine_name(pid_t pid, char **name) {
 
 _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         int r;
-        _cleanup_free_ char *root = NULL, *cgroup = NULL, *p = NULL, *cc = NULL;
+        _cleanup_free_ char *root = NULL, *cgroup = NULL, *cc = NULL;
+        char *p;
         struct stat st;
 
         if (pid < 0)
