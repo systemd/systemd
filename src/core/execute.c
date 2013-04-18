@@ -1036,9 +1036,10 @@ int exec_spawn(ExecCommand *command,
                 return log_oom();
 
         log_struct_unit(LOG_DEBUG,
-                   unit_id,
-                   "MESSAGE=About to execute %s", line,
-                   NULL);
+                        unit_id,
+                        "EXECUTABLE=%s", command->path,
+                        "MESSAGE=About to execute: %s", line,
+                        NULL);
         free(line);
 
         r = cgroup_bonding_realize_list(cgroup_bondings);
@@ -1523,8 +1524,8 @@ int exec_spawn(ExecCommand *command,
                                 log_struct_unit(LOG_DEBUG,
                                                 unit_id,
                                                 "EXECUTABLE=%s", command->path,
-                                                "MESSAGE=Executing: %s",
-                                                line, NULL);
+                                                "MESSAGE=Executing: %s", line,
+                                                NULL);
                                 log_close();
                                 free(line);
                                 line = NULL;
