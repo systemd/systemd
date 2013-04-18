@@ -429,7 +429,7 @@ static PyObject* Reader_get_all(Reader *self, PyObject *args)
             return NULL;
 
     SD_JOURNAL_FOREACH_DATA(self->j, msg, msg_len) {
-        PyObject _cleanup_Py_DECREF_ *key = NULL, *value = NULL;
+        _cleanup_Py_DECREF_ PyObject *key = NULL, *value = NULL;
 
         r = extract(msg, msg_len, &key, &value);
         if (r < 0)
@@ -443,7 +443,7 @@ static PyObject* Reader_get_all(Reader *self, PyObject *args)
                 if (r < 0)
                     goto error;
             } else {
-                PyObject _cleanup_Py_DECREF_ *tmp_list = PyList_New(0);
+                _cleanup_Py_DECREF_ PyObject *tmp_list = PyList_New(0);
                 if (!tmp_list)
                     goto error;
 
@@ -760,7 +760,7 @@ PyDoc_STRVAR(Reader_get_cursor__doc__,
              "Wraps sd_journal_get_cursor(). See man:sd_journal_get_cursor(3).");
 static PyObject* Reader_get_cursor(Reader *self, PyObject *args)
 {
-    char _cleanup_free_ *cursor = NULL;
+    _cleanup_free_ char *cursor = NULL;
     int r;
 
     assert(self);
@@ -846,7 +846,7 @@ PyDoc_STRVAR(Reader_get_catalog__doc__,
 static PyObject* Reader_get_catalog(Reader *self, PyObject *args)
 {
     int r;
-    char _cleanup_free_ *msg = NULL;
+    _cleanup_free_ char *msg = NULL;
 
     assert(self);
     assert(!args);
@@ -885,7 +885,7 @@ static PyObject* get_catalog(PyObject *self, PyObject *args)
     int r;
     char *id_ = NULL;
     sd_id128_t id;
-    char _cleanup_free_ *msg = NULL;
+    _cleanup_free_ char *msg = NULL;
 
     assert(!self);
     assert(args);

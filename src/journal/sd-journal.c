@@ -1256,7 +1256,7 @@ static void check_network(sd_journal *j, int fd) {
 }
 
 static int add_file(sd_journal *j, const char *prefix, const char *filename) {
-        char _cleanup_free_ *path = NULL;
+        _cleanup_free_ char *path = NULL;
         int r;
         JournalFile *f;
 
@@ -1347,9 +1347,9 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename) 
 }
 
 static int add_directory(sd_journal *j, const char *prefix, const char *dirname) {
-        char _cleanup_free_ *path = NULL;
+        _cleanup_free_ char *path = NULL;
         int r;
-        DIR _cleanup_closedir_ *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         sd_id128_t id, mid;
         Directory *m;
 
@@ -1437,7 +1437,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
 }
 
 static int add_root_directory(sd_journal *j, const char *p) {
-        DIR _cleanup_closedir_ *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         Directory *m;
         int r;
 

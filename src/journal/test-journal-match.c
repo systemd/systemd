@@ -28,8 +28,8 @@
 #include "log.h"
 
 int main(int argc, char *argv[]) {
-        sd_journal _cleanup_journal_close_ *j;
-        char _cleanup_free_ *t;
+        _cleanup_journal_close_ sd_journal*j;
+        _cleanup_free_ char *t;
 
         log_set_max_level(LOG_DEBUG);
 

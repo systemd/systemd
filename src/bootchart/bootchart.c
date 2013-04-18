@@ -245,7 +245,7 @@ static void do_journal_append(char *file)
         struct iovec iovec[5];
         int r, f, j = 0;
         ssize_t n;
-        char _cleanup_free_ *bootchart_file = NULL, *bootchart_message = NULL,
+        _cleanup_free_ char *bootchart_file = NULL, *bootchart_message = NULL,
                 *p = NULL;
 
         bootchart_file = strappend("BOOTCHART_FILE=", file);

@@ -379,7 +379,7 @@ static int delete_loopback(const char *device) {
 }
 
 static int delete_dm(dev_t devnum) {
-        int _cleanup_close_ fd = -1;
+        _cleanup_close_ int fd = -1;
         int r;
         struct dm_ioctl dm = {
                 .version = {DM_VERSION_MAJOR,

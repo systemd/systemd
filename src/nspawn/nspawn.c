@@ -365,7 +365,7 @@ static int mount_all(const char *dest) {
         int r = 0;
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
-                char _cleanup_free_ *where = NULL;
+                _cleanup_free_ char *where = NULL;
                 int t;
 
                 where = strjoin(dest, "/", mount_table[k].where, NULL);
@@ -515,7 +515,7 @@ static int setup_resolv_conf(const char *dest) {
 }
 
 static int setup_boot_id(const char *dest) {
-        char _cleanup_free_ *from = NULL, *to = NULL;
+        _cleanup_free_ char *from = NULL, *to = NULL;
         sd_id128_t rnd;
         char as_uuid[37];
         int r;
@@ -569,7 +569,7 @@ static int copy_devnodes(const char *dest) {
 
         const char *d;
         int r = 0;
-        mode_t _cleanup_umask_ u;
+        _cleanup_umask_ mode_t u;
 
         assert(dest);
 
@@ -577,7 +577,7 @@ static int copy_devnodes(const char *dest) {
 
         NULSTR_FOREACH(d, devnodes) {
                 struct stat st;
-                char _cleanup_free_ *from = NULL, *to = NULL;
+                _cleanup_free_ char *from = NULL, *to = NULL;
 
                 asprintf(&from, "/dev/%s", d);
                 asprintf(&to, "%s/dev/%s", dest, d);
@@ -633,9 +633,9 @@ static int setup_ptmx(const char *dest) {
 
 static int setup_dev_console(const char *dest, const char *console) {
         struct stat st;
-        char _cleanup_free_ *to = NULL;
+        _cleanup_free_ char *to = NULL;
         int r;
-        mode_t _cleanup_umask_ u;
+        _cleanup_umask_ mode_t u;
 
         assert(dest);
         assert(console);
@@ -681,9 +681,9 @@ static int setup_dev_console(const char *dest, const char *console) {
 }
 
 static int setup_kmsg(const char *dest, int kmsg_socket) {
-        char _cleanup_free_ *from = NULL, *to = NULL;
+        _cleanup_free_ char *from = NULL, *to = NULL;
         int r, fd, k;
-        mode_t _cleanup_umask_ u;
+        _cleanup_umask_ mode_t u;
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -765,7 +765,7 @@ static int setup_hostname(void) {
 
 static int setup_journal(const char *directory) {
         sd_id128_t machine_id;
-        char _cleanup_free_ *p = NULL, *b = NULL, *q = NULL, *d = NULL;
+        _cleanup_free_ char *p = NULL, *b = NULL, *q = NULL, *d = NULL;
         char *id;
         int r;
 

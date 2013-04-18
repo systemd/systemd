@@ -228,7 +228,7 @@ static int read_response(int fd, unsigned requests_max) {
 
 static int check_loopback(void) {
         int r;
-        int _cleanup_close_ fd;
+        _cleanup_close_ int fd;
         union {
                 struct sockaddr sa;
                 struct sockaddr_in in;
@@ -261,7 +261,7 @@ int loopback_setup(void) {
                 .nl.nl_family = AF_NETLINK,
         };
         unsigned requests = 0, i;
-        int _cleanup_close_ fd = -1;
+        _cleanup_close_ int fd = -1;
         bool eperm = false;
 
         errno = 0;

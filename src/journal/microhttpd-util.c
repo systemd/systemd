@@ -28,7 +28,7 @@
 #include "util.h"
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
-        char _cleanup_free_ *f;
+        _cleanup_free_ char *f;
         if (asprintf(&f, "microhttpd: %s", fmt) <= 0) {
                 log_oom();
                 return;

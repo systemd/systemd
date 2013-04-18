@@ -322,7 +322,7 @@ int lookup_paths_init(
         strv_uniq(p->unit_path);
 
         if (!strv_isempty(p->unit_path)) {
-                char _cleanup_free_ *t = strv_join(p->unit_path, "\n\t");
+                _cleanup_free_ char *t = strv_join(p->unit_path, "\n\t");
                 if (!t)
                         return -ENOMEM;
                 log_debug("Looking for unit files in (higher priority first):\n\t%s", t);
@@ -382,7 +382,7 @@ int lookup_paths_init(
                 strv_uniq(p->sysvrcnd_path);
 
                 if (!strv_isempty(p->sysvinit_path)) {
-                        char _cleanup_free_ *t = strv_join(p->sysvinit_path, "\n\t");
+                        _cleanup_free_ char *t = strv_join(p->sysvinit_path, "\n\t");
                         if (!t)
                                 return -ENOMEM;
                         log_debug("Looking for SysV init scripts in:\n\t%s", t);
@@ -393,7 +393,7 @@ int lookup_paths_init(
                 }
 
                 if (!strv_isempty(p->sysvrcnd_path)) {
-                        char _cleanup_free_ *t =
+                        _cleanup_free_ char *t =
                                 strv_join(p->sysvrcnd_path, "\n\t");
                         if (!t)
                                 return -ENOMEM;

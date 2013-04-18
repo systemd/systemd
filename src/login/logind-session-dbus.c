@@ -120,7 +120,7 @@ static int bus_session_append_seat(DBusMessageIter *i, const char *property, voi
 static int bus_session_append_user(DBusMessageIter *i, const char *property, void *data) {
         DBusMessageIter sub;
         User *u = data;
-        char _cleanup_free_ *p = NULL;
+        _cleanup_free_ char *p = NULL;
 
         assert(i);
         assert(property);
@@ -197,7 +197,7 @@ static int bus_session_append_idle_hint_since(DBusMessageIter *i, const char *pr
 
 static int bus_session_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
         Session *s = data;
-        char _cleanup_free_ *t = NULL;
+        _cleanup_free_ char *t = NULL;
         int r;
         bool success;
 
@@ -448,7 +448,7 @@ const DBusObjectPathVTable bus_session_vtable = {
 };
 
 char *session_bus_path(Session *s) {
-        char _cleanup_free_ *t;
+        _cleanup_free_ char *t;
 
         assert(s);
 

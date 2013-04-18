@@ -997,7 +997,7 @@ int exec_spawn(ExecCommand *command,
         int r;
         char *line;
         int socket_fd;
-        char _cleanup_strv_free_ **files_env = NULL;
+        _cleanup_strv_free_ char **files_env = NULL;
 
         assert(command);
         assert(context);
@@ -1069,7 +1069,7 @@ int exec_spawn(ExecCommand *command,
                 const char *username = NULL, *home = NULL;
                 uid_t uid = (uid_t) -1;
                 gid_t gid = (gid_t) -1;
-                char _cleanup_strv_free_ **our_env = NULL, **pam_env = NULL,
+                _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL,
                         **final_env = NULL, **final_argv = NULL;
                 unsigned n_env = 0;
                 bool set_access = false;
@@ -1362,7 +1362,7 @@ int exec_spawn(ExecCommand *command,
                                 goto fail_child;
                         }
                 } else {
-                        char _cleanup_free_ *d = NULL;
+                        _cleanup_free_ char *d = NULL;
 
                         if (asprintf(&d, "%s/%s",
                                      context->root_directory ? context->root_directory : "",
@@ -1727,7 +1727,7 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
                 int k;
                 bool ignore = false;
                 char **p;
-                glob_t _cleanup_globfree_ pglob = {};
+                _cleanup_globfree_ glob_t pglob = {};
                 int count, n;
 
                 fn = *i;

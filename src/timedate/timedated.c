@@ -218,7 +218,7 @@ static int write_data_timezone(void) {
 
 static int write_data_local_rtc(void) {
         int r;
-        char _cleanup_free_ *s = NULL, *w = NULL;
+        _cleanup_free_ char *s = NULL, *w = NULL;
 
         r = read_full_file("/etc/adjtime", &s, NULL);
         if (r < 0) {
@@ -270,7 +270,7 @@ static int write_data_local_rtc(void) {
 }
 
 static char** get_ntp_services(void) {
-        char _cleanup_strv_free_ **r = NULL, **files;
+        _cleanup_strv_free_ char **r = NULL, **files;
         char **i;
         int k;
 
@@ -284,7 +284,7 @@ static char** get_ntp_services(void) {
                 return NULL;
 
         STRV_FOREACH(i, files) {
-                FILE _cleanup_fclose_ *f;
+                _cleanup_fclose_ FILE *f;
 
                 f = fopen(*i, "re");
                 if (!f)

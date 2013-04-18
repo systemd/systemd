@@ -353,7 +353,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 id_len = max_id_len;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
-                char _cleanup_free_ *e = NULL;
+                _cleanup_free_ char *e = NULL;
                 const char *on_loaded, *off_loaded, *on = "";
                 const char *on_active, *off_active, *off = "";
 
@@ -495,7 +495,7 @@ static int get_triggered_units(DBusConnection *bus, const char* unit_path,
 {
         const char *interface = "org.freedesktop.systemd1.Unit",
                    *triggers_property = "Triggers";
-        DBusMessage _cleanup_dbus_message_unref_ *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
         int r;
 
@@ -546,7 +546,7 @@ static int get_listening(DBusConnection *bus, const char* unit_path,
 {
         const char *interface = "org.freedesktop.systemd1.Socket",
                    *listen_property = "Listen";
-        DBusMessage _cleanup_dbus_message_unref_ *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusMessageIter iter, sub;
         int r;
 
@@ -702,7 +702,7 @@ static int list_sockets(DBusConnection *bus, char **args) {
 
         for (u = unit_infos; u < unit_infos + cu; u++) {
                 const char *dot;
-                char _cleanup_strv_free_ **listen = NULL, **triggered = NULL;
+                _cleanup_strv_free_ char **listen = NULL, **triggered = NULL;
                 unsigned c = 0, i;
 
                 if (!output_show_unit(u))
@@ -808,7 +808,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 printf("%-*s %-*s\n", id_cols, "UNIT FILE", state_cols, "STATE");
 
         for (u = units; u < units + c; u++) {
-                char _cleanup_free_ *e = NULL;
+                _cleanup_free_ char *e = NULL;
                 const char *on, *off;
                 const char *id;
 
@@ -1092,7 +1092,7 @@ static int list_dependencies_compare(const void *_a, const void *_b) {
 }
 
 static int list_dependencies_one(DBusConnection *bus, const char *name, int level, char **units, unsigned int branches) {
-        char _cleanup_strv_free_ **deps = NULL, **u;
+        _cleanup_strv_free_ char **deps = NULL, **u;
         char **c;
         int r = 0;
 
@@ -1197,7 +1197,7 @@ static void list_jobs_print(struct job_info* jobs, size_t n) {
                                l3, "STATE");
 
                 for (i = 0, j = jobs; i < n; i++, j++) {
-                        char _cleanup_free_ *e = NULL;
+                        _cleanup_free_ char *e = NULL;
 
                         if (streq(j->state, "running")) {
                                 on = ansi_highlight(true);
@@ -1439,7 +1439,7 @@ typedef struct WaitData {
 } WaitData;
 
 static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *message, void *data) {
-        DBusError _cleanup_dbus_error_free_ error;
+        _cleanup_dbus_error_free_ DBusError error;
         WaitData *d = data;
 
         dbus_error_init(&error);
@@ -1675,7 +1675,7 @@ static void check_triggering_units(
                    *load_state_property = "LoadState",
                    *triggered_by_property = "TriggeredBy",
                    *state;
-        char _cleanup_free_ *unit_path = NULL, *n = NULL;
+        _cleanup_free_ char *unit_path = NULL, *n = NULL;
         bool print_warning_label = true;
         int r;
 
@@ -1889,8 +1889,8 @@ static int start_unit(DBusConnection *bus, char **args) {
 
         int r, ret = 0;
         const char *method, *mode, *one_name;
-        Set _cleanup_set_free_free_ *s = NULL;
-        DBusError _cleanup_dbus_error_free_ error;
+        _cleanup_set_free_free_ Set *s = NULL;
+        _cleanup_dbus_error_free_ DBusError error;
         char **name;
 
         dbus_error_init(&error);
@@ -2916,7 +2916,7 @@ static void show_unit_help(UnitStatusInfo *i) {
                 if (startswith(*p, "man:")) {
                         size_t k;
                         char *e = NULL;
-                        char _cleanup_free_ *page = NULL, *section = NULL;
+                        _cleanup_free_ char *page = NULL, *section = NULL;
                         const char *args[4] = { "man", NULL, NULL, NULL };
                         pid_t pid;
 
@@ -3361,7 +3361,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                                 if (exec_status_info_deserialize(&sub, &info) >= 0) {
                                         char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
-                                        char _cleanup_free_ *t;
+                                        _cleanup_free_ char *t;
 
                                         t = strv_join(info.argv, " ");
 
@@ -3401,7 +3401,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 }
 
 static int show_one(const char *verb, DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
-        DBusMessage _cleanup_free_ *reply = NULL;
+        _cleanup_free_ DBusMessage *reply = NULL;
         const char *interface = "";
         int r;
         DBusMessageIter iter, sub, sub2, sub3;
@@ -3494,7 +3494,7 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
 static int show_one_by_pid(const char *verb, DBusConnection *bus, uint32_t pid, bool *new_line) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *path = NULL;
-        DBusError _cleanup_dbus_error_free_ error;
+        _cleanup_dbus_error_free_ DBusError error;
         int r;
 
         dbus_error_init(&error);
@@ -3537,7 +3537,7 @@ static int show_all(const char* verb, DBusConnection *bus, bool show_properties,
         qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
 
         for (u = unit_infos; u < unit_infos + c; u++) {
-                char _cleanup_free_ *p = NULL;
+                _cleanup_free_ char *p = NULL;
 
                 if (!output_show_unit(u))
                         continue;
@@ -4009,7 +4009,7 @@ static int enable_sysv_units(char **args) {
         r = 0;
         for (f = 1; args[f]; f++) {
                 const char *name;
-                char _cleanup_free_ *p = NULL, *q = NULL;
+                _cleanup_free_ char *p = NULL, *q = NULL;
                 bool found_native = false, found_sysv;
                 unsigned c = 1;
                 const char *argv[6] = { "/sbin/chkconfig", NULL, NULL, NULL, NULL };
@@ -4181,10 +4181,10 @@ static int enable_unit(DBusConnection *bus, char **args) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0, i;
         int carries_install_info = -1;
-        DBusMessage _cleanup_dbus_message_unref_ *m = NULL, *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
         int r;
-        DBusError _cleanup_dbus_error_free_ error;
-        char _cleanup_strv_free_ **mangled_names = NULL;
+        _cleanup_dbus_error_free_ DBusError error;
+        _cleanup_strv_free_ char **mangled_names = NULL;
 
         dbus_error_init(&error);
 
@@ -4380,9 +4380,9 @@ finish:
 }
 
 static int unit_is_enabled(DBusConnection *bus, char **args) {
-        DBusError _cleanup_dbus_error_free_ error;
+        _cleanup_dbus_error_free_ DBusError error;
         int r;
-        DBusMessage _cleanup_dbus_message_unref_ *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         bool enabled;
         char **name;
         char *n;
@@ -4760,7 +4760,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         size_t size;
 
                         FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
-                                char _cleanup_free_ *type;
+                                _cleanup_free_ char *type;
 
                                 type = strndup(word, size);
                                 if (!type)
@@ -5400,8 +5400,8 @@ static int action_to_runlevel(void) {
 }
 
 static int talk_upstart(void) {
-        DBusMessage _cleanup_dbus_message_unref_ *m = NULL, *reply = NULL;
-        DBusError _cleanup_dbus_error_free_ error;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        _cleanup_dbus_error_free_ DBusError error;
         int previous, rl, r;
         char
                 env1_buf[] = "RUNLEVEL=X",
@@ -5490,7 +5490,7 @@ finish:
 static int talk_initctl(void) {
         struct init_request request = {};
         int r;
-        int _cleanup_close_ fd = -1;
+        _cleanup_close_ int fd = -1;
         char rl;
 
         rl = action_to_runlevel();
@@ -5693,7 +5693,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
 }
 
 static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const char *message) {
-        int _cleanup_close_ fd;
+        _cleanup_close_ int fd;
         struct sd_shutdown_command c = {
                 .usec = t,
                 .mode = mode,
@@ -5835,7 +5835,7 @@ static int halt_main(DBusConnection *bus) {
         }
 
         if (arg_when > 0) {
-                char _cleanup_free_ *m;
+                _cleanup_free_ char *m;
 
                 m = strv_join(arg_wall, " ");
                 r = send_shutdownd(arg_when,
@@ -5898,7 +5898,7 @@ static int runlevel_main(void) {
 int main(int argc, char*argv[]) {
         int r, retval = EXIT_FAILURE;
         DBusConnection *bus = NULL;
-        DBusError _cleanup_dbus_error_free_ error;
+        _cleanup_dbus_error_free_ DBusError error;
 
         dbus_error_init(&error);
 

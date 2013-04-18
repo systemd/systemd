@@ -278,7 +278,7 @@ static int output_short(
         } else if ((flags & OUTPUT_FULL_WIDTH) || (message_len + n + 1 < n_columns))
                 fprintf(f, ": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
         else if (n < n_columns && n_columns - n - 2 >= 3) {
-                char _cleanup_free_ *e;
+                _cleanup_free_ char *e;
 
                 e = ellipsize_mem(message, message_len, n_columns - n - 2, 90);
 
@@ -304,7 +304,7 @@ static int output_verbose(
 
         const void *data;
         size_t length;
-        char _cleanup_free_ *cursor = NULL;
+        _cleanup_free_ char *cursor = NULL;
         uint64_t realtime;
         char ts[FORMAT_TIMESTAMP_MAX];
         int r;
@@ -366,7 +366,7 @@ static int output_export(
         char sid[33];
         int r;
         usec_t realtime, monotonic;
-        char _cleanup_free_ *cursor = NULL;
+        _cleanup_free_ char *cursor = NULL;
         const void *data;
         size_t length;
 
@@ -495,7 +495,7 @@ static int output_json(
                 OutputFlags flags) {
 
         uint64_t realtime, monotonic;
-        char _cleanup_free_ *cursor = NULL;
+        _cleanup_free_ char *cursor = NULL;
         const void *data;
         size_t length;
         sd_id128_t boot_id;
@@ -942,7 +942,7 @@ int show_journal_by_unit(
                 OutputFlags flags,
                 bool system) {
 
-        sd_journal _cleanup_journal_close_ *j = NULL;
+        _cleanup_journal_close_ sd_journal*j = NULL;
         int r;
         int jflags = SD_JOURNAL_LOCAL_ONLY | system * SD_JOURNAL_SYSTEM_ONLY;
 

@@ -34,7 +34,7 @@
 
 int main_analyze(const char *pack_path) {
         char line[LINE_MAX];
-        FILE _cleanup_fclose_ *pack = NULL;
+        _cleanup_fclose_ FILE *pack = NULL;
         int a;
         int missing = 0;
         size_t tsize = 0;

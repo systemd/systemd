@@ -387,7 +387,7 @@ static int add_locales_from_archive(Set *locales) {
 }
 
 static int add_locales_from_libdir (Set *locales) {
-        DIR _cleanup_closedir_ *dir;
+        _cleanup_closedir_ DIR *dir;
         struct dirent *entry;
         int r;
 
@@ -539,7 +539,7 @@ static int nftw_cb(
 }
 
 static int list_vconsole_keymaps(DBusConnection *bus, char **args, unsigned n) {
-        char _cleanup_strv_free_ **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
 
         keymaps = set_new(string_hash_func, string_compare_func);
         if (!keymaps)
@@ -611,7 +611,7 @@ static int set_x11_keymap(DBusConnection *bus, char **args, unsigned n) {
 
 static int list_x11_keymaps(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_fclose_ FILE *f = NULL;
-        char _cleanup_strv_free_ **list = NULL;
+        _cleanup_strv_free_ char **list = NULL;
         char line[LINE_MAX];
         enum {
                 NONE,

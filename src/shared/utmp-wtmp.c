@@ -287,7 +287,7 @@ int utmp_put_runlevel(int runlevel, int previous) {
 #define TIMEOUT_MSEC 50
 
 static int write_to_terminal(const char *tty, const char *message) {
-        int _cleanup_close_ fd = -1;
+        _cleanup_close_ int fd = -1;
         const char *p;
         size_t left;
         usec_t end;

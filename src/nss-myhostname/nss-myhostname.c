@@ -379,7 +379,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 int32_t *ttlp) {
 
         char hn[HOST_NAME_MAX+1] = {};
-        struct address _cleanup_free_ *addresses = NULL;
+        _cleanup_free_ struct address *addresses = NULL;
         struct address *a;
         unsigned n_addresses = 0, n;
 

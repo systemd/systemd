@@ -95,13 +95,13 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode, "Failed
 
 static uint64_t available_space(Server *s) {
         char ids[33];
-        char _cleanup_free_ *p = NULL;
+        _cleanup_free_ char *p = NULL;
         const char *f;
         sd_id128_t machine;
         struct statvfs ss;
         uint64_t sum = 0, avail = 0, ss_avail = 0;
         int r;
-        DIR _cleanup_closedir_ *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         usec_t ts;
         JournalMetrics *m;
 
@@ -512,12 +512,12 @@ static void dispatch_message_real(
                 boot_id[sizeof("_BOOT_ID=") + 32] = "_BOOT_ID=",
                 machine_id[sizeof("_MACHINE_ID=") + 32] = "_MACHINE_ID=";
 
-        char _cleanup_free_ *comm = NULL, *cmdline = NULL, *hostname = NULL,
+        _cleanup_free_ char *comm = NULL, *cmdline = NULL, *hostname = NULL,
                 *exe = NULL, *cgroup = NULL, *session = NULL,
                 *owner_uid = NULL, *unit = NULL, *selinux_context = NULL;
 
 #ifdef HAVE_AUDIT
-        char _cleanup_free_ *audit_session = NULL, *audit_loginuid = NULL;
+        _cleanup_free_ char *audit_session = NULL, *audit_loginuid = NULL;
 #endif
 
         sd_id128_t id;
@@ -745,7 +745,7 @@ void server_dispatch_message(
                 int priority) {
 
         int rl, r;
-        char _cleanup_free_ *path = NULL;
+        _cleanup_free_ char *path = NULL;
         char *c;
 
         assert(s);
@@ -1247,7 +1247,7 @@ static int open_signalfd(Server *s) {
 }
 
 static int server_parse_proc_cmdline(Server *s) {
-        char _cleanup_free_ *line = NULL;
+        _cleanup_free_ char *line = NULL;
         char *w, *state;
         int r;
         size_t l;
@@ -1262,7 +1262,7 @@ static int server_parse_proc_cmdline(Server *s) {
         }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
-                char _cleanup_free_ *word;
+                _cleanup_free_ char *word;
 
                 word = strndup(w, l);
                 if (!word)
@@ -1295,7 +1295,7 @@ static int server_parse_proc_cmdline(Server *s) {
 
 static int server_parse_config_file(Server *s) {
         static const char *fn = "/etc/systemd/journald.conf";
-        FILE _cleanup_fclose_ *f = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(s);

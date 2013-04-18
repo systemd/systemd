@@ -104,7 +104,7 @@ static int add_match(Set *set, const char *match) {
         unsigned pid;
         const char* prefix;
         char *pattern = NULL;
-        char _cleanup_free_ *p = NULL;
+        _cleanup_free_ char *p = NULL;
 
         if (strchr(match, '='))
                 prefix = "";
@@ -269,7 +269,7 @@ static int retrieve(const void *data,
 }
 
 static void print_field(FILE* file, sd_journal *j) {
-        const char _cleanup_free_ *value = NULL;
+        _cleanup_free_ const char *value = NULL;
         const void *d;
         size_t l;
 
@@ -282,7 +282,7 @@ static void print_field(FILE* file, sd_journal *j) {
 }
 
 static int print_entry(FILE* file, sd_journal *j, int had_legend) {
-        const char _cleanup_free_
+        _cleanup_free_ const char
                 *pid = NULL, *uid = NULL, *gid = NULL,
                 *sgnl = NULL, *exe = NULL;
         const void *d;
@@ -520,11 +520,11 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
-        sd_journal _cleanup_journal_close_ *j = NULL;
+        _cleanup_journal_close_ sd_journal*j = NULL;
         const char* match;
         Iterator it;
         int r = 0;
-        Set _cleanup_set_free_free_ *matches = NULL;
+        _cleanup_set_free_free_ Set *matches = NULL;
 
         setlocale(LC_ALL, "");
         log_parse_environment();

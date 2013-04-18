@@ -80,8 +80,8 @@ static int mount_find_pri(struct mntent *me, int *ret) {
 }
 
 static int add_swap(const char *what, struct mntent *me) {
-        char _cleanup_free_ *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL;
-        FILE _cleanup_fclose_ *f = NULL;
+        _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         bool noauto, nofail;
         int r, pri = -1;
 
@@ -214,10 +214,10 @@ static int add_mount(
                 const char *online,
                 const char *post,
                 const char *source) {
-        char _cleanup_free_
+        _cleanup_free_ char
                 *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL,
                 *automount_name = NULL, *automount_unit = NULL;
-        FILE _cleanup_fclose_ *f = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(what);
@@ -425,7 +425,7 @@ static int parse_fstab(const char *prefix, bool initrd) {
         }
 
         while ((me = getmntent(f))) {
-                char _cleanup_free_ *where = NULL, *what = NULL;
+                _cleanup_free_ char *where = NULL, *what = NULL;
                 int k;
 
                 if (initrd && !mount_in_initrd(me))
@@ -565,7 +565,7 @@ static int parse_new_root_from_proc_cmdline(void) {
 }
 
 static int parse_proc_cmdline(void) {
-        char _cleanup_free_ *line = NULL;
+        _cleanup_free_ char *line = NULL;
         char *w, *state;
         int r;
         size_t l;
@@ -580,7 +580,7 @@ static int parse_proc_cmdline(void) {
         }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
-                char _cleanup_free_ *word = NULL;
+                _cleanup_free_ char *word = NULL;
 
                 word = strndup(w, l);
                 if (!word)

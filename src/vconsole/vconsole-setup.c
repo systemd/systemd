@@ -189,7 +189,7 @@ static void font_copy_to_all_vcs(int fd) {
 
         for (i = 1; i <= 15; i++) {
                 char vcname[16];
-                int _cleanup_close_ vcfd = -1;
+                _cleanup_close_ int vcfd = -1;
                 struct console_font_op cfo = {};
 
                 if (i == vcs.v_active)

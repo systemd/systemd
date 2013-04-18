@@ -211,11 +211,11 @@ static void test_config_parse_exec(void) {
 
 
 static void test_load_env_file_1(void) {
-        char _cleanup_strv_free_ **data = NULL;
+        _cleanup_strv_free_ char **data = NULL;
         int r;
 
         char name[] = "/tmp/test-load-env-file.XXXXXX";
-        int _cleanup_close_ fd = mkstemp(name);
+        _cleanup_close_ int fd = mkstemp(name);
         assert(fd >= 0);
         assert_se(write(fd, env_file_1, sizeof(env_file_1)) == sizeof(env_file_1));
 
@@ -232,11 +232,11 @@ static void test_load_env_file_1(void) {
 }
 
 static void test_load_env_file_2(void) {
-        char _cleanup_strv_free_ **data = NULL;
+        _cleanup_strv_free_ char **data = NULL;
         int r;
 
         char name[] = "/tmp/test-load-env-file.XXXXXX";
-        int _cleanup_close_ fd = mkstemp(name);
+        _cleanup_close_ int fd = mkstemp(name);
         assert(fd >= 0);
         assert_se(write(fd, env_file_2, sizeof(env_file_2)) == sizeof(env_file_2));
 
@@ -248,11 +248,11 @@ static void test_load_env_file_2(void) {
 }
 
 static void test_load_env_file_3(void) {
-        char _cleanup_strv_free_ **data = NULL;
+        _cleanup_strv_free_ char **data = NULL;
         int r;
 
         char name[] = "/tmp/test-load-env-file.XXXXXX";
-        int _cleanup_close_ fd = mkstemp(name);
+        _cleanup_close_ int fd = mkstemp(name);
         assert(fd >= 0);
         assert_se(write(fd, env_file_3, sizeof(env_file_3)) == sizeof(env_file_3));
 
@@ -263,11 +263,11 @@ static void test_load_env_file_3(void) {
 }
 
 static void test_load_env_file_4(void) {
-        char _cleanup_strv_free_ **data = NULL;
+        _cleanup_strv_free_ char **data = NULL;
         int r;
 
         char name[] = "/tmp/test-load-env-file.XXXXXX";
-        int _cleanup_close_ fd = mkstemp(name);
+        _cleanup_close_ int fd = mkstemp(name);
         assert(fd >= 0);
         assert_se(write(fd, env_file_4, sizeof(env_file_4)) == sizeof(env_file_4));
 
@@ -295,7 +295,7 @@ static void test_install_printf(void) {
         InstallInfo i3 = {name3, path3, user};
         InstallInfo i4 = {name3, path3, NULL};
 
-        char _cleanup_free_ *mid, *bid, *host;
+        _cleanup_free_ char *mid, *bid, *host;
 
         assert_se((mid = specifier_machine_id('m', NULL, NULL)));
         assert_se((bid = specifier_boot_id('b', NULL, NULL)));
@@ -303,8 +303,8 @@ static void test_install_printf(void) {
 
 #define expect(src, pattern, result)                                    \
         do {                                                            \
-                char _cleanup_free_ *t = install_full_printf(&src, pattern); \
-                char _cleanup_free_                                     \
+                _cleanup_free_ char *t = install_full_printf(&src, pattern); \
+                _cleanup_free_ char                                     \
                         *d1 = strdup(i.name),                           \
                         *d2 = strdup(i.path),                           \
                         *d3 = strdup(i.user);                           \

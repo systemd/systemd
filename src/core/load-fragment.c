@@ -91,7 +91,7 @@ int config_parse_unit_deps(const char* unit,
         assert(rvalue);
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char _cleanup_free_ *t = NULL, *k = NULL;
+                _cleanup_free_ char *t = NULL, *k = NULL;
                 int r;
 
                 t = strndup(w, l);
@@ -785,7 +785,7 @@ int config_parse_exec_cpu_affinity(const char *unit,
         }
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char _cleanup_free_ *t = NULL;
+                _cleanup_free_ char *t = NULL;
                 int r;
                 unsigned cpu;
 
@@ -927,7 +927,7 @@ int config_parse_bounding_set(const char *unit,
          * interface. */
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char _cleanup_free_ *t = NULL;
+                _cleanup_free_ char *t = NULL;
                 int r;
                 cap_value_t cap;
 
@@ -1019,7 +1019,7 @@ int config_parse_unit_cgroup(const char *unit,
         }
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char _cleanup_free_ *t = NULL, *k = NULL, *ku = NULL;
+                _cleanup_free_ char *t = NULL, *k = NULL, *ku = NULL;
                 int r;
 
                 t = strndup(w, l);
@@ -1161,7 +1161,7 @@ int config_parse_exec_mount_flags(const char *unit,
         assert(data);
 
         FOREACH_WORD_SEPARATOR(w, l, rvalue, ", ", state) {
-                char _cleanup_free_ *t;
+                _cleanup_free_ char *t;
 
                 t = strndup(w, l);
                 if (!t)
@@ -1314,7 +1314,7 @@ int config_parse_path_spec(const char *unit,
         Path *p = data;
         PathSpec *s;
         PathType b;
-        char _cleanup_free_ *k = NULL;
+        _cleanup_free_ char *k = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -1480,7 +1480,7 @@ int config_parse_service_sockets(const char *unit,
         assert(data);
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char _cleanup_free_ *t = NULL, *k = NULL;
+                _cleanup_free_ char *t = NULL, *k = NULL;
 
                 t = strndup(w, l);
                 if (!t)
@@ -2074,7 +2074,7 @@ int config_parse_syscall_filter(const char *unit,
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 int id;
-                char _cleanup_free_ *t = NULL;
+                _cleanup_free_ char *t = NULL;
 
                 t = strndup(w, l);
                 if (!t)

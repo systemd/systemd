@@ -666,7 +666,7 @@ static int parse_config_file(void) {
                 { NULL, NULL, NULL, 0, NULL }
         };
 
-        FILE _cleanup_fclose_ *f;
+        _cleanup_fclose_ FILE *f;
         const char *fn;
         int r;
 
@@ -688,7 +688,7 @@ static int parse_config_file(void) {
 }
 
 static int parse_proc_cmdline(void) {
-        char _cleanup_free_ *line = NULL;
+        _cleanup_free_ char *line = NULL;
         char *w, *state;
         int r;
         size_t l;
@@ -705,7 +705,7 @@ static int parse_proc_cmdline(void) {
         }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
-                char _cleanup_free_ *word;
+                _cleanup_free_ char *word;
 
                 word = strndup(w, l);
                 if (!word)

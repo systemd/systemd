@@ -25,7 +25,7 @@
 static void test_syslog_parse_identifier(const char* str,
                                          const char *ident, const char*pid, int ret) {
         const char *buf = str;
-        char _cleanup_free_ *ident2 = NULL, *pid2 = NULL;
+        _cleanup_free_ char *ident2 = NULL, *pid2 = NULL;
         int ret2;
 
         ret2 = syslog_parse_identifier(&buf, &ident2, &pid2);

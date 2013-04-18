@@ -61,7 +61,7 @@ static int bus_seat_append_active(DBusMessageIter *i, const char *property, void
         DBusMessageIter sub;
         Seat *s = data;
         const char *id, *path;
-        char _cleanup_free_ *p = NULL;
+        _cleanup_free_ char *p = NULL;
 
         assert(i);
         assert(property);
@@ -104,7 +104,7 @@ static int bus_seat_append_sessions(DBusMessageIter *i, const char *property, vo
                 return -ENOMEM;
 
         LIST_FOREACH(sessions_by_seat, session, s->sessions) {
-                char _cleanup_free_ *p = NULL;
+                _cleanup_free_ char *p = NULL;
 
                 if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
                         return -ENOMEM;
@@ -348,7 +348,7 @@ const DBusObjectPathVTable bus_seat_vtable = {
 };
 
 char *seat_bus_path(Seat *s) {
-        char _cleanup_free_ *t;
+        _cleanup_free_ char *t;
 
         assert(s);
 

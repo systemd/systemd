@@ -70,8 +70,8 @@ static int create_disk(
                 const char *password,
                 const char *options) {
 
-        char _cleanup_free_ *p = NULL, *n = NULL, *d = NULL, *u = NULL, *from = NULL, *to = NULL, *e = NULL;
-        FILE _cleanup_fclose_ *f = NULL;
+        _cleanup_free_ char *p = NULL, *n = NULL, *d = NULL, *u = NULL, *from = NULL, *to = NULL, *e = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         bool noauto, nofail;
 
         assert(name);
@@ -234,7 +234,7 @@ static int create_disk(
 }
 
 static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char **arg_proc_cmdline_keyfile) {
-        char _cleanup_free_ *line = NULL;
+        _cleanup_free_ char *line = NULL;
         char *w = NULL, *state = NULL;
         int r;
         size_t l;
@@ -249,7 +249,7 @@ static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char **arg_proc_cm
         }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
-                char _cleanup_free_ *word = NULL;
+                _cleanup_free_ char *word = NULL;
 
                 word = strndup(w, l);
                 if (!word)
@@ -328,13 +328,13 @@ static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char **arg_proc_cm
 }
 
 int main(int argc, char *argv[]) {
-        FILE _cleanup_fclose_ *f = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         unsigned n = 0;
         int r = EXIT_SUCCESS;
         char **i;
-        char _cleanup_strv_free_ **arg_proc_cmdline_disks_done = NULL;
-        char _cleanup_strv_free_ **arg_proc_cmdline_disks = NULL;
-        char _cleanup_free_ *arg_proc_cmdline_keyfile = NULL;
+        _cleanup_strv_free_ char **arg_proc_cmdline_disks_done = NULL;
+        _cleanup_strv_free_ char **arg_proc_cmdline_disks = NULL;
+        _cleanup_free_ char *arg_proc_cmdline_keyfile = NULL;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -368,7 +368,7 @@ int main(int argc, char *argv[]) {
                         }
                 } else for (;;) {
                         char line[LINE_MAX], *l;
-                        char _cleanup_free_ *name = NULL, *device = NULL, *password = NULL, *options = NULL;
+                        _cleanup_free_ char *name = NULL, *device = NULL, *password = NULL, *options = NULL;
                         int k;
 
                         if (!fgets(line, sizeof(line), f))
@@ -393,7 +393,7 @@ int main(int argc, char *argv[]) {
                                   for /etc/crypttab and only generate units for those.
                                 */
                                 STRV_FOREACH(i, arg_proc_cmdline_disks) {
-                                        char _cleanup_free_ *proc_device = NULL, *proc_name = NULL;
+                                        _cleanup_free_ char *proc_device = NULL, *proc_name = NULL;
                                         const char *p = *i;
 
                                         if (startswith(p, "luks-"))
@@ -426,7 +426,7 @@ int main(int argc, char *argv[]) {
                   on the kernel command line and not yet written.
                 */
 
-                char _cleanup_free_ *name = NULL, *device = NULL;
+                _cleanup_free_ char *name = NULL, *device = NULL;
                 const char *p = *i;
 
                 if (startswith(p, "luks-"))

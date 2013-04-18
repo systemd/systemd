@@ -124,7 +124,7 @@ static char *specifier_user_name(char specifier, void *data, void *userdata) {
         ExecContext *c;
         int r;
         const char *username;
-        char _cleanup_free_ *tmp = NULL;
+        _cleanup_free_ char *tmp = NULL;
         uid_t uid;
         char *printed = NULL;
 

@@ -135,7 +135,7 @@ static struct Item* find_glob(Hashmap *h, const char *match) {
 }
 
 static void load_unix_sockets(void) {
-        FILE _cleanup_fclose_ *f = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
 
         if (unix_sockets)
@@ -269,7 +269,7 @@ static int dir_cleanup(
         while ((dent = readdir(d))) {
                 struct stat s;
                 usec_t age;
-                char _cleanup_free_ *sub_path = NULL;
+                _cleanup_free_ char *sub_path = NULL;
 
                 if (streq(dent->d_name, ".") ||
                     streq(dent->d_name, ".."))
@@ -321,7 +321,7 @@ static int dir_cleanup(
                         if (maxdepth <= 0)
                                 log_warning("Reached max depth on %s.", sub_path);
                         else {
-                                DIR _cleanup_closedir_ *sub_dir;
+                                _cleanup_closedir_ DIR *sub_dir;
                                 int q;
 
                                 sub_dir = xopendirat(dirfd(d), dent->d_name, O_NOFOLLOW|O_NOATIME);
@@ -515,7 +515,7 @@ static int write_one_file(Item *i, const char *path) {
 }
 
 static int recursive_relabel_children(Item *i, const char *path) {
-        DIR _cleanup_closedir_ *d;
+        _cleanup_closedir_ DIR *d;
         int ret = 0;
 
         /* This returns the first error we run into, but nevertheless
@@ -530,7 +530,7 @@ static int recursive_relabel_children(Item *i, const char *path) {
                 union dirent_storage buf;
                 bool is_dir;
                 int r;
-                char _cleanup_free_ *entry_path = NULL;
+                _cleanup_free_ char *entry_path = NULL;
 
                 r = readdir_r(d, &buf.de, &de);
                 if (r != 0) {
@@ -601,7 +601,7 @@ static int recursive_relabel(Item *i, const char *path) {
 
 static int glob_item(Item *i, int (*action)(Item *, const char *)) {
         int r = 0, k;
-        glob_t _cleanup_globfree_ g = {};
+        _cleanup_globfree_ glob_t g = {};
         char **fn;
 
         errno = 0;
@@ -879,7 +879,7 @@ static int remove_item(Item *i) {
 }
 
 static int clean_item_instance(Item *i, const char* instance) {
-        DIR _cleanup_closedir_ *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         struct stat s, ps;
         bool mountpoint;
         int r;
@@ -1017,9 +1017,9 @@ static bool item_equal(Item *a, Item *b) {
 }
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
-        Item _cleanup_free_ *i = NULL;
+        _cleanup_free_ Item *i = NULL;
         Item *existing;
-        char _cleanup_free_
+        _cleanup_free_ char
                 *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
         char type;
         Hashmap *h;

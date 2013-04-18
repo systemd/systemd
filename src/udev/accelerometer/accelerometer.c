@@ -187,7 +187,7 @@ static void test_orientation(struct udev *udev,
                              const char *devpath)
 {
         OrientationUp old, new;
-        int _cleanup_close_ fd = -1;
+        _cleanup_close_ int fd = -1;
         struct input_event ev[64];
         bool got_syn = false;
         bool got_x = false, got_y = false, got_z = false;

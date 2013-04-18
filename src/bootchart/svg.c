@@ -389,7 +389,7 @@ static void svg_pss_graph(void) {
         svg("\n\n<!-- PSS map - csv format -->\n");
         ps = ps_first;
         while (ps->next_ps) {
-                char _cleanup_free_ *enc_name = NULL;
+                _cleanup_free_ char *enc_name = NULL;
                 ps = ps->next_ps;
                 if (!ps)
                         continue;
@@ -711,7 +711,7 @@ static int ps_filter(struct ps_struct *ps) {
 }
 
 static void svg_do_initcall(int count_only) {
-        FILE _cleanup_pclose_ *f = NULL;
+        _cleanup_pclose_ FILE *f = NULL;
         double t;
         char func[256];
         int ret;
@@ -815,7 +815,7 @@ static void svg_ps_bars(void) {
         /* pass 2 - ps boxes */
         ps = ps_first;
         while ((ps = get_next_ps(ps))) {
-                char _cleanup_free_ *enc_name = NULL;
+                _cleanup_free_ char *enc_name = NULL;
 
                 double starttime;
                 int t;

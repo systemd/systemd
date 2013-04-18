@@ -171,10 +171,10 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
 static int launch(char* name, char **argv, char **env, int fds) {
         unsigned n_env = 0, length;
-        char _cleanup_strv_free_ **envp = NULL;
+        _cleanup_strv_free_ char **envp = NULL;
         char **s;
         static const char* tocopy[] = {"TERM=", "PATH=", "USER=", "HOME="};
-        char _cleanup_free_ *tmp = NULL;
+        _cleanup_free_ char *tmp = NULL;
         unsigned i;
 
         length = strv_length(arg_environ);
@@ -185,7 +185,7 @@ static int launch(char* name, char **argv, char **env, int fds) {
                 if (strchr(*s, '='))
                         envp[n_env++] = *s;
                 else {
-                        char _cleanup_free_ *p = strappend(*s, "=");
+                        _cleanup_free_ char *p = strappend(*s, "=");
                         if (!p)
                                 return log_oom();
                         envp[n_env] = strv_find_prefix(env, p);
@@ -218,7 +218,7 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
         pid_t parent_pid, child_pid;
         int r;
 
-        char _cleanup_free_ *tmp = NULL;
+        _cleanup_free_ char *tmp = NULL;
         tmp = strv_join(argv, " ");
         if (!tmp)
                 return log_oom();

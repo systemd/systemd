@@ -181,9 +181,9 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                 struct trie_node *child;
 
                 for (p = 0; (c = trie->strings->buf[node->prefix_off + p]); p++) {
-                        char _cleanup_free_ *s = NULL;
+                        _cleanup_free_ char *s = NULL;
                         ssize_t off;
-                        struct trie_node _cleanup_free_ *new_child = NULL;
+                        _cleanup_free_ struct trie_node *new_child = NULL;
 
                         if (c == search[i + p])
                                 continue;

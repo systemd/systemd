@@ -768,7 +768,7 @@ int manager_coldplug(Manager *m) {
 
 static void manager_build_unit_path_cache(Manager *m) {
         char **i;
-        DIR _cleanup_free_ *d = NULL;
+        _cleanup_free_ DIR *d = NULL;
         int r;
 
         assert(m);
@@ -1191,7 +1191,7 @@ static int manager_process_notify_fd(Manager *m) {
                 };
                 struct ucred *ucred;
                 Unit *u;
-                char _cleanup_strv_free_ **tags = NULL;
+                _cleanup_strv_free_ char **tags = NULL;
 
                 n = recvmsg(m->notify_watch.fd, &msghdr, MSG_DONTWAIT);
                 if (n <= 0) {
@@ -1264,7 +1264,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                         break;
 
                 if (si.si_code == CLD_EXITED || si.si_code == CLD_KILLED || si.si_code == CLD_DUMPED) {
-                        char _cleanup_free_ *name = NULL;
+                        _cleanup_free_ char *name = NULL;
 
                         get_process_comm(si.si_pid, &name);
                         log_debug("Got SIGCHLD for process %lu (%s)", (unsigned long) si.si_pid, strna(name));

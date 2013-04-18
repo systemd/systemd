@@ -156,7 +156,7 @@ void path_spec_unwatch(PathSpec *s, Unit *u) {
 }
 
 int path_spec_fd_event(PathSpec *s, uint32_t events) {
-        uint8_t _cleanup_free_ *buf = NULL;
+        _cleanup_free_ uint8_t *buf = NULL;
         struct inotify_event *e;
         ssize_t k;
         int l;

@@ -544,8 +544,8 @@ static void write_env_var(FILE *f, const char *v) {
 
 int write_env_file(const char *fname, char **l) {
         char **i;
-        char _cleanup_free_ *p = NULL;
-        FILE _cleanup_fclose_ *f = NULL;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         r = fopen_temporary(fname, &f, &p);

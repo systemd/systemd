@@ -335,7 +335,7 @@ static int request_parse_range(
 
                 colon2 = strchr(colon + 1, ':');
                 if (colon2) {
-                        char _cleanup_free_ *t;
+                        _cleanup_free_ char *t;
 
                         t = strndup(colon + 1, colon2 - colon - 1);
                         if (!t)

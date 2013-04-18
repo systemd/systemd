@@ -65,7 +65,7 @@ static int bus_user_append_display(DBusMessageIter *i, const char *property, voi
         DBusMessageIter sub;
         User *u = data;
         const char *id, *path;
-        char _cleanup_free_ *p = NULL;
+        _cleanup_free_ char *p = NULL;
 
         assert(i);
         assert(property);
@@ -187,7 +187,7 @@ static int bus_user_append_idle_hint_since(DBusMessageIter *i, const char *prope
 
 static int bus_user_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
         User *u = data;
-        char _cleanup_free_ *t = NULL;
+        _cleanup_free_ char *t = NULL;
         int r;
         bool success;
 

@@ -314,7 +314,7 @@ static int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, voi
                 return -ENOMEM;
 
         LIST_FOREACH(by_unit, cgb, u->cgroup_bondings) {
-                char _cleanup_free_ *t = NULL;
+                _cleanup_free_ char *t = NULL;
                 bool success;
 
                 t = cgroup_bonding_to_string(cgb);
@@ -341,7 +341,7 @@ static int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property
                 return -ENOMEM;
 
         LIST_FOREACH(by_unit, a, u->cgroup_attributes) {
-                char _cleanup_free_ *v = NULL;
+                _cleanup_free_ char *v = NULL;
                 bool success;
 
                 if (a->semantics && a->semantics->map_write)

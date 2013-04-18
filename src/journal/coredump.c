@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
         uid_t uid;
         gid_t gid;
         struct iovec iovec[14];
-        char _cleanup_free_ *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
+        _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
                 *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *p = NULL;
 

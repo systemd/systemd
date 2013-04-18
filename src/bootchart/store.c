@@ -56,7 +56,7 @@ double gettime_ns(void) {
 }
 
 void log_uptime(void) {
-        FILE _cleanup_fclose_ *f = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         char str[32];
         double uptime;
 
@@ -92,7 +92,7 @@ static char *bufgetline(char *buf) {
 
 static int pid_cmdline_strscpy(char *buffer, size_t buf_len, int pid) {
         char filename[PATH_MAX];
-        int _cleanup_close_ fd=-1;
+        _cleanup_close_ int fd=-1;
         ssize_t n;
 
         sprintf(filename, "%d/cmdline", pid);
@@ -246,7 +246,7 @@ schedstat_next:
 
                 /* end of our LL? then append a new record */
                 if (ps->pid != pid) {
-                        FILE _cleanup_fclose_ *st = NULL;
+                        _cleanup_fclose_ FILE *st = NULL;
                         char t[32];
                         struct ps_struct *parent;
 

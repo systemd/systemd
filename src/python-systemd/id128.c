@@ -52,7 +52,7 @@ PyDoc_STRVAR(get_boot__doc__,
 );
 
 static PyObject* make_uuid(sd_id128_t id) {
-        PyObject _cleanup_Py_DECREF_
+        _cleanup_Py_DECREF_ PyObject
                 *uuid = NULL, *UUID = NULL, *bytes = NULL,
                 *args = NULL, *kwargs = NULL;
 

@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
                 }
 
         } else {
-                char _cleanup_free_ *p;
+                _cleanup_free_ char *p;
 
                 p = get_current_dir_name();
                 if (!p) {
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
                         r = show_cgroup_by_path(p, NULL, 0,
                                                 arg_kernel_threads, output_flags);
                 } else {
-                        char _cleanup_free_ *root = NULL;
+                        _cleanup_free_ char *root = NULL;
 
                         r = cg_get_root_path(&root);
                         if (r < 0) {

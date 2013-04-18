@@ -29,7 +29,7 @@
 
 int main(int argc, char *argv[]) {
         unsigned n = 0;
-        sd_journal _cleanup_journal_close_ *j = NULL;
+        _cleanup_journal_close_ sd_journal*j = NULL;
 
         log_set_max_level(LOG_DEBUG);
 

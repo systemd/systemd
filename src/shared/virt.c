@@ -168,7 +168,7 @@ int detect_vm(const char **id) {
 }
 
 int detect_container(const char **id) {
-        char _cleanup_free_ *e = NULL;
+        _cleanup_free_ char *e = NULL;
         int r;
 
         /* Unfortunately many of these operations require root access

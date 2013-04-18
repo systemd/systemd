@@ -229,7 +229,7 @@ int main(int argc, char *argv[]) {
         int r, exit_code = 0;
         DBusConnection *bus = NULL;
         DBusError error;
-        int _cleanup_close_ fd = -1;
+        _cleanup_close_ int fd = -1;
 
         dbus_error_init(&error);
 

@@ -922,7 +922,7 @@ finish:
 
 static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         struct udev_device *d;
-        char _cleanup_free_ *rule = NULL, *file = NULL;
+        _cleanup_free_ char *rule = NULL, *file = NULL;
         const char *id_for_seat;
         int r;
 
@@ -971,7 +971,7 @@ finish:
 }
 
 static int flush_devices(Manager *m) {
-        DIR _cleanup_closedir_ *d;
+        _cleanup_closedir_ DIR *d;
 
         assert(m);
 

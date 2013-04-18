@@ -544,7 +544,7 @@ static int add_matches(sd_journal *j, char **args) {
                 if (streq(*i, "+"))
                         r = sd_journal_add_disjunction(j);
                 else if (path_is_absolute(*i)) {
-                        char _cleanup_free_ *p, *t = NULL;
+                        _cleanup_free_ char *p, *t = NULL;
                         const char *path;
                         struct stat st;
 
@@ -1028,7 +1028,7 @@ static int access_check(sd_journal *j) {
 
 int main(int argc, char *argv[]) {
         int r;
-        sd_journal _cleanup_journal_close_ *j = NULL;
+        _cleanup_journal_close_ sd_journal*j = NULL;
         bool need_seek = false;
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false, first_line = true;
@@ -1059,7 +1059,7 @@ int main(int argc, char *argv[]) {
             arg_action == ACTION_DUMP_CATALOG) {
 
                 const char* database = CATALOG_DATABASE;
-                char _cleanup_free_ *copy = NULL;
+                _cleanup_free_ char *copy = NULL;
                 if (arg_root) {
                         copy = strjoin(arg_root, "/", CATALOG_DATABASE, NULL);
                         if (!copy) {

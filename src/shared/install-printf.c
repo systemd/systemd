@@ -60,7 +60,7 @@ static char *specifier_instance(char specifier, void *data, void *userdata) {
 static char *specifier_user_name(char specifier, void *data, void *userdata) {
         InstallInfo *i = userdata;
         const char *username;
-        char _cleanup_free_ *tmp = NULL;
+        _cleanup_free_ char *tmp = NULL;
         char *printed = NULL;
 
         assert(i);

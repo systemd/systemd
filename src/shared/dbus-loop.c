@@ -44,7 +44,7 @@ typedef struct EpollData {
 } EpollData;
 
 static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
-        EpollData _cleanup_free_ *e = NULL;
+        _cleanup_free_ EpollData *e = NULL;
         struct epoll_event ev = {};
 
         assert(watch);
@@ -89,7 +89,7 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
 }
 
 static void remove_watch(DBusWatch *watch, void *data) {
-        EpollData _cleanup_free_ *e = NULL;
+        _cleanup_free_ EpollData *e = NULL;
 
         assert(watch);
 
@@ -175,7 +175,7 @@ fail:
 }
 
 static void remove_timeout(DBusTimeout *timeout, void *data) {
-        EpollData _cleanup_free_ *e = NULL;
+        _cleanup_free_ EpollData *e = NULL;
 
         assert(timeout);
 

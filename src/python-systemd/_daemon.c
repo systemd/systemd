@@ -244,7 +244,7 @@ static PyObject* is_socket_unix(PyObject *self, PyObject *args) {
         Py_ssize_t length = 0;
 
 #if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 1
-        PyObject _cleanup_Py_DECREF_ *_path = NULL;
+        _cleanup_Py_DECREF_ PyObject *_path = NULL;
         if (!PyArg_ParseTuple(args, "i|iiO&:_is_socket_unix",
                               &fd, &type, &listening, Unicode_FSConverter, &_path))
                 return NULL;

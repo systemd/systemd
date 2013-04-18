@@ -1275,7 +1275,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         ServiceExecCommand c;
         Service *s = SERVICE(u);
         const char *prefix2;
-        char _cleanup_free_ *p2 = NULL;
+        _cleanup_free_ char *p2 = NULL;
 
         assert(s);
 
@@ -1373,7 +1373,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 }
 
 static int service_load_pid_file(Service *s, bool may_warn) {
-        char _cleanup_free_ *k = NULL;
+        _cleanup_free_ char *k = NULL;
         int r;
         pid_t pid;
 
@@ -1740,9 +1740,9 @@ static int service_spawn(
         pid_t pid;
         int r;
         int *fds = NULL;
-        int _cleanup_free_ *fdsbuf = NULL;
+        _cleanup_free_ int *fdsbuf = NULL;
         unsigned n_fds = 0, n_env = 0;
-        char _cleanup_strv_free_
+        _cleanup_strv_free_ char
                 **argv = NULL, **final_env = NULL, **our_env = NULL;
 
         assert(s);
@@ -3444,10 +3444,10 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
 static int service_enumerate(Manager *m) {
         char **p;
         unsigned i;
-        DIR _cleanup_closedir_ *d = NULL;
-        char _cleanup_free_ *path = NULL, *fpath = NULL, *name = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_free_ char *path = NULL, *fpath = NULL, *name = NULL;
         Set *runlevel_services[ELEMENTSOF(rcnd_table)] = {};
-        Set _cleanup_set_free_ *shutdown_services = NULL;
+        _cleanup_set_free_ Set *shutdown_services = NULL;
         Unit *service;
         Iterator j;
         int r;

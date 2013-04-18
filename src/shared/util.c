@@ -2080,7 +2080,7 @@ int release_terminal(void) {
                 .sa_handler = SIG_IGN,
                 .sa_flags = SA_RESTART,
         };
-        int _cleanup_close_ fd;
+        _cleanup_close_ int fd;
 
         fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_NDELAY|O_CLOEXEC);
         if (fd < 0)
@@ -4344,7 +4344,7 @@ int in_group(const char *name) {
 }
 
 int glob_exists(const char *path) {
-        glob_t _cleanup_globfree_ g = {};
+        _cleanup_globfree_ glob_t g = {};
         int r, k;
 
         assert(path);

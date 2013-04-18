@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
         JournalFile *one, *two, *three;
         char t[] = "/tmp/journal-stream-XXXXXX";
         unsigned i;
-        sd_journal _cleanup_journal_close_ *j = NULL;
+        _cleanup_journal_close_ sd_journal*j = NULL;
         char *z;
         const void *data;
         size_t l;
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_journal_add_match(j, "MAGIC=quux", 0) >= 0);
         SD_JOURNAL_FOREACH_BACKWARDS(j) {
-                char _cleanup_free_ *c;
+                _cleanup_free_ char *c;
 
                 assert_se(sd_journal_get_data(j, "NUMBER", &data, &l) >= 0);
                 printf("\t%.*s\n", (int) l, (const char*) data);
@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
         }
 
         SD_JOURNAL_FOREACH(j) {
-                char _cleanup_free_ *c;
+                _cleanup_free_ char *c;
 
                 assert_se(sd_journal_get_data(j, "NUMBER", &data, &l) >= 0);
                 printf("\t%.*s\n", (int) l, (const char*) data);

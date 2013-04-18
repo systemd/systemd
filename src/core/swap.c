@@ -214,7 +214,7 @@ static int swap_add_default_dependencies(Swap *s) {
 
 static int swap_verify(Swap *s) {
         bool b;
-        char _cleanup_free_ *e = NULL;
+        _cleanup_free_ char *e = NULL;
 
         if (UNIT(s)->load_state != UNIT_LOADED)
                   return 0;
@@ -315,7 +315,7 @@ static int swap_add_one(
                 bool set_flags) {
 
         Unit *u = NULL;
-        char _cleanup_free_ *e = NULL;
+        _cleanup_free_ char *e = NULL;
         char *wp = NULL;
         bool delete = false;
         int r;

@@ -256,15 +256,15 @@ static bool check_user_lists(
 }
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
-        char _cleanup_free_ *p = NULL;
+        _cleanup_free_ char *p = NULL;
         int r;
-        int _cleanup_close_ fd = -1;
+        _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
         };
         struct ucred ucred;
         socklen_t l;
-        char _cleanup_free_ *tty = NULL;
+        _cleanup_free_ char *tty = NULL;
         int v;
 
         assert(display);

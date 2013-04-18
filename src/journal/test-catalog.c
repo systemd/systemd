@@ -35,7 +35,7 @@ static void test_import(Hashmap *h, struct strbuf *sb,
                         const char* contents, ssize_t size, int code) {
         int r;
         char name[] = "/tmp/test-catalog.XXXXXX";
-        int _cleanup_close_ fd = mkstemp(name);
+        _cleanup_close_ int fd = mkstemp(name);
         assert(fd >= 0);
         assert_se(write(fd, contents, size) == size);
 

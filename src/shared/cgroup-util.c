@@ -1250,7 +1250,7 @@ int cg_path_get_unit(const char *path, char **unit) {
 }
 
 int cg_pid_get_unit(pid_t pid, char **unit) {
-        char _cleanup_free_ *cgroup = NULL;
+        _cleanup_free_ char *cgroup = NULL;
         int r;
 
         assert(unit);
@@ -1306,7 +1306,7 @@ int cg_path_get_user_unit(const char *path, char **unit) {
 }
 
 int cg_pid_get_user_unit(pid_t pid, char **unit) {
-        char _cleanup_free_ *cgroup = NULL;
+        _cleanup_free_ char *cgroup = NULL;
         int r;
 
         assert(unit);
@@ -1342,7 +1342,7 @@ int cg_path_get_machine_name(const char *path, char **machine) {
 }
 
 int cg_pid_get_machine_name(pid_t pid, char **machine) {
-        char _cleanup_free_ *cgroup = NULL;
+        _cleanup_free_ char *cgroup = NULL;
         int r;
 
         assert(machine);
@@ -1386,7 +1386,7 @@ int cg_path_get_session(const char *path, char **session) {
 }
 
 int cg_pid_get_session(pid_t pid, char **session) {
-        char _cleanup_free_ *cgroup = NULL;
+        _cleanup_free_ char *cgroup = NULL;
         int r;
 
         assert(session);

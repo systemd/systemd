@@ -277,7 +277,7 @@ static long write_catalog(const char *database, Hashmap *h, struct strbuf *sb,
         CatalogHeader header;
         _cleanup_fclose_ FILE *w = NULL;
         int r;
-        char _cleanup_free_ *d, *p = NULL;
+        _cleanup_free_ char *d, *p = NULL;
         size_t k;
 
         d = dirname_malloc(database);
@@ -627,7 +627,7 @@ int catalog_list_items(FILE *f, const char *database, bool oneline, char **items
         STRV_FOREACH(item, items) {
                 sd_id128_t id;
                 int k;
-                char _cleanup_free_ *msg = NULL;
+                _cleanup_free_ char *msg = NULL;
 
                 k = sd_id128_from_string(*item, &id);
                 if (k < 0) {

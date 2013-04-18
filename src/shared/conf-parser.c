@@ -219,7 +219,7 @@ static int parse_line(const char* unit,
                 return 0;
 
         if (startswith(l, ".include ")) {
-                char _cleanup_free_ *fn;
+                _cleanup_free_ char *fn;
 
                 fn = file_in_same_dir(filename, strstrip(l+9));
                 if (!fn)
@@ -302,8 +302,8 @@ int config_parse(const char *unit,
                  void *userdata) {
 
         unsigned line = 0;
-        char _cleanup_free_ *section = NULL, *continuation = NULL;
-        FILE _cleanup_fclose_ *ours = NULL;
+        _cleanup_free_ char *section = NULL, *continuation = NULL;
+        _cleanup_fclose_ FILE *ours = NULL;
         int r;
 
         assert(filename);
