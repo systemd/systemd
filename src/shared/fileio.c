@@ -239,7 +239,7 @@ static int parse_env_file_internal(
                         break;
 
                 case PRE_VALUE:
-                        if (strchr(newline, c) || strchr(COMMENTS, c)) {
+                        if (strchr(newline, c)) {
                                 state = PRE_KEY;
                                 key[n_key] = 0;
 
@@ -247,7 +247,7 @@ static int parse_env_file_internal(
                                         value[n_value] = 0;
 
                                 /* strip trailing whitespace from key */
-                                while(strchr(WHITESPACE, key[--n_key]))
+                                while(n_key && strchr(WHITESPACE, key[--n_key]))
                                         key[n_key]=0;
 
                                 r = push(key, value, userdata);
@@ -279,6 +279,7 @@ static int parse_env_file_internal(
                 case VALUE:
                         if (strchr(newline, c)) {
                                 state = PRE_KEY;
+
                                 key[n_key] = 0;
 
                                 if (value)
@@ -289,7 +290,7 @@ static int parse_env_file_internal(
                                         value[last_whitespace] = 0;
 
                                 /* strip trailing whitespace from key */
-                                while(strchr(WHITESPACE, key[--n_key]))
+                                while(n_key && strchr(WHITESPACE, key[--n_key]))
                                         key[n_key]=0;
 
                                 r = push(key, value, userdata);
@@ -417,7 +418,7 @@ static int parse_env_file_internal(
                         value[n_value] = 0;
 
                 /* strip trailing whitespace from key */
-                while(strchr(WHITESPACE, key[--n_key]))
+                while(n_key && strchr(WHITESPACE, key[--n_key]))
                         key[n_key]=0;
 
                 r = push(key, value, userdata);

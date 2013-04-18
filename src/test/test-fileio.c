@@ -47,16 +47,18 @@ static void test_parse_env_file(void) {
         fputs("one=BAR   \n"
               "# comment\n"
               " # comment \n"
+              " ; comment \n"
               "  two   =   bar    \n"
               "invalid line\n"
+              "invalid line #comment\n"
               "three = \"333\n"
               "xxxx\"\n"
               "four = \'44\\\"44\'\n"
               "five = \'55\\\'55\' \"FIVE\" cinco   \n"
               "six = seis sechs\\\n"
               " sis\n"
-              "seven=\"sevenval\"#comment\n"
-              "eight=#comment\n"
+              "seven=\"sevenval\" #nocomment\n"
+              "eight=eightval #nocomment\n"
               "export nine=nineval\n"
               "ten=", f);
 
@@ -75,19 +77,13 @@ static void test_parse_env_file(void) {
         assert_se(streq(a[3], "four=44\"44"));
         assert_se(streq(a[4], "five=55\'55FIVEcinco"));
         assert_se(streq(a[5], "six=seis sechs sis"));
-        assert_se(streq(a[6], "seven=sevenval"));
-        assert_se(streq(a[7], "eight="));
+        assert_se(streq(a[6], "seven=sevenval#nocomment"));
+        assert_se(streq(a[7], "eight=eightval #nocomment"));
         assert_se(streq(a[8], "export nine=nineval"));
         assert_se(streq(a[9], "ten="));
         assert_se(a[10] == NULL);
 
         strv_env_clean_log(a, "/tmp/test-fileio");
-
-        r = write_env_file("/tmp/test-fileio", a);
-        assert_se(r >= 0);
-
-        r = load_env_file("/tmp/test-fileio", NULL, &b);
-        assert_se(r >= 0);
 
         k = 0;
         STRV_FOREACH(i, b) {
@@ -128,10 +124,16 @@ static void test_parse_env_file(void) {
         assert_se(streq(four, "44\"44"));
         assert_se(streq(five, "55\'55FIVEcinco"));
         assert_se(streq(six, "seis sechs sis"));
-        assert_se(streq(seven, "sevenval"));
-        assert_se(eight == NULL);
+        assert_se(streq(seven, "sevenval#nocomment"));
+        assert_se(streq(eight, "eightval #nocomment"));
         assert_se(streq(nine, "nineval"));
         assert_se(ten == NULL);
+
+        r = write_env_file("/tmp/test-fileio", a);
+        assert_se(r >= 0);
+
+        r = load_env_file("/tmp/test-fileio", NULL, &b);
+        assert_se(r >= 0);
 
         unlink(t);
         unlink("/tmp/test-fileio");
