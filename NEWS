@@ -32,7 +32,7 @@ CHANGES WITH 202:
           services, user processes and containers/virtual
           machines. This new cgroup hierarchy is also useful to stick
           stable names to specific container instances, which can be
-          recognized later on this way (this name may be controlled
+          recognized later this way (this name may be controlled
           via systemd-nspawn's new -M switch). libsystemd-login also
           gained a new call sd_pid_get_machine_name() to retrieve the
           name of the container/VM a specific process belongs to.
@@ -49,7 +49,7 @@ CHANGES WITH 202:
 
         * The cryptsetup logic now understands the "luks.key=" kernel
           command line switch for specifying a file to read the
-          decryption key from. Also, if a configured keyfile is now
+          decryption key from. Also, if a configured key file is not
           found the tool will now automatically fall back to prompting
           the user.
 
