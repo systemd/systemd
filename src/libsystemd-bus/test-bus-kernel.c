@@ -71,6 +71,20 @@ int main(int argc, char *argv[]) {
 
         printf("unique b: %s\n", ub);
 
+        {
+                //FIXME:
+                struct kdbus_cmd_match cmd_match;
+
+                cmd_match.size = sizeof(cmd_match);
+                cmd_match.src_id = KDBUS_MATCH_SRC_ID_ANY;
+
+                r = ioctl(sd_bus_get_fd(a), KDBUS_CMD_MATCH_ADD, &cmd_match);
+                assert_se(r >= 0);
+
+                r = ioctl(sd_bus_get_fd(b), KDBUS_CMD_MATCH_ADD, &cmd_match);
+                assert_se(r >= 0);
+        }
+
         r = sd_bus_emit_signal(a, "/foo/bar/waldo", "waldo.com", "Piep", "sss", "I am a string", "/this/is/a/path", "and.this.a.domain.name");
         assert_se(r >= 0);
 
