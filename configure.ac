@@ -880,6 +880,11 @@ AS_IF([test "x$0" != "x./configure"], [
         AC_SUBST([INTLTOOL_UPDATE], [/bin/true])
 ])
 
+AC_ARG_ENABLE(tests,
+       [AC_HELP_STRING([--disable-tests], [disable tests])],
+       enable_tests=$enableval, enable_tests=yes)
+AM_CONDITIONAL(ENABLE_TESTS, [test x$enable_tests = xyes])
+
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])

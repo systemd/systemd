@@ -124,9 +124,15 @@ dbusinterface_DATA =
 dist_dbussystemservice_DATA =
 check_PROGRAMS =
 check_DATA =
-noinst_tests=
-noinst_PROGRAMS = $(noinst_tests)
-TESTS = $(noinst_tests)
+tests=
+manual_tests =
+if ENABLE_TESTS
+noinst_PROGRAMS = $(manual_tests) $(tests)
+TESTS = $(tests)
+else
+noinst_PROGRAMS =
+TESTS =
+endif
 udevlibexec_PROGRAMS =
 
 AM_CPPFLAGS = \
@@ -1063,7 +1069,7 @@ CLEANFILES += \
 	src/core/org.freedesktop.systemd1.policy.in
 
 # ------------------------------------------------------------------------------
-noinst_PROGRAMS += \
+manual_tests += \
 	test-engine \
 	test-ns \
 	test-loopback \
@@ -1074,7 +1080,7 @@ noinst_PROGRAMS += \
 	test-watchdog \
 	test-log
 
-noinst_tests += \
+tests += \
 	test-job-type \
 	test-env-replace \
 	test-strbuf \
@@ -1145,7 +1151,7 @@ test_hostname_LDADD = \
 	libsystemd-core.la
 
 if ENABLE_EFI
-noinst_PROGRAMS += \
+manual_tests += \
 	test-efivars
 
 test_efivars_SOURCES = \
@@ -1726,7 +1732,7 @@ libsystemd_bus_la_LIBADD =  \
 noinst_LTLIBRARIES += \
 	libsystemd-bus.la
 
-noinst_tests += \
+tests += \
 	test-bus-marshal \
 	test-bus-signature \
 	test-bus-chat \
@@ -2074,7 +2080,7 @@ TESTS += \
 	test/udev-test.pl \
 	test/rules-test.sh
 
-noinst_PROGRAMS += \
+manual_tests += \
 	test-libudev \
 	test-udev
 
@@ -2527,7 +2533,7 @@ test_id128_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-id128-internal.la
 
-noinst_tests += \
+tests += \
 	test-id128
 
 pkginclude_HEADERS += \
@@ -2835,10 +2841,10 @@ catalog-remove-hook:
 UNINSTALL_DATA_HOOKS += \
 	catalog-remove-hook
 
-noinst_PROGRAMS += \
+manual_tests += \
 	test-journal-enum
 
-noinst_tests += \
+tests += \
 	test-journal \
 	test-journal-send \
 	test-journal-syslog \
@@ -3536,7 +3542,7 @@ test_inhibit_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)
 
-noinst_PROGRAMS += \
+manual_tests += \
 	test-login \
 	test-inhibit
 
