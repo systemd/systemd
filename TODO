@@ -36,6 +36,8 @@ Fedora 19:
 
 Features:
 
+* for instanced unit drop-ins we should look in foo@bar.service.d/ as well as foo@.service.d/
+
 * if pam_systemd is invoked by su from a process that is outside of a
   any session we should probably just become a NOP, since that's
   usually not a real user session but just some system code that just
