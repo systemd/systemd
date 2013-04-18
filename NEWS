@@ -1,5 +1,65 @@
 systemd System and Service Manager
 
+CHANGES WITH 202:
+
+        * The output of 'systemctl list-jobs' got some polishing. The
+          '--type=' argument may now be passed more than once. A new
+          command 'systemctl list-sockets' has been added which shows
+          a list of kernel sockets systemd is listening on with the
+          socket units they belong to, plus the units these socket
+          units activate.
+
+        * The experimental libsystemd-bus library got substantial
+          updates to work in conjunction with the (also experimental)
+          kdbus kernel project. It works well enough to exchange
+          messages with some sophistication. Note that kdbus is not
+          ready yet, and the library is mostly an elaborate test case
+          for now, and not installable.
+
+        * systemd gained a new unit 'systemd-static-nodes.service'
+          that generates static device nodes earlier during boot, and
+          can run in conjunction with udev.
+
+        * libsystemd-login gained a new call sd_pid_get_user_unit()
+          to retrieve the user systemd unit a process is running
+          in. This is useful for systems where systemd is used as
+          session manager.
+
+        * systemd-nspawn now places all containers in the new /machine
+          top-level cgroup directory in the name=systemd
+          hierarchy. libvirt will soon do the same, so that we get a
+          uniform separation of /system, /user and /machine for system
+          services, user processes and containers/virtual
+          machines. This new cgroup hierarchy is also useful to stick
+          stable names to specific container instances, which can be
+          recognized later on this way (this name may be controlled
+          via systemd-nspawn's new -M switch). libsystemd-login also
+          gained a new call sd_pid_get_machine_name() to retrieve the
+          name of the container/VM a specific process belongs to.
+
+        * bootchart can now store its data in the journal.
+
+        * libsystemd-journal gained a new call
+          sd_journal_add_conjunction() for AND expressions to the
+          matching logic. This can be used to express more complex
+          logical expressions.
+
+        * journactl can now take multiple --unit= and --user-unit=
+          switches.
+
+        * The cryptsetup logic now understands the "luks.key=" kernel
+          command line switch for specifying a file to read the
+          decryption key from. Also, if a configured keyfile is now
+          found the tool will now automatically fall back to prompting
+          the user.
+
+        Contributions from: Anatol Pomozov, Auke Kok, Harald Hoyer,
+        Henrik Grindal Bakken, Josh Triplett, Kay Sievers, Lennart
+        Poettering, Lukas Nykryn, Mantas Mikulėnas Marius Vollmer,
+        Martin Jansa, Martin Pitt, Michael Biebl, Michal Schmidt,
+        Mirco Tischler, Pali Rohar, Simon Peeters, Steven Hiscocks,
+        Tom Gundersen, Zbigniew Jędrzejewski-Szmek
+
 CHANGES WITH 201:
 
         * journalctl --update-catalog now understands a new --root=
