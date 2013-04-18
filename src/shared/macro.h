@@ -272,11 +272,12 @@ do {                                                                    \
  * signed int in the kernel and these negative numbers are extended to
  * long, which cannot be simply compared to the magic constants anymore.
  */
-#define F_TYPE_CMP(f, c)                                                \
+#define F_TYPE_CMP(f_type, magic)                                       \
         __extension__ ({                                                \
-                        __SWORD_TYPE _f = (f);                          \
-                        const __SWORD_TYPE _c = (c);                    \
-                        const int _c32 = (c);                           \
+                        __SWORD_TYPE _f = (f_type);                     \
+                        const __SWORD_TYPE _c = (magic);                \
+                        const int _c32 = 1 ? (magic)                    \
+                                    : sizeof((int[magic]){0});          \
                         (_f == _c || _f == _c32 );                      \
                 })
 
