@@ -302,7 +302,7 @@ static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char **arg_proc_cm
 
                 } else if (startswith(word, "luks.key=")) {
                         *arg_proc_cmdline_keyfile = strdup(word + 9);
-                        if (! arg_proc_cmdline_keyfile)
+                        if (!*arg_proc_cmdline_keyfile)
                                 return log_oom();
 
                 } else if (startswith(word, "rd.luks.key=")) {
@@ -311,7 +311,7 @@ static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char **arg_proc_cm
                                 if (*arg_proc_cmdline_keyfile)
                                         free(*arg_proc_cmdline_keyfile);
                                 *arg_proc_cmdline_keyfile = strdup(word + 12);
-                                if (!arg_proc_cmdline_keyfile)
+                                if (!*arg_proc_cmdline_keyfile)
                                         return log_oom();
                         }
 
