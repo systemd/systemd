@@ -1137,7 +1137,7 @@ static int bus_manager_can_shutdown_or_sleep(
                 DBusMessage **_reply) {
 
         bool multiple_sessions, challenge, blocked, b;
-        const char *result;
+        const char *result = NULL;
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
         unsigned long ul;
