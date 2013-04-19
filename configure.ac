@@ -144,6 +144,7 @@ AC_SUBST([OUR_CPPFLAGS], $with_cppflags)
 
 CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--as-needed \
+        -Wl,--no-undefined \
         -Wl,--gc-sections \
         -Wl,-z,relro \
         -Wl,-z,now])
