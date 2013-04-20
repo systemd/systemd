@@ -536,11 +536,7 @@ Features:
 
 * default unix qlen is too small (10). bump sysctl? add sockopt?
 
-* figure out whether we should leave dbus around during shutdown
-
 * dbus: in fedora, make /var/lib/dbus/machine-id a symlink to /etc/machine-id
-
-* dbus: move dbus to early boot
 
 * save coredump in Windows/Mozilla minidump format
 
