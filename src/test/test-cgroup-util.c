@@ -89,11 +89,51 @@ static void test_get_paths(void) {
         log_info("Machine = %s", d);
 }
 
+static void test_proc(void) {
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
+        int r;
+
+        d = opendir("/proc");
+        assert_se(d);
+
+        FOREACH_DIRENT(de, d, break) {
+                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *prefix = NULL;
+                pid_t pid;
+
+                if (de->d_type != DT_DIR &&
+                    de->d_type != DT_UNKNOWN)
+                        continue;
+
+                r = parse_pid(de->d_name, &pid);
+                if (r < 0)
+                        continue;
+
+                cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &path);
+                cg_pid_get_path_shifted(pid, &prefix, &path_shifted);
+                cg_pid_get_session(pid, &session);
+                cg_pid_get_unit(pid, &unit);
+                cg_pid_get_user_unit(pid, &user_unit);
+                cg_pid_get_machine_name(pid, &machine);
+
+                printf("%lu\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+                       (unsigned long) pid,
+                       path,
+                       prefix,
+                       path_shifted,
+                       session,
+                       unit,
+                       user_unit,
+                       machine);
+        }
+}
+
 int main(void) {
         test_path_decode_unit();
         test_path_get_unit();
         test_path_get_user_unit();
         test_get_paths();
+        test_proc();
 
         return 0;
 }

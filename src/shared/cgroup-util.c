@@ -1320,7 +1320,7 @@ int cg_pid_get_user_unit(pid_t pid, char **unit) {
 
 int cg_path_get_machine_name(const char *path, char **machine) {
         const char *e, *n;
-        char *s;
+        char *s, *dot;
 
         assert(path);
         assert(machine);
@@ -1336,6 +1336,10 @@ int cg_path_get_machine_name(const char *path, char **machine) {
         s = strndup(e, n - e);
         if (!s)
                 return -ENOMEM;
+
+        dot = strrchr(s, '.');
+        if (dot)
+                *dot = 0;
 
         *machine = s;
         return 0;

@@ -1298,7 +1298,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        newcg = strjoin(machine_root, "/", arg_machine, NULL);
+        newcg = strjoin(machine_root, "/", arg_machine, ".nspawn", NULL);
         if (!newcg) {
                 log_error("Failed to allocate cgroup path.");
                 goto finish;
