@@ -416,6 +416,7 @@ nodist_systemunit_DATA = \
 	units/systemd-remount-fs.service \
 	units/systemd-update-utmp-runlevel.service \
 	units/systemd-update-utmp-shutdown.service \
+	units/systemd-tmpfiles-setup-dev.service \
 	units/systemd-tmpfiles-setup.service \
 	units/systemd-tmpfiles-clean.service \
 	units/systemd-ask-password-wall.service \
@@ -433,7 +434,6 @@ nodist_systemunit_DATA = \
 	units/systemd-kexec.service \
 	units/systemd-fsck@.service \
 	units/systemd-fsck-root.service \
-	units/systemd-static-nodes.service \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
@@ -461,6 +461,7 @@ EXTRA_DIST += \
 	units/systemd-remount-fs.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
 	units/systemd-update-utmp-shutdown.service.in \
+	units/systemd-tmpfiles-setup-dev.service.in \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in \
 	units/systemd-ask-password-wall.service.in \
@@ -475,7 +476,6 @@ EXTRA_DIST += \
 	units/systemd-fsck@.service.in \
 	units/systemd-fsck-root.service.in \
 	units/user@.service.in \
-	units/systemd-static-nodes.service \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service \
@@ -1952,13 +1952,11 @@ CLEANFILES += \
 	src/udev/udev.pc
 
 EXTRA_DIST += \
-	units/systemd-static-nodes.service.in \
 	units/systemd-udevd.service.in \
 	units/systemd-udev-trigger.service.in \
 	units/systemd-udev-settle.service.in
 
 CLEANFILES += \
-	units/systemd-static-nodes.service \
 	units/systemd-udevd.service \
 	units/systemd-udev-trigger.service \
 	units/systemd-udev-settle.service
@@ -1967,7 +1965,6 @@ SOCKETS_TARGET_WANTS += \
 	systemd-udevd-control.socket \
 	systemd-udevd-kernel.socket
 SYSINIT_TARGET_WANTS += \
-	systemd-static-nodes.service \
 	systemd-udevd.service \
 	systemd-udev-trigger.service
 
@@ -4021,6 +4018,7 @@ SYSINIT_TARGET_WANTS += \
 	sys-kernel-config.mount \
 	sys-kernel-debug.mount \
 	sys-fs-fuse-connections.mount \
+	systemd-tmpfiles-setup-dev.service \
 	systemd-tmpfiles-setup.service \
 	systemd-sysctl.service \
 	systemd-ask-password-console.path
