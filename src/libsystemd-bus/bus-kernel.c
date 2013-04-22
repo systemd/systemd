@@ -35,6 +35,7 @@
 
 #define KDBUS_ITEM_NEXT(item) \
         (typeof(item))(((uint8_t *)item) + ALIGN8((item)->size))
+
 #define KDBUS_ITEM_FOREACH(item, head)                                          \
         for (item = (head)->items;                                              \
              (uint8_t *)(item) < (uint8_t *)(head) + (head)->size;              \
@@ -98,6 +99,19 @@ static void* append_bloom(struct kdbus_msg_item **d, size_t length) {
         *d = (struct kdbus_msg_item *) ((uint8_t*) *d + (*d)->size);
 
         return r;
+}
+
+static void append_fds(struct kdbus_msg_item **d, const int fds[], unsigned n_fds) {
+        assert(d);
+        assert(fds);
+        assert(n_fds > 0);
+
+        *d = ALIGN8_PTR(*d);
+        (*d)->size = offsetof(struct kdbus_msg_item, fds) + sizeof(int) * n_fds;
+        (*d)->type = KDBUS_MSG_UNIX_FDS;
+        memcpy((*d)->fds, fds, sizeof(int) * n_fds);
+
+        *d = (struct kdbus_msg_item *) ((uint8_t*) *d + (*d)->size);
 }
 
 static int bus_message_setup_bloom(sd_bus_message *m, void *bloom) {
@@ -200,6 +214,10 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 sz += ALIGN8(offsetof(struct kdbus_msg_item, str) + dl + 1);
         }
 
+        /* Add space for unix fds */
+        if (m->n_fds > 0)
+                sz += ALIGN8(offsetof(struct kdbus_msg_item, fds) + sizeof(int)*m->n_fds);
+
         m->kdbus = memalign(8, sz);
         if (!m->kdbus)
                 return -ENOMEM;
@@ -233,7 +251,6 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         if (m->kdbus->dst_id == KDBUS_DST_ID_BROADCAST) {
                 void *p;
 
-                /* For now, let's add a mask all bloom filter */
                 p = append_bloom(&d, BLOOM_SIZE);
                 r = bus_message_setup_bloom(m, p);
                 if (r < 0) {
@@ -242,6 +259,9 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                         return -r;
                 }
         }
+
+        if (m->n_fds > 0)
+                append_fds(&d, m->fds, m->n_fds);
 
         m->kdbus->size = (uint8_t*) d - (uint8_t*) m->kdbus;
         assert(m->kdbus->size <= sz);
@@ -289,6 +309,7 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         b->is_kernel = true;
         b->bus_client = true;
+        b->can_fds = true;
 
         r = bus_start_running(b);
         if (r < 0)
@@ -389,7 +410,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                                 return -ENOMEM;
 
                         fds = f;
-                        memcpy(fds + n_fds, d->fds, j);
+                        memcpy(fds + n_fds, d->fds, sizeof(int) * j);
                         n_fds += j;
 
                 } else if (d->type == KDBUS_MSG_DST_NAME)

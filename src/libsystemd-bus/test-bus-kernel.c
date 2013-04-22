@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <fcntl.h>
+
 #include "util.h"
 
 #include "sd-bus.h"
@@ -32,7 +34,7 @@ int main(int argc, char *argv[]) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         const char *ua = NULL, *ub = NULL, *the_string = NULL;
         sd_bus *a, *b;
-        int r;
+        int r, pipe_fds[2];
 
         bus_ref = bus_kernel_create("deine-mutter", &bus_name);
         if (bus_ref == -ENOENT)
@@ -108,6 +110,19 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_new_method_call(b, "net.x0pointer.foobar", "/a/path", "an.inter.face", "AMethod", &m);
         assert_se(r >= 0);
 
+        assert_se(pipe2(pipe_fds, O_CLOEXEC) >= 0);
+
+        assert_se(write(pipe_fds[1], "x", 1) == 1);
+
+        close_nointr_nofail(pipe_fds[1]);
+        pipe_fds[1] = -1;
+
+        r = sd_bus_message_append(m, "h", pipe_fds[0]);
+        assert_se(r >= 0);
+
+        close_nointr_nofail(pipe_fds[0]);
+        pipe_fds[0] = -1;
+
         r = sd_bus_send(b, m, NULL);
         assert_se(r >= 0);
 
@@ -121,8 +136,17 @@ int main(int argc, char *argv[]) {
                 bus_message_dump(m);
                 assert_se(sd_bus_message_rewind(m, true) >= 0);
 
-                if (sd_bus_message_is_method_call(m, "an.inter.face", "AMethod"))
+                if (sd_bus_message_is_method_call(m, "an.inter.face", "AMethod")) {
+                        int fd;
+                        char x;
+
+                        r = sd_bus_message_read(m, "h", &fd);
+                        assert_se(r >= 0);
+
+                        assert_se(read(fd, &x, 1) == 1);
+                        assert_se(x == 'x');
                         break;
+                }
         }
 
         r = sd_bus_release_name(a, "net.x0pointer.foobar");
