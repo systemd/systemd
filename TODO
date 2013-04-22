@@ -55,8 +55,6 @@ Features:
 
 * timedatctl, localectl: possibly make some commands work without the daemon, for chroot situations...
 
-* nspawn: expose init PID, UUID, root directory as cgroup EAs. names should be: 'user.machine_id', 'user.init_pid', 'user.root_directory'.
-
 * logind: consider making suspend inhibitor locks non-session specific, but keep suspend-key inhibitor locks session specific
 
 * logind: add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
@@ -405,7 +403,6 @@ Features:
     interfaces to the container
   - nspawn: maybe add a way to drop additional caps, in addition to add additional caps
   - nspawn: maybe explicitly reset loginuid?
-  - nspawn: move all containers to name=systemd:/containers/, and introduce externally visible names for containers
   - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters, selinux exec context
 
 * cryptsetup:

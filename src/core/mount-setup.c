@@ -68,6 +68,12 @@ typedef struct MountPoint {
  * other ones we can delay until SELinux and IMA are loaded. */
 #define N_EARLY_MOUNT 5
 
+#ifdef HAVE_XATTR
+#  define FS_XATTR_OPT ",xattr"
+#else
+#  define FS_XATTR_OPT ""
+#endif
+
 static const MountPoint mount_table[] = {
         { "proc",       "/proc",                     "proc",       NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
@@ -87,7 +93,7 @@ static const MountPoint mount_table[] = {
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "tmpfs",      "/sys/fs/cgroup",            "tmpfs",      "mode=755", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_IN_CONTAINER },
-        { "cgroup",     "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        { "cgroup",     "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd" FS_XATTR_OPT, MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,       MNT_IN_CONTAINER },
         { "pstore",     "/sys/fs/pstore",            "pstore",     NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,       MNT_NONE },

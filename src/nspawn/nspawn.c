@@ -22,6 +22,7 @@
 #include <signal.h>
 #include <sched.h>
 #include <unistd.h>
+#include <attr/xattr.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <sys/mount.h>
@@ -921,6 +922,46 @@ static int setup_cgroup(const char *path) {
         return 0;
 }
 
+static int save_attributes(const char *cgroup, pid_t pid, const char *uuid, const char *directory) {
+        char buf[DECIMAL_STR_MAX(pid_t)], path[PATH_MAX];
+        int r = 0, k;
+
+        assert(cgroup);
+        assert(pid >= 0);
+        assert(arg_directory);
+
+#ifdef HAVE_XATTR
+        assert_se(snprintf(buf, sizeof(buf), "%lu", (unsigned long) pid) < (int) sizeof(buf));
+
+        r = snprintf(path, sizeof(path), "/sys/fs/cgroup/systemd/%s", cgroup);
+        if (r >= (int) sizeof(path)) {
+                log_error("cgroup name too long");
+                return -EINVAL;
+        }
+
+        r = setxattr(path, "trusted.init_pid", buf, strlen(buf), XATTR_CREATE);
+        if (r < 0)
+                log_warning("Failed to set %s attribute on %s: %m", "trusted.init_pid", path);
+
+        if (uuid) {
+                k = setxattr(path, "trusted.machine_id", uuid, strlen(uuid), XATTR_CREATE);
+                if (k < 0) {
+                        log_warning("Failed to set %s attribute on %s: %m", "trusted.machine_id", path);
+                        if (r == 0)
+                                r = k;
+                }
+        }
+
+        k = setxattr(path, "trusted.root_directory", directory, strlen(directory), XATTR_CREATE);
+        if (k < 0) {
+                log_warning("Failed to set %s attribute on %s: %m", "trusted.machine_id", path);
+                if (r == 0)
+                        r = k;
+        }
+#endif
+        return r;
+}
+
 static int drop_capabilities(void) {
         return capability_bounding_set_drop(~arg_retain, false);
 }
@@ -1198,7 +1239,7 @@ int main(int argc, char *argv[]) {
                 arg_directory = get_current_dir_name();
 
         if (!arg_directory) {
-                log_error("Failed to determine path");
+                log_error("Failed to determine path, please use -D.");
                 goto finish;
         }
 
@@ -1313,10 +1354,16 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 siginfo_t status;
-                int pipefd[2];
+                int pipefd[2], pipefd2[2];
 
                 if (pipe2(pipefd, O_NONBLOCK|O_CLOEXEC) < 0) {
                         log_error("pipe2(): %m");
+                        goto finish;
+                }
+
+                if (pipe2(pipefd2, O_NONBLOCK|O_CLOEXEC) < 0) {
+                        log_error("pipe2(): %m");
+                        close_pipe(pipefd);
                         goto finish;
                 }
 
@@ -1353,6 +1400,7 @@ int main(int argc, char *argv[]) {
                         if (envp[n_env])
                                 n_env ++;
 
+                        /* Wait for the parent process to log our PID */
                         close_nointr_nofail(pipefd[1]);
                         fd_wait_for_event(pipefd[0], POLLHUP, -1);
                         close_nointr_nofail(pipefd[0]);
@@ -1408,6 +1456,9 @@ int main(int argc, char *argv[]) {
 
                         if (setup_cgroup(newcg) < 0)
                                 goto child_fail;
+
+                        close_nointr_nofail(pipefd2[1]);
+                        close_nointr_nofail(pipefd2[0]);
 
                         /* Mark everything as slave, so that we still
                          * receive mounts from the real root, but don't
@@ -1616,6 +1667,13 @@ int main(int argc, char *argv[]) {
                 log_info("Init process in the container running as PID %lu.", (unsigned long) pid);
                 close_nointr_nofail(pipefd[0]);
                 close_nointr_nofail(pipefd[1]);
+
+                /* Wait for the child process to establish cgroup hierarchy */
+                close_nointr_nofail(pipefd2[1]);
+                fd_wait_for_event(pipefd2[0], POLLHUP, -1);
+                close_nointr_nofail(pipefd2[0]);
+
+                save_attributes(newcg, pid, arg_uuid, arg_directory);
 
                 fdset_free(fds);
                 fds = NULL;
