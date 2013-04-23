@@ -473,6 +473,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         m->cmdline_length = l;
                 } else if (d->type == KDBUS_MSG_SRC_CGROUP)
                         m->cgroup = d->str;
+                else if (d->type == KDBUS_MSG_SRC_AUDIT)
+                        m->audit = &d->audit;
                 else
                         log_debug("Got unknown field from kernel %llu", d->type);
         }

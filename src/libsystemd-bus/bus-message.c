@@ -904,6 +904,30 @@ int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline) {
         return 0;
 }
 
+int sd_bus_message_get_audit_sessionid(sd_bus_message *m, uint32_t *sessionid) {
+        if (!m)
+                return -EINVAL;
+        if (!sessionid)
+                return -EINVAL;
+        if (!m->audit)
+                return -ESRCH;
+
+        *sessionid = m->audit->sessionid;
+        return 0;
+}
+
+int sd_bus_message_get_audit_loginuid(sd_bus_message *m, uid_t *uid) {
+        if (!m)
+                return -EINVAL;
+        if (!uid)
+                return -EINVAL;
+        if (!m->audit)
+                return -ESRCH;
+
+        *uid = m->audit->loginuid;
+        return 0;
+}
+
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member) {
         if (!m)
                 return -EINVAL;
@@ -3084,7 +3108,8 @@ int bus_message_dump(sd_bus_message *m) {
         char **cmdline = NULL;
         unsigned level = 1;
         int r;
-        uid_t owner;
+        uid_t owner, audit_loginuid;
+        uint32_t audit_sessionid;
 
         assert(m);
 
@@ -3163,6 +3188,10 @@ int bus_message_dump(sd_bus_message *m) {
                 printf("\tsession=[%s]\n", s);
         if (sd_bus_message_get_owner_uid(m, &owner) >= 0)
                 printf("\towner_uid=%lu\n", (unsigned long) owner);
+        if (sd_bus_message_get_audit_loginuid(m, &audit_loginuid) >= 0)
+                printf("\taudit_loginuid=%lu\n", (unsigned long) audit_loginuid);
+        if (sd_bus_message_get_audit_sessionid(m, &audit_sessionid) >= 0)
+                printf("\taudit_sessionid=%lu\n", (unsigned long) audit_sessionid);
 
         if (sd_bus_message_get_cmdline(m, &cmdline) >= 0) {
                 char **c;

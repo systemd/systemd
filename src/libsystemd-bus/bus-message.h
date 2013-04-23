@@ -119,6 +119,8 @@ struct sd_bus_message {
         char *session;
         char *unit;
         char *user_unit;
+
+        struct kdbus_audit *audit;
 };
 
 #define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_NATIVE_ENDIAN)
