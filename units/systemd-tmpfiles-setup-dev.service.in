@@ -7,6 +7,7 @@
 
 [Unit]
 Description=Create static device nodes in /dev
+Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 DefaultDependencies=no
 Before=sysinit.target systemd-udevd.service
 ConditionCapability=CAP_MKNOD
