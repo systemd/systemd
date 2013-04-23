@@ -27,7 +27,7 @@ import uuid as _uuid
 import traceback as _traceback
 import os as _os
 import logging as _logging
-if _sys.version_info >= (3,):
+if _sys.version_info >= (3,3):
     from collections import ChainMap as _ChainMap
 from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
                     LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG)
@@ -95,6 +95,11 @@ DEFAULT_CONVERTERS = {
     'COREDUMP_SIGNAL': int,
     'COREDUMP_TIMESTAMP': _convert_timestamp,
 }
+
+_IDENT_LETTER = set('ABCDEFGHIJKLMNOPQRTSUVWXYZ_')
+
+def _valid_field_name(s):
+    return not (set(s) - _IDENT_LETTER)
 
 class Reader(_Reader):
     """Reader allows the access and filtering of systemd journal
@@ -450,12 +455,6 @@ class JournalHandler(_logging.Handler):
 
         >>> log.setLevel(logging.DEBUG)
 
-        To attach journal MESSAGE_ID, an extra field is supported:
-
-        >>> import uuid
-        >>> mid = uuid.UUID('0123456789ABCDEF0123456789ABCDEF')
-        >>> log.warn("Message with ID", extra={'MESSAGE_ID': mid})
-
         To redirect all logging messages to journal regardless of where
         they come from, attach it to the root logger:
 
@@ -466,11 +465,35 @@ class JournalHandler(_logging.Handler):
         handler class.  Only standard handler configuration options
         are supported: `level`, `formatter`, `filters`.
 
+        To attach journal MESSAGE_ID, an extra field is supported:
+
+        >>> import uuid
+        >>> mid = uuid.UUID('0123456789ABCDEF0123456789ABCDEF')
+        >>> log.warn("Message with ID", extra={'MESSAGE_ID': mid})
+
+        Fields to be attached to all messages sent through this
+        handler can be specified as keyword arguments. This probably
+        makes sense only for SYSLOG_IDENTIFIER and similar fields
+        which are constant for the whole program:
+
+        >>> journal.JournalHandler(SYSLOG_IDENTIFIER='my-cool-app')
+
         The following journal fields will be sent:
         `MESSAGE`, `PRIORITY`, `THREAD_NAME`, `CODE_FILE`, `CODE_LINE`,
         `CODE_FUNC`, `LOGGER` (name as supplied to getLogger call),
-        `MESSAGE_ID` (optional, see above).
+        `MESSAGE_ID` (optional, see above), `SYSLOG_IDENTIFIER` (defaults
+        to sys.argv[0]).
         """
+
+        def __init__(self, level=_logging.NOTSET, **kwargs):
+                super(JournalHandler, self).__init__(level)
+
+                for name in kwargs:
+                        if not _valid_field_name(name):
+                                raise ValueError('Invalid field name: ' + name)
+                if 'SYSLOG_IDENTIFIER' not in kwargs:
+                        kwargs['SYSLOG_IDENTIFIER'] = _sys.argv[0]
+                self._extra = kwargs
 
         def emit(self, record):
                 """Write record as journal event.
@@ -492,7 +515,8 @@ class JournalHandler(_logging.Handler):
                              THREAD_NAME=record.threadName,
                              CODE_FILE=record.pathname,
                              CODE_LINE=record.lineno,
-                             CODE_FUNC=record.funcName)
+                             CODE_FUNC=record.funcName,
+                             **self._extra)
                 except Exception:
                         self.handleError(record)
 
