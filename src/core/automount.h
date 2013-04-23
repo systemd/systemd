@@ -48,8 +48,6 @@ struct Automount {
 
         char *where;
 
-        UnitRef mount;
-
         int pipe_fd;
         mode_t directory_mode;
         Watch pipe_watch;

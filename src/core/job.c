@@ -840,8 +840,10 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
                            job_result_to_string(result),
                            NULL);
 
-                unit_trigger_on_failure(u);
+                unit_start_on_failure(u);
         }
+
+        unit_trigger_notify(u);
 
 finish:
         /* Try to start the next jobs that can be started */

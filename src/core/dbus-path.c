@@ -84,15 +84,15 @@ static int bus_path_append_paths(DBusMessageIter *i, const char *property, void 
 }
 
 static int bus_path_append_unit(DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data;
-        Path *p = PATH(u);
+        Unit *u = data, *trigger;
         const char *t;
 
         assert(i);
         assert(property);
         assert(u);
 
-        t = UNIT_DEREF(p->unit) ? UNIT_DEREF(p->unit)->id : "";
+        trigger = UNIT_TRIGGER(u);
+        t = trigger ? trigger->id : "";
 
         return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
 }

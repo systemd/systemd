@@ -1254,49 +1254,56 @@ int config_parse_timer(const char *unit,
         return 0;
 }
 
-int config_parse_timer_unit(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_trigger_unit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        Timer *t = data;
-        int r;
-        DBusError error;
-        Unit *u;
         _cleanup_free_ char *p = NULL;
+        Unit *u = data;
+        UnitType type;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        dbus_error_init(&error);
+        if (!set_isempty(u->dependencies[UNIT_TRIGGERS])) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Multiple units to trigger specified, ignoring: %s", rvalue);
+                return 0;
+        }
 
-        p = unit_name_printf(UNIT(t), rvalue);
+        p = unit_name_printf(u, rvalue);
         if (!p)
                 return log_oom();
 
-        if (endswith(p, ".timer")) {
+        type = unit_name_to_type(p);
+        if (type < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Unit cannot be of type timer, ignoring: %s", rvalue);
+                           "Unit type not valid, ignoring: %s", rvalue);
                 return 0;
         }
 
-        r = manager_load_unit(UNIT(t)->manager, p, NULL, NULL, &u);
+        if (type == u->type) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Trigger cannot be of same type, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = unit_add_two_dependencies_by_name(u, UNIT_BEFORE, UNIT_TRIGGERS, p, NULL, true);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to load unit %s, ignoring: %s",
-                           rvalue, bus_error(&error, r));
-                dbus_error_free(&error);
+                           "Failed to add trigger on %s, ignoring: %s", p, strerror(-r));
                 return 0;
         }
-
-        unit_ref_set(&t->unit, u);
 
         return 0;
 }
@@ -1361,53 +1368,6 @@ int config_parse_path_spec(const char *unit,
         s->inotify_fd = -1;
 
         LIST_PREPEND(PathSpec, spec, p->specs, s);
-
-        return 0;
-}
-
-int config_parse_path_unit(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
-
-        Path *t = data;
-        int r;
-        DBusError error;
-        Unit *u;
-        _cleanup_free_ char *p = NULL;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        dbus_error_init(&error);
-
-        p = unit_name_printf(UNIT(t), rvalue);
-        if (!p)
-                return log_oom();
-
-        if (endswith(p, ".path")) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Unit cannot be of type path, ignoring: %s", p);
-                return 0;
-        }
-
-        r = manager_load_unit(UNIT(t)->manager, p, NULL, &error, &u);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Failed to load unit %s, ignoring: %s",
-                           p, bus_error(&error, r));
-                dbus_error_free(&error);
-                return 0;
-        }
-
-        unit_ref_set(&t->unit, u);
 
         return 0;
 }
@@ -2480,10 +2440,9 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unit_requires_mounts_for, "PATH [...]" },
                 { config_parse_exec_mount_flags,      "MOUNTFLAG [...]" },
                 { config_parse_unit_string_printf,    "STRING" },
+                { config_parse_trigger_unit,          "UNIT" },
                 { config_parse_timer,                 "TIMER" },
-                { config_parse_timer_unit,            "NAME" },
                 { config_parse_path_spec,             "PATH" },
-                { config_parse_path_unit,             "UNIT" },
                 { config_parse_notify_access,         "ACCESS" },
                 { config_parse_ip_tos,                "TOS" },
                 { config_parse_unit_condition_path,   "CONDITION" },

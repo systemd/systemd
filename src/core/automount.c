@@ -109,7 +109,6 @@ static void automount_done(Unit *u) {
         assert(a);
 
         unmount_autofs(a);
-        unit_ref_unset(&a->mount);
 
         free(a->where);
         a->where = NULL;
@@ -200,8 +199,8 @@ static int automount_verify(Automount *a) {
 }
 
 static int automount_load(Unit *u) {
-        int r;
         Automount *a = AUTOMOUNT(u);
+        int r;
 
         assert(u);
         assert(u->load_state == UNIT_STUB);
@@ -222,17 +221,15 @@ static int automount_load(Unit *u) {
 
                 path_kill_slashes(a->where);
 
-                r = automount_add_mount_links(a);
-                if (r < 0)
-                        return r;
-
                 r = unit_load_related_unit(u, ".mount", &x);
                 if (r < 0)
                         return r;
 
-                unit_ref_set(&a->mount, x);
+                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, x, true);
+                if (r < 0)
+                        return r;
 
-                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(a->mount), true);
+                r = automount_add_mount_links(a);
                 if (r < 0)
                         return r;
 
@@ -586,12 +583,11 @@ fail:
 }
 
 static void automount_enter_runnning(Automount *a) {
-        int r;
-        struct stat st;
         _cleanup_dbus_error_free_ DBusError error;
+        struct stat st;
+        int r;
 
         assert(a);
-        assert(UNIT_DEREF(a->mount));
 
         dbus_error_init(&error);
 
@@ -616,11 +612,15 @@ static void automount_enter_runnning(Automount *a) {
         if (!S_ISDIR(st.st_mode) || st.st_dev != a->dev_id)
                 log_info_unit(UNIT(a)->id,
                               "%s's automount point already active?", UNIT(a)->id);
-        else if ((r = manager_add_job(UNIT(a)->manager, JOB_START, UNIT_DEREF(a->mount), JOB_REPLACE, true, &error, NULL)) < 0) {
-                log_warning_unit(UNIT(a)->id,
-                                 "%s failed to queue mount startup job: %s",
-                                 UNIT(a)->id, bus_error(&error, r));
-                goto fail;
+        else {
+                r = manager_add_job(UNIT(a)->manager, JOB_START, UNIT_TRIGGER(UNIT(a)),
+                                    JOB_REPLACE, true, &error, NULL);
+                if (r < 0) {
+                        log_warning_unit(UNIT(a)->id,
+                                         "%s failed to queue mount startup job: %s",
+                                         UNIT(a)->id, bus_error(&error, r));
+                        goto fail;
+                }
         }
 
         automount_set_state(a, AUTOMOUNT_RUNNING);
@@ -643,7 +643,7 @@ static int automount_start(Unit *u) {
                 return -EEXIST;
         }
 
-        if (UNIT_DEREF(a->mount)->load_state != UNIT_LOADED)
+        if (UNIT_TRIGGER(u)->load_state != UNIT_LOADED)
                 return -ENOENT;
 
         a->result = AUTOMOUNT_SUCCESS;
@@ -765,14 +765,12 @@ static const char *automount_sub_state_to_string(Unit *u) {
 }
 
 static bool automount_check_gc(Unit *u) {
-        Automount *a = AUTOMOUNT(u);
+        assert(u);
 
-        assert(a);
-
-        if (!UNIT_DEREF(a->mount))
+        if (!UNIT_TRIGGER(u))
                 return false;
 
-        return UNIT_VTABLE(UNIT_DEREF(a->mount))->check_gc(UNIT_DEREF(a->mount));
+        return UNIT_VTABLE(UNIT_TRIGGER(u))->check_gc(UNIT_TRIGGER(u));
 }
 
 static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {

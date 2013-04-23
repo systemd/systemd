@@ -298,7 +298,6 @@ static void path_done(Unit *u) {
 
         assert(p);
 
-        unit_ref_unset(&p->unit);
         path_free_specs(p);
 }
 
@@ -390,20 +389,17 @@ static int path_load(Unit *u) {
 
         if (u->load_state == UNIT_LOADED) {
 
-                if (!UNIT_DEREF(p->unit)) {
+                if (set_isempty(u->dependencies[UNIT_TRIGGERS])) {
                         Unit *x;
 
                         r = unit_load_related_unit(u, ".service", &x);
                         if (r < 0)
                                 return r;
 
-                        unit_ref_set(&p->unit, x);
+                        r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, x, true);
+                        if (r < 0)
+                                return r;
                 }
-
-                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS,
-                                              UNIT_DEREF(p->unit), true);
-                if (r < 0)
-                        return r;
 
                 r = path_add_mount_links(p);
                 if (r < 0)
@@ -421,10 +417,13 @@ static int path_load(Unit *u) {
 
 static void path_dump(Unit *u, FILE *f, const char *prefix) {
         Path *p = PATH(u);
+        Unit *trigger;
         PathSpec *s;
 
         assert(p);
         assert(f);
+
+        trigger = UNIT_TRIGGER(u);
 
         fprintf(f,
                 "%sPath State: %s\n"
@@ -434,7 +433,7 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sDirectoryMode: %04o\n",
                 prefix, path_state_to_string(p->state),
                 prefix, path_result_to_string(p->result),
-                prefix, UNIT_DEREF(p->unit)->id,
+                prefix, trigger ? trigger->id : "n/a",
                 prefix, yes_no(p->make_directory),
                 prefix, p->directory_mode);
 
@@ -516,17 +515,18 @@ static void path_enter_dead(Path *p, PathResult f) {
 }
 
 static void path_enter_running(Path *p) {
+        _cleanup_dbus_error_free_ DBusError error;
         int r;
-        DBusError error;
 
         assert(p);
+
         dbus_error_init(&error);
 
         /* Don't start job if we are supposed to go down */
-        if (UNIT(p)->job && UNIT(p)->job->type == JOB_STOP)
+        if (unit_pending_inactive(UNIT(p)))
                 return;
 
-        r = manager_add_job(UNIT(p)->manager, JOB_START, UNIT_DEREF(p->unit),
+        r = manager_add_job(UNIT(p)->manager, JOB_START, UNIT_TRIGGER(UNIT(p)),
                             JOB_REPLACE, true, &error, NULL);
         if (r < 0)
                 goto fail;
@@ -544,8 +544,6 @@ fail:
         log_warning("%s failed to queue unit startup job: %s",
                     UNIT(p)->id, bus_error(&error, r));
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
-
-        dbus_error_free(&error);
 }
 
 static bool path_check_good(Path *p, bool initial) {
@@ -616,7 +614,7 @@ static int path_start(Unit *u) {
         assert(p);
         assert(p->state == PATH_DEAD || p->state == PATH_FAILED);
 
-        if (UNIT_DEREF(p->unit)->load_state != UNIT_LOADED)
+        if (UNIT_TRIGGER(u)->load_state != UNIT_LOADED)
                 return -ENOENT;
 
         path_mkdir(p);
@@ -737,33 +735,28 @@ fail:
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
-void path_unit_notify(Unit *u, UnitActiveState new_state) {
-        Iterator i;
-        Unit *k;
+static void path_trigger_notify(Unit *u, Unit *other) {
+        Path *p = PATH(u);
 
-        if (u->type == UNIT_PATH)
+        assert(u);
+        assert(other);
+
+        /* Invoked whenever the unit we trigger changes state or gains
+         * or loses a job */
+
+        if (other->load_state != UNIT_LOADED)
                 return;
 
-        SET_FOREACH(k, u->dependencies[UNIT_TRIGGERED_BY], i) {
-                Path *p;
+        if (p->state == PATH_RUNNING &&
+            UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
+                log_debug_unit(UNIT(p)->id,
+                               "%s got notified about unit deactivation.",
+                               UNIT(p)->id);
 
-                if (k->type != UNIT_PATH)
-                        continue;
-
-                if (k->load_state != UNIT_LOADED)
-                        continue;
-
-                p = PATH(k);
-
-                if (p->state == PATH_RUNNING && new_state == UNIT_INACTIVE) {
-                        log_debug("%s got notified about unit deactivation.",
-                                  UNIT(p)->id);
-
-                        /* Hmm, so inotify was triggered since the
-                         * last activation, so I guess we need to
-                         * recheck what is going on. */
-                        path_enter_waiting(p, false, p->inotify_triggered);
-                }
+                /* Hmm, so inotify was triggered since the
+                 * last activation, so I guess we need to
+                 * recheck what is going on. */
+                path_enter_waiting(p, false, p->inotify_triggered);
         }
 }
 
@@ -829,6 +822,8 @@ const UnitVTable path_vtable = {
         .sub_state_to_string = path_sub_state_to_string,
 
         .fd_event = path_fd_event,
+
+        .trigger_notify = path_trigger_notify,
 
         .reset_failed = path_reset_failed,
 

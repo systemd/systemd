@@ -1304,7 +1304,7 @@ static void check_unneeded_dependencies(Unit *u) {
                         unit_check_unneeded(other);
 }
 
-void unit_trigger_on_failure(Unit *u) {
+void unit_start_on_failure(Unit *u) {
         Unit *other;
         Iterator i;
 
@@ -1322,6 +1322,17 @@ void unit_trigger_on_failure(Unit *u) {
                 if (r < 0)
                         log_error_unit(u->id, "Failed to enqueue OnFailure= job: %s", strerror(-r));
         }
+}
+
+void unit_trigger_notify(Unit *u) {
+        Unit *other;
+        Iterator i;
+
+        assert(u);
+
+        SET_FOREACH(other, u->dependencies[UNIT_TRIGGERED_BY], i)
+                if (UNIT_VTABLE(other)->trigger_notify)
+                        UNIT_VTABLE(other)->trigger_notify(other, u);
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
@@ -1354,9 +1365,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         u->active_enter_timestamp = ts;
                 else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
                         u->active_exit_timestamp = ts;
-
-                timer_unit_notify(u, ns);
-                path_unit_notify(u, ns);
         }
 
         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
@@ -1461,7 +1469,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 if (ns != os && ns == UNIT_FAILED) {
                         log_notice_unit(u->id,
                                         "MESSAGE=Unit %s entered failed state.", u->id);
-                        unit_trigger_on_failure(u);
+                        unit_start_on_failure(u);
                 }
         }
 
@@ -1512,6 +1520,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 
         manager_recheck_journal(m);
+        unit_trigger_notify(u);
 
         /* Maybe we finished startup and are now ready for being
          * stopped because unneeded? */

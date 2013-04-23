@@ -74,15 +74,12 @@ struct Timer {
         usec_t next_elapse_realtime;
 
         TimerState state, deserialized_state;
-        UnitRef unit;
 
         Watch monotonic_watch;
         Watch realtime_watch;
 
         TimerResult result;
 };
-
-void timer_unit_notify(Unit *u, UnitActiveState new_state);
 
 void timer_free_values(Timer *t);
 

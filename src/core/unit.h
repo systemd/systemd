@@ -352,7 +352,7 @@ struct UnitVTable {
         /* Called whenever a process of this unit sends us a message */
         void (*notify_message)(Unit *u, pid_t pid, char **tags);
 
-        /* Called whenever a name thus Unit registered for comes or
+        /* Called whenever a name this Unit registered for comes or
          * goes away. */
         void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
 
@@ -367,6 +367,10 @@ struct UnitVTable {
 
         /* Return the set of units that are following each other */
         int (*following_set)(Unit *u, Set **s);
+
+        /* Invoked each time a unit this unit is triggering changes
+         * state or gains/loses a job */
+        void (*trigger_notify)(Unit *u, Unit *trigger);
 
         /* Called whenever CLOCK_REALTIME made a jump */
         void (*time_change)(Unit *u);
@@ -416,6 +420,8 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
 /* For casting the various unit types into a unit */
 #define UNIT(u) (&(u)->meta)
+
+#define UNIT_TRIGGER(u) ((Unit*) set_first((u)->dependencies[UNIT_TRIGGERS]))
 
 DEFINE_CAST(SOCKET, Socket);
 DEFINE_CAST(TIMER, Timer);
@@ -540,7 +546,8 @@ char *unit_default_cgroup_path(Unit *u);
 
 int unit_following_set(Unit *u, Set **s);
 
-void unit_trigger_on_failure(Unit *u);
+void unit_start_on_failure(Unit *u);
+void unit_trigger_notify(Unit *u);
 
 bool unit_condition_test(Unit *u);
 

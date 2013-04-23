@@ -152,15 +152,15 @@ static int bus_timer_append_calendar_timers(DBusMessageIter *i, const char *prop
 }
 
 static int bus_timer_append_unit(DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data;
-        Timer *timer = TIMER(u);
+        Unit *u = data, *trigger;
         const char *t;
 
         assert(i);
         assert(property);
         assert(u);
 
-        t = UNIT_DEREF(timer->unit) ? UNIT_DEREF(timer->unit)->id : "";
+        trigger = UNIT_TRIGGER(u);
+        t = trigger ? trigger->id : "";
 
         return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
 }

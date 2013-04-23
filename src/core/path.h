@@ -80,8 +80,6 @@ struct Path {
 
         LIST_HEAD(PathSpec, specs);
 
-        UnitRef unit;
-
         PathState state, deserialized_state;
 
         bool inotify_triggered;
@@ -91,8 +89,6 @@ struct Path {
 
         PathResult result;
 };
-
-void path_unit_notify(Unit *u, UnitActiveState new_state);
 
 /* Called from the mount code figure out if a mount is a dependency of
  * any of the paths of this path object */

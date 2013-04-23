@@ -72,8 +72,6 @@ static void timer_done(Unit *u) {
 
         unit_unwatch_timer(u, &t->monotonic_watch);
         unit_unwatch_timer(u, &t->realtime_watch);
-
-        unit_ref_unset(&t->unit);
 }
 
 static int timer_verify(Timer *t) {
@@ -122,19 +120,17 @@ static int timer_load(Unit *u) {
 
         if (u->load_state == UNIT_LOADED) {
 
-                if (!UNIT_DEREF(t->unit)) {
+                if (set_isempty(u->dependencies[UNIT_TRIGGERS])) {
                         Unit *x;
 
                         r = unit_load_related_unit(u, ".service", &x);
                         if (r < 0)
                                 return r;
 
-                        unit_ref_set(&t->unit, x);
+                        r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, x, true);
+                        if (r < 0)
+                                return r;
                 }
-
-                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(t->unit), true);
-                if (r < 0)
-                        return r;
 
                 if (UNIT(t)->default_dependencies) {
                         r = timer_add_default_dependencies(t);
@@ -148,7 +144,10 @@ static int timer_load(Unit *u) {
 
 static void timer_dump(Unit *u, FILE *f, const char *prefix) {
         Timer *t = TIMER(u);
+        Unit *trigger;
         TimerValue *v;
+
+        trigger = UNIT_TRIGGER(u);
 
         fprintf(f,
                 "%sTimer State: %s\n"
@@ -156,7 +155,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sUnit: %s\n",
                 prefix, timer_state_to_string(t->state),
                 prefix, timer_result_to_string(t->result),
-                prefix, UNIT_DEREF(t->unit)->id);
+                prefix, trigger ? trigger->id : "n/a");
 
         LIST_FOREACH(value, v, t->values) {
 
@@ -285,18 +284,18 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         case TIMER_UNIT_ACTIVE:
 
-                                if (UNIT_DEREF(t->unit)->inactive_exit_timestamp.monotonic <= 0)
+                                if (UNIT_TRIGGER(UNIT(t))->inactive_exit_timestamp.monotonic <= 0)
                                         continue;
 
-                                base = UNIT_DEREF(t->unit)->inactive_exit_timestamp.monotonic;
+                                base = UNIT_TRIGGER(UNIT(t))->inactive_exit_timestamp.monotonic;
                                 break;
 
                         case TIMER_UNIT_INACTIVE:
 
-                                if (UNIT_DEREF(t->unit)->inactive_enter_timestamp.monotonic <= 0)
+                                if (UNIT_TRIGGER(UNIT(t))->inactive_enter_timestamp.monotonic <= 0)
                                         continue;
 
-                                base = UNIT_DEREF(t->unit)->inactive_enter_timestamp.monotonic;
+                                base = UNIT_TRIGGER(UNIT(t))->inactive_enter_timestamp.monotonic;
                                 break;
 
                         default:
@@ -369,10 +368,11 @@ static void timer_enter_running(Timer *t) {
         dbus_error_init(&error);
 
         /* Don't start job if we are supposed to go down */
-        if (UNIT(t)->job && UNIT(t)->job->type == JOB_STOP)
+        if (unit_pending_inactive(UNIT(t)))
                 return;
 
-        r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_DEREF(t->unit), JOB_REPLACE, true, &error, NULL);
+        r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_TRIGGER(UNIT(t)),
+                            JOB_REPLACE, true, &error, NULL);
         if (r < 0)
                 goto fail;
 
@@ -394,7 +394,7 @@ static int timer_start(Unit *u) {
         assert(t);
         assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
 
-        if (UNIT_DEREF(t->unit)->load_state != UNIT_LOADED)
+        if (UNIT_TRIGGER(u)->load_state != UNIT_LOADED)
                 return -ENOENT;
 
         t->result = TIMER_SUCCESS;
@@ -481,58 +481,49 @@ static void timer_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         timer_enter_running(t);
 }
 
-void timer_unit_notify(Unit *u, UnitActiveState new_state) {
-        Iterator i;
-        Unit *k;
+static void timer_trigger_notify(Unit *u, Unit *other) {
+        Timer *t = TIMER(u);
+        TimerValue *v;
 
-        if (u->type == UNIT_TIMER)
+        assert(u);
+        assert(other);
+
+        log_error("NOTIFY!");
+
+        if (other->load_state != UNIT_LOADED)
                 return;
 
-        SET_FOREACH(k, u->dependencies[UNIT_TRIGGERED_BY], i) {
-                Timer *t;
-                TimerValue *v;
+        /* Reenable all timers that depend on unit state */
+        LIST_FOREACH(value, v, t->values)
+                if (v->base == TIMER_UNIT_ACTIVE ||
+                    v->base == TIMER_UNIT_INACTIVE)
+                        v->disabled = false;
 
-                if (k->type != UNIT_TIMER)
-                        continue;
+        switch (t->state) {
 
-                if (k->load_state != UNIT_LOADED)
-                        continue;
+        case TIMER_WAITING:
+        case TIMER_ELAPSED:
 
-                t = TIMER(k);
+                /* Recalculate sleep time */
+                timer_enter_waiting(t, false);
+                break;
 
-                /* Reenable all timers that depend on unit state */
-                LIST_FOREACH(value, v, t->values)
-                        if (v->base == TIMER_UNIT_ACTIVE ||
-                            v->base == TIMER_UNIT_INACTIVE)
-                                v->disabled = false;
+        case TIMER_RUNNING:
 
-                switch (t->state) {
-
-                case TIMER_WAITING:
-                case TIMER_ELAPSED:
-
-                        /* Recalculate sleep time */
+                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
+                        log_debug_unit(UNIT(t)->id,
+                                       "%s got notified about unit deactivation.",
+                                       UNIT(t)->id);
                         timer_enter_waiting(t, false);
-                        break;
-
-                case TIMER_RUNNING:
-
-                        if (UNIT_IS_INACTIVE_OR_FAILED(new_state)) {
-                                log_debug_unit(UNIT(t)->id,
-                                               "%s got notified about unit deactivation.",
-                                               UNIT(t)->id);
-                                timer_enter_waiting(t, false);
-                        }
-
-                        break;
-
-                case TIMER_DEAD:
-                case TIMER_FAILED:
-                        break;
-
-                default:
-                        assert_not_reached("Unknown timer state");
                 }
+                break;
+
+        case TIMER_DEAD:
+        case TIMER_FAILED:
+                break;
+
+        default:
+                assert_not_reached("Unknown timer state");
         }
 }
 
@@ -613,6 +604,8 @@ const UnitVTable timer_vtable = {
         .sub_state_to_string = timer_sub_state_to_string,
 
         .timer_event = timer_timer_event,
+
+        .trigger_notify = timer_trigger_notify,
 
         .reset_failed = timer_reset_failed,
         .time_change = timer_time_change,
