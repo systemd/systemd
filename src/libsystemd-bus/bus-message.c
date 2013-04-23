@@ -861,6 +861,17 @@ int sd_bus_message_get_session(sd_bus_message *m, const char **ret) {
         return 0;
 }
 
+int sd_bus_message_get_owner_uid(sd_bus_message *m, uid_t *uid) {
+        if (!m)
+                return -EINVAL;
+        if (!uid)
+                return -EINVAL;
+        if (!m->cgroup)
+                return -ESRCH;
+
+        return cg_path_get_owner_uid(m->cgroup, uid);
+}
+
 int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline) {
         size_t n, i;
         const char *p;
@@ -3073,6 +3084,7 @@ int bus_message_dump(sd_bus_message *m) {
         char **cmdline = NULL;
         unsigned level = 1;
         int r;
+        uid_t owner;
 
         assert(m);
 
@@ -3149,6 +3161,8 @@ int bus_message_dump(sd_bus_message *m) {
         sd_bus_message_get_session(m, &s);
         if (s)
                 printf("\tsession=[%s]\n", s);
+        if (sd_bus_message_get_owner_uid(m, &owner) >= 0)
+                printf("\towner_uid=%lu\n", (unsigned long) owner);
 
         if (sd_bus_message_get_cmdline(m, &cmdline) >= 0) {
                 char **c;
