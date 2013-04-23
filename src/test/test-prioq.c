@@ -119,7 +119,7 @@ static void test_struct(void) {
                 assert_se(r >= 0);
 
                 if (i % 4 == 0) {
-                        r = set_put(s, t);
+                        r = set_consume(s, t);
                         assert_se(r >= 0);
                 }
         }

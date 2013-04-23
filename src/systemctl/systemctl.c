@@ -1843,9 +1843,8 @@ static int start_unit_one(
                 if (!p)
                         return log_oom();
 
-                r = set_put(s, p);
+                r = set_consume(s, p);
                 if (r < 0) {
-                        free(p);
                         log_error("Failed to add path to set.");
                         return r;
                 }

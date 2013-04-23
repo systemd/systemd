@@ -178,11 +178,9 @@ static int mark_symlink_for_removal(
 
         path_kill_slashes(n);
 
-        r = set_put(*remove_symlinks_to, n);
-        if (r < 0) {
-                free(n);
+        r = set_consume(*remove_symlinks_to, n);
+        if (r < 0)
                 return r == -EEXIST ? 0 : r;
-        }
 
         return 0;
 }

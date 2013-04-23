@@ -251,10 +251,9 @@ int mount_cgroup_controllers(char ***join_controllers) {
                         continue;
                 }
 
-                r = set_put(controllers, controller);
+                r = set_consume(controllers, controller);
                 if (r < 0) {
                         log_error("Failed to add controller to set.");
-                        free(controller);
                         goto finish;
                 }
         }

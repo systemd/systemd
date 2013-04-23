@@ -1841,13 +1841,9 @@ static int process_introspect(sd_bus *bus, sd_bus_message *m) {
                 if (p)
                         *p = 0;
 
-                r = set_put(s, a);
-                if (r < 0) {
-                        free(a);
-
-                        if (r != -EEXIST)
-                                return r;
-                }
+                r = set_consume(s, a);
+                if (r < 0 && r != -EEXIST)
+                        return r;
         }
 
         f = open_memstream(&introspection, &size);

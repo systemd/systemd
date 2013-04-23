@@ -806,11 +806,9 @@ static void manager_build_unit_path_cache(Manager *m) {
                                 goto fail;
                         }
 
-                        r = set_put(m->unit_path_cache, p);
-                        if (r < 0) {
-                                free(p);
+                        r = set_consume(m->unit_path_cache, p);
+                        if (r < 0)
                                 goto fail;
-                        }
                 }
 
                 closedir(d);

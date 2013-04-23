@@ -186,13 +186,9 @@ static void load_unix_sockets(void) {
 
                 path_kill_slashes(s);
 
-                k = set_put(unix_sockets, s);
-                if (k < 0) {
-                        free(s);
-
-                        if (k != -EEXIST)
-                                goto fail;
-                }
+                k = set_consume(unix_sockets, s);
+                if (k < 0 && k != -EEXIST)
+                        goto fail;
         }
 
         return;

@@ -369,9 +369,8 @@ static int add_locales_from_archive(Set *locales) {
                         goto finish;
                 }
 
-                r = set_put(locales, z);
+                r = set_consume(locales, z);
                 if (r < 0) {
-                        free(z);
                         log_error("Failed to add locale: %s", strerror(-r));
                         goto finish;
                 }
@@ -411,14 +410,10 @@ static int add_locales_from_libdir (Set *locales) {
                 if (!z)
                         return log_oom();
 
-                r = set_put(locales, z);
-                if (r < 0) {
-                        free(z);
-
-                        if (r != -EEXIST) {
-                                log_error("Failed to add locale: %s", strerror(-r));
-                                return r;
-                        }
+                r = set_consume(locales, z);
+                if (r < 0 && r != -EEXIST) {
+                        log_error("Failed to add locale: %s", strerror(-r));
+                        return r;
                 }
 
                 errno = 0;
@@ -526,12 +521,9 @@ static int nftw_cb(
         if (e)
                 *e = 0;
 
-        r = set_put(keymaps, p);
-        if (r == -EEXIST)
-                free(p);
-        else if (r < 0) {
+        r = set_consume(keymaps, p);
+        if (r < 0 && r != -EEXIST) {
                 log_error("Can't add keymap: %s", strerror(-r));
-                free(p);
                 return r;
         }
 

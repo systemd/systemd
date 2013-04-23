@@ -68,10 +68,9 @@ static Set *new_matches(void) {
                 return NULL;
         }
 
-        r = set_put(set, tmp);
+        r = set_consume(set, tmp);
         if (r < 0) {
                 log_error("failed to add to set: %s", strerror(-r));
-                free(tmp);
                 set_free(set);
                 return NULL;
         }
@@ -125,18 +124,17 @@ static int add_match(Set *set, const char *match) {
         if (!pattern)
                 goto fail;
 
-        r = set_put(set, pattern);
+        log_debug("Adding pattern: %s", pattern);
+        r = set_consume(set, pattern);
         if (r < 0) {
-                log_error("failed to add pattern '%s': %s",
+                log_error("Failed to add pattern '%s': %s",
                           pattern, strerror(-r));
                 goto fail;
         }
-        log_debug("Added pattern: %s", pattern);
 
         return 0;
 fail:
-        free(pattern);
-        log_error("failed to add match: %s", strerror(-r));
+        log_error("Failed to add match: %s", strerror(-r));
         return r;
 }
 

@@ -2095,11 +2095,9 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                                 if (!id)
                                         return -ENOMEM;
 
-                                r = set_put(names, id);
-                                if (r < 0) {
-                                        free(id);
+                                r = set_consume(names, id);
+                                if (r < 0)
                                         return r;
-                                }
                         }
                 }
 

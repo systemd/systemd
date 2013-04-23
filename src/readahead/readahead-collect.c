@@ -479,8 +479,9 @@ static int collect(const char *root) {
                                         }
                                         entry->bin = (entrytime - starttime) / 2000000;
 
-                                        if ((k = hashmap_put(files, p, entry)) < 0) {
-                                                log_warning("set_put() failed: %s", strerror(-k));
+                                        k = hashmap_put(files, p, entry);
+                                        if (k < 0) {
+                                                log_warning("hashmap_put() failed: %s", strerror(-k));
                                                 free(p);
                                         }
                                 }

@@ -1186,11 +1186,9 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!client)
                         goto oom;
 
-                r = set_put(s, client);
-                if (r < 0) {
-                        free(client);
+                r = set_consume(s, client);
+                if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
-                }
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
