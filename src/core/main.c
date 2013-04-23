@@ -1683,7 +1683,7 @@ int main(int argc, char *argv[]) {
 
                 r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, false, &error, &default_unit_job);
                 if (r == -EPERM) {
-                        log_error("Default target could not be isolated, starting instead: %s", bus_error(&error, r));
+                        log_debug("Default target could not be isolated, starting instead: %s", bus_error(&error, r));
                         dbus_error_free(&error);
 
                         r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
