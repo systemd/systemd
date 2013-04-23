@@ -216,16 +216,23 @@ bool enough_ram(void) {
         return si.totalram > 127 * 1024*1024 / si.mem_unit;
 }
 
+static void mkdirs(void) {
+        if (mkdir("/run/systemd", 0755) && errno != EEXIST)
+                log_warning("Failed to create /run/systemd: %m");
+        if (mkdir("/run/systemd/readahead", 0755) && errno != EEXIST)
+                log_warning("Failed to create /run/systemd: %m");
+}
+
 int open_inotify(void) {
         int fd;
 
-        if ((fd = inotify_init1(IN_CLOEXEC|IN_NONBLOCK)) < 0) {
+        fd = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
+        if (fd < 0) {
                 log_error("Failed to create inotify handle: %m");
                 return -errno;
         }
 
-        mkdir("/run/systemd", 0755);
-        mkdir("/run/systemd/readahead", 0755);
+        mkdirs();
 
         if (inotify_add_watch(fd, "/run/systemd/readahead", IN_CREATE) < 0) {
                 log_error("Failed to watch /run/systemd/readahead: %m");
@@ -237,31 +244,27 @@ int open_inotify(void) {
 }
 
 ReadaheadShared *shared_get(void) {
-        int fd;
+        int _cleanup_close_ fd = -1;
         ReadaheadShared *m = NULL;
 
-        mkdir("/run/systemd", 0755);
-        mkdir("/run/systemd/readahead", 0755);
+        mkdirs();
 
-        if ((fd = open("/run/systemd/readahead/shared", O_CREAT|O_RDWR|O_CLOEXEC, 0644)) < 0) {
+        fd = open("/run/systemd/readahead/shared", O_CREAT|O_RDWR|O_CLOEXEC, 0644);
+        if (fd < 0) {
                 log_error("Failed to create shared memory segment: %m");
-                goto finish;
+                return NULL;
         }
 
         if (ftruncate(fd, sizeof(ReadaheadShared)) < 0) {
                 log_error("Failed to truncate shared memory segment: %m");
-                goto finish;
+                return NULL;
         }
 
-        if ((m = mmap(NULL, sizeof(ReadaheadShared), PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+        m = mmap(NULL, sizeof(ReadaheadShared), PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
+        if (m == MAP_FAILED) {
                 log_error("Failed to mmap shared memory segment: %m");
-                m = NULL;
-                goto finish;
+                return NULL;
         }
-
-finish:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
 
         return m;
 }
