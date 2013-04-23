@@ -522,9 +522,6 @@ static void strv_free_free(char ***l) {
 }
 
 static void free_join_controllers(void) {
-        if (!arg_join_controllers)
-                return;
-
         strv_free_free(arg_join_controllers);
         arg_join_controllers = NULL;
 }
@@ -1219,14 +1216,14 @@ static int initialize_join_controllers(void) {
                 return -ENOMEM;
 
         arg_join_controllers[0] = strv_new("cpu", "cpuacct", NULL);
-        if (!arg_join_controllers[0])
-                return -ENOMEM;
-
         arg_join_controllers[1] = strv_new("net_cls", "net_prio", NULL);
-        if (!arg_join_controllers[1])
-                return -ENOMEM;
-
         arg_join_controllers[2] = NULL;
+
+        if (!arg_join_controllers[0] || !arg_join_controllers[1]) {
+                free_join_controllers();
+                return -ENOMEM;
+        }
+
         return 0;
 }
 
