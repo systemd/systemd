@@ -13,7 +13,7 @@ After=systemd-user-sessions.service
 User=%I
 PAMName=systemd-shared
 # in order to allow MEM_CG features to work, add "memory:/" here
-ControlGroup=%R/user/%u/shared cpu:/
+ControlGroup=%R/user/%U.user/shared cpu:/
 ControlGroupModify=yes
 Type=notify
 ExecStart=-@rootlibexecdir@/systemd --user
