@@ -116,7 +116,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
         unlink(filename);
         r = symlink(udev_device_get_id_filename(dev), filename);
         if (r < 0)
-                log_error("Failed to create symlink: %m");
+                log_error("Failed to create symlink %s: %m", filename);
 
         udev_device_set_watch_handle(dev, wd);
 }

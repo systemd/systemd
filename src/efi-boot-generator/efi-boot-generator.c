@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
         mkdir_parents(name, 0755);
 
         if (symlink("../boot.automount", name) < 0) {
-                log_error("Failed to create symlink: %m");
+                log_error("Failed to create symlink %s: %m", name);
                 return EXIT_FAILURE;
         }
 

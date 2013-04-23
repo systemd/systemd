@@ -179,7 +179,7 @@ static int create_disk(
 
                 mkdir_parents_label(to, 0755);
                 if (symlink(from, to) < 0) {
-                        log_error("Failed to create symlink '%s' to '%s': %m", from, to);
+                        log_error("Failed to create symlink %s: %m", to);
                         return -errno;
                 }
 
@@ -193,7 +193,7 @@ static int create_disk(
 
                 mkdir_parents_label(to, 0755);
                 if (symlink(from, to) < 0) {
-                        log_error("Failed to create symlink '%s' to '%s': %m", from, to);
+                        log_error("Failed to create symlink %s: %m", to);
                         return -errno;
                 }
         }
@@ -209,7 +209,7 @@ static int create_disk(
 
         mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0) {
-                log_error("Failed to create symlink '%s' to '%s': %m", from, to);
+                log_error("Failed to create symlink %s: %m", to);
                 return -errno;
         }
 

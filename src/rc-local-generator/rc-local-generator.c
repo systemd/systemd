@@ -59,7 +59,7 @@ static int add_symlink(const char *service, const char *where) {
                 if (errno == EEXIST)
                         r = 0;
                 else {
-                        log_error("Failed to create symlink from %s to %s: %m", from, to);
+                        log_error("Failed to create symlink %s: %m", to);
                         r = -errno;
                 }
         }

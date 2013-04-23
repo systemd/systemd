@@ -36,7 +36,7 @@ static const char *arg_dest = "/tmp";
 
 static int generate_symlink(void) {
         struct stat st;
-        char *p;
+        char _cleanup_free_ *p = NULL;
 
         if (lstat("/system-update", &st) < 0) {
                 if (errno == ENOENT)
@@ -51,12 +51,9 @@ static int generate_symlink(void) {
                 return log_oom();
 
         if (symlink(SYSTEM_DATA_UNIT_PATH "/system-update.target", p) < 0) {
-                free(p);
-                log_error("Failed to create symlink: %m");
+                log_error("Failed to create symlink %s: %m", p);
                 return -errno;
         }
-
-        free(p);
 
         return 0;
 }

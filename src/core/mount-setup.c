@@ -334,7 +334,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
                         char **i;
 
                         for (i = *k; *i; i++) {
-                                char *t;
+                                _cleanup_free_ char *t;
 
                                 t = strappend("/sys/fs/cgroup/", *i);
                                 if (!t) {
@@ -344,10 +344,8 @@ int mount_cgroup_controllers(char ***join_controllers) {
                                 }
 
                                 r = symlink(options, t);
-                                free(t);
-
                                 if (r < 0 && errno != EEXIST) {
-                                        log_error("Failed to create symlink: %m");
+                                        log_error("Failed to create symlink %s: %m", t);
                                         r = -errno;
                                         free(options);
                                         goto finish;

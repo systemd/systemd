@@ -55,7 +55,7 @@ static int add_symlink(const char *fservice, const char *tservice) {
                         /* In case console=hvc0 is passed this will very likely result in EEXIST */
                         r = 0;
                 else {
-                        log_error("Failed to create symlink from %s to %s: %m", from, to);
+                        log_error("Failed to create symlink %s: %m", to);
                         r = -errno;
                 }
         }
