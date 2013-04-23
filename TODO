@@ -67,8 +67,6 @@ Features:
 
 * sd-login: allow enumerating machines and add inotify iface
 
-* move session owner code from sd-login.c to cgroup-util.c
-
 * cgroup-util: verify syntax of cgroup controllers
 
 * cgtop: make cgtop useful in a container
