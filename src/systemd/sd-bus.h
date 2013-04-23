@@ -142,6 +142,7 @@ int sd_bus_message_get_session(sd_bus_message *m, const char **session);
 int sd_bus_message_get_owner_uid(sd_bus_message *m, uid_t *uid);
 int sd_bus_message_get_audit_sessionid(sd_bus_message *m, uint32_t *sessionid);
 int sd_bus_message_get_audit_loginuid(sd_bus_message *m, uid_t *loginuid);
+int sd_bus_message_has_effective_cap(sd_bus_message *m, int capability);
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member);
 int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member);

@@ -928,6 +928,23 @@ int sd_bus_message_get_audit_loginuid(sd_bus_message *m, uid_t *uid) {
         return 0;
 }
 
+int sd_bus_message_has_effective_cap(sd_bus_message *m, int capability) {
+        unsigned sz;
+
+        if (!m)
+                return -EINVAL;
+        if (capability < 0)
+                return -EINVAL;
+        if (!m->capability)
+                return -ESRCH;
+
+        sz = m->capability_size / 4;
+        if ((unsigned) capability >= sz*8)
+                return 0;
+
+        return !!(m->capability[2 * sz + (capability / 8)] & (1 << (capability % 8)));
+}
+
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member) {
         if (!m)
                 return -EINVAL;
@@ -3192,6 +3209,8 @@ int bus_message_dump(sd_bus_message *m) {
                 printf("\taudit_loginuid=%lu\n", (unsigned long) audit_loginuid);
         if (sd_bus_message_get_audit_sessionid(m, &audit_sessionid) >= 0)
                 printf("\taudit_sessionid=%lu\n", (unsigned long) audit_sessionid);
+
+        printf("\tCAP_KILL=%i\n", sd_bus_message_has_effective_cap(m, 5));
 
         if (sd_bus_message_get_cmdline(m, &cmdline) >= 0) {
                 char **c;

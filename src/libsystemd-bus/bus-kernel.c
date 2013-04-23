@@ -475,7 +475,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         m->cgroup = d->str;
                 else if (d->type == KDBUS_MSG_SRC_AUDIT)
                         m->audit = &d->audit;
-                else
+                else if (d->type == KDBUS_MSG_SRC_CAPS) {
+                        m->capability = d->data;
+                        m->capability_size = l;
+                } else
                         log_debug("Got unknown field from kernel %llu", d->type);
         }
 
