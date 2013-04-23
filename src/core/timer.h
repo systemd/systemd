@@ -79,6 +79,8 @@ struct Timer {
         Watch realtime_watch;
 
         TimerResult result;
+
+        usec_t last_trigger_monotonic;
 };
 
 void timer_free_values(Timer *t);

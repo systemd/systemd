@@ -251,11 +251,6 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                         if (r < 0)
                                 continue;
 
-                        if (!initial && v->next_elapse < ts.realtime) {
-                                v->disabled = true;
-                                continue;
-                        }
-
                         if (!found_realtime)
                                 t->next_elapse_realtime = v->next_elapse;
                         else
@@ -284,18 +279,26 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         case TIMER_UNIT_ACTIVE:
 
-                                if (UNIT_TRIGGER(UNIT(t))->inactive_exit_timestamp.monotonic <= 0)
+                                base = UNIT_TRIGGER(UNIT(t))->inactive_exit_timestamp.monotonic;
+
+                                if (base <= 0)
+                                        base = t->last_trigger_monotonic;
+
+                                if (base <= 0)
                                         continue;
 
-                                base = UNIT_TRIGGER(UNIT(t))->inactive_exit_timestamp.monotonic;
                                 break;
 
                         case TIMER_UNIT_INACTIVE:
 
-                                if (UNIT_TRIGGER(UNIT(t))->inactive_enter_timestamp.monotonic <= 0)
+                                base = UNIT_TRIGGER(UNIT(t))->inactive_enter_timestamp.monotonic;
+
+                                if (base <= 0)
+                                        base = t->last_trigger_monotonic;
+
+                                if (base <= 0)
                                         continue;
 
-                                base = UNIT_TRIGGER(UNIT(t))->inactive_enter_timestamp.monotonic;
                                 break;
 
                         default:
@@ -304,7 +307,10 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         v->next_elapse = base + v->value;
 
-                        if (!initial && v->next_elapse < ts.monotonic) {
+                        if (!initial &&
+                            v->next_elapse < ts.monotonic &&
+                            (v->base == TIMER_ACTIVE || v->base == TIMER_BOOT || v->base == TIMER_STARTUP)) {
+                                /* This is a one time trigger, disable it now */
                                 v->disabled = true;
                                 continue;
                         }
@@ -375,6 +381,8 @@ static void timer_enter_running(Timer *t) {
                             JOB_REPLACE, true, &error, NULL);
         if (r < 0)
                 goto fail;
+
+        t->last_trigger_monotonic = now(CLOCK_MONOTONIC);
 
         timer_set_state(t, TIMER_RUNNING);
         return;
@@ -487,8 +495,6 @@ static void timer_trigger_notify(Unit *u, Unit *other) {
 
         assert(u);
         assert(other);
-
-        log_error("NOTIFY!");
 
         if (other->load_state != UNIT_LOADED)
                 return;
