@@ -73,10 +73,6 @@ _public_ int sd_pid_get_machine_name(pid_t pid, char **name) {
 }
 
 _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
-        int r;
-        _cleanup_free_ char *root = NULL, *cgroup = NULL, *cc = NULL;
-        char *p;
-        struct stat st;
 
         if (pid < 0)
                 return -EINVAL;
@@ -84,36 +80,7 @@ _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         if (!uid)
                 return -EINVAL;
 
-        r = cg_pid_get_path_shifted(pid, &root, &cgroup);
-        if (r < 0)
-                return r;
-
-        if (!startswith(cgroup, "/user/"))
-                return -ENOENT;
-
-        p = strchr(cgroup + 6, '/');
-        if (!p)
-                return -ENOENT;
-
-        p++;
-        p += strcspn(p, "/");
-        *p = 0;
-
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, root, cgroup, &cc);
-
-        if (r < 0)
-                return -ENOMEM;
-
-        r = lstat(cc, &st);
-
-        if (r < 0)
-                return -errno;
-
-        if (!S_ISDIR(st.st_mode))
-                return -ENOTDIR;
-
-        *uid = st.st_uid;
-        return 0;
+        return cg_pid_get_owner_uid(pid, uid);
 }
 
 _public_ int sd_uid_get_state(uid_t uid, char**state) {

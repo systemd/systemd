@@ -1197,8 +1197,8 @@ int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup) {
         return 0;
 }
 
-/* non-static only for testing purposes */
 int cg_path_decode_unit(const char *cgroup, char **unit){
+        _cleanup_free_ char *unescaped = NULL;
         char *p, *e, *c, *s, *k;
 
         assert(cgroup);
@@ -1206,6 +1206,7 @@ int cg_path_decode_unit(const char *cgroup, char **unit){
 
         e = strchrnul(cgroup, '/');
         c = strndupa(cgroup, e - cgroup);
+        c = cg_unescape(c);
 
         /* Could this be a valid unit name? */
         if (!unit_name_is_valid(c, true))
@@ -1218,15 +1219,15 @@ int cg_path_decode_unit(const char *cgroup, char **unit){
                         return -EINVAL;
 
                 e += strspn(e, "/");
-                p = strchrnul(e, '/');
 
-                /* Don't allow empty instance strings */
-                if (p == e)
+                p = strchrnul(e, '/');
+                k = strndupa(e, p - e);
+                k = cg_unescape(k);
+
+                if (!unit_name_is_valid(k, false))
                         return -EINVAL;
 
-                k = strndupa(e, p - e);
-
-                s = unit_name_replace_instance(c, k);
+                s = strdup(k);
         }
 
         if (!s)
@@ -1320,7 +1321,7 @@ int cg_pid_get_user_unit(pid_t pid, char **unit) {
 
 int cg_path_get_machine_name(const char *path, char **machine) {
         const char *e, *n;
-        char *s, *dot;
+        char *s, *r;
 
         assert(path);
         assert(machine);
@@ -1333,15 +1334,13 @@ int cg_path_get_machine_name(const char *path, char **machine) {
         if (e == n)
                 return -ENOENT;
 
-        s = strndup(e, n - e);
-        if (!s)
+        s = strndupa(e, n - e);
+
+        r = strdup(cg_unescape(s));
+        if (!r)
                 return -ENOMEM;
 
-        dot = strrchr(s, '.');
-        if (dot)
-                *dot = 0;
-
-        *machine = s;
+        *machine = r;
         return 0;
 }
 
@@ -1375,13 +1374,12 @@ int cg_path_get_session(const char *path, char **session) {
                 return -ENOENT;
 
         n = strchrnul(e, '/');
-        if (e == n)
+        if (n - e < 8)
+                return -ENOENT;
+        if (memcmp(n - 8, ".session", 8) != 0)
                 return -ENOENT;
 
-        if (n - e == 6 && memcmp(e, "shared", 6) == 0)
-                return -ENOENT;
-
-        s = strndup(e, n - e);
+        s = strndup(e, n - e - 8);
         if (!s)
                 return -ENOMEM;
 
@@ -1400,6 +1398,43 @@ int cg_pid_get_session(pid_t pid, char **session) {
                 return r;
 
         return cg_path_get_session(cgroup, session);
+}
+
+int cg_path_get_owner_uid(const char *path, uid_t *uid) {
+        const char *e, *n;
+        char *s;
+
+        assert(path);
+        assert(uid);
+
+        e = path_startswith(path, "/user/");
+        if (!e)
+                return -ENOENT;
+
+        n = strchrnul(e, '/');
+        if (n - e < 5)
+                return -ENOENT;
+        if (memcmp(n - 5, ".user", 5) != 0)
+                return -ENOENT;
+
+        s = strndupa(e, n - e - 5);
+        if (!s)
+                return -ENOMEM;
+
+        return parse_uid(s, uid);
+}
+
+int cg_pid_get_owner_uid(pid_t pid, uid_t *uid) {
+        _cleanup_free_ char *cgroup = NULL;
+        int r;
+
+        assert(uid);
+
+        r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
+        if (r < 0)
+                return r;
+
+        return cg_path_get_owner_uid(cgroup, uid);
 }
 
 int cg_controller_from_attr(const char *attr, char **controller) {
@@ -1429,4 +1464,56 @@ int cg_controller_from_attr(const char *attr, char **controller) {
 
         *controller = c;
         return 1;
+}
+
+char *cg_escape(const char *p) {
+        bool need_prefix = false;
+
+        /* This implements very minimal escaping for names to be used
+         * as file names in the cgroup tree: any name which might
+         * conflict with a kernel name or is prefixed with '_' is
+         * prefixed with a '_'. That way, when reading cgroup names it
+         * is sufficient to remove a single prefixing underscore if
+         * there is one. */
+
+        /* The return value of this function (unlike cg_unescape())
+         * needs free()! */
+
+        if (p[0] == '_' || streq(p, "notify_on_release") || streq(p, "release_agent") || streq(p, "tasks"))
+                need_prefix = true;
+        else {
+                const char *dot;
+
+                dot = strrchr(p, '.');
+                if (dot) {
+
+                        if (dot - p == 6 && memcmp(p, "cgroup", 6) == 0)
+                                need_prefix = true;
+                        else {
+                                char *n;
+
+                                n = strndupa(p, dot - p);
+
+                                if (check_hierarchy(n) >= 0)
+                                        need_prefix = true;
+                        }
+                }
+        }
+
+        if (need_prefix)
+                return strappend("_", p);
+        else
+                return strdup(p);
+}
+
+char *cg_unescape(const char *p) {
+        assert(p);
+
+        /* The return value of this function (unlike cg_escape())
+         * doesn't need free()! */
+
+        if (p[0] == '_')
+                return (char*) p+1;
+
+        return (char*) p;
 }

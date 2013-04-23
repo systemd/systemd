@@ -75,6 +75,7 @@ int cg_get_user_path(char **path);
 int cg_get_machine_path(char **path);
 
 int cg_path_get_session(const char *path, char **session);
+int cg_path_get_owner_uid(const char *path, uid_t *uid);
 int cg_path_get_unit(const char *path, char **unit);
 int cg_path_get_user_unit(const char *path, char **unit);
 int cg_path_get_machine_name(const char *path, char **machine);
@@ -82,6 +83,7 @@ int cg_path_get_machine_name(const char *path, char **machine);
 int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup);
 
 int cg_pid_get_session(pid_t pid, char **session);
+int cg_pid_get_owner_uid(pid_t pid, uid_t *uid);
 int cg_pid_get_unit(pid_t pid, char **unit);
 int cg_pid_get_user_unit(pid_t pid, char **unit);
 int cg_pid_get_machine_name(pid_t pid, char **machine);
@@ -91,3 +93,6 @@ int cg_path_decode_unit(const char *cgroup, char **unit);
 char **cg_shorten_controllers(char **controllers);
 
 int cg_controller_from_attr(const char *attr, char **controller);
+
+char *cg_escape(const char *p);
+char *cg_unescape(const char *p);

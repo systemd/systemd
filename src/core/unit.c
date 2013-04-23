@@ -1810,14 +1810,13 @@ static const char *resolve_template(Unit *u, const char *name, const char*path, 
         if (u->instance)
                 s = unit_name_replace_instance(name, u->instance);
         else {
-                char *i;
+                _cleanup_free_ char *i = NULL;
 
                 i = unit_name_to_prefix(u->id);
                 if (!i)
                         return NULL;
 
                 s = unit_name_replace_instance(name, i);
-                free(i);
         }
 
         if (!s)
@@ -1972,15 +1971,30 @@ char *unit_default_cgroup_path(Unit *u) {
         assert(u);
 
         if (u->instance) {
-                _cleanup_free_ char *t = NULL;
+                _cleanup_free_ char *t = NULL, *escaped_template = NULL, *escaped_instance = NULL;
 
                 t = unit_name_template(u->id);
                 if (!t)
                         return NULL;
 
-                return strjoin(u->manager->cgroup_hierarchy, "/", t, "/", u->instance, NULL);
-        } else
-                return strjoin(u->manager->cgroup_hierarchy, "/", u->id, NULL);
+                escaped_template = cg_escape(t);
+                if (!escaped_template)
+                        return NULL;
+
+                escaped_instance = cg_escape(u->id);
+                if (!escaped_instance)
+                        return NULL;
+
+                return strjoin(u->manager->cgroup_hierarchy, "/", escaped_template, "/", escaped_instance, NULL);
+        } else {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = cg_escape(u->id);
+                if (!escaped)
+                        return NULL;
+
+                return strjoin(u->manager->cgroup_hierarchy, "/", escaped, NULL);
+        }
 }
 
 int unit_add_cgroup_from_text(Unit *u, const char *name, bool overwrite, CGroupBonding **ret) {

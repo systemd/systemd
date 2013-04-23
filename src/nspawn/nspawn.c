@@ -1212,7 +1212,7 @@ finish:
 int main(int argc, char *argv[]) {
         pid_t pid = 0;
         int r = EXIT_FAILURE, k;
-        _cleanup_free_ char *machine_root = NULL, *newcg = NULL;
+        _cleanup_free_ char *machine_root = NULL, *name = NULL, *escaped = NULL, *newcg = NULL;
         _cleanup_close_ int master = -1;
         int n_fd_passed;
         const char *console = NULL;
@@ -1298,9 +1298,21 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        newcg = strjoin(machine_root, "/", arg_machine, ".nspawn", NULL);
+        name = strappend(arg_machine, ".nspawn");
+        if (!name) {
+                log_oom();
+                goto finish;
+        }
+
+        escaped = cg_escape(name);
+        if (!escaped) {
+                log_oom();
+                goto finish;
+        }
+
+        newcg = strjoin(machine_root, "/", escaped, NULL);
         if (!newcg) {
-                log_error("Failed to allocate cgroup path.");
+                log_oom();
                 goto finish;
         }
 

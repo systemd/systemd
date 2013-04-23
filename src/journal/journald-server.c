@@ -31,10 +31,6 @@
 #include <systemd/sd-messages.h>
 #include <systemd/sd-daemon.h>
 
-#ifdef HAVE_LOGIND
-#include <systemd/sd-login.h>
-#endif
-
 #include "fileio.h"
 #include "mkdir.h"
 #include "hashmap.h"
@@ -505,26 +501,26 @@ static void dispatch_message_real(
                 const char *label, size_t label_len,
                 const char *unit_id) {
 
-        char pid[sizeof("_PID=") + DECIMAL_STR_MAX(ucred->pid)],
-                uid[sizeof("_UID=") + DECIMAL_STR_MAX(ucred->uid)],
-                gid[sizeof("_GID=") + DECIMAL_STR_MAX(ucred->gid)],
+        char pid[sizeof("_PID=") + DECIMAL_STR_MAX(pid_t)],
+                uid[sizeof("_UID=") + DECIMAL_STR_MAX(uid_t)],
+                gid[sizeof("_GID=") + DECIMAL_STR_MAX(gid_t)],
+                owner_uid[sizeof("_SYSTEMD_OWNER_UID=") + DECIMAL_STR_MAX(uid_t)],
                 source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)],
                 boot_id[sizeof("_BOOT_ID=") + 32] = "_BOOT_ID=",
                 machine_id[sizeof("_MACHINE_ID=") + 32] = "_MACHINE_ID=";
-
-        _cleanup_free_ char *comm = NULL, *cmdline = NULL, *hostname = NULL,
-                *exe = NULL, *cgroup = NULL, *session = NULL,
-                *owner_uid = NULL, *unit = NULL, *selinux_context = NULL;
-
-#ifdef HAVE_AUDIT
-        _cleanup_free_ char *audit_session = NULL, *audit_loginuid = NULL;
-#endif
-
+        char *comm, *exe, *cmdline, *cgroup, *session, *unit, *selinux_context, *hostname;
         sd_id128_t id;
         int r;
-        char *t;
+        char *t, *c;
         uid_t realuid = 0, owner = 0, journal_uid;
         bool owner_valid = false;
+#ifdef HAVE_AUDIT
+        char audit_session[sizeof("_AUDIT_SESSION=") + DECIMAL_STR_MAX(uint32_t)],
+                audit_loginuid[sizeof("_AUDIT_LOGINUID=") + DECIMAL_STR_MAX(uid_t)];
+
+        uint32_t audit;
+        uid_t loginuid;
+#endif
 
         assert(s);
         assert(iovec);
@@ -532,130 +528,111 @@ static void dispatch_message_real(
         assert(n + N_IOVEC_META_FIELDS <= m);
 
         if (ucred) {
-#ifdef HAVE_AUDIT
-                uint32_t audit;
-                uid_t loginuid;
-#endif
-
                 realuid = ucred->uid;
 
-                snprintf(pid, sizeof(pid) - 1, "_PID=%lu", (unsigned long) ucred->pid);
-                char_array_0(pid);
+                sprintf(pid, "_PID=%lu", (unsigned long) ucred->pid);
                 IOVEC_SET_STRING(iovec[n++], pid);
 
-                snprintf(uid, sizeof(uid) - 1, "_UID=%lu", (unsigned long) ucred->uid);
-                char_array_0(uid);
+                sprintf(uid, "_UID=%lu", (unsigned long) ucred->uid);
                 IOVEC_SET_STRING(iovec[n++], uid);
 
-                snprintf(gid, sizeof(gid) - 1, "_GID=%lu", (unsigned long) ucred->gid);
-                char_array_0(gid);
+                sprintf(gid, "_GID=%lu", (unsigned long) ucred->gid);
                 IOVEC_SET_STRING(iovec[n++], gid);
 
                 r = get_process_comm(ucred->pid, &t);
                 if (r >= 0) {
-                        comm = strappend("_COMM=", t);
+                        comm = strappenda("_COMM=", t);
                         free(t);
-
-                        if (comm)
-                                IOVEC_SET_STRING(iovec[n++], comm);
+                        IOVEC_SET_STRING(iovec[n++], comm);
                 }
 
                 r = get_process_exe(ucred->pid, &t);
                 if (r >= 0) {
-                        exe = strappend("_EXE=", t);
+                        exe = strappenda("_EXE=", t);
                         free(t);
-
-                        if (exe)
-                                IOVEC_SET_STRING(iovec[n++], exe);
+                        IOVEC_SET_STRING(iovec[n++], exe);
                 }
 
                 r = get_process_cmdline(ucred->pid, 0, false, &t);
                 if (r >= 0) {
-                        cmdline = strappend("_CMDLINE=", t);
+                        cmdline = strappenda("_CMDLINE=", t);
                         free(t);
-
-                        if (cmdline)
-                                IOVEC_SET_STRING(iovec[n++], cmdline);
+                        IOVEC_SET_STRING(iovec[n++], cmdline);
                 }
 
 #ifdef HAVE_AUDIT
                 r = audit_session_from_pid(ucred->pid, &audit);
-                if (r >= 0)
-                        if (asprintf(&audit_session, "_AUDIT_SESSION=%lu", (unsigned long) audit) >= 0)
-                                IOVEC_SET_STRING(iovec[n++], audit_session);
+                if (r >= 0) {
+                        sprintf(audit_session, "_AUDIT_SESSION=%lu", (unsigned long) audit);
+                        IOVEC_SET_STRING(iovec[n++], audit_session);
+                }
 
                 r = audit_loginuid_from_pid(ucred->pid, &loginuid);
-                if (r >= 0)
-                        if (asprintf(&audit_loginuid, "_AUDIT_LOGINUID=%lu", (unsigned long) loginuid) >= 0)
-                                IOVEC_SET_STRING(iovec[n++], audit_loginuid);
+                if (r >= 0) {
+                        sprintf(audit_loginuid, "_AUDIT_LOGINUID=%lu", (unsigned long) loginuid);
+                        IOVEC_SET_STRING(iovec[n++], audit_loginuid);
+                }
 #endif
 
-                r = cg_pid_get_path(NULL, ucred->pid, &t);
+                r = cg_pid_get_path_shifted(ucred->pid, NULL, &c);
                 if (r >= 0) {
-                        cgroup = strappend("_SYSTEMD_CGROUP=", t);
-                        free(t);
+                        cgroup = strappenda("_SYSTEMD_CGROUP=", c);
+                        IOVEC_SET_STRING(iovec[n++], cgroup);
 
-                        if (cgroup)
-                                IOVEC_SET_STRING(iovec[n++], cgroup);
-                }
-
-#ifdef HAVE_LOGIND
-                r = cg_pid_get_session(ucred->pid, &t);
-                if (r >= 0) {
-                        session = strappend("_SYSTEMD_SESSION=", t);
-                        free(t);
-
-                        if (session)
+                        r = cg_path_get_session(c, &t);
+                        if (r >= 0) {
+                                session = strappenda("_SYSTEMD_SESSION=", t);
+                                free(t);
                                 IOVEC_SET_STRING(iovec[n++], session);
-                }
+                        }
 
-                if (sd_pid_get_owner_uid(ucred->pid, &owner) >= 0) {
-                        owner_valid = true;
-                        if (asprintf(&owner_uid, "_SYSTEMD_OWNER_UID=%lu", (unsigned long) owner) >= 0)
+                        if (cg_path_get_owner_uid(c, &owner) >= 0) {
+                                owner_valid = true;
+
+                                sprintf(owner_uid, "_SYSTEMD_OWNER_UID=%lu", (unsigned long) owner);
                                 IOVEC_SET_STRING(iovec[n++], owner_uid);
-                }
-#endif
+                        }
 
-                if (cg_pid_get_unit(ucred->pid, &t) >= 0) {
-                        unit = strappend("_SYSTEMD_UNIT=", t);
-                        free(t);
-                } else if (cg_pid_get_user_unit(ucred->pid, &t) >= 0) {
-                        unit = strappend("_SYSTEMD_USER_UNIT=", t);
-                        free(t);
-                } else if (unit_id) {
-                        if (session)
-                                unit = strappend("_SYSTEMD_USER_UNIT=", unit_id);
-                        else
-                                unit = strappend("_SYSTEMD_UNIT=", unit_id);
-                }
+                        if (cg_path_get_unit(c, &t) >= 0) {
+                                unit = strappenda("_SYSTEMD_UNIT=", t);
+                                free(t);
+                        } else if (cg_path_get_user_unit(c, &t) >= 0) {
+                                unit = strappenda("_SYSTEMD_USER_UNIT=", t);
+                                free(t);
+                        } else if (unit_id) {
+                                if (session)
+                                        unit = strappenda("_SYSTEMD_USER_UNIT=", unit_id);
+                                else
+                                        unit = strappenda("_SYSTEMD_UNIT=", unit_id);
+                        } else
+                                unit = NULL;
 
-                if (unit)
-                        IOVEC_SET_STRING(iovec[n++], unit);
+                        if (unit)
+                                IOVEC_SET_STRING(iovec[n++], unit);
+
+                        free(c);
+                }
 
 #ifdef HAVE_SELINUX
                 if (label) {
-                        selinux_context = malloc(sizeof("_SELINUX_CONTEXT=") + label_len);
-                        if (selinux_context) {
-                                *((char*) mempcpy(stpcpy(selinux_context, "_SELINUX_CONTEXT="), label, label_len)) = 0;
-                                IOVEC_SET_STRING(iovec[n++], selinux_context);
-                        }
+                        selinux_context = alloca(sizeof("_SELINUX_CONTEXT=") + label_len);
+
+                        *((char*) mempcpy(stpcpy(selinux_context, "_SELINUX_CONTEXT="), label, label_len)) = 0;
+                        IOVEC_SET_STRING(iovec[n++], selinux_context);
                 } else {
                         security_context_t con;
 
                         if (getpidcon(ucred->pid, &con) >= 0) {
-                                selinux_context = strappend("_SELINUX_CONTEXT=", con);
-                                if (selinux_context)
-                                        IOVEC_SET_STRING(iovec[n++], selinux_context);
+                                selinux_context = strappenda("_SELINUX_CONTEXT=", con);
                                 freecon(con);
+                                IOVEC_SET_STRING(iovec[n++], selinux_context);
                         }
                 }
 #endif
         }
 
         if (tv) {
-                snprintf(source_time, sizeof(source_time) - 1, "_SOURCE_REALTIME_TIMESTAMP=%llu",
-                         (unsigned long long) timeval_load(tv));
-                char_array_0(source_time);
+                sprintf(source_time, "_SOURCE_REALTIME_TIMESTAMP=%llu", (unsigned long long) timeval_load(tv));
                 IOVEC_SET_STRING(iovec[n++], source_time);
         }
 
@@ -676,10 +653,9 @@ static void dispatch_message_real(
 
         t = gethostname_malloc();
         if (t) {
-                hostname = strappend("_HOSTNAME=", t);
+                hostname = strappenda("_HOSTNAME=", t);
                 free(t);
-                if (hostname)
-                        IOVEC_SET_STRING(iovec[n++], hostname);
+                IOVEC_SET_STRING(iovec[n++], hostname);
         }
 
         assert(n <= m);

@@ -32,8 +32,6 @@ Fedora 19:
 
 Features:
 
-* suffix/escape all our objects in the cgroup tree
-
 * see if we can fix https://bugs.freedesktop.org/show_bug.cgi?id=63672
   without dropping the location cache entirely.
 

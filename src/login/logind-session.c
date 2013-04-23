@@ -465,7 +465,18 @@ static int session_create_cgroup(Session *s) {
         assert(s->user->cgroup_path);
 
         if (!s->cgroup_path) {
-                if (asprintf(&p, "%s/%s", s->user->cgroup_path, s->id) < 0)
+                _cleanup_free_ char *name = NULL, *escaped = NULL;
+
+                name = strappend(s->id, ".session");
+                if (!name)
+                        return log_oom();
+
+                escaped = cg_escape(name);
+                if (!escaped)
+                        return log_oom();
+
+                p = strjoin(s->user->cgroup_path, "/", escaped, NULL);
+                if (!p)
                         return log_oom();
         } else
                 p = s->cgroup_path;

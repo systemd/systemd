@@ -315,7 +315,17 @@ static int user_create_cgroup(User *u) {
         assert(u);
 
         if (!u->cgroup_path) {
-                if (asprintf(&p, "%s/%s", u->manager->cgroup_path, u->name) < 0)
+                _cleanup_free_ char *name = NULL, *escaped = NULL;
+
+                if (asprintf(&name, "%lu.user", (unsigned long) u->uid) < 0)
+                        return log_oom();
+
+                escaped = cg_escape(name);
+                if (!escaped)
+                        return log_oom();
+
+                p = strjoin(u->manager->cgroup_path, "/", escaped, NULL);
+                if (!p)
                         return log_oom();
         } else
                 p = u->cgroup_path;
