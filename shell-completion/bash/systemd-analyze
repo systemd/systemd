@@ -31,6 +31,7 @@ _systemd_analyze() {
 
         local -A VERBS=(
                 [NO_OPTION]='time blame plot'
+                [CRITICAL_CHAIN]='critical-chain'
                 [DOT]='dot'
         )
 
@@ -55,6 +56,11 @@ _systemd_analyze() {
         elif __contains_word "$verb" ${VERBS[NO_OPTION]}; then
                 if [[ $cur = -* ]]; then
                         comps='--help --version --system --user'
+                fi
+
+        elif __contains_word "$verb" ${VERBS[CRITICAL_CHAIN]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --version --system --user --fuzz'
                 fi
 
         elif __contains_word "$verb" ${VERBS[DOT]}; then

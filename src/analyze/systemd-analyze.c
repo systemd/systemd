@@ -35,6 +35,9 @@
 #include "strxcpyx.h"
 #include "fileio.h"
 #include "strv.h"
+#include "unit-name.h"
+#include "special.h"
+#include "hashmap.h"
 
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y 20.0
@@ -64,6 +67,8 @@ static enum dot {
 } arg_dot = DEP_ALL;
 static char** arg_dot_from_patterns = NULL;
 static char** arg_dot_to_patterns = NULL;
+
+usec_t arg_fuzz = 0;
 
 struct boot_times {
         usec_t firmware_time;
@@ -548,6 +553,331 @@ static int analyze_plot(DBusConnection *bus) {
         return 0;
 }
 
+
+static int list_dependencies_print(const char *name, unsigned int level, unsigned int branches,
+                                   bool last, struct unit_times *times, struct boot_times *boot) {
+        unsigned int i;
+        char ts[FORMAT_TIMESPAN_MAX], ts2[FORMAT_TIMESPAN_MAX];
+
+        for (i = level; i != 0; i--)
+                printf("%s", draw_special_char(branches & (1 << (i-1)) ? DRAW_TREE_VERT : DRAW_TREE_SPACE));
+
+        printf("%s", draw_special_char(last ? DRAW_TREE_RIGHT : DRAW_TREE_BRANCH));
+
+        if (times) {
+                if (times->time)
+                        printf("%s%s @%s +%s%s", ANSI_HIGHLIGHT_RED_ON, name,
+                               format_timespan(ts, sizeof(ts), times->ixt - boot->userspace_time, USEC_PER_MSEC),
+                               format_timespan(ts2, sizeof(ts2), times->time, USEC_PER_MSEC), ANSI_HIGHLIGHT_OFF);
+                else if (times->aet > boot->userspace_time)
+                        printf("%s @%s", name, format_timespan(ts, sizeof(ts), times->aet - boot->userspace_time, USEC_PER_MSEC));
+                else
+                        printf("%s", name);
+        } else printf("%s", name);
+        printf("\n");
+
+        return 0;
+}
+
+static int list_dependencies_get_dependencies(DBusConnection *bus, const char *name, char ***deps) {
+        static const char dependencies[] =
+                "After\0";
+
+        _cleanup_free_ char *path;
+        const char *interface = "org.freedesktop.systemd1.Unit";
+
+        _cleanup_dbus_message_unref_  DBusMessage *reply = NULL;
+        DBusMessageIter iter, sub, sub2, sub3;
+
+        int r = 0;
+        char **ret = NULL;
+
+        assert(bus);
+        assert(name);
+        assert(deps);
+
+        path = unit_dbus_path_from_name(name);
+        if (path == NULL) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        r = bus_method_call_with_reply(
+                bus,
+                "org.freedesktop.systemd1",
+                path,
+                "org.freedesktop.DBus.Properties",
+                "GetAll",
+                &reply,
+                NULL,
+                DBUS_TYPE_STRING, &interface,
+                DBUS_TYPE_INVALID);
+        if (r < 0)
+                goto finish;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+                dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+                dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY) {
+                log_error("Failed to parse reply.");
+                r = -EIO;
+                goto finish;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *prop;
+
+                assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_DICT_ENTRY);
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &prop, true) < 0) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT) {
+                        log_error("Failed to parse reply.");
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_iter_recurse(&sub2, &sub3);
+                dbus_message_iter_next(&sub);
+
+                if (!nulstr_contains(dependencies, prop))
+                        continue;
+
+                if (dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_ARRAY) {
+                        if (dbus_message_iter_get_element_type(&sub3) == DBUS_TYPE_STRING) {
+                                DBusMessageIter sub4;
+                                dbus_message_iter_recurse(&sub3, &sub4);
+
+                                while (dbus_message_iter_get_arg_type(&sub4) != DBUS_TYPE_INVALID) {
+                                        const char *s;
+
+                                        assert(dbus_message_iter_get_arg_type(&sub4) == DBUS_TYPE_STRING);
+                                        dbus_message_iter_get_basic(&sub4, &s);
+
+                                        r = strv_extend(&ret, s);
+                                        if (r < 0) {
+                                                log_oom();
+                                                goto finish;
+                                        }
+
+                                        dbus_message_iter_next(&sub4);
+                                }
+                        }
+                }
+        }
+finish:
+        if (r < 0)
+                strv_free(ret);
+        else
+                *deps = ret;
+        return r;
+}
+
+static Hashmap *unit_times_hashmap;
+
+static int list_dependencies_compare(const void *_a, const void *_b) {
+        const char **a = (const char**) _a, **b = (const char**) _b;
+        usec_t usa = 0, usb = 0;
+        struct unit_times *times;
+
+        times = hashmap_get(unit_times_hashmap, *a);
+        if (times)
+                usa = times->aet;
+        times = hashmap_get(unit_times_hashmap, *b);
+        if (times)
+                usb = times->aet;
+
+        return usb - usa;
+}
+
+static int list_dependencies_one(DBusConnection *bus, const char *name, unsigned int level, char ***units,
+                                 unsigned int branches) {
+        _cleanup_strv_free_ char **deps = NULL;
+        char **c;
+        int r = 0;
+        usec_t service_longest = 0;
+        int to_print = 0;
+        struct unit_times *times;
+        struct boot_times *boot;
+
+        if(strv_extend(units, name))
+                return log_oom();
+
+        r = list_dependencies_get_dependencies(bus, name, &deps);
+        if (r < 0)
+                return r;
+
+        qsort(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
+
+        r = acquire_boot_times(bus, &boot);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(c, deps) {
+                times = hashmap_get(unit_times_hashmap, *c);
+                if (times
+                    && times->aet
+                    && times->aet <= boot->finish_time
+                    && (times->aet >= service_longest
+                        || service_longest == 0)) {
+                        service_longest = times->aet;
+                        break;
+                }
+        }
+
+        if (service_longest == 0 )
+                return r;
+
+        STRV_FOREACH(c, deps) {
+                times = hashmap_get(unit_times_hashmap, *c);
+                if (times && times->aet
+                    && times->aet <= boot->finish_time
+                    && (service_longest - times->aet) <= arg_fuzz) {
+                        to_print++;
+                }
+        }
+
+        if(!to_print)
+                return r;
+
+        STRV_FOREACH(c, deps) {
+                times = hashmap_get(unit_times_hashmap, *c);
+                if (!times
+                    || !times->aet
+                    || times->aet > boot->finish_time
+                    || service_longest - times->aet > arg_fuzz)
+                        continue;
+
+                to_print--;
+
+                r = list_dependencies_print(*c, level, branches, to_print == 0, times, boot);
+                if (r < 0)
+                        return r;
+
+                if (strv_contains(*units, *c)) {
+                        r = list_dependencies_print("...", level + 1, (branches << 1) | (to_print ? 1 : 0),
+                                                    true, NULL, boot);
+                        continue;
+                }
+
+                r = list_dependencies_one(bus, *c, level + 1, units,
+                                          (branches << 1) | (to_print ? 1 : 0));
+                if(r < 0)
+                        return r;
+
+
+                if(!to_print)
+                        break;
+
+        }
+        return 0;
+}
+
+static int list_dependencies(DBusConnection *bus) {
+        _cleanup_free_ char *unit = NULL;
+        _cleanup_strv_free_ char **units = NULL;
+        char ts[FORMAT_TIMESPAN_MAX];
+        struct unit_times *times;
+        int r;
+        const char
+                *path, *id,
+                *interface = "org.freedesktop.systemd1.Unit",
+                *property = "Id";
+        DBusMessageIter iter, sub;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        struct boot_times *boot;
+
+        assert(bus);
+
+        path = unit_dbus_path_from_name(SPECIAL_DEFAULT_TARGET);
+        if (path == NULL)
+                return -EINVAL;
+
+        r = bus_method_call_with_reply (
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &property,
+                        DBUS_TYPE_INVALID);
+        if (r < 0)
+                return r;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
+                log_error("Failed to parse reply.");
+                return -EIO;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
+                log_error("Failed to parse reply.");
+                return -EIO;
+        }
+
+        dbus_message_iter_get_basic(&sub, &id);
+
+        times = hashmap_get(unit_times_hashmap, id);
+
+        r = acquire_boot_times(bus, &boot);
+        if (r < 0)
+                return r;
+
+        if (times) {
+                if (times->time)
+                        printf("%s%s +%s%s\n", ANSI_HIGHLIGHT_RED_ON, id,
+                               format_timespan(ts, sizeof(ts), times->time, USEC_PER_MSEC), ANSI_HIGHLIGHT_OFF);
+                else if (times->aet > boot->userspace_time)
+                        printf("%s @%s\n", id, format_timespan(ts, sizeof(ts), times->aet - boot->userspace_time, USEC_PER_MSEC));
+                else
+                        printf("%s\n", id);
+        }
+
+        return list_dependencies_one(bus, SPECIAL_DEFAULT_TARGET, 0, &units, 0);
+}
+
+static int analyze_critical_chain(DBusConnection *bus) {
+        struct unit_times *times;
+        int n, r;
+        unsigned int i;
+        Hashmap *h;
+
+        n = acquire_time_data(bus, &times);
+        if (n <= 0)
+                return n;
+
+        h = hashmap_new(string_hash_func, string_compare_func);
+        if (!h)
+                return -ENOMEM;
+
+        for (i = 0; i < (unsigned)n; i++) {
+                r = hashmap_put(h, times[i].name, &times[i]);
+                if (r < 0)
+                        return r;
+        }
+        unit_times_hashmap = h;
+
+        puts("The time after the unit is active or started is printed after the \"@\" character.\n"
+             "The time the unit takes to start is printed after the \"+\" character.\n");
+
+        list_dependencies(bus);
+
+        hashmap_free(h);
+        free_unit_times(times, (unsigned) n);
+        return 0;
+}
+
 static int analyze_blame(DBusConnection *bus) {
         struct unit_times *times;
         unsigned i;
@@ -795,10 +1125,15 @@ static void analyze_help(void)
                "     --require        When generating a dependency graph, show only requirement\n"
                "     --from-pattern=GLOB, --to-pattern=GLOB\n"
                "                      When generating a dependency graph, filter only origins\n"
-               "                      or destinations, respectively\n\n"
+               "                      or destinations, respectively\n"
+               "     --fuzz=TIMESPAN  When printing the tree of the critical chain, print also\n"
+               "                      services, which finished TIMESPAN earlier, than the\n"
+               "                      latest in the branch. The unit of TIMESPAN is seconds\n"
+               "                      unless specified with a different unit, i.e. 50ms\n\n"
                "Commands:\n"
                "  time                Print time spent in the kernel before reaching userspace\n"
                "  blame               Print list of running units ordered by time to init\n"
+               "  critical-chain      Print a tree of the time critical chain of units\n"
                "  plot                Output SVG graphic showing service initialization\n"
                "  dot                 Dump dependency graph (in dot(1) format)\n\n",
                program_invocation_short_name);
@@ -806,6 +1141,8 @@ static void analyze_help(void)
 
 static int parse_argv(int argc, char *argv[])
 {
+        int r;
+
         enum {
                 ARG_VERSION = 0x100,
                 ARG_ORDER,
@@ -813,7 +1150,8 @@ static int parse_argv(int argc, char *argv[])
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_DOT_FROM_PATTERN,
-                ARG_DOT_TO_PATTERN
+                ARG_DOT_TO_PATTERN,
+                ARG_FUZZ
         };
 
         static const struct option options[] = {
@@ -825,6 +1163,7 @@ static int parse_argv(int argc, char *argv[])
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
                 { "from-pattern", required_argument, NULL, ARG_DOT_FROM_PATTERN},
                 { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN  },
+                { "fuzz",      required_argument, NULL, ARG_FUZZ  },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -870,6 +1209,12 @@ static int parse_argv(int argc, char *argv[])
 
                         break;
 
+                case ARG_FUZZ:
+                        r = parse_sec(optarg, &arg_fuzz);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case -1:
                         return 1;
 
@@ -905,6 +1250,8 @@ int main(int argc, char *argv[]) {
                 r = analyze_time(bus);
         else if (streq(argv[optind], "blame"))
                 r = analyze_blame(bus);
+        else if (streq(argv[optind], "critical-chain"))
+                r = analyze_critical_chain(bus);
         else if (streq(argv[optind], "plot"))
                 r = analyze_plot(bus);
         else if (streq(argv[optind], "dot"))

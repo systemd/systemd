@@ -34,6 +34,12 @@
                                 <surname>Poettering</surname>
                                 <email>lennart@poettering.net</email>
                         </author>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Harald</firstname>
+                                <surname>Hoyer</surname>
+                                <email>harald@redhat.com</email>
+                        </author>
                 </authorgroup>
         </refentryinfo>
 
@@ -53,6 +59,9 @@
                 </cmdsynopsis>
                 <cmdsynopsis>
                         <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> blame </command>
+                </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> critical-chain </command>
                 </cmdsynopsis>
                 <cmdsynopsis>
                         <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> plot <arg choice="opt">&gt; file.svg</arg></command>
@@ -87,6 +96,16 @@
                 misleading as the initialization of one service might
                 be slow simply because it waits for the initialization
                 of another service to complete.</para>
+
+                <para><command>systemd-analyze critical-chain</command>
+                prints a tree of the time critical chain of units.
+                The time after the unit is active or started is printed
+                after the "@" character. The time the unit takes to
+                start is printed after the "+" character.
+                Note that the output might be misleading as the
+                initialization of one service might depend on socket
+                activation and because of the parallel execution
+                of units.</para>
 
                 <para><command>systemd-analyze plot</command> prints
                 an SVG graphic detailing which system services have
@@ -180,6 +199,19 @@
                                 used more than once which means a
                                 unit name must match one of given
                                 values.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--fuzz=</option><replaceable>timespan</replaceable></term>
+
+                                <listitem><para>When used in conjunction
+                                with the <command>critical-chain</command>
+                                command (see above), also show units, which
+                                finished <replaceable>timespan</replaceable> earlier, than the
+                                latest unit in the same level. The unit of
+                                <replaceable>timespan</replaceable> is seconds
+                                unless specified with a different unit,
+                                i.e. "50ms".</para></listitem>
                         </varlistentry>
                 </variablelist>
 
