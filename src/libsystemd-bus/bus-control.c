@@ -344,3 +344,35 @@ int bus_remove_match_internal(sd_bus *bus, const char *match) {
                         "s",
                         match);
 }
+
+int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        const char *mid;
+        int r;
+
+        if (!bus)
+                return -EINVAL;
+        if (!name)
+                return -EINVAL;
+
+        if (streq_ptr(name, bus->unique_name))
+                return sd_id128_get_machine(machine);
+
+        r = sd_bus_call_method(bus,
+                               name,
+                               "/",
+                               "org.freedesktop.DBus.Peer",
+                               "GetMachineId",
+                               NULL,
+                               &reply,
+                               NULL);
+
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(reply, "s", &mid);
+        if (r < 0)
+                return r;
+
+        return sd_id128_from_string(mid, machine);
+}

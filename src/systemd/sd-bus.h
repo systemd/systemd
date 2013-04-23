@@ -179,6 +179,7 @@ int sd_bus_list_names(sd_bus *bus, char ***l);
 int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner);
 int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid);
 int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid);
+int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);
 
 /* Error structures */
 
