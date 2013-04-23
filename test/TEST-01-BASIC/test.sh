@@ -3,8 +3,7 @@
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 TEST_DESCRIPTION="Basic systemd setup"
 
-KVERSION=${KVERSION-$(uname -r)}
-KERNEL_VER=$(uname -r)
+. $TEST_BASE_DIR/test-functions
 
 # Uncomment this to debug failures
 #DEBUGFAIL="systemd.unit=multi-user.target"
@@ -242,5 +241,4 @@ test_cleanup() {
     return 0
 }
 
-. $TEST_BASE_DIR/test-functions
 do_test "$@"
