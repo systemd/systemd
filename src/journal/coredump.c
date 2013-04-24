@@ -37,6 +37,8 @@
 #include "special.h"
 #include "cgroup-util.h"
 
+/* Few programs have less than 3MiB resident */
+#define COREDUMP_MIN_START (3*1024*1024)
 /* Make sure to not make this larger than the maximum journal entry
  * size. See ENTRY_SIZE_MAX in journald-native.c. */
 #define COREDUMP_MAX (768*1024*1024)
@@ -103,9 +105,10 @@ int main(int argc, char* argv[]) {
         uid_t uid;
         gid_t gid;
         struct iovec iovec[14];
+        size_t coredump_bufsize, coredump_size;
         _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
-                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *p = NULL;
+                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL;
 
         prctl(PR_SET_DUMPABLE, 0);
 
@@ -234,23 +237,35 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        p = malloc(9 + COREDUMP_MAX);
-        if (!p) {
+        coredump_bufsize = COREDUMP_MIN_START;
+        coredump_data = malloc(coredump_bufsize);
+        if (!coredump_data) {
                 r = log_oom();
                 goto finish;
         }
 
-        memcpy(p, "COREDUMP=", 9);
+        memcpy(coredump_data, "COREDUMP=", 9);
+        coredump_size = 9;
 
-        n = loop_read(STDIN_FILENO, p + 9, COREDUMP_MAX, false);
-        if (n < 0) {
-                log_error("Failed to read core dump data: %s", strerror(-n));
-                r = (int) n;
-                goto finish;
+        for (;;) {
+                n = loop_read(STDIN_FILENO, coredump_data + coredump_size,
+                              coredump_bufsize - coredump_size, false);
+                if (n < 0) {
+                        log_error("Failed to read core dump data: %s", strerror(-n));
+                        r = (int) n;
+                        goto finish;
+                } else if (n == 0)
+                        break;
+
+                coredump_size += n;
+                if (!GREEDY_REALLOC(coredump_data, coredump_bufsize, coredump_size + 1)) {
+                        r = log_oom();
+                        goto finish;
+                }
         }
 
-        iovec[j].iov_base = p;
-        iovec[j].iov_len = 9 + n;
+        iovec[j].iov_base = coredump_data;
+        iovec[j].iov_len = coredump_size;
         j++;
 
         r = sd_journal_sendv(iovec, j);
