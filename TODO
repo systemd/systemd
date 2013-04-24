@@ -26,6 +26,10 @@ Fedora 19:
 
 Features:
 
+* nss-myhostname: investigate whether there's any point in also
+  resolving localhost6, localhost.localdomain, ip6-localhost or any of
+  the other names often seen in /etc/hosts
+
 * see if we can fix https://bugs.freedesktop.org/show_bug.cgi?id=63672
   without dropping the location cache entirely.
 
@@ -47,13 +51,9 @@ Features:
 
 * timedatctl, localectl: possibly make some commands work without the daemon, for chroot situations...
 
-* logind: consider making suspend inhibitor locks non-session specific, but keep suspend-key inhibitor locks session specific
-
 * logind: add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
 
 * we need dynamic units
-
-* nss-myhostname should also resolve 'localhost' so that /etc/hosts becomes optional.
 
 * add s.th. like "systemctl set-log-level debug"
 

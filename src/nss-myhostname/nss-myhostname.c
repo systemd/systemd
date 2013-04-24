@@ -32,7 +32,6 @@
 
 #include "ifconf.h"
 #include "macro.h"
-#include "util.h"
 
 /* Ensure that glibc's assert is used. We cannot use assert from macro.h, as
  * libnss_myhostname will be linked into arbitrary programs which will, in turn
@@ -101,31 +100,46 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
         unsigned lo_ifi;
         char hn[HOST_NAME_MAX+1] = {};
+        const char *canonical = NULL;
         size_t l, idx, ms;
         char *r_name;
         struct gaih_addrtuple *r_tuple, *r_tuple_prev = NULL;
         struct address *addresses = NULL, *a;
         unsigned n_addresses = 0, n;
+        uint32_t local_address_ipv4;
 
-        if (gethostname(hn, sizeof(hn)-1) < 0) {
-                *errnop = errno;
-                *h_errnop = NO_RECOVERY;
-                return NSS_STATUS_UNAVAIL;
+        if (strcasecmp(name, "localhost") == 0) {
+                /* We respond to 'localhost', so that /etc/hosts
+                 * is optional */
+
+                canonical = "localhost";
+                local_address_ipv4 = htonl(INADDR_LOOPBACK);
+        } else {
+                /* We respond to our local host name */
+
+                if (gethostname(hn, sizeof(hn)-1) < 0) {
+                        *errnop = errno;
+                        *h_errnop = NO_RECOVERY;
+                        return NSS_STATUS_UNAVAIL;
+                }
+
+                if (strcasecmp(name, hn) != 0) {
+                        *errnop = ENOENT;
+                        *h_errnop = HOST_NOT_FOUND;
+                        return NSS_STATUS_NOTFOUND;
+                }
+
+                /* If this fails, n_addresses is 0. Which is fine */
+                ifconf_acquire_addresses(&addresses, &n_addresses);
+
+                canonical = hn;
+                local_address_ipv4 = LOCALADDRESS_IPV4;
         }
-
-        if (strcasecmp(name, hn) != 0) {
-                *errnop = ENOENT;
-                *h_errnop = HOST_NOT_FOUND;
-                return NSS_STATUS_NOTFOUND;
-        }
-
-        /* If this fails, n_addresses is 0. Which is fine */
-        ifconf_acquire_addresses(&addresses, &n_addresses);
 
         /* If this call fails we fill in 0 as scope. Which is fine */
-        lo_ifi = if_nametoindex(LOOPBACK_INTERFACE);
+        lo_ifi = n_addresses <= 0 ? if_nametoindex(LOOPBACK_INTERFACE) : 0;
 
-        l = strlen(hn);
+        l = strlen(canonical);
         ms = ALIGN(l+1)+ALIGN(sizeof(struct gaih_addrtuple))*(n_addresses > 0 ? n_addresses : 2);
         if (buflen < ms) {
                 *errnop = ENOMEM;
@@ -136,7 +150,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
         /* First, fill in hostname */
         r_name = buffer;
-        memcpy(r_name, hn, l+1);
+        memcpy(r_name, canonical, l+1);
         idx = ALIGN(l+1);
 
         if (n_addresses <= 0) {
@@ -156,7 +170,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 r_tuple->next = r_tuple_prev;
                 r_tuple->name = r_name;
                 r_tuple->family = AF_INET;
-                *(uint32_t*) r_tuple->addr = LOCALADDRESS_IPV4;
+                *(uint32_t*) r_tuple->addr = local_address_ipv4;
                 r_tuple->scopeid = (uint32_t) lo_ifi;
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
@@ -194,31 +208,34 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 }
 
 static enum nss_status fill_in_hostent(
-                const char *hn,
+                const char *canonical, const char *additional,
                 int af,
+                struct address *addresses, unsigned n_addresses,
+                uint32_t local_address_ipv4,
                 struct hostent *result,
                 char *buffer, size_t buflen,
                 int *errnop, int *h_errnop,
                 int32_t *ttlp,
                 char **canonp) {
 
-        size_t l, idx, ms;
-        char *r_addr, *r_name, *r_aliases, *r_addr_list;
+        size_t l_canonical, l_additional, idx, ms;
+        char *r_addr, *r_name, *r_aliases, *r_alias = NULL, *r_addr_list;
         size_t alen;
-        struct address *addresses = NULL, *a;
-        unsigned n_addresses = 0, n, c;
+        struct address *a;
+        unsigned n, c;
 
         alen = PROTO_ADDRESS_SIZE(af);
-
-        ifconf_acquire_addresses(&addresses, &n_addresses);
 
         for (a = addresses, n = 0, c = 0; n < n_addresses; a++, n++)
                 if (af == a->family)
                         c++;
 
-        l = strlen(hn);
-        ms = ALIGN(l+1)+
+        l_canonical = strlen(canonical);
+        l_additional = additional ? strlen(additional) : 0;
+        ms = ALIGN(l_canonical+1)+
+                (additional ? ALIGN(l_additional+1) : 0) +
                 sizeof(char*)+
+                (additional ? sizeof(char*) : 0) +
                 (c > 0 ? c : 1)*ALIGN(alen)+
                 (c > 0 ? c+1 : 2)*sizeof(char*);
 
@@ -229,15 +246,27 @@ static enum nss_status fill_in_hostent(
                 return NSS_STATUS_TRYAGAIN;
         }
 
-        /* First, fill in hostname */
+        /* First, fill in hostnames */
         r_name = buffer;
-        memcpy(r_name, hn, l+1);
-        idx = ALIGN(l+1);
+        memcpy(r_name, canonical, l_canonical+1);
+        idx = ALIGN(l_canonical+1);
 
-        /* Second, create (empty) aliases array */
+        if (additional) {
+                r_alias = buffer + idx;
+                memcpy(r_alias, additional, l_additional+1);
+                idx += ALIGN(l_additional+1);
+        }
+
+        /* Second, create aliases array */
         r_aliases = buffer + idx;
-        *(char**) r_aliases = NULL;
-        idx += sizeof(char*);
+        if (additional) {
+                ((char**) r_aliases)[0] = r_alias;
+                ((char**) r_aliases)[1] = NULL;
+                idx += 2*sizeof(char*);
+        } else {
+                ((char**) r_aliases)[0] = NULL;
+                idx += sizeof(char*);
+        }
 
         /* Third, add addresses */
         r_addr = buffer + idx;
@@ -256,7 +285,7 @@ static enum nss_status fill_in_hostent(
                 idx += c*ALIGN(alen);
         } else {
                 if (af == AF_INET)
-                        *(uint32_t*) r_addr = LOCALADDRESS_IPV4;
+                        *(uint32_t*) r_addr = local_address_ipv4;
                 else
                         memcpy(r_addr, LOCALADDRESS_IPV6, 16);
 
@@ -316,6 +345,10 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 char **canonp) {
 
         char hn[HOST_NAME_MAX+1] = {};
+        struct address *addresses = NULL;
+        unsigned n_addresses = 0;
+        const char *canonical, *additional = NULL;
+        uint32_t local_address_ipv4;
 
         if (af == AF_UNSPEC)
                 af = AF_INET;
@@ -326,19 +359,39 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        if (gethostname(hn, sizeof(hn)-1) < 0) {
-                *errnop = errno;
-                *h_errnop = NO_RECOVERY;
-                return NSS_STATUS_UNAVAIL;
+        if (strcasecmp(name, "localhost") == 0) {
+                canonical = "localhost";
+                local_address_ipv4 = htonl(INADDR_LOOPBACK);
+        } else {
+                if (gethostname(hn, sizeof(hn)-1) < 0) {
+                        *errnop = errno;
+                        *h_errnop = NO_RECOVERY;
+                        return NSS_STATUS_UNAVAIL;
+                }
+
+                if (strcasecmp(name, hn) != 0) {
+                        *errnop = ENOENT;
+                        *h_errnop = HOST_NOT_FOUND;
+                        return NSS_STATUS_NOTFOUND;
+                }
+
+                ifconf_acquire_addresses(&addresses, &n_addresses);
+
+                canonical = hn;
+                additional = n_addresses <= 0 && af == AF_INET6 ? "localhost" : NULL;
+                local_address_ipv4 = LOCALADDRESS_IPV4;
         }
 
-        if (strcasecmp(name, hn) != 0) {
-                *errnop = ENOENT;
-                *h_errnop = HOST_NOT_FOUND;
-                return NSS_STATUS_NOTFOUND;
-        }
-
-        return fill_in_hostent(hn, af, host, buffer, buflen, errnop, h_errnop, ttlp, canonp);
+        return fill_in_hostent(
+                        canonical, additional,
+                        af,
+                        addresses, n_addresses,
+                        local_address_ipv4,
+                        host,
+                        buffer, buflen,
+                        errnop, h_errnop,
+                        ttlp,
+                        canonp);
 }
 
 enum nss_status _nss_myhostname_gethostbyname2_r(
@@ -383,9 +436,11 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 int32_t *ttlp) {
 
         char hn[HOST_NAME_MAX+1] = {};
-        _cleanup_free_ struct address *addresses = NULL;
+        struct address *addresses = NULL;
         struct address *a;
         unsigned n_addresses = 0, n;
+        uint32_t local_address_ipv4 = LOCALADDRESS_IPV4;
+        const char *canonical = NULL, *additional = NULL;
 
         if (len != PROTO_ADDRESS_SIZE(af)) {
                 *errnop = EINVAL;
@@ -398,10 +453,18 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 if ((*(uint32_t*) addr) == LOCALADDRESS_IPV4)
                         goto found;
 
+                if ((*(uint32_t*) addr) == htonl(INADDR_LOOPBACK)) {
+                        canonical = "localhost";
+                        local_address_ipv4 = htonl(INADDR_LOOPBACK);
+                        goto found;
+                }
+
         } else if (af == AF_INET6) {
 
-                if (memcmp(addr, LOCALADDRESS_IPV6, 16) == 0)
+                if (memcmp(addr, LOCALADDRESS_IPV6, 16) == 0) {
+                        additional = "localhost";
                         goto found;
+                }
 
         } else {
                 *errnop = EAFNOSUPPORT;
@@ -422,17 +485,34 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         *errnop = ENOENT;
         *h_errnop = HOST_NOT_FOUND;
 
+        free(addresses);
+
         return NSS_STATUS_NOTFOUND;
 
 found:
-        if (gethostname(hn, sizeof(hn)-1) < 0) {
-                *errnop = errno;
-                *h_errnop = NO_RECOVERY;
+        if (!canonical) {
+                if (gethostname(hn, sizeof(hn)-1) < 0) {
+                        *errnop = errno;
+                        *h_errnop = NO_RECOVERY;
 
-                return NSS_STATUS_UNAVAIL;
+                        free(addresses);
+
+                        return NSS_STATUS_UNAVAIL;
+                }
+
+                canonical = hn;
         }
 
-        return fill_in_hostent(hn, af, host, buffer, buflen, errnop, h_errnop, ttlp, NULL);
+        return fill_in_hostent(
+                        canonical, additional,
+                        af,
+                        addresses, n_addresses,
+                        local_address_ipv4,
+                        host,
+                        buffer, buflen,
+                        errnop, h_errnop,
+                        ttlp,
+                        NULL);
 
 }
 
