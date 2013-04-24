@@ -47,15 +47,14 @@ static int rtc_open(int flags) {
         int fd;
         DIR *d;
 
-        /* First, we try to make use of the /dev/rtc symlink. If that
-         * doesn't exist, we open the first RTC which has hctosys=1
-         * set. If we don't find any we just take the first RTC that
-         * exists at all. */
-
-        fd = open("/dev/rtc", flags);
-        if (fd >= 0)
-                return fd;
-
+        /*
+         * Some "chaotic platforms" have multiple RTCs and we need to
+         * find the "system RTC", which is in some setups /dev/rtc1.
+         *
+         * First, we try to find the RTC which has hctosys=1 set. If we
+         * don't find any we just take the first RTC that exists at all,
+         * then try to open /dev/rtc0.
+         */
         d = opendir("/sys/class/rtc");
         if (!d)
                 goto fallback;
