@@ -597,9 +597,9 @@ int manager_enumerate_seats(Manager *m) {
 }
 
 static int manager_enumerate_users_from_cgroup(Manager *m) {
+        _cleanup_closedir_ DIR *d = NULL;
         int r = 0, k;
         char *name;
-        DIR *d;
 
         r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, &d);
         if (r < 0) {
@@ -612,30 +612,36 @@ static int manager_enumerate_users_from_cgroup(Manager *m) {
 
         while ((k = cg_read_subgroup(d, &name)) > 0) {
                 User *user;
+                char *e;
 
-                k = manager_add_user_by_name(m, name, &user);
-                if (k < 0) {
-                        free(name);
-                        r = k;
-                        continue;
-                }
+                e = endswith(name, ".user");
+                if (e) {
+                        *e = 0;
 
-                user_add_to_gc_queue(user);
-
-                if (!user->cgroup_path)
-                        if (asprintf(&user->cgroup_path, "%s/%s", m->cgroup_path, name) < 0) {
-                                r = -ENOMEM;
+                        k = manager_add_user_by_name(m, name, &user);
+                        if (k < 0) {
                                 free(name);
-                                break;
+                                r = k;
+                                continue;
                         }
+
+                        user_add_to_gc_queue(user);
+
+                        if (!user->cgroup_path) {
+                                user->cgroup_path = strjoin(m->cgroup_path, "/", name, NULL);
+                                if (!user->cgroup_path) {
+                                        k = log_oom();
+                                        free(name);
+                                        break;
+                                }
+                        }
+                }
 
                 free(name);
         }
 
-        if (r >= 0 && k < 0)
+        if (k < 0)
                 r = k;
-
-        closedir(d);
 
         return r;
 }
@@ -732,7 +738,7 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
         int r = 0;
 
         HASHMAP_FOREACH(u, m->users, i) {
-                DIR *d;
+                _cleanup_closedir_ DIR *d = NULL;
                 char *name;
                 int k;
 
@@ -751,29 +757,33 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
 
                 while ((k = cg_read_subgroup(d, &name)) > 0) {
                         Session *session;
+                        char *e;
 
-                        if (streq(name, "shared"))
-                                continue;
+                        e = endswith(name, ".session");
+                        if (e) {
+                                *e = 0;
 
-                        k = manager_add_session(m, u, name, &session);
-                        if (k < 0) {
-                                free(name);
-                                break;
-                        }
-
-                        session_add_to_gc_queue(session);
-
-                        if (!session->cgroup_path)
-                                if (asprintf(&session->cgroup_path, "%s/%s", u->cgroup_path, name) < 0) {
-                                        k = -ENOMEM;
+                                k = manager_add_session(m, u, name, &session);
+                                if (k < 0) {
                                         free(name);
-                                        break;
+                                        r = k;
+                                        continue;
                                 }
+
+                                session_add_to_gc_queue(session);
+
+                                if (!session->cgroup_path) {
+                                        session->cgroup_path = strjoin(m->cgroup_path, "/", name, NULL);
+                                        if (!session->cgroup_path) {
+                                                k = log_oom();
+                                                free(name);
+                                                break;
+                                        }
+                                }
+                        }
 
                         free(name);
                 }
-
-                closedir(d);
 
                 if (k < 0)
                         r = k;
