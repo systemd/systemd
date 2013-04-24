@@ -1626,7 +1626,7 @@ int manager_run(Manager *m) {
 
                 manager_gc(m, true);
 
-                if (m->action_what != 0) {
+                if (m->action_what != 0 && !m->action_job) {
                         usec_t x, y;
 
                         x = now(CLOCK_MONOTONIC);

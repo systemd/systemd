@@ -2400,7 +2400,6 @@ DBusHandlerResult bus_message_filter(
                         log_error("Failed to parse JobRemoved message: %s", bus_error_message(&error));
 
                 else if (m->action_job && streq(m->action_job, path)) {
-
                         log_info("Operation finished.");
 
                         /* Tell people that they now may take a lock again */
@@ -2441,7 +2440,7 @@ int manager_dispatch_delayed(Manager *manager) {
 
         assert(manager);
 
-        if (!manager->action_unit || manager->action_job)
+        if (manager->action_what == 0 || manager->action_job)
                 return 0;
 
         /* Continue delay? */

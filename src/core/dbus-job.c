@@ -218,7 +218,7 @@ const DBusObjectPathVTable bus_job_vtable = {
 };
 
 static int job_send_message(Job *j, DBusMessage* (*new_message)(Job *j)) {
-        DBusMessage *m = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
         int r;
 
         assert(j);
@@ -227,9 +227,9 @@ static int job_send_message(Job *j, DBusMessage* (*new_message)(Job *j)) {
         if (bus_has_subscriber(j->manager) || j->forgot_bus_clients) {
                 m = new_message(j);
                 if (!m)
-                        goto oom;
+                        return -ENOMEM;
+
                 r = bus_broadcast(j->manager, m);
-                dbus_message_unref(m);
                 if (r < 0)
                         return r;
 
@@ -238,18 +238,19 @@ static int job_send_message(Job *j, DBusMessage* (*new_message)(Job *j)) {
                  * to the client(s) which created the job */
                 JobBusClient *cl;
                 assert(j->bus_client_list);
+
                 LIST_FOREACH(client, cl, j->bus_client_list) {
                         assert(cl->bus);
 
                         m = new_message(j);
                         if (!m)
-                                goto oom;
+                                return -ENOMEM;
 
                         if (!dbus_message_set_destination(m, cl->name))
-                                goto oom;
+                                return -ENOMEM;
 
                         if (!dbus_connection_send(cl->bus, m, NULL))
-                                goto oom;
+                                return -ENOMEM;
 
                         dbus_message_unref(m);
                         m = NULL;
@@ -257,10 +258,6 @@ static int job_send_message(Job *j, DBusMessage* (*new_message)(Job *j)) {
         }
 
         return 0;
-oom:
-        if (m)
-                dbus_message_unref(m);
-        return -ENOMEM;
 }
 
 static DBusMessage* new_change_signal_message(Job *j) {
