@@ -331,6 +331,7 @@ systemd_analyze_LDADD = \
 dist_bashcompletion_DATA = \
 	shell-completion/bash/journalctl \
 	shell-completion/bash/systemctl \
+	shell-completion/bash/systemd-analyze \
 	shell-completion/bash/udevadm
 
 dist_tmpfiles_DATA = \
