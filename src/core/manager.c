@@ -70,7 +70,6 @@
 #include "cgroup-util.h"
 #include "path-util.h"
 #include "audit-fd.h"
-#include "efivars.h"
 #include "env-util.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
@@ -439,14 +438,6 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         m = new0(Manager, 1);
         if (!m)
                 return -ENOMEM;
-
-        dual_timestamp_get(&m->userspace_timestamp);
-        if (detect_container(NULL) <= 0) {
-                dual_timestamp_from_monotonic(&m->kernel_timestamp, 0);
-#ifdef ENABLE_EFI
-                efi_get_boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
-#endif
-        }
 
         m->running_as = running_as;
         m->name_data_slot = m->conn_data_slot = m->subscribed_data_slot = -1;
