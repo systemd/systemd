@@ -86,11 +86,11 @@ static bool is_unicode_control(uint32_t ch) {
           '\t' is in C0 range, but more or less harmless and commonly used.
         */
 
-        return (ch < ' ' && ch != '\t') ||
+        return (ch < ' ' && ch != '\t' && ch != '\n') ||
                 (0x7F <= ch && ch <= 0x9F);
 }
 
-char* utf8_is_printable_n(const char* str, size_t length) {
+bool utf8_is_printable(const char* str, size_t length) {
         uint32_t val = 0;
         uint32_t min = 0;
         const uint8_t *p;
@@ -113,40 +113,37 @@ char* utf8_is_printable_n(const char* str, size_t length) {
                                 min = (1 << 16);
                                 val = (uint32_t) (*p & 0x07);
                         } else
-                                goto error;
+                                return false;
 
                         p++;
                         length--;
                         if (!length || !is_continuation_char(*p))
-                                goto error;
+                                return false;
                         merge_continuation_char(&val, *p);
 
                 TWO_REMAINING:
                         p++;
                         length--;
                         if (!is_continuation_char(*p))
-                                goto error;
+                                return false;
                         merge_continuation_char(&val, *p);
 
                 ONE_REMAINING:
                         p++;
                         length--;
                         if (!is_continuation_char(*p))
-                                goto error;
+                                return false;
                         merge_continuation_char(&val, *p);
 
                         if (val < min)
-                                goto error;
+                                return false;
                 }
 
                 if (is_unicode_control(val))
-                        goto error;
+                        return false;
         }
 
-        return (char*) str;
-
-error:
-        return NULL;
+        return true;
 }
 
 static char* utf8_validate(const char *str, char *output) {

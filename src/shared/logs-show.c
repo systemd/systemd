@@ -95,10 +95,52 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
         if (l >= PRINT_THRESHOLD)
                 return false;
 
-        if (!utf8_is_printable_n(p, l))
+        if (!utf8_is_printable(p, l))
                 return false;
 
         return true;
+}
+
+static void print_multiline(FILE *f, unsigned prefix, unsigned n_columns, int flags, int priority, const char* message, size_t message_len) {
+        const char *color_on = "", *color_off = "";
+        const char *pos, *end;
+        bool continuation = false;
+
+        if (flags & OUTPUT_COLOR) {
+                if (priority <= LOG_ERR) {
+                        color_on = ANSI_HIGHLIGHT_RED_ON;
+                        color_off = ANSI_HIGHLIGHT_OFF;
+                } else if (priority <= LOG_NOTICE) {
+                        color_on = ANSI_HIGHLIGHT_ON;
+                        color_off = ANSI_HIGHLIGHT_OFF;
+                }
+        }
+
+        for (pos = message; pos < message + message_len; pos = end + 1) {
+                int len;
+                for (end = pos; end < message + message_len && *end != '\n'; end++)
+                        ;
+                len = end - pos;
+                assert(len >= 0);
+
+                if ((flags & OUTPUT_FULL_WIDTH) || (prefix + len + 1 < n_columns))
+                        fprintf(f, "%*s%s%.*s%s\n",
+                                continuation * prefix, "",
+                                color_on, len, pos, color_off);
+                else if (prefix < n_columns && n_columns - prefix >= 3) {
+                        _cleanup_free_ char *e;
+
+                        e = ellipsize_mem(pos, len, n_columns - prefix, 90);
+
+                        if (!e)
+                                fprintf(f, "%s%.*s%s\n", color_on, len, pos, color_off);
+                        else
+                                fprintf(f, "%s%s%s\n", color_on, e, color_off);
+                } else
+                        fputs("...\n", f);
+
+                continuation = true;
+        }
 }
 
 static int output_short(
@@ -115,7 +157,6 @@ static int output_short(
         _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL;
         size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0;
         int p = LOG_INFO;
-        const char *color_on = "", *color_off = "";
 
         assert(f);
         assert(j);
@@ -260,34 +301,13 @@ static int output_short(
                 n += fake_pid_len + 2;
         }
 
-        if (flags & OUTPUT_COLOR) {
-                if (p <= LOG_ERR) {
-                        color_on = ANSI_HIGHLIGHT_RED_ON;
-                        color_off = ANSI_HIGHLIGHT_OFF;
-                } else if (p <= LOG_NOTICE) {
-                        color_on = ANSI_HIGHLIGHT_ON;
-                        color_off = ANSI_HIGHLIGHT_OFF;
-                }
-        }
-
-        if (flags & OUTPUT_SHOW_ALL)
-                fprintf(f, ": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
-        else if (!utf8_is_printable_n(message, message_len)) {
+        if (!(flags & OUTPUT_SHOW_ALL) && !utf8_is_printable(message, message_len)) {
                 char bytes[FORMAT_BYTES_MAX];
                 fprintf(f, ": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
-        } else if ((flags & OUTPUT_FULL_WIDTH) || (message_len + n + 1 < n_columns))
-                fprintf(f, ": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
-        else if (n < n_columns && n_columns - n - 2 >= 3) {
-                _cleanup_free_ char *e;
-
-                e = ellipsize_mem(message, message_len, n_columns - n - 2, 90);
-
-                if (!e)
-                        fprintf(f, ": %s%.*s%s\n", color_on, (int) message_len, message, color_off);
-                else
-                        fprintf(f, ": %s%s%s\n", color_on, e, color_off);
-        } else
-                fputs("\n", f);
+        } else {
+                fputs(": ", f);
+                print_multiline(f, n + 2, n_columns, flags, p, message, message_len);
+        }
 
         if (flags & OUTPUT_CATALOG)
                 print_catalog(f, j);
@@ -331,22 +351,26 @@ static int output_verbose(
                 cursor);
 
         SD_JOURNAL_FOREACH_DATA(j, data, length) {
-                if (!shall_print(data, length, flags)) {
-                        const char *c;
+                const char *c;
+                int fieldlen;
+                c = memchr(data, '=', length);
+                if (!c) {
+                        log_error("Invalid field.");
+                        return -EINVAL;
+                }
+                fieldlen = c - (const char*) data;
+
+                if ((flags & OUTPUT_SHOW_ALL) || (length < PRINT_THRESHOLD && utf8_is_printable(data, length))) {
+                        fprintf(f, "    %.*s=", fieldlen, (const char*)data);
+                        print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, c + 1, length - fieldlen - 1);
+                } else {
                         char bytes[FORMAT_BYTES_MAX];
 
-                        c = memchr(data, '=', length);
-                        if (!c) {
-                                log_error("Invalid field.");
-                                return -EINVAL;
-                        }
-
-                        fprintf(f, "\t%.*s=[%s blob data]\n",
-                               (int) (c - (const char*) data),
-                               (const char*) data,
-                               format_bytes(bytes, sizeof(bytes), length - (c - (const char *) data) - 1));
-                } else
-                        fprintf(f, "\t%.*s\n", (int) length, (const char*) data);
+                        fprintf(f, "    %.*s=[%s blob data]\n",
+                                (int) (c - (const char*) data),
+                                (const char*) data,
+                                format_bytes(bytes, sizeof(bytes), length - (c - (const char *) data) - 1));
+                }
         }
 
         if (flags & OUTPUT_CATALOG)
@@ -410,7 +434,7 @@ static int output_export(
                     memcmp(data, "_BOOT_ID=", 9) == 0)
                         continue;
 
-                if (!utf8_is_printable_n(data, length)) {
+                if (!utf8_is_printable(data, length)) {
                         const char *c;
                         uint64_t le64;
 
@@ -449,7 +473,7 @@ void json_escape(
 
                 fputs("null", f);
 
-        else if (!utf8_is_printable_n(p, l)) {
+        else if (!utf8_is_printable(p, l)) {
                 bool not_first = false;
 
                 fputs("[ ", f);
@@ -474,7 +498,9 @@ void json_escape(
                         if (*p == '"' || *p == '\\') {
                                 fputc('\\', f);
                                 fputc(*p, f);
-                        } else if (*p < ' ')
+                        } else if (*p == '\n')
+                                fputs("\\n", f);
+                        else if (*p < ' ')
                                 fprintf(f, "\\u%04x", *p);
                         else
                                 fputc(*p, f);

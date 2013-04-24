@@ -21,12 +21,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 #include "macro.h"
 
 char *utf8_is_valid(const char *s) _pure_;
 char *ascii_is_valid(const char *s) _pure_;
 
-char *utf8_is_printable_n(const char* str, size_t length) _pure_;
+bool utf8_is_printable(const char* str, size_t length) _pure_;
 
 char *utf8_filter(const char *s);
 char *ascii_filter(const char *s);
