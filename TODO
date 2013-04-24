@@ -29,8 +29,6 @@ Features:
 * see if we can fix https://bugs.freedesktop.org/show_bug.cgi?id=63672
   without dropping the location cache entirely.
 
-* truncate whitespace of var names the same way as values in parse_env_file_internal()
-
 * dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
   should be able to safely try another attempt when the bus call LoadUnit() is invoked.
 
