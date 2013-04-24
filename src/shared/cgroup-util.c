@@ -510,6 +510,9 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
 
         assert(fs);
 
+        if (controller && !cg_controller_is_valid(controller, true))
+                return -EINVAL;
+
         if (_unlikely_(!good)) {
                 int r;
 
@@ -546,7 +549,7 @@ int cg_get_path_and_check(const char *controller, const char *path, const char *
 
         assert(fs);
 
-        if (isempty(controller))
+        if (!cg_controller_is_valid(controller, true))
                 return -EINVAL;
 
         /* Normalize the controller syntax */
@@ -741,6 +744,9 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         assert(path);
         assert(pid >= 0);
 
+        if (controller && !cg_controller_is_valid(controller, true))
+                return -EINVAL;
+
         if (!controller)
                 controller = SYSTEMD_CGROUP_CONTROLLER;
 
@@ -933,7 +939,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
 
         e = strchr(spec, ':');
         if (!e) {
-                if (!filename_is_safe(spec))
+                if (!cg_controller_is_valid(spec, true))
                         return -EINVAL;
 
                 if (controller) {
@@ -953,7 +959,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
         t = strndup(spec, e-spec);
         if (!t)
                 return -ENOMEM;
-        if (!filename_is_safe(t)) {
+        if (!cg_controller_is_valid(t, true)) {
                 free(t);
                 return -EINVAL;
         }
@@ -987,17 +993,18 @@ int cg_join_spec(const char *controller, const char *path, char **spec) {
 
         assert(path);
 
+
         if (!controller)
                 controller = "systemd";
-        else if (controller[0] == 0 ||
-                 strchr(controller, ':') ||
-                 strchr(controller, '/'))
-                return -EINVAL;
+        else {
+                if (!cg_controller_is_valid(controller, true))
+                        return -EINVAL;
+
+                controller = normalize_controller(controller);
+        }
 
         if (!path_is_absolute(path))
                 return -EINVAL;
-
-        controller = normalize_controller(controller);
 
         s = strjoin(controller, ":", path, NULL);
         if (!s)
@@ -1008,7 +1015,8 @@ int cg_join_spec(const char *controller, const char *path, char **spec) {
 }
 
 int cg_mangle_path(const char *path, char **result) {
-        char *t, *c, *p;
+        _cleanup_free_ char *c = NULL, *p = NULL;
+        char *t;
         int r;
 
         assert(path);
@@ -1030,11 +1038,7 @@ int cg_mangle_path(const char *path, char **result) {
         if (r < 0)
                 return r;
 
-        r = cg_get_path(c ? c : SYSTEMD_CGROUP_CONTROLLER, p ? p : "/", NULL, result);
-        free(c);
-        free(p);
-
-        return r;
+        return cg_get_path(c ? c : SYSTEMD_CGROUP_CONTROLLER, p ? p : "/", NULL, result);
 }
 
 int cg_get_system_path(char **path) {
@@ -1138,14 +1142,20 @@ char **cg_shorten_controllers(char **controllers) {
 
                 p = normalize_controller(*f);
 
-                if (streq(*f, "systemd")) {
+                if (streq(p, "systemd")) {
+                        free(*f);
+                        continue;
+                }
+
+                if (!cg_controller_is_valid(p, true)) {
+                        log_warning("Controller %s is not valid, removing from controllers list.", p);
                         free(*f);
                         continue;
                 }
 
                 r = check_hierarchy(p);
                 if (r < 0) {
-                        log_debug("Controller %s is not available, removing from controllers list.", *f);
+                        log_debug("Controller %s is not available, removing from controllers list.", p);
                         free(*f);
                         continue;
                 }
@@ -1457,7 +1467,7 @@ int cg_controller_from_attr(const char *attr, char **controller) {
         if (!c)
                 return -ENOMEM;
 
-        if (!filename_is_safe(c)) {
+        if (!cg_controller_is_valid(c, false)) {
                 free(c);
                 return -EINVAL;
         }
@@ -1516,4 +1526,35 @@ char *cg_unescape(const char *p) {
                 return (char*) p+1;
 
         return (char*) p;
+}
+
+#define CONTROLLER_VALID                        \
+        "0123456789"                            \
+        "abcdefghijklmnopqrstuvwxyz"            \
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
+        "_"
+
+bool cg_controller_is_valid(const char *p, bool allow_named) {
+        const char *t, *s;
+
+        if (!p)
+                return false;
+
+        if (allow_named) {
+                s = startswith(p, "name=");
+                if (s)
+                        p = s;
+        }
+
+        if (*p == 0 || *p == '_')
+                return false;
+
+        for (t = p; *t; t++)
+                if (!strchr(CONTROLLER_VALID, *t))
+                        return false;
+
+        if (t - p > FILENAME_MAX)
+                return false;
+
+        return true;
 }

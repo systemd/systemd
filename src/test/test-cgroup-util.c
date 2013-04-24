@@ -153,6 +153,19 @@ static void test_escape(void) {
         test_escape_one("_foobar", "__foobar");
 }
 
+static void test_controller_is_valid(void) {
+        assert_se(cg_controller_is_valid("foobar", false));
+        assert_se(cg_controller_is_valid("foo_bar", false));
+        assert_se(cg_controller_is_valid("name=foo", true));
+        assert_se(!cg_controller_is_valid("", false));
+        assert_se(!cg_controller_is_valid("name=", true));
+        assert_se(!cg_controller_is_valid("=", false));
+        assert_se(!cg_controller_is_valid("cpu,cpuacct", false));
+        assert_se(!cg_controller_is_valid("_", false));
+        assert_se(!cg_controller_is_valid("_foobar", false));
+        assert_se(!cg_controller_is_valid("tatü", false));
+}
+
 int main(void) {
         test_path_decode_unit();
         test_path_get_unit();
@@ -160,6 +173,7 @@ int main(void) {
         test_get_paths();
         test_proc();
         test_escape();
+        test_controller_is_valid();
 
         return 0;
 }

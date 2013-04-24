@@ -1938,7 +1938,7 @@ char *unit_dbus_path(Unit *u) {
         return unit_dbus_path_from_name(u->id);
 }
 
-int unit_add_cgroup(Unit *u, CGroupBonding *b) {
+static int unit_add_cgroup(Unit *u, CGroupBonding *b) {
         int r;
 
         assert(u);
@@ -2100,6 +2100,9 @@ static int unit_add_one_default_cgroup(Unit *u, const char *controller) {
 
         assert(u);
 
+        if (controller && !cg_controller_is_valid(controller, true))
+                return -EINVAL;
+
         if (!controller)
                 controller = SYSTEMD_CGROUP_CONTROLLER;
 
@@ -2202,13 +2205,15 @@ int unit_add_cgroup_attribute(
                 controller = c;
         }
 
-        if (!controller || streq(controller, SYSTEMD_CGROUP_CONTROLLER))
+        if (!controller ||
+            streq(controller, SYSTEMD_CGROUP_CONTROLLER) ||
+            streq(controller, "systemd"))
                 return -EINVAL;
 
         if (!filename_is_safe(name))
                 return -EINVAL;
 
-        if (!filename_is_safe(controller))
+        if (!cg_controller_is_valid(controller, false))
                 return -EINVAL;
 
         /* Check if this attribute already exists. Note that we will
@@ -2276,42 +2281,39 @@ int unit_add_cgroup_attribute(
 }
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
-        char *t;
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(u);
         assert(type);
         assert(_found);
 
-        if (!(t = unit_name_change_suffix(u->id, type)))
+        t = unit_name_change_suffix(u->id, type);
+        if (!t)
                 return -ENOMEM;
 
         assert(!unit_has_name(u, t));
 
         r = manager_load_unit(u->manager, t, NULL, NULL, _found);
-        free(t);
-
         assert(r < 0 || *_found != u);
-
         return r;
 }
 
 int unit_get_related_unit(Unit *u, const char *type, Unit **_found) {
+        _cleanup_free_ char *t = NULL;
         Unit *found;
-        char *t;
 
         assert(u);
         assert(type);
         assert(_found);
 
-        if (!(t = unit_name_change_suffix(u->id, type)))
+        t = unit_name_change_suffix(u->id, type);
+        if (!t)
                 return -ENOMEM;
 
         assert(!unit_has_name(u, t));
 
         found = manager_get_unit(u->manager, t);
-        free(t);
-
         if (!found)
                 return -ENOENT;
 

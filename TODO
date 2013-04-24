@@ -57,10 +57,6 @@ Features:
 
 * add s.th. like "systemctl set-log-level debug"
 
-* sd-login: allow enumerating machines and add inotify iface
-
-* cgroup-util: verify syntax of cgroup controllers
-
 * cgtop: make cgtop useful in a container
 
 * make sure cg_pid_get_path() works properly for co-mounted controllers

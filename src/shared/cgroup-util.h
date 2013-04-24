@@ -96,3 +96,5 @@ int cg_controller_from_attr(const char *attr, char **controller);
 
 char *cg_escape(const char *p);
 char *cg_unescape(const char *p);
+
+bool cg_controller_is_valid(const char *p, bool allow_named);
