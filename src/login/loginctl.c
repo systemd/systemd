@@ -1296,7 +1296,7 @@ static int help(void) {
                "  -p --property=NAME     Show only properties by this name\n"
                "  -a --all               Show all properties, including empty ones\n"
                "     --kill-who=WHO      Who to send signal to\n"
-               "  --full                 Do not ellipsize output\n"
+               "     --full              Do not ellipsize output\n"
                "  -s --signal=SIGNAL     Which signal to send\n"
                "     --no-ask-password   Don't prompt for password\n"
                "  -H --host=[USER@]HOST  Show information for remote host\n"

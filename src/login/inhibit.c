@@ -96,6 +96,7 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
         dbus_message_iter_recurse(&iter, &sub);
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                 const char *what, *who, *why, *mode;
+                _cleanup_free_ char *comm = NULL, *u = NULL;
                 dbus_uint32_t uid, pid;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT)
@@ -111,11 +112,14 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, false) < 0)
                         return -EIO;
 
-                printf("     Who: %s (UID %lu, PID %lu)\n"
+                get_process_comm(pid, &comm);
+                u = uid_to_name(uid);
+
+                printf("     Who: %s (UID %lu/%s, PID %lu/%s)\n"
                        "    What: %s\n"
                        "     Why: %s\n"
                        "    Mode: %s\n\n",
-                       who, (unsigned long) uid, (unsigned long) pid,
+                       who, (unsigned long) uid, strna(u), (unsigned long) pid, strna(comm),
                        what,
                        why,
                        mode);
