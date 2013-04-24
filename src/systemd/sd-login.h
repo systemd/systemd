@@ -157,7 +157,8 @@ int sd_get_machine_names(char ***machines);
 typedef struct sd_login_monitor sd_login_monitor;
 
 /* Create a new monitor. Category must be NULL, "seat", "session",
- * "uid" to get monitor events for the specific category (or all). */
+ * "uid", "machine" to get monitor events for the specific category
+ * (or all). */
 int sd_login_monitor_new(const char *category, sd_login_monitor** ret);
 
 /* Destroys the passed monitor. Returns NULL. */

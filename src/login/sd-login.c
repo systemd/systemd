@@ -677,6 +677,27 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
                 good = true;
         }
 
+        if (!category || streq(category, "machine")) {
+                _cleanup_free_ char *md = NULL, *p = NULL;
+                int r;
+
+                r = cg_get_machine_path(&md);
+                if (r < 0)
+                        return r;
+
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, md, NULL, &p);
+                if (r < 0)
+                        return r;
+
+                k = inotify_add_watch(fd, p, IN_MOVED_TO|IN_CREATE|IN_DELETE);
+                if (k < 0) {
+                        close_nointr_nofail(fd);
+                        return -errno;
+                }
+
+                good = true;
+        }
+
         if (!good) {
                 close_nointr(fd);
                 return -EINVAL;

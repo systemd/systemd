@@ -50,7 +50,7 @@
                 <refname>sd_login_monitor_get_events</refname>
                 <refname>sd_login_monitor_get_timeout</refname>
                 <refname>sd_login_monitor</refname>
-                <refpurpose>Monitor login sessions, seats and users</refpurpose>
+                <refpurpose>Monitor login sessions, seats, users and virtual machines/containers</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -96,23 +96,26 @@
                 <title>Description</title>
 
                 <para><function>sd_login_monitor_new()</function> may
-                be used to monitor login sessions, users and seats. Via
-                a monitor object a file descriptor can be integrated
-                into an application defined event loop which is woken
-                up each time a user logs in, logs out or a seat is
-                added or removed, or a session, user, or seat changes
-                state otherwise. The first parameter takes a string
-                which can be <literal>seat</literal> (to get
+                be used to monitor login sessions, users, seats and
+                virtual machines/containers. Via a monitor object a
+                file descriptor can be integrated into an application
+                defined event loop which is woken up each time a user
+                logs in, logs out or a seat is added or removed, or a
+                session, user, seat or virtual machine/container
+                changes state otherwise. The first parameter takes a
+                string which can be <literal>seat</literal> (to get
                 only notifications about seats being added, removed or
                 changed), <literal>session</literal> (to get only
                 notifications about sessions being created or removed
-                or changed) or <literal>uid</literal> (to get only
+                or changed), <literal>uid</literal> (to get only
                 notifications when a user changes state in respect to
-                logins). If notifications shall be generated in all
-                these conditions, NULL may be passed. Note that in the
-                future additional categories may be defined. The
-                second parameter returns a monitor object and needs to
-                be freed with the
+                logins) or <literal>machine</literal> (to get only
+                notifications when a virtual machine or container is
+                started or stopped). If notifications shall be
+                generated in all these conditions, NULL may be
+                passed. Note that in the future additional categories
+                may be defined. The second parameter returns a monitor
+                object and needs to be freed with the
                 <function>sd_login_monitor_unref()</function> call
                 after use.</para>
 
