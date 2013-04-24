@@ -143,6 +143,29 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--reverse</option></term>
+
+        <listitem>
+          <para>Show reverse dependencies between units with
+          <command>list-dependencies</command>, i.e. units with
+          dependencies of type <varname>Wants=</varname> or
+          <varname>Requires=</varname> on the given unit.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--after</option></term>
+        <term><option>--before</option></term>
+
+        <listitem>
+          <para>Show which units are started after, resp. before
+          with <command>list-dependencies</command>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--failed</option></term>
 
         <listitem>

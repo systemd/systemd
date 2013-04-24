@@ -12,6 +12,9 @@ _ctls()
                 {-t,--type=}'[List only units of a particular type]:unit type:(automount device mount path service snapshot socket swap target timer)' \
                 \*{-p,--property=}'[Show only properties by specific name]:unit property' \
                 {-a,--all}'[Show all units/properties, including dead/empty ones]' \
+                '--reverse[Show reverse dependencies]' \
+                '--after[Show units ordered after]' \
+                '--before[Show units ordered before]' \
                 '--failed[Show only failed units]' \
                 "--full[Don't ellipsize unit names on output]" \
                 '--fail[When queueing a new job, fail if conflicting jobs are pending]' \
@@ -348,6 +351,8 @@ _outputmodes() {
     "disable:Disable one or more unit files"
     "reenable:Reenable one or more unit files"
     "preset:Enable/disable one or more unit files based on preset configuration"
+    "help:Show documentation for specified units"
+    "list-dependencies:Show unit dependency tree"
     "mask:Mask one or more units"
     "unmask:Unmask one or more units"
     "link:Link one or more units files into the search path"
@@ -462,7 +467,7 @@ _systemctl_disabled_units(){_sys_disabled_units=($(__systemctl list-unit-files  
 _systemctl_masked_units()  {_sys_masked_units=(  $(__systemctl list-unit-files     | { while read a b; do [[ $b == "masked" ]] && echo " $a"; done; }) )}
 
 # Completion functions for ALL_UNITS
-for fun in is-active is-failed is-enabled status show mask preset ; do
+for fun in is-active is-failed is-enabled status show mask preset help list-dependencies ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     _systemctl_really_all_units

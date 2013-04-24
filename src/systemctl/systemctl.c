@@ -72,6 +72,12 @@ static char **arg_types = NULL;
 static char **arg_load_states = NULL;
 static char **arg_properties = NULL;
 static bool arg_all = false;
+static enum dependency {
+        DEPENDENCY_FORWARD,
+        DEPENDENCY_REVERSE,
+        DEPENDENCY_AFTER,
+        DEPENDENCY_BEFORE,
+} arg_dependency = DEPENDENCY_FORWARD;
 static const char *arg_job_mode = "replace";
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_no_block = false;
@@ -979,12 +985,19 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
 }
 
 static int list_dependencies_get_dependencies(DBusConnection *bus, const char *name, char ***deps) {
-        static const char dependencies[] =
-                "Requires\0"
-                "RequiresOverridable\0"
-                "Requisite\0"
-                "RequisiteOverridable\0"
-                "Wants\0";
+        static const char *dependencies[] = {
+                [DEPENDENCY_FORWARD] = "Requires\0"
+                                       "RequiresOverridable\0"
+                                       "Requisite\0"
+                                       "RequisiteOverridable\0"
+                                       "Wants\0",
+                [DEPENDENCY_REVERSE] = "RequiredBy\0"
+                                       "RequiredByOverridable\0"
+                                       "WantedBy\0"
+                                       "PartOf\0",
+                [DEPENDENCY_AFTER]   = "After\0",
+                [DEPENDENCY_BEFORE]  = "Before\0",
+        };
 
         _cleanup_free_ char *path;
         const char *interface = "org.freedesktop.systemd1.Unit";
@@ -1049,7 +1062,8 @@ static int list_dependencies_get_dependencies(DBusConnection *bus, const char *n
                 dbus_message_iter_recurse(&sub2, &sub3);
                 dbus_message_iter_next(&sub);
 
-                if (!nulstr_contains(dependencies, prop))
+                assert(arg_dependency < ELEMENTSOF(dependencies));
+                if (!nulstr_contains(dependencies[arg_dependency], prop))
                         continue;
 
                 if (dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_ARRAY) {
@@ -4479,6 +4493,7 @@ static int systemctl_help(void) {
                "  -a --all            Show all loaded units/properties, including dead/empty\n"
                "                      ones. To list all units installed on the system, use\n"
                "                      the 'list-unit-files' command instead.\n"
+               "     --reverse        Show reverse dependencies with 'list-dependencies'\n"
                "     --failed         Show only failed units\n"
                "     --full           Don't ellipsize unit names on output\n"
                "     --fail           When queueing a new job, fail if conflicting jobs are\n"
@@ -4544,7 +4559,8 @@ static int systemctl_help(void) {
                "  unset-cgroup [NAME] [CGROUP...] Remove unit from a control group\n"
                "  load [NAME...]                  Load one or more units\n"
                "  list-dependencies [NAME]        Recursively show units which are required\n"
-               "                                  or wanted by this unit\n\n"
+               "                                  or wanted by this unit or by which this\n"
+               "                                  unit is required or wanted\n\n"
                "Unit File Commands:\n"
                "  list-unit-files                 List installed unit files\n"
                "  enable [NAME...]                Enable one or more unit files\n"
@@ -4680,6 +4696,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_FAIL = 0x100,
+                ARG_REVERSE,
+                ARG_AFTER,
+                ARG_BEFORE,
                 ARG_SHOW_TYPES,
                 ARG_IRREVERSIBLE,
                 ARG_IGNORE_DEPENDENCIES,
@@ -4707,6 +4726,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "type",      required_argument, NULL, 't'           },
                 { "property",  required_argument, NULL, 'p'           },
                 { "all",       no_argument,       NULL, 'a'           },
+                { "reverse",   no_argument,       NULL, ARG_REVERSE   },
+                { "after",     no_argument,       NULL, ARG_AFTER     },
+                { "before",    no_argument,       NULL, ARG_BEFORE    },
                 { "show-types", no_argument,      NULL, ARG_SHOW_TYPES },
                 { "failed",    no_argument,       NULL, ARG_FAILED    },
                 { "full",      no_argument,       NULL, ARG_FULL      },
@@ -4827,6 +4849,18 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 'a':
                         arg_all = true;
+                        break;
+
+                case ARG_REVERSE:
+                        arg_dependency = DEPENDENCY_REVERSE;
+                        break;
+
+                case ARG_AFTER:
+                        arg_dependency = DEPENDENCY_AFTER;
+                        break;
+
+                case ARG_BEFORE:
+                        arg_dependency = DEPENDENCY_BEFORE;
                         break;
 
                 case ARG_SHOW_TYPES:
