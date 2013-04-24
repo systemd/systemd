@@ -44,6 +44,7 @@
  * read() overhead.
  */
 static char smaps_buf[4096];
+static int skip = 0;
 DIR *proc;
 int procfd = -1;
 
@@ -111,7 +112,7 @@ static int pid_cmdline_strscpy(char *buffer, size_t buf_len, int pid) {
         return 0;
 }
 
-void log_sample(int sample) {
+void log_sample(int sample, struct list_sample_data **ptr) {
         static int vmstat;
         static int schedstat;
         char buf[4096];
@@ -128,6 +129,12 @@ void log_sample(int sample) {
         ssize_t n;
         struct dirent *ent;
         int fd;
+        struct list_sample_data *sampledata;
+        struct ps_sched_struct *ps_prev = NULL;
+
+
+
+        sampledata = *ptr;
 
         /* all the per-process stuff goes here */
         if (!proc) {
@@ -161,9 +168,9 @@ void log_sample(int sample) {
                 if (sscanf(m, "%s %s", key, val) < 2)
                         goto vmstat_next;
                 if (streq(key, "pgpgin"))
-                        blockstat[sample].bi = atoi(val);
+                        sampledata->blockstat.bi = atoi(val);
                 if (streq(key, "pgpgout")) {
-                        blockstat[sample].bo = atoi(val);
+                        sampledata->blockstat.bo = atoi(val);
                         break;
                 }
 vmstat_next:
@@ -198,8 +205,8 @@ vmstat_next:
                         if (c > MAXCPUS)
                                 /* Oops, we only have room for MAXCPUS data */
                                 break;
-                        cpustat[c].sample[sample].runtime = atoll(rt);
-                        cpustat[c].sample[sample].waittime = atoll(wt);
+                        sampledata->runtime[c] = atoll(rt);
+                        sampledata->waittime[c] = atoll(wt);
 
                         if (c == cpus)
                                 cpus = c + 1;
@@ -219,7 +226,7 @@ schedstat_next:
                         n = pread(e_fd, buf, sizeof(buf) - 1, 0);
                         if (n > 0) {
                                 buf[n] = '\0';
-                                entropy_avail[sample] = atoi(buf);
+                                sampledata->entropy_avail = atoi(buf);
                         }
                 }
         }
@@ -258,16 +265,19 @@ schedstat_next:
                         ps = ps->next_ps;
                         ps->pid = pid;
 
-                        ps->sample = calloc(arg_samples_len + 1, sizeof(struct ps_sched_struct));
+                        ps->sample = calloc(1, sizeof(struct ps_sched_struct));
                         if (!ps->sample) {
                                 perror("calloc(ps_struct)");
                                 exit (EXIT_FAILURE);
                         }
+                        ps->sample->sampledata = sampledata;
 
                         pscount++;
 
                         /* mark our first sample */
-                        ps->first = sample;
+                        ps->first = ps->sample;
+                        ps->sample->runtime = atoll(rt);
+                        ps->sample->waittime = atoll(wt);
 
                         /* get name, start time */
                         if (!ps->sched) {
@@ -383,16 +393,28 @@ schedstat_next:
                 if (!sscanf(buf, "%s %s %*s", rt, wt))
                         continue;
 
-                ps->last = sample;
-                ps->sample[sample].runtime = atoll(rt);
-                ps->sample[sample].waittime = atoll(wt);
-
-                ps->total = (ps->sample[ps->last].runtime
-                                 - ps->sample[ps->first].runtime)
-                                 / 1000000000.0;
+                ps->sample->next = calloc(1, sizeof(struct ps_sched_struct));
+                if (!ps->sample) {
+                        perror("calloc(ps_struct)");
+                        exit (EXIT_FAILURE);
+                }
+                ps->sample->next->prev = ps->sample;
+                ps->sample = ps->sample->next;
+                ps->last = ps->sample;
+                ps->sample->runtime = atoll(rt);
+                ps->sample->waittime = atoll(wt);
+                ps->sample->sampledata = sampledata;
+                ps->sample->ps_new = ps;
+                if (ps_prev) {
+                        ps_prev->cross = ps->sample;
+                }
+                ps_prev = ps->sample;
+                ps->total = (ps->last->runtime - ps->first->runtime)
+                            / 1000000000.0;
 
                 if (!arg_pss)
                         goto catch_rename;
+
                 /* Pss */
                 if (!ps->smaps) {
                         sprintf(filename, "%d/smaps", pid);
@@ -401,31 +423,53 @@ schedstat_next:
                         if (!ps->smaps)
                                 continue;
                         setvbuf(ps->smaps, smaps_buf, _IOFBF, sizeof(smaps_buf));
-                } else {
+                }
+                else {
                         rewind(ps->smaps);
                 }
-
+                /* test to see if we need to skip another field */
+                if (skip == 0) {
+                        if (fgets(buf, sizeof(buf), ps->smaps) == NULL) {
+                                continue;
+                        }
+                        if (fread(buf, 1, 28 * 15, ps->smaps) != (28 * 15)) {
+                                continue;
+                        }
+                        if (buf[392] == 'V') {
+                                skip = 2;
+                        }
+                        else {
+                                skip = 1;
+                        }
+                        rewind(ps->smaps);
+                }
                 while (1) {
                         int pss_kb;
 
-                        /* skip one line, this contains the object mapped */
-                        if (fgets(buf, sizeof(buf), ps->smaps) == NULL)
+                        /* skip one line, this contains the object mapped. */
+                        if (fgets(buf, sizeof(buf), ps->smaps) == NULL) {
                                 break;
+                        }
                         /* then there's a 28 char 14 line block */
-                        if (fread(buf, 1, 28 * 14, ps->smaps) != 28 * 14)
+                        if (fread(buf, 1, 28 * 14, ps->smaps) != 28 * 14) {
                                 break;
-
+                        }
                         pss_kb = atoi(&buf[61]);
-                        ps->sample[sample].pss += pss_kb;
-                }
+                        ps->sample->pss += pss_kb;
 
-                if (ps->sample[sample].pss > ps->pss_max)
-                        ps->pss_max = ps->sample[sample].pss;
+                        /* skip one more line if this is a newer kernel */
+                        if (skip == 2) {
+                               if (fgets(buf, sizeof(buf), ps->smaps) == NULL)
+                                       break;
+                        }
+                }
+                if (ps->sample->pss > ps->pss_max)
+                        ps->pss_max = ps->sample->pss;
 
 catch_rename:
                 /* catch process rename, try to randomize time */
                 mod = (arg_hz < 4.0) ? 4.0 : (arg_hz / 4.0);
-                if (((samples - ps->first) + pid) % (int)(mod) == 0) {
+                if (((samples - ps->pid) + pid) % (int)(mod) == 0) {
 
                         /* re-fetch name */
                         /* get name, start time */

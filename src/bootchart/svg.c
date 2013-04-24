@@ -38,6 +38,7 @@
 #include "store.h"
 #include "svg.h"
 #include "bootchart.h"
+#include "list.h"
 
 #define time_to_graph(t) ((t) * arg_scale_x)
 #define ps_to_graph(n) ((n) * arg_scale_y)
@@ -70,13 +71,24 @@ static int kcount = 0;
 static float psize = 0;
 static float ksize = 0;
 static float esize = 0;
+static struct list_sample_data *sampledata;
+static struct list_sample_data *prev_sampledata;
+extern struct list_sample_data *head;
 
 static void svg_header(void) {
         float w;
         float h;
+        struct list_sample_data *sampledata_last;
+
+        sampledata = head;
+        LIST_FIND_TAIL(struct list_sample_data, link, sampledata, head);
+        sampledata_last = head;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
+                sampledata_last = sampledata;
+        }
 
         /* min width is about 1600px due to the label */
-        w = 150.0 + 10.0 + time_to_graph(sampletime[samples-1] - graph_start);
+        w = 150.0 + 10.0 + time_to_graph(sampledata_last->sampletime - graph_start);
         w = ((w < 1600.0) ? 1600.0 : w);
 
         /* height is variable based on pss, psize, ksize */
@@ -223,14 +235,23 @@ static void svg_title(const char *build) {
 static void svg_graph_box(int height) {
         double d = 0.0;
         int i = 0;
+        double finalsample = 0.0;
+        struct list_sample_data *sampledata_last;
+
+        sampledata_last = head;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
+                sampledata_last = sampledata;
+        }
+
+        finalsample = sampledata_last->sampletime;
 
         /* outside box, fill */
         svg("<rect class=\"box\" x=\"%.03f\" y=\"0\" width=\"%.03f\" height=\"%.03f\" />\n",
             time_to_graph(0.0),
-            time_to_graph(sampletime[samples-1] - graph_start),
+            time_to_graph(finalsample - graph_start),
             ps_to_graph(height));
 
-        for (d = graph_start; d <= sampletime[samples-1];
+        for (d = graph_start; d <= finalsample;
              d += (arg_scale_x < 2.0 ? 60.0 : arg_scale_x < 10.0 ? 1.0 : 0.1)) {
                 /* lines for each second */
                 if (i % 50 == 0)
@@ -278,6 +299,13 @@ static char* xml_comment_encode(const char* name) {
 static void svg_pss_graph(void) {
         struct ps_struct *ps;
         int i;
+        struct list_sample_data *sampledata_last;
+
+        sampledata_last = head;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
+                sampledata_last = sampledata;
+        }
+
 
         svg("\n\n<!-- Pss memory size graph -->\n");
 
@@ -290,18 +318,21 @@ static void svg_pss_graph(void) {
                 svg("  <line class=\"sec01\" x1=\"%.03f\" y1=\"%.0f\" x2=\"%.03f\" y2=\"%.0f\"/>\n",
                         time_to_graph(.0),
                         kb_to_graph(i),
-                        time_to_graph(sampletime[samples-1] - graph_start),
+                        time_to_graph(sampledata_last->sampletime - graph_start),
                         kb_to_graph(i));
                 svg("  <text class=\"sec\" x=\"%.03f\" y=\"%.0f\">%dM</text>\n",
-                    time_to_graph(sampletime[samples-1] - graph_start) + 5,
+                    time_to_graph(sampledata_last->sampletime - graph_start) + 5,
                     kb_to_graph(i), (1000000 - i) / 1000);
         }
         svg("\n");
 
         /* now plot the graph itself */
-        for (i = 1; i < samples ; i++) {
+        i = 1;
+        prev_sampledata = head;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
                 int bottom;
                 int top;
+                struct ps_sched_struct *cross_place;
 
                 bottom = 0;
                 top = 0;
@@ -312,16 +343,32 @@ static void svg_pss_graph(void) {
                         ps = ps->next_ps;
                         if (!ps)
                                 continue;
-                        if (ps->sample[i].pss <= (100 * arg_scale_y))
-                                top += ps->sample[i].pss;
-                };
+                        ps->sample = ps->first;
+                        while (ps->sample->next) {
+                                ps->sample = ps->sample->next;
+                                if (ps->sample->sampledata == sampledata)
+                                        break;
+                        }
+                        if (ps->sample->sampledata == sampledata) {
+                                if (ps->sample->pss <= (100 * arg_scale_y))
+                                        top += ps->sample->pss;
+                                break;
+                        }
+                }
+                while (ps->sample->cross) {
+                        cross_place = ps->sample->cross;
+                        ps = ps->sample->cross->ps_new;
+                        ps->sample = cross_place;
+                        if (ps->sample->pss <= (100 * arg_scale_y))
+                                top += ps->sample->pss;
+                }
+
                 svg("    <rect class=\"clrw\" style=\"fill: %s\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
                     "rgb(64,64,64)",
-                    time_to_graph(sampletime[i - 1] - graph_start),
+                    time_to_graph(prev_sampledata->sampletime - graph_start),
                     kb_to_graph(1000000.0 - top),
-                    time_to_graph(sampletime[i] - sampletime[i - 1]),
+                    time_to_graph(sampledata->sampletime - prev_sampledata->sampletime),
                     kb_to_graph(top - bottom));
-
                 bottom = top;
 
                 /* now plot the ones that are of significant size */
@@ -330,59 +377,129 @@ static void svg_pss_graph(void) {
                         ps = ps->next_ps;
                         if (!ps)
                                 continue;
+                        ps->sample = ps->first;
+                        while (ps->sample->next) {
+                                ps->sample = ps->sample->next;
+                                if (ps->sample->sampledata == sampledata)
+                                        break;
+                        }
                         /* don't draw anything smaller than 2mb */
-                        if (ps->sample[i].pss > (100 * arg_scale_y)) {
-                                top = bottom + ps->sample[i].pss;
+                        if (ps->sample->sampledata == sampledata) {
+                                if (ps->sample->pss > (100 * arg_scale_y)) {
+                                top = bottom + ps->sample->pss;
                                 svg("    <rect class=\"clrw\" style=\"fill: %s\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
-                                    colorwheel[ps->pid % 12],
-                                    time_to_graph(sampletime[i - 1] - graph_start),
-                                    kb_to_graph(1000000.0 - top),
-                                    time_to_graph(sampletime[i] - sampletime[i - 1]),
-                                    kb_to_graph(top - bottom));
+                                  colorwheel[ps->pid % 12],
+                                  time_to_graph(prev_sampledata->sampletime - graph_start),
+                                  kb_to_graph(1000000.0 - top),
+                                  time_to_graph(sampledata->sampletime - prev_sampledata->sampletime),
+                                  kb_to_graph(top - bottom));
+                                bottom = top;
+                                }
+                                break;
+                        }
+                }
+                while ((cross_place = ps->sample->cross)) {
+                        ps = ps->sample->cross->ps_new;
+                        ps->sample = cross_place;
+                        if (ps->sample->pss > (100 * arg_scale_y)) {
+                                top = bottom + ps->sample->pss;
+                                svg("    <rect class=\"clrw\" style=\"fill: %s\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
+                                  colorwheel[ps->pid % 12],
+                                  time_to_graph(prev_sampledata->sampletime - graph_start),
+                                  kb_to_graph(1000000.0 - top),
+                                  time_to_graph(sampledata->sampletime - prev_sampledata->sampletime),
+                                  kb_to_graph(top - bottom));
                                 bottom = top;
                         }
                 }
+                prev_sampledata = sampledata;
+                i++;
         }
 
         /* overlay all the text labels */
-        for (i = 1; i < samples ; i++) {
+        i = 1;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
                 int bottom;
                 int top;
+                struct ps_sched_struct *prev_sample;
+                struct ps_sched_struct *cross_place;
 
                 bottom = 0;
                 top = 0;
 
                 /* put all the small pss blocks into the bottom */
-                ps = ps_first;
+                ps = ps_first->next_ps;
                 while (ps->next_ps) {
                         ps = ps->next_ps;
                         if (!ps)
                                 continue;
-                        if (ps->sample[i].pss <= (100 * arg_scale_y))
-                                top += ps->sample[i].pss;
-                };
-
+                        ps->sample = ps->first;
+                        while (ps->sample->next) {
+                                ps->sample = ps->sample->next;
+                                if (ps->sample->sampledata == sampledata)
+                                        break;
+                        }
+                        if (ps->sample->sampledata == sampledata) {
+                                if (ps->sample->pss <= (100 * arg_scale_y))
+                                        top += ps->sample->pss;
+                                break;
+                        }
+                }
+                while ((cross_place = ps->sample->cross)) {
+                        ps = ps->sample->cross->ps_new;
+                        ps->sample = cross_place;
+                        if (ps->sample->pss <= (100 * arg_scale_y))
+                                top += ps->sample->pss;
+                }
                 bottom = top;
 
                 /* now plot the ones that are of significant size */
                 ps = ps_first;
                 while (ps->next_ps) {
+                        prev_sample = ps->sample;
                         ps = ps->next_ps;
                         if (!ps)
                                 continue;
+                        ps->sample = ps->first;
+                        while (ps->sample->next) {
+                                prev_sample = ps->sample;
+                                ps->sample = ps->sample->next;
+                                if (ps->sample->sampledata == sampledata)
+                                        break;
+                        }
                         /* don't draw anything smaller than 2mb */
-                        if (ps->sample[i].pss > (100 * arg_scale_y)) {
-                                top = bottom + ps->sample[i].pss;
+                        if (ps->sample->sampledata == sampledata) {
+                                if (ps->sample->pss > (100 * arg_scale_y)) {
+                                        top = bottom + ps->sample->pss;
+                                        /* draw a label with the process / PID */
+                                        if ((i == 1) || (prev_sample->pss <= (100 * arg_scale_y)))
+                                                svg("  <text x=\"%.03f\" y=\"%.03f\"><![CDATA[%s]]> [%i]</text>\n",
+                                                    time_to_graph(sampledata->sampletime - graph_start),
+                                                    kb_to_graph(1000000.0 - bottom - ((top -  bottom) / 2)),
+                                                    ps->name,
+                                                    ps->pid);
+                                        bottom = top;
+                                }
+                                break;
+                        }
+                }
+                while ((cross_place = ps->sample->cross)) {
+                        ps = ps->sample->cross->ps_new;
+                        ps->sample = cross_place;
+                        prev_sample = ps->sample->prev;
+                        if (ps->sample->pss > (100 * arg_scale_y)) {
+                                top = bottom + ps->sample->pss;
                                 /* draw a label with the process / PID */
-                                if ((i == 1) || (ps->sample[i - 1].pss <= (100 * arg_scale_y)))
+                                if ((i == 1) || (prev_sample->pss <= (100 * arg_scale_y)))
                                         svg("  <text x=\"%.03f\" y=\"%.03f\"><![CDATA[%s]]> [%i]</text>\n",
-                                            time_to_graph(sampletime[i] - graph_start),
+                                            time_to_graph(sampledata->sampletime - graph_start),
                                             kb_to_graph(1000000.0 - bottom - ((top -  bottom) / 2)),
                                             ps->name,
                                             ps->pid);
                                 bottom = top;
                         }
                 }
+                i++;
         }
 
         /* debug output - full data dump */
@@ -400,8 +517,10 @@ static void svg_pss_graph(void) {
 
                 svg("<!-- %s [%d] pss=", enc_name, ps->pid);
 
-                for (i = 0; i < samples ; i++) {
-                        svg("%d," , ps->sample[i].pss);
+                ps->sample = ps->first;
+                while (ps->sample->next) {
+                        ps->sample = ps->sample->next;
+                        svg("%d," , ps->sample->pss);
                 }
                 svg(" -->\n");
         }
@@ -413,6 +532,9 @@ static void svg_io_bi_bar(void) {
         double range;
         int max_here = 0;
         int i;
+        int k;
+        struct list_sample_data *start_sampledata = sampledata;
+        struct list_sample_data *stop_sampledata = sampledata;
 
         svg("<!-- IO utilization graph - In -->\n");
 
@@ -433,54 +555,89 @@ static void svg_io_bi_bar(void) {
         svg_graph_box(5);
 
         /* find the max IO first */
-        for (i = 1; i < samples; i++) {
+        i = 1;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
                 int start;
                 int stop;
+                int diff;
                 double tot;
 
                 start = MAX(i - ((range / 2) - 1), 0);
                 stop = MIN(i + (range / 2), samples - 1);
+                diff = (stop - start);
 
-                tot = (double)(blockstat[stop].bi - blockstat[start].bi)
-                      / (stop - start);
+                start_sampledata = sampledata;
+                stop_sampledata = sampledata;
+
+                for (k=0;(k<((range/2)-1))&&(start_sampledata->link_next);k++)
+                        start_sampledata = start_sampledata->link_next;
+                for (k=0;(k<(range/2))&&(stop_sampledata->link_prev);k++)
+                        stop_sampledata = stop_sampledata->link_prev;
+
+                tot = (double)(stop_sampledata->blockstat.bi - start_sampledata->blockstat.bi)
+                        / diff;
+
                 if (tot > max) {
                         max = tot;
                         max_here = i;
                 }
-                tot = (double)(blockstat[stop].bo - blockstat[start].bo)
-                      / (stop - start);
+
+                tot = (double)(stop_sampledata->blockstat.bo - start_sampledata->blockstat.bo)
+                        / diff;
+
                 if (tot > max)
                         max = tot;
+
+                i++;
         }
 
         /* plot bi */
-        for (i = 1; i < samples; i++) {
+        i = 1;
+        prev_sampledata = head;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
                 int start;
                 int stop;
+                int diff;
                 double tot;
                 double pbi;
 
+                tot = 0;
+                pbi = 0;
+
                 start = MAX(i - ((range / 2) - 1), 0);
                 stop = MIN(i + (range / 2), samples);
+                diff = (stop - start);
 
-                tot = (double)(blockstat[stop].bi - blockstat[start].bi)
-                      / (stop - start);
-                pbi = tot / max;
+                start_sampledata = sampledata;
+                stop_sampledata = sampledata;
+
+                for (k=0;(k<((range/2)-1))&&(start_sampledata->link_next);k++)
+                        start_sampledata = start_sampledata->link_next;
+                for (k=0;(k<(range/2))&&(stop_sampledata->link_prev);k++)
+                        stop_sampledata = stop_sampledata->link_prev;
+
+                tot = (double)(stop_sampledata->blockstat.bi - start_sampledata->blockstat.bi)
+                        / diff;
+
+                if (max > 0)
+                        pbi = tot / max;
 
                 if (pbi > 0.001)
                         svg("<rect class=\"bi\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
-                            time_to_graph(sampletime[i - 1] - graph_start),
+                            time_to_graph(prev_sampledata->sampletime - graph_start),
                             (arg_scale_y * 5) - (pbi * (arg_scale_y * 5)),
-                            time_to_graph(sampletime[i] - sampletime[i - 1]),
+                            time_to_graph(sampledata->sampletime - prev_sampledata->sampletime),
                             pbi * (arg_scale_y * 5));
 
                 /* labels around highest value */
                 if (i == max_here) {
                         svg("  <text class=\"sec\" x=\"%.03f\" y=\"%.03f\">%0.2fmb/sec</text>\n",
-                            time_to_graph(sampletime[i] - graph_start) + 5,
+                            time_to_graph(sampledata->sampletime - graph_start) + 5,
                             ((arg_scale_y * 5) - (pbi * (arg_scale_y * 5))) + 15,
                             max / 1024.0 / (interval / 1000000000.0));
                 }
+                i++;
+                prev_sampledata = sampledata;
         }
 }
 
@@ -489,6 +646,9 @@ static void svg_io_bo_bar(void) {
         double range;
         int max_here = 0;
         int i;
+        int k;
+        struct list_sample_data *start_sampledata = sampledata;
+        struct list_sample_data *stop_sampledata = sampledata;
 
         svg("<!-- IO utilization graph - out -->\n");
 
@@ -509,59 +669,89 @@ static void svg_io_bo_bar(void) {
         svg_graph_box(5);
 
         /* find the max IO first */
-        for (i = 1; i < samples; i++) {
+        i = 0;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
                 int start;
                 int stop;
+                int diff;
                 double tot;
 
                 start = MAX(i - ((range / 2) - 1), 0);
                 stop = MIN(i + (range / 2), samples - 1);
+                diff = (stop - start);
 
-                tot = (double)(blockstat[stop].bi - blockstat[start].bi)
-                      / (stop - start);
+                start_sampledata = sampledata;
+                stop_sampledata = sampledata;
+
+                for (k=0;(k<((range/2)-1))&&(start_sampledata->link_next);k++)
+                        start_sampledata = start_sampledata->link_next;
+                for (k=0;(k<(range/2))&&(stop_sampledata->link_prev);k++)
+                        stop_sampledata = stop_sampledata->link_prev;
+
+                tot = (double)(stop_sampledata->blockstat.bi - start_sampledata->blockstat.bi)
+                        / diff;
                 if (tot > max)
                         max = tot;
-                tot = (double)(blockstat[stop].bo - blockstat[start].bo)
-                      / (stop - start);
+                tot = (double)(stop_sampledata->blockstat.bo - start_sampledata->blockstat.bo)
+                        / diff;
                 if (tot > max) {
                         max = tot;
                         max_here = i;
                 }
+                i++;
         }
 
         /* plot bo */
-        for (i = 1; i < samples; i++) {
+        prev_sampledata = head;
+        i=1;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
                 int start;
                 int stop;
+                int diff;
                 double tot;
                 double pbo;
 
+                tot = 0;
+                pbo = 0;
+
                 start = MAX(i - ((range / 2) - 1), 0);
                 stop = MIN(i + (range / 2), samples);
+                diff = (stop - start);
 
-                tot = (double)(blockstat[stop].bo - blockstat[start].bo)
-                      / (stop - start);
-                pbo = tot / max;
+                start_sampledata = sampledata;
+                stop_sampledata = sampledata;
+
+                for (k=0;(k<((range/2)-1))&&(start_sampledata->link_next);k++)
+                        start_sampledata = start_sampledata->link_next;
+                for (k=0;(k<(range/2))&&(stop_sampledata->link_prev);k++)
+                        stop_sampledata = stop_sampledata->link_prev;
+
+                tot = (double)(stop_sampledata->blockstat.bo - start_sampledata->blockstat.bo)
+                        / diff;
+
+                if (max > 0)
+                        pbo = tot / max;
 
                 if (pbo > 0.001)
                         svg("<rect class=\"bo\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
-                            time_to_graph(sampletime[i - 1] - graph_start),
+                            time_to_graph(prev_sampledata->sampletime - graph_start),
                             (arg_scale_y * 5) - (pbo * (arg_scale_y * 5)),
-                            time_to_graph(sampletime[i] - sampletime[i - 1]),
+                            time_to_graph(sampledata->sampletime - prev_sampledata->sampletime),
                             pbo * (arg_scale_y * 5));
 
                 /* labels around highest bo value */
                 if (i == max_here) {
                         svg("  <text class=\"sec\" x=\"%.03f\" y=\"%.03f\">%0.2fmb/sec</text>\n",
-                            time_to_graph(sampletime[i] - graph_start) + 5,
+                            time_to_graph(sampledata->sampletime - graph_start) + 5,
                             ((arg_scale_y * 5) - (pbo * (arg_scale_y * 5))),
                             max / 1024.0 / (interval / 1000000000.0));
                 }
+                i++;
+                prev_sampledata = sampledata;
         }
 }
 
 static void svg_cpu_bar(void) {
-        int i;
 
         svg("<!-- CPU utilization graph -->\n");
 
@@ -570,7 +760,8 @@ static void svg_cpu_bar(void) {
         svg_graph_box(5);
 
         /* bars for each sample, proportional to the CPU util. */
-        for (i = 1; i < samples; i++) {
+        prev_sampledata = head;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
                 int c;
                 double trt;
                 double ptrt;
@@ -578,30 +769,30 @@ static void svg_cpu_bar(void) {
                 ptrt = trt = 0.0;
 
                 for (c = 0; c < cpus; c++)
-                        trt += cpustat[c].sample[i].runtime - cpustat[c].sample[i - 1].runtime;
+                        trt += sampledata->runtime[c] - prev_sampledata->runtime[c];
 
                 trt = trt / 1000000000.0;
 
                 trt = trt / (double)cpus;
 
                 if (trt > 0.0)
-                        ptrt = trt / (sampletime[i] - sampletime[i - 1]);
+                        ptrt = trt / (sampledata->sampletime - prev_sampledata->sampletime);
 
                 if (ptrt > 1.0)
                         ptrt = 1.0;
 
                 if (ptrt > 0.001) {
                         svg("<rect class=\"cpu\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
-                            time_to_graph(sampletime[i - 1] - graph_start),
+                            time_to_graph(prev_sampledata->sampletime - graph_start),
                             (arg_scale_y * 5) - (ptrt * (arg_scale_y * 5)),
-                            time_to_graph(sampletime[i] - sampletime[i - 1]),
+                            time_to_graph(sampledata->sampletime - prev_sampledata->sampletime),
                             ptrt * (arg_scale_y * 5));
                 }
+                prev_sampledata = sampledata;
         }
 }
 
 static void svg_wait_bar(void) {
-        int i;
 
         svg("<!-- Wait time aggregation box -->\n");
 
@@ -611,7 +802,8 @@ static void svg_wait_bar(void) {
         svg_graph_box(5);
 
         /* bars for each sample, proportional to the CPU util. */
-        for (i = 1; i < samples; i++) {
+        prev_sampledata = head;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
                 int c;
                 double twt;
                 double ptwt;
@@ -619,31 +811,31 @@ static void svg_wait_bar(void) {
                 ptwt = twt = 0.0;
 
                 for (c = 0; c < cpus; c++)
-                        twt += cpustat[c].sample[i].waittime - cpustat[c].sample[i - 1].waittime;
+                        twt += sampledata->waittime[c] - prev_sampledata->waittime[c];
 
                 twt = twt / 1000000000.0;
 
                 twt = twt / (double)cpus;
 
                 if (twt > 0.0)
-                        ptwt = twt / (sampletime[i] - sampletime[i - 1]);
+                        ptwt = twt / (sampledata->sampletime - prev_sampledata->sampletime);
 
                 if (ptwt > 1.0)
                         ptwt = 1.0;
 
                 if (ptwt > 0.001) {
                         svg("<rect class=\"wait\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
-                            time_to_graph(sampletime[i - 1] - graph_start),
+                            time_to_graph(prev_sampledata->sampletime - graph_start),
                             ((arg_scale_y * 5) - (ptwt * (arg_scale_y * 5))),
-                            time_to_graph(sampletime[i] - sampletime[i - 1]),
+                            time_to_graph(sampledata->sampletime - prev_sampledata->sampletime),
                             ptwt * (arg_scale_y * 5));
                 }
+                prev_sampledata = sampledata;
         }
 }
 
 
 static void svg_entropy_bar(void) {
-        int i;
 
         svg("<!-- entropy pool graph -->\n");
 
@@ -652,13 +844,15 @@ static void svg_entropy_bar(void) {
         svg_graph_box(5);
 
         /* bars for each sample, scale 0-4096 */
-        for (i = 1; i < samples; i++) {
+        prev_sampledata = head;
+        LIST_FOREACH_BEFORE(link, sampledata, head) {
                 /* svg("<!-- entropy %.03f %i -->\n", sampletime[i], entropy_avail[i]); */
                 svg("<rect class=\"cpu\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
-                    time_to_graph(sampletime[i - 1] - graph_start),
-                    ((arg_scale_y * 5) - ((entropy_avail[i] / 4096.) * (arg_scale_y * 5))),
-                    time_to_graph(sampletime[i] - sampletime[i - 1]),
-                    (entropy_avail[i] / 4096.) * (arg_scale_y * 5));
+                    time_to_graph(prev_sampledata->sampletime - graph_start),
+                    ((arg_scale_y * 5) - ((sampledata->entropy_avail / 4096.) * (arg_scale_y * 5))),
+                    time_to_graph(sampledata->sampletime - prev_sampledata->sampletime),
+                    (sampledata->entropy_avail / 4096.) * (arg_scale_y * 5));
+                prev_sampledata = sampledata;
         }
 }
 
@@ -802,8 +996,8 @@ static void svg_ps_bars(void) {
         struct ps_struct *ps;
         int i = 0;
         int j = 0;
-        int w;
         int pid;
+        double w = 0.0;
 
         svg("<!-- Process graph -->\n");
 
@@ -816,7 +1010,7 @@ static void svg_ps_bars(void) {
         ps = ps_first;
         while ((ps = get_next_ps(ps))) {
                 _cleanup_free_ char *enc_name = NULL;
-
+                double endtime;
                 double starttime;
                 int t;
 
@@ -828,15 +1022,13 @@ static void svg_ps_bars(void) {
                 svg("<!-- %s [%i] ppid=%i runtime=%.03fs -->\n", enc_name, ps->pid,
                     ps->ppid, ps->total);
 
-                /* it would be nice if we could use exec_start from /proc/pid/sched,
-                 * but it's unreliable and gives bogus numbers */
-                starttime = sampletime[ps->first];
+                starttime = ps->first->sampledata->sampletime;
 
                 if (!ps_filter(ps)) {
                         /* remember where _to_ our children need to draw a line */
                         ps->pos_x = time_to_graph(starttime - graph_start);
                         ps->pos_y = ps_to_graph(j+1); /* bottom left corner */
-                } else {
+                } else if (ps->parent){
                         /* hook children to our parent coords instead */
                         ps->pos_x = ps->parent->pos_x;
                         ps->pos_y = ps->parent->pos_y;
@@ -851,23 +1043,30 @@ static void svg_ps_bars(void) {
                         continue;
                 }
 
+                endtime = ps->last->sampledata->sampletime;
                 svg("  <rect class=\"ps\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
                     time_to_graph(starttime - graph_start),
                     ps_to_graph(j),
-                    time_to_graph(sampletime[ps->last] - starttime),
+                    time_to_graph(ps->last->sampledata->sampletime - starttime),
                     ps_to_graph(1));
 
                 /* paint cpu load over these */
-                for (t = ps->first + 1; t < ps->last; t++) {
+                ps->sample = ps->first;
+                t = 1;
+                while (ps->sample->next) {
                         double rt, prt;
                         double wt, wrt;
+                        struct ps_sched_struct *prev;
+
+                        prev = ps->sample;
+                        ps->sample = ps->sample->next;
 
                         /* calculate over interval */
-                        rt = ps->sample[t].runtime - ps->sample[t-1].runtime;
-                        wt = ps->sample[t].waittime - ps->sample[t-1].waittime;
+                        rt = ps->sample->runtime - prev->runtime;
+                        wt = ps->sample->waittime - prev->waittime;
 
-                        prt = (rt / 1000000000) / (sampletime[t] - sampletime[t-1]);
-                        wrt = (wt / 1000000000) / (sampletime[t] - sampletime[t-1]);
+                        prt = (rt / 1000000000) / (ps->sample->sampledata->sampletime - prev->sampledata->sampletime);
+                        wrt = (wt / 1000000000) / (ps->sample->sampledata->sampletime - prev->sampledata->sampletime);
 
                         /* this can happen if timekeeping isn't accurate enough */
                         if (prt > 1.0)
@@ -879,33 +1078,34 @@ static void svg_ps_bars(void) {
                                 continue;
 
                         svg("    <rect class=\"wait\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
-                            time_to_graph(sampletime[t - 1] - graph_start),
+                            time_to_graph(prev->sampledata->sampletime - graph_start),
                             ps_to_graph(j),
-                            time_to_graph(sampletime[t] - sampletime[t - 1]),
+                            time_to_graph(ps->sample->sampledata->sampletime - prev->sampledata->sampletime),
                             ps_to_graph(wrt));
 
                         /* draw cpu over wait - TODO figure out how/why run + wait > interval */
                         svg("    <rect class=\"cpu\" x=\"%.03f\" y=\"%.03f\" width=\"%.03f\" height=\"%.03f\" />\n",
-                            time_to_graph(sampletime[t - 1] - graph_start),
+                            time_to_graph(prev->sampledata->sampletime - graph_start),
                             ps_to_graph(j + (1.0 - prt)),
-                            time_to_graph(sampletime[t] - sampletime[t - 1]),
+                            time_to_graph(ps->sample->sampledata->sampletime - prev->sampledata->sampletime),
                             ps_to_graph(prt));
+                        t++;
                 }
 
                 /* determine where to display the process name */
-                if (sampletime[ps->last] - sampletime[ps->first] < 1.5)
+                if ((endtime - starttime) < 1.5)
                         /* too small to fit label inside the box */
-                        w = ps->last;
+                        w = endtime;
                 else
-                        w = ps->first;
+                        w = starttime;
 
                 /* text label of process name */
                 svg("  <text x=\"%.03f\" y=\"%.03f\"><![CDATA[%s]]> [%i]<tspan class=\"run\">%.03fs</tspan></text>\n",
-                    time_to_graph(sampletime[w] - graph_start) + 5.0,
+                    time_to_graph(w - graph_start) + 5.0,
                     ps_to_graph(j) + 14.0,
                     ps->name,
                     ps->pid,
-                    (ps->sample[ps->last].runtime - ps->sample[ps->first].runtime) / 1000000000.0);
+                    (ps->last->runtime - ps->first->runtime) / 1000000000.0);
                 /* paint lines to the parent process */
                 if (ps->parent) {
                         /* horizontal part */
@@ -934,6 +1134,7 @@ static void svg_ps_bars(void) {
         /* make sure we start counting from the point where we actually have
          * data: assume that bootchart's first sample is when data started
          */
+
         ps = ps_first;
         while (ps->next_ps) {
                 ps = ps->next_ps;
@@ -941,17 +1142,27 @@ static void svg_ps_bars(void) {
                         break;
         }
 
-        for (i = ps->first; i < samples - (arg_hz / 2); i++) {
+        /* need to know last node first */
+        ps->sample = ps->first;
+        i = ps->sample->next->sampledata->counter;
+
+        while (ps->sample->next && i<(samples-(arg_hz/2))) {
                 double crt;
                 double brt;
                 int c;
+                int ii;
+                struct ps_sched_struct *sample_hz;
+
+                ps->sample = ps->sample->next;
+                sample_hz = ps->sample;
+                for (ii=0;((ii<(int)arg_hz/2)&&(ps->sample->next));ii++)
+                        sample_hz = sample_hz->next;
 
                 /* subtract bootchart cpu utilization from total */
                 crt = 0.0;
                 for (c = 0; c < cpus; c++)
-                        crt += cpustat[c].sample[i + ((int)arg_hz / 2)].runtime - cpustat[c].sample[i].runtime;
-                brt = ps->sample[i + ((int)arg_hz / 2)].runtime - ps->sample[i].runtime;
-
+                        crt += sample_hz->sampledata->runtime[c] - ps->sample->sampledata->runtime[c];
+                brt = sample_hz->runtime - ps->sample->runtime;
                 /*
                  * our definition of "idle":
                  *
@@ -959,7 +1170,7 @@ static void svg_ps_bars(void) {
                  * defaults to 4.0%, which experimentally, is where atom idles
                  */
                 if ((crt - brt) < (interval / 2.0)) {
-                        idletime = sampletime[i] - graph_start;
+                        idletime = ps->sample->sampledata->sampletime - graph_start;
                         svg("\n<!-- idle detected at %.03f seconds -->\n",
                             idletime);
                         svg("<line class=\"idle\" x1=\"%.03f\" y1=\"%.03f\" x2=\"%.03f\" y2=\"%.03f\" />\n",
@@ -973,6 +1184,7 @@ static void svg_ps_bars(void) {
                             idletime);
                         break;
                 }
+                i++;
         }
 }
 

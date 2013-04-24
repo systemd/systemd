@@ -59,14 +59,11 @@
 #include "store.h"
 #include "svg.h"
 #include "bootchart.h"
+#include "list.h"
 
 double graph_start;
 double log_start;
-double sampletime[MAXSAMPLES];
 struct ps_struct *ps_first;
-struct block_stat_struct blockstat[MAXSAMPLES];
-int entropy_avail[MAXSAMPLES];
-struct cpu_stat_struct cpustat[MAXCPUS];
 int pscount;
 int cpus;
 double interval;
@@ -87,6 +84,8 @@ int arg_samples_len = 500; /* we record len+1 (1 start sample) */
 double arg_hz = 25.0;   /* 20 seconds log time */
 double arg_scale_x = 100.0; /* 100px = 1sec */
 double arg_scale_y = 20.0;  /* 16px = 1 process bar */
+static struct list_sample_data *sampledata;
+struct list_sample_data *head;
 
 char arg_init_path[PATH_MAX] = "/sbin/init";
 char arg_output_path[PATH_MAX] = "/run/log";
@@ -227,11 +226,6 @@ static int parse_args(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_samples_len > MAXSAMPLES) {
-                fprintf(stderr, "Error: samples exceeds maximum\n");
-                return -EINVAL;
-        }
-
         if (arg_hz <= 0.0) {
                 fprintf(stderr, "Error: Frequency needs to be > 0\n");
                 return -EINVAL;
@@ -338,6 +332,8 @@ int main(int argc, char *argv[]) {
 
         log_uptime();
 
+        LIST_HEAD_INIT(struct list_sample_data, head);
+
         /* main program loop */
         for (samples = 0; !exiting && samples < arg_samples_len; samples++) {
                 int res;
@@ -348,7 +344,14 @@ int main(int argc, char *argv[]) {
                 double elapsed;
                 double timeleft;
 
-                sampletime[samples] = gettime_ns();
+                sampledata = new0(struct list_sample_data, 1);
+                if (sampledata == NULL) {
+                        log_error("Failed to allocate memory for a node: %m");
+                        return -1;
+                }
+
+                sampledata->sampletime = gettime_ns();
+                sampledata->counter = samples;
 
                 if (!of && (access(arg_output_path, R_OK|W_OK|X_OK) == 0)) {
                         t = time(NULL);
@@ -369,11 +372,11 @@ int main(int argc, char *argv[]) {
                 if (graph_start <= 0.0)
                         log_uptime();
                 else
-                        log_sample(samples);
+                        log_sample(samples, &sampledata);
 
                 sample_stop = gettime_ns();
 
-                elapsed = (sample_stop - sampletime[samples]) * 1000000000.0;
+                elapsed = (sample_stop - sampledata->sampletime) * 1000000000.0;
                 timeleft = interval - elapsed;
 
                 newint_s = (time_t)(timeleft / 1000000000.0);
@@ -403,6 +406,7 @@ int main(int argc, char *argv[]) {
                         /* calculate how many samples we lost and scrap them */
                         arg_samples_len -= (int)(newint_ns / interval);
                 }
+                LIST_PREPEND(struct list_sample_data, link, head, sampledata);
         }
 
         /* do some cleanup, close fd's */
@@ -443,16 +447,32 @@ int main(int argc, char *argv[]) {
                 close(sysfd);
 
         /* nitpic cleanups */
-        ps = ps_first;
+        ps = ps_first->next_ps;
         while (ps->next_ps) {
-                struct ps_struct *old = ps;
+                struct ps_struct *old;
+
+                old = ps;
+                old->sample = ps->first;
                 ps = ps->next_ps;
+                while (old->sample->next) {
+                        struct ps_sched_struct *oldsample = old->sample;
+
+                        old->sample = old->sample->next;
+                        free(oldsample);
+                }
                 free(old->sample);
                 free(old);
         }
         free(ps->sample);
         free(ps);
 
+        sampledata = head;
+        while (sampledata->link_prev) {
+                struct list_sample_data *old_sampledata = sampledata;
+                sampledata = sampledata->link_prev;
+                free(old_sampledata);
+        }
+        free(sampledata);
         /* don't complain when overrun once, happens most commonly on 1st sample */
         if (overrun > 1)
                 fprintf(stderr, "systemd-boochart: Warning: sample time overrun %i times\n", overrun);

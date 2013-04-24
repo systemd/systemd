@@ -26,6 +26,7 @@
 
 #include <dirent.h>
 #include <stdbool.h>
+#include "list.h"
 
 #define MAXCPUS        16
 #define MAXPIDS     65535
@@ -54,6 +55,22 @@ struct ps_sched_struct {
         double runtime;
         double waittime;
         int pss;
+        struct list_sample_data *sampledata;
+        struct ps_sched_struct *next;
+        struct ps_sched_struct *prev;
+        struct ps_sched_struct *cross; /* cross pointer */
+        struct ps_struct *ps_new;
+};
+
+struct list_sample_data {
+        double runtime[MAXCPUS];
+        double waittime[MAXCPUS];
+        double sampletime;
+        int entropy_avail;
+        struct block_stat_struct blockstat;
+        struct cpu_stat_struct cpustat;
+        LIST_FIELDS(struct list_sample_data, link); /* DLL */
+        int counter;
 };
 
 /* process info */
@@ -73,9 +90,9 @@ struct ps_struct {
         int schedstat;
         FILE *smaps;
 
-        /* index to first/last seen timestamps */
-        int first;
-        int last;
+        /* pointers to first/last seen timestamps */
+        struct ps_sched_struct *first;
+        struct ps_sched_struct *last;
 
         /* records actual start time, may be way before bootchart runs */
         double starttime;

@@ -25,10 +25,11 @@
 ***/
 
 #include <dirent.h>
+#include "bootchart.h"
 
 extern DIR *proc;
 extern int procfd;
 
 double gettime_ns(void);
 void log_uptime(void);
-void log_sample(int sample);
+void log_sample(int sample, struct list_sample_data **ptr);
