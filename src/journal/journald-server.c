@@ -1271,7 +1271,7 @@ static int server_parse_proc_cmdline(Server *s) {
 }
 
 static int server_parse_config_file(Server *s) {
-        static const char *fn = "/etc/systemd/journald.conf";
+        static const char fn[] = "/etc/systemd/journald.conf";
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -1287,7 +1287,7 @@ static int server_parse_config_file(Server *s) {
         }
 
         r = config_parse(NULL, fn, f, "Journal\0", config_item_perf_lookup,
-                         (void*) journald_gperf_lookup, false, s);
+                         (void*) journald_gperf_lookup, false, false, s);
         if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 

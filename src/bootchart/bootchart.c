@@ -124,7 +124,7 @@ static void parse_conf(void) {
                 return;
 
         r = config_parse(NULL, BOOTCHART_CONF, f,
-                         NULL, config_item_table_lookup, (void*) items, true, NULL);
+                         NULL, config_item_table_lookup, (void*) items, true, false, NULL);
         if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 

@@ -87,6 +87,7 @@ int config_parse(const char *unit,
                  ConfigItemLookup lookup,
                  void *table,
                  bool relaxed,
+                 bool allow_include,
                  void *userdata);
 
 /* Generic parsers */

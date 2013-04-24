@@ -70,7 +70,7 @@ int log_syntax_internal(const char *unit, int level,
                                         "ERRNO=%d", error > 0 ? error : EINVAL,
                                         "MESSAGE=[%s:%u] %s", config_file, config_line, msg,
                                         NULL);
-        log_info("logged here: '%s': %d", msg, r);
+
         return r;
 }
 
@@ -199,6 +199,7 @@ static int parse_line(const char* unit,
                       ConfigItemLookup lookup,
                       void *table,
                       bool relaxed,
+                      bool allow_include,
                       char **section,
                       char *l,
                       void *userdata) {
@@ -219,13 +220,19 @@ static int parse_line(const char* unit,
                 return 0;
 
         if (startswith(l, ".include ")) {
-                _cleanup_free_ char *fn;
+                _cleanup_free_ char *fn = NULL;
+
+                if (!allow_include) {
+                        log_syntax(unit, LOG_ERR, filename, line, EBADMSG,
+                                   ".include not allowed here. Ignoring.");
+                        return 0;
+                }
 
                 fn = file_in_same_dir(filename, strstrip(l+9));
                 if (!fn)
                         return -ENOMEM;
 
-                return config_parse(unit, fn, NULL, sections, lookup, table, relaxed, userdata);
+                return config_parse(unit, fn, NULL, sections, lookup, table, relaxed, false, userdata);
         }
 
         if (*l == '[') {
@@ -299,11 +306,12 @@ int config_parse(const char *unit,
                  ConfigItemLookup lookup,
                  void *table,
                  bool relaxed,
+                 bool allow_include,
                  void *userdata) {
 
-        unsigned line = 0;
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
+        unsigned line = 0;
         int r;
 
         assert(filename);
@@ -370,6 +378,7 @@ int config_parse(const char *unit,
                                lookup,
                                table,
                                relaxed,
+                               allow_include,
                                &section,
                                p,
                                userdata);

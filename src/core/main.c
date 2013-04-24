@@ -677,7 +677,7 @@ static int parse_config_file(void) {
                 return 0;
         }
 
-        r = config_parse(NULL, fn, f, "Manager\0", config_item_table_lookup, (void*) items, false, NULL);
+        r = config_parse(NULL, fn, f, "Manager\0", config_item_table_lookup, (void*) items, false, false, NULL);
         if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 

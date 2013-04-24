@@ -100,10 +100,6 @@ Features:
      /lib/modules/$(uname -r)/modules.devname
   and apply ACLs to them if they have TAG=="uaccess" in udev rules.
 
-* matching against units is currently broken in journalctl. We really
-  need another AND level in the expressions,
-  i.e. sd_journal_add_conjunction().
-
 * add ConditionArchitecture= or so
 
 * teach ConditionKernelCommandLine= globs or regexes (in order to match foobar={no,0,off})
@@ -124,8 +120,6 @@ Features:
   whether a BLS compliant boot loader is installed.
 
 * man: remove .include documentation, and instead push people to use .d/*.conf
-
-* disallow .include from included files
 
 * safe_atod() is too naive, as it is vulnerable to locale parameters, should be locale independent.
 

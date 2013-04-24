@@ -275,7 +275,7 @@ static int parse_password(const char *filename, char **wall) {
                 return -errno;
         }
 
-        r = config_parse(NULL, filename, f, NULL, config_item_table_lookup, (void*) items, true, NULL);
+        r = config_parse(NULL, filename, f, NULL, config_item_table_lookup, (void*) items, true, false, NULL);
         if (r < 0) {
                 log_error("Failed to parse password file %s: %s", filename, strerror(-r));
                 goto finish;
