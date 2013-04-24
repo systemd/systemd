@@ -508,7 +508,7 @@ static void dispatch_message_real(
                 source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)],
                 boot_id[sizeof("_BOOT_ID=") + 32] = "_BOOT_ID=",
                 machine_id[sizeof("_MACHINE_ID=") + 32] = "_MACHINE_ID=";
-        char *comm, *exe, *cmdline, *cgroup, *session, *unit, *selinux_context, *hostname;
+        char *comm, *exe, *cmdline, *cgroup, *session, *unit, *hostname;
         sd_id128_t id;
         int r;
         char *t, *c;
@@ -615,7 +615,7 @@ static void dispatch_message_real(
 
 #ifdef HAVE_SELINUX
                 if (label) {
-                        selinux_context = alloca(sizeof("_SELINUX_CONTEXT=") + label_len);
+                        char *selinux_context = alloca(sizeof("_SELINUX_CONTEXT=") + label_len);
 
                         *((char*) mempcpy(stpcpy(selinux_context, "_SELINUX_CONTEXT="), label, label_len)) = 0;
                         IOVEC_SET_STRING(iovec[n++], selinux_context);
@@ -623,7 +623,8 @@ static void dispatch_message_real(
                         security_context_t con;
 
                         if (getpidcon(ucred->pid, &con) >= 0) {
-                                selinux_context = strappenda("_SELINUX_CONTEXT=", con);
+                                char *selinux_context = strappenda("_SELINUX_CONTEXT=", con);
+
                                 freecon(con);
                                 IOVEC_SET_STRING(iovec[n++], selinux_context);
                         }
