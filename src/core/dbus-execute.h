@@ -37,6 +37,7 @@
 
 #define BUS_EXEC_CONTEXT_INTERFACE                                      \
         "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"EnvironmentFiles\" type=\"a(sb)\" access=\"read\"/>\n" \
         "  <property name=\"UMask\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"LimitCPU\" type=\"t\" access=\"read\"/>\n"  \
         "  <property name=\"LimitFSIZE\" type=\"t\" access=\"read\"/>\n" \
@@ -88,13 +89,11 @@
         "  <property name=\"InaccessibleDirectories\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"MountFlags\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"PrivateTmp\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"PrivateNetwork\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"SameProcessGroup\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
-        "  <property name=\"KillSignal\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"UtmpIdentifier\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupModify\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupPersistent\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"PrivateNetwork\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"IgnoreSIGPIPE\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"NoNewPrivileges\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"SystemCallFilter\" type=\"au\" access=\"read\"/>\n"
