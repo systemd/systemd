@@ -46,7 +46,8 @@
                 <refname>sd_get_seats</refname>
                 <refname>sd_get_sessions</refname>
                 <refname>sd_get_uids</refname>
-                <refpurpose>Determine available seats, sessions and logged in users</refpurpose>
+                <refname>sd_get_machine_names</refname>
+                <refpurpose>Determine available seats, sessions, logged in users and virtual machines/containers</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -66,6 +67,11 @@
                         <funcprototype>
                                 <funcdef>int <function>sd_get_uids</function></funcdef>
                                 <paramdef>uid_t** <parameter>users</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_get_machine_names</function></funcdef>
+                                <paramdef>char*** <parameter>machines</parameter></paramdef>
                         </funcprototype>
 
                 </funcsynopsis>
@@ -90,6 +96,11 @@
                 <para>Similar, <function>sd_get_uids()</function> may
                 be used to determine all Unix users who currently have login sessions.</para>
 
+                <para>Similar,
+                <function>sd_get_machine_names()</function> may be
+                used to determine all current virtual machines and
+                containers on the system.</para>
+
                 <para>Note that the returned lists are not sorted and in an undefined order.</para>
         </refsect1>
 
@@ -97,18 +108,20 @@
                 <title>Return Value</title>
 
                 <para>On success <function>sd_get_seats()</function>,
-                <function>sd_get_sessions()</function> and
-                <function>sd_get_uids()</function> return the number
-                of entries in the arrays. On failure, these calls
-                return a negative errno-style error code.</para>
+                <function>sd_get_sessions()</function>,
+                <function>sd_get_uids()</function> and
+                <function>sd_get_machine_names()</function> return the
+                number of entries in the arrays. On failure, these
+                calls return a negative errno-style error code.</para>
         </refsect1>
 
         <refsect1>
                 <title>Notes</title>
 
                 <para>The <function>sd_get_seats()</function>,
-                <function>sd_get_sessions()</function> and
-                <function>sd_get_uids()</function> interfaces
+                <function>sd_get_sessions()</function>,
+                <function>sd_get_uids()</function> and
+                <function>sd_get_machine_names()</function> interfaces
                 are available as shared library, which can be compiled
                 and linked to with the
                 <literal>libsystemd-login</literal>

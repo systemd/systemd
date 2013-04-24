@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
         char *state;
         char *session2;
         char *t;
-        char **seats, **sessions;
+        char **seats, **sessions, **machines;
         uid_t *uids;
         unsigned n;
         struct pollfd pollfd;
@@ -180,9 +180,17 @@ int main(int argc, char* argv[]) {
         printf("n_uids = %i\n", r);
         assert_se(sd_get_uids(NULL) == r);
 
+        r = sd_get_machine_names(&machines);
+        assert_se(r >= 0);
+        assert_se(r == (int) strv_length(machines));
+        assert_se(t = strv_join(machines, ", "));
+        strv_free(machines);
+        printf("n_machines = %i\n", r);
+        printf("machines = %s\n", t);
+        free(t);
+
         r = sd_login_monitor_new("session", &m);
         assert_se(r >= 0);
-
 
         for (n = 0; n < 5; n++) {
                 usec_t timeout, nw;

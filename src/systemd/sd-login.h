@@ -150,6 +150,9 @@ int sd_get_sessions(char ***sessions);
  * users. If users is NULL only returns the number of users. */
 int sd_get_uids(uid_t **users);
 
+/* Get all running virtual machines/containers */
+int sd_get_machine_names(char ***machines);
+
 /* Monitor object */
 typedef struct sd_login_monitor sd_login_monitor;
 

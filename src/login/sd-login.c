@@ -591,6 +591,43 @@ _public_ int sd_get_uids(uid_t **users) {
         return r;
 }
 
+int sd_get_machine_names(char ***machines) {
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free_ char *md = NULL;
+        char *n;
+        int c = 0, r;
+
+        r = cg_get_machine_path(&md);
+        if (r < 0)
+                return r;
+
+        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, md, &d);
+        if (r < 0)
+                return r;
+
+        while ((r = cg_read_subgroup(d, &n)) > 0) {
+
+                r = strv_push(&l, n);
+                if (r < 0) {
+                        free(n);
+                        return -ENOMEM;
+                }
+
+                c++;
+        }
+
+        if (r < 0)
+                return r;
+
+        if (machines) {
+                *machines = l;
+                l = NULL;
+        }
+
+        return c;
+}
+
 static inline int MONITOR_TO_FD(sd_login_monitor *m) {
         return (int) (unsigned long) m - 1;
 }
