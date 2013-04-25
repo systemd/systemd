@@ -500,7 +500,7 @@ char *format_bytes(char *buf, size_t l, off_t t);
 
 int fd_wait_for_event(int fd, int event, usec_t timeout);
 
-void* memdup(const void *p, size_t l) _malloc_;
+void* memdup(const void *p, size_t l);
 
 int is_kernel_thread(pid_t pid);
 
@@ -567,7 +567,7 @@ _malloc_  static inline void *malloc_multiply(size_t a, size_t b) {
         return malloc(a * b);
 }
 
-_malloc_ static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
+ static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
         if (_unlikely_(b == 0 || a > ((size_t) -1) / b))
                 return NULL;
 

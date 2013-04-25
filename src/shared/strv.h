@@ -36,7 +36,7 @@ static inline void strv_freep(char ***l) {
 
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
 
-char **strv_copy(char * const *l) _malloc_;
+char **strv_copy(char * const *l);
 unsigned strv_length(char * const *l);
 
 char **strv_merge(char **a, char **b);
@@ -51,8 +51,8 @@ char **strv_uniq(char **l);
 
 #define strv_contains(l, s) (!!strv_find((l), (s)))
 
-char **strv_new(const char *x, ...) _sentinel_ _malloc_;
-char **strv_new_ap(const char *x, va_list ap) _malloc_;
+char **strv_new(const char *x, ...) _sentinel_;
+char **strv_new_ap(const char *x, va_list ap);
 
 static inline const char* STRV_IFNOTNULL(const char *x) {
         return x ? x : (const char *) -1;
@@ -62,11 +62,11 @@ static inline bool strv_isempty(char * const *l) {
         return !l || !*l;
 }
 
-char **strv_split(const char *s, const char *separator) _malloc_;
-char **strv_split_quoted(const char *s) _malloc_;
-char **strv_split_newlines(const char *s) _malloc_;
+char **strv_split(const char *s, const char *separator);
+char **strv_split_quoted(const char *s);
+char **strv_split_newlines(const char *s);
 
-char *strv_join(char **l, const char *separator) _malloc_;
+char *strv_join(char **l, const char *separator);
 
 char **strv_parse_nulstr(const char *s, size_t l);
 char **strv_split_nulstr(const char *s);
