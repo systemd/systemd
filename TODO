@@ -121,8 +121,6 @@ Features:
 
 * man: remove .include documentation, and instead push people to use .d/*.conf
 
-* safe_atod() is too naive, as it is vulnerable to locale parameters, should be locale independent.
-
 * think about requeuing jobs when daemon-reload is issued? usecase:
   the initrd issues a reload after fstab from the host is accessible
   and we might want to requeue the mounts local-fs acquired through

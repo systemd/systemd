@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <locale.h>
 
 #include "util.h"
 
@@ -145,13 +146,48 @@ static void test_safe_atolli(void) {
 static void test_safe_atod(void) {
         int r;
         double d;
+        char *e;
+
+        r = safe_atod("junk", &d);
+        assert_se(r == -EINVAL);
 
         r = safe_atod("0.2244", &d);
         assert_se(r == 0);
         assert_se(abs(d - 0.2244) < 0.000001);
 
-        r = safe_atod("junk", &d);
+        r = safe_atod("0,5", &d);
         assert_se(r == -EINVAL);
+
+        errno = 0;
+        strtod("0,5", &e);
+        assert_se(*e == ',');
+
+        /* Check if this really is locale independent */
+        setlocale(LC_NUMERIC, "de_DE.utf8");
+
+        r = safe_atod("0.2244", &d);
+        assert_se(r == 0);
+        assert_se(abs(d - 0.2244) < 0.000001);
+
+        r = safe_atod("0,5", &d);
+        assert_se(r == -EINVAL);
+
+        errno = 0;
+        assert_se(abs(strtod("0,5", &e) - 0.5) < 0.00001);
+
+        /* And check again, reset */
+        setlocale(LC_NUMERIC, "C");
+
+        r = safe_atod("0.2244", &d);
+        assert_se(r == 0);
+        assert_se(abs(d - 0.2244) < 0.000001);
+
+        r = safe_atod("0,5", &d);
+        assert_se(r == -EINVAL);
+
+        errno = 0;
+        strtod("0,5", &e);
+        assert_se(*e == ',');
 }
 
 static void test_strappend(void) {

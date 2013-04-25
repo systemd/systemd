@@ -372,8 +372,10 @@ int safe_atod(const char *s, double *ret_d) {
         assert(s);
         assert(ret_d);
 
-        errno = 0;
-        d = strtod(s, &x);
+        RUN_WITH_LOCALE(LC_NUMERIC_MASK, "C") {
+                errno = 0;
+                d = strtod(s, &x);
+        }
 
         if (!x || x == s || *x || errno)
                 return errno ? -errno : -EINVAL;

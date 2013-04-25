@@ -38,6 +38,7 @@
 #include <sys/resource.h>
 #include <stddef.h>
 #include <unistd.h>
+#include <locale.h>
 
 #include "macro.h"
 #include "time-util.h"
@@ -643,19 +644,19 @@ static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
 }
 
-#define PROTECT_ERRNO __attribute__((cleanup(_reset_errno_))) int _saved_errno_ = errno
+#define PROTECT_ERRNO _cleanup_(_reset_errno_) int _saved_errno_ = errno
 
-struct umask_struct {
+struct _umask_struct_ {
         mode_t mask;
         bool quit;
 };
 
-static inline void _reset_umask_(struct umask_struct *s) {
+static inline void _reset_umask_(struct _umask_struct_ *s) {
         umask(s->mask);
 };
 
 #define RUN_WITH_UMASK(mask)                                            \
-        for (__attribute__((cleanup(_reset_umask_))) struct umask_struct _saved_umask_ = { umask(mask), false }; \
+        for (_cleanup_(_reset_umask_) struct _umask_struct_ _saved_umask_ = { umask(mask), false }; \
              !_saved_umask_.quit ;                                      \
              _saved_umask_.quit = true)
 
@@ -706,3 +707,29 @@ int unlink_noerrno(const char *path);
                 sprintf(_r_, "/proc/%lu/" field, (unsigned long) _pid_); \
                 _r_;                                                    \
         })
+
+struct _locale_struct_ {
+        locale_t saved_locale;
+        locale_t new_locale;
+        bool quit;
+};
+
+static inline void _reset_locale_(struct _locale_struct_ *s) {
+        PROTECT_ERRNO;
+        if (s->saved_locale != (locale_t) 0)
+                uselocale(s->saved_locale);
+        if (s->new_locale != (locale_t) 0)
+                freelocale(s->new_locale);
+}
+
+#define RUN_WITH_LOCALE(mask, loc) \
+        for (_cleanup_(_reset_locale_) struct _locale_struct_ _saved_locale_ = { (locale_t) 0, (locale_t) 0, false }; \
+             ({                                                         \
+                     if (!_saved_locale_.quit) {                        \
+                             PROTECT_ERRNO;                             \
+                             _saved_locale_.new_locale = newlocale((mask), (loc), (locale_t) 0); \
+                             if (_saved_locale_.new_locale != (locale_t) 0)     \
+                                     _saved_locale_.saved_locale = uselocale(_saved_locale_.new_locale); \
+                     }                                                  \
+                     !_saved_locale_.quit; }) ;                         \
+             _saved_locale_.quit = true)
