@@ -1468,7 +1468,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (ns != os && ns == UNIT_FAILED) {
                         log_notice_unit(u->id,
-                                        "MESSAGE=Unit %s entered failed state.", u->id);
+                                        "Unit %s entered failed state.", u->id);
                         unit_start_on_failure(u);
                 }
         }
