@@ -500,7 +500,7 @@ char *format_bytes(char *buf, size_t l, off_t t);
 
 int fd_wait_for_event(int fd, int event, usec_t timeout);
 
-void* memdup(const void *p, size_t l);
+void* memdup(const void *p, size_t l) _alloc_(2);
 
 int is_kernel_thread(pid_t pid);
 
@@ -560,14 +560,14 @@ static inline void umaskp(mode_t *u) {
 #define _cleanup_umask_ _cleanup_(umaskp)
 #define _cleanup_globfree_ _cleanup_(globfree)
 
-_malloc_  static inline void *malloc_multiply(size_t a, size_t b) {
+_malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b == 0 || a > ((size_t) -1) / b))
                 return NULL;
 
         return malloc(a * b);
 }
 
- static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
+_alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
         if (_unlikely_(b == 0 || a > ((size_t) -1) / b))
                 return NULL;
 
