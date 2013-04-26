@@ -105,7 +105,7 @@ int main_analyze(const char *pack_path) {
                 }
 
                 if (stat(path, &st) == 0) {
-                        size_t size;
+                        off_t size;
 
                         if (sections == 0)
                                 size = st.st_size;
@@ -114,11 +114,11 @@ int main_analyze(const char *pack_path) {
 
                         tsize += size;
 
-                        printf("  %4zd%% (%2d) %12zd: %s\n",
-                                sections && st.st_size ? size * 100 / st.st_size : 100,
-                                sections ? sections : 1,
-                                size,
-                                path);
+                        printf("  %4jd%% (%2d) %12jd: %s\n",
+                               (intmax_t) (sections && st.st_size ? size * 100 / st.st_size : 100),
+                               sections ? sections : 1,
+                               (intmax_t) size,
+                               path);
                 } else {
                         printf("  %4dp (%2d) %12s: %s (MISSING)\n",
                                 sections ? pages : -1,
