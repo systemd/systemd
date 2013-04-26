@@ -523,7 +523,7 @@ static void path_enter_running(Path *p) {
         dbus_error_init(&error);
 
         /* Don't start job if we are supposed to go down */
-        if (unit_pending_inactive(UNIT(p)))
+        if (unit_stop_pending(UNIT(p)))
                 return;
 
         r = manager_add_job(UNIT(p)->manager, JOB_START, UNIT_TRIGGER(UNIT(p)),

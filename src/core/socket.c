@@ -1447,7 +1447,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
         /* We don't take connections anymore if we are supposed to
          * shut down anyway */
-        if (unit_pending_inactive(UNIT(s))) {
+        if (unit_stop_pending(UNIT(s))) {
                 log_debug_unit(UNIT(s)->id,
                                "Suppressing connection request on %s since unit stop is scheduled.",
                                UNIT(s)->id);
@@ -1478,7 +1478,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 /* If there's already a start pending don't bother to
                  * do anything */
                 SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERS], i)
-                        if (unit_pending_active(u)) {
+                        if (unit_active_or_pending(u)) {
                                 pending = true;
                                 break;
                         }

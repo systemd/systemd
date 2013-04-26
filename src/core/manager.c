@@ -2328,7 +2328,7 @@ void manager_reset_failed(Manager *m) {
                 unit_reset_failed(u);
 }
 
-bool manager_unit_pending_inactive(Manager *m, const char *name) {
+bool manager_unit_inactive_or_pending(Manager *m, const char *name) {
         Unit *u;
 
         assert(m);
@@ -2339,7 +2339,7 @@ bool manager_unit_pending_inactive(Manager *m, const char *name) {
         if (!u)
                 return true;
 
-        return unit_pending_inactive(u);
+        return unit_inactive_or_pending(u);
 }
 
 void manager_check_finished(Manager *m) {

@@ -1206,19 +1206,19 @@ static void unit_check_unneeded(Unit *u) {
                 return;
 
         SET_FOREACH(other, u->dependencies[UNIT_REQUIRED_BY], i)
-                if (unit_pending_active(other))
+                if (unit_active_or_pending(other))
                         return;
 
         SET_FOREACH(other, u->dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
-                if (unit_pending_active(other))
+                if (unit_active_or_pending(other))
                         return;
 
         SET_FOREACH(other, u->dependencies[UNIT_WANTED_BY], i)
-                if (unit_pending_active(other))
+                if (unit_active_or_pending(other))
                         return;
 
         SET_FOREACH(other, u->dependencies[UNIT_BOUND_BY], i)
-                if (unit_pending_active(other))
+                if (unit_active_or_pending(other))
                         return;
 
         log_info_unit(u->id, "Service %s is not needed anymore. Stopping.", u->id);
@@ -2651,21 +2651,30 @@ Unit *unit_following(Unit *u) {
         return NULL;
 }
 
-bool unit_pending_inactive(Unit *u) {
+bool unit_stop_pending(Unit *u) {
+        assert(u);
+
+        /* This call does check the current state of the unit. It's
+         * hence useful to be called from state change calls of the
+         * unit itself, where the state isn't updated yet. This is
+         * different from unit_inactive_or_pending() which checks both
+         * the current state and for a queued job. */
+
+        return u->job && u->job->type == JOB_STOP;
+}
+
+bool unit_inactive_or_pending(Unit *u) {
         assert(u);
 
         /* Returns true if the unit is inactive or going down */
 
-        if (UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)))
-                return true;
-
-        if (u->job && u->job->type == JOB_STOP)
+        if (unit_stop_pending(u))
                 return true;
 
         return false;
 }
 
-bool unit_pending_active(Unit *u) {
+bool unit_active_or_pending(Unit *u) {
         assert(u);
 
         /* Returns true if the unit is active or going up */

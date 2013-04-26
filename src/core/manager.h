@@ -291,7 +291,7 @@ void manager_reset_failed(Manager *m);
 void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success);
 void manager_send_unit_plymouth(Manager *m, Unit *u);
 
-bool manager_unit_pending_inactive(Manager *m, const char *name);
+bool manager_unit_inactive_or_pending(Manager *m, const char *name);
 
 void manager_check_finished(Manager *m);
 

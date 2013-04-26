@@ -363,8 +363,8 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
 
                         log_debug("Got D-Bus activation request for %s", name);
 
-                        if (manager_unit_pending_inactive(m, SPECIAL_DBUS_SERVICE) ||
-                            manager_unit_pending_inactive(m, SPECIAL_DBUS_SOCKET)) {
+                        if (manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SERVICE) ||
+                            manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SOCKET)) {
                                 r = -EADDRNOTAVAIL;
                                 dbus_set_error(&error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
                         } else {

@@ -374,7 +374,7 @@ static void timer_enter_running(Timer *t) {
         dbus_error_init(&error);
 
         /* Don't start job if we are supposed to go down */
-        if (unit_pending_inactive(UNIT(t)))
+        if (unit_stop_pending(UNIT(t)))
                 return;
 
         r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_TRIGGER(UNIT(t)),

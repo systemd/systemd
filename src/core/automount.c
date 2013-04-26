@@ -593,7 +593,7 @@ static void automount_enter_runnning(Automount *a) {
 
         /* We don't take mount requests anymore if we are supposed to
          * shut down anyway */
-        if (unit_pending_inactive(UNIT(a))) {
+        if (unit_stop_pending(UNIT(a))) {
                 log_debug_unit(UNIT(a)->id,
                                "Suppressing automount request on %s since unit stop is scheduled.", UNIT(a)->id);
                 automount_send_ready(a, -EHOSTDOWN);
