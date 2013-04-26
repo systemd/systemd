@@ -66,7 +66,7 @@ static void append_payload_vec(struct kdbus_msg_item **d, const void *p, size_t 
 
         (*d)->size = offsetof(struct kdbus_msg_item, vec) + sizeof(struct kdbus_vec);
         (*d)->type = KDBUS_MSG_PAYLOAD_VEC;
-        (*d)->vec.address = (uint64_t) p;
+        (*d)->vec.address = (intptr_t) p;
         (*d)->vec.size = sz;
 
         *d = (struct kdbus_msg_item *) ((uint8_t*) *d + (*d)->size);
