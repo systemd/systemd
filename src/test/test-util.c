@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <locale.h>
+#include <errno.h>
 
 #include "util.h"
 
@@ -429,6 +430,15 @@ static void test_get_process_comm(void) {
         log_info("pid1 $PATH: '%s'", strna(i));
 }
 
+static void test_protect_errno(void) {
+        errno = 12;
+        {
+                PROTECT_ERRNO;
+                errno = 11;
+        }
+        assert(errno == 12);
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -456,6 +466,7 @@ int main(int argc, char *argv[]) {
         test_hostname_is_valid();
         test_u64log2();
         test_get_process_comm();
+        test_protect_errno();
 
         return 0;
 }

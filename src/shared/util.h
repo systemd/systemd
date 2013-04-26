@@ -644,7 +644,7 @@ static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
 }
 
-#define PROTECT_ERRNO _cleanup_(_reset_errno_) int _saved_errno_ = errno
+#define PROTECT_ERRNO _cleanup_(_reset_errno_) __attribute__((unused)) int _saved_errno_ = errno
 
 struct _umask_struct_ {
         mode_t mask;

@@ -1208,7 +1208,6 @@ int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup) {
 }
 
 int cg_path_decode_unit(const char *cgroup, char **unit){
-        _cleanup_free_ char *unescaped = NULL;
         char *p, *e, *c, *s, *k;
 
         assert(cgroup);
