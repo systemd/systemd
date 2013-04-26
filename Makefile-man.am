@@ -795,6 +795,7 @@ MANPAGES += \
 	man/sd_uid_get_state.3 \
 	man/systemd-user-sessions.service.8
 MANPAGES_ALIAS += \
+	man/sd_get_machine_names.3 \
 	man/sd_get_sessions.3 \
 	man/sd_get_uids.3 \
 	man/sd_login_monitor.3 \
@@ -821,6 +822,7 @@ MANPAGES_ALIAS += \
 	man/sd_uid_get_sessions.3 \
 	man/sd_uid_is_on_seat.3 \
 	man/systemd-user-sessions.8
+man/sd_get_machine_names.3: man/sd_get_seats.3
 man/sd_get_sessions.3: man/sd_get_seats.3
 man/sd_get_uids.3: man/sd_get_seats.3
 man/sd_login_monitor.3: man/sd_login_monitor_new.3
@@ -847,6 +849,9 @@ man/sd_uid_get_seats.3: man/sd_uid_get_state.3
 man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
 man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
 man/systemd-user-sessions.8: man/systemd-user-sessions.service.8
+man/sd_get_machine_names.html: man/sd_get_seats.html
+	$(html-alias)
+
 man/sd_get_sessions.html: man/sd_get_seats.html
 	$(html-alias)
 
