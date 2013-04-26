@@ -32,6 +32,14 @@
 extern "C" {
 #endif
 
+#ifndef _sd_printf_attr_
+#  if __GNUC__ >= 4
+#    define _sd_printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
+#  else
+#    define _sd_printf_attr_(a,b)
+#  endif
+#endif
+
 /* TODO:
  * - add page donation logic
  * - api for appending/reading fixed arrays
@@ -187,7 +195,7 @@ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machi
 #define SD_BUS_ERROR_MAKE(name, message) ((sd_bus_error) {(name), (message), 0})
 
 void sd_bus_error_free(sd_bus_error *e);
-int sd_bus_error_set(sd_bus_error *e, const char *name, const char *format, ...);
+int sd_bus_error_set(sd_bus_error *e, const char *name, const char *format, ...)  _sd_printf_attr_(3, 0);
 void sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);

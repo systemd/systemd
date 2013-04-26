@@ -16,13 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _UDEV_H_
-#define _UDEV_H_
+#pragma once
 
 #include <sys/types.h>
 #include <sys/param.h>
 #include <signal.h>
 
+#include "macro.h"
 #include "libudev.h"
 #include "libudev-private.h"
 #include "util.h"
@@ -195,7 +195,7 @@ int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *modalias, bool
 /* udev logging */
 void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
-                   const char *format, va_list args);
+                   const char *format, va_list args) _printf_attr_(6, 0);
 
 /* udevadm commands */
 struct udevadm_cmd {
@@ -212,4 +212,3 @@ extern const struct udevadm_cmd udevadm_monitor;
 extern const struct udevadm_cmd udevadm_hwdb;
 extern const struct udevadm_cmd udevadm_test;
 extern const struct udevadm_cmd udevadm_test_builtin;
-#endif

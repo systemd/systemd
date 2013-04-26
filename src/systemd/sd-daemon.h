@@ -68,11 +68,11 @@ extern "C" {
 */
 
 #ifndef _sd_printf_attr_
-#if __GNUC__ >= 4
-#define _sd_printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
-#else
-#define _sd_printf_attr_(a,b)
-#endif
+#  if __GNUC__ >= 4
+#    define _sd_printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
+#  else
+#    define _sd_printf_attr_(a,b)
+#  endif
 #endif
 
 /*
