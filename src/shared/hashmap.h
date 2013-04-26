@@ -57,11 +57,11 @@ int hashmap_ensure_allocated(Hashmap **h, hash_func_t hash_func, compare_func_t 
 int hashmap_put(Hashmap *h, const void *key, void *value);
 int hashmap_update(Hashmap *h, const void *key, void *value);
 int hashmap_replace(Hashmap *h, const void *key, void *value);
-void* hashmap_get(Hashmap *h, const void *key);
-void* hashmap_get2(Hashmap *h, const void *key, void **rkey);
+void *hashmap_get(Hashmap *h, const void *key);
+void *hashmap_get2(Hashmap *h, const void *key, void **rkey);
 bool hashmap_contains(Hashmap *h, const void *key);
-void* hashmap_remove(Hashmap *h, const void *key);
-void* hashmap_remove_value(Hashmap *h, const void *key, void *value);
+void *hashmap_remove(Hashmap *h, const void *key);
+void *hashmap_remove_value(Hashmap *h, const void *key, void *value);
 int hashmap_remove_and_put(Hashmap *h, const void *old_key, const void *new_key, void *value);
 int hashmap_remove_and_replace(Hashmap *h, const void *old_key, const void *new_key, void *value);
 
@@ -82,9 +82,9 @@ void hashmap_clear_free_free(Hashmap *h);
 
 void *hashmap_steal_first(Hashmap *h);
 void *hashmap_steal_first_key(Hashmap *h);
-void* hashmap_first(Hashmap *h);
-void* hashmap_first_key(Hashmap *h);
-void* hashmap_last(Hashmap *h);
+void *hashmap_first(Hashmap *h);
+void *hashmap_first_key(Hashmap *h);
+void *hashmap_last(Hashmap *h);
 
 void *hashmap_next(Hashmap *h, const void *key);
 
