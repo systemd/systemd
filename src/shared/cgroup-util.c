@@ -736,24 +736,27 @@ int cg_set_task_access(
 }
 
 int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
-        char fs[sizeof("/proc/") - 1 + DECIMAL_STR_MAX(pid_t) + sizeof("/cgroup")];
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
+        const char *fs;
         size_t cs;
 
         assert(path);
         assert(pid >= 0);
 
-        if (controller && !cg_controller_is_valid(controller, true))
-                return -EINVAL;
+        if (controller) {
+                if (!cg_controller_is_valid(controller, true))
+                        return -EINVAL;
 
-        if (!controller)
+                controller = normalize_controller(controller);
+        } else
                 controller = SYSTEMD_CGROUP_CONTROLLER;
 
         if (pid == 0)
-                pid = getpid();
+                fs = "/proc/self/cgroup";
+        else
+                fs = procfs_file_alloca(pid, "cgroup");
 
-        sprintf(fs, "/proc/%lu/cgroup", (unsigned long) pid);
         f = fopen(fs, "re");
         if (!f)
                 return errno == ENOENT ? -ESRCH : -errno;
@@ -761,7 +764,10 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         cs = strlen(controller);
 
         FOREACH_LINE(line, f, return -errno) {
-                char *l, *p;
+                char *l, *p, *w, *e;
+                size_t k;
+                char *state;
+                bool found = false;
 
                 truncate_nl(line);
 
@@ -770,13 +776,31 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                         continue;
 
                 l++;
-                if (!strneq(l, controller, cs))
+                e = strchr(l, ':');
+                if (!e)
                         continue;
 
-                if (l[cs] != ':')
+                *e = 0;
+
+                FOREACH_WORD_SEPARATOR(w, k, l, ",", state) {
+
+                        if (k == cs && memcmp(w, controller, cs) == 0) {
+                                found = true;
+                                break;
+                        }
+
+                        if (k == 5 + cs &&
+                            memcmp(w, "name=", 5) == 0 &&
+                            memcmp(w+5, controller, cs) == 0) {
+                                found = true;
+                                break;
+                        }
+                }
+
+                if (!found)
                         continue;
 
-                p = strdup(l + cs + 1);
+                p = strdup(e + 1);
                 if (!p)
                         return -ENOMEM;
 

@@ -26,8 +26,6 @@ Fedora 19:
 
 Features:
 
-* handle named vs controller hierarchies correctly in cg_pid_get_path()
-
 * add nspawn@.service
 
 * investigate endianess issues of UUID vs. GUID
@@ -58,8 +56,6 @@ Features:
 * add s.th. like "systemctl set-log-level debug"
 
 * cgtop: make cgtop useful in a container
-
-* make sure cg_pid_get_path() works properly for co-mounted controllers
 
 * test/:
   - add 'set -e' to scripts in test/
