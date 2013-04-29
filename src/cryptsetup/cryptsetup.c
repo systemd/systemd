@@ -497,15 +497,25 @@ int main(int argc, char *argv[]) {
                                  crypt_get_volume_key_size(cd)*8,
                                  argv[3]);
 
-                        if (key_file)
-                                k = crypt_activate_by_keyfile_offset(cd, argv[2], CRYPT_ANY_SLOT, key_file, opt_keyfile_size,
-                                            opt_keyfile_offset, flags);
+                        if (key_file) {
+                                struct stat st;
+
+                                /* Ideally we'd do this on the open
+                                 * fd, but since this is just a
+                                 * warning it's OK to do this in two
+                                 * steps */
+                                if (stat(key_file, &st) >= 0 && (st.st_mode & 0005))
+                                        log_warning("Key file %s is world-readable. That's certainly not a good idea.", key_file);
+
+                                k = crypt_activate_by_keyfile_offset(
+                                                cd, argv[2], CRYPT_ANY_SLOT, key_file, opt_keyfile_size,
+                                                opt_keyfile_offset, flags);
                                 if (k < 0) {
                                         log_error("Failed to activate with key file '%s': %s", key_file, strerror(-k));
                                         key_file = NULL;
                                         continue;
                                 }
-                        else {
+                        } else {
                                 char **p;
 
                                 STRV_FOREACH(p, passwords) {

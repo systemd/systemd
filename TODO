@@ -158,8 +158,6 @@ Features:
 
 * use "log level" rather than "log priority" everywhere
 
-* ensure sd_journal_seek_monotonic actually works properly.
-
 * timedate: have global on/off switches for auto-time (NTP), and auto-timezone that connman can subscribe to.
 
 * Honour "-" prefix for InaccessibleDirectories= and ReadOnlyDirectories= to
@@ -366,10 +364,10 @@ Features:
   - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters, selinux exec context
 
 * cryptsetup:
-  - cryptsetup-generator: warn if the password files are world-readable
   - cryptsetup-generator: allow specification of passwords in crypttab itself
   - move cryptsetup key caching into kernel keyctl?
     https://bugs.freedesktop.org/show_bug.cgi?id=54982
+  - support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
 
 * move debug shell to tty6 and make sure this doesn't break the gettys on tty6
 
@@ -439,8 +437,6 @@ Features:
 * introduce Type=pid-file
 
 * change Requires=basic.target to RequisiteOverride=basic.target
-
-* support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
 
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
 
