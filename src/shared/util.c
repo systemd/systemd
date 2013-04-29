@@ -5854,3 +5854,44 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need) {
         *allocated = a;
         return q;
 }
+
+bool id128_is_valid(const char *s) {
+        size_t i, l;
+
+        l = strlen(s);
+        if (l == 32) {
+
+                /* Simple formatted 128bit hex string */
+
+                for (i = 0; i < l; i++) {
+                        char c = s[i];
+
+                        if (!(c >= '0' && c <= '9') &&
+                            !(c >= 'a' && c <= 'z') &&
+                            !(c >= 'A' && c <= 'Z'))
+                                return false;
+                }
+
+        } else if (l == 36) {
+
+                /* Formatted UUID */
+
+                for (i = 0; i < l; i++) {
+                        char c = s[i];
+
+                        if ((i == 8 || i == 13 || i == 18 || i == 23)) {
+                                if (c != '-')
+                                        return false;
+                        } else {
+                                if (!(c >= '0' && c <= '9') &&
+                                    !(c >= 'a' && c <= 'z') &&
+                                    !(c >= 'A' && c <= 'Z'))
+                                        return false;
+                        }
+                }
+
+        } else
+                return false;
+
+        return true;
+}

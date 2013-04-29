@@ -44,30 +44,50 @@ _public_ char *sd_id128_to_string(sd_id128_t id, char s[33]) {
         return s;
 }
 
-_public_ int sd_id128_from_string(const char s[33], sd_id128_t *ret) {
-        unsigned n;
+_public_ int sd_id128_from_string(const char s[], sd_id128_t *ret) {
+        unsigned n, i;
         sd_id128_t t;
+        bool is_guid = false;
 
         if (!s)
                 return -EINVAL;
         if (!ret)
                 return -EINVAL;
 
-        for (n = 0; n < 16; n++) {
+        for (n = 0, i = 0; n < 16;) {
                 int a, b;
 
-                a = unhexchar(s[n*2]);
+                if (s[i] == '-') {
+                        /* Is this a GUID? Then be nice, and skip over
+                         * the dashes */
+
+                        if (i == 8)
+                                is_guid = true;
+                        else if (i == 13 || i == 18 || i == 23) {
+                                if (!is_guid)
+                                        return -EINVAL;
+                        } else
+                                return -EINVAL;
+
+                        i++;
+                        continue;
+                }
+
+                a = unhexchar(s[i++]);
                 if (a < 0)
                         return -EINVAL;
 
-                b = unhexchar(s[n*2+1]);
+                b = unhexchar(s[i++]);
                 if (b < 0)
                         return -EINVAL;
 
-                t.bytes[n] = (a << 4) | b;
+                t.bytes[n++] = (a << 4) | b;
         }
 
-        if (s[32] != 0)
+        if (i != (is_guid ? 36 : 32))
+                return -EINVAL;
+
+        if (s[i] != 0)
                 return -EINVAL;
 
         *ret = t;
@@ -90,8 +110,8 @@ static sd_id128_t make_v4_uuid(sd_id128_t id) {
 _public_ int sd_id128_get_machine(sd_id128_t *ret) {
         static __thread sd_id128_t saved_machine_id;
         static __thread bool saved_machine_id_valid = false;
-        int fd;
-        char buf[32];
+        _cleanup_close_ int fd = -1;
+        char buf[33];
         ssize_t k;
         unsigned j;
         sd_id128_t t;
@@ -108,13 +128,14 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
         if (fd < 0)
                 return -errno;
 
-        k = loop_read(fd, buf, 32, false);
-        close_nointr_nofail(fd);
-
+        k = loop_read(fd, buf, 33, false);
         if (k < 0)
                 return (int) k;
 
-        if (k < 32)
+        if (k != 33)
+                return -EIO;
+
+        if (buf[32] !='\n')
                 return -EIO;
 
         for (j = 0; j < 16; j++) {
@@ -139,7 +160,7 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
 _public_ int sd_id128_get_boot(sd_id128_t *ret) {
         static __thread sd_id128_t saved_boot_id;
         static __thread bool saved_boot_id_valid = false;
-        int fd;
+        _cleanup_close_ int fd = -1;
         char buf[36];
         ssize_t k;
         unsigned j;
@@ -159,12 +180,10 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
                 return -errno;
 
         k = loop_read(fd, buf, 36, false);
-        close_nointr_nofail(fd);
-
         if (k < 0)
                 return (int) k;
 
-        if (k < 36)
+        if (k != 36)
                 return -EIO;
 
         for (j = 0, p = buf; j < 16; j++) {
@@ -195,9 +214,9 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
 }
 
 _public_ int sd_id128_randomize(sd_id128_t *ret) {
-        int fd;
-        ssize_t k;
+        _cleanup_close_ int fd = -1;
         sd_id128_t t;
+        ssize_t k;
 
         if (!ret)
                 return -EINVAL;
@@ -207,12 +226,10 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
                 return -errno;
 
         k = loop_read(fd, &t, 16, false);
-        close_nointr_nofail(fd);
-
         if (k < 0)
                 return (int) k;
 
-        if (k < 16)
+        if (k != 16)
                 return -EIO;
 
         /* Turn this into a valid v4 UUID, to be nice. Note that we

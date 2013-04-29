@@ -40,7 +40,7 @@ union sd_id128 {
 
 char *sd_id128_to_string(sd_id128_t id, char s[33]);
 
-int sd_id128_from_string(const char s[33], sd_id128_t *ret);
+int sd_id128_from_string(const char *s, sd_id128_t *ret);
 
 int sd_id128_randomize(sd_id128_t *ret);
 

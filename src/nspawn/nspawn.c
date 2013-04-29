@@ -222,6 +222,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_UUID:
+                        if (!id128_is_valid(optarg)) {
+                                log_error("Invalid UUID: %s", optarg);
+                                return -EINVAL;
+                        }
+
                         arg_uuid = optarg;
                         break;
 

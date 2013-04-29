@@ -72,16 +72,19 @@ static int generate(char id[34]) {
         /* First, try reading the D-Bus machine id, unless it is a symlink */
         fd = open("/var/lib/dbus/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd >= 0) {
-
-                k = loop_read(fd, id, 32, false);
+                k = loop_read(fd, id, 33, false);
                 close_nointr_nofail(fd);
 
-                if (k >= 32) {
-                        id[32] = '\n';
-                        id[33] = 0;
+                if (k == 33 && id[32] == '\n') {
 
-                        log_info("Initializing machine ID from D-Bus machine ID.");
-                        return 0;
+                        id[32] = 0;
+                        if (id128_is_valid(id)) {
+                                id[32] = '\n';
+                                id[33] = 0;
+
+                                log_info("Initializing machine ID from D-Bus machine ID.");
+                                return 0;
+                        }
                 }
         }
 
@@ -113,7 +116,7 @@ static int generate(char id[34]) {
          * $container_uuid the way libvirt/LXC does it */
         r = detect_container(NULL);
         if (r > 0) {
-                char *e;
+                _cleanup_free_ char *e = NULL;
 
                 r = getenv_for_pid(1, "container_uuid", &e);
                 if (r > 0) {
@@ -121,12 +124,9 @@ static int generate(char id[34]) {
                                 r = shorten_uuid(id, e);
                                 if (r >= 0) {
                                         log_info("Initializing machine ID from container UUID.");
-                                        free(e);
                                         return 0;
                                 }
                         }
-
-                        free(e);
                 }
         }
 
@@ -183,8 +183,12 @@ int machine_id_setup(void) {
         }
 
         if (S_ISREG(st.st_mode))
-                if (loop_read(fd, id, 32, false) >= 32)
-                        return 0;
+                if (loop_read(fd, id, 33, false) == 33 && id[32] == '\n') {
+                        id[32] = 0;
+
+                        if (id128_is_valid(id))
+                                return 0;
+                }
 
         /* Hmm, so, the id currently stored is not useful, then let's
          * generate one */

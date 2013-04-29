@@ -31,7 +31,12 @@
 #include "load-fragment.h"
 #include "conf-files.h"
 
-static int iterate_dir(Unit *u, const char *path, UnitDependency dependency, char ***strv) {
+static int iterate_dir(
+                Unit *u,
+                const char *path,
+                UnitDependency dependency,
+                char ***strv) {
+
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
@@ -86,7 +91,14 @@ static int iterate_dir(Unit *u, const char *path, UnitDependency dependency, cha
         return 0;
 }
 
-static int process_dir(Unit *u, const char *unit_path, const char *name, const char *suffix, UnitDependency dependency, char ***strv) {
+static int process_dir(
+                Unit *u,
+                const char *unit_path,
+                const char *name,
+                const char *suffix,
+                UnitDependency dependency,
+                char ***strv) {
+
         int r;
         char *path;
 
@@ -97,7 +109,7 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
 
         path = strjoin(unit_path, "/", name, suffix, NULL);
         if (!path)
-                return -ENOMEM;
+                return log_oom();
 
         if (u->manager->unit_path_cache &&
             !set_get(u->manager->unit_path_cache, path))
@@ -115,13 +127,13 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
 
                 template = unit_name_template(name);
                 if (!template)
-                        return -ENOMEM;
+                        return log_oom();
 
                 path = strjoin(unit_path, "/", template, suffix, NULL);
                 free(template);
 
                 if (!path)
-                        return -ENOMEM;
+                        return log_oom();
 
                 if (u->manager->unit_path_cache &&
                     !set_get(u->manager->unit_path_cache, path))
@@ -138,10 +150,10 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
 }
 
 char **unit_find_dropin_paths(Unit *u) {
-        Iterator i;
-        char *t;
         _cleanup_strv_free_ char **strv = NULL;
         char **configs = NULL;
+        Iterator i;
+        char *t;
         int r;
 
         assert(u);
@@ -157,14 +169,14 @@ char **unit_find_dropin_paths(Unit *u) {
                 }
         }
 
-        if (!strv_isempty(strv)) {
-                r = conf_files_list_strv(&configs, ".conf", NULL, (const char**) strv);
-                if (r < 0) {
-                        log_error("Failed to get list of configuration files: %s", strerror(-r));
-                        strv_free(configs);
-                        return NULL;
-                }
+        if (strv_isempty(strv))
+                return NULL;
 
+        r = conf_files_list_strv(&configs, ".conf", NULL, (const char**) strv);
+        if (r < 0) {
+                log_error("Failed to get list of configuration files: %s", strerror(-r));
+                strv_free(configs);
+                return NULL;
         }
 
         return configs;

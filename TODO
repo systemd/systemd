@@ -26,17 +26,13 @@ Fedora 19:
 
 Features:
 
-* nss-myhostname: investigate whether there's any point in also
-  resolving localhost6, localhost.localdomain, ip6-localhost or any of
-  the other names often seen in /etc/hosts
+* investigate endianess issues of UUID vs. GUID
 
 * see if we can fix https://bugs.freedesktop.org/show_bug.cgi?id=63672
   without dropping the location cache entirely.
 
 * dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
   should be able to safely try another attempt when the bus call LoadUnit() is invoked.
-
-* for instanced unit drop-ins we should look in foo@bar.service.d/ as well as foo@.service.d/
 
 * if pam_systemd is invoked by su from a process that is outside of a
   any session we should probably just become a NOP, since that's
@@ -60,8 +56,6 @@ Features:
 * cgtop: make cgtop useful in a container
 
 * make sure cg_pid_get_path() works properly for co-mounted controllers
-
-* nspawn: ensure syntax of --uuid= argument is correct
 
 * explicitly disallow changing the cgroup path of units in the
   name=systemd hierarchy, unless it is outside of /system

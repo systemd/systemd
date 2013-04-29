@@ -733,3 +733,5 @@ static inline void _reset_locale_(struct _locale_struct_ *s) {
                      }                                                  \
                      !_saved_locale_.quit; }) ;                         \
              _saved_locale_.quit = true)
+
+bool id128_is_valid(const char *s);
