@@ -1204,7 +1204,7 @@
                       <row>
                         <entry><literal>%f</literal></entry>
                         <entry>Unescaped file name</entry>
-                        <entry>This is either the unescaped instance name (if applicable) with / prepended (if applicable), or the prefix name similarly prepended with /.</entry>
+                        <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the prefix name similarly prepended with <filename>/</filename>.</entry>
                       </row>
                       <row>
                         <entry><literal>%c</literal></entry>
@@ -1213,13 +1213,13 @@
                       </row>
                       <row>
                         <entry><literal>%r</literal></entry>
-                        <entry>Root control group path of systemd</entry>
-                        <entry></entry>
+                        <entry>Root control group path where units are placed.</entry>
+                        <entry>For system instances this usually resolves to <filename>/system</filename>, except in containers, where the path might be prefixed with the container's root control group.</entry>
                       </row>
                       <row>
                         <entry><literal>%R</literal></entry>
-                        <entry>Parent directory of the root control group path of systemd</entry>
-                        <entry></entry>
+                        <entry>Parent directory of the control group path where units are placed.</entry>
+                        <entry>For system instances this usually resolves to <filename>/</filename>, except in containers, where this resolves to the container's root directory. This specifier is particularly useful in the <varname>ControlGroup=</varname> setting (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</entry>
                       </row>
                       <row>
                         <entry><literal>%t</literal></entry>
@@ -1244,14 +1244,7 @@
                       <row>
                         <entry><literal>%s</literal></entry>
                         <entry>User shell</entry>
-                        <entry>This is the shell of the configured
-                        user of the unit, or (if none is set) the user
-                        running the systemd instance.  If the user is
-                        <literal>root</literal> (UID equal to 0), the
-                        shell configured in account database is
-                        ignored and <filename>/bin/sh</filename> is
-                        always used.
-                        </entry>
+                        <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd instance.  If the user is <literal>root</literal> (UID equal to 0), the shell configured in account database is ignored and <filename>/bin/sh</filename> is always used.</entry>
                       </row>
                       <row>
                         <entry><literal>%m</literal></entry>
