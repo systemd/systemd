@@ -1466,6 +1466,9 @@ static int service_search_main_pid(Service *s) {
         r = unit_watch_pid(UNIT(s), pid);
         if (r < 0)
                 /* FIXME: we need to do something here */
+                log_warning_unit(UNIT(s)->id,
+                                 "Failed to watch PID %lu from service %s",
+                                 (unsigned long) pid, UNIT(s)->id);
                 return r;
 
         return 0;
