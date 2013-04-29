@@ -26,6 +26,10 @@ Fedora 19:
 
 Features:
 
+* handle named vs controller hierarchies correctly in cg_pid_get_path()
+
+* add nspawn@.service
+
 * investigate endianess issues of UUID vs. GUID
 
 * see if we can fix https://bugs.freedesktop.org/show_bug.cgi?id=63672
@@ -56,9 +60,6 @@ Features:
 * cgtop: make cgtop useful in a container
 
 * make sure cg_pid_get_path() works properly for co-mounted controllers
-
-* explicitly disallow changing the cgroup path of units in the
-  name=systemd hierarchy, unless it is outside of /system
 
 * test/:
   - add 'set -e' to scripts in test/

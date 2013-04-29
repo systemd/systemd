@@ -916,6 +916,7 @@ int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_
 int cg_split_spec(const char *spec, char **controller, char **path) {
         const char *e;
         char *t = NULL, *u = NULL;
+        _cleanup_free_ char *v = NULL;
 
         assert(spec);
 
@@ -928,6 +929,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                         if (!t)
                                 return -ENOMEM;
 
+                        path_kill_slashes(t);
                         *path = t;
                 }
 
@@ -943,7 +945,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                         return -EINVAL;
 
                 if (controller) {
-                        t = strdup(spec);
+                        t = strdup(normalize_controller(spec));
                         if (!t)
                                 return -ENOMEM;
 
@@ -956,7 +958,10 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                 return 0;
         }
 
-        t = strndup(spec, e-spec);
+        v = strndup(spec, e-spec);
+        if (!v)
+                return -ENOMEM;
+        t = strdup(normalize_controller(v));
         if (!t)
                 return -ENOMEM;
         if (!cg_controller_is_valid(t, true)) {
@@ -969,11 +974,14 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                 free(t);
                 return -ENOMEM;
         }
-        if (!path_is_safe(u)) {
+        if (!path_is_safe(u) ||
+            !path_is_absolute(u)) {
                 free(t);
                 free(u);
                 return -EINVAL;
         }
+
+        path_kill_slashes(u);
 
         if (controller)
                 *controller = t;
@@ -993,7 +1001,6 @@ int cg_join_spec(const char *controller, const char *path, char **spec) {
 
         assert(path);
 
-
         if (!controller)
                 controller = "systemd";
         else {
@@ -1009,6 +1016,8 @@ int cg_join_spec(const char *controller, const char *path, char **spec) {
         s = strjoin(controller, ":", path, NULL);
         if (!s)
                 return -ENOMEM;
+
+        path_kill_slashes(s + strlen(controller) + 1);
 
         *spec = s;
         return 0;
@@ -1029,6 +1038,7 @@ int cg_mangle_path(const char *path, char **result) {
                 if (!t)
                         return -ENOMEM;
 
+                path_kill_slashes(t);
                 *result = t;
                 return 0;
         }

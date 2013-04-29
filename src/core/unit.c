@@ -1977,10 +1977,16 @@ static int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 }
 
 char *unit_default_cgroup_path(Unit *u) {
+        _cleanup_free_ char *escaped_instance = NULL;
+
         assert(u);
 
+        escaped_instance = cg_escape(u->id);
+        if (!escaped_instance)
+                return NULL;
+
         if (u->instance) {
-                _cleanup_free_ char *t = NULL, *escaped_template = NULL, *escaped_instance = NULL;
+                _cleanup_free_ char *t = NULL, *escaped_template = NULL;
 
                 t = unit_name_template(u->id);
                 if (!t)
@@ -1990,20 +1996,9 @@ char *unit_default_cgroup_path(Unit *u) {
                 if (!escaped_template)
                         return NULL;
 
-                escaped_instance = cg_escape(u->id);
-                if (!escaped_instance)
-                        return NULL;
-
                 return strjoin(u->manager->cgroup_hierarchy, "/", escaped_template, "/", escaped_instance, NULL);
-        } else {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cg_escape(u->id);
-                if (!escaped)
-                        return NULL;
-
-                return strjoin(u->manager->cgroup_hierarchy, "/", escaped, NULL);
-        }
+        } else
+                return strjoin(u->manager->cgroup_hierarchy, "/", escaped_instance, NULL);
 }
 
 int unit_add_cgroup_from_text(Unit *u, const char *name, bool overwrite, CGroupBonding **ret) {
@@ -2025,7 +2020,7 @@ int unit_add_cgroup_from_text(Unit *u, const char *name, bool overwrite, CGroupB
         }
 
         if (!controller) {
-                controller = strdup(SYSTEMD_CGROUP_CONTROLLER);
+                controller = strdup("systemd");
                 ours = true;
         }
 
@@ -2033,6 +2028,16 @@ int unit_add_cgroup_from_text(Unit *u, const char *name, bool overwrite, CGroupB
                 free(path);
                 free(controller);
                 return log_oom();
+        }
+
+        if (streq(controller, "systemd")) {
+                /* Within the systemd unit hierarchy we do not allow changes. */
+                if (path_startswith(path, "/system")) {
+                        log_warning_unit(u->id, "Manipulating the systemd:/system cgroup hierarchy is not permitted.");
+                        free(path);
+                        free(controller);
+                        return -EPERM;
+                }
         }
 
         b = cgroup_bonding_find_list(u->cgroup_bondings, controller);

@@ -28,6 +28,21 @@
 #include "set.h"
 #include "def.h"
 
+/*
+ * General rules:
+ *
+ * We accept named hierarchies in the syntax "foo" and "name=foo".
+ *
+ * We expect that named hierarchies do not conflict in name with a
+ * kernel hierarchy, modulo the "name=" prefix.
+ *
+ * We always generate "normalized" controller names, i.e. without the
+ * "name=" prefix.
+ *
+ * We require absolute cgroup paths. When returning, we will always
+ * generate paths with multiple adjacent / removed.
+ */
+
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f);
 int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f);
 int cg_read_pid(FILE *f, pid_t *_pid);
