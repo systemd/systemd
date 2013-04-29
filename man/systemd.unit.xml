@@ -245,7 +245,7 @@
         </refsect1>
 
         <refsect1>
-                <title>Unit load path</title>
+                <title>Unit Load Path</title>
 
                 <para>Unit files are loaded from a set of paths
                 determined during compilation, described in the two
@@ -254,7 +254,7 @@
                 lower in the hierarchy, thus allowing overrides.
                 </para>
 
-                <para>When systemd is running in session mode
+                <para>When systemd is running in user mode
                 (<option>--user</option>) and the variable
                 <varname>$SYSTEMD_UNIT_PATH</varname> is set, this
                 contents of this variable overrides the unit load
@@ -278,14 +278,11 @@
                     <tbody>
                       <row>
                         <entry><filename>/run/systemd/generator.early</filename></entry>
-                        <entry>Generated units</entry>
-                      </row>
-                      <row>
-                        <entry><filename>&SYSTEM_CONFIG_UNIT_PATH;</filename></entry>
-                        <entry morerows='1'>Local configuration</entry>
+                        <entry>Generated units (early)</entry>
                       </row>
                       <row>
                         <entry><filename>/etc/systemd/system</filename></entry>
+                        <entry>Local configuration</entry>
                       </row>
                       <row>
                         <entry><filename>/run/systemd/systemd</filename></entry>
@@ -293,26 +290,19 @@
                       </row>
                       <row>
                         <entry><filename>/run/systemd/generator</filename></entry>
-                        <entry>Generated units</entry>
+                        <entry>Generated units (middle)</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/local/lib/systemd/system</filename></entry>
                         <entry>Units for local packages</entry>
                       </row>
                       <row>
-                        <entry><filename>&systemunitdir;</filename></entry>
-                        <entry>Systemd package configuration</entry>
-                      </row>
-                      <row>
                         <entry><filename>/usr/lib/systemd/system</filename></entry>
-                        <entry morerows='1'>Units for installed packages</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/lib/systemd/system</filename></entry>
+                        <entry>Units for installed packages</entry>
                       </row>
                       <row>
                         <entry><filename>/run/systemd/generator.late</filename></entry>
-                        <entry>Generated units</entry>
+                        <entry>Generated units (late)</entry>
                       </row>
                     </tbody>
                   </tgroup>
@@ -335,14 +325,11 @@
                     <tbody>
                       <row>
                         <entry><filename>/tmp/systemd-generator.early.<replaceable>XXXXXX</replaceable></filename></entry>
-                        <entry>Generated units</entry>
-                      </row>
-                      <row>
-                        <entry><filename>&USER_CONFIG_UNIT_PATH;</filename></entry>
-                        <entry morerows='1'>Local configuration</entry>
+                        <entry>Generated units (early)</entry>
                       </row>
                       <row>
                         <entry><filename>/etc/systemd/user</filename></entry>
+                        <entry>Local configuration</entry>
                       </row>
                       <row>
                         <entry><filename>/run/systemd/user</filename></entry>
@@ -350,39 +337,23 @@
                       </row>
                       <row>
                         <entry><filename>/tmp/systemd-generator.<replaceable>XXXXXX</replaceable></filename></entry>
-                        <entry>Generated units</entry>
+                        <entry>Generated units (middle)</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/local/lib/systemd/user</filename></entry>
-                        <entry morerows='1'>Units for local packages</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/usr/local/share/systemd/user</filename></entry>
-                      </row>
-                      <row>
-                        <entry><filename>&userunitdir;</filename></entry>
-                        <entry>Systemd package configuration</entry>
+                        <entry>Units for local packages</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/lib/systemd/user</filename></entry>
-                        <entry morerows='1'>Units for installed packages</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/usr/share/systemd/user</filename></entry>
+                        <entry>Units for installed packages</entry>
                       </row>
                       <row>
                         <entry><filename>/tmp/systemd-generator.late.<replaceable>XXXXXX</replaceable></filename></entry>
-                        <entry>Generated units</entry>
+                        <entry>Generated units (late)</entry>
                       </row>
                     </tbody>
                   </tgroup>
                 </table>
-
-                <para>Note: the paths listed above are set at
-                compilation time and differ between distributions. The
-                "authoritative" list is printed by
-                <command>systemd</command> at during start and daemon
-                reconfiguration.</para>
 
                 <para>Additional units might be loaded into systemd
                 ("linked") from directories not on the unit load
