@@ -48,6 +48,8 @@ extern "C" {
  *
  * - enforce alignment of pointers passed in
  * - negotiation for attach attributes
+ *
+ * - for kernel and unix transports allow setting the unix user/access mode for the node
  */
 
 typedef struct sd_bus sd_bus;

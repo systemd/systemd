@@ -328,13 +328,13 @@ static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char **arg_proc_cm
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_strv_free_ char **arg_proc_cmdline_disks_done = NULL;
+        _cleanup_strv_free_ char **arg_proc_cmdline_disks = NULL;
+        _cleanup_free_ char *arg_proc_cmdline_keyfile = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         unsigned n = 0;
         int r = EXIT_SUCCESS;
         char **i;
-        _cleanup_strv_free_ char **arg_proc_cmdline_disks_done = NULL;
-        _cleanup_strv_free_ char **arg_proc_cmdline_disks = NULL;
-        _cleanup_free_ char *arg_proc_cmdline_keyfile = NULL;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -357,8 +357,9 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
 
         if (arg_read_crypttab) {
-                f = fopen("/etc/crypttab", "re");
+                struct stat st;
 
+                f = fopen("/etc/crypttab", "re");
                 if (!f) {
                         if (errno == ENOENT)
                                 r = EXIT_SUCCESS;
@@ -366,7 +367,20 @@ int main(int argc, char *argv[]) {
                                 r = EXIT_FAILURE;
                                 log_error("Failed to open /etc/crypttab: %m");
                         }
-                } else for (;;) {
+
+                        goto next;
+                }
+
+                if (fstat(fileno(f), &st) < 0) {
+                        log_error("Failed to stat /etc/crypttab: %m");
+                        r = EXIT_FAILURE;
+                        goto next;
+                }
+
+                if (st.st_mode & 0005)
+                        log_warning("/etc/crypttab is world-readable. This is usually not a good idea.");
+
+                for (;;) {
                         char line[LINE_MAX], *l;
                         _cleanup_free_ char *name = NULL, *device = NULL, *password = NULL, *options = NULL;
                         int k;
@@ -420,6 +434,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
+next:
         STRV_FOREACH(i, arg_proc_cmdline_disks) {
                 /*
                   Generate units for those UUIDs, which were specified

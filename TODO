@@ -121,8 +121,6 @@ Features:
   and we might want to requeue the mounts local-fs acquired through
   that automatically.
 
-* neither pkexec nor sudo initialize environ[] from the PAM environment?
-
 * rework specifier logic so that we can distuingish OOM errors from other errors
 
 * systemd-inhibit: make taking delay locks useful: support sending SIGINT or SIGTERM on PrepareForSleep()
@@ -131,9 +129,7 @@ Features:
 
 * remove any syslog support from log.c -- we probably can't do this before split-off udev is gone for good
 
-* fedora: connect the timer units of a service to the service via Also= in [Install]
-
-* fedora: F20: go timer units all the way, leave cron.daily for cron
+* documentation: recommend to connect the timer units of a service to the service via Also= in [Install]
 
 * add a tool that lists active timer units plus their next elapstion and the time the units ran last
 
@@ -150,12 +146,6 @@ Features:
 * man: add more examples to man pages
 
 * man: maybe sort directives in man pages, and take sections from --help and apply them to man too
-
-* add "# export SYSTEMD_PAGER=" to bash login
-
-* /usr/bin/service should actually show the new command line
-
-* fedora: suggest auto-restart on failure, but not on sucess and not on coredump. also, ask people to think about changing the start limit logic. Also point people to RestartPreventExitStatus=, SuccessExitStatus=
 
 * write UI tool that pops up emergency messages from the journal as notification
 
@@ -214,6 +204,9 @@ Features:
   - pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
   - logind: GetSessionByPID() should accept 0 as PID value
   - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
+  - add configuration/switches to use
+    freeze (http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git) and
+    standby (https://bugs.freedesktop.org/show_bug.cgi?id=57793) as suspend modes
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
@@ -239,7 +232,6 @@ Features:
   - check if we can make journalctl by default use --follow mode inside of less if called without args?
   - maybe add API to send pairs of iovecs via sd_journal_send
   - journal: when writing journal auto-rotate if time jumps backwards
-  - gatewayd: should run under its own UID
   - journal: add a setgid "systemd-journal" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
   - journactl: support negative filtering, i.e. FOOBAR!="waldo",
     and !FOOBAR for events without FOOBAR.
@@ -248,7 +240,6 @@ Features:
   - journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
   - journal: find a way to allow dropping history early, based on priority, other rules
   - journal: When used on NFS, check payload hashes
-  - journal: When used on NFS make sure wake up sd_journal_wait() every 2s, to handle missing inotify
   - Introduce journalctl -b <nr> to show journal messages of a previous boot
   - journald: check whether it is OK if the client can still modify delivered journal entries
   - journal live copy, based on libneon (client) and libmicrohttpd (server)
@@ -259,7 +250,6 @@ Features:
   - journalctl: show multiline log messages sanely, expand tabs, and show all valid utf8 messages
   - journal: store euid in journal if it differs from uid
   - journal: sanely deal with entries which are larger than the individual file size, but where the components would fit
-  - journalctl: make journalctl smarter, and actually check groups that have access to /var/log/journal before printing message about recomming group membership for journal access
   - Replace utmp, wtmp, btmp, and lastlog completely with journal
   - Port upower to use the journal for historical power information used in future calculations
 
@@ -288,9 +278,6 @@ Features:
   - systemctl: "Journal has been rotated since unit was started." message is misleading
   - support "systemctl stop foobar@.service" to stop all units matching a certain template
   - Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
-  - add configuration/switches to use
-    freeze (http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git) and
-    standby (https://bugs.freedesktop.org/show_bug.cgi?id=57793) as suspend modes
 
 * introduce ntp.service (or suchlike) as symlink that is used to arbitrate between various NTP implementations
 
@@ -363,8 +350,6 @@ Features:
 
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab isn't
 
-* WorkingDirectory: support env var replacements like in ExecStart= so that people can use $HOME
-
 * refuse boot if /etc/machine-id is not useful (or set taint?)
 
 * nspawn:
@@ -385,7 +370,6 @@ Features:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
   - move cryptsetup key caching into kernel keyctl?
     https://bugs.freedesktop.org/show_bug.cgi?id=54982
-  - when key file cannot be found, read it from kbd in cryptsetup
 
 * move debug shell to tty6 and make sure this doesn't break the gettys on tty6
 
@@ -454,13 +438,9 @@ Features:
 
 * introduce Type=pid-file
 
-* maybe allow services with ExecStop= set, but no ExecStart=?
-
 * change Requires=basic.target to RequisiteOverride=basic.target
 
 * support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
-
-* drop accountsservice's StandardOutput=syslog and Type=dbus fields
 
 * when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
 
@@ -492,8 +472,6 @@ Features:
 
 * cleanup syslog 'priority' vs. 'level' wording
 
-* dbus upstream still refers to dbus.target and shouldn't
-
 * when a service has the same env var set twice we actually store it twice and return that in systemctl show -p... We should only show the last setting
 
 * support container_ttys=
@@ -507,8 +485,6 @@ Features:
 * add option to sockets to avoid activation. Instead just drop packets/connections, see http://cyberelk.net/tim/2012/02/15/portreserve-systemd-solution/
 
 * default unix qlen is too small (10). bump sysctl? add sockopt?
-
-* dbus: in fedora, make /var/lib/dbus/machine-id a symlink to /etc/machine-id
 
 * save coredump in Windows/Mozilla minidump format
 
@@ -592,8 +568,6 @@ Features:
 
 * support systemd.mask= on the kernel command line.
 
-* reuse mkdtemp namespace dirs in /tmp?
-
 * recreate systemd's D-Bus private socket file on SIGUSR2
 
 * Support --test based on current system state
@@ -624,6 +598,13 @@ Features:
      works with ^C
    - add documentation to systemd.daemon
 
+* bootchart:
+   - plot per-process IO utilization
+   - group processes based on service association (cgroups)
+   - document initcall_debug
+   - put bootcharts in the journal
+   - kernel cmdline "bootchart" option for simplicity?
+
 External:
 
 * dbus:
@@ -649,12 +630,21 @@ External:
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
 
-* bootchart:
-   - plot per-process IO utilization
-   - group processes based on service association (cgroups)
-   - document initcall_debug
-   - put bootcharts in the journal
-   - kernel cmdline "bootchart" option for simplicity?
+* drop accountsservice's StandardOutput=syslog and Type=dbus fields
+
+* dbus upstream still refers to dbus.target and shouldn't
+
+* dbus: in fedora, make /var/lib/dbus/machine-id a symlink to /etc/machine-id
+
+* add "# export SYSTEMD_PAGER=" to bash login
+
+* /usr/bin/service should actually show the new command line
+
+* fedora: suggest auto-restart on failure, but not on sucess and not on coredump. also, ask people to think about changing the start limit logic. Also point people to RestartPreventExitStatus=, SuccessExitStatus=
+
+* fedora: F20: go timer units all the way, leave cron.daily for cron
+
+* neither pkexec nor sudo initialize environ[] from the PAM environment?
 
 Regularly:
 
