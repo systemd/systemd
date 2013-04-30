@@ -275,7 +275,6 @@ int bus_kernel_take_fd(sd_bus *b) {
         struct kdbus_cmd_hello hello = {
                 .conn_flags =
                         KDBUS_CMD_HELLO_ACCEPT_FD|
-                        KDBUS_CMD_HELLO_ACCEPT_MMAP|
                         KDBUS_CMD_HELLO_ATTACH_COMM|
                         KDBUS_CMD_HELLO_ATTACH_EXE|
                         KDBUS_CMD_HELLO_ATTACH_CMDLINE|

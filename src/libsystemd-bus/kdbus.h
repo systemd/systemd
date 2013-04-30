@@ -67,10 +67,11 @@ struct kdbus_timestamp {
 
 /* Message Item Types */
 enum {
+	KDBUS_MSG_NULL,
+
 	/* Filled in by userspace */
-	KDBUS_MSG_NULL,			/* empty record */
-	KDBUS_MSG_PAYLOAD,		/* .data */
-	KDBUS_MSG_PAYLOAD_VEC,		/* .data_vec */
+	KDBUS_MSG_PAYLOAD,		/* .data, inline memory */
+	KDBUS_MSG_PAYLOAD_VEC,		/* .data_vec, reference to memory area */
 	KDBUS_MSG_UNIX_FDS,		/* .data_fds of file descriptors */
 	KDBUS_MSG_BLOOM,		/* for broadcasts, carries bloom filter blob in .data */
 	KDBUS_MSG_DST_NAME,		/* destination's well-known name, in .str */
@@ -98,9 +99,14 @@ enum {
 	KDBUS_MSG_REPLY_DEAD,		/* dito */
 };
 
+enum {
+	KDBUS_VEC_ALIGNED		= 1 <<  0,
+};
+
 struct kdbus_vec {
 	__u64 address;
 	__u64 size;
+	__u64 flags;
 };
 
 /**
@@ -133,12 +139,12 @@ struct kdbus_msg_item {
 };
 
 enum {
-	KDBUS_MSG_FLAGS_EXPECT_REPLY	= 1,
-	KDBUS_MSG_FLAGS_NO_AUTO_START	= 2, /* possibly? */
+	KDBUS_MSG_FLAGS_EXPECT_REPLY	= 1 << 0,
+	KDBUS_MSG_FLAGS_NO_AUTO_START	= 1 << 1,
 };
 
 enum {
-	KDBUS_PAYLOAD_NONE	= 0,
+	KDBUS_PAYLOAD_NONE,
 	KDBUS_PAYLOAD_DBUS1	= 0x4442757356657231ULL, /* 'DBusVer1' */
 	KDBUS_PAYLOAD_GVARIANT	= 0x4756617269616e74ULL, /* 'GVariant' */
 };
@@ -169,20 +175,22 @@ struct kdbus_msg {
 };
 
 enum {
+	KDBUS_POLICY_NULL,
 	KDBUS_POLICY_NAME,
 	KDBUS_POLICY_ACCESS,
 };
 
 enum {
-	KDBUS_POLICY_USER,
-	KDBUS_POLICY_GROUP,
-	KDBUS_POLICY_WORLD,
+	KDBUS_POLICY_ACCESS_NULL,
+	KDBUS_POLICY_ACCESS_USER,
+	KDBUS_POLICY_ACCESS_GROUP,
+	KDBUS_POLICY_ACCESS_WORLD,
 };
 
 enum {
-	KDBUS_POLICY_RECV	= 4,
-	KDBUS_POLICY_SEND	= 2,
-	KDBUS_POLICY_OWN	= 1,
+	KDBUS_POLICY_RECV		= 1 <<  2,
+	KDBUS_POLICY_SEND		= 1 <<  1,
+	KDBUS_POLICY_OWN		= 1 <<  0,
 };
 
 struct kdbus_policy {
@@ -207,7 +215,6 @@ struct kdbus_cmd_policy {
 enum {
 	KDBUS_CMD_HELLO_STARTER		=  1 <<  0,
 	KDBUS_CMD_HELLO_ACCEPT_FD	=  1 <<  1,
-	KDBUS_CMD_HELLO_ACCEPT_MMAP	=  1 <<  2,
 
 	/* The following have an effect on directed messages only --
 	 * not for broadcasts */
@@ -223,9 +230,9 @@ enum {
 /* Flags for kdbus_cmd_bus_make, kdbus_cmd_ep_make and
  * kdbus_cmd_ns_make */
 enum {
-	KDBUS_ACCESS_GROUP	=  1,
-	KDBUS_ACCESS_WORLD	=  2,
-	KDBUS_POLICY_OPEN	=  4,
+	KDBUS_ACCESS_GROUP		= 1 <<  0,
+	KDBUS_ACCESS_WORLD		= 1 <<  1,
+	KDBUS_POLICY_OPEN		= 1 <<  2,
 };
 
 /* Items to append to kdbus_cmd_bus_make, kdbus_cmd_ep_make and
@@ -316,12 +323,12 @@ struct kdbus_cmd_ns_make {
 
 enum {
 	/* userspace → kernel */
-	KDBUS_CMD_NAME_REPLACE_EXISTING		=  1,
-	KDBUS_CMD_NAME_QUEUE			=  2,
-	KDBUS_CMD_NAME_ALLOW_REPLACEMENT	=  4,
+	KDBUS_CMD_NAME_REPLACE_EXISTING		= 1 <<  0,
+	KDBUS_CMD_NAME_QUEUE			= 1 <<  1,
+	KDBUS_CMD_NAME_ALLOW_REPLACEMENT	= 1 <<  2,
 
 	/* kernel → userspace */
-	KDBUS_CMD_NAME_IN_QUEUE = 0x200,
+	KDBUS_CMD_NAME_IN_QUEUE			= 1 << 16,
 };
 
 struct kdbus_cmd_name {
@@ -338,6 +345,7 @@ struct kdbus_cmd_names {
 };
 
 enum {
+	KDBUS_CMD_NAME_INFO_ITEM_NULL,
 	KDBUS_CMD_NAME_INFO_ITEM_NAME,		/* userspace → kernel */
 	KDBUS_CMD_NAME_INFO_ITEM_SECLABEL,	/* kernel → userspace */
 	KDBUS_CMD_NAME_INFO_ITEM_AUDIT,		/* kernel → userspace */
@@ -358,6 +366,7 @@ struct kdbus_cmd_name_info {
 };
 
 enum {
+	KDBUS_CMD_MATCH_NULL,
 	KDBUS_CMD_MATCH_BLOOM,		/* Matches a mask blob against KDBUS_MSG_BLOOM */
 	KDBUS_CMD_MATCH_SRC_NAME,	/* Matches a name string against KDBUS_MSG_SRC_NAMES */
 	KDBUS_CMD_MATCH_NAME_ADD,	/* Matches a name string against KDBUS_MSG_NAME_ADD */
