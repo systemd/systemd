@@ -971,7 +971,7 @@ _udevadm_monitor(){
         '--kernel[Print the kernel uevents.]' \
         '--udev[Print the udev event after the rule processing.]' \
         '--property[Also print the properties of the event.]' \
-        '--subsystem-match=[Filter events by subsystem[/devtype].]' \
+        '--subsystem-match=[Filter events by subsystem/\[devtype\].]' \
         '--tag-match=[Filter events by property.]' \
         '--help[Print help text.]'
 }
