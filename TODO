@@ -26,8 +26,6 @@ Fedora 19:
 
 Features:
 
-* add nspawn@.service
-
 * investigate endianess issues of UUID vs. GUID
 
 * see if we can fix https://bugs.freedesktop.org/show_bug.cgi?id=63672
