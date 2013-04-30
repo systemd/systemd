@@ -2769,7 +2769,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
         if (m->keep_free == (uint64_t) -1) {
 
                 if (fs_size > 0) {
-                        m->keep_free = PAGE_ALIGN(fs_size / 20); /* 5% of file system size */
+                        m->keep_free = PAGE_ALIGN(fs_size * 3 / 20); /* 15% of file system size */
 
                         if (m->keep_free > DEFAULT_KEEP_FREE_UPPER)
                                 m->keep_free = DEFAULT_KEEP_FREE_UPPER;

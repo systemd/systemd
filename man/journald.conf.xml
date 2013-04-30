@@ -246,7 +246,7 @@
                                 configured in
                                 <varname>SystemMaxUse=</varname> and
                                 <varname>RuntimeMaxUse=</varname> is
-                                available. Defaults to 5% of the size
+                                available. Defaults to 15% of the size
                                 of the respective file
                                 system. <varname>SystemMaxFileSize=</varname>
                                 and
