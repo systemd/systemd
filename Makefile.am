@@ -442,7 +442,8 @@ nodist_systemunit_DATA = \
 	units/initrd-parse-etc.service \
 	units/initrd-cleanup.service \
 	units/initrd-udevadm-cleanup-db.service \
-	units/initrd-switch-root.service
+	units/initrd-switch-root.service \
+	units/systemd-nspawn@.service
 
 dist_userunit_DATA = \
 	units/user/default.target \
@@ -489,6 +490,7 @@ EXTRA_DIST += \
 	units/initrd-cleanup.service.in \
 	units/initrd-udevadm-cleanup-db.service.in \
 	units/initrd-switch-root.service.in \
+	units/systemd-nspawn@.service.in \
 	introspect.awk
 
 CLEANFILES += \

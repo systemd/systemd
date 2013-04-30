@@ -1,0 +1,18 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Container %i
+Documentation=man:systemd-nspawn(1)
+
+[Service]
+ExecStart=@bindir@/systemd-nspawn -bjD /var/lib/container/%i
+ControlGroup=%R/machine/%i.nspawn cpu:/
+Type=notify
+
+[Install]
+Also=multi-user.target

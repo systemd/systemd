@@ -1231,9 +1231,13 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        r = parse_argv(argc, argv);
-        if (r <= 0)
+        k = parse_argv(argc, argv);
+        if (k < 0)
                 goto finish;
+        else if (k == 0) {
+                r = EXIT_SUCCESS;
+                goto finish;
+        }
 
         if (arg_directory) {
                 char *p;
@@ -1321,8 +1325,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, newcg, false);
-        if (r <= 0 && r != -ENOENT) {
+        k = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, newcg, true);
+        if (k <= 0 && k != -ENOENT) {
                 log_error("Container already running.");
 
                 free(newcg);
@@ -1365,6 +1369,8 @@ int main(int argc, char *argv[]) {
                 log_error("Failed to create kmsg socket pair.");
                 goto finish;
         }
+
+        sd_notify(0, "READY=1");
 
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
@@ -1701,8 +1707,8 @@ int main(int argc, char *argv[]) {
                 if (saved_attr_valid)
                         tcsetattr(STDIN_FILENO, TCSANOW, &saved_attr);
 
-                r = wait_for_terminate(pid, &status);
-                if (r < 0) {
+                k = wait_for_terminate(pid, &status);
+                if (k < 0) {
                         r = EXIT_FAILURE;
                         break;
                 }
