@@ -1,0 +1,77 @@
+#!/bin/bash
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+
+COMMAND="$1"
+KERNEL_VERSION="$2"
+BOOT_DIR_ABS="$3"
+KERNEL_IMAGE="$4"
+
+if [[ -f /etc/machine-id ]]; then
+    read MACHINE_ID < /etc/machine-id
+fi
+
+if ! [[ $MACHINE_ID ]]; then
+    exit 1
+fi
+
+BOOT_DIR="/$MACHINE_ID/$KERNEL_VERSION"
+LOADER_ENTRY="/boot/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+
+if [[ $COMMAND == remove ]]; then
+    exec rm -f "$LOADER_ENTRY"
+fi
+
+if ! [[ $COMMAND == add ]]; then
+    exit 1
+fi
+
+if ! [[ $KERNEL_IMAGE ]]; then
+    exit 1
+fi
+
+if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+fi
+
+if ! [[ $PRETTY_NAME ]]; then
+    PRETTY_NAME="Linux $KERNEL_VERSION"
+fi
+
+if [[ -f /etc/kernel/cmdline ]]; then
+    readarray -t BOOT_OPTIONS < /etc/kernel/cmdline
+fi
+
+if ! [[ ${BOOT_OPTIONS[*]} ]]; then
+    readarray -t BOOT_OPTIONS < /proc/cmdline
+fi
+
+if ! [[ $BOOT_OPTIONS ]]; then
+    echo "Could not determine the kernel command line parameters." >&2
+    echo "Please specify the kernel command line in /etc/kernel/cmdline!" >&2
+    exit 1
+fi
+
+cp --preserve "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" || {
+    echo "Could not copy '$KERNEL_IMAGE to '$BOOT_DIR_ABS/linux'." >&2
+    exit 1
+}
+
+mkdir -p "${LOADER_ENTRY%/*}" || {
+    echo "Could not create loader entry directory '${LOADER_ENTRY%/*}'." >&2
+    exit 1
+}
+
+{
+    echo "title      $PRETTY_NAME"
+    echo "version    $KERNEL_VERSION"
+    echo "machine-id $MACHINE_ID"
+    echo "options    ${BOOT_OPTIONS[*]}"
+    echo "linux      $BOOT_DIR/linux"
+    [[ -f $BOOT_DIR_ABS/initrd ]] && \
+        echo "initrd     $BOOT_DIR/initrd"
+} > "$LOADER_ENTRY" || {
+    echo "Could not create loader entry '$LOADER_ENTRY'." >&2
+    exit 1
+}
+exit 0

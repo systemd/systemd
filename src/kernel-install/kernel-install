@@ -58,16 +58,6 @@ COMMAND="$1"
 KERNEL_VERSION="$2"
 KERNEL_IMAGE="$3"
 
-if [[ -f /etc/os-release ]]; then
-    . /etc/os-release
-fi
-
-if ! [[ $ID ]]; then
-    echo "Could not determine the distribution name from /etc/os-release." >&2
-    echo "Please specify ID=... in /etc/os-release. See man:os-release(5)" >&2
-    exit 1
-fi
-
 if [[ -f /etc/machine-id ]]; then
     read MACHINE_ID < /etc/machine-id
 fi
@@ -78,28 +68,12 @@ if ! [[ $MACHINE_ID ]]; then
     exit 1
 fi
 
-if [[ -f /etc/kernel/cmdline ]]; then
-    readarray -t BOOT_OPTIONS < /etc/kernel/cmdline
-fi
-
-if ! [[ ${BOOT_OPTIONS[*]} ]]; then
-    readarray -t BOOT_OPTIONS < /proc/cmdline
-fi
-
-if ! [[ $BOOT_OPTIONS ]]; then
-    echo "Could not determine the kernel command line parameters." >&2
-    echo "Please specify the kernel command line in /etc/kernel/cmdline!" >&2
-    exit 1
-fi
-
 if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
     usage
     exit 1
 fi
 
-BOOT_DIR="/$MACHINE_ID/$KERNEL_VERSION"
-BOOT_DIR_ABS="/boot$BOOT_DIR"
-LOADER_ENTRY="/boot/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+BOOT_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
 ret=0
 
 readarray -t PLUGINS < <(
@@ -121,41 +95,23 @@ case $COMMAND in
         }
 
         for f in "${PLUGINS[@]}"; do
-            [[ -x $f ]] && "$f" add "$KERNEL_VERSION" "$BOOT_DIR_ABS"
-            ((ret+=$?))
+            if [[ -x $f ]]; then
+                "$f" add "$KERNEL_VERSION" "$BOOT_DIR_ABS" "$KERNEL_IMAGE"
+                ((ret+=$?))
+            fi
         done
-
-        cp --preserve "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" || {
-            echo "Could not copy '$KERNEL_IMAGE to '$BOOT_DIR_ABS/linux'." >&2
-            exit 1
-        }
-
-        mkdir -p "${LOADER_ENTRY%/*}" || {
-            echo "Could not create loader entry directory '${LOADER_ENTRY%/*}'." >&2
-            exit 1
-        }
-
-        {
-            echo "title      $PRETTY_NAME"
-            echo "version    $KERNEL_VERSION"
-            echo "machine-id $MACHINE_ID"
-            echo "options    ${BOOT_OPTIONS[*]}"
-            echo "linux      $BOOT_DIR/linux"
-            [[ -f $BOOT_DIR_ABS/initrd ]] && \
-                echo "initrd     $BOOT_DIR/initrd"
-        } > "$LOADER_ENTRY" || {
-            echo "Could not create loader entry '$LOADER_ENTRY'." >&2
-            exit 1
-        }
         ;;
 
     remove)
         for f in "${PLUGINS[@]}"; do
-            [[ -x $f ]] && "$f" remove "$KERNEL_VERSION" "$BOOT_DIR_ABS"
-            ((ret+=$?))
+            if [[ -x $f ]]; then
+                "$f" remove "$KERNEL_VERSION" "$BOOT_DIR_ABS"
+                ((ret+=$?))
+            fi
         done
 
-        rm -rf "$LOADER_ENTRY" "$BOOT_DIR_ABS"
+        rm -rf "$BOOT_DIR_ABS"
+        ((ret+=$?))
         ;;
 
     *)
@@ -163,7 +119,5 @@ case $COMMAND in
         exit 1
         ;;
 esac
-
-((ret+=$?))
 
 exit $ret

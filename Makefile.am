@@ -90,6 +90,7 @@ udevhomedir=$(udevlibexecdir)
 udevrulesdir=$(udevlibexecdir)/rules.d
 udevhwdbdir=$(udevlibexecdir)/hwdb.d
 catalogdir=$(prefix)/lib/systemd/catalog
+kernelinstalldir = $(prefix)/lib/kernel/install.d
 
 # And these are the special ones for /
 rootprefix=@rootprefix@
@@ -291,11 +292,12 @@ bin_PROGRAMS = \
 	systemd-delta \
 	systemd-analyze
 
-bin_SCRIPTS = \
+dist_bin_SCRIPTS = \
 	src/kernel-install/kernel-install
 
-EXTRA_DIST += \
-	src/kernel-install/kernel-install
+dist_kernelinstall_SCRIPTS = \
+	src/kernel-install/50-depmod.install \
+	src/kernel-install/90-loaderentry.install
 
 rootlibexec_PROGRAMS = \
 	systemd \
