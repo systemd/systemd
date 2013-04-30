@@ -1217,7 +1217,7 @@ finish:
 int main(int argc, char *argv[]) {
         pid_t pid = 0;
         int r = EXIT_FAILURE, k;
-        _cleanup_free_ char *machine_root = NULL, *name = NULL, *escaped = NULL, *newcg = NULL;
+        _cleanup_free_ char *newcg = NULL;
         _cleanup_close_ int master = -1;
         int n_fd_passed;
         const char *console = NULL;
@@ -1301,27 +1301,9 @@ int main(int argc, char *argv[]) {
         fdset_close_others(fds);
         log_open();
 
-        k = cg_get_machine_path(&machine_root);
+        k = cg_get_machine_path(arg_machine, &newcg);
         if (k < 0) {
                 log_error("Failed to determine machine cgroup path: %s", strerror(-k));
-                goto finish;
-        }
-
-        name = strappend(arg_machine, ".nspawn");
-        if (!name) {
-                log_oom();
-                goto finish;
-        }
-
-        escaped = cg_escape(name);
-        if (!escaped) {
-                log_oom();
-                goto finish;
-        }
-
-        newcg = strjoin(machine_root, "/", escaped, NULL);
-        if (!newcg) {
-                log_oom();
                 goto finish;
         }
 

@@ -598,7 +598,7 @@ int sd_get_machine_names(char ***machines) {
         char *n;
         int c = 0, r;
 
-        r = cg_get_machine_path(&md);
+        r = cg_get_machine_path(NULL, &md);
         if (r < 0)
                 return r;
 
@@ -681,7 +681,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
                 _cleanup_free_ char *md = NULL, *p = NULL;
                 int r;
 
-                r = cg_get_machine_path(&md);
+                r = cg_get_machine_path(NULL, &md);
                 if (r < 0)
                         return r;
 

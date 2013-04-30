@@ -39,6 +39,7 @@ static bool arg_no_pager = false;
 static bool arg_kernel_threads = false;
 static bool arg_all = false;
 static int arg_full = -1;
+static char* arg_machine = NULL;
 
 static void help(void) {
 
@@ -49,7 +50,8 @@ static void help(void) {
                "     --no-pager       Do not pipe output into a pager\n"
                "  -a --all            Show all groups, including empty\n"
                "  --full              Do not ellipsize output\n"
-               "  -k                  Include kernel threads in output\n",
+               "  -k                  Include kernel threads in output\n"
+               "  -M --machine        Show container\n",
                program_invocation_short_name);
 }
 
@@ -67,6 +69,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER },
                 { "all",       no_argument,       NULL, 'a'          },
                 { "full",      no_argument,       NULL, ARG_FULL     },
+                { "machine",   required_argument, NULL, 'M'          },
                 { NULL,        0,                 NULL, 0            }
         };
 
@@ -75,7 +78,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hka", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hkaM:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -104,6 +107,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_kernel_threads = true;
                         break;
 
+                case 'M':
+                        arg_machine = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -119,6 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
         int r = 0, retval = EXIT_FAILURE;
         int output_flags;
+        char _cleanup_free_ *root = NULL;
 
         log_parse_environment();
         log_open();
@@ -144,13 +152,20 @@ int main(int argc, char *argv[]) {
                 (arg_full > 0) * OUTPUT_FULL_WIDTH;
 
         if (optind < argc) {
-                unsigned i;
+                int i;
 
-                for (i = (unsigned) optind; i < (unsigned) argc; i++) {
+                for (i = optind; i < argc; i++) {
                         int q;
                         printf("%s:\n", argv[i]);
 
-                        q = show_cgroup_by_path(argv[i], NULL, 0,
+                        if (arg_machine)
+                                root = strjoin("machine/", arg_machine, "/", argv[i], NULL);
+                        else
+                                root = strdup(argv[i]);
+                        if (!root)
+                                return log_oom();
+
+                        q = show_cgroup_by_path(root, NULL, 0,
                                                 arg_kernel_threads, output_flags);
                         if (q < 0)
                                 r = q;
@@ -165,16 +180,18 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (path_startswith(p, "/sys/fs/cgroup")) {
+                if (path_startswith(p, "/sys/fs/cgroup") && !arg_machine) {
                         printf("Working Directory %s:\n", p);
                         r = show_cgroup_by_path(p, NULL, 0,
                                                 arg_kernel_threads, output_flags);
                 } else {
-                        _cleanup_free_ char *root = NULL;
-
-                        r = cg_get_root_path(&root);
+                        if (arg_machine)
+                                r = cg_get_machine_path(arg_machine, &root);
+                        else
+                                r = cg_get_root_path(&root);
                         if (r < 0) {
-                                log_error("Failed to get root path: %s", strerror(-r));
+                                log_error("Failed to get %s path: %s",
+                                          arg_machine ? "machine" : "root", strerror(-r));
                                 goto finish;
                         }
 
@@ -183,10 +200,11 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (r < 0)
-                log_error("Failed to list cgroup tree: %s", strerror(-r));
-
-        retval = EXIT_SUCCESS;
+        if (r < 0) {
+                log_error("Failed to list cgroup tree %s: %s", root, strerror(-r));
+                retval = EXIT_FAILURE;
+        } else
+                retval = EXIT_SUCCESS;
 
 finish:
         pager_close();

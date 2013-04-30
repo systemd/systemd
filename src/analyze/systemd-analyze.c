@@ -780,7 +780,6 @@ static int list_dependencies_one(DBusConnection *bus, const char *name, unsigned
 }
 
 static int list_dependencies(DBusConnection *bus) {
-        _cleanup_free_ char *unit = NULL;
         _cleanup_strv_free_ char **units = NULL;
         char ts[FORMAT_TIMESPAN_MAX];
         struct unit_times *times;

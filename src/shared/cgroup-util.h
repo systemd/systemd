@@ -87,7 +87,7 @@ int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_
 int cg_get_root_path(char **path);
 int cg_get_system_path(char **path);
 int cg_get_user_path(char **path);
-int cg_get_machine_path(char **path);
+int cg_get_machine_path(const char *machine, char **path);
 
 int cg_path_get_session(const char *path, char **session);
 int cg_path_get_owner_uid(const char *path, uid_t *uid);

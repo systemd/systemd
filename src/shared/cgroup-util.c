@@ -1146,17 +1146,22 @@ int cg_get_user_path(char **path) {
         return 0;
 }
 
-int cg_get_machine_path(char **path) {
-        _cleanup_free_ char *root = NULL;
+int cg_get_machine_path(const char *machine, char **path) {
+        _cleanup_free_ char *root = NULL, *escaped = NULL;
         char *p;
 
         assert(path);
 
-        if (cg_get_root_path(&root) < 0 || streq(root, "/"))
-                p = strdup("/machine");
-        else
-                p = strappend(root, "/machine");
+        if (machine) {
+                const char *name = strappenda(machine, ".nspawn");
 
+                escaped = cg_escape(name);
+                if (!escaped)
+                        return -ENOMEM;
+        }
+
+        p = strjoin(cg_get_root_path(&root) >= 0 && !streq(root, "/") ? root : "",
+                    "/machine", machine ? "/" : "", machine ? escaped : "", NULL);
         if (!p)
                 return -ENOMEM;
 

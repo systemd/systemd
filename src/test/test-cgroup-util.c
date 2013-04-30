@@ -85,7 +85,7 @@ static void test_get_paths(void) {
         assert_se(cg_get_user_path(&c) >= 0);
         log_info("User = %s", c);
 
-        assert_se(cg_get_machine_path(&d) >= 0);
+        assert_se(cg_get_machine_path("harley", &d) >= 0);
         log_info("Machine = %s", d);
 }
 
