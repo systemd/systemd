@@ -294,11 +294,13 @@ _systemd_inhibit_command(){
 
 _systemd_analyze_command(){
     local -a _systemd_analyze_cmds
+    # Descriptions taken from systemd-analyze --help.
     _systemd_analyze_cmds=(
-        'time:Print the time taken to start'
-        'blame:prints a list of all running units, ordered by the time they took to initialize'
-        'plot:prints an SVG graphic detailing which system services have been started at what time'
-        'dot:Dump dependency graph for dot(1)'
+        'time:Print time spent in the kernel before reaching userspace'
+        'blame:Print list of running units ordered by time to init'
+        'critical-chain:Print a tree of the time critical chain of units'
+        'plot:Output SVG graphic showing service initialization'
+        'dot:Dump dependency graph (in dot(1) format)'
     )
 
     if (( CURRENT == 1 )); then

@@ -1137,6 +1137,10 @@ static void analyze_help(void)
                "  plot                Output SVG graphic showing service initialization\n"
                "  dot                 Dump dependency graph (in dot(1) format)\n\n",
                program_invocation_short_name);
+
+        /* When updating this list, including descriptions, apply
+         * changes to shell-completion/bash/systemd and
+         * shell-completion/systemd-zsh-completion.zsh too. */
 }
 
 static int parse_argv(int argc, char *argv[])
