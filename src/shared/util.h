@@ -211,12 +211,12 @@ int get_process_exe(pid_t pid, char **name);
 int get_process_uid(pid_t pid, uid_t *uid);
 int get_process_gid(pid_t pid, gid_t *gid);
 
-char hexchar(int x);
-int unhexchar(char c);
-char octchar(int x);
-int unoctchar(char c);
-char decchar(int x);
-int undecchar(char c);
+char hexchar(int x) _const_;
+int unhexchar(char c) _const_;
+char octchar(int x) _const_;
+int unoctchar(char c) _const_;
+char decchar(int x) _const_;
+int undecchar(char c) _const_;
 
 char *cescape(const char *s);
 char *cunescape(const char *s);
