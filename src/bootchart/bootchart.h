@@ -30,7 +30,6 @@
 
 #define MAXCPUS        16
 #define MAXPIDS     65535
-#define MAXSAMPLES   8192
 
 struct block_stat_struct {
         /* /proc/vmstat pgpgin & pgpgout */
@@ -42,11 +41,6 @@ struct cpu_stat_sample_struct {
         /* /proc/schedstat fields 10 & 11 (after name) */
         double runtime;
         double waittime;
-};
-
-struct cpu_stat_struct {
-        /* per cpu array */
-        struct cpu_stat_sample_struct sample[MAXSAMPLES];
 };
 
 /* per process, per sample data we will log */
@@ -68,7 +62,6 @@ struct list_sample_data {
         double sampletime;
         int entropy_avail;
         struct block_stat_struct blockstat;
-        struct cpu_stat_struct cpustat;
         LIST_FIELDS(struct list_sample_data, link); /* DLL */
         int counter;
 };
@@ -117,7 +110,6 @@ extern double log_start;
 extern double sampletime[];
 extern struct ps_struct *ps_first;
 extern struct block_stat_struct blockstat[];
-extern struct cpu_stat_struct cpustat[];
 extern int pscount;
 extern bool arg_relative;
 extern bool arg_filter;
