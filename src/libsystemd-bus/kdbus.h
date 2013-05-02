@@ -110,12 +110,12 @@ struct kdbus_vec {
 };
 
 /**
- * struct  kdbus_msg_item - chain of data blocks
+ * struct  kdbus_item - chain of data blocks
  *
  * size: overall data record size
- * type: kdbus_msg_item type of data
+ * type: kdbus_item type of data
  */
-struct kdbus_msg_item {
+struct kdbus_item {
 	__u64 size;
 	__u64 type;
 	union {
@@ -125,14 +125,19 @@ struct kdbus_msg_item {
 		__u64 data64[0];
 		char str[0];
 
+		/* connection */
+		__u64 id;
+
 		/* data vector */
 		struct kdbus_vec vec;
 
-		/* specific fields */
-		int fds[0];				/* int array of file descriptors */
+		/* process credentials and properties*/
 		struct kdbus_creds creds;
 		struct kdbus_audit audit;
 		struct kdbus_timestamp timestamp;
+
+		/* specific fields */
+		int fds[0];
 		struct kdbus_manager_msg_name_change name_change;
 		struct kdbus_manager_msg_id_change id_change;
 	};
@@ -171,7 +176,7 @@ struct kdbus_msg {
 		__u64 cookie_reply;	/* cookie we reply to */
 		__u64 timeout_ns;	/* timespan to wait for reply */
 	};
-	struct kdbus_msg_item items[0];
+	struct kdbus_item items[0];
 };
 
 enum {
@@ -233,16 +238,6 @@ enum {
 	KDBUS_HELLO_NULL,
 };
 
-struct kdbus_cmd_hello_item {
-	__u64 size;
-	__u64 type;
-	union {
-		__u8 data[0];
-		__u64 data64[0];
-		char str[0];
-	};
-};
-
 struct kdbus_cmd_hello {
 	__u64 size;
 
@@ -263,7 +258,7 @@ struct kdbus_cmd_hello {
 	__u64 id;		/* id assigned to this connection */
 	__u64 bloom_size;	/* The bloom filter size chosen by the
 				 * bus owner */
-	struct kdbus_cmd_hello_item items[0];
+	struct kdbus_item items[0];
 };
 
 /* Flags for kdbus_cmd_{bus,ep,ns}_make */
@@ -286,16 +281,6 @@ enum {
 				 * privileges */
 };
 
-struct kdbus_cmd_make_item {
-	__u64 size;
-	__u64 type;
-	union {
-		__u8 data[0];
-		__u64 data64[0];
-		char str[0];
-	};
-};
-
 struct kdbus_cmd_bus_make {
 	__u64 size;
 	__u64 flags;		/* userspace → kernel, kernel → userspace
@@ -307,7 +292,7 @@ struct kdbus_cmd_bus_make {
 				 * structure and returned from
 				 * KDBUS_CMD_HELLO, later */
 	__u64 bloom_size;	/* size of the bloom filter for this bus */
-	struct kdbus_cmd_make_item items[0];
+	struct kdbus_item items[0];
 
 };
 
@@ -319,7 +304,7 @@ struct kdbus_cmd_ep_make {
 				 * same way as for
 				 * KDBUS_CMD_BUS_MAKE. Unused for
 				 * now. */
-	struct kdbus_cmd_make_item items[0];
+	struct kdbus_item items[0];
 };
 
 struct kdbus_cmd_ns_make {
@@ -330,7 +315,7 @@ struct kdbus_cmd_ns_make {
 				 * same way as for
 				 * KDBUS_CMD_BUS_MAKE. Unused for
 				 * now. */
-	struct kdbus_cmd_make_item items[0];
+	struct kdbus_item items[0];
 };
 
 enum {
@@ -363,18 +348,12 @@ enum {
 	KDBUS_NAME_INFO_ITEM_AUDIT,	/* kernel → userspace */
 };
 
-struct kdbus_cmd_name_info_item {
-	__u64 size;
-	__u64 type;
-	__u8 data[0];
-};
-
 struct kdbus_cmd_name_info {
 	__u64 size;			/* overall size of info */
 	__u64 flags;
 	__u64 id;			/* either ID, or 0 and _ITEM_NAME follows */
 	struct kdbus_creds creds;
-	struct kdbus_cmd_name_info_item items[0]; /* list of item records */
+	struct kdbus_item items[0];	/* list of item records */
 };
 
 enum {
@@ -388,22 +367,12 @@ enum {
 	KDBUS_MATCH_ID_REMOVE,		/* Matches an ID against KDBUS_MSG_ID_REMOVE */
 };
 
-struct kdbus_cmd_match_item {
-	__u64 size;
-	__u64 type;
-	union {
-		__u64 id;
-		__u8 data[0];
-		char str[0];
-	};
-};
-
 struct kdbus_cmd_match {
 	__u64 size;
 	__u64 id;	/* We allow registration/deregestration of matches for other peers */
 	__u64 cookie;	/* userspace supplied cookie; when removing; kernel deletes everything with same cookie */
 	__u64 src_id;	/* ~0: any. other: exact unique match */
-	struct kdbus_cmd_match_item items[0];
+	struct kdbus_item items[0];
 };
 
 struct kdbus_cmd_monitor {
