@@ -274,14 +274,14 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 int bus_kernel_take_fd(sd_bus *b) {
         struct kdbus_cmd_hello hello = {
                 .conn_flags =
-                        KDBUS_CMD_HELLO_ACCEPT_FD|
-                        KDBUS_CMD_HELLO_ATTACH_COMM|
-                        KDBUS_CMD_HELLO_ATTACH_EXE|
-                        KDBUS_CMD_HELLO_ATTACH_CMDLINE|
-                        KDBUS_CMD_HELLO_ATTACH_CGROUP|
-                        KDBUS_CMD_HELLO_ATTACH_CAPS|
-                        KDBUS_CMD_HELLO_ATTACH_SECLABEL|
-                        KDBUS_CMD_HELLO_ATTACH_AUDIT
+                        KDBUS_HELLO_ACCEPT_FD|
+                        KDBUS_HELLO_ATTACH_COMM|
+                        KDBUS_HELLO_ATTACH_EXE|
+                        KDBUS_HELLO_ATTACH_CMDLINE|
+                        KDBUS_HELLO_ATTACH_CGROUP|
+                        KDBUS_HELLO_ATTACH_CAPS|
+                        KDBUS_HELLO_ATTACH_SECLABEL|
+                        KDBUS_HELLO_ATTACH_AUDIT
         };
         int r;
 
@@ -583,17 +583,17 @@ int bus_kernel_create(const char *name, char **s) {
                        sizeof(struct kdbus_cmd_make_item) + DECIMAL_STR_MAX(uid_t) + 1 + l + 1);
 
         cg = make->items;
-        cg->type = KDBUS_CMD_MAKE_CGROUP;
+        cg->type = KDBUS_MAKE_CGROUP;
         cg->data64[0] = 1;
         cg->size = sizeof(struct kdbus_cmd_make_item) + sizeof(uint64_t);
 
         n = KDBUS_ITEM_NEXT(cg);
-        n->type = KDBUS_CMD_MAKE_NAME;
+        n->type = KDBUS_MAKE_NAME;
         sprintf(n->str, "%lu-%s", (unsigned long) getuid(), name);
         n->size = sizeof(struct kdbus_cmd_make_item) + strlen(n->str) + 1;
 
         make->size = offsetof(struct kdbus_cmd_bus_make, items) + cg->size + n->size;
-        make->flags = KDBUS_ACCESS_WORLD | KDBUS_POLICY_OPEN;
+        make->flags = KDBUS_MAKE_ACCESS_WORLD | KDBUS_MAKE_POLICY_OPEN;
         make->bus_flags = 0;
         make->bloom_size = BLOOM_SIZE;
         assert_cc(BLOOM_SIZE % 8 == 0);
