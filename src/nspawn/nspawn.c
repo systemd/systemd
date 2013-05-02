@@ -1696,9 +1696,9 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (status.si_code == CLD_EXITED) {
+                        r = status.si_status;
                         if (status.si_status != 0) {
                                 log_error("Container failed with error code %i.", status.si_status);
-                                r = status.si_status;
                                 break;
                         }
 
