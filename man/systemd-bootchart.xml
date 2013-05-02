@@ -146,6 +146,12 @@
                 <variablelist>
 
                         <varlistentry>
+                               <term><option>-h</option></term>
+                               <term><option>--help</option></term>
+                               <listitem><para>Prints a short help text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-n</option></term>
                                 <term><option>--sample <replaceable>N</replaceable></option></term>
                                 <listitem><para>Specify the number of
