@@ -3597,6 +3597,7 @@ pam_systemd_la_LIBADD = \
 	libsystemd-audit.la \
 	libsystemd-dbus.la \
 	libsystemd-shared.la \
+	libsystemd-daemon-internal.la \
 	$(PAM_LIBS)
 
 pamlib_LTLIBRARIES = \
@@ -3776,7 +3777,8 @@ _reader_la_LIBADD = \
 	$(PYTHON_LIBS) \
 	libsystemd-journal.la \
 	libsystemd-id128.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-daemon-internal.la
 
 dist_pkgpyexec_PYTHON = \
 	src/python-systemd/journal.py \
