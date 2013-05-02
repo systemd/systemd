@@ -1102,7 +1102,8 @@ tests += \
 	test-cgroup-util \
 	test-prioq \
 	test-fileio \
-	test-time
+	test-time \
+	test-hashmap
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1191,6 +1192,15 @@ test_util_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_util_LDADD = \
+	libsystemd-core.la
+
+test_hashmap_SOURCES = \
+	src/test/test-hashmap.c
+
+test_hashmap_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_hashmap_LDADD = \
 	libsystemd-core.la
 
 test_prioq_SOURCES = \
