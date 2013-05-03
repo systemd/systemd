@@ -26,6 +26,8 @@ Fedora 19:
 
 Features:
 
+* maybe add a warning to the unit file parses whern the acces mode of unit files is non-sensical.
+
 * investigate endianess issues of UUID vs. GUID
 
 * see if we can fix https://bugs.freedesktop.org/show_bug.cgi?id=63672
@@ -632,6 +634,8 @@ External:
 * fedora: F20: go timer units all the way, leave cron.daily for cron
 
 * neither pkexec nor sudo initialize environ[] from the PAM environment?
+
+* fedora: update policy to declare access mode and ownership of unit files, and add an rpmlint check for it
 
 Regularly:
 
