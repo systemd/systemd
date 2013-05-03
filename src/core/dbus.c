@@ -48,7 +48,7 @@
 #include "special.h"
 #include "dbus-common.h"
 
-#define CONNECTIONS_MAX 52
+#define CONNECTIONS_MAX 512
 
 /* Well-known address (http://dbus.freedesktop.org/doc/dbus-specification.html#message-bus-types) */
 #define DBUS_SYSTEM_BUS_DEFAULT_ADDRESS "unix:path=/var/run/dbus/system_bus_socket"
