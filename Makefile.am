@@ -4161,11 +4161,11 @@ upload: all distcheck
 www_target = www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd
 doc-sync: all destdir-sphinx
 	gtkdoc-rebase --html-dir=docs/libudev/html --online
-	rsync -av --delete docs/libudev/html/ --omit-dir-times $(www_target)/libudev/
+	rsync -rlv --delete docs/libudev/html/ --omit-dir-times $(www_target)/libudev/
 	gtkdoc-rebase --html-dir=docs/gudev/html --online
-	rsync -av --delete docs/gudev/html/ --omit-dir-times $(www_target)/gudev/
-	rsync -av --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
-	rsync -av --delete --omit-dir-times docs/html/python-systemd/ $(www_target)/python-systemd/
+	rsync -rlv --delete docs/gudev/html/ --omit-dir-times $(www_target)/gudev/
+	rsync -rlv --delete-excluded --include="*.html" --exclude="*" --omit-dir-times man/ $(www_target)/man/
+	rsync -rlv --delete --omit-dir-times docs/html/python-systemd/ $(www_target)/python-systemd/
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
