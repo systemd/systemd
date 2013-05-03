@@ -799,10 +799,10 @@
                                 space-separated list of cgroup
                                 identifiers. A cgroup identifier is
                                 formatted like
-                                <filename>cpu:/foo/bar</filename>,
+                                <filename noindex='true'>cpu:/foo/bar</filename>,
                                 where "cpu" indicates the kernel
                                 control group controller used, and
-                                <filename>/foo/bar</filename> is the
+                                <filename noindex='true'>/foo/bar</filename> is the
                                 control group path. The controller
                                 name and ":" may be omitted in which
                                 case the named systemd control group

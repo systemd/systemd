@@ -360,7 +360,7 @@
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
 
                 <para>This installs a minimal Fedora distribution into
-                the directory <filename>/srv/mycontainer/</filename> and
+                the directory <filename noindex='true'>/srv/mycontainer/</filename> and
                 then boots an OS in a namespace container in
                 it.</para>
         </refsect1>

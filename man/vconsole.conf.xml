@@ -124,7 +124,7 @@
                 <example>
                         <title>German keyboard and console</title>
 
-                        <para><filename>/etc/vconsole.conf:</filename></para>
+                        <para><filename>/etc/vconsole.conf</filename>:</para>
 
                         <programlisting>KEYMAP=de-latin1
 FONT=latarcyrheb-sun16</programlisting>

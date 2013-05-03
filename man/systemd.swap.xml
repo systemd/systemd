@@ -79,7 +79,7 @@
 
                 <para>Swap units must be named after the devices
                 or files they control. Example: the swap device
-                <filename>/dev/sda5</filename> must be configured in a
+                <filename noindex='true'>/dev/sda5</filename> must be configured in a
                 unit file <filename>dev-sda5.swap</filename>. For
                 details about the escaping logic used to convert a
                 file system path to a unit name see

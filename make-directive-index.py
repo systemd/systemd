@@ -193,16 +193,25 @@ def _extract_directives(directive_groups, formatting, page):
                     formatting[text] = name
 
     storfile = directive_groups['filenames']
-    for xpath in ('.//refsynopsisdiv//filename',
-                  './/refsynopsisdiv//command'):
+    for xpath, absolute_only in (('.//refsynopsisdiv//filename', False),
+                                 ('.//refsynopsisdiv//command', False),
+                                 ('.//filename', True)):
         for name in t.iterfind(xpath):
+            if absolute_only and not (name.text and name.text.startswith('/')):
+                continue
+            if name.attrib.get('noindex'):
+                continue
             name.tail = ''
             if name.text:
+                if name.text.endswith('*'):
+                    name.text = name.text[:-1]
                 if not name.text.startswith('.'):
                     text = name.text.partition(' ')[0]
                     if text != name.text:
                         name.clear()
                         name.text = text
+                    if text.endswith('/'):
+                        text = text[:-1]
                     storfile[text].append((pagename, section))
                     if text not in formatting:
                         # use element as formatted display

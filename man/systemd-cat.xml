@@ -168,7 +168,7 @@
                 <example>
                         <title>Invoke a program</title>
 
-                        <para>This calls <filename>/bin/ls</filename>
+                        <para>This calls <filename noindex='true'>/bin/ls</filename>
                         with STDOUT/STDERR connected to the
                         journal:</para>
 

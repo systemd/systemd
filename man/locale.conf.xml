@@ -129,7 +129,7 @@
                 <example>
                         <title>German locale with English messages</title>
 
-                        <para><filename>/etc/locale.conf:</filename></para>
+                        <para><filename>/etc/locale.conf</filename>:</para>
 
                         <programlisting>LANG=de_DE.UTF-8
 LC_MESSAGES=C</programlisting>

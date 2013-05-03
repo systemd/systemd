@@ -70,7 +70,7 @@
                 <filename>/usr</filename> and the virtual kernel API
                 file systems such as <filename>/proc</filename>,
                 <filename>/sys</filename> or
-                <filename>/dev/</filename>. This service executes no
+                <filename>/dev</filename>. This service executes no
                 operation if <filename>/etc/fstab</filename> does not
                 exist or lists no entries for the mentioned file
                 systems.</para>

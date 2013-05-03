@@ -49,7 +49,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>kernel-install</command> <arg choice="req">COMMAND</arg> <arg choice="req">KERNEL VERSION</arg> <arg choice="req">KERNEL IMAGE</arg>
+      <command>kernel-install</command>
+      <arg choice="plain">COMMAND</arg>
+      <arg choice="plain"><replaceable>KERNEL-VERSION</replaceable></arg>
+      <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -60,9 +63,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       initramfs images to and from <filename>/boot</filename>.
     </para>
 
-    <para>kernel-install will execute the files located in the directory <filename>/usr/lib/kernel/install.d/</filename>
+    <para><command>kernel-install</command> will execute the files
+    located in the directory <filename>/usr/lib/kernel/install.d/</filename>
     and the local administration directory <filename>/etc/kernel/install.d/</filename>.
-    All files are collectively sorted and executed in lexical order, regardless of the directories in
+    All files are collectively sorted and executed in lexical order, regardless of the directory in
     which they live. However, files with identical file names replace each other.
     Files in <filename>/etc/kernel/install.d/</filename> take precedence over files with the same name
     in <filename>/usr/lib/kernel/install.d/</filename>. This can be used to override a system-supplied
@@ -78,29 +82,44 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>The following commands are understood:</para>
     <variablelist>
       <varlistentry>
-        <term>add &lt;KERNEL VERSION> &lt;KERNEL IMAGE></term>
+        <term><command>add <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable></command></term>
         <listitem>
-          <para>calls every executable <filename>/usr/lib/kernel/install.d/*.install</filename>
-          and <filename>/etc/kernel/install.d/*.install</filename> with the arguments
-          "add &lt;KERNEL VERSION> <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/</filename>"</para>
+          <para>calls every executable
+          <filename>/usr/lib/kernel/install.d/*.install</filename> and
+          <filename>/etc/kernel/install.d/*.install</filename> with
+          the arguments
+          <programlisting>
+add <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
+          </programlisting>
+          </para>
 
-          <para>kernel-install copies &lt;KERNEL IMAGE> to
-          <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/linux</filename>.</para>
+          <para><command>kernel-install</command> copies
+          <replaceable>KERNEL-IMAGE</replaceable> to
+          <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/linux</filename>.
+          </para>
 
-          <para>kernel-install also creates a boot loader entry according to the boot loader specification
-          in <filename>/boot/loader/entries/&lt;MACHINE-ID>-&lt;KERNEL VERSION>.conf</filename>.
-          If the file <filename>initrd</filename> is found next to the <filename>linux</filename> file,
-          the initrd will be added to the configuration.</para>
+          <para><command>kernel-install</command> also creates a boot
+          loader entry according to the boot loader specification in
+          <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.
+          If the file <filename>initrd</filename> is found next to the
+          <filename>linux</filename> file, the initrd will be added to
+          the configuration.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>remove &lt;KERNEL VERSION> &lt;KERNEL IMAGE></term>
-        <listitem><para>calls every executable <filename>/usr/lib/kernel/install.d/*.install</filename>
-        and <filename>/etc/kernel/install.d/*.install</filename> with the arguments:
-        "remove &lt;KERNEL VERSION> <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/</filename>"
-        </para>
-        <para>kernel-install removes the entire directory <filename>/boot/&lt;MACHINE-ID>/&lt;KERNEL VERSION>/</filename>
-        and the file <filename>/boot/loader/entries/&lt;MACHINE-ID>-&lt;KERNEL VERSION>.conf</filename></para>
+        <term><command>remove</command> <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable></term>
+        <listitem>
+          <para>calls every executable <filename>/usr/lib/kernel/install.d/*.install</filename>
+          and <filename>/etc/kernel/install.d/*.install</filename> with the arguments
+          <programlisting>
+remove <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
+          </programlisting>
+          </para>
+
+          <para><command>kernel-install</command> removes the entire directory
+          <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
+          and the file
+          <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename></para>
         </listitem>
       </varlistentry>
 
@@ -140,7 +159,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <filename>/etc/machine-id</filename>
         </term>
           <listitem>
-            <para>The content of the file specifies the machine identification &lt;MACHINE-ID>.</para>
+            <para>The content of the file specifies the machine identification <replaceable>MACHINE-ID</replaceable>.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -148,7 +167,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <filename>/etc/os-release</filename>
         </term>
           <listitem>
-            <para>The content of the file specifies the operating system id &lt;OS-ID>.</para>
+            <para>The content of the file specifies the operating system id <replaceable>OS-ID</replaceable>.</para>
           </listitem>
       </varlistentry>
     </variablelist>
