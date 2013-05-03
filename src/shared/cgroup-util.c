@@ -1527,7 +1527,12 @@ char *cg_escape(const char *p) {
         /* The return value of this function (unlike cg_unescape())
          * needs free()! */
 
-        if (p[0] == '_' || streq(p, "notify_on_release") || streq(p, "release_agent") || streq(p, "tasks"))
+        if (p[0] == 0 ||
+            p[0] == '_' ||
+            p[0] == '.' ||
+            streq(p, "notify_on_release") ||
+            streq(p, "release_agent") ||
+            streq(p, "tasks"))
                 need_prefix = true;
         else {
                 const char *dot;

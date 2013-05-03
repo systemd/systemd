@@ -146,11 +146,15 @@ static void test_escape_one(const char *s, const char *r) {
 
 static void test_escape(void) {
         test_escape_one("foobar", "foobar");
+        test_escape_one(".foobar", "_.foobar");
         test_escape_one("foobar.service", "foobar.service");
         test_escape_one("cgroup.service", "_cgroup.service");
         test_escape_one("cpu.service", "_cpu.service");
         test_escape_one("tasks", "_tasks");
         test_escape_one("_foobar", "__foobar");
+        test_escape_one("", "_");
+        test_escape_one("_", "__");
+        test_escape_one(".", "_.");
 }
 
 static void test_controller_is_valid(void) {
