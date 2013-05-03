@@ -493,6 +493,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--plain</option></term>
+
+        <listitem>
+          <para>When used with <command>list-dependencies</command>
+          the output is printed as a list instead of a tree.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

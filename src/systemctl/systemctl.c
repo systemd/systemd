@@ -132,6 +132,7 @@ static enum transport {
 static const char *arg_host = NULL;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
+static bool arg_plain = false;
 
 static bool private_bus = false;
 
@@ -956,20 +957,22 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
         size_t len = 0;
         size_t max_len = MAX(columns(),20u);
 
-        for (i = level - 1; i >= 0; i--) {
+        if (!arg_plain) {
+                for (i = level - 1; i >= 0; i--) {
+                        len += 2;
+                        if(len > max_len - 3 && !arg_full) {
+                                printf("%s...\n",max_len % 2 ? "" : " ");
+                                return 0;
+                        }
+                        printf("%s", draw_special_char(branches & (1 << i) ? DRAW_TREE_VERT : DRAW_TREE_SPACE));
+                }
                 len += 2;
                 if(len > max_len - 3 && !arg_full) {
                         printf("%s...\n",max_len % 2 ? "" : " ");
                         return 0;
                 }
-                printf("%s", draw_special_char(branches & (1 << i) ? DRAW_TREE_VERT : DRAW_TREE_SPACE));
+                printf("%s", draw_special_char(last ? DRAW_TREE_RIGHT : DRAW_TREE_BRANCH));
         }
-        len += 2;
-        if(len > max_len - 3 && !arg_full) {
-                printf("%s...\n",max_len % 2 ? "" : " ");
-                return 0;
-        }
-        printf("%s", draw_special_char(last ? DRAW_TREE_RIGHT : DRAW_TREE_BRANCH));
 
         if(arg_full){
                 printf("%s\n", name);
@@ -1105,12 +1108,12 @@ static int list_dependencies_compare(const void *_a, const void *_b) {
         return strcasecmp(*a, *b);
 }
 
-static int list_dependencies_one(DBusConnection *bus, const char *name, int level, char **units, unsigned int branches) {
+static int list_dependencies_one(DBusConnection *bus, const char *name, int level, char ***units, unsigned int branches) {
         _cleanup_strv_free_ char **deps = NULL, **u;
         char **c;
         int r = 0;
 
-        u = strv_append(units, name);
+        u = strv_append(*units, name);
         if (!u)
                 return log_oom();
 
@@ -1122,9 +1125,11 @@ static int list_dependencies_one(DBusConnection *bus, const char *name, int leve
 
         STRV_FOREACH(c, deps) {
                 if (strv_contains(u, *c)) {
-                        r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), 1);
-                        if (r < 0)
-                                return r;
+                        if (!arg_plain) {
+                                r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), 1);
+                                if (r < 0)
+                                        return r;
+                        }
                         continue;
                 }
 
@@ -1133,17 +1138,22 @@ static int list_dependencies_one(DBusConnection *bus, const char *name, int leve
                         return r;
 
                 if (arg_all || unit_name_to_type(*c) == UNIT_TARGET) {
-                       r = list_dependencies_one(bus, *c, level + 1, u, (branches << 1) | (c[1] == NULL ? 0 : 1));
+                       r = list_dependencies_one(bus, *c, level + 1, &u, (branches << 1) | (c[1] == NULL ? 0 : 1));
                        if(r < 0)
                                return r;
                 }
         }
-
+        if (arg_plain) {
+                strv_free(*units);
+                *units = u;
+                u = NULL;
+        }
         return 0;
 }
 
 static int list_dependencies(DBusConnection *bus, char **args) {
         _cleanup_free_ char *unit = NULL;
+        _cleanup_strv_free_ char **units = NULL;
         const char *u;
 
         assert(bus);
@@ -1160,7 +1170,7 @@ static int list_dependencies(DBusConnection *bus, char **args) {
 
         puts(u);
 
-        return list_dependencies_one(bus, u, 0, NULL, 0);
+        return list_dependencies_one(bus, u, 0, &units, 0);
 }
 
 struct job_info {
@@ -4717,7 +4727,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_FAILED,
                 ARG_RUNTIME,
-                ARG_FORCE
+                ARG_FORCE,
+                ARG_PLAIN
         };
 
         static const struct option options[] = {
@@ -4755,6 +4766,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "runtime",   no_argument,       NULL, ARG_RUNTIME   },
                 { "lines",     required_argument, NULL, 'n'           },
                 { "output",    required_argument, NULL, 'o'           },
+                { "plain",     no_argument,       NULL, ARG_PLAIN     },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -4980,6 +4992,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 'i':
                         arg_ignore_inhibitors = true;
+                        break;
+
+                case ARG_PLAIN:
+                        arg_plain = true;
                         break;
 
                 case '?':
