@@ -635,7 +635,7 @@ External:
 
 * neither pkexec nor sudo initialize environ[] from the PAM environment?
 
-* fedora: update policy to declare access mode and ownership of unit files, and add an rpmlint check for it
+* fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
 
 Regularly:
 
