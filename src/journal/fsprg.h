@@ -28,6 +28,8 @@
 #include <sys/types.h>
 #include <inttypes.h>
 
+#include "macro.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,9 +37,9 @@ extern "C" {
 #define FSPRG_RECOMMENDED_SECPAR 1536
 #define FSPRG_RECOMMENDED_SEEDLEN (96/8)
 
-size_t FSPRG_mskinbytes(unsigned secpar);
-size_t FSPRG_mpkinbytes(unsigned secpar);
-size_t FSPRG_stateinbytes(unsigned secpar);
+size_t FSPRG_mskinbytes(unsigned secpar) _const_;
+size_t FSPRG_mpkinbytes(unsigned secpar) _const_;
+size_t FSPRG_stateinbytes(unsigned secpar) _const_;
 
 /* Setup msk and mpk. Providing seed != NULL makes this algorithm deterministic. */
 void FSPRG_GenMK(void *msk, void *mpk, const void *seed, size_t seedlen, unsigned secpar);
@@ -50,7 +52,7 @@ void FSPRG_GenState0(void *state, const void *mpk, const void *seed, size_t seed
 
 void FSPRG_Evolve(void *state);
 
-uint64_t FSPRG_GetEpoch(const void *state);
+uint64_t FSPRG_GetEpoch(const void *state) _pure_;
 
 /* Seek to any arbitrary state (by providing msk together with seed from GenState0). */
 void FSPRG_Seek(void *state, uint64_t epoch, const void *msk, const void *seed, size_t seedlen);

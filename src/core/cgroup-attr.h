@@ -42,8 +42,8 @@ struct CGroupAttribute {
 int cgroup_attribute_apply(CGroupAttribute *a, CGroupBonding *b);
 int cgroup_attribute_apply_list(CGroupAttribute *first, CGroupBonding *b);
 
-bool cgroup_attribute_matches(CGroupAttribute *a, const char *controller, const char *name);
-CGroupAttribute *cgroup_attribute_find_list(CGroupAttribute *first, const char *controller, const char *name);
+bool cgroup_attribute_matches(CGroupAttribute *a, const char *controller, const char *name) _pure_;
+CGroupAttribute *cgroup_attribute_find_list(CGroupAttribute *first, const char *controller, const char *name) _pure_;
 
 void cgroup_attribute_free(CGroupAttribute *a);
 void cgroup_attribute_free_list(CGroupAttribute *first);

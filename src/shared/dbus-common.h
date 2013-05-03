@@ -25,6 +25,8 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
+#include "macro.h"
+
 #ifndef DBUS_ERROR_UNKNOWN_OBJECT
 #define DBUS_ERROR_UNKNOWN_OBJECT "org.freedesktop.DBus.Error.UnknownObject"
 #endif
@@ -187,13 +189,13 @@ int bus_property_set_uint64(DBusMessageIter *i, const char *property, void *data
                 return 0;                                               \
         }
 
-const char *bus_errno_to_dbus(int error);
+const char *bus_errno_to_dbus(int error) _const_;
 
 DBusMessage* bus_properties_changed_new(const char *path, const char *interface, const char *properties);
 DBusMessage* bus_properties_changed_one_new(const char *path, const char *interface, const char *property);
 
-uint32_t bus_flags_to_events(DBusWatch *bus_watch);
-unsigned bus_events_to_flags(uint32_t events);
+uint32_t bus_flags_to_events(DBusWatch *bus_watch) _pure_;
+unsigned bus_events_to_flags(uint32_t events) _const_;
 
 int bus_parse_strv(DBusMessage *m, char ***_l);
 int bus_parse_strv_iter(DBusMessageIter *iter, char ***_l);

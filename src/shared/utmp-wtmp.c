@@ -190,7 +190,7 @@ int utmp_put_reboot(usec_t t) {
         return write_entry_both(&store);
 }
 
-static const char *sanitize_id(const char *id) {
+_pure_ static const char *sanitize_id(const char *id) {
         size_t l;
 
         assert(id);

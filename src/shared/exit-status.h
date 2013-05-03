@@ -82,7 +82,7 @@ typedef struct ExitStatusSet {
         Set *signal;
 } ExitStatusSet;
 
-const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level);
+const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) _const_;
 
 bool is_clean_exit(int code, int status, ExitStatusSet *success_status);
 bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status);

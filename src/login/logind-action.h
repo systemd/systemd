@@ -46,8 +46,8 @@ int manager_handle_action(
                 bool ignore_inhibited,
                 bool is_edge);
 
-const char* handle_action_to_string(HandleAction h);
-HandleAction handle_action_from_string(const char *s);
+const char* handle_action_to_string(HandleAction h) _const_;
+HandleAction handle_action_from_string(const char *s) _pure_;
 
 int config_parse_handle_action(const char *unit, const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 

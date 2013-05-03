@@ -5414,7 +5414,7 @@ static int parse_argv(int argc, char *argv[]) {
         return systemctl_parse_argv(argc, argv);
 }
 
-static int action_to_runlevel(void) {
+_pure_ static int action_to_runlevel(void) {
 
         static const char table[_ACTION_MAX] = {
                 [ACTION_HALT] =      '0',

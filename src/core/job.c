@@ -569,7 +569,7 @@ int job_run_and_invalidate(Job *j) {
         return r;
 }
 
-static const char *job_get_status_message_format(Unit *u, JobType t, JobResult result) {
+_pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobResult result) {
         const UnitStatusMessageFormats *format_table;
 
         assert(u);
@@ -588,7 +588,7 @@ static const char *job_get_status_message_format(Unit *u, JobType t, JobResult r
         return NULL;
 }
 
-static const char *job_get_status_message_format_try_harder(Unit *u, JobType t, JobResult result) {
+_pure_ static const char *job_get_status_message_format_try_harder(Unit *u, JobType t, JobResult result) {
         const char *format;
 
         assert(u);

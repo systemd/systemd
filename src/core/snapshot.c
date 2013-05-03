@@ -173,13 +173,13 @@ static int snapshot_deserialize_item(Unit *u, const char *key, const char *value
         return 0;
 }
 
-static UnitActiveState snapshot_active_state(Unit *u) {
+_pure_ static UnitActiveState snapshot_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[SNAPSHOT(u)->state];
 }
 
-static const char *snapshot_sub_state_to_string(Unit *u) {
+_pure_ static const char *snapshot_sub_state_to_string(Unit *u) {
         assert(u);
 
         return snapshot_state_to_string(SNAPSHOT(u)->state);

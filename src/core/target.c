@@ -184,13 +184,13 @@ static int target_deserialize_item(Unit *u, const char *key, const char *value, 
         return 0;
 }
 
-static UnitActiveState target_active_state(Unit *u) {
+_pure_ static UnitActiveState target_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[TARGET(u)->state];
 }
 
-static const char *target_sub_state_to_string(Unit *u) {
+_pure_ static const char *target_sub_state_to_string(Unit *u) {
         assert(u);
 
         return target_state_to_string(TARGET(u)->state);

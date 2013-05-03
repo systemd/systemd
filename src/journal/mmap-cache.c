@@ -134,7 +134,7 @@ static void window_free(Window *w) {
         free(w);
 }
 
-static bool window_matches(Window *w, int fd, int prot, uint64_t offset, size_t size) {
+_pure_ static bool window_matches(Window *w, int fd, int prot, uint64_t offset, size_t size) {
         assert(w);
         assert(fd >= 0);
         assert(size > 0);

@@ -498,7 +498,7 @@ static int compare_entry_order(JournalFile *af, Object *_ao,
         return 0;
 }
 
-static int compare_with_location(JournalFile *af, Object *ao, Location *l) {
+_pure_ static int compare_with_location(JournalFile *af, Object *ao, Location *l) {
         uint64_t a;
 
         assert(af);

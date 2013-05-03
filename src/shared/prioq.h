@@ -33,8 +33,8 @@ int prioq_put(Prioq *q, void *data, unsigned *idx);
 int prioq_remove(Prioq *q, void *data, unsigned *idx);
 int prioq_reshuffle(Prioq *q, void *data, unsigned *idx);
 
-void *prioq_peek(Prioq *q);
+void *prioq_peek(Prioq *q) _pure_;
 void *prioq_pop(Prioq *q);
 
-unsigned prioq_size(Prioq *q);
-bool prioq_isempty(Prioq *q);
+unsigned prioq_size(Prioq *q) _pure_;
+bool prioq_isempty(Prioq *q) _pure_;

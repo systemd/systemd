@@ -137,13 +137,13 @@ const struct ConfigPerfItem* journald_gperf_lookup(const char *key, unsigned len
 
 int config_parse_storage(const char *unit, const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
-const char *storage_to_string(Storage s);
-Storage storage_from_string(const char *s);
+const char *storage_to_string(Storage s) _const_;
+Storage storage_from_string(const char *s) _pure_;
 
 int config_parse_split_mode(const char *unit, const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
-const char *split_mode_to_string(SplitMode s);
-SplitMode split_mode_from_string(const char *s);
+const char *split_mode_to_string(SplitMode s) _const_;
+SplitMode split_mode_from_string(const char *s) _pure_;
 
 void server_fix_perms(Server *s, JournalFile *f, uid_t uid);
 bool shall_try_append_again(JournalFile *f, int r);

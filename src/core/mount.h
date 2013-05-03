@@ -111,13 +111,13 @@ extern const UnitVTable mount_vtable;
 
 void mount_fd_event(Manager *m, int events);
 
-const char* mount_state_to_string(MountState i);
-MountState mount_state_from_string(const char *s);
+const char* mount_state_to_string(MountState i) _const_;
+MountState mount_state_from_string(const char *s) _pure_;
 
-const char* mount_exec_command_to_string(MountExecCommand i);
-MountExecCommand mount_exec_command_from_string(const char *s);
+const char* mount_exec_command_to_string(MountExecCommand i) _const_;
+MountExecCommand mount_exec_command_from_string(const char *s) _pure_;
 
-const char* mount_result_to_string(MountResult i);
-MountResult mount_result_from_string(const char *s);
+const char* mount_result_to_string(MountResult i) _const_;
+MountResult mount_result_from_string(const char *s) _pure_;
 
 void warn_if_dir_nonempty(const char *unit, const char* where);

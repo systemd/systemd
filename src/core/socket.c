@@ -344,7 +344,7 @@ static int socket_add_default_dependencies(Socket *s) {
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
-static bool socket_has_exec(Socket *s) {
+_pure_ static bool socket_has_exec(Socket *s) {
         unsigned i;
         assert(s);
 
@@ -410,7 +410,7 @@ static int socket_load(Unit *u) {
         return socket_verify(s);
 }
 
-static const char* listen_lookup(int family, int type) {
+_const_ static const char* listen_lookup(int family, int type) {
 
         if (family == AF_NETLINK)
                 return "ListenNetlink";
@@ -1957,13 +1957,13 @@ static int socket_distribute_fds(Unit *u, FDSet *fds) {
         return 0;
 }
 
-static UnitActiveState socket_active_state(Unit *u) {
+_pure_ static UnitActiveState socket_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[SOCKET(u)->state];
 }
 
-static const char *socket_sub_state_to_string(Unit *u) {
+_pure_ static const char *socket_sub_state_to_string(Unit *u) {
         assert(u);
 
         return socket_state_to_string(SOCKET(u)->state);
@@ -1991,7 +1991,7 @@ const char* socket_port_type_to_string(SocketPort *p) {
         }
 }
 
-static bool socket_check_gc(Unit *u) {
+_pure_ static bool socket_check_gc(Unit *u) {
         Socket *s = SOCKET(u);
 
         assert(u);

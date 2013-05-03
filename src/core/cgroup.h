@@ -76,7 +76,7 @@ void cgroup_bonding_trim_list(CGroupBonding *first, bool delete_root);
 int cgroup_bonding_is_empty(CGroupBonding *b);
 int cgroup_bonding_is_empty_list(CGroupBonding *first);
 
-CGroupBonding *cgroup_bonding_find_list(CGroupBonding *first, const char *controller);
+CGroupBonding *cgroup_bonding_find_list(CGroupBonding *first, const char *controller) _pure_;
 
 char *cgroup_bonding_to_string(CGroupBonding *b);
 

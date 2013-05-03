@@ -1311,7 +1311,7 @@ int cg_pid_get_unit(pid_t pid, char **unit) {
         return cg_path_get_unit(cgroup, unit);
 }
 
-static const char *skip_label(const char *e) {
+_pure_ static const char *skip_label(const char *e) {
         assert(e);
 
         e = strchr(e, '/');

@@ -90,8 +90,8 @@ void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes);
 
 int unit_file_query_preset(UnitFileScope scope, const char *name);
 
-const char *unit_file_state_to_string(UnitFileState s);
-UnitFileState unit_file_state_from_string(const char *s);
+const char *unit_file_state_to_string(UnitFileState s) _const_;
+UnitFileState unit_file_state_from_string(const char *s) _pure_;
 
-const char *unit_file_change_type_to_string(UnitFileChangeType s);
-UnitFileChangeType unit_file_change_type_from_string(const char *s);
+const char *unit_file_change_type_to_string(UnitFileChangeType s) _const_;
+UnitFileChangeType unit_file_change_type_from_string(const char *s) _pure_;

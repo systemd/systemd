@@ -150,7 +150,7 @@ static void warn_wall(usec_t n, struct sd_shutdown_command *c) {
         }
 }
 
-static usec_t when_wall(usec_t n, usec_t elapse) {
+_const_ static usec_t when_wall(usec_t n, usec_t elapse) {
 
         static const struct {
                 usec_t delay;

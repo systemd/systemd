@@ -66,10 +66,10 @@ dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u);
 
 #define dual_timestamp_is_set(ts) ((ts)->realtime > 0)
 
-usec_t timespec_load(const struct timespec *ts);
+usec_t timespec_load(const struct timespec *ts) _pure_;
 struct timespec *timespec_store(struct timespec *ts, usec_t u);
 
-usec_t timeval_load(const struct timeval *tv);
+usec_t timeval_load(const struct timeval *tv) _pure_;
 struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
 char *format_timestamp(char *buf, size_t l, usec_t t);

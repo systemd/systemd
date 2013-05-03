@@ -26,6 +26,8 @@ typedef struct KillContext KillContext;
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "macro.h"
+
 typedef enum KillMode {
         /* The kill mode is a property of a unit. */
         KILL_CONTROL_GROUP = 0,
@@ -53,8 +55,8 @@ typedef enum KillWho {
 void kill_context_init(KillContext *c);
 void kill_context_dump(KillContext *c, FILE *f, const char *prefix);
 
-const char *kill_mode_to_string(KillMode k);
-KillMode kill_mode_from_string(const char *s);
+const char *kill_mode_to_string(KillMode k) _const_;
+KillMode kill_mode_from_string(const char *s) _pure_;
 
-const char *kill_who_to_string(KillWho k);
-KillWho kill_who_from_string(const char *s);
+const char *kill_who_to_string(KillWho k) _const_;
+KillWho kill_who_from_string(const char *s) _pure_;

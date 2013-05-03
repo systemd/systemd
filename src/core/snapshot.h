@@ -46,5 +46,5 @@ extern const UnitVTable snapshot_vtable;
 int snapshot_create(Manager *m, const char *name, bool cleanup, DBusError *e, Snapshot **s);
 void snapshot_remove(Snapshot *s);
 
-const char* snapshot_state_to_string(SnapshotState i);
-SnapshotState snapshot_state_from_string(const char *s);
+const char* snapshot_state_to_string(SnapshotState i) _const_;
+SnapshotState snapshot_state_from_string(const char *s) _pure_;

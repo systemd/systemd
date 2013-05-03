@@ -111,11 +111,11 @@ int swap_add_one_mount_link(Swap *s, Mount *m);
 int swap_dispatch_reload(Manager *m);
 int swap_fd_event(Manager *m, int events);
 
-const char* swap_state_to_string(SwapState i);
-SwapState swap_state_from_string(const char *s);
+const char* swap_state_to_string(SwapState i) _const_;
+SwapState swap_state_from_string(const char *s) _pure_;
 
-const char* swap_exec_command_to_string(SwapExecCommand i);
-SwapExecCommand swap_exec_command_from_string(const char *s);
+const char* swap_exec_command_to_string(SwapExecCommand i) _const_;
+SwapExecCommand swap_exec_command_from_string(const char *s) _pure_;
 
-const char* swap_result_to_string(SwapResult i);
-SwapResult swap_result_from_string(const char *s);
+const char* swap_result_to_string(SwapResult i) _const_;
+SwapResult swap_result_from_string(const char *s) _pure_;

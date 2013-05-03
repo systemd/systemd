@@ -26,8 +26,8 @@
 
 #include "macro.h"
 
-char *strv_find(char **l, const char *name);
-char *strv_find_prefix(char **l, const char *name);
+char *strv_find(char **l, const char *name) _pure_;
+char *strv_find_prefix(char **l, const char *name) _pure_;
 
 void strv_free(char **l);
 static inline void strv_freep(char ***l) {
@@ -37,7 +37,7 @@ static inline void strv_freep(char ***l) {
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
 
 char **strv_copy(char * const *l);
-unsigned strv_length(char * const *l);
+unsigned strv_length(char * const *l) _pure_;
 
 char **strv_merge(char **a, char **b);
 char **strv_merge_concat(char **a, char **b, const char *suffix);
@@ -71,7 +71,7 @@ char *strv_join(char **l, const char *separator);
 char **strv_parse_nulstr(const char *s, size_t l);
 char **strv_split_nulstr(const char *s);
 
-bool strv_overlap(char **a, char **b);
+bool strv_overlap(char **a, char **b) _pure_;
 
 #define STRV_FOREACH(s, l)                      \
         for ((s) = (l); (s) && *(s); (s)++)

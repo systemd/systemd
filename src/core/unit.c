@@ -949,7 +949,7 @@ bool unit_condition_test(Unit *u) {
         return u->condition_result;
 }
 
-static const char* unit_get_status_message_format(Unit *u, JobType t) {
+_pure_ static const char* unit_get_status_message_format(Unit *u, JobType t) {
         const UnitStatusMessageFormats *format_table;
 
         assert(u);
@@ -966,7 +966,7 @@ static const char* unit_get_status_message_format(Unit *u, JobType t) {
         return format_table->starting_stopping[t == JOB_STOP];
 }
 
-static const char *unit_get_status_message_format_try_harder(Unit *u, JobType t) {
+_pure_ static const char *unit_get_status_message_format_try_harder(Unit *u, JobType t) {
         const char *format;
 
         assert(u);

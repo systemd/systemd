@@ -23,6 +23,8 @@
 
 #include <stdbool.h>
 
+#include "macro.h"
+
 /* Pretty straightforward hash table implementation. As a minor
  * optimization a NULL hashmap object will be treated as empty hashmap
  * for all read operations. That way it is not necessary to
@@ -38,14 +40,14 @@ typedef _IteratorStruct* Iterator;
 typedef unsigned (*hash_func_t)(const void *p);
 typedef int (*compare_func_t)(const void *a, const void *b);
 
-unsigned string_hash_func(const void *p);
-int string_compare_func(const void *a, const void *b);
+unsigned string_hash_func(const void *p) _pure_;
+int string_compare_func(const void *a, const void *b) _pure_;
 
-unsigned trivial_hash_func(const void *p);
-int trivial_compare_func(const void *a, const void *b);
+unsigned trivial_hash_func(const void *p) _const_;
+int trivial_compare_func(const void *a, const void *b) _const_;
 
-unsigned uint64_hash_func(const void *p);
-int uint64_compare_func(const void *a, const void *b);
+unsigned uint64_hash_func(const void *p) _pure_;
+int uint64_compare_func(const void *a, const void *b) _pure_;
 
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func);
 void hashmap_free(Hashmap *h);
@@ -69,8 +71,8 @@ int hashmap_merge(Hashmap *h, Hashmap *other);
 void hashmap_move(Hashmap *h, Hashmap *other);
 int hashmap_move_one(Hashmap *h, Hashmap *other, const void *key);
 
-unsigned hashmap_size(Hashmap *h);
-bool hashmap_isempty(Hashmap *h);
+unsigned hashmap_size(Hashmap *h) _pure_;
+bool hashmap_isempty(Hashmap *h) _pure_;
 
 void *hashmap_iterate(Hashmap *h, Iterator *i, const void **key);
 void *hashmap_iterate_backwards(Hashmap *h, Iterator *i, const void **key);
@@ -82,9 +84,9 @@ void hashmap_clear_free_free(Hashmap *h);
 
 void *hashmap_steal_first(Hashmap *h);
 void *hashmap_steal_first_key(Hashmap *h);
-void *hashmap_first(Hashmap *h);
-void *hashmap_first_key(Hashmap *h);
-void *hashmap_last(Hashmap *h);
+void *hashmap_first(Hashmap *h) _pure_;
+void *hashmap_first_key(Hashmap *h) _pure_;
+void *hashmap_last(Hashmap *h) _pure_;
 
 void *hashmap_next(Hashmap *h, const void *key);
 

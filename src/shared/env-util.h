@@ -40,5 +40,5 @@ char **strv_env_delete(char **x, unsigned n_lists, ...); /* New copy */
 char **strv_env_set(char **x, const char *p); /* New copy ... */
 char **strv_env_unset(char **l, const char *p); /* In place ... */
 
-char *strv_env_get_n(char **l, const char *name, size_t k);
-char *strv_env_get(char **x, const char *n);
+char *strv_env_get_n(char **l, const char *name, size_t k) _pure_;
+char *strv_env_get(char **x, const char *n) _pure_;

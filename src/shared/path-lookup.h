@@ -36,8 +36,8 @@ typedef enum SystemdRunningAs {
         _SYSTEMD_RUNNING_AS_INVALID = -1
 } SystemdRunningAs;
 
-const char* systemd_running_as_to_string(SystemdRunningAs i);
-SystemdRunningAs systemd_running_as_from_string(const char *s);
+const char* systemd_running_as_to_string(SystemdRunningAs i) _const_;
+SystemdRunningAs systemd_running_as_from_string(const char *s) _pure_;
 
 int user_config_home(char **config_home);
 

@@ -136,7 +136,7 @@ static void mount_done(Unit *u) {
         unit_unwatch_timer(u, &m->timer_watch);
 }
 
-static MountParameters* get_mount_parameters_fragment(Mount *m) {
+_pure_ static MountParameters* get_mount_parameters_fragment(Mount *m) {
         assert(m);
 
         if (m->from_fragment)
@@ -145,7 +145,7 @@ static MountParameters* get_mount_parameters_fragment(Mount *m) {
         return NULL;
 }
 
-static MountParameters* get_mount_parameters(Mount *m) {
+_pure_ static MountParameters* get_mount_parameters(Mount *m) {
         assert(m);
 
         if (m->from_proc_self_mountinfo)
@@ -1260,19 +1260,19 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
         return 0;
 }
 
-static UnitActiveState mount_active_state(Unit *u) {
+_pure_ static UnitActiveState mount_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[MOUNT(u)->state];
 }
 
-static const char *mount_sub_state_to_string(Unit *u) {
+_pure_ static const char *mount_sub_state_to_string(Unit *u) {
         assert(u);
 
         return mount_state_to_string(MOUNT(u)->state);
 }
 
-static bool mount_check_gc(Unit *u) {
+_pure_ static bool mount_check_gc(Unit *u) {
         Mount *m = MOUNT(u);
 
         assert(m);

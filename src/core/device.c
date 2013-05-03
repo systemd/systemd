@@ -124,13 +124,13 @@ static void device_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(d->sysfs));
 }
 
-static UnitActiveState device_active_state(Unit *u) {
+_pure_ static UnitActiveState device_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[DEVICE(u)->state];
 }
 
-static const char *device_sub_state_to_string(Unit *u) {
+_pure_ static const char *device_sub_state_to_string(Unit *u) {
         assert(u);
 
         return device_state_to_string(DEVICE(u)->state);

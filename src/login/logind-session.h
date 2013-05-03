@@ -135,14 +135,14 @@ int session_send_changed(Session *s, const char *properties);
 int session_send_lock(Session *s, bool lock);
 int session_send_lock_all(Manager *m, bool lock);
 
-const char* session_state_to_string(SessionState t);
-SessionState session_state_from_string(const char *s);
+const char* session_state_to_string(SessionState t) _const_;
+SessionState session_state_from_string(const char *s) _pure_;
 
-const char* session_type_to_string(SessionType t);
-SessionType session_type_from_string(const char *s);
+const char* session_type_to_string(SessionType t) _const_;
+SessionType session_type_from_string(const char *s) _pure_;
 
-const char* session_class_to_string(SessionClass t);
-SessionClass session_class_from_string(const char *s);
+const char* session_class_to_string(SessionClass t) _const_;
+SessionClass session_class_from_string(const char *s) _pure_;
 
-const char *kill_who_to_string(KillWho k);
-KillWho kill_who_from_string(const char *s);
+const char *kill_who_to_string(KillWho k) _const_;
+KillWho kill_who_from_string(const char *s) _pure_;

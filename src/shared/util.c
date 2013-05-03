@@ -1449,7 +1449,7 @@ char *ascii_strlower(char *t) {
         return t;
 }
 
-static bool ignore_file_allow_backup(const char *filename) {
+_pure_ static bool ignore_file_allow_backup(const char *filename) {
         assert(filename);
 
         return
@@ -1512,7 +1512,7 @@ int fd_cloexec(int fd, bool cloexec) {
         return 0;
 }
 
-static bool fd_in_set(int fd, const int fdset[], unsigned n_fdset) {
+_pure_ static bool fd_in_set(int fd, const int fdset[], unsigned n_fdset) {
         unsigned i;
 
         assert(n_fdset == 0 || fdset);
@@ -2770,7 +2770,7 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
         return ret;
 }
 
-static int is_temporary_fs(struct statfs *s) {
+_pure_ static int is_temporary_fs(struct statfs *s) {
         assert(s);
         return
                 F_TYPE_CMP(s->f_type, TMPFS_MAGIC) ||

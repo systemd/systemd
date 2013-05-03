@@ -23,6 +23,8 @@
 
 #include <stdbool.h>
 
+#include "macro.h"
+
 #define UNIT_NAME_MAX 256
 
 typedef enum UnitType UnitType;
@@ -53,21 +55,21 @@ enum UnitLoadState {
         _UNIT_LOAD_STATE_INVALID = -1
 };
 
-const char *unit_type_to_string(UnitType i);
-UnitType unit_type_from_string(const char *s);
+const char *unit_type_to_string(UnitType i) _const_;
+UnitType unit_type_from_string(const char *s) _pure_;
 
-const char *unit_load_state_to_string(UnitLoadState i);
-UnitLoadState unit_load_state_from_string(const char *s);
+const char *unit_load_state_to_string(UnitLoadState i) _const_;
+UnitLoadState unit_load_state_from_string(const char *s) _pure_;
 
 int unit_name_to_instance(const char *n, char **instance);
 char* unit_name_to_prefix(const char *n);
 char* unit_name_to_prefix_and_instance(const char *n);
 
-bool unit_name_is_valid(const char *n, bool template_ok);
-bool unit_prefix_is_valid(const char *p);
-bool unit_instance_is_valid(const char *i);
+bool unit_name_is_valid(const char *n, bool template_ok) _pure_;
+bool unit_prefix_is_valid(const char *p) _pure_;
+bool unit_instance_is_valid(const char *i) _pure_;
 
-UnitType unit_name_to_type(const char *n);
+UnitType unit_name_to_type(const char *n) _pure_;
 
 char *unit_name_change_suffix(const char *n, const char *suffix);
 
@@ -78,8 +80,8 @@ char *unit_name_unescape(const char *f);
 char *unit_name_path_escape(const char *f);
 char *unit_name_path_unescape(const char *f);
 
-bool unit_name_is_template(const char *n);
-bool unit_name_is_instance(const char *n);
+bool unit_name_is_template(const char *n) _pure_;
+bool unit_name_is_instance(const char *n) _pure_;
 
 char *unit_name_replace_instance(const char *f, const char *i);
 

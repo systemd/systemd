@@ -67,9 +67,9 @@ typedef enum SocketAddressBindIPv6Only {
 int socket_address_parse(SocketAddress *a, const char *s);
 int socket_address_parse_netlink(SocketAddress *a, const char *s);
 int socket_address_print(const SocketAddress *a, char **p);
-int socket_address_verify(const SocketAddress *a);
+int socket_address_verify(const SocketAddress *a) _pure_;
 
-bool socket_address_can_accept(const SocketAddress *a);
+bool socket_address_can_accept(const SocketAddress *a) _pure_;
 
 int socket_address_listen(
                 const SocketAddress *a,
@@ -90,12 +90,12 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd);
 
 int make_socket_fd(const char* address, int flags);
 
-bool socket_address_equal(const SocketAddress *a, const SocketAddress *b);
+bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_;
 
 bool socket_address_needs_mount(const SocketAddress *a, const char *prefix);
 
-const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b);
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s);
+const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
+SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
 
 int netlink_family_to_string_alloc(int b, char **s);
 int netlink_family_from_string(const char *s);

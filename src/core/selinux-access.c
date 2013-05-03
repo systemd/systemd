@@ -174,7 +174,7 @@ static int audit_callback(
    user_avc's into the /var/log/audit/audit.log, otherwise they will be
    sent to syslog.
 */
-static int log_callback(int type, const char *fmt, ...) {
+_printf_attr_(2, 3) static int log_callback(int type, const char *fmt, ...) {
         va_list ap;
 
         va_start(ap, fmt);

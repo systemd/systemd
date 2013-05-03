@@ -144,7 +144,7 @@ static int flags_fds(const int fds[], unsigned n_fds, bool nonblock) {
         return 0;
 }
 
-static const char *tty_path(const ExecContext *context) {
+_pure_ static const char *tty_path(const ExecContext *context) {
         assert(context);
 
         if (context->tty_path)
@@ -509,7 +509,7 @@ fail:
         return r;
 }
 
-static int write_confirm_message(const char *format, ...) {
+_printf_attr_(1, 2) static int write_confirm_message(const char *format, ...) {
         int fd;
         va_list ap;
 

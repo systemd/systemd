@@ -183,22 +183,22 @@ void job_dependency_free(JobDependency *l);
 
 int job_merge(Job *j, Job *other);
 
-JobType job_type_lookup_merge(JobType a, JobType b);
+JobType job_type_lookup_merge(JobType a, JobType b) _pure_;
 
-static inline bool job_type_is_mergeable(JobType a, JobType b) {
+_pure_ static inline bool job_type_is_mergeable(JobType a, JobType b) {
         return job_type_lookup_merge(a, b) >= 0;
 }
 
-static inline bool job_type_is_conflicting(JobType a, JobType b) {
+_pure_ static inline bool job_type_is_conflicting(JobType a, JobType b) {
         return !job_type_is_mergeable(a, b);
 }
 
-static inline bool job_type_is_superset(JobType a, JobType b) {
+_pure_ static inline bool job_type_is_superset(JobType a, JobType b) {
         /* Checks whether operation a is a "superset" of b in its actions */
         return a == job_type_lookup_merge(a, b);
 }
 
-bool job_type_is_redundant(JobType a, UnitActiveState b);
+bool job_type_is_redundant(JobType a, UnitActiveState b) _pure_;
 
 /* Collapses a state-dependent job type into a simpler type by observing
  * the state of the unit which it is going to be applied to. */
@@ -221,14 +221,14 @@ char *job_dbus_path(Job *j);
 
 void job_shutdown_magic(Job *j);
 
-const char* job_type_to_string(JobType t);
-JobType job_type_from_string(const char *s);
+const char* job_type_to_string(JobType t) _const_;
+JobType job_type_from_string(const char *s) _pure_;
 
-const char* job_state_to_string(JobState t);
-JobState job_state_from_string(const char *s);
+const char* job_state_to_string(JobState t) _const_;
+JobState job_state_from_string(const char *s) _pure_;
 
-const char* job_mode_to_string(JobMode t);
-JobMode job_mode_from_string(const char *s);
+const char* job_mode_to_string(JobMode t) _const_;
+JobMode job_mode_from_string(const char *s) _pure_;
 
-const char* job_result_to_string(JobResult t);
-JobResult job_result_from_string(const char *s);
+const char* job_result_to_string(JobResult t) _const_;
+JobResult job_result_from_string(const char *s) _pure_;

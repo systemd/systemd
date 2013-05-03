@@ -23,7 +23,7 @@
 
 #include "journald-server.h"
 
-int syslog_fixup_facility(int priority);
+int syslog_fixup_facility(int priority) _const_;
 
 void syslog_parse_priority(char **p, int *priority);
 size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid);

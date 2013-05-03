@@ -468,13 +468,13 @@ void unit_add_to_gc_queue(Unit *u);
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
 
-Unit *unit_follow_merge(Unit *u);
+Unit *unit_follow_merge(Unit *u) _pure_;
 
 int unit_load_fragment_and_dropin(Unit *u);
 int unit_load_fragment_and_dropin_optional(Unit *u);
 int unit_load(Unit *unit);
 
-const char *unit_description(Unit *u);
+const char *unit_description(Unit *u) _pure_;
 
 bool unit_has_name(Unit *u, const char *name);
 
@@ -484,9 +484,9 @@ const char* unit_sub_state_to_string(Unit *u);
 
 void unit_dump(Unit *u, FILE *f, const char *prefix);
 
-bool unit_can_reload(Unit *u);
-bool unit_can_start(Unit *u);
-bool unit_can_isolate(Unit *u);
+bool unit_can_reload(Unit *u) _pure_;
+bool unit_can_start(Unit *u) _pure_;
+bool unit_can_isolate(Unit *u) _pure_;
 
 int unit_start(Unit *u);
 int unit_stop(Unit *u);
@@ -518,7 +518,7 @@ char *unit_dbus_path(Unit *u);
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
 int unit_get_related_unit(Unit *u, const char *type, Unit **_found);
 
-bool unit_can_serialize(Unit *u);
+bool unit_can_serialize(Unit *u) _pure_;
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
 void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_attr_(4,5);
 void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value);
@@ -536,8 +536,8 @@ void unit_reset_failed(Unit *u);
 
 Unit *unit_following(Unit *u);
 
-bool unit_stop_pending(Unit *u);
-bool unit_inactive_or_pending(Unit *u);
+bool unit_stop_pending(Unit *u) _pure_;
+bool unit_inactive_or_pending(Unit *u) _pure_;
 bool unit_active_or_pending(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
@@ -563,18 +563,18 @@ int unit_add_mount_links(Unit *u);
 
 int unit_exec_context_defaults(Unit *u, ExecContext *c);
 
-ExecContext *unit_get_exec_context(Unit *u);
+ExecContext *unit_get_exec_context(Unit *u) _pure_;
 
 int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data);
 int unit_remove_drop_in(Unit *u, bool runtime, const char *name);
 
 int unit_kill_context(Unit *u, KillContext *c, bool sigkill, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
 
-const char *unit_active_state_to_string(UnitActiveState i);
-UnitActiveState unit_active_state_from_string(const char *s);
+const char *unit_active_state_to_string(UnitActiveState i) _const_;
+UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
-const char *unit_dependency_to_string(UnitDependency i);
-UnitDependency unit_dependency_from_string(const char *s);
+const char *unit_dependency_to_string(UnitDependency i) _const_;
+UnitDependency unit_dependency_from_string(const char *s) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

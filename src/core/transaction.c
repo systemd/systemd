@@ -140,7 +140,7 @@ static void transaction_merge_and_delete_job(Transaction *tr, Job *j, Job *other
         transaction_delete_job(tr, other, true);
 }
 
-static bool job_is_conflicted_by(Job *j) {
+_pure_ static bool job_is_conflicted_by(Job *j) {
         JobDependency *l;
 
         assert(j);
@@ -320,7 +320,7 @@ rescan:
         }
 }
 
-static bool unit_matters_to_anchor(Unit *u, Job *j) {
+_pure_ static bool unit_matters_to_anchor(Unit *u, Job *j) {
         assert(u);
         assert(!j->transaction_prev);
 

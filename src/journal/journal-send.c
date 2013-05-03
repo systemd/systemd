@@ -111,7 +111,7 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
         return sd_journal_sendv(iov, 2);
 }
 
-static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct iovec **_iov) {
+_printf_attr_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct iovec **_iov) {
         PROTECT_ERRNO;
         int r, n = 0, i = 0, j;
         struct iovec *iov = NULL;

@@ -899,19 +899,19 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
         return 0;
 }
 
-static UnitActiveState swap_active_state(Unit *u) {
+_pure_ static UnitActiveState swap_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[SWAP(u)->state];
 }
 
-static const char *swap_sub_state_to_string(Unit *u) {
+_pure_ static const char *swap_sub_state_to_string(Unit *u) {
         assert(u);
 
         return swap_state_to_string(SWAP(u)->state);
 }
 
-static bool swap_check_gc(Unit *u) {
+_pure_ static bool swap_check_gc(Unit *u) {
         Swap *s = SWAP(u);
 
         assert(s);

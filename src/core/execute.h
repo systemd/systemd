@@ -210,8 +210,8 @@ void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
 
-const char* exec_output_to_string(ExecOutput i);
-ExecOutput exec_output_from_string(const char *s);
+const char* exec_output_to_string(ExecOutput i) _const_;
+ExecOutput exec_output_from_string(const char *s) _pure_;
 
-const char* exec_input_to_string(ExecInput i);
-ExecInput exec_input_from_string(const char *s);
+const char* exec_input_to_string(ExecInput i) _const_;
+ExecInput exec_input_from_string(const char *s) _pure_;

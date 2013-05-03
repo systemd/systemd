@@ -284,7 +284,7 @@ int manager_distribute_fds(Manager *m, FDSet *fds);
 
 int manager_reload(Manager *m);
 
-bool manager_is_reloading_or_reexecuting(Manager *m);
+bool manager_is_reloading_or_reexecuting(Manager *m) _pure_;
 
 void manager_reset_failed(Manager *m);
 

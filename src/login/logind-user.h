@@ -80,5 +80,5 @@ extern const DBusObjectPathVTable bus_user_vtable;
 int user_send_signal(User *u, bool new_user);
 int user_send_changed(User *u, const char *properties);
 
-const char* user_state_to_string(UserState s);
-UserState user_state_from_string(const char *s);
+const char* user_state_to_string(UserState s) _const_;
+UserState user_state_from_string(const char *s) _pure_;

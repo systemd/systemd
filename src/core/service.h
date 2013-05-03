@@ -203,23 +203,23 @@ struct Socket;
 
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket);
 
-const char* service_state_to_string(ServiceState i);
-ServiceState service_state_from_string(const char *s);
+const char* service_state_to_string(ServiceState i) _const_;
+ServiceState service_state_from_string(const char *s) _pure_;
 
-const char* service_restart_to_string(ServiceRestart i);
-ServiceRestart service_restart_from_string(const char *s);
+const char* service_restart_to_string(ServiceRestart i) _const_;
+ServiceRestart service_restart_from_string(const char *s) _pure_;
 
-const char* service_type_to_string(ServiceType i);
-ServiceType service_type_from_string(const char *s);
+const char* service_type_to_string(ServiceType i) _const_;
+ServiceType service_type_from_string(const char *s) _pure_;
 
-const char* service_exec_command_to_string(ServiceExecCommand i);
-ServiceExecCommand service_exec_command_from_string(const char *s);
+const char* service_exec_command_to_string(ServiceExecCommand i) _const_;
+ServiceExecCommand service_exec_command_from_string(const char *s) _pure_;
 
-const char* notify_access_to_string(NotifyAccess i);
-NotifyAccess notify_access_from_string(const char *s);
+const char* notify_access_to_string(NotifyAccess i) _const_;
+NotifyAccess notify_access_from_string(const char *s) _pure_;
 
-const char* service_result_to_string(ServiceResult i);
-ServiceResult service_result_from_string(const char *s);
+const char* service_result_to_string(ServiceResult i) _const_;
+ServiceResult service_result_from_string(const char *s) _pure_;
 
-const char* start_limit_action_to_string(StartLimitAction i);
-StartLimitAction start_limit_action_from_string(const char *s);
+const char* start_limit_action_to_string(StartLimitAction i) _const_;
+StartLimitAction start_limit_action_from_string(const char *s) _pure_;

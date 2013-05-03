@@ -40,5 +40,5 @@ struct Target {
 
 extern const UnitVTable target_vtable;
 
-const char* target_state_to_string(TargetState i);
-TargetState target_state_from_string(const char *s);
+const char* target_state_to_string(TargetState i) _const_;
+TargetState target_state_from_string(const char *s) _pure_;

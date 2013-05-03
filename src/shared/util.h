@@ -74,7 +74,7 @@ size_t page_size(void);
 #define strcaseeq(a,b) (strcasecmp((a),(b)) == 0)
 #define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
 
-bool streq_ptr(const char *a, const char *b);
+bool streq_ptr(const char *a, const char *b) _pure_;
 
 #define new(t, n) ((t*) malloc_multiply(sizeof(t), (n)))
 
@@ -106,17 +106,17 @@ static inline bool isempty(const char *p) {
         return !p || !p[0];
 }
 
-char *endswith(const char *s, const char *postfix);
-char *startswith(const char *s, const char *prefix);
-char *startswith_no_case(const char *s, const char *prefix);
+char *endswith(const char *s, const char *postfix) _pure_;
+char *startswith(const char *s, const char *prefix) _pure_;
+char *startswith_no_case(const char *s, const char *prefix) _pure_;
 
-bool first_word(const char *s, const char *word);
+bool first_word(const char *s, const char *word) _pure_;
 
 int close_nointr(int fd);
 void close_nointr_nofail(int fd);
 void close_many(const int fds[], unsigned n_fd);
 
-int parse_boolean(const char *v);
+int parse_boolean(const char *v) _pure_;
 int parse_bytes(const char *t, off_t *bytes);
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_uid(const char *s, uid_t* ret_uid);
@@ -230,12 +230,12 @@ char *bus_path_unescape(const char *s);
 
 char *ascii_strlower(char *path);
 
-bool dirent_is_file(const struct dirent *de);
-bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix);
+bool dirent_is_file(const struct dirent *de) _pure_;
+bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) _pure_;
 
-bool ignore_file(const char *filename);
+bool ignore_file(const char *filename) _pure_;
 
-bool chars_intersect(const char *a, const char *b);
+bool chars_intersect(const char *a, const char *b) _pure_;
 
 int make_stdio(int fd);
 int make_null_stdio(void);
@@ -307,7 +307,7 @@ bool fstype_is_network(const char *fstype);
 int chvt(int vt);
 
 int read_one_char(FILE *f, char *ret, usec_t timeout, bool *need_nl);
-int ask(char *ret, const char *replies, const char *text, ...);
+int ask(char *ret, const char *replies, const char *text, ...) _printf_attr_(3, 4);
 
 int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
@@ -388,7 +388,7 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid);
 
 _noreturn_ void freeze(void);
 
-bool null_or_empty(struct stat *st);
+bool null_or_empty(struct stat *st) _pure_;
 int null_or_empty_path(const char *fn);
 
 DIR *xopendirat(int dirfd, const char *name, int flags);
@@ -398,7 +398,7 @@ char *fstab_node_to_udev_node(const char *p);
 char *resolve_dev_console(char **active);
 bool tty_is_vc(const char *tty);
 bool tty_is_vc_resolve(const char *tty);
-bool tty_is_console(const char *tty);
+bool tty_is_console(const char *tty) _pure_;
 int vtnr_from_tty(const char *tty);
 const char *default_term_for_tty(const char *tty);
 
@@ -410,7 +410,7 @@ bool nulstr_contains(const char*nulstr, const char *needle);
 
 bool plymouth_running(void);
 
-bool hostname_is_valid(const char *s);
+bool hostname_is_valid(const char *s) _pure_;
 char* hostname_cleanup(char *s);
 
 char* strshorten(char *s, size_t l);
@@ -426,7 +426,7 @@ int symlink_atomic(const char *from, const char *to);
 
 int fchmod_umask(int fd, mode_t mode);
 
-bool display_is_local(const char *display);
+bool display_is_local(const char *display) _pure_;
 int socket_from_display(const char *display, char **path);
 
 int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell);
@@ -449,7 +449,7 @@ char *strjoin(const char *x, ...) _sentinel_;
 
 bool is_main_thread(void);
 
-bool in_charset(const char *s, const char* charset);
+bool in_charset(const char *s, const char* charset) _pure_;
 
 int block_get_whole_disk(dev_t d, dev_t *ret);
 
@@ -466,8 +466,8 @@ int strdup_or_null(const char *a, char **b);
 int ioprio_class_to_string_alloc(int i, char **s);
 int ioprio_class_from_string(const char *s);
 
-const char *sigchld_code_to_string(int i);
-int sigchld_code_from_string(const char *s);
+const char *sigchld_code_to_string(int i) _const_;
+int sigchld_code_from_string(const char *s) _pure_;
 
 int log_facility_unshifted_to_string_alloc(int i, char **s);
 int log_facility_unshifted_from_string(const char *s);
@@ -478,14 +478,14 @@ int log_level_from_string(const char *s);
 int sched_policy_to_string_alloc(int i, char **s);
 int sched_policy_from_string(const char *s);
 
-const char *rlimit_to_string(int i);
-int rlimit_from_string(const char *s);
+const char *rlimit_to_string(int i) _const_;
+int rlimit_from_string(const char *s) _pure_;
 
 int ip_tos_to_string_alloc(int i, char **s);
 int ip_tos_from_string(const char *s);
 
-const char *signal_to_string(int i);
-int signal_from_string(const char *s);
+const char *signal_to_string(int i) _const_;
+int signal_from_string(const char *s) _pure_;
 
 int signal_from_string_try_harder(const char *s);
 
@@ -494,7 +494,7 @@ extern char **saved_argv;
 
 bool kexec_loaded(void);
 
-int prot_from_flags(int flags);
+int prot_from_flags(int flags) _const_;
 
 char *format_bytes(char *buf, size_t l, off_t t);
 
@@ -516,7 +516,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value);
 int can_sleep(const char *type);
 int can_sleep_disk(const char *type);
 
-bool is_valid_documentation_url(const char *url);
+bool is_valid_documentation_url(const char *url) _pure_;
 
 bool in_initrd(void);
 
@@ -574,10 +574,10 @@ _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_
         return memdup(p, a * b);
 }
 
-bool filename_is_safe(const char *p);
-bool path_is_safe(const char *p);
-bool string_is_safe(const char *p);
-bool string_has_cc(const char *p);
+bool filename_is_safe(const char *p) _pure_;
+bool path_is_safe(const char *p) _pure_;
+bool string_is_safe(const char *p) _pure_;
+bool string_has_cc(const char *p) _pure_;
 
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *),
@@ -734,4 +734,4 @@ static inline void _reset_locale_(struct _locale_struct_ *s) {
                      !_saved_locale_.quit; }) ;                         \
              _saved_locale_.quit = true)
 
-bool id128_is_valid(const char *s);
+bool id128_is_valid(const char *s) _pure_;

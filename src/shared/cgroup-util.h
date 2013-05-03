@@ -110,6 +110,6 @@ char **cg_shorten_controllers(char **controllers);
 int cg_controller_from_attr(const char *attr, char **controller);
 
 char *cg_escape(const char *p);
-char *cg_unescape(const char *p);
+char *cg_unescape(const char *p) _pure_;
 
 bool cg_controller_is_valid(const char *p, bool allow_named);

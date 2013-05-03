@@ -66,5 +66,5 @@ bool condition_test_list(Condition *c);
 void condition_dump(Condition *c, FILE *f, const char *prefix);
 void condition_dump_list(Condition *c, FILE *f, const char *prefix);
 
-const char* condition_type_to_string(ConditionType t);
-int condition_type_from_string(const char *s);
+const char* condition_type_to_string(ConditionType t) _const_;
+int condition_type_from_string(const char *s) _pure_;

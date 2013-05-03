@@ -133,7 +133,7 @@ int calendar_spec_normalize(CalendarSpec *c) {
         return 0;
 }
 
-static bool chain_valid(CalendarComponent *c, int from, int to) {
+_pure_ static bool chain_valid(CalendarComponent *c, int from, int to) {
         if (!c)
                 return true;
 
@@ -149,7 +149,7 @@ static bool chain_valid(CalendarComponent *c, int from, int to) {
         return true;
 }
 
-bool calendar_spec_valid(CalendarSpec *c) {
+_pure_ bool calendar_spec_valid(CalendarSpec *c) {
         assert(c);
 
         if (c->weekdays_bits > 127)
