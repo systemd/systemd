@@ -1830,6 +1830,17 @@ static int test_object_monotonic(JournalFile *f, uint64_t p, uint64_t needle) {
                 return TEST_RIGHT;
 }
 
+static inline int find_data_object_by_boot_id(
+                JournalFile *f,
+                sd_id128_t boot_id,
+                Object **o,
+                uint64_t *b) {
+        char t[sizeof("_BOOT_ID=")-1 + 32 + 1] = "_BOOT_ID=";
+
+        sd_id128_to_string(boot_id, t + 9);
+        return journal_file_find_data_object(f, t, sizeof(t) - 1, o, b);
+}
+
 int journal_file_move_to_entry_by_monotonic(
                 JournalFile *f,
                 sd_id128_t boot_id,
@@ -1838,14 +1849,12 @@ int journal_file_move_to_entry_by_monotonic(
                 Object **ret,
                 uint64_t *offset) {
 
-        char t[9+32+1] = "_BOOT_ID=";
         Object *o;
         int r;
 
         assert(f);
 
-        sd_id128_to_string(boot_id, t + 9);
-        r = journal_file_find_data_object(f, t, strlen(t), &o, NULL);
+        r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2059,7 +2068,6 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                 direction_t direction,
                 Object **ret, uint64_t *offset) {
 
-        char t[9+32+1] = "_BOOT_ID=";
         Object *o, *d;
         int r;
         uint64_t b, z;
@@ -2067,8 +2075,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
         assert(f);
 
         /* First, seek by time */
-        sd_id128_to_string(boot_id, t + 9);
-        r = journal_file_find_data_object(f, t, strlen(t), &o, &b);
+        r = find_data_object_by_boot_id(f, boot_id, &o, &b);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2807,7 +2814,6 @@ int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *
 }
 
 int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, usec_t *from, usec_t *to) {
-        char t[9+32+1] = "_BOOT_ID=";
         Object *o;
         uint64_t p;
         int r;
@@ -2815,9 +2821,7 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
         assert(f);
         assert(from || to);
 
-        sd_id128_to_string(boot_id, t + 9);
-
-        r = journal_file_find_data_object(f, t, strlen(t), &o, &p);
+        r = find_data_object_by_boot_id(f, boot_id, &o, &p);
         if (r <= 0)
                 return r;
 
