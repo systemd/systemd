@@ -122,7 +122,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <command>show</command> command, limit display to certain
           properties as specified as argument. If not specified all
           set properties are shown. The argument should be a
-          comma-seperated list of property names, such as
+          comma-separated list of property names, such as
           <literal>MainPID</literal>. If specified more than once all
           properties with the specified names are shown.</para>
         </listitem>

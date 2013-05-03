@@ -621,7 +621,7 @@
                                 In this context, a clean exit means
                                 an exit code of 0, or one of the signals
                                 SIGHUP, SIGINT, SIGTERM, or SIGPIPE, and
-                                additonally, exit statuses and signals
+                                additionally, exit statuses and signals
                                 specified in <varname>SuccessExitStatus=</varname>.
                                 If set to <option>on-failure</option>
                                 the service will be restarted when the

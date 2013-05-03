@@ -276,7 +276,7 @@ enum {
 				 * cgroup membership paths * to messages. */
 	KDBUS_MAKE_CRED,	/* allow translator services which connect
 				 * to the bus on behalf of somebody else,
-				 * allow specifiying the credentials of the
+				 * allow specifying the credentials of the
 				 * client to connect on behalf on. Needs
 				 * privileges */
 };

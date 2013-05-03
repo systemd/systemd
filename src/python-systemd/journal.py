@@ -240,7 +240,7 @@ class Reader(_Reader):
         Entries will be processed with converters specified during
         Reader creation.
 
-        Equivilent to get_next(-skip).
+        Equivalent to get_next(-skip).
         """
         return self.get_next(-skip)
 
