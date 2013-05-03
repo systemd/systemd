@@ -38,6 +38,7 @@
 #include <sys/stat.h>
 
 #include "time-dst.h"
+#include "util.h"
 
 /*
  * If tzh_version is '2' or greater, the above is followed by a second instance
@@ -84,15 +85,12 @@ static inline int64_t decode64(const void *ptr) {
 int time_get_dst(time_t date, const char *tzfile,
                  time_t *switch_cur, char **zone_cur, bool *dst_cur,
                  time_t *switch_next, int *delta_next, char **zone_next, bool *dst_next) {
-        time_t *transitions = NULL;
-        size_t num_transitions = 0;
         unsigned char *type_idxs = 0;
         size_t num_types = 0;
         struct ttinfo *types = NULL;
         char *zone_names = NULL;
         struct stat st;
         size_t num_isstd, num_isgmt;
-        FILE *f;
         struct tzhead tzhead;
         size_t chars;
         size_t i;
@@ -102,22 +100,21 @@ int time_get_dst(time_t date, const char *tzfile,
         size_t tzspec_len;
         size_t num_leaps;
         size_t lo, hi;
-        int err = -EINVAL;
+        size_t num_transitions = 0;
+        _cleanup_free_ time_t *transitions = NULL;
+        _cleanup_fclose_ FILE *f;
 
         f = fopen(tzfile, "re");
         if (f == NULL)
                 return -errno;
 
-        if (fstat(fileno(f), &st) < 0) {
-                err = -errno;
-                fclose(f);
-                return err;
-        }
+        if (fstat(fileno(f), &st) < 0)
+                return -errno;
 
 read_again:
         if (fread((void *)&tzhead, sizeof(tzhead), 1, f) != 1 ||
             memcmp(tzhead.tzh_magic, TZ_MAGIC, sizeof(tzhead.tzh_magic)) != 0)
-                goto lose;
+                return -EINVAL;
 
         num_transitions = (size_t)decode(tzhead.tzh_timecnt);
         num_types = (size_t)decode(tzhead.tzh_typecnt);
@@ -139,31 +136,31 @@ read_again:
                            + chars
                            + num_leaps * 8 + num_isstd + num_isgmt);
                 if (fseek(f, to_skip, SEEK_CUR) != 0)
-                        goto lose;
+                        return -EINVAL;
 
                 goto read_again;
         }
 
         if (num_transitions > ((SIZE_MAX - (__alignof__(struct ttinfo) - 1)) / (sizeof(time_t) + 1)))
-                 goto lose;
+                 return -EINVAL;
 
         total_size = num_transitions * (sizeof(time_t) + 1);
         total_size = ((total_size + __alignof__(struct ttinfo) - 1) & ~(__alignof__(struct ttinfo) - 1));
         types_idx = total_size;
         if (num_leaps > (SIZE_MAX - total_size) / sizeof(struct ttinfo))
-                goto lose;
+                return -EINVAL;
 
         total_size += num_types * sizeof(struct ttinfo);
         if (chars > SIZE_MAX - total_size)
-                goto lose;
+                return -EINVAL;
 
         total_size += chars;
         if (__alignof__(struct leap) - 1 > SIZE_MAX - total_size)
-                 goto lose;
+                 return -EINVAL;
 
         total_size = ((total_size + __alignof__(struct leap) - 1) & ~(__alignof__(struct leap) - 1));
         if (num_leaps > (SIZE_MAX - total_size) / sizeof(struct leap))
-                goto lose;
+                return -EINVAL;
 
         total_size += num_leaps * sizeof(struct leap);
         tzspec_len = 0;
@@ -171,24 +168,24 @@ read_again:
                 off_t rem = st.st_size - ftello(f);
 
                 if (rem < 0 || (size_t) rem < (num_transitions * (8 + 1) + num_types * 6 + chars))
-                        goto lose;
+                        return -EINVAL;
                 tzspec_len = (size_t) rem - (num_transitions * (8 + 1) + num_types * 6 + chars);
                 if (num_leaps > SIZE_MAX / 12 || tzspec_len < num_leaps * 12)
-                        goto lose;
+                        return -EINVAL;
                 tzspec_len -= num_leaps * 12;
                 if (tzspec_len < num_isstd)
-                        goto lose;
+                        return -EINVAL;
                 tzspec_len -= num_isstd;
                 if (tzspec_len == 0 || tzspec_len - 1 < num_isgmt)
-                        goto lose;
+                        return -EINVAL;
                 tzspec_len -= num_isgmt + 1;
                 if (SIZE_MAX - total_size < tzspec_len)
-                        goto lose;
+                        return -EINVAL;
         }
 
         transitions = (time_t *)calloc(total_size + tzspec_len, 1);
         if (transitions == NULL)
-                goto lose;
+                return -EINVAL;
 
         type_idxs = (unsigned char *)transitions + (num_transitions
                                                     * sizeof(time_t));
@@ -197,18 +194,18 @@ read_again:
 
         if (sizeof(time_t) == 4 || trans_width == 8) {
                 if (fread(transitions, trans_width + 1, num_transitions, f) != num_transitions)
-                        goto lose;
+                        return -EINVAL;
         } else {
                 if (fread(transitions, 4, num_transitions, f) != num_transitions ||
                     fread(type_idxs, 1, num_transitions, f) != num_transitions)
-                        goto lose;
+                        return -EINVAL;
         }
 
         /* Check for bogus indices in the data file, so we can hereafter
            safely use type_idxs[T] as indices into `types' and never crash.  */
         for (i = 0; i < num_transitions; ++i)
                 if (type_idxs[i] >= num_types)
-                        goto lose;
+                        return -EINVAL;
 
         if ((BYTE_ORDER != BIG_ENDIAN && (sizeof(time_t) == 4 || trans_width == 4)) ||
             (BYTE_ORDER == BIG_ENDIAN && sizeof(time_t) == 8 && trans_width == 4)) {
@@ -231,26 +228,26 @@ read_again:
                 int c;
 
                 if (fread(x, 1, sizeof(x), f) != sizeof(x))
-                        goto lose;
+                        return -EINVAL;
                 c = getc(f);
                 if ((unsigned int)c > 1u)
-                        goto lose;
+                        return -EINVAL;
                 types[i].isdst = c;
                 c = getc(f);
                 if ((size_t) c > chars)
                         /* Bogus index in data file.  */
-                        goto lose;
+                        return -EINVAL;
                 types[i].idx = c;
                 types[i].offset = (long int)decode(x);
         }
 
         if (fread(zone_names, 1, chars, f) != chars)
-                goto lose;
+                return -EINVAL;
 
         for (i = 0; i < num_isstd; ++i) {
                 int c = getc(f);
                 if (c == EOF)
-                        goto lose;
+                        return -EINVAL;
                 types[i].isstd = c != 0;
         }
 
@@ -260,7 +257,7 @@ read_again:
         for (i = 0; i < num_isgmt; ++i) {
                 int c = getc(f);
                 if (c == EOF)
-                        goto lose;
+                        return -EINVAL;
                 types[i].isgmt = c != 0;
         }
 
@@ -268,10 +265,10 @@ read_again:
                 types[i++].isgmt = 0;
 
         if (num_transitions == 0)
-               goto lose;
+               return -EINVAL;
 
         if (date < transitions[0] || date >= transitions[num_transitions - 1])
-               goto lose;
+               return -EINVAL;
 
         /* Find the first transition after TIMER, and
            then pick the type of the transition before it.  */
@@ -331,11 +328,5 @@ found:
         if (dst_next)
                 *dst_next = types[type_idxs[i]].isdst;
 
-        free(transitions);
-        fclose(f);
         return 0;
-lose:
-        free(transitions);
-        fclose(f);
-        return err;
 }

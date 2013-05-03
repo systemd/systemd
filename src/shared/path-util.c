@@ -50,7 +50,8 @@ char *path_get_file_name(const char *p) {
 
         assert(p);
 
-        if ((r = strrchr(p, '/')))
+        r = strrchr(p, '/');
+        if (r)
                 return r + 1;
 
         return (char*) p;
