@@ -1295,8 +1295,7 @@ static int list_jobs(DBusConnection *bus, char **args) {
                         goto finish;
                 }
 
-                if (!greedy_realloc((void**) &jobs, &size,
-                                    sizeof(struct job_info) * (used + 1))) {
+                if (!GREEDY_REALLOC(jobs, size, used + 1)) {
                         r = log_oom();
                         goto finish;
                 }
