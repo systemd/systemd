@@ -33,12 +33,12 @@ str_line_starts() {
 keyboard_devices() {
         # standard AT keyboard
         for dev in `udevadm trigger --dry-run --verbose --property-match=ID_INPUT_KEYBOARD=1`; do
-                walk=`udevadm info --attribute-walk --path=$dev`
                 env=`udevadm info --query=env --path=$dev`
                 # filter out non-event devices, such as the parent input devices which have no devnode
                 if ! echo "$env" | str_line_starts 'DEVNAME='; then
                         continue
                 fi
+                walk=`udevadm info --attribute-walk --path=$dev`
                 if strstr "$walk" 'DRIVERS=="atkbd"'; then
                         echo -n 'AT keyboard: '
                 elif echo "$env" | str_line_starts 'ID_USB_DRIVER=usbhid'; then
