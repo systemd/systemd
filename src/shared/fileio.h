@@ -21,10 +21,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 #include <stddef.h>
+#include <stdio.h>
+
 #include "macro.h"
 
+int write_string_to_file(FILE *f, const char *line);
 int write_string_file(const char *fn, const char *line);
 int write_string_file_atomic(const char *fn, const char *line);
+
 int read_one_line_file(const char *fn, char **line);
 int read_full_file(const char *fn, char **contents, size_t *size);
 

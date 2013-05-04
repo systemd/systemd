@@ -24,16 +24,8 @@
 #include "util.h"
 #include "strv.h"
 
-int write_string_file(const char *fn, const char *line) {
-        _cleanup_fclose_ FILE *f = NULL;
 
-        assert(fn);
-        assert(line);
-
-        f = fopen(fn, "we");
-        if (!f)
-                return -errno;
-
+int write_string_to_file(FILE *f, const char *line) {
         errno = 0;
         fputs(line, f);
         if (!endswith(line, "\n"))
@@ -45,6 +37,19 @@ int write_string_file(const char *fn, const char *line) {
                 return errno ? -errno : -EIO;
 
         return 0;
+}
+
+int write_string_file(const char *fn, const char *line) {
+        _cleanup_fclose_ FILE *f = NULL;
+
+        assert(fn);
+        assert(line);
+
+        f = fopen(fn, "we");
+        if (!f)
+                return -errno;
+
+        return write_string_to_file(f, line);
 }
 
 int write_string_file_atomic(const char *fn, const char *line) {
