@@ -27,6 +27,7 @@
 #include "special.h"
 #include "dbus-common.h"
 #include "logind-action.h"
+#include "sleep-config.h"
 
 int manager_handle_action(
                 Manager *m,
@@ -74,11 +75,11 @@ int manager_handle_action(
         }
 
         if (handle == HANDLE_SUSPEND)
-                supported = can_sleep("mem") > 0;
+                supported = can_sleep("suspend") > 0;
         else if (handle == HANDLE_HIBERNATE)
-                supported = can_sleep("disk") > 0;
+                supported = can_sleep("hibernate") > 0;
         else if (handle == HANDLE_HYBRID_SLEEP)
-                supported = can_sleep("disk") > 0 && can_sleep_disk("suspend") > 0;
+                supported = can_sleep("hybrid-sleep") > 0;
         else if (handle == HANDLE_KEXEC)
                 supported = access("/sbin/kexec", X_OK) >= 0;
         else

@@ -6,6 +6,7 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
+  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -63,7 +64,7 @@
                 <para><filename>systemd-suspend.service</filename> is
                 a system service that is pulled in by
                 <filename>suspend.target</filename> and is responsible
-                for the actual system suspend. Similar,
+                for the actual system suspend. Similarly,
                 <filename>systemd-hibernate.service</filename> is
                 pulled in by <filename>hibernate.target</filename> to
                 execute the actual hibernation. Finally,
@@ -88,8 +89,8 @@
                 but the first argument is now
                 "<literal>post</literal>". All executables in this
                 directory are executed in parallel, and execution of
-                the action is not continued before all executables
-                finished.</para>
+                the action is not continued until all executables
+                have finished.</para>
 
                 <para>Note that scripts or binaries dropped in
                 <filename>/usr/lib/systemd/system-sleep/</filename>
@@ -100,7 +101,7 @@
 
                 <para>Note that
                 <filename>systemd-suspend.service</filename>,
-                <filename>systemd-hibernate.service</filename> and
+                <filename>systemd-hibernate.service</filename>, and
                 <filename>systemd-hybrid-sleep.service</filename>
                 should never be executed directly. Instead, trigger
                 system sleep states with a command such as
@@ -108,14 +109,51 @@
                 similar.</para>
 
                 <para>Internally, this service will echo a string like
-                <literal>mem</literal> into
+                "<literal>mem</literal>" into
                 <filename>/sys/power/state</filename>, to trigger the
-                actual system suspend.</para>
+                actual system suspend. What exactly is written
+                where can be configured in the <literal>[Sleep]</literal>
+                section of <filename>/etc/systemd/sleep.conf</filename>.
+                See <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                </para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para><command>systemd-sleep</command> understands the
+                following commands:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><option>-h</option></term>
+                                <term><option>--help</option></term>
+
+                                <listitem><para>Print a short help
+                                text and exit.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Print the systemd version
+                                identifier and exit.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>suspend</option></term>
+                                <term><option>hibernate</option></term>
+                                <term><option>hybrid-sleep</option></term>
+
+                                <listitem><para>Suspend, hibernate, or
+                                put the system to hybrid sleep.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
         </refsect1>
 
         <refsect1>
                 <title>See Also</title>
                 <para>
+                        <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,

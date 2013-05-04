@@ -513,9 +513,6 @@ int setrlimit_closest(int resource, const struct rlimit *rlim);
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value);
 
-int can_sleep(const char *type);
-int can_sleep_disk(const char *type);
-
 bool is_valid_documentation_url(const char *url) _pure_;
 
 bool in_initrd(void);

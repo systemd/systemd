@@ -508,7 +508,7 @@
         <refsect1>
                 <title>Directories</title>
 
-                <variablelist class='unit-directives'>
+                <variablelist>
                         <varlistentry>
                                 <term>System unit directories</term>
 

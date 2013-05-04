@@ -5090,59 +5090,6 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
         return r;
 }
 
-int can_sleep(const char *type) {
-        char *w, *state;
-        size_t l, k;
-        int r;
-        _cleanup_free_ char *p = NULL;
-
-        assert(type);
-
-        /* If /sys is read-only we cannot sleep */
-        if (access("/sys/power/state", W_OK) < 0)
-                return false;
-
-        r = read_one_line_file("/sys/power/state", &p);
-        if (r < 0)
-                return false;
-
-        k = strlen(type);
-        FOREACH_WORD_SEPARATOR(w, l, p, WHITESPACE, state)
-                if (l == k && memcmp(w, type, l) == 0)
-                        return true;
-
-        return false;
-}
-
-int can_sleep_disk(const char *type) {
-        char *w, *state;
-        size_t l, k;
-        int r;
-        _cleanup_free_ char *p = NULL;
-
-        assert(type);
-
-        /* If /sys is read-only we cannot sleep */
-        if (access("/sys/power/state", W_OK) < 0 ||
-            access("/sys/power/disk", W_OK) < 0)
-                return false;
-
-        r = read_one_line_file("/sys/power/disk", &p);
-        if (r < 0)
-                return false;
-
-        k = strlen(type);
-        FOREACH_WORD_SEPARATOR(w, l, p, WHITESPACE, state) {
-                if (l == k && memcmp(w, type, l) == 0)
-                        return true;
-
-                if (l == k + 2 && w[0] == '[' && memcmp(w + 1, type, l - 2) == 0 && w[l-1] == ']')
-                        return true;
-        }
-
-        return false;
-}
-
 bool is_valid_documentation_url(const char *url) {
         assert(url);
 

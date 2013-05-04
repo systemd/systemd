@@ -138,12 +138,11 @@ udevlibexec_PROGRAMS =
 
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
-	-DSYSTEM_CONFIG_FILE=\"$(pkgsysconfdir)/system.conf\" \
+	-DPKGSYSCONFDIR=\"$(pkgsysconfdir)\" \
 	-DSYSTEM_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/system\" \
 	-DSYSTEM_DATA_UNIT_PATH=\"$(systemunitdir)\" \
 	-DSYSTEM_SYSVINIT_PATH=\"$(SYSTEM_SYSVINIT_PATH)\" \
 	-DSYSTEM_SYSVRCND_PATH=\"$(SYSTEM_SYSVRCND_PATH)\" \
-	-DUSER_CONFIG_FILE=\"$(pkgsysconfdir)/user.conf\" \
 	-DUSER_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/user\" \
 	-DUSER_DATA_UNIT_PATH=\"$(userunitdir)\" \
 	-DCATALOG_DATABASE=\"$(catalogstatedir)/database\" \
@@ -643,6 +642,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/fdset.h \
 	src/shared/prioq.c \
 	src/shared/prioq.h \
+	src/shared/sleep-config.c \
+	src/shared/sleep-config.h \
 	src/shared/strv.c \
 	src/shared/strv.h \
 	src/shared/env-util.c \

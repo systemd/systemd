@@ -31,6 +31,7 @@
 #include "path-util.h"
 #include "polkit.h"
 #include "special.h"
+#include "sleep-config.h"
 #include "systemd/sd-id128.h"
 #include "systemd/sd-messages.h"
 #include "fileio-label.h"
@@ -1131,8 +1132,7 @@ static int bus_manager_can_shutdown_or_sleep(
                 const char *action,
                 const char *action_multiple_sessions,
                 const char *action_ignore_inhibit,
-                const char *sleep_type,
-                const char *sleep_disk_type,
+                const char *sleep_verb,
                 DBusError *error,
                 DBusMessage **_reply) {
 
@@ -1153,22 +1153,10 @@ static int bus_manager_can_shutdown_or_sleep(
         assert(error);
         assert(_reply);
 
-        if (sleep_type) {
-                r = can_sleep(sleep_type);
+        if (sleep_verb) {
+                r = can_sleep(sleep_verb);
                 if (r < 0)
                         return r;
-
-                if (r == 0) {
-                        result = "na";
-                        goto finish;
-                }
-        }
-
-        if (sleep_disk_type) {
-                r = can_sleep_disk(sleep_disk_type);
-                if (r < 0)
-                        return r;
-
                 if (r == 0) {
                         result = "na";
                         goto finish;
@@ -1313,8 +1301,7 @@ static int bus_manager_do_shutdown_or_sleep(
                 const char *action,
                 const char *action_multiple_sessions,
                 const char *action_ignore_inhibit,
-                const char *sleep_type,
-                const char *sleep_disk_type,
+                const char *sleep_verb,
                 DBusError *error,
                 DBusMessage **_reply) {
 
@@ -1347,17 +1334,8 @@ static int bus_manager_do_shutdown_or_sleep(
                             DBUS_TYPE_INVALID))
                 return -EINVAL;
 
-        if (sleep_type) {
-                r = can_sleep(sleep_type);
-                if (r < 0)
-                        return r;
-
-                if (r == 0)
-                        return -ENOTSUP;
-        }
-
-        if (sleep_disk_type) {
-                r = can_sleep_disk(sleep_disk_type);
+        if (sleep_verb) {
+                r = can_sleep(sleep_verb);
                 if (r < 0)
                         return r;
 
@@ -2160,7 +2138,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.power-off",
                                 "org.freedesktop.login1.power-off-multiple-sessions",
                                 "org.freedesktop.login1.power-off-ignore-inhibit",
-                                NULL, NULL,
+                                NULL,
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2172,7 +2150,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.reboot",
                                 "org.freedesktop.login1.reboot-multiple-sessions",
                                 "org.freedesktop.login1.reboot-ignore-inhibit",
-                                NULL, NULL,
+                                NULL,
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2185,7 +2163,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.suspend",
                                 "org.freedesktop.login1.suspend-multiple-sessions",
                                 "org.freedesktop.login1.suspend-ignore-inhibit",
-                                "mem", NULL,
+                                "suspend",
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2197,7 +2175,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.hibernate",
                                 "org.freedesktop.login1.hibernate-multiple-sessions",
                                 "org.freedesktop.login1.hibernate-ignore-inhibit",
-                                "disk", NULL,
+                                "hibernate",
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2210,7 +2188,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.hibernate",
                                 "org.freedesktop.login1.hibernate-multiple-sessions",
                                 "org.freedesktop.login1.hibernate-ignore-inhibit",
-                                "disk", "suspend",
+                                "hybrid-sleep",
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2223,7 +2201,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.power-off",
                                 "org.freedesktop.login1.power-off-multiple-sessions",
                                 "org.freedesktop.login1.power-off-ignore-inhibit",
-                                NULL, NULL,
+                                NULL,
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2234,7 +2212,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.reboot",
                                 "org.freedesktop.login1.reboot-multiple-sessions",
                                 "org.freedesktop.login1.reboot-ignore-inhibit",
-                                NULL, NULL,
+                                NULL,
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2246,7 +2224,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.suspend",
                                 "org.freedesktop.login1.suspend-multiple-sessions",
                                 "org.freedesktop.login1.suspend-ignore-inhibit",
-                                "mem", NULL,
+                                "suspend",
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2258,7 +2236,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.hibernate",
                                 "org.freedesktop.login1.hibernate-multiple-sessions",
                                 "org.freedesktop.login1.hibernate-ignore-inhibit",
-                                "disk", NULL,
+                                "hibernate",
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
@@ -2270,7 +2248,7 @@ static DBusHandlerResult manager_message_handler(
                                 "org.freedesktop.login1.hibernate",
                                 "org.freedesktop.login1.hibernate-multiple-sessions",
                                 "org.freedesktop.login1.hibernate-ignore-inhibit",
-                                "disk", "suspend",
+                                "hybrid-sleep",
                                 &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);

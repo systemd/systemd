@@ -202,9 +202,6 @@ Features:
   - pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
   - logind: GetSessionByPID() should accept 0 as PID value
   - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
-  - add configuration/switches to use
-    freeze (http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git) and
-    standby (https://bugs.freedesktop.org/show_bug.cgi?id=57793) as suspend modes
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 

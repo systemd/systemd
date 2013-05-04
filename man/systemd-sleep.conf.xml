@@ -1,0 +1,181 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2013 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-sleep.conf">
+  <refentryinfo>
+    <title>systemd-sleep.conf</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Zbigniew</firstname>
+        <surname>Jędrzejewski-Szmek</surname>
+        <email>zbyszek@in.waw.pl</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-sleep.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-sleep.conf</refname>
+    <refpurpose>Suspend and hibernation configuration file</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/systemd/sleep.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd</command> supports three general
+    power-saving modes:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term>suspend</term>
+
+        <listitem><para>a low-power state
+        where execution of the OS is paused,
+        and complete power loss might result
+        in lost data, and which is fast to
+        enter and exit. This corresponds to
+        suspend, standby, or freeze states as
+        understood by the kernel.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>hibernate</term>
+
+        <listitem><para>a low-power state
+        where execution of the OS is paused,
+        and complete power loss does not
+        result in lost data, and which might
+        be slow to enter and exit. This
+        corresponds to the hibernation as
+        understood by the kernel.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>hybrid-sleep</term>
+
+        <listitem><para>a low-power state
+        where execution of the OS is paused,
+        which might be slow to enter, and on
+        complete power loss does not result in
+        lost data but might be slower to exit
+        in that case. This mode is called
+        suspend-to-both by the kernel.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Settings in this file determine what strings
+    will be written to
+    <filename>/sys/power/disk</filename> and
+    <filename>/sys/power/state</filename> by
+    <citerefentry><refentrytitle>systemd-sleep</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    when
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    attempts to suspend or hibernate the machine.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options can be configured in the
+    <literal>[Sleep]</literal> section of
+    <filename>/etc/systemd/sleep.conf</filename>:</para>
+
+    <variablelist class='systemd-directives'>
+      <varlistentry>
+        <term><varname>SuspendMode=</varname></term>
+        <term><varname>HibernateMode=</varname></term>
+        <term><varname>HybridSleepMode=</varname></term>
+
+        <listitem><para>The string to be written to
+        <filename>/sys/power/disk</filename> by,
+        respectively,
+        <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        More than one value can be specified by seperating
+        multiple values with commas. They will be tried
+        in turn, until one is written without error. If
+        neither suceeds, the operation will be aborted.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SuspendState=</varname></term>
+        <term><varname>HibernateState=</varname></term>
+        <term><varname>HybridSleepState=</varname></term>
+
+        <listitem><para>The string to be written to
+        <filename>/sys/power/state</filename> by,
+        respectively,
+        <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        More than one value can be specified by seperating
+        multiple values with commas. They will be tried
+        in turn, until one is written without error. If
+        neither suceeds, the operation will be aborted.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Example: freeze</title>
+
+    <para>Example: to exploit the <quote>freeze</quote> mode added
+    in Linux 3.9, one can use <command>systemctl suspend</command>
+    with
+    <programlisting>
+[Sleep]
+SuspendState=freeze
+    </programlisting></para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd-sleep</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
