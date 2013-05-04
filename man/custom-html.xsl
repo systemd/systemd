@@ -33,8 +33,86 @@
   </a>
 </xsl:template>
 
+<xsl:template match="refsect1/title|refsect1/info/title">
+  <!-- the ID is output in the block.object call for refsect1 -->
+  <h2>
+    <xsl:attribute name="id">
+      <xsl:call-template name="inline.charseq"/>
+    </xsl:attribute>
+    <xsl:apply-templates/>
+    <a>
+      <xsl:attribute name="class">
+        <xsl:text>headerlink</xsl:text>
+      </xsl:attribute>
+      <xsl:attribute name="title">
+        <xsl:text>Permalink to this headline</xsl:text>
+      </xsl:attribute>
+      <xsl:attribute name="href">
+        <!--        <xsl:call-template name="href.target.uri" /> -->
+        <xsl:text>#</xsl:text>
+        <xsl:call-template name="inline.charseq"/>
+      </xsl:attribute>
+      <xsl:text>¶</xsl:text>
+    </a>
+  </h2>
+</xsl:template>
+
+<xsl:template match="varlistentry">
+  <dt>
+    <xsl:attribute name="id">
+      <xsl:call-template name="inline.charseq">
+        <xsl:with-param name="content">
+          <xsl:copy-of select="term[position()=1]" />
+        </xsl:with-param>
+      </xsl:call-template>
+    </xsl:attribute>
+    <xsl:apply-templates select="term"/>
+    <a>
+      <xsl:attribute name="class">
+        <xsl:text>headerlink</xsl:text>
+      </xsl:attribute>
+      <xsl:attribute name="title">
+        <xsl:text>Permalink to this term</xsl:text>
+      </xsl:attribute>
+      <xsl:attribute name="href">
+        <!--        <xsl:call-template name="href.target.uri" /> -->
+        <xsl:text>#</xsl:text>
+        <xsl:call-template name="inline.charseq">
+          <xsl:with-param name="content">
+            <xsl:copy-of select="term[position()=1]" />
+          </xsl:with-param>
+        </xsl:call-template>
+      </xsl:attribute>
+      <xsl:text>¶</xsl:text>
+    </a>
+  </dt>
+  <dd>
+    <xsl:apply-templates select="listitem"/>
+  </dd>
+</xsl:template>
+
+
 <!-- add Index link at top of page -->
 <xsl:template name="user.header.content">
+  <style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style>
+
   <a>
     <xsl:attribute name="href">
       <xsl:text>index.html</xsl:text>
