@@ -896,12 +896,13 @@ _systemd-coredumpctl_command(){
         _describe -t commands 'systemd-coredumpctl command' _systemd_coredumpctl_cmds
     else
         local curcontext="$curcontext"
-        local -a dumps
+        local -a _dumps
         cmd="${${_systemd_coredumpctl_cmds[(r)$words[1]:*]%%:*}}"
         if (( $#cmd  )); then
-            dumps=( "${(f)$(_call_program dumps "systemd-coredumpctl list 2>/dev/null")}" )
-            if [[ -n "$dumps" ]]; then
-                compadd "${dumps[@]}"
+			# user can set zstyle ':completion:*:*:systemd-coredumpctl:*' sort no for coredumps to be ordered by date, otherwise they get ordered by pid
+			_dumps=( "${(foa)$(systemd-coredumpctl list | awk 'BEGIN{OFS=":"} /^\s/ {sub(/[[ \t]+/, ""); print $5,$0}' 2>/dev/null)}" )
+            if [[ -n "$_dumps" ]]; then
+                _describe -t pids 'coredumps' _dumps
             else
                 _message "no coredumps"
             fi
