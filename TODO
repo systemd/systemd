@@ -1,4 +1,7 @@
 Bugfixes:
+* systemctl status *.path shows all logs, not only the ones since the unit is
+  active
+
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
