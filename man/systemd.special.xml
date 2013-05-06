@@ -784,7 +784,7 @@
                                         available at boot.</para>
 
                                         <para>This may be used to pull
-                                        in printer management
+                                        in smartcard management
                                         daemons dynamically when
                                         smartcard hardware is
                                         found.</para>
@@ -801,7 +801,7 @@
 
                                         <para>This may be used to pull
                                         in audio management daemons
-                                        dynamically when printer
+                                        dynamically when audio
                                         hardware is found.</para>
                                 </listitem>
                         </varlistentry>
