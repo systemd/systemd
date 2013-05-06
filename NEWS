@@ -1,5 +1,87 @@
 systemd System and Service Manager
 
+CHANGES WITH 203:
+
+        * systemd-nspawn will now create /etc/resolv.conf if
+          necessary, before bind-mounting the host's file onto it.
+
+        * systemd-nspawn will now store meta information about a
+          container on the container's cgroup as extended attribute
+          fields, including the root directory.
+
+        * The cgroup hierarchy has been reworked in many ways. All
+          objects any of the components systemd creates in the cgroup
+          tree is now suffixed. More specifically, user sessions are
+          now placed in cgroups suffixed with ".session", users in
+          cgroups suffixed with ".user", and nspawn containers in
+          cgroups suffixed with ".nspawn". Furthermore, all cgroup
+          names are now escaped in a simple scheme to avoid collision
+          of userspace object names with kernel filenames. This work
+          is preparation for making these objects relocatable in the
+          cgroup tree, in order to allow easy resource partitioning of
+          these objects without causing naming conflicts.
+
+        * systemctl list-dependencies gained the new switches
+          --plain, --reverse, --after and --before.
+
+        * systemd-inhibit now shows the process name of processes that
+          have taken an inhibitor lock.
+
+        * nss-myhostname will now also resolve "localhost"
+          implicitly. This makes /etc/hosts an optional file and
+          nicely handles that on IPv6 ::1 maps to both "localhost" and
+          the local hostname.
+
+        * libsystemd-logind.so gained a new call
+          sd_get_machine_names() to enumerate running containers and
+          VMs (currently only supported by very new libvirt and
+          nspawn). sd_login_monitor can now be used to watch
+          VMs/containers coming and going.
+
+        * .include is not allowed recursively anymore, and only in
+          unit files. Usually it is better to use drop-in snippets in
+          .d/*.conf anyway, as introduced with systemd 198.
+
+        * systemd-analyze gained a new "critical-chain" command that
+          determines the slowest chain of units run during system
+          boot-up. It is very useful for tracking down where
+          optimizing boot time is the most beneficial.
+
+        * systemd will no longer allow manipulating service paths in
+          the name=systemd:/system cgroup tree using ControlGroup= in
+          units. (But is still fine with it in all other dirs.)
+
+        * There's a new systemd-nspawn@.service service file that may
+          be used to easily run nspawn containers as system
+          services. With the container's root directory in
+          /var/lib/container/foobar it is now sufficient to run
+          "systemctl start systemd-nspawn@foobar.service" to boot it.
+
+        * systemd-cgls gained a new parameter "--machine" to list only
+          the processes within a certain container.
+
+        * ConditionSecurity= now can check for "apparmor". We still
+          are lacking checks for SMACK and IMA for this condition
+          check though. Patches welcome!
+
+        * A new configuration file /etc/systemd/sleep.conf has been
+          added that may be used to configure which kernel operation
+          systemd is supposed to execute when "suspend", "hibernate"
+          or "hybrid-sleep" is requested. This makes the new kernel
+          "freeze" state accessible to the user.
+
+        * ENV{SYSTEMD_WANTS} in udev rules will now implicitly escape
+          the passed argument if applicable.
+
+        Contributions from: Auke Kok, Colin Guthrie, Colin Walters,
+        Cristian Rodríguez, Daniel Buch, Daniel Wallace, Dave Reisner,
+        Evangelos Foutras, Greg Kroah-Hartman, Harald Hoyer, Josh
+        Triplett, Kay Sievers, Lennart Poettering, Lukas Nykryn,
+        MUNEDA Takahiro, Mantas Mikulėnas, Mirco Tischler, Nathaniel
+        Chen, Nirbheek Chauhan, Ronny Chevalier, Ross Lagerwall, Tom
+        Gundersen, Umut Tezduyar, Ville Skyttä, Zbigniew
+        Jędrzejewski-Szmek
+
 CHANGES WITH 202:
 
         * The output of 'systemctl list-jobs' got some polishing. The
