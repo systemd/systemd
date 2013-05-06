@@ -1132,13 +1132,14 @@
                                 <term><varname>Also=</varname></term>
 
                                 <listitem><para>Additional units to
-                                install when this unit is
-                                installed. If the user requests
-                                installation of a unit with this
-                                option configured,
+                                install/deinstall when this unit is
+                                installed/deinstalled. If the user
+                                requests installation/deinstallation
+                                of a unit with this option configured,
                                 <command>systemctl enable</command>
-                                will automatically install units
-                                listed in this option as
+                                and <command>systemctl
+                                disable</command> will automatically
+                                install/uninstall units listed in this option as
                                 well.</para></listitem>
                         </varlistentry>
                 </variablelist>
