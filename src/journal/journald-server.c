@@ -938,6 +938,12 @@ int server_flush_to_var(Server *s) {
                 server_rotate(s);
                 server_vacuum(s);
 
+                if (!s->system_journal) {
+                        log_notice("Didn't flush runtime journal since rotation of system journal wasn't successful.");
+                        r = -EIO;
+                        goto finish;
+                }
+
                 log_debug("Retrying write.");
                 r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
                 if (r < 0) {
