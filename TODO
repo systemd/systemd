@@ -29,6 +29,9 @@ Fedora 19:
 
 Features:
 
+* Introduce a way how we can kill the main process of a service with KillSignal, but all processes with SIGKILL later on
+  https://bugzilla.redhat.com/show_bug.cgi?id=952634
+
 * maybe add a warning to the unit file parses whern the acces mode of unit files is non-sensical.
 
 * investigate endianess issues of UUID vs. GUID
