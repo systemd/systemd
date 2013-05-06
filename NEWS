@@ -11,7 +11,7 @@ CHANGES WITH 203:
 
         * The cgroup hierarchy has been reworked in many ways. All
           objects any of the components systemd creates in the cgroup
-          tree is now suffixed. More specifically, user sessions are
+          tree are now suffixed. More specifically, user sessions are
           now placed in cgroups suffixed with ".session", users in
           cgroups suffixed with ".user", and nspawn containers in
           cgroups suffixed with ".nspawn". Furthermore, all cgroup
