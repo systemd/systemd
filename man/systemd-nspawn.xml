@@ -133,6 +133,15 @@
                 <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
                 Interface</ulink> specification.</para>
+
+                <para>As a safety check
+                <command>systemd-nspawn</command> will verify the
+                existance of <filename>/etc/os-release</filename> in
+                the container tree before starting the container (see
+                <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>). It
+                might be necessary to add this file to the container
+                tree manually if the OS of the container is too old to
+                contain this file out-of-the-box.</para>
         </refsect1>
 
         <refsect1>
