@@ -111,13 +111,13 @@
                                 is flushed to
                                 <filename>/var/</filename> in order to
                                 make it persistent (if this is
-                                enabled). This may be used after
+                                enabled). This must be used after
                                 <filename>/var/</filename> is mounted,
-                                but is generally not required since
-                                the first journal write when
-                                <filename>/var/</filename> becomes
-                                writable triggers the flushing
-                                anyway.</para></listitem>
+                                as otherwise log data from
+                                <filename>/run</filename> is never
+                                flushed to <filename>/var</filename>
+                                regardless of the
+                                configuration.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
