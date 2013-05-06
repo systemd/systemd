@@ -33,14 +33,16 @@ static bool arg_skip = false;
 static bool arg_force = false;
 
 static int parse_proc_cmdline(void) {
-        char *line, *w, *state;
-        int r;
+        _cleanup_free_ char *line = NULL;
+        char *w, *state;
         size_t l;
+        int r;
 
         if (detect_container(NULL) > 0)
                 return 0;
 
-        if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return 0;
         }
@@ -62,8 +64,6 @@ static int parse_proc_cmdline(void) {
                 }
 #endif
         }
-
-        free(line);
         return 0;
 }
 
@@ -77,13 +77,13 @@ static void test_files(void) {
 }
 
 int main(int argc, char *argv[]) {
+
         static const char * const cmdline[] = {
-                "/sbin/quotacheck",
+                QUOTACHECK,
                 "-anug",
                 NULL
         };
 
-        int r = EXIT_FAILURE;
         pid_t pid;
 
         if (argc > 1) {
@@ -102,23 +102,21 @@ int main(int argc, char *argv[]) {
 
         if (!arg_force) {
                 if (arg_skip)
-                        return 0;
+                        return EXIT_SUCCESS;
 
                 if (access("/run/systemd/quotacheck", F_OK) < 0)
-                        return 0;
+                        return EXIT_SUCCESS;
         }
 
-        if ((pid = fork()) < 0) {
+        pid = fork();
+        if (pid < 0) {
                 log_error("fork(): %m");
-                goto finish;
+                return EXIT_FAILURE;
         } else if (pid == 0) {
                 /* Child */
                 execv(cmdline[0], (char**) cmdline);
                 _exit(1); /* Operational error */
         }
 
-        r = wait_for_terminate_and_warn("quotacheck", pid) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-
-finish:
-        return r;
+        return wait_for_terminate_and_warn("quotacheck", pid) >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
