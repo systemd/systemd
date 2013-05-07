@@ -244,7 +244,7 @@ install-aliases-hook:
 		dir= && $(install-aliases)
 
 define install-aliases
-	$(MKDIR_P) /$(DESTDIR)$$dir && \
+	$(MKDIR_P) $(DESTDIR)$$dir && \
 	while [ -n "$$1" ]; do \
 		rm -f $(DESTDIR)$$dir/$$2 && \
 		$(LN_S) $$1 $(DESTDIR)$$dir/$$2 && \
