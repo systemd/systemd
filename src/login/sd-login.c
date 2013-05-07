@@ -591,7 +591,7 @@ _public_ int sd_get_uids(uid_t **users) {
         return r;
 }
 
-int sd_get_machine_names(char ***machines) {
+_public_ int sd_get_machine_names(char ***machines) {
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *md = NULL;
