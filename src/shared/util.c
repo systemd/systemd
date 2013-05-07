@@ -3838,24 +3838,29 @@ bool hostname_is_valid(const char *s) {
         return true;
 }
 
-char* hostname_cleanup(char *s) {
+char* hostname_cleanup(char *s, bool lowercase) {
         char *p, *d;
         bool dot;
 
         for (p = s, d = s, dot = true; *p; p++) {
                 if (*p == '.') {
-                        if (dot || p[1] == 0)
+                        if (dot)
                                 continue;
 
+                        *(d++) = '.';
                         dot = true;
-                } else
+                } else if (hostname_valid_char(*p)) {
+                        *(d++) = lowercase ? tolower(*p) : *p;
                         dot = false;
+                }
 
-                if (hostname_valid_char(*p))
-                        *(d++) = *p;
         }
 
-        *d = 0;
+        if (dot && d > s)
+                d[-1] = 0;
+        else
+                *d = 0;
+
         strshorten(s, HOST_NAME_MAX);
 
         return s;

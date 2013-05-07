@@ -42,7 +42,7 @@ static int read_and_strip_hostname(const char *path, char **hn) {
         if (r < 0)
                 return r;
 
-        hostname_cleanup(s);
+        hostname_cleanup(s, false);
 
         if (isempty(s)) {
                 free(s);

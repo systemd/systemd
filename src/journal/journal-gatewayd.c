@@ -839,7 +839,7 @@ static int request_handler_machine(
                      "\"cutoff_to_realtime\" : \"%llu\" }\n",
                      SD_ID128_FORMAT_VAL(mid),
                      SD_ID128_FORMAT_VAL(bid),
-                     hostname_cleanup(hostname),
+                     hostname_cleanup(hostname, false),
                      os_name ? os_name : "Linux",
                      v ? v : "bare",
                      (unsigned long long) usage,

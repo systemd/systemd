@@ -1267,7 +1267,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                hostname_cleanup(arg_machine);
+                hostname_cleanup(arg_machine, false);
                 if (isempty(arg_machine)) {
                         log_error("Failed to determine machine name automatically, please use -M.");
                         goto finish;

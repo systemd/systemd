@@ -213,26 +213,6 @@ static int show_status(DBusConnection *bus, char **args, unsigned n) {
         return 0;
 }
 
-static char* hostname_simplify(char *s) {
-        char *p, *d;
-
-        for (p = s, d = s; *p; p++) {
-                if ((*p >= 'a' && *p <= 'z') ||
-                    (*p >= '0' && *p <= '9') ||
-                    *p == '-' || *p == '_')
-                        *(d++) = *p;
-                else if (*p >= 'A' && *p <= 'Z')
-                        *(d++) = *p - 'A' + 'a';
-                else if (*p == ' ')
-                        *(d++) = '-';
-        }
-
-        *d = 0;
-
-        strshorten(s, HOST_NAME_MAX);
-        return s;
-}
-
 static int set_hostname(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         dbus_bool_t interactive = true;
@@ -254,16 +234,17 @@ static int set_hostname(DBusConnection *bus, char **args, unsigned n) {
                  * just set the passed hostname as static/dynamic
                  * hostname. */
 
-                if (hostname_is_valid(hostname))
+                h = strdup(hostname);
+                if (!h)
+                        return log_oom();
+
+                hostname_cleanup(h, true);
+
+                if (arg_set_static && streq(h, hostname))
                         p = "";
                 else {
                         p = hostname;
-
-                        h = strdup(hostname);
-                        if (!h)
-                                return log_oom();
-
-                        hostname = hostname_simplify(h);
+                        hostname = h;
                 }
 
                 r = bus_method_call_with_reply(

@@ -411,7 +411,7 @@ bool nulstr_contains(const char*nulstr, const char *needle);
 bool plymouth_running(void);
 
 bool hostname_is_valid(const char *s) _pure_;
-char* hostname_cleanup(char *s);
+char* hostname_cleanup(char *s, bool lowercase);
 
 char* strshorten(char *s, size_t l);
 
