@@ -984,8 +984,9 @@
                                 may be used to check whether the given
                                 security module is enabled on the
                                 system.  Currently the only recognized
-                                values are <varname>selinux</varname>
-                                and <varname>apparmor</varname>.
+                                values are <varname>selinux</varname>,
+                                <varname>apparmor</varname>, and
+                                <varname>smack</varname>.
                                 The test may be negated by prepending
                                 an exclamation
                                 mark.</para>
