@@ -47,18 +47,15 @@ int parse_sleep_config(const char *verb, char ***modes, char ***states) {
         FILE _cleanup_fclose_ *f;
 
         f = fopen(PKGSYSCONFDIR "/sleep.conf", "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_warning("Failed to open configuration file " PKGSYSCONFDIR "/sleep.conf: %m");
-                return 0;
+        if (!f)
+                log_full(errno == ENOENT ? LOG_DEBUG: LOG_WARNING,
+                         "Failed to open configuration file " PKGSYSCONFDIR "/sleep.conf: %m");
+        else {
+                r = config_parse(NULL, PKGSYSCONFDIR "/sleep.conf", f, "Sleep\0",
+                                 config_item_table_lookup, (void*) items, false, false, NULL);
+                if (r < 0)
+                        log_warning("Failed to parse configuration file: %s", strerror(-r));
         }
-
-        r = config_parse(NULL, PKGSYSCONFDIR "/sleep.conf", f, "Sleep\0",
-                         config_item_table_lookup, (void*) items, false, false, NULL);
-        if (r < 0)
-                log_warning("Failed to parse configuration file: %s", strerror(-r));
 
         if (streq(verb, "suspend")) {
                 /* empty by default */
