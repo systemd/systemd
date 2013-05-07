@@ -43,6 +43,9 @@ typedef int (*compare_func_t)(const void *a, const void *b);
 unsigned string_hash_func(const void *p) _pure_;
 int string_compare_func(const void *a, const void *b) _pure_;
 
+/* This will compare the passed pointers directly, and will not
+ * dereference them. This is hence not useful for strings or
+ * suchlike. */
 unsigned trivial_hash_func(const void *p) _const_;
 int trivial_compare_func(const void *a, const void *b) _const_;
 
