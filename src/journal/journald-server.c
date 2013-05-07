@@ -227,9 +227,9 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
                 }
         }
 
+        /* We do not recalculate the mask here, so that the fchmod() mask above stays intact. */
         if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0 ||
-            acl_calc_mask(&acl) < 0) {
+            acl_add_perm(permset, ACL_READ) < 0) {
                 log_warning("Failed to patch ACL on %s, ignoring: %m", f->path);
                 goto finish;
         }
