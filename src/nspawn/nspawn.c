@@ -22,7 +22,6 @@
 #include <signal.h>
 #include <sched.h>
 #include <unistd.h>
-#include <attr/xattr.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <sys/mount.h>
@@ -42,6 +41,10 @@
 #include <linux/fs.h>
 #include <sys/un.h>
 #include <sys/socket.h>
+
+#ifdef HAVE_XATTR
+#include <attr/xattr.h>
+#endif
 
 #include <systemd/sd-daemon.h>
 
@@ -928,6 +931,7 @@ static int setup_cgroup(const char *path) {
 }
 
 static int save_attributes(const char *cgroup, pid_t pid, const char *uuid, const char *directory) {
+#ifdef HAVE_XATTR
         _cleanup_free_ char *path = NULL;
         char buf[DECIMAL_STR_MAX(pid_t)];
         int r = 0, k;
@@ -936,7 +940,6 @@ static int save_attributes(const char *cgroup, pid_t pid, const char *uuid, cons
         assert(pid >= 0);
         assert(arg_directory);
 
-#ifdef HAVE_XATTR
         assert_se(snprintf(buf, sizeof(buf), "%lu", (unsigned long) pid) < (int) sizeof(buf));
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup, NULL, &path);
@@ -964,8 +967,10 @@ static int save_attributes(const char *cgroup, pid_t pid, const char *uuid, cons
                 if (r == 0)
                         r = k;
         }
-#endif
         return r;
+#else
+        return 0;
+#endif
 }
 
 static int drop_capabilities(void) {
