@@ -1372,7 +1372,7 @@ static int manager_process_signal_fd(Manager *m) {
 
                 case SIGINT:
                         if (m->running_as == SYSTEMD_SYSTEM) {
-                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE);
+                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
                                 break;
                         }
 
