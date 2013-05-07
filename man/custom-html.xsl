@@ -48,13 +48,34 @@
         <xsl:text>Permalink to this headline</xsl:text>
       </xsl:attribute>
       <xsl:attribute name="href">
-        <!--        <xsl:call-template name="href.target.uri" /> -->
         <xsl:text>#</xsl:text>
         <xsl:call-template name="inline.charseq"/>
       </xsl:attribute>
       <xsl:text>¶</xsl:text>
     </a>
   </h2>
+</xsl:template>
+
+<xsl:template match="refsect2/title|refsect2/info/title">
+  <h3>
+    <xsl:attribute name="id">
+      <xsl:call-template name="inline.charseq"/>
+    </xsl:attribute>
+    <xsl:apply-templates/>
+    <a>
+      <xsl:attribute name="class">
+        <xsl:text>headerlink</xsl:text>
+      </xsl:attribute>
+      <xsl:attribute name="title">
+        <xsl:text>Permalink to this headline</xsl:text>
+      </xsl:attribute>
+      <xsl:attribute name="href">
+        <xsl:text>#</xsl:text>
+        <xsl:call-template name="inline.charseq"/>
+      </xsl:attribute>
+      <xsl:text>¶</xsl:text>
+    </a>
+  </h3>
 </xsl:template>
 
 <xsl:template match="varlistentry">
