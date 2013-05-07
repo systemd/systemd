@@ -30,66 +30,72 @@
 
 #include "kmod-setup.h"
 
-typedef struct Kmodule {
-        const char *name;
-        const char *directory;
-        bool (*condition_fn)(void);
-} KModule;
-
-static const KModule kmod_table[] = {
-        { "autofs4",  "/sys/class/misc/autofs",    NULL } ,
-        { "ipv6",     "/sys/module/ipv6",          NULL },
-        { "unix",     "/proc/net/unix",            NULL } ,
-};
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-static void systemd_kmod_log(void *data, int priority, const char *file, int line,
-                             const char *fn, const char *format, va_list args)
-{
+
+static void systemd_kmod_log(
+                void *data,
+                int priority,
+                const char *file, int line,
+                const char *fn,
+                const char *format,
+                va_list args) {
+
         /* library logging is enabled at debug only */
         log_metav(LOG_DEBUG, file, line, fn, format, args);
 }
+
 #pragma GCC diagnostic pop
 
 int kmod_setup(void) {
-        unsigned i;
+
+        static const char kmod_table[] =
+                /* This one we need to load explicitly, since
+                 * auto-loading on use doesn't work before udev
+                 * created the ghost device nodes, and we need it
+                 * earlier than that. */
+                "autofs4\0" "/sys/class/misc/autofs\0"
+
+                /* This one we need to load explicitly, since
+                 * auto-loading of IPv6 is not done when we try to
+                 * configure ::1 on the loopback device. */
+                "ipv6\0"    "/sys/module/ipv6\0"
+
+                "unix\0"    "/proc/net/unix\0";
+
         struct kmod_ctx *ctx = NULL;
-        struct kmod_module *mod;
-        int err;
+        const char *name, *path;
+        int r;
 
-        for (i = 0; i < ELEMENTSOF(kmod_table); i += 2) {
-                if (kmod_table[i].condition_fn && !kmod_table[i].condition_fn())
-                        continue;
+        NULSTR_FOREACH_PAIR(name, path, kmod_table) {
+                struct kmod_module *mod;
 
-                if (access(kmod_table[i].directory, F_OK) >= 0)
+                if (access(path, F_OK) >= 0)
                         continue;
 
                 log_debug("Your kernel apparently lacks built-in %s support. Might be a good idea to compile it in. "
                           "We'll now try to work around this by loading the module...",
-                          kmod_table[i].name);
+                          name);
 
                 if (!ctx) {
                         ctx = kmod_new(NULL, NULL);
-                        if (!ctx) {
-                                log_error("Failed to allocate memory for kmod");
-                                return -ENOMEM;
-                        }
+                        if (!ctx)
+                                return log_oom();
 
                         kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
                         kmod_load_resources(ctx);
                 }
 
-                err = kmod_module_new_from_name(ctx, kmod_table[i].name, &mod);
-                if (err < 0) {
-                        log_error("Failed to lookup module '%s'", kmod_table[i].name);
+                r = kmod_module_new_from_name(ctx, name, &mod);
+                if (r < 0) {
+                        log_error("Failed to lookup module '%s'", name);
                         continue;
                 }
 
-                err = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST, NULL, NULL, NULL, NULL);
-                if (err == 0)
+                r = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST, NULL, NULL, NULL, NULL);
+                if (r == 0)
                         log_info("Inserted module '%s'", kmod_module_get_name(mod));
-                else if (err == KMOD_PROBE_APPLY_BLACKLIST)
+                else if (r == KMOD_PROBE_APPLY_BLACKLIST)
                         log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
                 else
                         log_error("Failed to insert module '%s'", kmod_module_get_name(mod));
