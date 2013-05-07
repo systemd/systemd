@@ -79,14 +79,18 @@ static void print_status_info(StatusInfo *i) {
         printf("   Static hostname: %s\n",
                strna(i->static_hostname));
 
-        if (!streq_ptr(i->hostname, i->static_hostname))
+        if (!isempty(i->pretty_hostname) &&
+            !streq_ptr(i->pretty_hostname, i->static_hostname))
+                printf("   Pretty hostname: %s\n",
+                       strna(i->pretty_hostname));
+
+        if (!isempty(i->hostname) &&
+            !streq_ptr(i->hostname, i->static_hostname))
                 printf("Transient hostname: %s\n",
                        strna(i->hostname));
 
-        printf("   Pretty hostname: %s\n"
-               "         Icon name: %s\n"
+        printf("         Icon name: %s\n"
                "           Chassis: %s\n",
-               strna(i->pretty_hostname),
                strna(i->icon_name),
                strna(i->chassis));
 
