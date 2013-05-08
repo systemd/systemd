@@ -130,6 +130,10 @@ struct Socket {
         bool broadcast;
         bool pass_cred;
         bool pass_sec;
+
+        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
+        SocketAddressBindIPv6Only bind_ipv6_only;
+
         int priority;
         int mark;
         size_t receive_buffer;
@@ -141,9 +145,6 @@ struct Socket {
         char *tcp_congestion;
         long mq_maxmsg;
         long mq_msgsize;
-
-        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
-        SocketAddressBindIPv6Only bind_ipv6_only;
 
         char *smack;
         char *smack_ip_in;

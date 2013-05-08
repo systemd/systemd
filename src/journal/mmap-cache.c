@@ -41,9 +41,9 @@ struct Window {
         bool keep_always;
         bool in_unused;
 
+        int prot;
         void *ptr;
         uint64_t offset;
-        int prot;
         size_t size;
 
         FileDescriptor *fd;
@@ -70,11 +70,10 @@ struct FileDescriptor {
 
 struct MMapCache {
         int n_ref;
+        unsigned n_windows;
 
         Hashmap *fds;
         Hashmap *contexts;
-
-        unsigned n_windows;
 
         LIST_HEAD(Window, unused);
         Window *last_unused;

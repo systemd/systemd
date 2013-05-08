@@ -74,19 +74,20 @@ typedef enum LocationType {
 struct Location {
         LocationType type;
 
+        bool seqnum_set;
+        bool realtime_set;
+        bool monotonic_set;
+        bool xor_hash_set;
+
         uint64_t seqnum;
         sd_id128_t seqnum_id;
-        bool seqnum_set;
 
         uint64_t realtime;
-        bool realtime_set;
 
         uint64_t monotonic;
         sd_id128_t boot_id;
-        bool monotonic_set;
 
         uint64_t xor_hash;
-        bool xor_hash_set;
 };
 
 struct Directory {
