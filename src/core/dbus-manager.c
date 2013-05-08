@@ -282,6 +282,10 @@
         "  <property name=\"UserspaceTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"FinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"FinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"GeneratorsStartTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"GeneratorsStartTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"GeneratorsFinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"GeneratorsFinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"LogLevel\" type=\"s\" access=\"readwrite\"/>\n"  \
         "  <property name=\"LogTarget\" type=\"s\" access=\"readwrite\"/>\n" \
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
@@ -587,6 +591,10 @@ static const BusProperty bus_manager_properties[] = {
         { "UserspaceTimestampMonotonic", bus_property_append_uint64,     "t",  offsetof(Manager, userspace_timestamp.monotonic) },
         { "FinishTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, finish_timestamp.realtime)     },
         { "FinishTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, finish_timestamp.monotonic)    },
+        { "GeneratorsStartTimestamp",           bus_property_append_uint64,     "t",  offsetof(Manager, generators_start_timestamp.realtime)   },
+        { "GeneratorsStartTimestampMonotonic",  bus_property_append_uint64,     "t",  offsetof(Manager, generators_start_timestamp.monotonic)  },
+        { "GeneratorsFinishTimestamp",          bus_property_append_uint64,     "t",  offsetof(Manager, generators_finish_timestamp.realtime)  },
+        { "GeneratorsFinishTimestampMonotonic", bus_property_append_uint64,     "t",  offsetof(Manager, generators_finish_timestamp.monotonic) },
         { "LogLevel",                    bus_manager_append_log_level,   "s",  0,                                               false, bus_manager_set_log_level },
         { "LogTarget",                   bus_manager_append_log_target,  "s",  0,                                               false, bus_manager_set_log_target },
         { "NNames",                      bus_manager_append_n_names,     "u",  0                                                },

@@ -78,6 +78,8 @@ struct boot_times {
         usec_t initrd_time;
         usec_t userspace_time;
         usec_t finish_time;
+        usec_t generators_start_time;
+        usec_t generators_finish_time;
 };
 struct unit_times {
         char *name;
@@ -303,7 +305,17 @@ static int acquire_boot_times(DBusConnection *bus, struct boot_times **bt) {
                                     "/org/freedesktop/systemd1",
                                     "org.freedesktop.systemd1.Manager",
                                     "FinishTimestampMonotonic",
-                                    &times.finish_time) < 0)
+                                    &times.finish_time) < 0 ||
+            bus_get_uint64_property(bus,
+                                    "/org/freedesktop/systemd1",
+                                    "org.freedesktop.systemd1.Manager",
+                                    "GeneratorsStartTimestampMonotonic",
+                                    &times.generators_start_time) < 0 ||
+            bus_get_uint64_property(bus,
+                                    "/org/freedesktop/systemd1",
+                                    "org.freedesktop.systemd1.Manager",
+                                    "GeneratorsFinishTimestampMonotonic",
+                                    &times.generators_finish_time) < 0)
                 return -EIO;
 
         if (times.finish_time <= 0) {
@@ -459,7 +471,8 @@ static int analyze_plot(DBusConnection *bus) {
 
         svg("<svg width=\"%.0fpx\" height=\"%.0fpx\" version=\"1.1\" "
             "xmlns=\"http://www.w3.org/2000/svg\">\n\n",
-                        80.0 + width, 150.0 + (m * SCALE_Y));
+                        80.0 + width, 150.0 + (m * SCALE_Y) +
+                        4 * SCALE_Y /* legend */);
 
         /* write some basic info as a comment, including some help */
         svg("<!-- This file is a systemd-analyze SVG file. It is best rendered in a   -->\n"
@@ -480,6 +493,7 @@ static int analyze_plot(DBusConnection *bus) {
             "      rect.firmware     { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.loader       { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.userspace    { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
+            "      rect.generators   { fill: rgb(102,204,255); fill-opacity: 0.7; }\n"
             "      rect.box   { fill: rgb(240,240,240); stroke: rgb(192,192,192); }\n"
             "      line       { stroke: rgb(64,64,64); stroke-width: 1; }\n"
             "//    line.sec1  { }\n"
@@ -495,8 +509,6 @@ static int analyze_plot(DBusConnection *bus) {
         svg("<text x=\"20\" y=\"30\">%s %s (%s %s) %s</text>",
             isempty(osname) ? "Linux" : osname,
             name.nodename, name.release, name.version, name.machine);
-        svg("<text x=\"20\" y=\"%.0f\">Legend: Red = Activating; Pink = Active; Dark Pink = Deactivating</text>",
-                        120.0 + (m *SCALE_Y));
 
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
         svg_graph_box(m, -boot->firmware_time, boot->finish_time);
@@ -521,8 +533,9 @@ static int analyze_plot(DBusConnection *bus) {
                 svg_text(true, boot->initrd_time, y, "initrd");
                 y++;
         }
-        svg_bar("userspace", boot->userspace_time, boot->finish_time, y);
-        svg_text("left", boot->userspace_time, y, "userspace");
+        svg_bar("active", boot->userspace_time, boot->finish_time, y);
+        svg_bar("generators", boot->generators_start_time, boot->generators_finish_time, y);
+        svg_text("left", boot->userspace_time, y, "systemd");
         y++;
 
         for (u = times; u < times + n; u++) {
@@ -544,6 +557,23 @@ static int analyze_plot(DBusConnection *bus) {
                         svg_text(b, u->ixt, y, "%s", u->name);
                 y++;
         }
+
+        /* Legend */
+        y++;
+        svg_bar("activating", 0, 300000, y);
+        svg_text("right", 400000, y, "Activating");
+        y++;
+        svg_bar("active", 0, 300000, y);
+        svg_text("right", 400000, y, "Active");
+        y++;
+        svg_bar("deactivating", 0, 300000, y);
+        svg_text("right", 400000, y, "Deactivating");
+        y++;
+        svg_bar("generators", 0, 300000, y);
+        svg_text("right", 400000, y, "Generators");
+        y++;
+
+
         svg("</g>\n\n");
 
         svg("</svg>");

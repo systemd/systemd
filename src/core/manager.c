@@ -826,7 +826,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         assert(m);
 
+        dual_timestamp_get(&m->generators_start_timestamp);
         manager_run_generators(m);
+        dual_timestamp_get(&m->generators_finish_timestamp);
 
         r = lookup_paths_init(
                         &m->lookup_paths, m->running_as, true,
