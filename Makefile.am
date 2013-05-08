@@ -3698,7 +3698,8 @@ pkgpyexec_LTLIBRARIES = \
 	_journal.la \
 	id128.la \
 	_daemon.la \
-	_reader.la
+	_reader.la \
+	login.la
 
 _journal_la_SOURCES = \
 	src/python-systemd/_journal.c
@@ -3781,6 +3782,29 @@ _reader_la_LIBADD = \
 	$(PYTHON_LIBS) \
 	libsystemd-journal.la \
 	libsystemd-id128.la \
+	libsystemd-shared.la \
+	libsystemd-daemon-internal.la
+
+login_la_SOURCES = \
+	src/python-systemd/login.c \
+	src/python-systemd/pyutil.c \
+	src/python-systemd/pyutil.h
+
+login_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-fvisibility=default \
+	$(PYTHON_CFLAGS)
+
+login_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-shared \
+	-module \
+	-avoid-version
+
+login_la_LIBADD = \
+	$(PYTHON_LIBS) \
+	libsystemd-journal.la \
+	libsystemd-login.la \
 	libsystemd-shared.la \
 	libsystemd-daemon-internal.la
 

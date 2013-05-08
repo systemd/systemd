@@ -213,19 +213,7 @@ static PyObject* Reader_get_timeout_ms(Reader *self, PyObject *args)
     if (r < 0)
         return NULL;
 
-    if (t == (uint64_t) -1)
-        return PyLong_FromLong(-1);
-    else {
-        struct timespec ts;
-        uint64_t n;
-        int msec;
-
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        n = (uint64_t) ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
-        msec = t > n ? (int) ((t - n + 999) / 1000) : 0;
-
-        return PyLong_FromLong(msec);
-    }
+    return absolute_timeout(t);
 }
 
 

@@ -14,6 +14,7 @@ Contents:
    journal
    id128
    daemon
+   login
 
 Indices and tables
 ==================
