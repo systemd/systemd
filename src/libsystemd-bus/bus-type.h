@@ -29,6 +29,7 @@
 bool bus_type_is_valid(char c);
 bool bus_type_is_valid_in_signature(char c);
 bool bus_type_is_basic(char c);
+bool bus_type_is_trivial(char c);
 bool bus_type_is_container(char c);
 int bus_type_get_alignment(char c);
 int bus_type_get_size(char c);

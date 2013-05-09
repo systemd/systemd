@@ -34,10 +34,10 @@ struct bus_container {
         char enclosing;
 
         char *signature;
-        unsigned index;
+        unsigned index, saved_index;
 
         uint32_t *array_size;
-        size_t begin;
+        size_t before, begin;
 };
 
 struct bus_header {

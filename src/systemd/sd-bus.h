@@ -41,15 +41,10 @@ extern "C" {
 #endif
 
 /* TODO:
- * - add page donation logic
- * - api for appending/reading fixed arrays
  * - merge busctl into systemctl or so?
  * - default policy (allow uid == 0 and our own uid)
- *
  * - enforce alignment of pointers passed in
  * - negotiation for attach attributes
- *
- * - for kernel and unix transports allow setting the unix user/access mode for the node
  */
 
 typedef struct sd_bus sd_bus;
@@ -172,6 +167,11 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
 int sd_bus_message_exit_container(sd_bus_message *m);
 int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents);
 int sd_bus_message_rewind(sd_bus_message *m, int complete);
+
+int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, size_t size);
+int sd_bus_message_append_array_ptr(sd_bus_message *m, char type, size_t size, void **ptr);
+
+int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size);
 
 /* Convenience calls */
 

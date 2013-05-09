@@ -1438,6 +1438,7 @@ int sd_bus_message_open_container(
         struct bus_container *c, *w;
         uint32_t *array_size = NULL;
         char *signature;
+        size_t before;
         int r;
 
         if (!m)
@@ -1458,6 +1459,11 @@ int sd_bus_message_open_container(
         signature = strdup(contents);
         if (!signature)
                 return -ENOMEM;
+
+        /* Save old index in the parent container, in case we have to
+         * abort this container */
+        c->saved_index = c->index;
+        before = m->header->body_size;
 
         if (type == SD_BUS_TYPE_ARRAY)
                 r = bus_message_open_array(m, c, contents, &array_size);
@@ -1481,7 +1487,8 @@ int sd_bus_message_open_container(
         w->signature = signature;
         w->index = 0;
         w->array_size = array_size;
-        w->begin = 0;
+        w->before = before;
+        w->begin = m->rindex;
 
         return 0;
 }
@@ -1507,6 +1514,36 @@ int sd_bus_message_close_container(sd_bus_message *m) {
         return 0;
 }
 
+static void message_abort_container(sd_bus_message *m) {
+        struct bus_container *c;
+        size_t delta;
+
+        assert(m);
+        assert(!m->sealed);
+        assert(m->n_containers > 0);
+
+        c = message_get_container(m);
+
+        /* Undo appends */
+        assert(m->header->body_size >= c->before);
+        delta = m->header->body_size - c->before;
+        m->header->body_size = c->before;
+
+        /* Free container */
+        free(c->signature);
+        m->n_containers--;
+
+        /* Correct index of new top-level container */
+        c = message_get_container(m);
+        c->index = c->saved_index;
+
+        /* Correct array sizes all the way up */
+        for (c = m->containers; c < m->containers + m->n_containers; c++)
+                if (c->array_size) {
+                        assert(*c->array_size >= delta);
+                        *c->array_size -= delta;
+                }
+}
 
 typedef struct {
         const char *types;
@@ -1762,6 +1799,68 @@ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
         return r;
 }
 
+int sd_bus_message_append_array_ptr(sd_bus_message *m, char type, size_t size, void **ptr) {
+        ssize_t align, sz;
+        void *a;
+        int r;
+
+        if (!m)
+                return -EINVAL;
+        if (m->sealed)
+                return -EPERM;
+        if (!bus_type_is_trivial(type))
+                return -EINVAL;
+        if (!ptr && size > 0)
+                return -EINVAL;
+
+        align = bus_type_get_alignment(type);
+        sz = bus_type_get_size(type);
+
+        assert_se(align > 0);
+        assert_se(sz > 0);
+
+        if (size % sz != 0)
+                return -EINVAL;
+
+        r = sd_bus_message_open_container(m, SD_BUS_TYPE_ARRAY, CHAR_TO_STR(type));
+        if (r < 0)
+                return r;
+
+        a = message_extend_body(m, align, size);
+        if (!a) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                goto fail;
+
+        *ptr = a;
+        return 0;
+
+fail:
+        message_abort_container(m);
+        return r;
+}
+
+int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, size_t size) {
+        int r;
+        void *p;
+
+        if (!ptr && size > 0)
+                return -EINVAL;
+
+        r = sd_bus_message_append_array_ptr(m, type, size, &p);
+        if (r < 0)
+                return r;
+
+        if (size > 0)
+                memcpy(p, ptr, size);
+
+        return 0;
+}
+
 static int buffer_peek(const void *p, uint32_t sz, size_t *rindex, size_t align, size_t nbytes, void **r) {
         size_t k, start, n;
 
@@ -1990,7 +2089,7 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         assert_not_reached("Unknown basic type...");
                 }
 
-                        m->rindex = rindex;
+                m->rindex = rindex;
 
                 break;
         }
@@ -2186,6 +2285,7 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
         struct bus_container *c, *w;
         uint32_t *array_size = NULL;
         char *signature;
+        size_t before;
         int r;
 
         if (!m)
@@ -2228,6 +2328,9 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
         if (!signature)
                 return -ENOMEM;
 
+        c->saved_index = c->index;
+        before = m->rindex;
+
         if (type == SD_BUS_TYPE_ARRAY)
                 r = bus_message_enter_array(m, c, contents, &array_size);
         else if (type == SD_BUS_TYPE_VARIANT)
@@ -2250,6 +2353,7 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
         w->signature = signature;
         w->index = 0;
         w->array_size = array_size;
+        w->before = before;
         w->begin = m->rindex;
 
         return 1;
@@ -2282,6 +2386,28 @@ int sd_bus_message_exit_container(sd_bus_message *m) {
         m->n_containers--;
 
         return 1;
+}
+
+static void message_quit_container(sd_bus_message *m) {
+        struct bus_container *c;
+
+        assert(m);
+        assert(m->sealed);
+        assert(m->n_containers > 0);
+
+        c = message_get_container(m);
+
+        /* Undo seeks */
+        assert(m->rindex >= c->before);
+        m->rindex = c->before;
+
+        /* Free container */
+        free(c->signature);
+        m->n_containers--;
+
+        /* Correct index of new top-level container */
+        c = message_get_container(m);
+        c->index = c->saved_index;
 }
 
 int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents) {
@@ -2624,6 +2750,59 @@ int sd_bus_message_read(sd_bus_message *m, const char *types, ...) {
         r = message_read_ap(m, types, ap);
         va_end(ap);
 
+        return r;
+}
+
+int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size) {
+        struct bus_container *c;
+        void *p;
+        size_t sz;
+        ssize_t align;
+        int r;
+
+        if (!m)
+                return -EINVAL;
+        if (!m->sealed)
+                return -EPERM;
+        if (!bus_type_is_trivial(type))
+                return -EINVAL;
+        if (!ptr)
+                return -EINVAL;
+        if (!size)
+                return -EINVAL;
+        if (BUS_MESSAGE_NEED_BSWAP(m))
+                return -ENOTSUP;
+
+        align = bus_type_get_alignment(type);
+        if (align < 0)
+                return align;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, CHAR_TO_STR(type));
+        if (r < 0)
+                return r;
+
+        c = message_get_container(m);
+        sz = BUS_MESSAGE_BSWAP32(m, *c->array_size);
+
+        r = message_peek_body(m, &m->rindex, align, sz, &p);
+        if (r < 0)
+                goto fail;
+        if (r == 0) {
+                r = -EBADMSG;
+                goto fail;
+        }
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                goto fail;
+
+        *ptr = (const void*) p;
+        *size = sz;
+
+        return 1;
+
+fail:
+        message_quit_container(m);
         return r;
 }
 
