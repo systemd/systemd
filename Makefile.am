@@ -3826,6 +3826,10 @@ sphinx-%:
 	$(AM_V_GEN)PYTHONPATH=$(DESTDIR)$(pyexecdir) LD_LIBRARY_PATH=$(DESTDIR)$(libdir) $(SPHINX_BUILD) -b $* $(SPHINXOPTS) $(top_srcdir)/src/python-systemd/docs $(top_builddir)/docs/html/python-systemd/
 	$(AM_V_at)echo Output has been generated in $(abs_top_builddir)/docs/html/python-systemd/
 
+python-shell:
+	$(AM_V_at)echo "Starting python with $(DESTDIR)$(pyexecdir)"
+	$(AM_V_at)PYTHONPATH=$(DESTDIR)$(pyexecdir) LD_LIBRARY_PATH=$(DESTDIR)$(libdir) $(PYTHON)
+
 destdir-sphinx: all
 	dir="$$(mktemp -d /tmp/systemd-install.XXXXXX)" && \
 		$(MAKE) DESTDIR="$$dir" install && \
