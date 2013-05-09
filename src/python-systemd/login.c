@@ -133,6 +133,198 @@ static PyMethodDef methods[] = {
         {} /* Sentinel */
 };
 
+
+typedef struct {
+        PyObject_HEAD
+        sd_login_monitor *monitor;
+} Monitor;
+static PyTypeObject MonitorType;
+
+static void Monitor_dealloc(Monitor* self)
+{
+    sd_login_monitor_unref(self->monitor);
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+PyDoc_STRVAR(Monitor__doc__,
+             "Monitor([category]) -> ...\n\n"
+             "Monitor may be used to monitor login sessions, users, seats,\n"
+             "and virtual machines/containers. Monitor provides a file\n"
+             "descriptor which can be integrated in an external event loop.\n"
+             "See man:sd_login_monitor_new(3) for the details about what\n"
+             "can be monitored.");
+static int Monitor_init(Monitor *self, PyObject *args, PyObject *keywds)
+{
+        const char *category = NULL;
+        int r;
+
+        static const char* const kwlist[] = {"category", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, keywds, "|z", (char**) kwlist,
+                                         &category))
+                return -1;
+
+        Py_BEGIN_ALLOW_THREADS
+        r = sd_login_monitor_new(category, &self->monitor);
+        Py_END_ALLOW_THREADS
+
+        return set_error(r, NULL, "Invalid category");
+}
+
+
+PyDoc_STRVAR(Monitor_fileno__doc__,
+             "fileno() -> int\n\n"
+             "Get a file descriptor to poll for events.\n"
+             "This method wraps sd_login_monitor_get_fd(3).");
+static PyObject* Monitor_fileno(Monitor *self, PyObject *args)
+{
+        int fd = sd_login_monitor_get_fd(self->monitor);
+        set_error(fd, NULL, NULL);
+        if (fd < 0)
+                return NULL;
+        return long_FromLong(fd);
+}
+
+
+PyDoc_STRVAR(Monitor_get_events__doc__,
+             "get_events() -> int\n\n"
+             "Returns a mask of poll() events to wait for on the file\n"
+             "descriptor returned by .fileno().\n\n"
+             "See man:sd_login_monitor_get_events(3) for further discussion.");
+static PyObject* Monitor_get_events(Monitor *self, PyObject *args)
+{
+    int r = sd_login_monitor_get_events(self->monitor);
+    set_error(r, NULL, NULL);
+    if (r < 0)
+        return NULL;
+    return long_FromLong(r);
+}
+
+
+PyDoc_STRVAR(Monitor_get_timeout__doc__,
+             "get_timeout() -> int or None\n\n"
+             "Returns a timeout value for usage in poll(), the time since the\n"
+             "epoch of clock_gettime(2) in microseconds, or None if no timeout\n"
+             "is necessary.\n\n"
+             "The return value must be converted to a relative timeout in\n"
+             "milliseconds if it is to be used as an argument for poll().\n"
+             "See man:sd_login_monitor_get_timeout(3) for further discussion.");
+static PyObject* Monitor_get_timeout(Monitor *self, PyObject *args)
+{
+    int r;
+    uint64_t t;
+
+    r = sd_login_monitor_get_timeout(self->monitor, &t);
+    set_error(r, NULL, NULL);
+    if (r < 0)
+        return NULL;
+
+    if (t == (uint64_t) -1)
+        Py_RETURN_NONE;
+
+    assert_cc(sizeof(unsigned long long) == sizeof(t));
+    return PyLong_FromUnsignedLongLong(t);
+}
+
+
+PyDoc_STRVAR(Monitor_get_timeout_ms__doc__,
+             "get_timeout_ms() -> int\n\n"
+             "Returns a timeout value suitable for usage in poll(), the value\n"
+             "returned by .get_timeout() converted to relative ms, or -1 if\n"
+             "no timeout is necessary.");
+static PyObject* Monitor_get_timeout_ms(Monitor *self, PyObject *args)
+{
+    int r;
+    uint64_t t;
+
+    r = sd_login_monitor_get_timeout(self->monitor, &t);
+    set_error(r, NULL, NULL);
+    if (r < 0)
+        return NULL;
+
+    return absolute_timeout(t);
+}
+
+
+PyDoc_STRVAR(Monitor_close__doc__,
+             "close() -> None\n\n"
+             "Free resources allocated by this Monitor object.\n"
+             "This method invokes sd_login_monitor_unref().\n"
+             "See man:sd_login_monitor_unref(3).");
+static PyObject* Monitor_close(Monitor *self, PyObject *args)
+{
+        assert(self);
+        assert(!args);
+
+        sd_login_monitor_unref(self->monitor);
+        self->monitor = NULL;
+        Py_RETURN_NONE;
+}
+
+
+PyDoc_STRVAR(Monitor_flush__doc__,
+             "flush() -> None\n\n"
+             "Reset the wakeup state of the monitor object.\n"
+             "This method invokes sd_login_monitor_flush().\n"
+             "See man:sd_login_monitor_flush(3).");
+static PyObject* Monitor_flush(Monitor *self, PyObject *args)
+{
+        assert(self);
+        assert(!args);
+
+        sd_login_monitor_flush(self->monitor);
+        Py_RETURN_NONE;
+}
+
+
+PyDoc_STRVAR(Monitor___enter____doc__,
+             "__enter__() -> self\n\n"
+             "Part of the context manager protocol.\n"
+             "Returns self.\n");
+static PyObject* Monitor___enter__(PyObject *self, PyObject *args)
+{
+    assert(self);
+    assert(!args);
+
+    Py_INCREF(self);
+    return self;
+}
+
+
+PyDoc_STRVAR(Monitor___exit____doc__,
+             "__exit__(type, value, traceback) -> None\n\n"
+             "Part of the context manager protocol.\n"
+             "Closes the monitor..\n");
+static PyObject* Monitor___exit__(Monitor *self, PyObject *args)
+{
+        return Monitor_close(self, args);
+}
+
+
+static PyMethodDef Monitor_methods[] = {
+    {"fileno",          (PyCFunction) Monitor_fileno, METH_NOARGS, Monitor_fileno__doc__},
+    {"get_events",      (PyCFunction) Monitor_get_events, METH_NOARGS, Monitor_get_events__doc__},
+    {"get_timeout",     (PyCFunction) Monitor_get_timeout, METH_NOARGS, Monitor_get_timeout__doc__},
+    {"get_timeout_ms",  (PyCFunction) Monitor_get_timeout_ms, METH_NOARGS, Monitor_get_timeout_ms__doc__},
+    {"close",           (PyCFunction) Monitor_close, METH_NOARGS, Monitor_close__doc__},
+    {"flush",           (PyCFunction) Monitor_flush, METH_NOARGS, Monitor_flush__doc__},
+    {"__enter__",       (PyCFunction) Monitor___enter__, METH_NOARGS, Monitor___enter____doc__},
+    {"__exit__",        (PyCFunction) Monitor___exit__, METH_VARARGS, Monitor___exit____doc__},
+    {}  /* Sentinel */
+};
+
+static PyTypeObject MonitorType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "login.Monitor",
+    .tp_basicsize = sizeof(Monitor),
+    .tp_dealloc = (destructor) Monitor_dealloc,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_doc = Monitor__doc__,
+    .tp_methods = Monitor_methods,
+    .tp_init = (initproc) Monitor_init,
+    .tp_new = PyType_GenericNew,
+};
+
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
 
@@ -141,10 +333,17 @@ static PyMethodDef methods[] = {
 PyMODINIT_FUNC initlogin(void) {
         PyObject *m;
 
+        if (PyType_Ready(&MonitorType) < 0)
+                return;
+
         m = Py_InitModule3("login", methods, module__doc__);
         if (m == NULL)
                 return;
+
         PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION);
+
+        Py_INCREF(&MonitorType);
+        PyModule_AddObject(m, "Monitor", (PyObject *) &MonitorType);
 }
 #else
 
@@ -159,11 +358,21 @@ static struct PyModuleDef module = {
 PyMODINIT_FUNC PyInit_login(void) {
         PyObject *m;
 
+        if (PyType_Ready(&MonitorType) < 0)
+                return NULL;
+
         m = PyModule_Create(&module);
         if (m == NULL)
                 return NULL;
 
         if (PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION)) {
+                Py_DECREF(m);
+                return NULL;
+        }
+
+        Py_INCREF(&MonitorType);
+        if (PyModule_AddObject(m, "Monitor", (PyObject *) &MonitorType)) {
+                Py_DECREF(&MonitorType);
                 Py_DECREF(m);
                 return NULL;
         }

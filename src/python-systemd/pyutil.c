@@ -44,3 +44,17 @@ PyObject* absolute_timeout(uint64_t t) {
         return PyLong_FromLong(msec);
     }
 }
+
+int set_error(int r, const char* path, const char* invalid_message) {
+    if (r >= 0)
+        return r;
+    if (r == -EINVAL && invalid_message)
+        PyErr_SetString(PyExc_ValueError, invalid_message);
+    else if (r == -ENOMEM)
+        PyErr_SetString(PyExc_MemoryError, "Not enough memory");
+    else {
+        errno = -r;
+        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+    }
+    return -1;
+}

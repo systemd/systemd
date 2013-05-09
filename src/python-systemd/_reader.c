@@ -38,20 +38,6 @@ typedef struct {
 } Reader;
 static PyTypeObject ReaderType;
 
-static int set_error(int r, const char* path, const char* invalid_message) {
-    if (r >= 0)
-        return r;
-    if (r == -EINVAL && invalid_message)
-        PyErr_SetString(PyExc_ValueError, invalid_message);
-    else if (r == -ENOMEM)
-        PyErr_SetString(PyExc_MemoryError, "Not enough memory");
-    else {
-        errno = -r;
-        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
-    }
-    return -1;
-}
-
 
 PyDoc_STRVAR(module__doc__,
              "Class to reads the systemd journal similar to journalctl.");
@@ -177,7 +163,7 @@ PyDoc_STRVAR(Reader_get_timeout__doc__,
              "Returns a timeout value for usage in poll(), the time since the\n"
              "epoch of clock_gettime(2) in microseconds, or None if no timeout\n"
              "is necessary.\n\n"
-             "The return value must be converted to a relative timeout in \n"
+             "The return value must be converted to a relative timeout in\n"
              "milliseconds if it is to be used as an argument for poll().\n"
              "See man:sd_journal_get_timeout(3) for further discussion.");
 static PyObject* Reader_get_timeout(Reader *self, PyObject *args)
@@ -275,11 +261,7 @@ PyDoc_STRVAR(Reader___exit____doc__,
              "Closes the journal.\n");
 static PyObject* Reader___exit__(Reader *self, PyObject *args)
 {
-    assert(self);
-
-    sd_journal_close(self->j);
-    self->j = NULL;
-    Py_RETURN_NONE;
+    return Reader_close(self, args);
 }
 
 

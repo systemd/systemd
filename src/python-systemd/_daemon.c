@@ -40,21 +40,6 @@ PyDoc_STRVAR(module__doc__,
         "running under systemd."
 );
 
-static PyObject* set_error(int r, const char* invalid_message) {
-        assert (r < 0);
-
-        if (r == -EINVAL && invalid_message)
-                PyErr_SetString(PyExc_ValueError, invalid_message);
-        else if (r == -ENOMEM)
-                PyErr_SetString(PyExc_MemoryError, "Not enough memory");
-        else {
-                errno = -r;
-                PyErr_SetFromErrno(PyExc_OSError);
-        }
-
-        return NULL;
-}
-
 
 #if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 1
 static int Unicode_FSConverter(PyObject* obj, void *_result) {
@@ -88,8 +73,8 @@ static PyObject* booted(PyObject *self, PyObject *args) {
         assert(args == NULL);
 
         r = sd_booted();
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, NULL, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -120,8 +105,8 @@ static PyObject* listen_fds(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_listen_fds(unset);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, NULL, NULL))
+                return NULL;
 
         return long_FromLong(r);
 }
@@ -148,8 +133,8 @@ static PyObject* is_fifo(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_fifo(fd, path);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, path, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -176,8 +161,8 @@ static PyObject* is_mq(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_mq(fd, path);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, path, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -200,8 +185,8 @@ static PyObject* is_socket(PyObject *self, PyObject *args) {
                 return NULL;
 
         r = sd_is_socket(fd, family, type, listening);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, NULL, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -221,12 +206,14 @@ static PyObject* is_socket_inet(PyObject *self, PyObject *args) {
                               &fd, &family, &type, &listening, &port))
                 return NULL;
 
-        if (port < 0 || port > INT16_MAX)
-                return set_error(-EINVAL, "port must fit into uint16_t");
+        if (port < 0 || port > INT16_MAX) {
+                set_error(-EINVAL, NULL, "port must fit into uint16_t");
+                return NULL;
+        }
 
         r = sd_is_socket_inet(fd, family, type, listening, (uint16_t) port);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, NULL, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -260,8 +247,8 @@ static PyObject* is_socket_unix(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_socket_unix(fd, type, listening, path, length);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, path, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }

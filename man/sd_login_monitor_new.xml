@@ -96,7 +96,7 @@
                 <title>Description</title>
 
                 <para><function>sd_login_monitor_new()</function> may
-                be used to monitor login sessions, users, seats and
+                be used to monitor login sessions, users, seats, and
                 virtual machines/containers. Via a monitor object a
                 file descriptor can be integrated into an application
                 defined event loop which is woken up each time a user

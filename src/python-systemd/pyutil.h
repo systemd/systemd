@@ -28,6 +28,7 @@
 
 void cleanup_Py_DECREFp(PyObject **p);
 PyObject* absolute_timeout(uint64_t t);
+int set_error(int r, const char* path, const char* invalid_message);
 
 #define _cleanup_Py_DECREF_ __attribute__((cleanup(cleanup_Py_DECREFp)))
 

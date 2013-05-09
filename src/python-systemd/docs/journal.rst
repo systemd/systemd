@@ -42,7 +42,7 @@ event loop:
   >>> j = journal.Reader()
   >>> j.seek_tail()
   >>> p = select.poll()
-  >>> p.register(j, select.POLLIN)
+  >>> p.register(j, j.get_events())
   >>> p.poll()
   [(3, 1)]
   >>> j.get_next()
