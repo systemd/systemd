@@ -271,7 +271,9 @@ static PyObject* Monitor_flush(Monitor *self, PyObject *args)
         assert(self);
         assert(!args);
 
+        Py_BEGIN_ALLOW_THREADS
         sd_login_monitor_flush(self->monitor);
+        Py_END_ALLOW_THREADS
         Py_RETURN_NONE;
 }
 
