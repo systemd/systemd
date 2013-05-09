@@ -1220,6 +1220,7 @@ finish:
 }
 
 static bool audit_enabled(void) {
+#ifdef HAVE_AUDIT
         int fd;
 
         fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_AUDIT);
@@ -1227,7 +1228,7 @@ static bool audit_enabled(void) {
                 close_nointr_nofail(fd);
                 return true;
         }
-
+#endif
         return false;
 }
 
