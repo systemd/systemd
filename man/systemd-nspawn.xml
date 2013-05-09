@@ -142,6 +142,16 @@
                 might be necessary to add this file to the container
                 tree manually if the OS of the container is too old to
                 contain this file out-of-the-box.</para>
+
+                <para>Note that the kernel auditing subsystem is
+                currently broken when used together with
+                containers. We hence recommend turning it off entirely
+                when using <command>systemd-nspawn</command> by
+                booting with <literal>audit=0</literal> on the kernel
+                command line, or by turning it off at kernel build
+                time. If auditing is enabled in the kernel operating
+                systems booted in an nspawn container might refuse
+                log-in attempts.</para>
         </refsect1>
 
         <refsect1>
