@@ -44,6 +44,7 @@ int main(int argc, char *argv[]) {
         size_t sz;
         char *h;
         const int32_t integer_array[] = { -1, -2, 0, 1, 2 }, *return_array;
+        char *s;
 
         r = sd_bus_message_new_method_call(NULL, "foobar.waldo", "/", "foobar.waldo", "Piep", &m);
         assert_se(r >= 0);
@@ -77,6 +78,10 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_message_close_container(m);
         assert_se(r >= 0);
+
+        r = sd_bus_message_append_string_space(m, 5, &s);
+        assert_se(r >= 0);
+        strcpy(s, "hallo");
 
         r = sd_bus_message_append_array(m, 'i', integer_array, sizeof(integer_array));
         assert_se(r >= 0);
@@ -171,6 +176,10 @@ int main(int argc, char *argv[]) {
         assert_se(r > 0);
         assert_se(streq(x, "foobar"));
         assert_se(streq(y, "waldo"));
+
+        r = sd_bus_message_read_basic(m, 's', &s);
+        assert_se(r > 0);
+        assert_se(streq(s, "hallo"));
 
         r = sd_bus_message_read_array(m, 'i', (const void**) &return_array, &sz);
         assert_se(r > 0);

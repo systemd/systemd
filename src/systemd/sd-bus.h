@@ -158,20 +158,19 @@ int sd_bus_message_set_destination(sd_bus_message *m, const char *destination);
 
 int sd_bus_message_append(sd_bus_message *m, const char *types, ...);
 int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p);
+int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, size_t size);
+int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size, void **ptr);
+int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s);
 int sd_bus_message_open_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_close_container(sd_bus_message *m);
 
 int sd_bus_message_read(sd_bus_message *m, const char *types, ...);
 int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p);
+int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_exit_container(sd_bus_message *m);
 int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents);
 int sd_bus_message_rewind(sd_bus_message *m, int complete);
-
-int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, size_t size);
-int sd_bus_message_append_array_ptr(sd_bus_message *m, char type, size_t size, void **ptr);
-
-int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size);
 
 /* Convenience calls */
 

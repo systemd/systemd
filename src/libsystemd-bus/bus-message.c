@@ -1207,6 +1207,60 @@ int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p) {
         return message_append_basic(m, type, p, NULL);
 }
 
+int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s) {
+        struct bus_container *c;
+        char *e;
+        void *a;
+        int r;
+
+        if (!m)
+                return -EINVAL;
+        if (!s)
+                return -EINVAL;
+        if (m->sealed)
+                return -EPERM;
+
+        c = message_get_container(m);
+
+        if (c->signature && c->signature[c->index]) {
+                /* Container signature is already set */
+
+                if (c->signature[c->index] != SD_BUS_TYPE_STRING)
+                        return -ENXIO;
+        } else {
+                /* Maybe we can append to the signature? But only if this is the top-level container*/
+                if (c->enclosing != 0)
+                        return -ENXIO;
+
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING), NULL);
+                if (!e)
+                        return -ENOMEM;
+        }
+
+
+        a = message_extend_body(m, 4, 4 + size + 1);
+        if (!a) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        *(uint32_t*) a = size;
+        *s = (char*) a + 4;
+
+        (*s)[size] = 0;
+
+        if (c->enclosing != SD_BUS_TYPE_ARRAY)
+                c->index++;
+
+        return 0;
+
+fail:
+        if (e)
+                c->signature[c->index] = 0;
+
+        return r;
+}
+
 static int bus_message_open_array(
                 sd_bus_message *m,
                 struct bus_container *c,
@@ -1799,7 +1853,7 @@ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
         return r;
 }
 
-int sd_bus_message_append_array_ptr(sd_bus_message *m, char type, size_t size, void **ptr) {
+int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size, void **ptr) {
         ssize_t align, sz;
         void *a;
         int r;
@@ -1851,7 +1905,7 @@ int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, s
         if (!ptr && size > 0)
                 return -EINVAL;
 
-        r = sd_bus_message_append_array_ptr(m, type, size, &p);
+        r = sd_bus_message_append_array_space(m, type, size, &p);
         if (r < 0)
                 return r;
 
