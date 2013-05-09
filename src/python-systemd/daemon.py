@@ -1,4 +1,5 @@
-from ._daemon import (booted,
+from ._daemon import (__version__,
+                      booted,
                       _listen_fds,
                       _is_fifo,
                       _is_socket,

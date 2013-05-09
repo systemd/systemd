@@ -291,6 +291,7 @@ PyMODINIT_FUNC init_daemon(void) {
                 return;
 
         PyModule_AddIntConstant(m, "LISTEN_FDS_START", SD_LISTEN_FDS_START);
+        PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION);
 }
 
 #else
@@ -310,7 +311,8 @@ PyMODINIT_FUNC PyInit__daemon(void) {
         if (m == NULL)
                 return NULL;
 
-        if (PyModule_AddIntConstant(m, "LISTEN_FDS_START", SD_LISTEN_FDS_START)) {
+        if (PyModule_AddIntConstant(m, "LISTEN_FDS_START", SD_LISTEN_FDS_START) ||
+            PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION)) {
                 Py_DECREF(m);
                 return NULL;
         }

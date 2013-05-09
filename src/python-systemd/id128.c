@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-
 #include <Python.h>
 
 #include <systemd/sd-messages.h>
@@ -126,6 +124,7 @@ PyMODINIT_FUNC initid128(void) {
 #define JOINER ;
 #include "id128-constants.h"
 #undef JOINER
+        PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION);
 }
 
 #else
@@ -149,7 +148,7 @@ PyMODINIT_FUNC PyInit_id128(void) {
 #define JOINER ||
 #include "id128-constants.h"
 #undef JOINER
-                false) {
+            PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION)) {
                 Py_DECREF(m);
                 return NULL;
         }

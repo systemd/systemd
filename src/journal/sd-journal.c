@@ -415,7 +415,7 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
 }
 
 static int compare_entry_order(JournalFile *af, Object *_ao,
-                         JournalFile *bf, uint64_t bp) {
+                               JournalFile *bf, uint64_t bp) {
 
         uint64_t a, b;
         Object *ao, *bo;

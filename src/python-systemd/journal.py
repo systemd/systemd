@@ -31,7 +31,7 @@ if _sys.version_info >= (3,3):
     from collections import ChainMap as _ChainMap
 from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
                     LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG)
-from ._journal import sendv, stream_fd
+from ._journal import __version__, sendv, stream_fd
 from ._reader import (_Reader, NOP, APPEND, INVALIDATE,
                       LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY,
                       _get_catalog)

@@ -119,7 +119,13 @@ static PyMethodDef methods[] = {
 #if PY_MAJOR_VERSION < 3
 
 PyMODINIT_FUNC init_journal(void) {
-        (void) Py_InitModule("_journal", methods);
+        PyObject *m;
+
+        m = Py_InitModule("_journal", methods);
+        if (m == NULL)
+                return;
+
+        PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION);
 }
 
 #else
@@ -133,7 +139,18 @@ static struct PyModuleDef module = {
 };
 
 PyMODINIT_FUNC PyInit__journal(void) {
-        return PyModule_Create(&module);
+        PyObject *m;
+
+        m = PyModule_Create(&module);
+        if (m == NULL)
+                return NULL;
+
+        if (PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION)) {
+                Py_DECREF(m);
+                return NULL;
+        }
+
+        return m;
 }
 
 #endif

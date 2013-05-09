@@ -30,6 +30,7 @@
 #include "pyutil.h"
 #include "macro.h"
 #include "util.h"
+#include "build.h"
 
 typedef struct {
     PyObject_HEAD
@@ -1126,7 +1127,8 @@ init_reader(void)
         PyModule_AddIntConstant(m, "INVALIDATE", SD_JOURNAL_INVALIDATE) ||
         PyModule_AddIntConstant(m, "LOCAL_ONLY", SD_JOURNAL_LOCAL_ONLY) ||
         PyModule_AddIntConstant(m, "RUNTIME_ONLY", SD_JOURNAL_RUNTIME_ONLY) ||
-        PyModule_AddIntConstant(m, "SYSTEM_ONLY", SD_JOURNAL_SYSTEM_ONLY)) {
+        PyModule_AddIntConstant(m, "SYSTEM_ONLY", SD_JOURNAL_SYSTEM_ONLY) ||
+        PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION)) {
 #if PY_MAJOR_VERSION >= 3
         Py_DECREF(m);
         return NULL;
