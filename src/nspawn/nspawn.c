@@ -1219,6 +1219,18 @@ finish:
         return r;
 }
 
+static bool audit_enabled(void) {
+        int fd;
+
+        fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_AUDIT);
+        if (fd >= 0) {
+                close_nointr_nofail(fd);
+                return true;
+        }
+
+        return false;
+}
+
 int main(int argc, char *argv[]) {
         pid_t pid = 0;
         int r = EXIT_FAILURE, k;
@@ -1282,6 +1294,13 @@ int main(int argc, char *argv[]) {
         if (sd_booted() <= 0) {
                 log_error("Not running on a systemd system.");
                 goto finish;
+        }
+
+        if (audit_enabled()) {
+                log_warning("The kernel auditing subsystem is known to be incompatible with containers.\n"
+                            "Please make sure to turn off auditing with 'audit=0' on the kernel command\n"
+                            "line before using systemd-nspawn. Sleeping for 5s...\n");
+                sleep(5);
         }
 
         if (path_equal(arg_directory, "/")) {

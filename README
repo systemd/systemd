@@ -79,6 +79,13 @@ REQUIREMENTS:
           CONFIG_EFI_VARS
           CONFIG_EFI_PARTITION
 
+        Note that kernel auditing is broken when used with systemd's
+        container code. When using systemd in conjunction with
+        containers please make sure to either turn off auditing at
+        runtime using the kernel command line option "audit=0", or
+        turn it off at kernel compile time using:
+          CONFIG_AUDIT=n
+
         dbus >= 1.4.0
         libcap
         libblkid >= 2.20 (from util-linux) (optional)
