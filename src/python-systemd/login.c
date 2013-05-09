@@ -142,8 +142,8 @@ static PyTypeObject MonitorType;
 
 static void Monitor_dealloc(Monitor* self)
 {
-    sd_login_monitor_unref(self->monitor);
-    Py_TYPE(self)->tp_free((PyObject*)self);
+        sd_login_monitor_unref(self->monitor);
+        Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 PyDoc_STRVAR(Monitor__doc__,
@@ -192,11 +192,11 @@ PyDoc_STRVAR(Monitor_get_events__doc__,
              "See man:sd_login_monitor_get_events(3) for further discussion.");
 static PyObject* Monitor_get_events(Monitor *self, PyObject *args)
 {
-    int r = sd_login_monitor_get_events(self->monitor);
-    set_error(r, NULL, NULL);
-    if (r < 0)
-        return NULL;
-    return long_FromLong(r);
+        int r = sd_login_monitor_get_events(self->monitor);
+        set_error(r, NULL, NULL);
+        if (r < 0)
+                return NULL;
+        return long_FromLong(r);
 }
 
 
@@ -210,19 +210,19 @@ PyDoc_STRVAR(Monitor_get_timeout__doc__,
              "See man:sd_login_monitor_get_timeout(3) for further discussion.");
 static PyObject* Monitor_get_timeout(Monitor *self, PyObject *args)
 {
-    int r;
-    uint64_t t;
+        int r;
+        uint64_t t;
 
-    r = sd_login_monitor_get_timeout(self->monitor, &t);
-    set_error(r, NULL, NULL);
-    if (r < 0)
-        return NULL;
+        r = sd_login_monitor_get_timeout(self->monitor, &t);
+        set_error(r, NULL, NULL);
+        if (r < 0)
+                return NULL;
 
-    if (t == (uint64_t) -1)
-        Py_RETURN_NONE;
+        if (t == (uint64_t) -1)
+                Py_RETURN_NONE;
 
-    assert_cc(sizeof(unsigned long long) == sizeof(t));
-    return PyLong_FromUnsignedLongLong(t);
+        assert_cc(sizeof(unsigned long long) == sizeof(t));
+        return PyLong_FromUnsignedLongLong(t);
 }
 
 
@@ -233,15 +233,15 @@ PyDoc_STRVAR(Monitor_get_timeout_ms__doc__,
              "no timeout is necessary.");
 static PyObject* Monitor_get_timeout_ms(Monitor *self, PyObject *args)
 {
-    int r;
-    uint64_t t;
+        int r;
+        uint64_t t;
 
-    r = sd_login_monitor_get_timeout(self->monitor, &t);
-    set_error(r, NULL, NULL);
-    if (r < 0)
-        return NULL;
+        r = sd_login_monitor_get_timeout(self->monitor, &t);
+        set_error(r, NULL, NULL);
+        if (r < 0)
+                return NULL;
 
-    return absolute_timeout(t);
+        return absolute_timeout(t);
 }
 
 
@@ -282,11 +282,11 @@ PyDoc_STRVAR(Monitor___enter____doc__,
              "Returns self.\n");
 static PyObject* Monitor___enter__(PyObject *self, PyObject *args)
 {
-    assert(self);
-    assert(!args);
+        assert(self);
+        assert(!args);
 
-    Py_INCREF(self);
-    return self;
+        Py_INCREF(self);
+        return self;
 }
 
 
@@ -301,27 +301,27 @@ static PyObject* Monitor___exit__(Monitor *self, PyObject *args)
 
 
 static PyMethodDef Monitor_methods[] = {
-    {"fileno",          (PyCFunction) Monitor_fileno, METH_NOARGS, Monitor_fileno__doc__},
-    {"get_events",      (PyCFunction) Monitor_get_events, METH_NOARGS, Monitor_get_events__doc__},
-    {"get_timeout",     (PyCFunction) Monitor_get_timeout, METH_NOARGS, Monitor_get_timeout__doc__},
-    {"get_timeout_ms",  (PyCFunction) Monitor_get_timeout_ms, METH_NOARGS, Monitor_get_timeout_ms__doc__},
-    {"close",           (PyCFunction) Monitor_close, METH_NOARGS, Monitor_close__doc__},
-    {"flush",           (PyCFunction) Monitor_flush, METH_NOARGS, Monitor_flush__doc__},
-    {"__enter__",       (PyCFunction) Monitor___enter__, METH_NOARGS, Monitor___enter____doc__},
-    {"__exit__",        (PyCFunction) Monitor___exit__, METH_VARARGS, Monitor___exit____doc__},
-    {}  /* Sentinel */
+        {"fileno",          (PyCFunction) Monitor_fileno, METH_NOARGS, Monitor_fileno__doc__},
+        {"get_events",      (PyCFunction) Monitor_get_events, METH_NOARGS, Monitor_get_events__doc__},
+        {"get_timeout",     (PyCFunction) Monitor_get_timeout, METH_NOARGS, Monitor_get_timeout__doc__},
+        {"get_timeout_ms",  (PyCFunction) Monitor_get_timeout_ms, METH_NOARGS, Monitor_get_timeout_ms__doc__},
+        {"close",           (PyCFunction) Monitor_close, METH_NOARGS, Monitor_close__doc__},
+        {"flush",           (PyCFunction) Monitor_flush, METH_NOARGS, Monitor_flush__doc__},
+        {"__enter__",       (PyCFunction) Monitor___enter__, METH_NOARGS, Monitor___enter____doc__},
+        {"__exit__",        (PyCFunction) Monitor___exit__, METH_VARARGS, Monitor___exit____doc__},
+        {}  /* Sentinel */
 };
 
 static PyTypeObject MonitorType = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "login.Monitor",
-    .tp_basicsize = sizeof(Monitor),
-    .tp_dealloc = (destructor) Monitor_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc = Monitor__doc__,
-    .tp_methods = Monitor_methods,
-    .tp_init = (initproc) Monitor_init,
-    .tp_new = PyType_GenericNew,
+        PyVarObject_HEAD_INIT(NULL, 0)
+        .tp_name = "login.Monitor",
+        .tp_basicsize = sizeof(Monitor),
+        .tp_dealloc = (destructor) Monitor_dealloc,
+        .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+        .tp_doc = Monitor__doc__,
+        .tp_methods = Monitor_methods,
+        .tp_init = (initproc) Monitor_init,
+        .tp_new = PyType_GenericNew,
 };
 
 
