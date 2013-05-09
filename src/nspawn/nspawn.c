@@ -39,6 +39,7 @@
 #include <sys/signalfd.h>
 #include <grp.h>
 #include <linux/fs.h>
+#include <linux/netlink.h>
 #include <sys/un.h>
 #include <sys/socket.h>
 
@@ -1220,7 +1221,6 @@ finish:
 }
 
 static bool audit_enabled(void) {
-#ifdef HAVE_AUDIT
         int fd;
 
         fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_AUDIT);
@@ -1228,7 +1228,6 @@ static bool audit_enabled(void) {
                 close_nointr_nofail(fd);
                 return true;
         }
-#endif
         return false;
 }
 
