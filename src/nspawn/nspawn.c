@@ -1296,7 +1296,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (audit_enabled()) {
+        if (arg_boot && audit_enabled()) {
                 log_warning("The kernel auditing subsystem is known to be incompatible with containers.\n"
                             "Please make sure to turn off auditing with 'audit=0' on the kernel command\n"
                             "line before using systemd-nspawn. Sleeping for 5s...\n");
