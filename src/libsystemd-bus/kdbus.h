@@ -138,7 +138,6 @@ struct kdbus_item {
 		struct kdbus_timestamp timestamp;
 
 		/* specific fields */
-		int fd;
 		int fds[0];
 		struct kdbus_manager_msg_name_change name_change;
 		struct kdbus_manager_msg_id_change id_change;
@@ -425,7 +424,8 @@ enum kdbus_cmd {
 
 	/* kdbus memfd commands: */
 	KDBUS_CMD_MEMFD_SIZE_GET =	_IOWR(KDBUS_IOC_MAGIC, 0x81, __u64 *),
-	KDBUS_CMD_MEMFD_SEAL_GET =	_IOWR(KDBUS_IOC_MAGIC, 0x82, int *),
-	KDBUS_CMD_MEMFD_SEAL_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x83, int),
+	KDBUS_CMD_MEMFD_SIZE_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x82, __u64),
+	KDBUS_CMD_MEMFD_SEAL_GET =	_IOWR(KDBUS_IOC_MAGIC, 0x83, int *),
+	KDBUS_CMD_MEMFD_SEAL_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x84, int),
 };
 #endif
