@@ -70,14 +70,15 @@ enum {
 	KDBUS_MSG_NULL,
 
 	/* Filled in by userspace */
-	KDBUS_MSG_PAYLOAD,		/* .data, inline memory */
 	KDBUS_MSG_PAYLOAD_VEC,		/* .data_vec, reference to memory area */
-	KDBUS_MSG_UNIX_FDS,		/* .data_fds of file descriptors */
+	KDBUS_MSG_PAYLOAD_MEMFD,	/* file descriptor of a special data file */
+	KDBUS_MSG_FDS,			/* .data_fds of file descriptors */
 	KDBUS_MSG_BLOOM,		/* for broadcasts, carries bloom filter blob in .data */
 	KDBUS_MSG_DST_NAME,		/* destination's well-known name, in .str */
+	KDBUS_MSG_PRIORITY,		/* queue priority for message */
 
 	/* Filled in by kernelspace */
-	KDBUS_MSG_SRC_NAMES	= 0x200,/* NUL separated string list with well-known names of source */
+	KDBUS_MSG_SRC_NAMES	= 0x400,/* NUL separated string list with well-known names of source */
 	KDBUS_MSG_TIMESTAMP,		/* .timestamp */
 	KDBUS_MSG_SRC_CREDS,		/* .creds */
 	KDBUS_MSG_SRC_PID_COMM,		/* optional, in .str */
@@ -90,7 +91,7 @@ enum {
 	KDBUS_MSG_SRC_AUDIT,		/* .audit */
 
 	/* Special messages from kernel, consisting of one and only one of these data blocks */
-	KDBUS_MSG_NAME_ADD	= 0x400,/* .name_change */
+	KDBUS_MSG_NAME_ADD	= 0x800,/* .name_change */
 	KDBUS_MSG_NAME_REMOVE,		/* .name_change */
 	KDBUS_MSG_NAME_CHANGE,		/* .name_change */
 	KDBUS_MSG_ID_ADD,		/* .id_change */
@@ -99,14 +100,14 @@ enum {
 	KDBUS_MSG_REPLY_DEAD,		/* dito */
 };
 
-enum {
-	KDBUS_VEC_ALIGNED		= 1 <<  0,
-};
-
 struct kdbus_vec {
 	__u64 address;
 	__u64 size;
-	__u64 flags;
+};
+
+struct kdbus_memfd {
+	__u64 size;
+	int fd;
 };
 
 /**
@@ -137,6 +138,7 @@ struct kdbus_item {
 		struct kdbus_timestamp timestamp;
 
 		/* specific fields */
+		int fd;
 		int fds[0];
 		struct kdbus_manager_msg_name_change name_change;
 		struct kdbus_manager_msg_id_change id_change;
@@ -236,6 +238,8 @@ enum {
 /* Items to append to struct kdbus_cmd_hello */
 enum {
 	KDBUS_HELLO_NULL,
+	KDBUS_HELLO_BUFFER,	/* kdbus_vec, userspace supplied buffer to
+				 * place received messages */
 };
 
 struct kdbus_cmd_hello {
@@ -276,7 +280,7 @@ enum {
 				 * cgroup membership paths * to messages. */
 	KDBUS_MAKE_CRED,	/* allow translator services which connect
 				 * to the bus on behalf of somebody else,
-				 * allow specifying the credentials of the
+				 * allow specifiying the credentials of the
 				 * client to connect on behalf on. Needs
 				 * privileges */
 };
@@ -401,7 +405,8 @@ enum kdbus_cmd {
 
 	/* kdbus ep node commands: require connected state */
 	KDBUS_CMD_MSG_SEND =		_IOWR(KDBUS_IOC_MAGIC, 0x40, struct kdbus_msg),
-	KDBUS_CMD_MSG_RECV =		_IOWR(KDBUS_IOC_MAGIC, 0x41, struct kdbus_msg),
+	KDBUS_CMD_MSG_RECV =		_IOWR(KDBUS_IOC_MAGIC, 0x41, struct kdbus_msg *),
+	KDBUS_CMD_MSG_RELEASE =		_IOWR(KDBUS_IOC_MAGIC, 0x42, struct kdbus_msg),
 
 	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOC_MAGIC, 0x50, struct kdbus_cmd_name),
 	KDBUS_CMD_NAME_RELEASE =	_IOWR(KDBUS_IOC_MAGIC, 0x51, struct kdbus_cmd_name),
@@ -414,5 +419,13 @@ enum kdbus_cmd {
 
 	/* kdbus ep node commands: require ep owner state */
 	KDBUS_CMD_EP_POLICY_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x70, struct kdbus_cmd_policy),
+
+	/* kdbus ep node commands: */
+	KDBUS_CMD_MEMFD_NEW =		_IOWR(KDBUS_IOC_MAGIC, 0x80, int *),
+
+	/* kdbus memfd commands: */
+	KDBUS_CMD_MEMFD_SIZE_GET =	_IOWR(KDBUS_IOC_MAGIC, 0x81, __u64 *),
+	KDBUS_CMD_MEMFD_SEAL_GET =	_IOWR(KDBUS_IOC_MAGIC, 0x82, int *),
+	KDBUS_CMD_MEMFD_SEAL_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x83, int),
 };
 #endif

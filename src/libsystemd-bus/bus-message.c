@@ -66,10 +66,16 @@ static void message_free(sd_bus_message *m) {
         if (m->free_kdbus)
                 free(m->kdbus);
 
+        if (m->release_kdbus)
+                ioctl(m->bus->input_fd, KDBUS_CMD_MSG_RELEASE, m->kdbus);
+
         if (m->free_fds) {
                 close_many(m->fds, m->n_fds);
                 free(m->fds);
         }
+
+        if (m->bus)
+                sd_bus_unref(m->bus);
 
         free(m->cmdline_array);
 

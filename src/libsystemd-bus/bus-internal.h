@@ -150,6 +150,8 @@ struct sd_bus {
 
         uint64_t hello_serial;
         unsigned iteration_counter;
+
+        void *kdbus_buffer;
 };
 
 static inline void bus_unrefp(sd_bus **b) {

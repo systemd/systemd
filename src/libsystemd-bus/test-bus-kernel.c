@@ -22,6 +22,7 @@
 #include <fcntl.h>
 
 #include "util.h"
+#include "log.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -35,6 +36,8 @@ int main(int argc, char *argv[]) {
         const char *ua = NULL, *ub = NULL, *the_string = NULL;
         sd_bus *a, *b;
         int r, pipe_fds[2];
+
+        log_set_max_level(LOG_DEBUG);
 
         bus_ref = bus_kernel_create("deine-mutter", &bus_name);
         if (bus_ref == -ENOENT)

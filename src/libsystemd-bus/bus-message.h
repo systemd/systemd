@@ -53,6 +53,8 @@ struct bus_header {
 struct sd_bus_message {
         unsigned n_ref;
 
+        sd_bus *bus;
+
         uint32_t reply_serial;
 
         const char *path;
@@ -81,6 +83,7 @@ struct sd_bus_message {
         bool free_body:1;
         bool free_kdbus:1;
         bool free_fds:1;
+        bool release_kdbus:1;
 
         struct bus_header *header;
         void *fields;

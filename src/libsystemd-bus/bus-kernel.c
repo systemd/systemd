@@ -25,6 +25,7 @@
 
 #include <fcntl.h>
 #include <malloc.h>
+#include <sys/mman.h>
 
 #include "util.h"
 
@@ -43,6 +44,8 @@
 
 #define KDBUS_ITEM_HEADER_SIZE offsetof(struct kdbus_item, data)
 #define KDBUS_ITEM_SIZE(s) ALIGN8((s) + KDBUS_ITEM_HEADER_SIZE)
+
+#define KDBUS_BUFFER_SIZE (4*1024*1024)
 
 static int parse_unique_name(const char *s, uint64_t *id) {
         int r;
@@ -111,7 +114,7 @@ static void append_fds(struct kdbus_item **d, const int fds[], unsigned n_fds) {
 
         *d = ALIGN8_PTR(*d);
         (*d)->size = offsetof(struct kdbus_item, fds) + sizeof(int) * n_fds;
-        (*d)->type = KDBUS_MSG_UNIX_FDS;
+        (*d)->type = KDBUS_MSG_FDS;
         memcpy((*d)->fds, fds, sizeof(int) * n_fds);
 
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
@@ -275,17 +278,12 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 }
 
 int bus_kernel_take_fd(sd_bus *b) {
-        struct kdbus_cmd_hello hello = {
-                .conn_flags =
-                        KDBUS_HELLO_ACCEPT_FD|
-                        KDBUS_HELLO_ATTACH_COMM|
-                        KDBUS_HELLO_ATTACH_EXE|
-                        KDBUS_HELLO_ATTACH_CMDLINE|
-                        KDBUS_HELLO_ATTACH_CGROUP|
-                        KDBUS_HELLO_ATTACH_CAPS|
-                        KDBUS_HELLO_ATTACH_SECLABEL|
-                        KDBUS_HELLO_ATTACH_AUDIT
-        };
+        uint8_t h[ALIGN8(sizeof(struct kdbus_cmd_hello)) +
+                  ALIGN8(KDBUS_ITEM_HEADER_SIZE) +
+                  ALIGN8(sizeof(struct kdbus_vec))] = {};
+
+        struct kdbus_cmd_hello *hello = (struct kdbus_cmd_hello*) h;
+
         int r;
 
         assert(b);
@@ -293,20 +291,44 @@ int bus_kernel_take_fd(sd_bus *b) {
         if (b->is_server)
                 return -EINVAL;
 
-        r = ioctl(b->input_fd, KDBUS_CMD_HELLO, &hello);
+        if (!b->kdbus_buffer) {
+                b->kdbus_buffer = mmap(NULL, KDBUS_BUFFER_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+                if (b->kdbus_buffer == MAP_FAILED) {
+                        b->kdbus_buffer = NULL;
+                        return -errno;
+                }
+        }
+
+        hello->size = sizeof(h);
+        hello->conn_flags =
+                KDBUS_HELLO_ACCEPT_FD|
+                KDBUS_HELLO_ATTACH_COMM|
+                KDBUS_HELLO_ATTACH_EXE|
+                KDBUS_HELLO_ATTACH_CMDLINE|
+                KDBUS_HELLO_ATTACH_CGROUP|
+                KDBUS_HELLO_ATTACH_CAPS|
+                KDBUS_HELLO_ATTACH_SECLABEL|
+                KDBUS_HELLO_ATTACH_AUDIT;
+
+        hello->items[0].type = KDBUS_HELLO_BUFFER;
+        hello->items[0].size = KDBUS_ITEM_HEADER_SIZE + sizeof(struct kdbus_vec);
+        hello->items[0].vec.address = (uint64_t) b->kdbus_buffer;
+        hello->items[0].vec.size = KDBUS_BUFFER_SIZE;
+
+        r = ioctl(b->input_fd, KDBUS_CMD_HELLO, hello);
         if (r < 0)
                 return -errno;
 
         /* The higher 32bit of both flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
-        if (hello.bus_flags > 0xFFFFFFFFULL ||
-            hello.conn_flags > 0xFFFFFFFFULL)
+        if (hello->bus_flags > 0xFFFFFFFFULL ||
+            hello->conn_flags > 0xFFFFFFFFULL)
                 return -ENOTSUP;
 
-        if (hello.bloom_size != BLOOM_SIZE)
+        if (hello->bloom_size != BLOOM_SIZE)
                 return -ENOTSUP;
 
-        if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello.id) < 0)
+        if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello->id) < 0)
                 return -ENOMEM;
 
         b->is_kernel = true;
@@ -356,16 +378,34 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
         return 1;
 }
 
-static void close_kdbus_msg(struct kdbus_msg *k) {
+static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
         struct kdbus_item *d;
+
+        assert(bus);
+        assert(k);
+
+        ioctl(bus->input_fd, KDBUS_CMD_MSG_RELEASE, k);
 
         KDBUS_ITEM_FOREACH(d, k) {
 
-                if (d->type != KDBUS_MSG_UNIX_FDS)
+                if (d->type != KDBUS_MSG_FDS)
                         continue;
 
                 close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
         }
+}
+
+static bool range_contains(size_t astart, size_t asize, size_t bstart, size_t bsize, void *a, void **b) {
+
+        if (bstart < astart)
+                return false;
+
+        if (bstart + bsize > astart + asize)
+                return false;
+
+        *b = (uint8_t*) a + (bstart - astart);
+
+        return true;
 }
 
 static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_message **ret) {
@@ -390,19 +430,19 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                 l = d->size - offsetof(struct kdbus_item, data);
 
-                if (d->type == KDBUS_MSG_PAYLOAD) {
+                if (d->type == KDBUS_MSG_PAYLOAD_VEC) {
 
                         if (!h) {
-                                if (l < sizeof(struct bus_header))
+                                if (d->vec.size < sizeof(struct bus_header))
                                         return -EBADMSG;
 
-                                h = (struct bus_header*) d->data;
+                                h = (struct bus_header*) d->vec.address;
                         }
 
                         n_payload++;
-                        n_bytes += l;
+                        n_bytes += d->vec.size;
 
-                } else if (d->type == KDBUS_MSG_UNIX_FDS) {
+                } else if (d->type == KDBUS_MSG_FDS) {
                         int *f;
                         unsigned j;
 
@@ -431,6 +471,9 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (n_bytes != total)
                 return -EBADMSG;
 
+        if (n_payload > 2)
+                return -EBADMSG;
+
         r = bus_message_from_header(h, sizeof(struct bus_header), fds, n_fds, NULL, seclabel, 0, &m);
         if (r < 0)
                 return r;
@@ -440,20 +483,13 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                 l = d->size - offsetof(struct kdbus_item, data);
 
-                if (d->type == KDBUS_MSG_PAYLOAD) {
+                if (d->type == KDBUS_MSG_PAYLOAD_VEC) {
 
-                        if (idx == sizeof(struct bus_header) &&
-                            l == ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)))
-                                m->fields = d->data;
-                        else if (idx == sizeof(struct bus_header) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)) &&
-                                 l == BUS_MESSAGE_BODY_SIZE(m))
-                                m->body = d->data;
-                        else if (!(idx == 0 && l == sizeof(struct bus_header))) {
-                                sd_bus_message_unref(m);
-                                return -EBADMSG;
-                        }
+                        range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)), BUS_MESSAGE_FIELDS_SIZE(m), (void*) d->vec.address, &m->fields);
+                        range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)), BUS_MESSAGE_BODY_SIZE(m), (void*) d->vec.address, &m->body);
 
-                        idx += l;
+                        idx += d->vec.size;
+
                 } else if (d->type == KDBUS_MSG_SRC_CREDS) {
                         m->pid_starttime = d->creds.starttime / NSEC_PER_USEC;
                         m->uid = d->creds.uid;
@@ -480,8 +516,16 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                 else if (d->type == KDBUS_MSG_SRC_CAPS) {
                         m->capability = d->data;
                         m->capability_size = l;
-                } else
+                } else if (d->type != KDBUS_MSG_FDS &&
+                           d->type != KDBUS_MSG_DST_NAME &&
+                           d->type != KDBUS_MSG_SRC_SECLABEL)
                         log_debug("Got unknown field from kernel %llu", d->type);
+        }
+
+        if ((BUS_MESSAGE_FIELDS_SIZE(m) > 0 && !m->fields) ||
+            (BUS_MESSAGE_BODY_SIZE(m) > 0 && !m->body)) {
+                sd_bus_message_unref(m);
+                return -EBADMSG;
         }
 
         r = bus_message_parse_fields(m);
@@ -509,7 +553,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
         /* We take possession of the kmsg struct now */
         m->kdbus = k;
-        m->free_kdbus = true;
+        m->bus = sd_bus_ref(bus);
+        m->release_kdbus = true;
         m->free_fds = true;
 
         fds = NULL;
@@ -520,48 +565,31 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
 int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
         struct kdbus_msg *k;
-        size_t sz = 1024;
         int r;
 
         assert(bus);
         assert(m);
 
-        for (;;) {
-                void *q;
-
-                q = memalign(8, sz);
-                if (!q)
-                        return -errno;
-
-                free(bus->rbuffer);
-                k = bus->rbuffer = q;
-                k->size = sz;
-
-                /* Let's tell valgrind that there's really no need to
-                 * initialize this fully. This should be removed again
-                 * when valgrind learned the kdbus ioctls natively. */
-#ifdef HAVE_VALGRIND_MEMCHECK_H
-                VALGRIND_MAKE_MEM_DEFINED(k, sz);
-#endif
-
-                r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, bus->rbuffer);
-                if (r >= 0)
-                        break;
-
+        r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, &k);
+        if (r < 0) {
                 if (errno == EAGAIN)
                         return 0;
 
-                if (errno != ENOBUFS)
-                        return -errno;
-
-                sz *= 2;
+                return -errno;
         }
 
+
+/*                 /\* Let's tell valgrind that there's really no need to */
+/*                  * initialize this fully. This should be removed again */
+/*                  * when valgrind learned the kdbus ioctls natively. *\/ */
+/* #ifdef HAVE_VALGRIND_MEMCHECK_H */
+/*                 VALGRIND_MAKE_MEM_DEFINED(k, sz); */
+/* #endif */
+
+
         r = bus_kernel_make_message(bus, k, m);
-        if (r > 0)
-                bus->rbuffer = NULL;
-        else
-                close_kdbus_msg(k);
+        if (r <= 0)
+                close_kdbus_msg(bus, k);
 
         return r < 0 ? r : 1;
 }
