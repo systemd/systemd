@@ -106,7 +106,7 @@ int sd_memfd_get_file(sd_memfd *m, FILE **f) {
         if (!f)
                 return -EINVAL;
 
-        if (!m->fd) {
+        if (!m->f) {
                 m->f = fdopen(m->fd, "r+");
                 if (!m->f)
                         return -errno;
