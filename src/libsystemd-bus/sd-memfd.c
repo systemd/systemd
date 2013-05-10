@@ -43,7 +43,7 @@ int sd_memfd_new(sd_memfd **m) {
                 return -EINVAL;
 
         kdbus = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
+        if (kdbus < 0)
                 return -errno;
 
         if (ioctl(kdbus, KDBUS_CMD_MEMFD_NEW, &fd) < 0)
