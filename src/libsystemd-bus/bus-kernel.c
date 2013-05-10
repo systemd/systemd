@@ -45,7 +45,7 @@
 #define KDBUS_ITEM_HEADER_SIZE offsetof(struct kdbus_item, data)
 #define KDBUS_ITEM_SIZE(s) ALIGN8((s) + KDBUS_ITEM_HEADER_SIZE)
 
-#define KDBUS_BUFFER_SIZE (4*1024*1024)
+#define KDBUS_POOL_SIZE (4*1024*1024)
 
 static int parse_unique_name(const char *s, uint64_t *id) {
         int r;
@@ -292,7 +292,7 @@ int bus_kernel_take_fd(sd_bus *b) {
                 return -EINVAL;
 
         if (!b->kdbus_buffer) {
-                b->kdbus_buffer = mmap(NULL, KDBUS_BUFFER_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+                b->kdbus_buffer = mmap(NULL, KDBUS_POOL_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
                 if (b->kdbus_buffer == MAP_FAILED) {
                         b->kdbus_buffer = NULL;
                         return -errno;
@@ -310,10 +310,10 @@ int bus_kernel_take_fd(sd_bus *b) {
                 KDBUS_HELLO_ATTACH_SECLABEL|
                 KDBUS_HELLO_ATTACH_AUDIT;
 
-        hello->items[0].type = KDBUS_HELLO_BUFFER;
+        hello->items[0].type = KDBUS_HELLO_POOL;
         hello->items[0].size = KDBUS_ITEM_HEADER_SIZE + sizeof(struct kdbus_vec);
         hello->items[0].vec.address = (uint64_t) b->kdbus_buffer;
-        hello->items[0].vec.size = KDBUS_BUFFER_SIZE;
+        hello->items[0].vec.size = KDBUS_POOL_SIZE;
 
         r = ioctl(b->input_fd, KDBUS_CMD_HELLO, hello);
         if (r < 0)

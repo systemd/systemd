@@ -237,7 +237,7 @@ enum {
 /* Items to append to struct kdbus_cmd_hello */
 enum {
 	KDBUS_HELLO_NULL,
-	KDBUS_HELLO_BUFFER,	/* kdbus_vec, userspace supplied buffer to
+	KDBUS_HELLO_POOL,	/* kdbus_vec, userspace supplied buffer to
 				 * place received messages */
 };
 

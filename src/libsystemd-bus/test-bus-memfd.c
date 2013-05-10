@@ -40,32 +40,22 @@ int main(int argc, char *argv[]) {
         if (r == -ENOENT)
                 return EXIT_TEST_SKIP;
 
-        r = sd_memfd_map(m, 0, 6, (void**) &s);
+        r = sd_memfd_map(m, 0, 12, (void**) &s);
         assert_se(r >= 0);
 
-        strcpy(s, "hallo");
+        strcpy(s, "----- world");
 
         r = sd_memfd_set_sealed(m, 1);
         assert_se(r == -EPERM);
 
         assert_se(write(sd_memfd_get_fd(m), "he", 2) == 2);
-        assert_se(write(sd_memfd_get_fd(m), "HE", 2) == 2);
-
-        log_error("lseek = %llu", (unsigned long long) lseek(sd_memfd_get_fd(m), 0, SEEK_CUR));
-
-        log_info("<%s>", s);
-
-        access("HUHU", F_OK);
+        assert_se(write(sd_memfd_get_fd(m), "ll", 2) == 2);
 
         assert_se(sd_memfd_get_file(m, &f) >= 0);
-        fputc('L', f);
+        fputc('o', f);
         fflush(f);
 
-        access("HAHA", F_OK);
-
-        log_info("<%s>", s);
-
-        assert_se(munmap(s, 6) == 0);
+        assert_se(munmap(s, 12) == 0);
 
         r = sd_memfd_get_sealed(m);
         assert_se(r == 0);
@@ -74,7 +64,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
         assert_se(sz = page_size());
 
-        r = sd_memfd_set_size(m, 6);
+        r = sd_memfd_set_size(m, 12);
         assert_se(r >= 0);
 
         r = sd_memfd_set_sealed(m, 1);
@@ -93,9 +83,9 @@ int main(int argc, char *argv[]) {
 
         r = sd_memfd_get_size(m, &sz);
         assert_se(r >= 0);
-        assert_se(sz = 6);
+        assert_se(sz = 12);
 
-        r = sd_memfd_map(m, 0, 6, (void**) &s);
+        r = sd_memfd_map(m, 0, 12, (void**) &s);
         assert_se(r >= 0);
 
         r = sd_memfd_set_sealed(m, 1);
@@ -104,10 +94,8 @@ int main(int argc, char *argv[]) {
         r = sd_memfd_set_sealed(m, 0);
         assert_se(r == -EPERM);
 
-        log_info("<%s>", s);
-
-        assert_se(streq(s, "heLlo"));
-        assert_se(munmap(s, 6) == 0);
+        assert_se(streq(s, "hello world"));
+        assert_se(munmap(s, 12) == 0);
 
         r = sd_memfd_set_sealed(m, 0);
         assert_se(r >= 0);
