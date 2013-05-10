@@ -85,6 +85,7 @@
 /test-bus-kernel
 /test-bus-marshal
 /test-bus-match
+/test-bus-memfd
 /test-bus-signature
 /test-bus-server
 /test-calendarspec
@@ -97,6 +98,7 @@
 /test-engine
 /test-env-replace
 /test-fileio
+/test-hashmap
 /test-hostname
 /test-id128
 /test-inhibit

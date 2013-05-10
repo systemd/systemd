@@ -1718,6 +1718,7 @@ EXTRA_DIST += \
 libsystemd_bus_la_SOURCES = \
 	src/systemd/sd-bus.h \
 	src/systemd/sd-bus-protocol.h \
+	src/systemd/sd-memfd.h \
 	src/libsystemd-bus/sd-bus.c \
 	src/libsystemd-bus/bus-control.c \
 	src/libsystemd-bus/bus-control.h \
@@ -1739,7 +1740,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-match.h \
 	src/libsystemd-bus/bus-bloom.c \
 	src/libsystemd-bus/bus-bloom.h \
-	src/libsystemd-bus/kdbus.h
+	src/libsystemd-bus/kdbus.h \
+	src/libsystemd-bus/sd-memfd.c
 
 libsystemd_bus_la_LIBADD =  \
 	libsystemd-id128-internal.la \
@@ -1755,7 +1757,8 @@ tests += \
 	test-bus-chat \
 	test-bus-server \
 	test-bus-match \
-	test-bus-kernel
+	test-bus-kernel \
+	test-bus-memfd
 
 noinst_PROGRAMS += \
 	busctl
@@ -1826,6 +1829,16 @@ test_bus_kernel_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la \
 	libsystemd-id128-internal.la
+
+test_bus_memfd_SOURCES = \
+	src/libsystemd-bus/test-bus-memfd.c
+
+test_bus_memfd_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_bus_memfd_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la
 
 busctl_SOURCES = \
 	src/libsystemd-bus/busctl.c
