@@ -162,10 +162,10 @@ static bool test_security(const char *parameter) {
         if (streq(parameter, "selinux"))
                 return is_selinux_enabled() > 0;
 #endif
-	if (streq(parameter, "apparmor"))
-		return access("/sys/kernel/security/apparmor/", F_OK) == 0;
-	if (streq(parameter, "smack"))
-		return access("/sys/fs/smackfs", F_OK) == 0;
+        if (streq(parameter, "apparmor"))
+                return access("/sys/kernel/security/apparmor/", F_OK) == 0;
+        if (streq(parameter, "smack"))
+                return access("/sys/fs/smackfs", F_OK) == 0;
         return false;
 }
 
