@@ -214,7 +214,7 @@ struct kdbus_policy {
 
 struct kdbus_cmd_policy {
 	__u64 size;
-	__u8 buffer[0];		/* a series of KDBUS_POLICY_NAME plus one or
+	__u8 data[0];		/* a series of KDBUS_POLICY_NAME plus one or
 				 * more KDBUS_POLICY_ACCESS each. */
 };
 
@@ -237,7 +237,7 @@ enum {
 /* Items to append to struct kdbus_cmd_hello */
 enum {
 	KDBUS_HELLO_NULL,
-	KDBUS_HELLO_POOL,	/* kdbus_vec, userspace supplied buffer to
+	KDBUS_HELLO_POOL,	/* kdbus_vec, userspace supplied pool to
 				 * place received messages */
 };
 
@@ -419,10 +419,8 @@ enum kdbus_cmd {
 	/* kdbus ep node commands: require ep owner state */
 	KDBUS_CMD_EP_POLICY_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x70, struct kdbus_cmd_policy),
 
-	/* kdbus ep node commands: */
-	KDBUS_CMD_MEMFD_NEW =		_IOWR(KDBUS_IOC_MAGIC, 0x80, int *),
-
 	/* kdbus memfd commands: */
+	KDBUS_CMD_MEMFD_NEW =		_IOWR(KDBUS_IOC_MAGIC, 0x80, int *),
 	KDBUS_CMD_MEMFD_SIZE_GET =	_IOWR(KDBUS_IOC_MAGIC, 0x81, __u64 *),
 	KDBUS_CMD_MEMFD_SIZE_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x82, __u64 *),
 	KDBUS_CMD_MEMFD_SEAL_GET =	_IOWR(KDBUS_IOC_MAGIC, 0x83, int *),

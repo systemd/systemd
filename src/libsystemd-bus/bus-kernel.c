@@ -72,7 +72,7 @@ static void append_payload_vec(struct kdbus_item **d, const void *p, size_t sz) 
 
         (*d)->size = offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec);
         (*d)->type = KDBUS_MSG_PAYLOAD_VEC;
-        (*d)->vec.address = (intptr_t) p;
+        (*d)->vec.address = (uint64_t) p;
         (*d)->vec.size = sz;
 
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
@@ -436,7 +436,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                                 if (d->vec.size < sizeof(struct bus_header))
                                         return -EBADMSG;
 
-                                h = (struct bus_header*) d->vec.address;
+                                h = (struct bus_header*)(uintptr_t) d->vec.address;
                         }
 
                         n_payload++;
@@ -471,8 +471,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (n_bytes != total)
                 return -EBADMSG;
 
-        if (n_payload > 2)
-                return -EBADMSG;
+        //if (n_payload > 2)
+        //        return -EBADMSG;
 
         r = bus_message_from_header(h, sizeof(struct bus_header), fds, n_fds, NULL, seclabel, 0, &m);
         if (r < 0)
@@ -485,8 +485,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                 if (d->type == KDBUS_MSG_PAYLOAD_VEC) {
 
-                        range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)), BUS_MESSAGE_FIELDS_SIZE(m), (void*) d->vec.address, &m->fields);
-                        range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)), BUS_MESSAGE_BODY_SIZE(m), (void*) d->vec.address, &m->body);
+                        range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)), BUS_MESSAGE_FIELDS_SIZE(m),
+                                       (void *)(uintptr_t) d->vec.address, &m->fields);
+                        range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)),
+                                       BUS_MESSAGE_BODY_SIZE(m), (void *)(uintptr_t) d->vec.address, &m->body);
 
                         idx += d->vec.size;
 
@@ -624,7 +626,7 @@ int bus_kernel_create(const char *name, char **s) {
         n->size = KDBUS_ITEM_HEADER_SIZE + strlen(n->str) + 1;
 
         make->size = offsetof(struct kdbus_cmd_bus_make, items) + cg->size + n->size;
-        make->flags = KDBUS_MAKE_ACCESS_WORLD | KDBUS_MAKE_POLICY_OPEN;
+        make->flags = KDBUS_MAKE_POLICY_OPEN;
         make->bus_flags = 0;
         make->bloom_size = BLOOM_SIZE;
         assert_cc(BLOOM_SIZE % 8 == 0);
