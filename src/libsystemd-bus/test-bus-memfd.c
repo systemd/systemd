@@ -20,6 +20,7 @@
 ***/
 
 #include <sys/mman.h>
+#include <sys/uio.h>
 
 #include "log.h"
 #include "macro.h"
@@ -151,8 +152,7 @@ int main(int argc, char *argv[]) {
         iov[1].iov_len = 3;
         iov[2].iov_base = (char *)"GHI";
         iov[2].iov_len = 3;
-        assert_se(lseek(fd, 0, SEEK_SET) == 0);
-        assert_se(writev(fd, iov, 3) == 9);
+        assert_se(pwritev(fd, iov, 3, 0) == 9);
 
         /* readv it back */
         iov[0].iov_base = bufv[0];
@@ -161,8 +161,7 @@ int main(int argc, char *argv[]) {
         iov[1].iov_len = 3;
         iov[2].iov_base = bufv[2];
         iov[2].iov_len = 3;
-        assert_se(lseek(fd, 0, SEEK_SET) == 0);
-        assert_se(readv(fd, iov, 3) == 9);
+        assert_se(preadv(fd, iov, 3, 0) == 9);
 
         /* check content */
         assert_se(memcmp(bufv[0], "ABC", 3) == 0);
