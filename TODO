@@ -28,6 +28,8 @@ Fedora 19:
   - localectl: support new converted x11→console keymaps
 
 Features:
+* read the kernel's console "debug" keyword like we read "quiet" and adjust:
+    systemd.log_level=debug and maybe systemd.log_target=kmsg
 
 * maybe add "journalctl -k" as shortcut for "-b _TRANSPORT=kernel"
 
