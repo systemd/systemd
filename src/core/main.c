@@ -69,7 +69,6 @@
 #include "ima-setup.h"
 #include "fileio.h"
 #include "smack-setup.h"
-#include "efivars.h"
 
 static enum {
         ACTION_RUN,
@@ -1239,8 +1238,6 @@ int main(int argc, char *argv[]) {
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
         dual_timestamp userspace_timestamp = { 0ULL, 0ULL };
         dual_timestamp kernel_timestamp = { 0ULL, 0ULL };
-        dual_timestamp firmware_timestamp = { 0ULL, 0ULL };
-        dual_timestamp loader_timestamp = { 0ULL, 0ULL };
         static char systemd[] = "systemd";
         bool skip_setup = false;
         int j;
@@ -1289,9 +1286,7 @@ int main(int argc, char *argv[]) {
         log_show_color(isatty(STDERR_FILENO) > 0);
 
         if (getpid() == 1 && detect_container(NULL) <= 0) {
-#ifdef ENABLE_EFI
-                efi_get_boot_timestamps(&userspace_timestamp, &firmware_timestamp, &loader_timestamp);
-#endif
+
                 /* Running outside of a container as PID 1 */
                 arg_running_as = SYSTEMD_SYSTEM;
                 make_null_stdio();
@@ -1627,8 +1622,6 @@ int main(int argc, char *argv[]) {
         m->shutdown_watchdog = arg_shutdown_watchdog;
         m->userspace_timestamp = userspace_timestamp;
         m->kernel_timestamp = kernel_timestamp;
-        m->firmware_timestamp = firmware_timestamp;
-        m->loader_timestamp = loader_timestamp;
         m->initrd_timestamp = initrd_timestamp;
 
         manager_set_default_rlimits(m, arg_default_rlimit);
