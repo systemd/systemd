@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
         strcpy(s, "----- world");
 
         r = sd_memfd_set_sealed(m, 1);
-        assert_se(r == -EPERM);
+        assert_se(r == -ETXTBSY);
 
         assert_se(write(sd_memfd_get_fd(m), "he", 2) == 2);
         assert_se(write(sd_memfd_get_fd(m), "XXX", 3) == 3);
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
 
         /* we cannot break the seal, it is mapped */
         r = sd_memfd_set_sealed(m, 0);
-        assert_se(r == -EPERM);
+        assert_se(r == -ETXTBSY);
 
         /* unmap it; become the single owner */
         assert_se(munmap(s, 12) == 0);
