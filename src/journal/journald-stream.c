@@ -440,7 +440,7 @@ int server_open_stdout_socket(Server *s) {
                 chmod(sa.un.sun_path, 0666);
 
                 if (listen(s->stdout_fd, SOMAXCONN) < 0) {
-                        log_error("liste() failed: %m");
+                        log_error("listen() failed: %m");
                         return -errno;
                 }
         } else
