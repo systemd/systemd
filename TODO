@@ -31,6 +31,11 @@ Features:
 * read the kernel's console "debug" keyword like we read "quiet" and adjust:
     systemd.log_level=debug and maybe systemd.log_target=kmsg
 
+* add an option to nspawn that uses seccomp to make socket(AF_NETLINK,
+  SOCK_RAW, NETLINK_AUDIT) fail the the appropriate error code that
+  makes the audit userspace to think auditing is not available in the
+  kernel.
+
 * maybe add "journalctl -k" as shortcut for "-b _TRANSPORT=kernel"
 
 * Introduce a way how we can kill the main process of a service with KillSignal, but all processes with SIGKILL later on
