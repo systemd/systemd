@@ -436,7 +436,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                                 if (d->vec.size < sizeof(struct bus_header))
                                         return -EBADMSG;
 
-                                h = (struct bus_header*)(uintptr_t) d->vec.address;
+                                h = (struct bus_header*)UINT64_TO_PTR(d->vec.address);
                         }
 
                         n_payload++;
@@ -486,9 +486,9 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                 if (d->type == KDBUS_MSG_PAYLOAD_VEC) {
 
                         range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)), BUS_MESSAGE_FIELDS_SIZE(m),
-                                       (void *)(uintptr_t) d->vec.address, &m->fields);
+                                       UINT64_TO_PTR(d->vec.address), &m->fields);
                         range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)),
-                                       BUS_MESSAGE_BODY_SIZE(m), (void *)(uintptr_t) d->vec.address, &m->body);
+                                       BUS_MESSAGE_BODY_SIZE(m), UINT64_TO_PTR(d->vec.address), &m->body);
 
                         idx += d->vec.size;
 

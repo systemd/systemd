@@ -159,23 +159,25 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         } while (false)
 #endif
 
-#define PTR_TO_UINT(p) ((unsigned int) ((uintptr_t) (p)))
-#define UINT_TO_PTR(u) ((void*) ((uintptr_t) (u)))
-
-#define PTR_TO_UINT32(p) ((uint32_t) ((uintptr_t) (p)))
-#define UINT32_TO_PTR(u) ((void*) ((uintptr_t) (u)))
-
-#define PTR_TO_ULONG(p) ((unsigned long) ((uintptr_t) (p)))
-#define ULONG_TO_PTR(u) ((void*) ((uintptr_t) (u)))
-
 #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))
-#define INT_TO_PTR(u) ((void*) ((intptr_t) (u)))
-
-#define TO_INT32(p) ((int32_t) ((intptr_t) (p)))
-#define INT32_TO_PTR(u) ((void*) ((intptr_t) (u)))
+#define INT_TO_PTR(u) ((void *) ((intptr_t) (u)))
+#define PTR_TO_UINT(p) ((unsigned int) ((uintptr_t) (p)))
+#define UINT_TO_PTR(u) ((void *) ((uintptr_t) (u)))
 
 #define PTR_TO_LONG(p) ((long) ((intptr_t) (p)))
-#define LONG_TO_PTR(u) ((void*) ((intptr_t) (u)))
+#define LONG_TO_PTR(u) ((void *) ((intptr_t) (u)))
+#define PTR_TO_ULONG(p) ((unsigned long) ((uintptr_t) (p)))
+#define ULONG_TO_PTR(u) ((void *) ((uintptr_t) (u)))
+
+#define PTR_TO_INT32(p) ((int32_t) ((intptr_t) (p)))
+#define INT32_TO_PTR(u) ((void *) ((intptr_t) (u)))
+#define PTR_TO_UINT32(p) ((uint32_t) ((uintptr_t) (p)))
+#define UINT32_TO_PTR(u) ((void *) ((uintptr_t) (u)))
+
+#define PTR_TO_INT64(p) ((int64_t) ((intptr_t) (p)))
+#define INT64_TO_PTR(u) ((void *) ((intptr_t) (u)))
+#define PTR_TO_UINT64(p) ((uint64_t) ((uintptr_t) (p)))
+#define UINT64_TO_PTR(u) ((void *) ((uintptr_t) (u)))
 
 #define memzero(x,l) (memset((x), 0, (l)))
 #define zero(x) (memzero(&(x), sizeof(x)))
