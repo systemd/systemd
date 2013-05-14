@@ -3555,8 +3555,10 @@ int bus_message_parse_fields(sd_bus_message *m) {
 }
 
 int bus_message_seal(sd_bus_message *m, uint64_t serial) {
-        int r;
+        struct bus_body_part *part;
         size_t l, a;
+        unsigned i;
+        int r;
 
         assert(m);
 
@@ -3594,6 +3596,10 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
                 memset(p, 0, a);
                 m->header->fields_size -= a;
         }
+
+        for (i = 0, part = &m->body; i < m->n_body_parts; i++, part = part->next)
+                if (part->memfd >= 0 && part->sealed)
+                        ioctl(part->memfd, KDBUS_CMD_MEMFD_SEAL_SET, 1);
 
         m->header->serial = serial;
         m->sealed = true;
