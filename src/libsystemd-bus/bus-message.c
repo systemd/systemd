@@ -3568,6 +3568,9 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
         if (m->n_containers > 0)
                 return -EBADMSG;
 
+        if (m->poisoned)
+                return -ESTALE;
+
         /* If there's a non-trivial signature set, then add it in here */
         if (!isempty(m->root_container.signature)) {
                 r = message_append_field_signature(m, SD_BUS_MESSAGE_HEADER_SIGNATURE, m->root_container.signature, NULL);

@@ -72,7 +72,7 @@ static int append_iovec(sd_bus_message *m, const void *p, size_t sz) {
 
 static int bus_message_setup_iovec(sd_bus_message *m) {
         struct bus_body_part *part;
-        unsigned n;
+        unsigned n, i;
         int r;
 
         assert(m);
@@ -102,7 +102,7 @@ static int bus_message_setup_iovec(sd_bus_message *m) {
                         return r;
         }
 
-        for (part = &m->body; part && part->size > 0; part = part->next) {
+        for (i = 0, part = &m->body; i < m->n_body_parts; i++, part = part->next) {
                 r = append_iovec(m, part->data, part->size);
                 if (r < 0)
                         return r;
