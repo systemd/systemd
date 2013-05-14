@@ -102,7 +102,7 @@ static int bus_message_setup_iovec(sd_bus_message *m) {
                         return r;
         }
 
-        for (i = 0, part = &m->body; i < m->n_body_parts; i++, part = part->next) {
+        MESSAGE_FOREACH_PART(part, i, m)  {
                 r = append_iovec(m, part->data, part->size);
                 if (r < 0)
                         return r;

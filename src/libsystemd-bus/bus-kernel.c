@@ -184,12 +184,13 @@ static int bus_message_setup_bloom(sd_bus_message *m, void *bloom) {
 }
 
 static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
+        struct bus_body_part *part;
         struct kdbus_item *d;
         bool well_known;
         uint64_t unique;
         size_t sz, dl;
+        unsigned i;
         int r;
-        struct bus_body_part *part;
 
         assert(b);
         assert(m);
@@ -253,7 +254,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         if (m->fields)
                 append_payload_vec(&d, m->fields, ALIGN8(m->header->fields_size));
 
-        for (part = &m->body; part && part->size > 0; part = part->next)
+        MESSAGE_FOREACH_PART(part, i, m)
                 append_payload_vec(&d, part->data, part->size);
 
         if (m->kdbus->dst_id == KDBUS_DST_ID_BROADCAST) {

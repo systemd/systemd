@@ -217,3 +217,6 @@ int bus_message_parse_fields(sd_bus_message *m);
 int bus_header_size(struct bus_header *h, size_t *sum);
 
 struct bus_body_part *message_append_part(sd_bus_message *m);
+
+#define MESSAGE_FOREACH_PART(part, i, m) \
+        for ((i) = 0, (part) = &(m)->body; (i) < (m)->n_body_parts; (i)++, (part) = (part)->next)

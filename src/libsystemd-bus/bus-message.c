@@ -3600,9 +3600,11 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
                 m->header->fields_size -= a;
         }
 
-        for (i = 0, part = &m->body; i < m->n_body_parts; i++, part = part->next)
-                if (part->memfd >= 0 && part->sealed)
+        MESSAGE_FOREACH_PART(part, i, m)
+                if (part->memfd >= 0 && !part->sealed) {
                         ioctl(part->memfd, KDBUS_CMD_MEMFD_SEAL_SET, 1);
+                        part->sealed = true;
+                }
 
         m->header->serial = serial;
         m->sealed = true;
@@ -3906,7 +3908,7 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
                         e = mempset(e, 0, 8 - (m->header->fields_size % 8));
         }
 
-        for (i = 0, part = &m->body; i < m->n_body_parts; i++, part = part->next)
+        MESSAGE_FOREACH_PART(part, i, m)
                 e = mempcpy(e, part->data, part->size);
 
         assert(total == (size_t) ((uint8_t*) e - (uint8_t*) p));
