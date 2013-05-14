@@ -441,7 +441,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                                 if (d->vec.size < sizeof(struct bus_header))
                                         return -EBADMSG;
 
-                                h = (struct bus_header*)UINT64_TO_PTR(d->vec.address);
+                                h = UINT64_TO_PTR(d->vec.address);
                         }
 
                         n_payload++;
@@ -475,9 +475,6 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
         if (n_bytes != total)
                 return -EBADMSG;
-
-        //if (n_payload > 2)
-        //        return -EBADMSG;
 
         r = bus_message_from_header(h, sizeof(struct bus_header), fds, n_fds, NULL, seclabel, 0, &m);
         if (r < 0)
@@ -553,7 +550,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         log_debug("Got unknown field from kernel %llu", d->type);
         }
 
-        if ((BUS_MESSAGE_FIELDS_SIZE(m) > 0 && !m->fields) || BUS_MESSAGE_SIZE(m) != idx) {
+        if ((BUS_MESSAGE_FIELDS_SIZE(m) > 0 && !m->fields)) {
                 sd_bus_message_unref(m);
                 return -EBADMSG;
         }
@@ -685,10 +682,10 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size) {
                 return -ENOTSUP;
 
         if (bus->n_memfd_cache <= 0) {
-                int fd;
+                int fd, r;
 
-                fd = ioctl(bus->input_fd, KDBUS_CMD_MEMFD_NEW, &fd);
-                if (fd < 0)
+                r = ioctl(bus->input_fd, KDBUS_CMD_MEMFD_NEW, &fd);
+                if (r < 0)
                         return -errno;
 
                 *address = NULL;

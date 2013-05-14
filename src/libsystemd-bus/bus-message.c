@@ -433,6 +433,9 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         m->header->version = bus ? bus->message_version : 1;
         m->allow_fds = !bus || bus->can_fds || (bus->state != BUS_HELLO && bus->state != BUS_RUNNING);
 
+        if (bus)
+                m->bus = sd_bus_ref(bus);
+
         return m;
 }
 
