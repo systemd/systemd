@@ -50,6 +50,16 @@ struct bus_header {
         uint32_t fields_size;
 } _packed_;
 
+struct bus_body_part {
+        void *data;
+        size_t size;
+        size_t mapped;
+        int memfd;
+        bool free_this:1;
+        bool sealed:1;
+        struct bus_body_part *next;
+};
+
 struct sd_bus_message {
         unsigned n_ref;
 
@@ -80,19 +90,22 @@ struct sd_bus_message {
         bool gid_valid:1;
         bool free_header:1;
         bool free_fields:1;
-        bool free_body:1;
         bool free_kdbus:1;
         bool free_fds:1;
         bool release_kdbus:1;
+        bool poisoned:1;
 
         struct bus_header *header;
         void *fields;
-        void *body;
-        struct kdbus_msg *kdbus;
+        struct bus_body_part body;
+        struct bus_body_part *body_end;
+        unsigned n_body_parts;
 
         char *label;
 
         size_t rindex;
+        struct bus_body_part *cached_rindex_part;
+        size_t cached_rindex_part_begin;
 
         uint32_t n_fds;
         int *fds;
@@ -100,8 +113,11 @@ struct sd_bus_message {
         struct bus_container root_container, *containers;
         unsigned n_containers;
 
-        struct iovec iovec[3];
+        struct iovec *iovec;
+        struct iovec iovec_fixed[3];
         unsigned n_iovec;
+
+        struct kdbus_msg *kdbus;
 
         char *peeked_signature;
 
@@ -199,3 +215,5 @@ int bus_message_append_ap(sd_bus_message *m, const char *types, va_list ap);
 int bus_message_parse_fields(sd_bus_message *m);
 
 int bus_header_size(struct bus_header *h, size_t *sum);
+
+struct bus_body_part *message_append_part(sd_bus_message *m);

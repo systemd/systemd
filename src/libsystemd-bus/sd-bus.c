@@ -86,8 +86,9 @@ static void bus_free(sd_bus *b) {
         }
 
         hashmap_free(b->object_callbacks);
-
         bus_match_free(&b->match_callbacks);
+
+        bus_kernel_flush_memfd(b);
 
         free(b);
 }

@@ -23,6 +23,15 @@
 
 #include "sd-bus.h"
 
+#define MEMFD_CACHE_MAX 32
+#define MEMFD_CACHE_ITEM_SIZE_MAX (128*1024)
+
+struct memfd_cache {
+        int fd;
+        void *address;
+        size_t size;
+};
+
 int bus_kernel_connect(sd_bus *b);
 int bus_kernel_take_fd(sd_bus *b);
 
@@ -30,3 +39,8 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m);
 int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m);
 
 int bus_kernel_create(const char *name, char **s);
+
+int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size);
+void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t size);
+
+void bus_kernel_flush_memfd(sd_bus *bus);

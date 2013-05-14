@@ -189,6 +189,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         uint64_t unique;
         size_t sz, dl;
         int r;
+        struct bus_body_part *part;
 
         assert(b);
         assert(m);
@@ -209,7 +210,8 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         sz = offsetof(struct kdbus_msg, items);
 
         /* Add in fixed header, fields header and payload */
-        sz += 3 * ALIGN8(offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec));
+        sz += (1 + !!m->fields + m->n_body_parts) *
+                ALIGN8(offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec));
 
         /* Add space for bloom filter */
         sz += ALIGN8(offsetof(struct kdbus_item, data) + BLOOM_SIZE);
@@ -251,8 +253,8 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         if (m->fields)
                 append_payload_vec(&d, m->fields, ALIGN8(m->header->fields_size));
 
-        if (m->body)
-                append_payload_vec(&d, m->body, m->header->body_size);
+        for (part = &m->body; part && part->size > 0; part = part->next)
+                append_payload_vec(&d, part->data, part->size);
 
         if (m->kdbus->dst_id == KDBUS_DST_ID_BROADCAST) {
                 void *p;
@@ -395,7 +397,10 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
         }
 }
 
-static bool range_contains(size_t astart, size_t asize, size_t bstart, size_t bsize, void *a, void **b) {
+static bool range_contains(
+                size_t astart, size_t asize,
+                size_t bstart, size_t bsize,
+                void *a, void **b) {
 
         if (bstart < astart)
                 return false;
@@ -484,11 +489,35 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                 l = d->size - offsetof(struct kdbus_item, data);
 
                 if (d->type == KDBUS_MSG_PAYLOAD_VEC) {
+                        size_t begin_body;
 
+                        /* Fill in fields material */
                         range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)), BUS_MESSAGE_FIELDS_SIZE(m),
                                        UINT64_TO_PTR(d->vec.address), &m->fields);
-                        range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m)),
-                                       BUS_MESSAGE_BODY_SIZE(m), UINT64_TO_PTR(d->vec.address), &m->body);
+
+                        begin_body = ALIGN8(sizeof(struct bus_header)) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
+
+                        if (idx + d->vec.size > begin_body) {
+                                struct bus_body_part *part;
+
+                                /* Contains body material */
+
+                                part = message_append_part(m);
+                                if (!part) {
+                                        sd_bus_message_unref(m);
+                                        return -ENOMEM;
+                                }
+
+                                if (idx >= begin_body) {
+                                        part->data = (void*) d->vec.address;
+                                        part->size = d->vec.size;
+                                } else {
+                                        part->data = (uint8_t*) (uintptr_t) d->vec.address + (begin_body - idx);
+                                        part->size = d->vec.size - (begin_body - idx);
+                                }
+
+                                part->sealed = true;
+                        }
 
                         idx += d->vec.size;
 
@@ -524,8 +553,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         log_debug("Got unknown field from kernel %llu", d->type);
         }
 
-        if ((BUS_MESSAGE_FIELDS_SIZE(m) > 0 && !m->fields) ||
-            (BUS_MESSAGE_BODY_SIZE(m) > 0 && !m->body)) {
+        if ((BUS_MESSAGE_FIELDS_SIZE(m) > 0 && !m->fields) || BUS_MESSAGE_SIZE(m) != idx) {
                 sd_bus_message_unref(m);
                 return -EBADMSG;
         }
@@ -645,4 +673,80 @@ int bus_kernel_create(const char *name, char **s) {
                 *s = p;
 
         return fd;
+}
+
+int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size) {
+        struct memfd_cache *c;
+
+        assert(address);
+        assert(size);
+
+        if (!bus || !bus->is_kernel)
+                return -ENOTSUP;
+
+        if (bus->n_memfd_cache <= 0) {
+                int fd;
+
+                fd = ioctl(bus->input_fd, KDBUS_CMD_MEMFD_NEW, &fd);
+                if (fd < 0)
+                        return -errno;
+
+                *address = NULL;
+                *size = 0;
+                return fd;
+        }
+
+        c = &bus->memfd_cache[-- bus->n_memfd_cache];
+
+        assert(c->fd >= 0);
+        assert(c->size == 0 || c->address);
+
+        *address = c->address;
+        *size = c->size;
+
+        return c->fd;
+}
+
+void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t size) {
+        struct memfd_cache *c;
+
+        assert(fd >= 0);
+        assert(size == 0 || address);
+
+        if (!bus || !bus->is_kernel ||
+            bus->n_memfd_cache >= ELEMENTSOF(bus->memfd_cache)) {
+
+                if (size > 0)
+                        assert_se(munmap(address, PAGE_ALIGN(size)) == 0);
+
+                close_nointr_nofail(fd);
+                return;
+        }
+
+        c = &bus->memfd_cache[bus->n_memfd_cache++];
+        c->fd = fd;
+        c->address = address;
+
+        /* If overly long, let's return a bit to the OS */
+        if (size > MEMFD_CACHE_ITEM_SIZE_MAX) {
+                uint64_t sz = MEMFD_CACHE_ITEM_SIZE_MAX;
+
+                ioctl(bus->input_fd, KDBUS_CMD_MEMFD_SIZE_SET, &sz);
+
+                c->size = MEMFD_CACHE_ITEM_SIZE_MAX;
+        } else
+                c->size = size;
+}
+
+void bus_kernel_flush_memfd(sd_bus *b) {
+        unsigned i;
+
+        assert(b);
+
+        for (i = 0; i < b->n_memfd_cache; i++) {
+                if (b->memfd_cache[i].size > 0)
+                        assert_se(munmap(b->memfd_cache[i].address, PAGE_ALIGN(b->memfd_cache[i].size)) == 0);
+
+                close_nointr_nofail(b->memfd_cache[i].fd);
+        }
 }

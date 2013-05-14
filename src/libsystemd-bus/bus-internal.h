@@ -33,6 +33,7 @@
 #include "sd-bus.h"
 #include "bus-error.h"
 #include "bus-match.h"
+#include "bus-kernel.h"
 
 struct reply_callback {
         sd_bus_message_handler_t callback;
@@ -152,6 +153,9 @@ struct sd_bus {
         unsigned iteration_counter;
 
         void *kdbus_buffer;
+
+        struct memfd_cache memfd_cache[MEMFD_CACHE_MAX];
+        unsigned n_memfd_cache;
 };
 
 static inline void bus_unrefp(sd_bus **b) {

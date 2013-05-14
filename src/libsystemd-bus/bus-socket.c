@@ -58,7 +58,7 @@ static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
         }
 }
 
-static void append_iovec(sd_bus_message *m, const void *p, size_t sz) {
+static int append_iovec(sd_bus_message *m, const void *p, size_t sz) {
         assert(m);
         assert(p);
         assert(sz > 0);
@@ -66,22 +66,51 @@ static void append_iovec(sd_bus_message *m, const void *p, size_t sz) {
         m->iovec[m->n_iovec].iov_base = (void*) p;
         m->iovec[m->n_iovec].iov_len = sz;
         m->n_iovec++;
+
+        return 0;
 }
 
-static void bus_message_setup_iovec(sd_bus_message *m) {
+static int bus_message_setup_iovec(sd_bus_message *m) {
+        struct bus_body_part *part;
+        unsigned n;
+        int r;
+
         assert(m);
         assert(m->sealed);
 
         if (m->n_iovec > 0)
-                return;
+                return 0;
 
-        append_iovec(m, m->header, sizeof(*m->header));
+        assert(!m->iovec);
 
-        if (m->fields)
-                append_iovec(m, m->fields, ALIGN8(m->header->fields_size));
+        n = 1 + !!m->fields + m->n_body_parts;
+        if (n < ELEMENTSOF(m->iovec_fixed))
+                m->iovec = m->iovec_fixed;
+        else {
+                m->iovec = new(struct iovec, n);
+                if (!m->iovec)
+                        return -ENOMEM;
+        }
 
-        if (m->body)
-                append_iovec(m, m->body, m->header->body_size);
+        r = append_iovec(m, m->header, sizeof(*m->header));
+        if (r < 0)
+                return r;
+
+        if (m->fields) {
+                r = append_iovec(m, m->fields, ALIGN8(m->header->fields_size));
+                if (r < 0)
+                        return r;
+        }
+
+        for (part = &m->body; part && part->size > 0; part = part->next) {
+                r = append_iovec(m, part->data, part->size);
+                if (r < 0)
+                        return r;
+        }
+
+        assert(n == m->n_iovec);
+
+        return 0;
 }
 
 bool bus_socket_auth_needs_write(sd_bus *b) {
@@ -749,6 +778,7 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         ssize_t k;
         size_t n;
         unsigned j;
+        int r;
 
         assert(bus);
         assert(m);
@@ -758,7 +788,9 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         if (*idx >= BUS_MESSAGE_SIZE(m))
                 return 0;
 
-        bus_message_setup_iovec(m);
+        r = bus_message_setup_iovec(m);
+        if (r < 0)
+                return r;
 
         n = m->n_iovec * sizeof(struct iovec);
         iov = alloca(n);

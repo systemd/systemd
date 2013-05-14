@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #include "util.h"
 #include "utf8.h"
@@ -36,7 +37,65 @@
 
 static int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored);
 
-static void reset_containers(sd_bus_message *m) {
+static void *adjust_pointer(const void *p, void *old_base, size_t sz, void *new_base) {
+
+        if (p == NULL)
+                return NULL;
+
+        if (old_base == new_base)
+                return (void*) p;
+
+        if ((uint8_t*) p < (uint8_t*) old_base)
+                return (void*) p;
+
+        if ((uint8_t*) p >= (uint8_t*) old_base + sz)
+                return (void*) p;
+
+        return (uint8_t*) new_base + ((uint8_t*) p - (uint8_t*) old_base);
+}
+
+static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
+        assert(m);
+        assert(part);
+
+        if (part->memfd >= 0) {
+
+                if (!part->sealed)
+                        bus_kernel_push_memfd(m->bus, part->memfd, part->data, part->mapped);
+                else {
+                        if (part->size > 0)
+                                assert_se(munmap(part->data, PAGE_ALIGN(part->size)) == 0);
+
+                        close_nointr_nofail(part->memfd);
+                }
+
+        } else if (part->free_this)
+                free(part->data);
+
+        if (part != &m->body)
+                free(part);
+}
+
+static void message_reset_parts(sd_bus_message *m) {
+        struct bus_body_part *part;
+
+        assert(m);
+
+        part = &m->body;
+        while (m->n_body_parts > 0) {
+                struct bus_body_part *next = part->next;
+                message_free_part(m, part);
+                part = next;
+                m->n_body_parts--;
+        }
+
+        m->body_end = NULL;
+
+        m->cached_rindex_part = NULL;
+        m->cached_rindex_part_begin = 0;
+}
+
+static void message_reset_containers(sd_bus_message *m) {
         unsigned i;
 
         assert(m);
@@ -60,8 +119,7 @@ static void message_free(sd_bus_message *m) {
         if (m->free_fields)
                 free(m->fields);
 
-        if (m->free_body)
-                free(m->body);
+        message_reset_parts(m);
 
         if (m->free_kdbus)
                 free(m->kdbus);
@@ -77,9 +135,12 @@ static void message_free(sd_bus_message *m) {
         if (m->bus)
                 sd_bus_unref(m->bus);
 
+        if (m->iovec != m->iovec_fixed)
+                free(m->iovec);
+
         free(m->cmdline_array);
 
-        reset_containers(m);
+        message_reset_containers(m);
         free(m->root_container.signature);
 
         free(m->peeked_signature);
@@ -91,7 +152,7 @@ static void message_free(sd_bus_message *m) {
 }
 
 static void* buffer_extend(void **p, uint32_t *sz, size_t align, size_t extend) {
-        size_t start, n;
+        size_t start, end;
         void *k;
 
         assert(p);
@@ -99,15 +160,15 @@ static void* buffer_extend(void **p, uint32_t *sz, size_t align, size_t extend) 
         assert(align > 0);
 
         start = ALIGN_TO((size_t) *sz, align);
-        n = start + extend;
+        end = start + extend;
 
-        if (n == *sz)
+        if (end == *sz)
                 return (uint8_t*) *p + start;
 
-        if (n > (size_t) ((uint32_t) -1))
+        if (end > (size_t) ((uint32_t) -1))
                 return NULL;
 
-        k = realloc(*p, n);
+        k = realloc(*p, end);
         if (!k)
                 return NULL;
 
@@ -116,37 +177,36 @@ static void* buffer_extend(void **p, uint32_t *sz, size_t align, size_t extend) 
                 memset((uint8_t*) k + *sz, 0, start - *sz);
 
         *p = k;
-        *sz = n;
+        *sz = end;
 
         return (uint8_t*) k + start;
 }
 
 static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz) {
-        void *p, *o;
+        void *p, *op;
+        size_t os;
 
         assert(m);
 
-        o = m->fields;
-        p = buffer_extend(&m->fields, &m->header->fields_size, align, sz);
-        if (!p)
+        if (m->poisoned)
                 return NULL;
 
-        if (o != m->fields) {
-                /* Adjust quick access pointers */
+        op = m->fields;
+        os = m->header->fields_size;
 
-                if (m->path)
-                        m->path = (const char*) m->fields + (m->path - (const char*) o);
-                if (m->interface)
-                        m->interface = (const char*) m->fields + (m->interface - (const char*) o);
-                if (m->member)
-                        m->member = (const char*) m->fields + (m->member - (const char*) o);
-                if (m->destination)
-                        m->destination = (const char*) m->fields + (m->destination - (const char*) o);
-                if (m->sender)
-                        m->sender = (const char*) m->fields + (m->sender - (const char*) o);
-                if (m->error.name)
-                        m->error.name = (const char*) m->fields + (m->error.name - (const char*) o);
+        p = buffer_extend(&m->fields, &m->header->fields_size, align, sz);
+        if (!p) {
+                m->poisoned = true;
+                return NULL;
         }
+
+        /* Adjust quick access pointers */
+        m->path = adjust_pointer(m->path, op, os, m->fields);
+        m->interface = adjust_pointer(m->interface, op, os, m->fields);
+        m->member = adjust_pointer(m->member, op, os, m->fields);
+        m->destination = adjust_pointer(m->destination, op, os, m->fields);
+        m->sender = adjust_pointer(m->sender, op, os, m->fields);
+        m->error.name = adjust_pointer(m->error.name, op, os, m->fields);
 
         m->free_fields = true;
 
@@ -183,7 +243,7 @@ static int message_append_field_string(
         memcpy(p + 8, s, l + 1);
 
         if (ret)
-                *ret = (const char*) p + 8;
+                *ret = (char*) p + 8;
 
         return 0;
 }
@@ -331,9 +391,15 @@ int bus_message_from_malloc(
         }
 
         m->fields = (uint8_t*) buffer + sizeof(struct bus_header);
-        m->body = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
+
+        m->n_body_parts = 1;
+        m->body.data = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
+        m->body.size = length - sizeof(struct bus_header) - ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
+        m->body.sealed = true;
+        m->body.memfd = -1;
 
         m->n_iovec = 1;
+        m->iovec = m->iovec_fixed;
         m->iovec[0].iov_base = buffer;
         m->iovec[0].iov_len = length;
 
@@ -1022,35 +1088,188 @@ static struct bus_container *message_get_container(sd_bus_message *m) {
         return m->containers + m->n_containers - 1;
 }
 
+struct bus_body_part *message_append_part(sd_bus_message *m) {
+        struct bus_body_part *part;
+
+        assert(m);
+
+        if (m->poisoned)
+                return NULL;
+
+        if (m->n_body_parts <= 0) {
+                part = &m->body;
+                zero(*part);
+        } else {
+                assert(m->body_end);
+
+                part = new0(struct bus_body_part, 1);
+                if (!part) {
+                        m->poisoned = true;
+                        return NULL;
+                }
+
+                m->body_end->next = part;
+        }
+
+        part->memfd = -1;
+        m->body_end = part;
+        m->n_body_parts ++;
+
+        return part;
+}
+
+static void part_zero(struct bus_body_part *part, size_t sz) {
+        assert(part);
+        assert(sz > 0);
+        assert(sz < 8);
+
+        part->data = NULL;
+        part->size = sz;
+}
+
+static int part_make_space(
+                struct sd_bus_message *m,
+                struct bus_body_part *part,
+                size_t sz,
+                void **q) {
+
+        void *n;
+        int r;
+
+        assert(m);
+        assert(part);
+        assert(!part->sealed);
+
+        if (m->poisoned)
+                return -ENOMEM;
+
+        if (!part->data && part->memfd < 0)
+                part->memfd = bus_kernel_pop_memfd(m->bus, &part->data, &part->mapped);
+
+        if (part->memfd >= 0) {
+                uint64_t u = sz;
+
+                r = ioctl(part->memfd, KDBUS_CMD_MEMFD_SIZE_SET, &u);
+                if (r < 0) {
+                        m->poisoned = true;
+                        return -errno;
+                }
+
+                if (sz > part->mapped) {
+                        size_t psz = PAGE_ALIGN(sz);
+
+                        if (part->mapped <= 0)
+                                n = mmap(NULL, psz, PROT_READ|PROT_WRITE, MAP_SHARED, part->memfd, 0);
+                        else
+                                n = mremap(part->data, part->mapped, psz, MREMAP_MAYMOVE);
+
+                        if (n == MAP_FAILED) {
+                                m->poisoned = true;
+                                return -errno;
+                        }
+
+                        part->mapped = psz;
+                        part->data = n;
+                }
+        } else {
+                n = realloc(part->data, sz);
+                if (!n) {
+                        m->poisoned = true;
+                        return -ENOMEM;
+                }
+
+                part->data = n;
+                part->free_this = true;
+        }
+
+        if (q)
+                *q = part->data ? (uint8_t*) part->data + part->size : NULL;
+
+        part->size = sz;
+        return 0;
+}
+
 static void *message_extend_body(sd_bus_message *m, size_t align, size_t sz) {
-        void *p, *o;
-        size_t added;
         struct bus_container *c;
+        struct bus_body_part *part = NULL;
+        size_t start_body, end_body, padding, start_part, end_part, added;
+        bool add_new_part;
+        void *p;
+        int r;
 
         assert(m);
         assert(align > 0);
+        assert(!m->sealed);
 
-        o = m->body;
-        added = m->header->body_size;
-
-        p = buffer_extend(&m->body, &m->header->body_size, align, sz);
-        if (!p)
+        if (m->poisoned)
                 return NULL;
 
-        added = m->header->body_size - added;
+        start_body = ALIGN_TO((size_t) m->header->body_size, align);
+        end_body = start_body + sz;
 
-        for (c = m->containers; c < m->containers + m->n_containers; c++)
-                if (c->array_size) {
-                        c->array_size = (uint32_t*) ((uint8_t*) m->body + ((uint8_t*) c->array_size - (uint8_t*) o));
-                        *c->array_size += added;
-                }
+        padding = start_body - m->header->body_size;
+        added = padding + sz;
 
-        if (o != m->body) {
-                if (m->error.message)
-                        m->error.message = (const char*) m->body + (m->error.message - (const char*) o);
+        /* Check for 32bit overflows */
+        if (end_body > (size_t) ((uint32_t) -1)) {
+                m->poisoned = true;
+                return NULL;
         }
 
-        m->free_body = true;
+        add_new_part =
+                m->n_body_parts <= 0 ||
+                m->body_end->sealed ||
+                padding != ALIGN_TO(m->body_end->size, align) - m->body_end->size;
+
+        if (add_new_part) {
+                if (padding > 0) {
+                        part = message_append_part(m);
+                        if (!part)
+                                return NULL;
+
+                        part_zero(part, padding);
+                }
+
+                part = message_append_part(m);
+                if (!part)
+                        return NULL;
+
+                r = part_make_space(m, part, sz, &p);
+                if (r < 0)
+                        return NULL;
+        } else {
+                void *op;
+                size_t os;
+
+                part = m->body_end;
+                op = part->data;
+                os = part->size;
+
+                start_part = ALIGN_TO(part->size, align);
+                end_part = start_part + sz;
+
+                r = part_make_space(m, part, end_part, &p);
+                if (r < 0)
+                        return NULL;
+
+                if (padding > 0) {
+                        memset(p, 0, padding);
+                        p = (uint8_t*) p + padding;
+                }
+
+                /* Readjust pointers */
+                for (c = m->containers; c < m->containers + m->n_containers; c++)
+                        c->array_size = adjust_pointer(c->array_size, op, os, part->data);
+
+                m->error.message = (const char*) adjust_pointer(m->error.message, op, os, part->data);
+        }
+
+        /* Update counters */
+        for (c = m->containers; c < m->containers + m->n_containers; c++)
+                if (c->array_size)
+                        *c->array_size += added;
+
+        m->header->body_size = end_body;
 
         return p;
 }
@@ -1073,6 +1292,8 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                 return -EPERM;
         if (!bus_type_is_basic(type))
                 return -EINVAL;
+        if (m->poisoned)
+                return -ESTALE;
 
         c = message_get_container(m);
 
@@ -1087,8 +1308,10 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                         return -ENXIO;
 
                 e = strextend(&c->signature, CHAR_TO_STR(type), NULL);
-                if (!e)
+                if (!e) {
+                        m->poisoned = true;
                         return -ENOMEM;
+                }
         }
 
         switch (type) {
@@ -1139,6 +1362,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
 
                 f = realloc(m->fds, sizeof(int) * (m->n_fds + 1));
                 if (!f) {
+                        m->poisoned = true;
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -1199,10 +1423,6 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         return 0;
 
 fail:
-        /* Truncate extended signature again */
-        if (e)
-                c->signature[c->index] = 0;
-
         if (fd >= 0)
                 close_nointr_nofail(fd);
 
@@ -1217,7 +1437,6 @@ int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s)
         struct bus_container *c;
         char *e;
         void *a;
-        int r;
 
         if (!m)
                 return -EINVAL;
@@ -1225,6 +1444,8 @@ int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s)
                 return -EINVAL;
         if (m->sealed)
                 return -EPERM;
+        if (m->poisoned)
+                return -ESTALE;
 
         c = message_get_container(m);
 
@@ -1239,16 +1460,16 @@ int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s)
                         return -ENXIO;
 
                 e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING), NULL);
-                if (!e)
+                if (!e) {
+                        m->poisoned = true;
                         return -ENOMEM;
+                }
         }
 
 
         a = message_extend_body(m, 4, 4 + size + 1);
-        if (!a) {
-                r = -ENOMEM;
-                goto fail;
-        }
+        if (!a)
+                return -ENOMEM;
 
         *(uint32_t*) a = size;
         *s = (char*) a + 4;
@@ -1259,12 +1480,6 @@ int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s)
                 c->index++;
 
         return 0;
-
-fail:
-        if (e)
-                c->signature[c->index] = 0;
-
-        return r;
 }
 
 static int bus_message_open_array(
@@ -1275,9 +1490,10 @@ static int bus_message_open_array(
 
         unsigned nindex;
         char *e = NULL;
-        void *a, *b;
+        void *a, *op;
         int alignment;
-        size_t saved;
+        size_t os;
+        struct bus_body_part *o;
 
         assert(m);
         assert(c);
@@ -1309,39 +1525,34 @@ static int bus_message_open_array(
                 /* Extend the existing signature */
 
                 e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_ARRAY), contents, NULL);
-                if (!e)
+                if (!e) {
+                        m->poisoned = true;
                         return -ENOMEM;
+                }
 
                 nindex = e - c->signature;
         }
 
-        saved = m->header->body_size;
         a = message_extend_body(m, 4, 4);
-        if (!a) {
-                /* Truncate extended signature again */
-                if (e)
-                        c->signature[c->index] = 0;
-
+        if (!a)
                 return -ENOMEM;
-        }
-        b = m->body;
 
-        if (!message_extend_body(m, alignment, 0)) {
-                /* Add alignment between size and first element */
-                if (e)
-                        c->signature[c->index] = 0;
+        o = m->body_end;
+        op = m->body_end->data;
+        os = m->body_end->size;
 
-                m->header->body_size = saved;
+        /* Add alignment between size and first element */
+        if (!message_extend_body(m, alignment, 0))
                 return -ENOMEM;
-        }
 
         if (c->enclosing != SD_BUS_TYPE_ARRAY)
                 c->index = nindex;
 
-        /* m->body might have changed so let's readjust a */
-        a = (uint8_t*) m->body + ((uint8_t*) a - (uint8_t*) b);
-        *(uint32_t*) a = 0;
+        /* location of array size might have changed so let's readjust a */
+        if (o == m->body_end)
+                a = adjust_pointer(a, op, os, m->body_end->data);
 
+        *(uint32_t*) a = 0;
         *array_size = a;
         return 0;
 }
@@ -1375,19 +1586,16 @@ static int bus_message_open_variant(
                         return -ENXIO;
 
                 e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_VARIANT), NULL);
-                if (!e)
+                if (!e) {
+                        m->poisoned = true;
                         return -ENOMEM;
+                }
         }
 
         l = strlen(contents);
         a = message_extend_body(m, 1, 1 + l + 1);
-        if (!a) {
-                /* Truncate extended signature again */
-                if (e)
-                        c->signature[c->index] = 0;
-
+        if (!a)
                 return -ENOMEM;
-        }
 
         *(uint8_t*) a = l;
         memcpy((uint8_t*) a + 1, contents, l + 1);
@@ -1429,19 +1637,17 @@ static int bus_message_open_struct(
                         return -ENXIO;
 
                 e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_BEGIN), contents, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_END), NULL);
-                if (!e)
+                if (!e) {
+                        m->poisoned = true;
                         return -ENOMEM;
+                }
 
                 nindex = e - c->signature;
         }
 
         /* Align contents to 8 byte boundary */
-        if (!message_extend_body(m, 8, 0)) {
-                if (e)
-                        c->signature[c->index] = 0;
-
+        if (!message_extend_body(m, 8, 0))
                 return -ENOMEM;
-        }
 
         if (c->enclosing != SD_BUS_TYPE_ARRAY)
                 c->index = nindex;
@@ -1507,18 +1713,25 @@ int sd_bus_message_open_container(
                 return -EPERM;
         if (!contents)
                 return -EINVAL;
+        if (m->poisoned)
+                return -ESTALE;
 
         /* Make sure we have space for one more container */
         w = realloc(m->containers, sizeof(struct bus_container) * (m->n_containers + 1));
-        if (!w)
+        if (!w) {
+                m->poisoned = true;
                 return -ENOMEM;
+        }
+
         m->containers = w;
 
         c = message_get_container(m);
 
         signature = strdup(contents);
-        if (!signature)
+        if (!signature) {
+                m->poisoned = true;
                 return -ENOMEM;
+        }
 
         /* Save old index in the parent container, in case we have to
          * abort this container */
@@ -1562,6 +1775,8 @@ int sd_bus_message_close_container(sd_bus_message *m) {
                 return -EPERM;
         if (m->n_containers <= 0)
                 return -EINVAL;
+        if (m->poisoned)
+                return -ESTALE;
 
         c = message_get_container(m);
         if (c->enclosing != SD_BUS_TYPE_ARRAY)
@@ -1572,37 +1787,6 @@ int sd_bus_message_close_container(sd_bus_message *m) {
         m->n_containers--;
 
         return 0;
-}
-
-static void message_abort_container(sd_bus_message *m) {
-        struct bus_container *c;
-        size_t delta;
-
-        assert(m);
-        assert(!m->sealed);
-        assert(m->n_containers > 0);
-
-        c = message_get_container(m);
-
-        /* Undo appends */
-        assert(m->header->body_size >= c->before);
-        delta = m->header->body_size - c->before;
-        m->header->body_size = c->before;
-
-        /* Free container */
-        free(c->signature);
-        m->n_containers--;
-
-        /* Correct index of new top-level container */
-        c = message_get_container(m);
-        c->index = c->saved_index;
-
-        /* Correct array sizes all the way up */
-        for (c = m->containers; c < m->containers + m->n_containers; c++)
-                if (c->array_size) {
-                        assert(*c->array_size >= delta);
-                        *c->array_size -= delta;
-                }
 }
 
 typedef struct {
@@ -1849,6 +2033,8 @@ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
                 return -EINVAL;
         if (m->sealed)
                 return -EPERM;
+        if (m->poisoned)
+                return -ESTALE;
         if (!types)
                 return 0;
 
@@ -1872,6 +2058,8 @@ int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size,
                 return -EINVAL;
         if (!ptr && size > 0)
                 return -EINVAL;
+        if (m->poisoned)
+                return -ESTALE;
 
         align = bus_type_get_alignment(type);
         sz = bus_type_get_size(type);
@@ -1887,21 +2075,15 @@ int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size,
                 return r;
 
         a = message_extend_body(m, align, size);
-        if (!a) {
-                r = -ENOMEM;
-                goto fail;
-        }
+        if (!a)
+                return -ENOMEM;
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
-                goto fail;
+                return r;
 
         *ptr = a;
         return 0;
-
-fail:
-        message_abort_container(m);
-        return r;
 }
 
 int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, size_t size) {
@@ -1922,15 +2104,15 @@ int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, s
 }
 
 static int buffer_peek(const void *p, uint32_t sz, size_t *rindex, size_t align, size_t nbytes, void **r) {
-        size_t k, start, n;
+        size_t k, start, end;
 
         assert(rindex);
         assert(align > 0);
 
         start = ALIGN_TO((size_t) *rindex, align);
-        n = start + nbytes;
+        end = start + nbytes;
 
-        if (n > sz)
+        if (end > sz)
                 return -EBADMSG;
 
         /* Verify that padding is 0 */
@@ -1941,7 +2123,7 @@ static int buffer_peek(const void *p, uint32_t sz, size_t *rindex, size_t align,
         if (r)
                 *r = (uint8_t*) p + start;
 
-        *rindex = n;
+        *rindex = end;
 
         return 1;
 }
@@ -1958,7 +2140,50 @@ static bool message_end_of_array(sd_bus_message *m, size_t index) {
         return index >= c->begin + BUS_MESSAGE_BSWAP32(m, *c->array_size);
 }
 
-static int message_peek_body(sd_bus_message *m, size_t *rindex, size_t align, size_t nbytes, void **ret) {
+static struct bus_body_part* find_part(sd_bus_message *m, size_t index, size_t sz, void **p) {
+        struct bus_body_part *part;
+        size_t begin;
+        assert(m);
+
+        if (m->cached_rindex_part && index >= m->cached_rindex_part_begin) {
+                part = m->cached_rindex_part;
+                begin = m->cached_rindex_part_begin;
+        } else {
+                part = &m->body;
+                begin = 0;
+        }
+
+        while (part) {
+                if (index < begin)
+                        return NULL;
+
+                if (index + sz <= begin + part->size) {
+                        if (p)
+                                *p = part->data ? (uint8_t*) part->data + index - begin : NULL;
+
+                        m->cached_rindex_part = part;
+                        m->cached_rindex_part_begin = begin;
+
+                        return part;
+                }
+
+                part = part->next;
+        }
+
+        return NULL;
+}
+
+static int message_peek_body(
+                sd_bus_message *m,
+                size_t *rindex,
+                size_t align,
+                size_t nbytes,
+                void **ret) {
+
+        size_t k, start, end, padding;
+        struct bus_body_part *part;
+        uint8_t *q;
+
         assert(m);
         assert(rindex);
         assert(align > 0);
@@ -1966,7 +2191,34 @@ static int message_peek_body(sd_bus_message *m, size_t *rindex, size_t align, si
         if (message_end_of_array(m, *rindex))
                 return 0;
 
-        return buffer_peek(m->body, BUS_MESSAGE_BODY_SIZE(m), rindex, align, nbytes, ret);
+        start = ALIGN_TO((size_t) *rindex, align);
+        padding = start - *rindex;
+        end = start + nbytes;
+
+        if (end > BUS_MESSAGE_BODY_SIZE(m))
+                return -EBADMSG;
+
+        part = find_part(m, *rindex, padding, (void**) &q);
+        if (!part)
+                return -EBADMSG;
+
+        if (q) {
+                /* Verify padding */
+                for (k = 0; k < padding; k++)
+                        if (q[k] != 0)
+                                return -EBADMSG;
+        }
+
+        part = find_part(m, start, nbytes, (void**) &q);
+        if (!part || !q)
+                return -EBADMSG;
+
+        *rindex = end;
+
+        if (ret)
+                *ret = q;
+
+        return 1;
 }
 
 static bool validate_nul(const char *s, size_t l) {
@@ -2601,7 +2853,7 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete) {
                 return -EPERM;
 
         if (complete) {
-                reset_containers(m);
+                message_reset_containers(m);
                 m->rindex = 0;
                 m->root_container.index = 0;
 
@@ -3620,6 +3872,8 @@ int bus_message_dump(sd_bus_message *m) {
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
         size_t total;
         void *p, *e;
+        unsigned i;
+        struct bus_body_part *part;
 
         assert(m);
         assert(buffer);
@@ -3640,8 +3894,8 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
                         e = mempset(e, 0, 8 - (m->header->fields_size % 8));
         }
 
-        if (m->body)
-                e = mempcpy(e, m->body, m->header->body_size);
+        for (i = 0, part = &m->body; i < m->n_body_parts; i++, part = part->next)
+                e = mempcpy(e, part->data, part->size);
 
         assert(total == (size_t) ((uint8_t*) e - (uint8_t*) p));
 
