@@ -33,8 +33,9 @@
 struct bus_container {
         char enclosing;
 
-        char *signature;
         unsigned index, saved_index;
+
+        char *signature;
 
         uint32_t *array_size;
         size_t before, begin;
@@ -51,13 +52,15 @@ struct bus_header {
 } _packed_;
 
 struct bus_body_part {
+        struct bus_body_part *next;
         void *data;
         size_t size;
         size_t mapped;
         int memfd;
         bool free_this:1;
+        bool munmap_this:1;
         bool sealed:1;
-        struct bus_body_part *next;
+        bool is_zero:1;
 };
 
 struct sd_bus_message {

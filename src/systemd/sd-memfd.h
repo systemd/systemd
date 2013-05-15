@@ -35,6 +35,8 @@ typedef struct sd_memfd sd_memfd;
 int sd_memfd_new(sd_memfd **m);
 int sd_memfd_make(int fd, sd_memfd **m);
 
+int sd_memfd_new_and_map(sd_memfd **m, size_t sz, void **p);
+
 void sd_memfd_free(sd_memfd *m);
 
 int sd_memfd_get_fd(sd_memfd *m);

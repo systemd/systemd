@@ -88,6 +88,7 @@
 /test-bus-memfd
 /test-bus-signature
 /test-bus-server
+/test-bus-zero-copy
 /test-calendarspec
 /test-catalog
 /test-cgroup

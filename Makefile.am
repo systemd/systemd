@@ -1758,7 +1758,8 @@ tests += \
 	test-bus-server \
 	test-bus-match \
 	test-bus-kernel \
-	test-bus-memfd
+	test-bus-memfd \
+	test-bus-zero-copy
 
 noinst_PROGRAMS += \
 	busctl
@@ -1837,6 +1838,16 @@ test_bus_memfd_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_bus_memfd_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la
+
+test_bus_zero_copy_SOURCES = \
+	src/libsystemd-bus/test-bus-zero-copy.c
+
+test_bus_zero_copy_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_bus_zero_copy_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la
 

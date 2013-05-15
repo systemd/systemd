@@ -205,3 +205,27 @@ int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
 
         return r;
 }
+
+int sd_memfd_new_and_map(sd_memfd **m, size_t sz, void **p) {
+        sd_memfd *n;
+        int r;
+
+        r = sd_memfd_new(&n);
+        if (r < 0)
+                return r;
+
+        r = sd_memfd_set_size(n, sz);
+        if (r < 0) {
+                sd_memfd_free(n);
+                return r;
+        }
+
+        r = sd_memfd_map(n, 0, sz, p);
+        if (r < 0) {
+                sd_memfd_free(n);
+                return r;
+        }
+
+        *m = n;
+        return 0;
+}

@@ -486,10 +486,11 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                                         part->data = UINT64_TO_PTR(d->vec.address);
                                         part->size = d->vec.size;
                                 } else {
-                                        part->data = (uint8_t*) UINT64_TO_PTR(d->vec.address) + (begin_body - idx);
+                                        part->data = d->vec.address != 0 ? (uint8_t*) UINT64_TO_PTR(d->vec.address) + (begin_body - idx) : NULL;
                                         part->size = d->vec.size - (begin_body - idx);
                                 }
 
+                                part->is_zero = d->vec.address == 0;
                                 part->sealed = true;
                         }
 
