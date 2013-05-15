@@ -71,6 +71,7 @@ static bool arg_no_tail = false;
 static bool arg_quiet = false;
 static bool arg_merge = false;
 static bool arg_this_boot = false;
+static bool arg_dmesg = false;
 static const char *arg_cursor = NULL;
 static const char *arg_directory = NULL;
 static int arg_priorities = 0xFF;
@@ -108,6 +109,7 @@ static int help(void) {
                "     --until=DATE        Stop showing entries older or of the specified date\n"
                "  -c --cursor=CURSOR     Start showing entries from specified cursor\n"
                "  -b --this-boot         Show data only from current boot\n"
+               "  -k --dmesg             Show kmsg log from current boot\n"
                "  -u --unit=UNIT         Show data only from the specified unit\n"
                "     --user-unit=UNIT    Show data only from the specified user session unit\n"
                "  -p --priority=RANGE    Show only messages within the specified priority range\n"
@@ -187,6 +189,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",        no_argument,       NULL, 'q'              },
                 { "merge",        no_argument,       NULL, 'm'              },
                 { "this-boot",    no_argument,       NULL, 'b'              },
+                { "dmesg",        no_argument,       NULL, 'k'              },
                 { "directory",    required_argument, NULL, 'D'              },
                 { "root",         required_argument, NULL, ARG_ROOT         },
                 { "header",       no_argument,       NULL, ARG_HEADER       },
@@ -215,7 +218,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:an::qmbD:p:c:u:F:xr", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hefo:an::qmbkD:p:c:u:F:xr", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -315,6 +318,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'b':
                         arg_this_boot = true;
+                        break;
+
+                case 'k':
+                        arg_this_boot = arg_dmesg = true;
                         break;
 
                 case 'D':
@@ -601,6 +608,26 @@ static int add_this_boot(sd_journal *j) {
 
         sd_id128_to_string(boot_id, match + 9);
         r = sd_journal_add_match(j, match, strlen(match));
+        if (r < 0) {
+                log_error("Failed to add match: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int add_dmesg(sd_journal *j) {
+        int r;
+        assert(j);
+
+        if (!arg_dmesg)
+                return 0;
+
+        r = sd_journal_add_match(j, "_TRANSPORT=kernel", strlen("_TRANSPORT=kernel"));
         if (r < 0) {
                 log_error("Failed to add match: %s", strerror(-r));
                 return r;
@@ -1126,6 +1153,10 @@ int main(int argc, char *argv[]) {
         }
 
         r = add_this_boot(j);
+        if (r < 0)
+                return EXIT_FAILURE;
+
+        r = add_dmesg(j);
         if (r < 0)
                 return EXIT_FAILURE;
 
