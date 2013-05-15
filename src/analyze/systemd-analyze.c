@@ -512,10 +512,10 @@ static int analyze_plot(DBusConnection *bus) {
             "//    line.sec1  { }\n"
             "      line.sec5  { stroke-width: 2; }\n"
             "      line.sec01 { stroke: rgb(224,224,224); stroke-width: 1; }\n"
-            "      text       { font-family: Verdana, Helvetica; font-size: 10; }\n"
-            "      text.left  { font-family: Verdana, Helvetica; font-size: 10; text-anchor: start; }\n"
-            "      text.right { font-family: Verdana, Helvetica; font-size: 10; text-anchor: end; }\n"
-            "      text.sec   { font-size: 8; }\n"
+            "      text       { font-family: Verdana, Helvetica; font-size: 14px; }\n"
+            "      text.left  { font-family: Verdana, Helvetica; font-size: 14px; text-anchor: start; }\n"
+            "      text.right { font-family: Verdana, Helvetica; font-size: 14px; text-anchor: end; }\n"
+            "      text.sec   { font-size: 10px; }\n"
             "    ]]>\n   </style>\n</defs>\n\n");
 
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
