@@ -847,7 +847,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 m->n_reloading ++;
 
         /* First, enumerate what we can from all config files */
+        dual_timestamp_get(&m->unitsload_start_timestamp);
         r = manager_enumerate(m);
+        dual_timestamp_get(&m->unitsload_finish_timestamp);
 
         /* Second, deserialize if there is something to deserialize */
         if (serialization) {

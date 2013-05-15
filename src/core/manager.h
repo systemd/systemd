@@ -152,6 +152,8 @@ struct Manager {
         dual_timestamp finish_timestamp;
         dual_timestamp generators_start_timestamp;
         dual_timestamp generators_finish_timestamp;
+        dual_timestamp unitsload_start_timestamp;
+        dual_timestamp unitsload_finish_timestamp;
 
         char *generator_unit_path;
         char *generator_unit_path_early;
