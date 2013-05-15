@@ -417,8 +417,8 @@ nodist_systemunit_DATA = \
 	units/systemd-initctl.service \
 	units/systemd-shutdownd.service \
 	units/systemd-remount-fs.service \
+	units/systemd-update-utmp.service \
 	units/systemd-update-utmp-runlevel.service \
-	units/systemd-update-utmp-shutdown.service \
 	units/systemd-tmpfiles-setup-dev.service \
 	units/systemd-tmpfiles-setup.service \
 	units/systemd-tmpfiles-clean.service \
@@ -463,8 +463,8 @@ EXTRA_DIST += \
 	units/systemd-initctl.service.in \
 	units/systemd-shutdownd.service.in \
 	units/systemd-remount-fs.service.in \
+	units/systemd-update-utmp.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
-	units/systemd-update-utmp-shutdown.service.in \
 	units/systemd-tmpfiles-setup-dev.service.in \
 	units/systemd-tmpfiles-setup.service.in \
 	units/systemd-tmpfiles-clean.service.in \
@@ -4070,8 +4070,8 @@ RUNLEVEL4_TARGET_WANTS += \
 RUNLEVEL5_TARGET_WANTS += \
 	systemd-update-utmp-runlevel.service
 endif
-SHUTDOWN_TARGET_WANTS += \
-	systemd-update-utmp-shutdown.service
+SYSINIT_TARGET_WANTS += \
+	systemd-update-utmp.service
 LOCAL_FS_TARGET_WANTS += \
 	systemd-remount-fs.service \
 	systemd-fsck-root.service \

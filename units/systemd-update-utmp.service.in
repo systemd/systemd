@@ -6,16 +6,16 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Update UTMP about System Runlevel Changes
+Description=Update UTMP about System Reboot/Shutdown
 Documentation=man:systemd-update-utmp.service(8) man:utmp(5)
 DefaultDependencies=no
 RequiresMountsFor=/var/log/wtmp
 Conflicts=shutdown.target
-Requisite=systemd-update-utmp.service
-After=systemd-update-utmp.service
-After=runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target
-Before=shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
+Before=sysinit.target shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-update-utmp runlevel
+RemainAfterExit=yes
+ExecStart=@rootlibexecdir@/systemd-update-utmp reboot
+ExecStop=@rootlibexecdir@/systemd-update-utmp shutdown

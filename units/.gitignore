@@ -44,8 +44,8 @@
 /systemd-random-seed.service
 /systemd-initctl.service
 /getty@.service
+/systemd-update-utmp.service
 /systemd-update-utmp-runlevel.service
-/systemd-update-utmp-shutdown.service
 /systemd-binfmt.service
 /emergency.service
 /systemd-udev-settle.service

@@ -19,10 +19,10 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="systemd-update-utmp-runlevel.service">
+<refentry id="systemd-update-utmp.service">
 
         <refentryinfo>
-                <title>systemd-update-utmp-runlevel.service</title>
+                <title>systemd-update-utmp.service</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -36,21 +36,21 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-update-utmp-runlevel.service</refentrytitle>
+                <refentrytitle>systemd-update-utmp.service</refentrytitle>
                 <manvolnum>8</manvolnum>
         </refmeta>
 
         <refnamediv>
+                <refname>systemd-update-utmp.service</refname>
                 <refname>systemd-update-utmp-runlevel.service</refname>
-                <refname>systemd-update-utmp-shutdown.service</refname>
                 <refname>systemd-update-utmp</refname>
-                <refpurpose>Write audit and utmp updates at runlevel
+                <refpurpose>Write audit and utmp updates at bootup, runlevel
                 changes and shutdown</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
+                <para><filename>systemd-update-utmp.service</filename></para>
                 <para><filename>systemd-update-utmp-runlevel.service</filename></para>
-                <para><filename>systemd-update-utmp-shutdown.service</filename></para>
                 <para><filename>/usr/lib/systemd/systemd-update-utmp</filename></para>
         </refsynopsisdiv>
 
@@ -60,8 +60,8 @@
                 <para><filename>systemd-update-utmp-runlevel.service</filename>
                 is a service that writes SysV runlevel changes to utmp
                 and wtmp, as well as the audit logs, as they
-                occur. <filename>systemd-update-utmp-shutdown.service</filename>
-                does the same for shut-down requests.</para>
+                occur. <filename>systemd-update-utmp.service</filename>
+                does the same for system reboots and shut-down requests.</para>
         </refsect1>
 
         <refsect1>

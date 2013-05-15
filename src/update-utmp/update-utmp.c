@@ -104,7 +104,7 @@ static int get_current_runlevel(Context *c) {
                 { '3', SPECIAL_RUNLEVEL3_TARGET },
                 { '4', SPECIAL_RUNLEVEL4_TARGET },
                 { '2', SPECIAL_RUNLEVEL2_TARGET },
-                { 'S', SPECIAL_RESCUE_TARGET },
+                { '1', SPECIAL_RESCUE_TARGET },
         };
         const char
                 *interface = "org.freedesktop.systemd1.Unit",
