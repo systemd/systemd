@@ -211,7 +211,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         sz = offsetof(struct kdbus_msg, items);
 
         /* Add in fixed header, fields header and payload */
-        sz += (1 + !!m->fields + m->n_body_parts) *
+        sz += (1 + m->n_body_parts) *
                 ALIGN8(offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec));
 
         /* Add space for bloom filter */
@@ -249,11 +249,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         if (well_known)
                 append_destination(&d, m->destination, dl);
 
-        append_payload_vec(&d, m->header, sizeof(*m->header));
-
-        if (m->fields)
-                append_payload_vec(&d, m->fields, ALIGN8(m->header->fields_size));
-
+        append_payload_vec(&d, m->header, BUS_MESSAGE_BODY_BEGIN(m));
         MESSAGE_FOREACH_PART(part, i, m)
                 append_payload_vec(&d, part->data, part->size);
 
@@ -398,22 +394,6 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
         }
 }
 
-static bool range_contains(
-                size_t astart, size_t asize,
-                size_t bstart, size_t bsize,
-                void *a, void **b) {
-
-        if (bstart < astart)
-                return false;
-
-        if (bstart + bsize > astart + asize)
-                return false;
-
-        *b = (uint8_t*) a + (bstart - astart);
-
-        return true;
-}
-
 static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_message **ret) {
         sd_bus_message *m = NULL;
         struct kdbus_item *d;
@@ -439,10 +419,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                 if (d->type == KDBUS_MSG_PAYLOAD_VEC) {
 
                         if (!h) {
-                                if (d->vec.size < sizeof(struct bus_header))
-                                        return -EBADMSG;
-
                                 h = UINT64_TO_PTR(d->vec.address);
+
+                                if (!bus_header_is_complete(h, d->vec.size))
+                                        return -EBADMSG;
                         }
 
                         n_payload++;
@@ -470,7 +450,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (!h)
                 return -EBADMSG;
 
-        r = bus_header_size(h, &total);
+        r = bus_header_message_size(h, &total);
         if (r < 0)
                 return r;
 
@@ -489,11 +469,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                 if (d->type == KDBUS_MSG_PAYLOAD_VEC) {
                         size_t begin_body;
 
-                        /* Fill in fields material */
-                        range_contains(idx, d->vec.size, ALIGN8(sizeof(struct bus_header)), BUS_MESSAGE_FIELDS_SIZE(m),
-                                       UINT64_TO_PTR(d->vec.address), &m->fields);
-
-                        begin_body = ALIGN8(sizeof(struct bus_header)) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
+                        begin_body = BUS_MESSAGE_BODY_BEGIN(m);
 
                         if (idx + d->vec.size > begin_body) {
                                 struct bus_body_part *part;
@@ -507,10 +483,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                                 }
 
                                 if (idx >= begin_body) {
-                                        part->data = (void*) d->vec.address;
+                                        part->data = UINT64_TO_PTR(d->vec.address);
                                         part->size = d->vec.size;
                                 } else {
-                                        part->data = (uint8_t*) (uintptr_t) d->vec.address + (begin_body - idx);
+                                        part->data = (uint8_t*) UINT64_TO_PTR(d->vec.address) + (begin_body - idx);
                                         part->size = d->vec.size - (begin_body - idx);
                                 }
 
@@ -549,11 +525,6 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                            d->type != KDBUS_MSG_DST_NAME &&
                            d->type != KDBUS_MSG_SRC_SECLABEL)
                         log_debug("Got unknown field from kernel %llu", d->type);
-        }
-
-        if ((BUS_MESSAGE_FIELDS_SIZE(m) > 0 && !m->fields)) {
-                sd_bus_message_unref(m);
-                return -EBADMSG;
         }
 
         r = bus_message_parse_fields(m);

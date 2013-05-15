@@ -116,9 +116,6 @@ static void message_free(sd_bus_message *m) {
         if (m->free_header)
                 free(m->header);
 
-        if (m->free_fields)
-                free(m->fields);
-
         message_reset_parts(m);
 
         if (m->free_kdbus)
@@ -151,66 +148,64 @@ static void message_free(sd_bus_message *m) {
         free(m);
 }
 
-static void* buffer_extend(void **p, uint32_t *sz, size_t align, size_t extend) {
-        size_t start, end;
-        void *k;
-
-        assert(p);
-        assert(sz);
-        assert(align > 0);
-
-        start = ALIGN_TO((size_t) *sz, align);
-        end = start + extend;
-
-        if (end == *sz)
-                return (uint8_t*) *p + start;
-
-        if (end > (size_t) ((uint32_t) -1))
-                return NULL;
-
-        k = realloc(*p, end);
-        if (!k)
-                return NULL;
-
-        /* Zero out padding */
-        if (start > *sz)
-                memset((uint8_t*) k + *sz, 0, start - *sz);
-
-        *p = k;
-        *sz = end;
-
-        return (uint8_t*) k + start;
-}
-
 static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz) {
-        void *p, *op;
-        size_t os;
+        void *op, *np;
+        size_t old_size, new_size, start;
 
         assert(m);
 
         if (m->poisoned)
                 return NULL;
 
-        op = m->fields;
-        os = m->header->fields_size;
+        old_size = sizeof(struct bus_header) + m->header->fields_size;
+        start = ALIGN_TO(old_size, align);
+        new_size = start + sz;
 
-        p = buffer_extend(&m->fields, &m->header->fields_size, align, sz);
-        if (!p) {
-                m->poisoned = true;
-                return NULL;
+        if (old_size == new_size)
+                return (uint8_t*) m->header + old_size;
+
+        if (new_size > (size_t) ((uint32_t) -1))
+                goto poison;
+
+        if (m->free_header) {
+                np = realloc(m->header, ALIGN8(new_size));
+                if (!np)
+                        goto poison;
+        } else {
+                /* Initially, the header is allocated as part of of
+                 * the sd_bus_message itself, let's replace it by
+                 * dynamic data */
+
+                np = malloc(ALIGN8(new_size));
+                if (!np)
+                        goto poison;
+
+                memcpy(np, m->header, sizeof(struct bus_header));
         }
 
+        /* Zero out padding */
+        if (start > old_size)
+                memset((uint8_t*) np + old_size, 0, start - old_size);
+
+        op = m->header;
+        m->header = np;
+        m->header->fields_size = new_size - sizeof(struct bus_header);
+
         /* Adjust quick access pointers */
-        m->path = adjust_pointer(m->path, op, os, m->fields);
-        m->interface = adjust_pointer(m->interface, op, os, m->fields);
-        m->member = adjust_pointer(m->member, op, os, m->fields);
-        m->destination = adjust_pointer(m->destination, op, os, m->fields);
-        m->sender = adjust_pointer(m->sender, op, os, m->fields);
-        m->error.name = adjust_pointer(m->error.name, op, os, m->fields);
+        m->path = adjust_pointer(m->path, op, old_size, m->header);
+        m->interface = adjust_pointer(m->interface, op, old_size, m->header);
+        m->member = adjust_pointer(m->member, op, old_size, m->header);
+        m->destination = adjust_pointer(m->destination, op, old_size, m->header);
+        m->sender = adjust_pointer(m->sender, op, old_size, m->header);
+        m->error.name = adjust_pointer(m->error.name, op, old_size, m->header);
 
-        m->free_fields = true;
+        m->free_header = true;
 
-        return p;
+        return (uint8_t*) np + start;
+
+poison:
+        m->poisoned = true;
+        return NULL;
 }
 
 static int message_append_field_string(
@@ -389,8 +384,6 @@ int bus_message_from_malloc(
                 r = -EBADMSG;
                 goto fail;
         }
-
-        m->fields = (uint8_t*) buffer + sizeof(struct bus_header);
 
         m->n_body_parts = 1;
         m->body.data = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
@@ -3132,7 +3125,7 @@ static int message_peek_fields(
         assert(rindex);
         assert(align > 0);
 
-        return buffer_peek(m->fields, BUS_MESSAGE_FIELDS_SIZE(m), rindex, align, nbytes, ret);
+        return buffer_peek(BUS_MESSAGE_FIELDS(m), BUS_MESSAGE_FIELDS_SIZE(m), rindex, align, nbytes, ret);
 }
 
 static int message_peek_field_uint32(
@@ -3584,21 +3577,13 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
                         return r;
         }
 
+        /* Add padding at the end, since we know the body
+         * needs to start at an 8 byte alignment. */
+
         l = BUS_MESSAGE_FIELDS_SIZE(m);
         a = ALIGN8(l) - l;
-
-        if (a > 0) {
-                /* Add padding at the end, since we know the body
-                 * needs to start at an 8 byte alignment. */
-                void *p;
-
-                p = message_extend_fields(m, 1, a);
-                if (!p)
-                        return -ENOMEM;
-
-                memset(p, 0, a);
-                m->header->fields_size -= a;
-        }
+        if (a > 0)
+                memset((uint8_t*) BUS_MESSAGE_FIELDS(m) + l, 0, a);
 
         MESSAGE_FOREACH_PART(part, i, m)
                 if (part->memfd >= 0 && !part->sealed) {
@@ -3899,15 +3884,7 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
         if (!p)
                 return -ENOMEM;
 
-        e = mempcpy(p, m->header, sizeof(*m->header));
-
-        if (m->fields) {
-                e = mempcpy(e, m->fields, m->header->fields_size);
-
-                if (m->header->fields_size % 8 != 0)
-                        e = mempset(e, 0, 8 - (m->header->fields_size % 8));
-        }
-
+        e = mempcpy(p, m->header, BUS_MESSAGE_BODY_BEGIN(m));
         MESSAGE_FOREACH_PART(part, i, m)
                 e = mempcpy(e, part->data, part->size);
 
@@ -3981,7 +3958,22 @@ const char* bus_message_get_arg(sd_bus_message *m, unsigned i) {
         return t;
 }
 
-int bus_header_size(struct bus_header *h, size_t *sum) {
+bool bus_header_is_complete(struct bus_header *h, size_t size) {
+        size_t full;
+
+        assert(h);
+        assert(size);
+
+        if (size < sizeof(struct bus_header))
+                return false;
+
+        full = sizeof(struct bus_header) +
+                (h->endian == SD_BUS_NATIVE_ENDIAN ? h->fields_size : bswap_32(h->fields_size));
+
+        return size >= full;
+}
+
+int bus_header_message_size(struct bus_header *h, size_t *sum) {
         size_t fs, bs;
 
         assert(h);

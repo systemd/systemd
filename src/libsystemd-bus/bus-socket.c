@@ -83,7 +83,7 @@ static int bus_message_setup_iovec(sd_bus_message *m) {
 
         assert(!m->iovec);
 
-        n = 1 + !!m->fields + m->n_body_parts;
+        n = 1 + m->n_body_parts;
         if (n < ELEMENTSOF(m->iovec_fixed))
                 m->iovec = m->iovec_fixed;
         else {
@@ -92,15 +92,9 @@ static int bus_message_setup_iovec(sd_bus_message *m) {
                         return -ENOMEM;
         }
 
-        r = append_iovec(m, m->header, sizeof(*m->header));
+        r = append_iovec(m, m->header, BUS_MESSAGE_BODY_BEGIN(m));
         if (r < 0)
                 return r;
-
-        if (m->fields) {
-                r = append_iovec(m, m->fields, ALIGN8(m->header->fields_size));
-                if (r < 0)
-                        return r;
-        }
 
         MESSAGE_FOREACH_PART(part, i, m)  {
                 r = append_iovec(m, part->data, part->size);

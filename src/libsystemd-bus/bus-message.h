@@ -89,14 +89,12 @@ struct sd_bus_message {
         bool uid_valid:1;
         bool gid_valid:1;
         bool free_header:1;
-        bool free_fields:1;
         bool free_kdbus:1;
         bool free_fds:1;
         bool release_kdbus:1;
         bool poisoned:1;
 
         struct bus_header *header;
-        void *fields;
         struct bus_body_part body;
         struct bus_body_part *body_end;
         unsigned n_body_parts;
@@ -114,7 +112,7 @@ struct sd_bus_message {
         unsigned n_containers;
 
         struct iovec *iovec;
-        struct iovec iovec_fixed[3];
+        struct iovec iovec_fixed[2];
         unsigned n_iovec;
 
         struct kdbus_msg *kdbus;
@@ -178,6 +176,16 @@ static inline uint32_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
                 BUS_MESSAGE_BODY_SIZE(m);
 }
 
+static inline uint32_t BUS_MESSAGE_BODY_BEGIN(sd_bus_message *m) {
+        return
+                sizeof(struct bus_header) +
+                ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
+}
+
+static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
+        return (uint8_t*) m->header + sizeof(struct bus_header);
+}
+
 static inline void bus_message_unrefp(sd_bus_message **m) {
         sd_bus_message_unref(*m);
 }
@@ -214,7 +222,8 @@ int bus_message_append_ap(sd_bus_message *m, const char *types, va_list ap);
 
 int bus_message_parse_fields(sd_bus_message *m);
 
-int bus_header_size(struct bus_header *h, size_t *sum);
+bool bus_header_is_complete(struct bus_header *h, size_t size);
+int bus_header_message_size(struct bus_header *h, size_t *sum);
 
 struct bus_body_part *message_append_part(sd_bus_message *m);
 
