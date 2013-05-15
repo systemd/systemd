@@ -667,16 +667,11 @@ endif
 
 if ENABLE_RANDOMSEED
 MANPAGES += \
-	man/systemd-random-seed-load.service.8
+	man/systemd-random-seed.service.8
 MANPAGES_ALIAS += \
-	man/systemd-random-seed-save.service.8 \
 	man/systemd-random-seed.8
-man/systemd-random-seed-save.service.8: man/systemd-random-seed-load.service.8
-man/systemd-random-seed.8: man/systemd-random-seed-load.service.8
-man/systemd-random-seed-save.service.html: man/systemd-random-seed-load.service.html
-	$(html-alias)
-
-man/systemd-random-seed.html: man/systemd-random-seed-load.service.html
+man/systemd-random-seed.8: man/systemd-random-seed.service.8
+man/systemd-random-seed.html: man/systemd-random-seed.service.html
 	$(html-alias)
 
 endif

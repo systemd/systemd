@@ -41,8 +41,7 @@
 /systemd-remount-fs.service
 /systemd-vconsole-setup.service
 /systemd-shutdownd.service
-/systemd-random-seed-load.service
-/systemd-random-seed-save.service
+/systemd-random-seed.service
 /systemd-initctl.service
 /getty@.service
 /systemd-update-utmp-runlevel.service

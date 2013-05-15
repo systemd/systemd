@@ -3162,8 +3162,7 @@ rootlibexec_PROGRAMS += \
 	systemd-random-seed
 
 nodist_systemunit_DATA += \
-	units/systemd-random-seed-save.service \
-	units/systemd-random-seed-load.service
+	units/systemd-random-seed.service
 
 systemd_random_seed_SOURCES = \
 	src/random-seed/random-seed.c
@@ -3172,16 +3171,13 @@ systemd_random_seed_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
-SHUTDOWN_TARGET_WANTS += \
-	systemd-random-seed-save.service
 SYSINIT_TARGET_WANTS += \
-	systemd-random-seed-load.service
+	systemd-random-seed.service
 
 endif
 
 EXTRA_DIST += \
-	units/systemd-random-seed-save.service.in \
-	units/systemd-random-seed-load.service.in
+	units/systemd-random-seed.service.in
 
 # ------------------------------------------------------------------------------
 if HAVE_LIBCRYPTSETUP

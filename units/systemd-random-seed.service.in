@@ -6,13 +6,16 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Save Random Seed
+Description=Load/Save Random Seed
 Documentation=man:systemd-random-seed-load.service(8) man:random(4)
 DefaultDependencies=no
 RequiresMountsFor=@RANDOM_SEED@
-After=systemd-remount-fs.service systemd-random-seed-load.service
-Before=final.target
+Conflicts=shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
+Before=sysinit.target shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-random-seed save
+RemainAfterExit=yes
+ExecStart=@rootlibexecdir@/systemd-random-seed load
+ExecStop=@rootlibexecdir@/systemd-random-seed save

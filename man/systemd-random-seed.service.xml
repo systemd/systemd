@@ -19,10 +19,10 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="systemd-random-seed-load.service" conditional='ENABLE_RANDOMSEED'>
+<refentry id="systemd-random-seed.service" conditional='ENABLE_RANDOMSEED'>
 
         <refentryinfo>
-                <title>systemd-random-seed-load.service</title>
+                <title>systemd-random-seed.service</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -36,32 +36,27 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-random-seed-load.service</refentrytitle>
+                <refentrytitle>systemd-random-seed.service</refentrytitle>
                 <manvolnum>8</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>systemd-random-seed-load.service</refname>
-                <refname>systemd-random-seed-save.service</refname>
+                <refname>systemd-random-seed.service</refname>
                 <refname>systemd-random-seed</refname>
                 <refpurpose>Load and save the system random seed at boot and shutdown</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd-random-seed-load.service</filename></para>
-                <para><filename>systemd-random-seed-save.service</filename></para>
+                <para><filename>systemd-random-seed.service</filename></para>
                 <para><filename>/usr/lib/systemd/systemd-random-seed</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para><filename>systemd-random-seed-load.service</filename>
-                is an early-boot service that restores the random seed
-                of the
-                system. <filename>systemd-random-seed-save.service</filename>
-                is a late-shutdown service that saves the random seed
-                of the system. See
+                <para><filename>systemd-random-seed.service</filename>
+                is a service that restores the random seed of the
+                system at early-boot and saves it at shutdown. See
                 <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
                 for details. Saving/restoring the random seed across
                 boots increases the amount of available entropy early
