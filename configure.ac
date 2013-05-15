@@ -72,9 +72,10 @@ AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap])
 AC_PATH_PROG([KILL], [kill], [/usr/bin/kill])
 
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
-m4_ifdef([GTK_DOC_CHECK], [
-GTK_DOC_CHECK([1.18],[--flavour no-tmpl])
-], [AM_CONDITIONAL([ENABLE_GTK_DOC], [false])])
+m4_ifdef([GTK_DOC_CHECK],
+         [GTK_DOC_CHECK([1.18],[--flavour no-tmpl])],
+         [AM_CONDITIONAL([ENABLE_GTK_DOC], [false])
+          enable_gtk_doc=no])
 
 AS_IF([test "x$enable_gtk_doc" = "xyes" -a "x$XSLTPROC" = x], [
         AC_MSG_ERROR([*** GTK doc requested but xsltproc not found])
