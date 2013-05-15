@@ -1332,10 +1332,9 @@ int server_schedule_sync(Server *s) {
                 return 0;
 
         if (s->sync_interval_usec) {
-                struct itimerspec sync_timer_enable = {
-                        .it_value.tv_sec = s->sync_interval_usec / USEC_PER_SEC,
-                        .it_value.tv_nsec = s->sync_interval_usec % MSEC_PER_SEC,
-                };
+                struct itimerspec sync_timer_enable = {};
+
+                timespec_store(&sync_timer_enable.it_value, s->sync_interval_usec);
 
                 r = timerfd_settime(s->sync_timer_fd, 0, &sync_timer_enable, NULL);
                 if (r < 0)
