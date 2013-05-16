@@ -118,24 +118,20 @@ static int found_override(const char *top, const char *bottom) {
         assert(top);
         assert(bottom);
 
-        if (null_or_empty_path(top) > 0) {
-                notify_override_masked(top, bottom);
-                return 0;
-        }
+        if (null_or_empty_path(top) > 0)
+                return notify_override_masked(top, bottom);
 
         k = readlink_malloc(top, &dest);
         if (k >= 0) {
                 if (equivalent(dest, bottom) > 0)
-                        notify_override_equivalent(top, bottom);
+                        return notify_override_equivalent(top, bottom);
                 else
-                        notify_override_redirected(top, bottom);
-
-                return 0;
+                        return notify_override_redirected(top, bottom);
         }
 
-        notify_override_overridden(top, bottom);
+        k = notify_override_overridden(top, bottom);
         if (!arg_diff)
-                return 0;
+                return k;
 
         putchar('\n');
 
@@ -155,7 +151,7 @@ static int found_override(const char *top, const char *bottom) {
 
         putchar('\n');
 
-        return 0;
+        return k;
 }
 
 static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const char *toppath, const char *drop) {
@@ -382,15 +378,14 @@ static int process_suffix(const char *prefixes, const char *suffix, bool dropins
                         k = found_override(f, o);
                         if (k < 0)
                                 r = k;
-                        n_found++;
+                        else
+                                n_found += k;
                 }
 
                 h = hashmap_get(drops, key);
                 if (h)
-                        HASHMAP_FOREACH(o, h, j) {
-                                notify_override_extended(f, o);
-                                n_found++;
-                        }
+                        HASHMAP_FOREACH(o, h, j)
+                                n_found += notify_override_extended(f, o);
         }
 
 finish:
@@ -622,7 +617,8 @@ int main(int argc, char *argv[]) {
         }
 
         if (r >= 0)
-                printf("\n%i overridden configuration files found.\n", n_found);
+                printf("%s%i overridden configuration files found.\n",
+                       n_found ? "\n" : "", n_found);
 
 finish:
         pager_close();
