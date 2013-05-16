@@ -623,6 +623,43 @@ fail:
         return r;
 }
 
+int bus_message_new_synthetic_error(
+                sd_bus *bus,
+                uint64_t serial,
+                const sd_bus_error *e,
+                sd_bus_message **m) {
+
+        sd_bus_message *t;
+        int r;
+
+        assert(sd_bus_error_is_set(e));
+        assert(m);
+
+        t = message_new(bus, SD_BUS_MESSAGE_TYPE_METHOD_ERROR);
+        if (!t)
+                return -ENOMEM;
+
+        t->header->flags |= SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
+        t->reply_serial = serial;
+
+        r = message_append_field_uint32(t, SD_BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_serial);
+        if (r < 0)
+                goto fail;
+
+        if (bus && bus->unique_name) {
+                r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, bus->unique_name, &t->destination);
+                if (r < 0)
+                        goto fail;
+        }
+
+        *m = t;
+        return 0;
+
+fail:
+        message_free(t);
+        return r;
+}
+
 sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
         if (!m)
                 return NULL;
@@ -4239,4 +4276,13 @@ int bus_header_message_size(struct bus_header *h, size_t *sum) {
 
         *sum = sizeof(struct bus_header) + ALIGN8(fs) + bs;
         return 0;
+}
+
+int bus_message_to_errno(sd_bus_message *m) {
+        assert(m);
+
+        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+                return 0;
+
+        return bus_error_to_errno(&m->error);
 }

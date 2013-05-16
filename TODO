@@ -29,6 +29,22 @@ Fedora 19:
 
 Features:
 
+* libsystemd-bus:
+  - default policy (allow uid == 0 and our own uid)
+  - enforce alignment of pointers passed in
+  - negotiation for attach attributes
+  - verify that the PID doesn't change for existing busses
+  - when kdbus doesn't take our message without memfds, try again with memfds
+  - kdbus: generate correct bloom filter for matches
+  - implement translator service
+  - port systemd to new library
+  - implement busname unit type in systemd
+  - move to gvariant
+  - minimal locking around the memfd cache
+  - keep the connection fds around as long as the bus is open
+  - make ref counting atomic
+  - merge busctl into systemctl or so?
+
 * in the final killing spree, detect processes from the root directory, and
   complain loudly if they have argv[0][0] == '@' set.
   https://bugzilla.redhat.com/show_bug.cgi?id=961044

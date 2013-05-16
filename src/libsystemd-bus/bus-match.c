@@ -199,7 +199,6 @@ static bool value_node_same(
 int bus_match_run(
                 sd_bus *bus,
                 struct bus_match_node *node,
-                int ret,
                 sd_bus_message *m) {
 
 
@@ -230,7 +229,7 @@ int bus_match_run(
                  * we won't call any. The children of the root node
                  * are compares or leaves, they will automatically
                  * call their siblings. */
-                return bus_match_run(bus, node->child, ret, m);
+                return bus_match_run(bus, node->child, m);
 
         case BUS_MATCH_VALUE:
 
@@ -240,7 +239,7 @@ int bus_match_run(
                  * automatically call their siblings */
 
                 assert(node->child);
-                return bus_match_run(bus, node->child, ret, m);
+                return bus_match_run(bus, node->child, m);
 
         case BUS_MATCH_LEAF:
 
@@ -257,11 +256,11 @@ int bus_match_run(
 
                 /* Run the callback. And then invoke siblings. */
                 assert(node->leaf.callback);
-                r = node->leaf.callback(bus, ret, m, node->leaf.userdata);
+                r = node->leaf.callback(bus, m, node->leaf.userdata);
                 if (r != 0)
                         return r;
 
-                return bus_match_run(bus, node->next, ret, m);
+                return bus_match_run(bus, node->next, m);
 
         case BUS_MATCH_MESSAGE_TYPE:
                 test_u8 = m->header->type;
@@ -318,7 +317,7 @@ int bus_match_run(
                         found = NULL;
 
                 if (found) {
-                        r = bus_match_run(bus, found, ret, m);
+                        r = bus_match_run(bus, found, m);
                         if (r != 0)
                                 return r;
                 }
@@ -331,7 +330,7 @@ int bus_match_run(
                         if (!value_node_test(c, node->type, test_u8, test_str))
                                 continue;
 
-                        r = bus_match_run(bus, c, ret, m);
+                        r = bus_match_run(bus, c, m);
                         if (r != 0)
                                 return r;
                 }
@@ -341,7 +340,7 @@ int bus_match_run(
                 return 0;
 
         /* And now, let's invoke our siblings */
-        return bus_match_run(bus, node->next, ret, m);
+        return bus_match_run(bus, node->next, m);
 }
 
 static int bus_match_add_compare_value(

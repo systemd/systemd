@@ -30,7 +30,7 @@
 
 static bool mask[32];
 
-static int filter(sd_bus *b, int ret, sd_bus_message *m, void *userdata) {
+static int filter(sd_bus *b, sd_bus_message *m, void *userdata) {
         log_info("Ran %i", PTR_TO_INT(userdata));
         mask[PTR_TO_INT(userdata)] = true;
         return 0;
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
         assert_se(bus_message_seal(m, 1) >= 0);
 
         zero(mask);
-        assert_se(bus_match_run(NULL, &root, 0, m) == 0);
+        assert_se(bus_match_run(NULL, &root, m) == 0);
         assert_se(mask_contains((unsigned[]) { 9, 8, 7, 5, 10, 12, 13, 14 }, 8));
 
         assert_se(bus_match_remove(&root, "member='waldo',path='/foo/bar'", filter, INT_TO_PTR(8)) > 0);
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
         bus_match_dump(&root, 0);
 
         zero(mask);
-        assert_se(bus_match_run(NULL, &root, 0, m) == 0);
+        assert_se(bus_match_run(NULL, &root, m) == 0);
         assert_se(mask_contains((unsigned[]) { 9, 5, 10, 12, 14, 7 }, 6));
 
         for (i = 0; i < _BUS_MATCH_NODE_TYPE_MAX; i++) {

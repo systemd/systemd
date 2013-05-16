@@ -69,7 +69,7 @@ struct bus_match_node {
         };
 };
 
-int bus_match_run(sd_bus *bus, struct bus_match_node *root, int ret, sd_bus_message *m);
+int bus_match_run(sd_bus *bus, struct bus_match_node *root, sd_bus_message *m);
 
 int bus_match_add(struct bus_match_node *root, const char *match, sd_bus_message_handler_t callback, void *userdata, struct bus_match_node **ret);
 int bus_match_remove(struct bus_match_node *root, const char *match, sd_bus_message_handler_t callback, void *userdata);

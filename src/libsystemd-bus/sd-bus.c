@@ -229,17 +229,17 @@ int sd_bus_set_anonymous(sd_bus *bus, int b) {
         return 0;
 }
 
-static int hello_callback(sd_bus *bus, int error, sd_bus_message *reply, void *userdata) {
+static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata) {
         const char *s;
         int r;
 
         assert(bus);
         assert(bus->state == BUS_HELLO);
-
-        if (error != 0)
-                return -error;
-
         assert(reply);
+
+        r = bus_message_to_errno(reply);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(reply, "s", &s);
         if (r < 0)
@@ -1523,6 +1523,7 @@ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
 }
 
 static int process_timeout(sd_bus *bus) {
+        _cleanup_bus_message_unref_ sd_bus_message* m = NULL;
         struct reply_callback *c;
         usec_t n;
         int r;
@@ -1537,10 +1538,18 @@ static int process_timeout(sd_bus *bus) {
         if (c->timeout > n)
                 return 0;
 
+        r = bus_message_new_synthetic_error(
+                        bus,
+                        c->serial,
+                        &SD_BUS_ERROR_MAKE("org.freedesktop.DBus.Error.Timeout", "Timed out"),
+                        &m);
+        if (r < 0)
+                return r;
+
         assert_se(prioq_pop(bus->reply_callbacks_prioq) == c);
         hashmap_remove(bus->reply_callbacks, &c->serial);
 
-        r = c->callback(bus, ETIMEDOUT, NULL, c->userdata);
+        r = c->callback(bus, m, c->userdata);
         free(c);
 
         return r < 0 ? r : 1;
@@ -1590,7 +1599,7 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return r;
 
-        r = c->callback(bus, 0, m, c->userdata);
+        r = c->callback(bus, m, c->userdata);
         free(c);
 
         return r;
@@ -1621,7 +1630,7 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         if (r < 0)
                                 return r;
 
-                        r = l->callback(bus, 0, m, l->userdata);
+                        r = l->callback(bus, m, l->userdata);
                         if (r != 0)
                                 return r;
 
@@ -1641,7 +1650,7 @@ static int process_match(sd_bus *bus, sd_bus_message *m) {
         do {
                 bus->match_callbacks_modified = false;
 
-                r = bus_match_run(bus, &bus->match_callbacks, 0, m);
+                r = bus_match_run(bus, &bus->match_callbacks, m);
                 if (r != 0)
                         return r;
 
@@ -1734,7 +1743,7 @@ static int process_object(sd_bus *bus, sd_bus_message *m) {
                         if (r < 0)
                                 return r;
 
-                        r = c->callback(bus, 0, m, c->userdata);
+                        r = c->callback(bus, m, c->userdata);
                         if (r != 0)
                                 return r;
 
@@ -1764,7 +1773,7 @@ static int process_object(sd_bus *bus, sd_bus_message *m) {
                                 if (r < 0)
                                         return r;
 
-                                r = c->callback(bus, 0, m, c->userdata);
+                                r = c->callback(bus, m, c->userdata);
                                 if (r != 0)
                                         return r;
 

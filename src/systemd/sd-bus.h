@@ -41,13 +41,6 @@ extern "C" {
 #  endif
 #endif
 
-/* TODO:
- * - merge busctl into systemctl or so?
- * - default policy (allow uid == 0 and our own uid)
- * - enforce alignment of pointers passed in
- * - negotiation for attach attributes
- */
-
 typedef struct sd_bus sd_bus;
 typedef struct sd_bus_message sd_bus_message;
 
@@ -57,7 +50,7 @@ typedef struct {
         int need_free;
 } sd_bus_error;
 
-typedef int (*sd_bus_message_handler_t)(sd_bus *bus, int ret, sd_bus_message *m, void *userdata);
+typedef int (*sd_bus_message_handler_t)(sd_bus *bus, sd_bus_message *m, void *userdata);
 
 /* Connections */
 

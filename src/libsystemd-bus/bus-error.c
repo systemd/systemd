@@ -142,6 +142,9 @@ int bus_error_to_errno(const sd_bus_error* e) {
 
         /* Better replce this with a gperf table */
 
+        if (!e)
+                return -EIO;
+
         if (!e->name)
                 return -EIO;
 
@@ -152,6 +155,30 @@ int bus_error_to_errno(const sd_bus_error* e) {
             streq(e->name, "org.freedesktop.DBus.Error.AccessDenied"))
                 return -EPERM;
 
+        if (streq(e->name, "org.freedesktop.DBus.Error.InvalidArgs"))
+                return -EINVAL;
+
+        if (streq(e->name, "org.freedesktop.DBus.Error.UnixProcessIdUnknown"))
+                return -ESRCH;
+
+        if (streq(e->name, "org.freedesktop.DBus.Error.FileNotFound"))
+                return -ENOENT;
+
+        if (streq(e->name, "org.freedesktop.DBus.Error.FileExists"))
+                return -EEXIST;
+
+        if (streq(e->name, "org.freedesktop.DBus.Error.Timeout"))
+                return -ETIMEDOUT;
+
+        if (streq(e->name, "org.freedesktop.DBus.Error.IOError"))
+                return -EIO;
+
+        if (streq(e->name, "org.freedesktop.DBus.Error.Disconnected"))
+                return -ECONNRESET;
+
+        if (streq(e->name, "org.freedesktop.DBus.Error.NotSupported"))
+                return -ENOTSUP;
+
         return -EIO;
 }
 
@@ -159,13 +186,54 @@ int bus_error_from_errno(sd_bus_error *e, int error) {
         if (!e)
                 return error;
 
-        if (error == -ENOMEM)
-                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.NoMemory", strerror(-error));
-        else if (error == -EPERM || error == -EACCES)
-                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.AccessDenied", strerror(-error));
-        else
-                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.Failed", "Operation failed");
+        switch (error) {
 
+        case -ENOMEM:
+                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.NoMemory", "Out of memory");
+                break;
+
+        case -EPERM:
+        case -EACCES:
+                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.AccessDenied", "Access denied");
+                break;
+
+        case -EINVAL:
+                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.InvalidArgs", "Invalid argument");
+                break;
+
+        case -ESRCH:
+                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.UnixProcessIdUnknown", "No such process");
+                break;
+
+        case -ENOENT:
+                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.FileNotFound", "File not found");
+                break;
+
+        case -EEXIST:
+                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.FileExists", "File exists");
+                break;
+
+        case -ETIMEDOUT:
+        case -ETIME:
+                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.Timeout", "Timed out");
+                break;
+
+        case -EIO:
+                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.IOError", "Input/output error");
+                break;
+
+        case -ENETRESET:
+        case -ECONNABORTED:
+        case -ECONNRESET:
+                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.Disconnected", "Disconnected");
+                break;
+
+        case -ENOTSUP:
+                sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.NotSupported", "Not supported");
+                break;
+        }
+
+        sd_bus_error_set_const(e, "org.freedesktop.DBus.Error.Failed", "Operation failed");
         return error;
 }
 
