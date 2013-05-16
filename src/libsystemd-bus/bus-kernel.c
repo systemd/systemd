@@ -69,6 +69,10 @@ static void append_payload_vec(struct kdbus_item **d, const void *p, size_t sz) 
 
         *d = ALIGN8_PTR(*d);
 
+        /* Note that p can be NULL, which encodes a region full of
+         * zeroes, which is useful to optimize certain padding
+         * conditions */
+
         (*d)->size = offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec);
         (*d)->type = KDBUS_MSG_PAYLOAD_VEC;
         (*d)->vec.address = PTR_TO_UINT64(p);
@@ -244,9 +248,12 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 sz += ALIGN8(offsetof(struct kdbus_item, fds) + sizeof(int)*m->n_fds);
 
         m->kdbus = memalign(8, sz);
-        if (!m->kdbus)
-                return -ENOMEM;
+        if (!m->kdbus) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
+        m->free_kdbus = true;
         memset(m->kdbus, 0, sz);
 
         m->kdbus->flags =
@@ -269,24 +276,28 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         MESSAGE_FOREACH_PART(part, i, m) {
                 if (part->is_zero) {
+                        /* If this is padding then simply send a
+                         * vector with a NULL data pointer which the
+                         * kernel will just pass through. This is the
+                         * most efficient way to encode zeroes */
+
                         append_payload_vec(&d, NULL, part->size);
                         continue;
                 }
 
-                if (part->memfd >= 0 && part->sealed) {
-                        bus_body_part_unmap(part);
+                if (part->memfd >= 0 && part->sealed && m->destination) {
+                        /* Try to send a memfd, if the part is
+                         * sealed and this is not a broadcast. Since we can only  */
 
-                        if (!part->data) {
-                                append_payload_memfd(&d, part->memfd, part->size);
-                                continue;
-                        }
+                        append_payload_memfd(&d, part->memfd, part->size);
+                        continue;
                 }
 
-                if (part->memfd >= 0) {
-                        r = bus_body_part_map(part);
-                        if (r < 0)
-                                goto fail;
-                }
+                /* Otherwise let's send a vector to the actual data,
+                 * for that we need to map it first. */
+                r = bus_body_part_map(part);
+                if (r < 0)
+                        goto fail;
 
                 append_payload_vec(&d, part->data, part->size);
         }
@@ -306,13 +317,10 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         m->kdbus->size = (uint8_t*) d - (uint8_t*) m->kdbus;
         assert(m->kdbus->size <= sz);
 
-        m->free_kdbus = true;
-
         return 0;
 
 fail:
-        free(m->kdbus);
-        m->kdbus = NULL;
+        m->poisoned = true;
         return r;
 }
 

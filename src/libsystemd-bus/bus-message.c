@@ -59,6 +59,8 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
         assert(part);
 
         if (part->memfd >= 0) {
+                /* If we can reuse the memfd, try that. For that it
+                 * can't be sealed yet. */
 
                 if (!part->sealed)
                         bus_kernel_push_memfd(m->bus, part->memfd, part->data, part->mapped);
@@ -3239,7 +3241,7 @@ int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, si
                 return align;
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, CHAR_TO_STR(type));
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         c = message_get_container(m);
@@ -3730,21 +3732,27 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
                         return r;
         }
 
-        /* Add padding at the end, since we know the body
-         * needs to start at an 8 byte alignment. */
-
+        /* Add padding at the end of the fields part, since we know
+         * the body needs to start at an 8 byte alignment. We made
+         * sure we allocated enough space for this, so all we need to
+         * do here is to zero it out. */
         l = BUS_MESSAGE_FIELDS_SIZE(m);
         a = ALIGN8(l) - l;
         if (a > 0)
                 memset((uint8_t*) BUS_MESSAGE_FIELDS(m) + l, 0, a);
 
-        MESSAGE_FOREACH_PART(part, i, m)
-                if (part->memfd >= 0 && !part->sealed) {
-                        bus_body_part_unmap(part);
+        /* If this is something we can send as memfd, then let's seal
+        the memfd now. Note that we can send memfds as payload only
+        for directed messages, and not for broadcasts. */
+        if (m->destination) {
+                MESSAGE_FOREACH_PART(part, i, m)
+                        if (part->memfd >= 0 && !part->sealed && part->size > MEMFD_MIN_SIZE) {
+                                bus_body_part_unmap(part);
 
-                        if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SEAL_SET, 1) >= 0)
-                                part->sealed = true;
-                }
+                                if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SEAL_SET, 1) >= 0)
+                                        part->sealed = true;
+                        }
+        }
 
         m->header->serial = serial;
         m->sealed = true;

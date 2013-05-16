@@ -88,23 +88,33 @@ static int bus_message_setup_iovec(sd_bus_message *m) {
                 m->iovec = m->iovec_fixed;
         else {
                 m->iovec = new(struct iovec, n);
-                if (!m->iovec)
-                        return -ENOMEM;
+                if (!m->iovec) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
         }
 
         r = append_iovec(m, m->header, BUS_MESSAGE_BODY_BEGIN(m));
         if (r < 0)
-                return r;
+                goto fail;
 
         MESSAGE_FOREACH_PART(part, i, m)  {
+                r = bus_body_part_map(part);
+                if (r < 0)
+                        goto fail;
+
                 r = append_iovec(m, part->data, part->size);
                 if (r < 0)
-                        return r;
+                        goto fail;
         }
 
         assert(n == m->n_iovec);
 
         return 0;
+
+fail:
+        m->poisoned = true;
+        return r;
 }
 
 bool bus_socket_auth_needs_write(sd_bus *b) {

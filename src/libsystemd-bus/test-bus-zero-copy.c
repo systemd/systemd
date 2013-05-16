@@ -31,14 +31,19 @@
 #include "bus-error.h"
 #include "bus-kernel.h"
 
+#define FIRST_ARRAY 17
+#define SECOND_ARRAY 33
+
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *bus_name = NULL, *address = NULL;
-        void *p;
+        uint8_t *p;
         sd_bus *a, *b;
         int r, bus_ref;
         sd_bus_message *m;
         sd_memfd *f;
         uint64_t sz;
+        uint32_t u32;
+        size_t i, l;
 
         log_set_max_level(LOG_DEBUG);
 
@@ -75,20 +80,20 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_open_container(m, 'r', "ayay");
         assert_se(r >= 0);
 
-        r = sd_bus_message_append_array_space(m, 'y', 32, &p);
+        r = sd_bus_message_append_array_space(m, 'y', FIRST_ARRAY, (void**) &p);
         assert_se(r >= 0);
 
-        memset(p, 'L', 32);
+        memset(p, 'L', FIRST_ARRAY);
 
-        r = sd_memfd_new_and_map(&f, 17, &p);
+        r = sd_memfd_new_and_map(&f, SECOND_ARRAY, (void**) &p);
         assert_se(r >= 0);
 
-        memset(p, 'P', 17);
-        munmap(p, 17);
+        memset(p, 'P', SECOND_ARRAY);
+        munmap(p, SECOND_ARRAY);
 
         r = sd_memfd_get_size(f, &sz);
         assert_se(r >= 0);
-        assert_se(sz == 17);
+        assert_se(sz == SECOND_ARRAY);
 
         r = sd_bus_message_append_array_memfd(m, 'y', f);
         assert_se(r >= 0);
@@ -115,6 +120,32 @@ int main(int argc, char *argv[]) {
         assert_se(r > 0);
 
         bus_message_dump(m);
+        sd_bus_message_rewind(m, true);
+
+        r = sd_bus_message_enter_container(m, 'r', "ayay");
+        assert_se(r > 0);
+
+        r = sd_bus_message_read_array(m, 'y', (const void**) &p, &l);
+        assert_se(r > 0);
+        assert_se(l == FIRST_ARRAY);
+
+        for (i = 0; i < l; i++)
+                assert_se(p[i] == 'L');
+
+        r = sd_bus_message_read_array(m, 'y', (const void**) &p, &l);
+        assert_se(r > 0);
+        assert_se(l == SECOND_ARRAY);
+
+        for (i = 0; i < l; i++)
+                assert_se(p[i] == 'P');
+
+        r = sd_bus_message_exit_container(m);
+        assert_se(r > 0);
+
+        r = sd_bus_message_read(m, "u", &u32);
+        assert_se(r > 0);
+        assert_se(u32 == 4711);
+
         sd_bus_message_unref(m);
 
         sd_bus_unref(a);
