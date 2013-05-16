@@ -695,7 +695,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/fileio.h \
 	src/shared/output-mode.h \
 	src/shared/MurmurHash3.c \
-	src/shared/MurmurHash3.h
+	src/shared/MurmurHash3.h \
+	src/shared/refcnt.h
 
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \

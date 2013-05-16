@@ -29,6 +29,7 @@
 #include "prioq.h"
 #include "list.h"
 #include "util.h"
+#include "refcnt.h"
 
 #include "sd-bus.h"
 #include "bus-error.h"
@@ -77,7 +78,16 @@ enum bus_auth {
 };
 
 struct sd_bus {
-        unsigned n_ref;
+        /* We use atomic ref counting here since sd_bus_message
+           objects retain references to their originating sd_bus but
+           we want to allow them to be processed in a different
+           thread. We won't provide full thread safety, but only the
+           bare minimum that makes it possible to use sd_bus and
+           sd_bus_message objects independently and on different
+           threads as long as each object is used only once at the
+           same time. */
+        RefCount n_ref;
+
         enum bus_state state;
         int input_fd, output_fd;
         int message_version;

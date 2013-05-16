@@ -42,8 +42,8 @@ Features:
   - move to gvariant
   - minimal locking around the memfd cache
   - keep the connection fds around as long as the bus is open
-  - make ref counting atomic
   - merge busctl into systemctl or so?
+  - synthesize sd_bus_message objects from kernel messages
 
 * in the final killing spree, detect processes from the root directory, and
   complain loudly if they have argv[0][0] == '@' set.

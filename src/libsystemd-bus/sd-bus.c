@@ -103,7 +103,7 @@ int sd_bus_new(sd_bus **ret) {
         if (!r)
                 return -ENOMEM;
 
-        r->n_ref = 1;
+        r->n_ref = REFCNT_INIT;
         r->input_fd = r->output_fd = -1;
         r->message_version = 1;
         r->negotiate_fds = true;
@@ -934,9 +934,8 @@ sd_bus *sd_bus_ref(sd_bus *bus) {
         if (!bus)
                 return NULL;
 
-        assert(bus->n_ref > 0);
+        assert_se(REFCNT_INC(bus->n_ref) >= 2);
 
-        bus->n_ref++;
         return bus;
 }
 
@@ -944,10 +943,7 @@ sd_bus *sd_bus_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
 
-        assert(bus->n_ref > 0);
-        bus->n_ref--;
-
-        if (bus->n_ref <= 0)
+        if (REFCNT_DEC(bus->n_ref) <= 0)
                 bus_free(bus);
 
         return NULL;
