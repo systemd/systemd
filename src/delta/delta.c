@@ -31,6 +31,7 @@
 #include "log.h"
 #include "pager.h"
 #include "build.h"
+#include "strv.h"
 
 static bool arg_no_pager = false;
 static int arg_diff = -1;
@@ -41,9 +42,10 @@ static enum {
         SHOW_REDIRECTED = 1 << 2,
         SHOW_OVERRIDDEN = 1 << 3,
         SHOW_UNCHANGED = 1 << 4,
+        SHOW_EXTENDED = 1 << 5,
 
         SHOW_DEFAULTS =
-        (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN)
+        (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN | SHOW_EXTENDED)
 } arg_flags = 0;
 
 static int equivalent(const char *a, const char *b) {
@@ -89,6 +91,14 @@ static int notify_override_overridden(const char *top, const char *bottom) {
                 return 0;
 
         printf(ANSI_HIGHLIGHT_ON "[OVERRIDDEN]" ANSI_HIGHLIGHT_OFF " %s → %s\n", top, bottom);
+        return 1;
+}
+
+static int notify_override_extended(const char *top, const char *bottom) {
+        if (!(arg_flags & SHOW_EXTENDED))
+               return 0;
+
+        printf(ANSI_HIGHLIGHT_ON "[EXTENDED]" ANSI_HIGHLIGHT_OFF "   %s → %s\n", top, bottom);
         return 1;
 }
 
@@ -148,11 +158,114 @@ static int found_override(const char *top, const char *bottom) {
         return 0;
 }
 
-static int enumerate_dir(Hashmap *top, Hashmap *bottom, const char *path) {
+static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const char *toppath, const char *drop) {
+        _cleanup_free_ char *conf = NULL;
+        _cleanup_free_ char *path = NULL;
+        _cleanup_strv_free_ char **list = NULL;
+        char **file;
+        char *c;
+        int r;
+
+        path = strjoin(toppath, "/", drop, NULL);
+        if (!path)
+                return -ENOMEM;
+
+        path_kill_slashes(path);
+
+        conf = strdup(drop);
+        if (!conf)
+                return -ENOMEM;
+
+        c = strrchr(conf, '.');
+        if (!c)
+                return -EINVAL;
+        *c = 0;
+
+        r = get_files_in_directory(path, &list);
+        if (r < 0){
+                log_error("Failed to enumerate %s: %s", path, strerror(-r));
+                return r;
+        }
+
+        STRV_FOREACH(file, list) {
+                Hashmap *h;
+                int k;
+                char *p;
+                char *d;
+
+                if (!endswith(*file, ".conf"))
+                        continue;
+
+                p = strjoin(path, "/", *file, NULL);
+                if (!p)
+                        return -ENOMEM;
+
+                path_kill_slashes(p);
+
+                d = strrchr(p, '/');
+                if (!d || d == p) {
+                        free(p);
+                        return -EINVAL;
+                }
+                d--;
+                d = strrchr(p, '/');
+
+                if (!d || d == p) {
+                        free(p);
+                        return -EINVAL;
+                }
+
+                k = hashmap_put(top, d, p);
+                if (k >= 0) {
+                        p = strdup(p);
+                        if (!p)
+                                return -ENOMEM;
+                        d = strrchr(p, '/');
+                        d--;
+                        d = strrchr(p, '/');
+                } else if (k != -EEXIST) {
+                        free(p);
+                        return k;
+                }
+
+                free(hashmap_remove(bottom, d));
+                k = hashmap_put(bottom, d, p);
+                if (k < 0) {
+                        free(p);
+                        return k;
+                }
+
+                h = hashmap_get(drops, conf);
+                if (!h) {
+                        h = hashmap_new(string_hash_func, string_compare_func);
+                        if (!h)
+                                return -ENOMEM;
+                        hashmap_put(drops, conf, h);
+                        conf = strdup(conf);
+                        if (!conf)
+                                return -ENOMEM;
+                }
+
+                p = strdup(p);
+                if (!p)
+                        return -ENOMEM;
+
+                k = hashmap_put(h, path_get_file_name(p), p);
+                if (k < 0) {
+                        free(p);
+                        if (k != -EEXIST)
+                                return k;
+                }
+        }
+        return 0;
+}
+
+static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const char *path, bool dropins) {
         _cleanup_closedir_ DIR *d;
 
         assert(top);
         assert(bottom);
+        assert(drops);
         assert(path);
 
         d = opendir(path);
@@ -176,6 +289,9 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, const char *path) {
 
                 if (!de)
                         break;
+
+                if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d"))
+                        enumerate_dir_d(top, bottom, drops, path, de->d_name);
 
                 if (!dirent_is_file(de))
                         continue;
@@ -207,12 +323,14 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, const char *path) {
         return 0;
 }
 
-static int process_suffix(const char *prefixes, const char *suffix) {
+static int process_suffix(const char *prefixes, const char *suffix, bool dropins) {
         const char *p;
         char *f;
-        Hashmap *top, *bottom=NULL;
+        Hashmap *top, *bottom=NULL, *drops=NULL;
+        Hashmap *h;
+        char *key;
         int r = 0, k;
-        Iterator i;
+        Iterator i, j;
         int n_found = 0;
 
         assert(prefixes);
@@ -230,6 +348,12 @@ static int process_suffix(const char *prefixes, const char *suffix) {
                 goto finish;
         }
 
+        drops = hashmap_new(string_hash_func, string_compare_func);
+        if (!drops) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
         NULSTR_FOREACH(p, prefixes) {
                 _cleanup_free_ char *t = NULL;
 
@@ -239,29 +363,34 @@ static int process_suffix(const char *prefixes, const char *suffix) {
                         goto finish;
                 }
 
-                k = enumerate_dir(top, bottom, t);
+                k = enumerate_dir(top, bottom, drops, t, dropins);
                 if (k < 0)
                         r = k;
 
                 log_debug("Looking at %s", t);
         }
 
-        HASHMAP_FOREACH(f, top, i) {
+        HASHMAP_FOREACH_KEY(f, key, top, i) {
                 char *o;
 
-                o = hashmap_get(bottom, path_get_file_name(f));
+                o = hashmap_get(bottom, key);
                 assert(o);
 
-                if (path_equal(o, f)) {
+                if (path_equal(o, f))
                         notify_override_unchanged(f);
-                        continue;
+                else {
+                        k = found_override(f, o);
+                        if (k < 0)
+                                r = k;
+                        n_found++;
                 }
 
-                k = found_override(f, o);
-                if (k < 0)
-                        r = k;
-
-                n_found ++;
+                h = hashmap_get(drops, key);
+                if (h)
+                        HASHMAP_FOREACH(o, h, j) {
+                                notify_override_extended(f, o);
+                                n_found++;
+                        }
         }
 
 finish:
@@ -269,25 +398,32 @@ finish:
                 hashmap_free_free(top);
         if (bottom)
                 hashmap_free_free(bottom);
-
+        if (drops) {
+                HASHMAP_FOREACH_KEY(h, key, drops, i){
+                        hashmap_free_free(hashmap_remove(drops, key));
+                        hashmap_remove(drops, key);
+                        free(key);
+                }
+                hashmap_free(drops);
+        }
         return r < 0 ? r : n_found;
 }
 
-static int process_suffix_chop(const char *prefixes, const char *suffix) {
+static int process_suffix_chop(const char *prefixes, const char *suffix, const char *have_dropins) {
         const char *p;
 
         assert(prefixes);
         assert(suffix);
 
         if (!path_is_absolute(suffix))
-                return process_suffix(prefixes, suffix);
+                return process_suffix(prefixes, suffix, nulstr_contains(have_dropins, suffix));
 
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
                 if (startswith(suffix, p)) {
                         suffix += strlen(p);
                         suffix += strspn(suffix, "/");
-                        return process_suffix(prefixes, suffix);
+                        return process_suffix(prefixes, suffix, nulstr_contains(have_dropins, suffix));
                 }
         }
 
@@ -322,6 +458,8 @@ static int parse_flags(const char *flag_str, int flags) {
                         flags |= SHOW_OVERRIDDEN;
                 else if (strneq("unchanged", w, l))
                         flags |= SHOW_UNCHANGED;
+                else if (strneq("extended", w, l))
+                        flags |= SHOW_EXTENDED;
                 else if (strneq("default", w, l))
                         flags |= SHOW_DEFAULTS;
                 else
@@ -435,6 +573,10 @@ int main(int argc, char *argv[]) {
                 "udev/rules.d\0"
                 "modprobe.d\0";
 
+        const char have_dropins[] =
+                "systemd/system\0"
+                "systemd/user\0";
+
         int r = 0, k;
         int n_found = 0;
 
@@ -460,7 +602,7 @@ int main(int argc, char *argv[]) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        k = process_suffix_chop(prefixes, argv[i]);
+                        k = process_suffix_chop(prefixes, argv[i], have_dropins);
                         if (k < 0)
                                 r = k;
                         else
@@ -471,7 +613,7 @@ int main(int argc, char *argv[]) {
                 const char *n;
 
                 NULSTR_FOREACH(n, suffixes) {
-                        k = process_suffix(prefixes, n);
+                        k = process_suffix(prefixes, n, nulstr_contains(have_dropins, n));
                         if (k < 0)
                                 r = k;
                         else

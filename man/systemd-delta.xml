@@ -141,6 +141,13 @@
                                                 </varlistentry>
 
                                                 <varlistentry>
+                                                        <term><varname>extended</varname></term>
+
+                                                        <listitem><para>Show *.conf files in drop-in
+                                                        directories for units.</para></listitem>
+                                                </varlistentry>
+
+                                                <varlistentry>
                                                         <term><varname>unchanged</varname></term>
 
                                                         <listitem><para>Show unmodified
