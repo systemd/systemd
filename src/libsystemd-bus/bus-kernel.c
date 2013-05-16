@@ -65,15 +65,28 @@ static int parse_unique_name(const char *s, uint64_t *id) {
 
 static void append_payload_vec(struct kdbus_item **d, const void *p, size_t sz) {
         assert(d);
-        assert(p);
         assert(sz > 0);
 
         *d = ALIGN8_PTR(*d);
 
         (*d)->size = offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec);
         (*d)->type = KDBUS_MSG_PAYLOAD_VEC;
-        (*d)->vec.address = (uint64_t) p;
+        (*d)->vec.address = PTR_TO_UINT64(p);
         (*d)->vec.size = sz;
+
+        *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
+}
+
+static void append_payload_memfd(struct kdbus_item **d, int memfd, size_t sz) {
+        assert(d);
+        assert(memfd >= 0);
+        assert(sz > 0);
+
+        *d = ALIGN8_PTR(*d);
+        (*d)->size = offsetof(struct kdbus_item, memfd) + sizeof(struct kdbus_memfd);
+        (*d)->type = KDBUS_MSG_PAYLOAD_MEMFD;
+        (*d)->memfd.fd = memfd;
+        (*d)->memfd.size = sz;
 
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
 }
@@ -210,6 +223,9 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
 
         sz = offsetof(struct kdbus_msg, items);
 
+        assert_cc(ALIGN8(offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec)) ==
+                  ALIGN8(offsetof(struct kdbus_item, memfd) + sizeof(struct kdbus_memfd)));
+
         /* Add in fixed header, fields header and payload */
         sz += (1 + m->n_body_parts) *
                 ALIGN8(offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec));
@@ -250,19 +266,38 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 append_destination(&d, m->destination, dl);
 
         append_payload_vec(&d, m->header, BUS_MESSAGE_BODY_BEGIN(m));
-        MESSAGE_FOREACH_PART(part, i, m)
+
+        MESSAGE_FOREACH_PART(part, i, m) {
+                if (part->is_zero) {
+                        append_payload_vec(&d, NULL, part->size);
+                        continue;
+                }
+
+                if (part->memfd >= 0 && part->sealed) {
+                        bus_body_part_unmap(part);
+
+                        if (!part->data) {
+                                append_payload_memfd(&d, part->memfd, part->size);
+                                continue;
+                        }
+                }
+
+                if (part->memfd >= 0) {
+                        r = bus_body_part_map(part);
+                        if (r < 0)
+                                goto fail;
+                }
+
                 append_payload_vec(&d, part->data, part->size);
+        }
 
         if (m->kdbus->dst_id == KDBUS_DST_ID_BROADCAST) {
                 void *p;
 
                 p = append_bloom(&d, BLOOM_SIZE);
                 r = bus_message_setup_bloom(m, p);
-                if (r < 0) {
-                        free(m->kdbus);
-                        m->kdbus = NULL;
-                        return -r;
-                }
+                if (r < 0)
+                        goto fail;
         }
 
         if (m->n_fds > 0)
@@ -274,6 +309,11 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         m->free_kdbus = true;
 
         return 0;
+
+fail:
+        free(m->kdbus);
+        m->kdbus = NULL;
+        return r;
 }
 
 int bus_kernel_take_fd(sd_bus *b) {

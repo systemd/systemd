@@ -232,3 +232,6 @@ struct bus_body_part *message_append_part(sd_bus_message *m);
 
 #define MESSAGE_FOREACH_PART(part, i, m) \
         for ((i) = 0, (part) = &(m)->body; (i) < (m)->n_body_parts; (i)++, (part) = (part)->next)
+
+int bus_body_part_map(struct bus_body_part *part);
+void bus_body_part_unmap(struct bus_body_part *part);

@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
         int r, bus_ref;
         sd_bus_message *m;
         sd_memfd *f;
+        uint64_t sz;
 
         log_set_max_level(LOG_DEBUG);
 
@@ -79,19 +80,25 @@ int main(int argc, char *argv[]) {
 
         memset(p, 'L', 32);
 
-        r = sd_memfd_new_and_map(&f, 32, &p);
+        r = sd_memfd_new_and_map(&f, 17, &p);
         assert_se(r >= 0);
 
-        memset(p, 'P', 32);
-        munmap(p, 32);
+        memset(p, 'P', 17);
+        munmap(p, 17);
 
-        r = sd_memfd_set_size(f, 32);
+        r = sd_memfd_get_size(f, &sz);
         assert_se(r >= 0);
+        assert_se(sz == 17);
 
         r = sd_bus_message_append_array_memfd(m, 'y', f);
         assert_se(r >= 0);
 
+        sd_memfd_free(f);
+
         r = sd_bus_message_close_container(m);
+        assert_se(r >= 0);
+
+        r = sd_bus_message_append(m, "u", 4711);
         assert_se(r >= 0);
 
         r = bus_message_seal(m, 55);
@@ -106,7 +113,6 @@ int main(int argc, char *argv[]) {
 
         sd_bus_unref(a);
         sd_bus_unref(b);
-        sd_memfd_free(f);
 
         return 0;
 }
