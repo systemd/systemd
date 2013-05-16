@@ -34,6 +34,8 @@
 #define FIRST_ARRAY 17
 #define SECOND_ARRAY 33
 
+#define STRING_SIZE 123
+
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *bus_name = NULL, *address = NULL;
         uint8_t *p;
@@ -44,6 +46,7 @@ int main(int argc, char *argv[]) {
         uint64_t sz;
         uint32_t u32;
         size_t i, l;
+        char *s;
 
         log_set_max_level(LOG_DEBUG);
 
@@ -77,13 +80,31 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_new_method_call(b, ":1.1", "/a/path", "an.inter.face", "AMethod", &m);
         assert_se(r >= 0);
 
-        r = sd_bus_message_open_container(m, 'r', "ayay");
+        r = sd_bus_message_open_container(m, 'r', "aysay");
         assert_se(r >= 0);
 
         r = sd_bus_message_append_array_space(m, 'y', FIRST_ARRAY, (void**) &p);
         assert_se(r >= 0);
 
         memset(p, 'L', FIRST_ARRAY);
+
+        r = sd_memfd_new_and_map(&f, STRING_SIZE, (void**) &s);
+        assert_se(r >= 0);
+
+        for (i = 0; i < STRING_SIZE-1; i++)
+                s[i] = '0' + (i % 10);
+
+        s[STRING_SIZE-1] = 0;
+        munmap(s, STRING_SIZE);
+
+        r = sd_memfd_get_size(f, &sz);
+        assert_se(r >= 0);
+        assert_se(sz == STRING_SIZE);
+
+        r = sd_bus_message_append_string_memfd(m, f);
+        assert_se(r >= 0);
+
+        sd_memfd_free(f);
 
         r = sd_memfd_new_and_map(&f, SECOND_ARRAY, (void**) &p);
         assert_se(r >= 0);
@@ -122,7 +143,7 @@ int main(int argc, char *argv[]) {
         bus_message_dump(m);
         sd_bus_message_rewind(m, true);
 
-        r = sd_bus_message_enter_container(m, 'r', "ayay");
+        r = sd_bus_message_enter_container(m, 'r', "aysay");
         assert_se(r > 0);
 
         r = sd_bus_message_read_array(m, 'y', (const void**) &p, &l);
@@ -131,6 +152,13 @@ int main(int argc, char *argv[]) {
 
         for (i = 0; i < l; i++)
                 assert_se(p[i] == 'L');
+
+        r = sd_bus_message_read(m, "s", &s);
+        assert_se(r > 0);
+
+        for (i = 0; i < STRING_SIZE-1; i++)
+                assert_se(s[i] == (char) ('0' + (i % 10)));
+        assert_se(s[STRING_SIZE-1] == 0);
 
         r = sd_bus_message_read_array(m, 'y', (const void**) &p, &l);
         assert_se(r > 0);

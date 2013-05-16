@@ -1296,7 +1296,6 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         ssize_t align, sz;
         uint32_t k;
         void *a;
-        char *e = NULL;
         int fd = -1;
         uint32_t fdi = 0;
         int r;
@@ -1320,6 +1319,8 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                 if (c->signature[c->index] != type)
                         return -ENXIO;
         } else {
+                char *e;
+
                 /* Maybe we can append to the signature? But only if this is the top-level container*/
                 if (c->enclosing != 0)
                         return -ENXIO;
@@ -1452,7 +1453,6 @@ int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p) {
 
 int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s) {
         struct bus_container *c;
-        char *e;
         void *a;
 
         if (!m)
@@ -1472,6 +1472,8 @@ int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s)
                 if (c->signature[c->index] != SD_BUS_TYPE_STRING)
                         return -ENXIO;
         } else {
+                char *e;
+
                 /* Maybe we can append to the signature? But only if this is the top-level container*/
                 if (c->enclosing != 0)
                         return -ENXIO;
@@ -1482,7 +1484,6 @@ int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s)
                         return -ENOMEM;
                 }
         }
-
 
         a = message_extend_body(m, 4, 4 + size + 1);
         if (!a)
@@ -1506,7 +1507,6 @@ static int bus_message_open_array(
                 uint32_t **array_size) {
 
         unsigned nindex;
-        char *e = NULL;
         void *a, *op;
         int alignment;
         size_t os;
@@ -1536,6 +1536,8 @@ static int bus_message_open_array(
 
                 nindex = c->index + 1 + strlen(contents);
         } else {
+                char *e;
+
                 if (c->enclosing != 0)
                         return -ENXIO;
 
@@ -1579,7 +1581,6 @@ static int bus_message_open_variant(
                 struct bus_container *c,
                 const char *contents) {
 
-        char *e = NULL;
         size_t l;
         void *a;
 
@@ -1599,6 +1600,8 @@ static int bus_message_open_variant(
                         return -ENXIO;
 
         } else {
+                char *e;
+
                 if (c->enclosing != 0)
                         return -ENXIO;
 
@@ -1629,7 +1632,6 @@ static int bus_message_open_struct(
                 const char *contents) {
 
         size_t nindex;
-        char *e = NULL;
 
         assert(m);
         assert(c);
@@ -1650,6 +1652,8 @@ static int bus_message_open_struct(
 
                 nindex = c->index + 1 + l + 1;
         } else {
+                char *e;
+
                 if (c->enclosing != 0)
                         return -ENXIO;
 
@@ -2160,7 +2164,7 @@ int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, sd_memfd *me
         if (size % sz != 0)
                 return -EINVAL;
 
-        if (size > (size_t) (uint32_t) -1)
+        if (size > (uint64_t) (uint32_t) -1)
                 return -EINVAL;
 
         r = sd_bus_message_open_container(m, SD_BUS_TYPE_ARRAY, CHAR_TO_STR(type));
@@ -2184,6 +2188,86 @@ int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, sd_memfd *me
         m->header->body_size += size;
 
         return sd_bus_message_close_container(m);
+}
+
+int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *memfd) {
+        _cleanup_close_ int copy_fd = -1;
+        struct bus_body_part *part;
+        struct bus_container *c;
+        uint64_t size;
+        void *a;
+        int r;
+
+        if (!m)
+                return -EINVAL;
+        if (!memfd)
+                return -EINVAL;
+        if (m->sealed)
+                return -EPERM;
+        if (m->poisoned)
+                return -ESTALE;
+
+        r = sd_memfd_set_sealed(memfd, true);
+        if (r < 0)
+                return r;
+
+        copy_fd = sd_memfd_dup_fd(memfd);
+        if (copy_fd < 0)
+                return copy_fd;
+
+        r = sd_memfd_get_size(memfd, &size);
+        if (r < 0)
+                return r;
+
+        /* We require this to be NUL terminated */
+        if (size == 0)
+                return -EINVAL;
+
+        if (size > (uint64_t) (uint32_t) -1)
+                return -EINVAL;
+
+        c = message_get_container(m);
+        if (c->signature && c->signature[c->index]) {
+                /* Container signature is already set */
+
+                if (c->signature[c->index] != SD_BUS_TYPE_STRING)
+                        return -ENXIO;
+        } else {
+                char *e;
+
+                /* Maybe we can append to the signature? But only if this is the top-level container*/
+                if (c->enclosing != 0)
+                        return -ENXIO;
+
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING), NULL);
+                if (!e) {
+                        m->poisoned = true;
+                        return -ENOMEM;
+                }
+        }
+
+        a = message_extend_body(m, 4, 4);
+        if (!a)
+                return -ENOMEM;
+
+        *(uint32_t*) a = size - 1;
+
+        part = message_append_part(m);
+        if (!part)
+                return -ENOMEM;
+
+        part->memfd = copy_fd;
+        part->sealed = true;
+        part->size = size;
+        copy_fd = -1;
+
+        message_extend_containers(m, size);
+        m->header->body_size += size;
+
+        if (c->enclosing != SD_BUS_TYPE_ARRAY)
+                c->index++;
+
+        return 0;
 }
 
 int bus_body_part_map(struct bus_body_part *part) {
