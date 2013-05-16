@@ -55,6 +55,9 @@ def _convert_realtime(t):
 def _convert_timestamp(s):
     return _datetime.datetime.fromtimestamp(int(s) / 1000000)
 
+def _convert_trivial(x):
+    return x
+
 if _sys.version_info >= (3,):
     def _convert_uuid(s):
         return _uuid.UUID(s.decode())
@@ -87,6 +90,7 @@ DEFAULT_CONVERTERS = {
     '__REALTIME_TIMESTAMP': _convert_realtime,
     '_SOURCE_MONOTONIC_TIMESTAMP': _convert_source_monotonic,
     '__MONOTONIC_TIMESTAMP': _convert_monotonic,
+    '__CURSOR': _convert_trivial,
     'COREDUMP': bytes,
     'COREDUMP_PID': int,
     'COREDUMP_UID': int,
