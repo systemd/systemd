@@ -427,17 +427,17 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
 
         KDBUS_ITEM_FOREACH(d, k) {
 
-                if (d->type != KDBUS_MSG_FDS)
-                        continue;
-
-                close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
+                if (d->type == KDBUS_MSG_FDS)
+                        close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
+                else if (d->type == KDBUS_MSG_PAYLOAD_MEMFD)
+                        close_nointr_nofail(d->memfd.fd);
         }
 }
 
 static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_message **ret) {
         sd_bus_message *m = NULL;
         struct kdbus_item *d;
-        unsigned n_payload = 0, n_fds = 0;
+        unsigned n_fds = 0;
         _cleanup_free_ int *fds = NULL;
         struct bus_header *h = NULL;
         size_t total, n_bytes = 0, idx = 0;
@@ -465,8 +465,14 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                                         return -EBADMSG;
                         }
 
-                        n_payload++;
                         n_bytes += d->vec.size;
+
+                } else if (d->type == KDBUS_MSG_PAYLOAD_MEMFD) {
+
+                        if (!h)
+                                return -EBADMSG;
+
+                        n_bytes += d->memfd.size;
 
                 } else if (d->type == KDBUS_MSG_FDS) {
                         int *f;
@@ -481,9 +487,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         memcpy(fds + n_fds, d->fds, sizeof(int) * j);
                         n_fds += j;
 
-                } else if (d->type == KDBUS_MSG_DST_NAME)
-                        destination = d->str;
-                else if (d->type == KDBUS_MSG_SRC_SECLABEL)
+                } else if (d->type == KDBUS_MSG_SRC_SECLABEL)
                         seclabel = d->str;
         }
 
@@ -518,8 +522,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                                 part = message_append_part(m);
                                 if (!part) {
-                                        sd_bus_message_unref(m);
-                                        return -ENOMEM;
+                                        r = -ENOMEM;
+                                        goto fail;
                                 }
 
                                 if (idx >= begin_body) {
@@ -535,6 +539,25 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         }
 
                         idx += d->vec.size;
+                } else if (d->type == KDBUS_MSG_PAYLOAD_MEMFD) {
+                        struct bus_body_part *part;
+
+                        if (idx < BUS_MESSAGE_BODY_BEGIN(m)) {
+                                r = -EBADMSG;
+                                goto fail;
+                        }
+
+                        part = message_append_part(m);
+                        if (!part) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        part->memfd = d->memfd.fd;
+                        part->size = d->memfd.size;
+                        part->sealed = true;
+
+                        idx += d->memfd.size;
 
                 } else if (d->type == KDBUS_MSG_SRC_CREDS) {
                         m->pid_starttime = d->creds.starttime / NSEC_PER_USEC;
@@ -562,17 +585,16 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                 else if (d->type == KDBUS_MSG_SRC_CAPS) {
                         m->capability = d->data;
                         m->capability_size = l;
-                } else if (d->type != KDBUS_MSG_FDS &&
-                           d->type != KDBUS_MSG_DST_NAME &&
+                } else if (d->type == KDBUS_MSG_DST_NAME)
+                        destination = d->str;
+                else if (d->type != KDBUS_MSG_FDS &&
                            d->type != KDBUS_MSG_SRC_SECLABEL)
                         log_debug("Got unknown field from kernel %llu", d->type);
         }
 
         r = bus_message_parse_fields(m);
-        if (r < 0) {
-                sd_bus_message_unref(m);
-                return r;
-        }
+        if (r < 0)
+                goto fail;
 
         if (k->src_id == KDBUS_SRC_ID_KERNEL)
                 m->sender = "org.freedesktop.DBus";
@@ -601,6 +623,21 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
         *ret = m;
         return 1;
+
+fail:
+        if (m) {
+                struct bus_body_part *part;
+                unsigned i;
+
+                /* Make sure the memfds are not freed twice */
+                MESSAGE_FOREACH_PART(part, i, m)
+                        if (part->memfd >= 0)
+                                part->memfd = -1;
+
+                sd_bus_message_unref(m);
+        }
+
+        return r;
 }
 
 int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
@@ -617,15 +654,6 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
 
                 return -errno;
         }
-
-
-/*                 /\* Let's tell valgrind that there's really no need to */
-/*                  * initialize this fully. This should be removed again */
-/*                  * when valgrind learned the kdbus ioctls natively. *\/ */
-/* #ifdef HAVE_VALGRIND_MEMCHECK_H */
-/*                 VALGRIND_MAKE_MEM_DEFINED(k, sz); */
-/* #endif */
-
 
         r = bus_kernel_make_message(bus, k, m);
         if (r <= 0)

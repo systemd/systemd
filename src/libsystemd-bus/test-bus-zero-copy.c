@@ -111,6 +111,12 @@ int main(int argc, char *argv[]) {
 
         sd_bus_message_unref(m);
 
+        r = sd_bus_process(a, &m);
+        assert_se(r > 0);
+
+        bus_message_dump(m);
+        sd_bus_message_unref(m);
+
         sd_bus_unref(a);
         sd_bus_unref(b);
 

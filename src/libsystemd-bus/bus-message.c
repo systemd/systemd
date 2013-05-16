@@ -2196,6 +2196,13 @@ int bus_body_part_map(struct bus_body_part *part) {
         if (part->size <= 0)
                 return 0;
 
+        /* For smaller zero parts (as used for padding) we don't need to map anything... */
+        if (part->memfd < 0 && part->is_zero && part->size < 8) {
+                static const uint8_t zeroes[7] = { };
+                part->data = (void*) zeroes;
+                return 0;
+        }
+
         psz = PAGE_ALIGN(part->size);
 
         if (part->memfd >= 0)
@@ -2220,9 +2227,6 @@ void bus_body_part_unmap(struct bus_body_part *part) {
         assert_se(part);
 
         if (part->memfd < 0)
-                return;
-
-        if (!part->sealed)
                 return;
 
         if (!part->data)
