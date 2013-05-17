@@ -84,6 +84,7 @@ static int help(void) {
                "Flags:\n"
                "  -o --output=FILE  Write output to FILE\n"
                "     --no-pager     Do not pipe output into a pager\n"
+               "     --no-legend    Do not print the column headers.\n\n"
 
                "Commands:\n"
                "  -h --help         Show this help\n"

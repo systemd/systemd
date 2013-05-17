@@ -712,6 +712,7 @@ static int help(void) {
                "     --version             Show package version\n"
                "     --no-convert          Don't convert keyboard mappings\n"
                "     --no-pager            Do not pipe output into a pager\n"
+               "  -P --privileged          Acquire privileges before execution\n"
                "     --no-ask-password     Do not prompt for password\n"
                "  -H --host=[USER@]HOST    Operate on remote host\n\n"
                "Commands:\n"

@@ -323,6 +323,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-k</option></term>
+                                <term><option>--dmesg</option></term>
+
+                                <listitem><para>Show kernel messages from
+                                current boot. This implies <option>-b</option>
+                                and adds the match <literal>_TRANSPORT=kernel</literal>.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-u</option></term>
                                 <term><option>--unit=</option></term>
 

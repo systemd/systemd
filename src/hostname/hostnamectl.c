@@ -362,6 +362,7 @@ static int help(void) {
                "     --transient         Only set transient hostname\n"
                "     --static            Only set static hostname\n"
                "     --pretty            Only set pretty hostname\n"
+               "  -P --privileged        Acquire privileges before execution\n"
                "     --no-ask-password   Do not prompt for password\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n\n"
                "Commands:\n"

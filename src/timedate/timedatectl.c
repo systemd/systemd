@@ -501,6 +501,7 @@ static int help(void) {
                "     --adjust-system-clock\n"
                "                         Adjust system clock when changing local RTC mode\n"
                "     --no-pager          Do not pipe output into a pager\n"
+               "  -P --privileged        Acquire privileges before execution\n"
                "     --no-ask-password   Do not prompt for password\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n\n"
                "Commands:\n"
