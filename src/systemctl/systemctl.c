@@ -4221,24 +4221,28 @@ static int enable_unit(DBusConnection *bus, char **args) {
         if (!args[1])
                 return 0;
 
+        r = mangle_names(args+1, &mangled_names);
+        if (r < 0)
+                goto finish;
+
         if (!bus || avoid_bus()) {
                 if (streq(verb, "enable")) {
-                        r = unit_file_enable(arg_scope, arg_runtime, arg_root, args+1, arg_force, &changes, &n_changes);
+                        r = unit_file_enable(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "disable"))
-                        r = unit_file_disable(arg_scope, arg_runtime, arg_root, args+1, &changes, &n_changes);
+                        r = unit_file_disable(arg_scope, arg_runtime, arg_root, mangled_names, &changes, &n_changes);
                 else if (streq(verb, "reenable")) {
-                        r = unit_file_reenable(arg_scope, arg_runtime, arg_root, args+1, arg_force, &changes, &n_changes);
+                        r = unit_file_reenable(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
-                        r = unit_file_link(arg_scope, arg_runtime, arg_root, args+1, arg_force, &changes, &n_changes);
+                        r = unit_file_link(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "preset")) {
-                        r = unit_file_preset(arg_scope, arg_runtime, arg_root, args+1, arg_force, &changes, &n_changes);
+                        r = unit_file_preset(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "mask"))
-                        r = unit_file_mask(arg_scope, arg_runtime, arg_root, args+1, arg_force, &changes, &n_changes);
+                        r = unit_file_mask(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
-                        r = unit_file_unmask(arg_scope, arg_runtime, arg_root, args+1, &changes, &n_changes);
+                        r = unit_file_unmask(arg_scope, arg_runtime, arg_root, mangled_names, &changes, &n_changes);
                 else
                         assert_not_reached("Unknown verb");
 
@@ -4296,10 +4300,6 @@ static int enable_unit(DBusConnection *bus, char **args) {
                 }
 
                 dbus_message_iter_init_append(m, &iter);
-
-                r = mangle_names(args+1, &mangled_names);
-                if(r < 0)
-                        goto finish;
 
                 r = bus_append_strv_iter(&iter, mangled_names);
                 if (r < 0) {
