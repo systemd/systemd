@@ -125,7 +125,7 @@ int sd_bus_new(sd_bus **ret) {
         r->n_ref = REFCNT_INIT;
         r->input_fd = r->output_fd = -1;
         r->message_version = 1;
-        r->negotiate_fds = true;
+        r->hello_flags |= KDBUS_HELLO_ACCEPT_FD;
         r->original_pid = getpid();
 
         assert_se(pthread_mutex_init(&r->memfd_cache_mutex, NULL) == 0);
@@ -226,7 +226,7 @@ int sd_bus_set_bus_client(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_set_negotiate_fds(sd_bus *bus, int b) {
+int sd_bus_negotiate_fds(sd_bus *bus, int b) {
         if (!bus)
                 return -EINVAL;
         if (bus->state != BUS_UNSET)
@@ -234,7 +234,91 @@ int sd_bus_set_negotiate_fds(sd_bus *bus, int b) {
         if (bus_pid_changed(bus))
                 return -ECHILD;
 
-        bus->negotiate_fds = !!b;
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ACCEPT_FD, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_comm(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_COMM, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_exe(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_EXE, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_cmdline(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CMDLINE, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_cgroup(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CGROUP, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_caps(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CAPS, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_selinux_context(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_SECLABEL, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_audit(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_AUDIT, b);
         return 0;
 }
 
@@ -1015,7 +1099,7 @@ int sd_bus_can_send(sd_bus *bus, char type) {
                 return -ECHILD;
 
         if (type == SD_BUS_TYPE_UNIX_FD) {
-                if (!bus->negotiate_fds)
+                if (!(bus->hello_flags & KDBUS_HELLO_ACCEPT_FD))
                         return 0;
 
                 r = bus_ensure_running(bus);

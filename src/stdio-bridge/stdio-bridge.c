@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_bus_set_negotiate_fds(a, is_unix);
+        r = sd_bus_negotiate_fds(a, is_unix);
         if (r < 0) {
                 log_error("Failed to set FD negotiation: %s", strerror(-r));
                 goto finish;
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_bus_set_negotiate_fds(b, is_unix);
+        r = sd_bus_negotiate_fds(b, is_unix);
         if (r < 0) {
                 log_error("Failed to set FD negotiation: %s", strerror(-r));
                 goto finish;

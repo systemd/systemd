@@ -60,6 +60,22 @@ int main(int argc, char *argv[]) {
         r = sd_bus_set_address(b, address);
         assert_se(r >= 0);
 
+        assert_se(sd_bus_negotiate_attach_comm(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_exe(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_cmdline(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_cgroup(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_caps(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_selinux_context(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_audit(a, 1) >= 0);
+
+        assert_se(sd_bus_negotiate_attach_comm(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_exe(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_cmdline(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_cgroup(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_caps(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_selinux_context(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_audit(b, 1) >= 0);
+
         r = sd_bus_start(a);
         assert_se(r >= 0);
 

@@ -64,7 +64,14 @@ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]);
 int sd_bus_set_bus_client(sd_bus *bus, int b);
 int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id);
 int sd_bus_set_anonymous(sd_bus *bus, int b);
-int sd_bus_set_negotiate_fds(sd_bus *bus, int b);
+int sd_bus_negotiate_fds(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_comm(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_exe(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_cmdline(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_cgroup(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_caps(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_selinux_context(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_audit(sd_bus *bus, int b);
 int sd_bus_start(sd_bus *ret);
 
 void sd_bus_close(sd_bus *bus);

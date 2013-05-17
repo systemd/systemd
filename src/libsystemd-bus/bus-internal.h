@@ -99,7 +99,6 @@ struct sd_bus {
         int message_version;
 
         bool is_kernel:1;
-        bool negotiate_fds:1;
         bool can_fds:1;
         bool bus_client:1;
         bool ucred_valid:1;
@@ -181,6 +180,8 @@ struct sd_bus {
         unsigned n_memfd_cache;
 
         pid_t original_pid;
+
+        uint64_t hello_flags;
 };
 
 static inline void bus_unrefp(sd_bus **b) {

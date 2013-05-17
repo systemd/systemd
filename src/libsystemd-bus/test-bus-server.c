@@ -55,8 +55,8 @@ static void *server(void *p) {
         assert_se(sd_bus_new(&bus) >= 0);
         assert_se(sd_bus_set_fd(bus, c->fds[0], c->fds[0]) >= 0);
         assert_se(sd_bus_set_server(bus, 1, id) >= 0);
-        assert_se(sd_bus_set_negotiate_fds(bus, c->server_negotiate_unix_fds) >= 0);
         assert_se(sd_bus_set_anonymous(bus, c->server_anonymous_auth) >= 0);
+        assert_se(sd_bus_negotiate_fds(bus, c->server_negotiate_unix_fds) >= 0);
         assert_se(sd_bus_start(bus) >= 0);
 
         while (!quit) {
@@ -134,7 +134,7 @@ static int client(struct context *c) {
 
         assert_se(sd_bus_new(&bus) >= 0);
         assert_se(sd_bus_set_fd(bus, c->fds[1], c->fds[1]) >= 0);
-        assert_se(sd_bus_set_negotiate_fds(bus, c->client_negotiate_unix_fds) >= 0);
+        assert_se(sd_bus_negotiate_fds(bus, c->client_negotiate_unix_fds) >= 0);
         assert_se(sd_bus_set_anonymous(bus, c->client_anonymous_auth) >= 0);
         assert_se(sd_bus_start(bus) >= 0);
 

@@ -35,14 +35,12 @@ Features:
 * libsystemd-bus:
   - default policy (allow uid == 0 and our own uid)
   - enforce alignment of pointers passed in
-  - negotiation for attach attributes
   - when kdbus doesn't take our message without memfds, try again with memfds
   - kdbus: generate correct bloom filter for matches
   - implement translator service
   - port systemd to new library
   - implement busname unit type in systemd
   - move to gvariant
-  - keep the connection fds around as long as the bus is open
   - merge busctl into systemctl or so?
   - synthesize sd_bus_message objects from kernel messages
 

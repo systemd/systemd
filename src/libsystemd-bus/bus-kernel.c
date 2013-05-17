@@ -345,15 +345,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         }
 
         hello->size = sizeof(h);
-        hello->conn_flags =
-                KDBUS_HELLO_ACCEPT_FD|
-                KDBUS_HELLO_ATTACH_COMM|
-                KDBUS_HELLO_ATTACH_EXE|
-                KDBUS_HELLO_ATTACH_CMDLINE|
-                KDBUS_HELLO_ATTACH_CGROUP|
-                KDBUS_HELLO_ATTACH_CAPS|
-                KDBUS_HELLO_ATTACH_SECLABEL|
-                KDBUS_HELLO_ATTACH_AUDIT;
+        hello->conn_flags = b->hello_flags;
 
         hello->items[0].type = KDBUS_HELLO_POOL;
         hello->items[0].size = KDBUS_ITEM_HEADER_SIZE + sizeof(struct kdbus_vec);
@@ -378,7 +370,7 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         b->is_kernel = true;
         b->bus_client = true;
-        b->can_fds = true;
+        b->can_fds = !!(hello->conn_flags & KDBUS_HELLO_ACCEPT_FD);
 
         r = bus_start_running(b);
         if (r < 0)
