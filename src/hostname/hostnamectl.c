@@ -219,7 +219,7 @@ static int show_status(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_hostname(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true;
+        dbus_bool_t interactive = arg_ask_password;
         _cleanup_free_ char *h = NULL;
         const char *hostname = args[1];
         int r;
@@ -311,7 +311,7 @@ static int set_hostname(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_icon_name(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true;
+        dbus_bool_t interactive = arg_ask_password;
 
         assert(args);
         assert(n == 2);
@@ -333,7 +333,7 @@ static int set_icon_name(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_chassis(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true;
+        dbus_bool_t interactive = arg_ask_password;
 
         assert(args);
         assert(n == 2);

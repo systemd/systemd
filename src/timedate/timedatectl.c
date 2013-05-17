@@ -304,7 +304,7 @@ static int show_status(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_time(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t relative = false, interactive = true;
+        dbus_bool_t relative = false, interactive = arg_ask_password;
         usec_t t;
         dbus_int64_t u;
         int r;
@@ -338,7 +338,7 @@ static int set_time(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_timezone(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true;
+        dbus_bool_t interactive = arg_ask_password;
 
         assert(args);
         assert(n == 2);
@@ -360,7 +360,7 @@ static int set_timezone(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_local_rtc(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true, b, q;
+        dbus_bool_t interactive = arg_ask_password, b, q;
         int r;
 
         assert(args);
@@ -393,7 +393,7 @@ static int set_local_rtc(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_ntp(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true, b;
+        dbus_bool_t interactive = arg_ask_password, b;
         int r;
 
         assert(args);
@@ -541,7 +541,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hH:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:P", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -561,6 +561,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'H':
                         arg_transport = TRANSPORT_SSH;
                         arg_host = optarg;
+                        break;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
                         break;
 
                 case ARG_ADJUST_SYSTEM_CLOCK:

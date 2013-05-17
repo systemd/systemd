@@ -223,7 +223,7 @@ static int show_status(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_locale(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
-        dbus_bool_t interactive = true;
+        dbus_bool_t interactive = arg_ask_password;
         DBusError error;
         DBusMessageIter iter;
         int r;
@@ -459,7 +459,7 @@ static int list_locales(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_vconsole_keymap(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true, b;
+        dbus_bool_t interactive = arg_ask_password, b;
         const char *map, *toggle_map;
 
         assert(bus);
@@ -565,7 +565,7 @@ static int list_vconsole_keymaps(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_x11_keymap(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true, b;
+        dbus_bool_t interactive = arg_ask_password, b;
         const char *layout, *model, *variant, *options;
 
         assert(bus);
@@ -758,7 +758,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "has:H:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:P", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -786,6 +786,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
+                        break;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
                         break;
 
                 case '?':
