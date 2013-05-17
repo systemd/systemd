@@ -1749,6 +1749,10 @@ libsystemd_bus_la_LIBADD =  \
 	libsystemd-shared.la \
 	libsystemd-daemon.la
 
+libsystemd_bus_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	-pthread
+
 noinst_LTLIBRARIES += \
 	libsystemd-bus.la
 

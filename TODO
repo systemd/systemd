@@ -42,7 +42,6 @@ Features:
   - port systemd to new library
   - implement busname unit type in systemd
   - move to gvariant
-  - minimal locking around the memfd cache
   - keep the connection fds around as long as the bus is open
   - merge busctl into systemctl or so?
   - synthesize sd_bus_message objects from kernel messages

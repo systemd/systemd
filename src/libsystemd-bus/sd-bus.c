@@ -27,6 +27,7 @@
 #include <sys/poll.h>
 #include <byteswap.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 #include "util.h"
 #include "macro.h"
@@ -106,6 +107,8 @@ static void bus_free(sd_bus *b) {
 
         bus_kernel_flush_memfd(b);
 
+        assert_se(pthread_mutex_destroy(&b->memfd_cache_mutex) == 0);
+
         free(b);
 }
 
@@ -124,6 +127,8 @@ int sd_bus_new(sd_bus **ret) {
         r->message_version = 1;
         r->negotiate_fds = true;
         r->original_pid = getpid();
+
+        assert_se(pthread_mutex_init(&r->memfd_cache_mutex, NULL) == 0);
 
         /* We guarantee that wqueue always has space for at least one
          * entry */

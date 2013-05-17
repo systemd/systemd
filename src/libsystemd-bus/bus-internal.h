@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 #include "hashmap.h"
 #include "prioq.h"
@@ -169,6 +170,13 @@ struct sd_bus {
 
         void *kdbus_buffer;
 
+        /* We do locking around the memfd cache, since we want to
+         * allow people to process a sd_bus_message in a different
+         * thread then it was generated on and free it there. Since
+         * adding something to the memfd cache might happen when a
+         * message is released, we hence need to protect this bit with
+         * a mutex. */
+        pthread_mutex_t memfd_cache_mutex;
         struct memfd_cache memfd_cache[MEMFD_CACHE_MAX];
         unsigned n_memfd_cache;
 
