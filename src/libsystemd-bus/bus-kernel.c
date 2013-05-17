@@ -639,19 +639,21 @@ fail:
 }
 
 int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
+        uint64_t addr;
         struct kdbus_msg *k;
         int r;
 
         assert(bus);
         assert(m);
 
-        r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, &k);
+        r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, &addr);
         if (r < 0) {
                 if (errno == EAGAIN)
                         return 0;
 
                 return -errno;
         }
+        k = UINT64_TO_PTR(addr);
 
         r = bus_kernel_make_message(bus, k, m);
         if (r <= 0)
