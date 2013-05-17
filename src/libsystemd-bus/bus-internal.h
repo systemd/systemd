@@ -171,6 +171,8 @@ struct sd_bus {
 
         struct memfd_cache memfd_cache[MEMFD_CACHE_MAX];
         unsigned n_memfd_cache;
+
+        pid_t original_pid;
 };
 
 static inline void bus_unrefp(sd_bus **b) {
@@ -217,3 +219,5 @@ const char *bus_message_type_to_string(uint8_t u);
 int bus_ensure_running(sd_bus *bus);
 int bus_start_running(sd_bus *bus);
 int bus_next_address(sd_bus *bus);
+
+bool bus_pid_changed(sd_bus *bus);

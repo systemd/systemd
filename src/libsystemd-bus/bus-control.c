@@ -40,6 +40,8 @@ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
                 return -EINVAL;
         if (!unique)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -60,6 +62,10 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 return -EINVAL;
         if (!bus->bus_client)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (bus->is_kernel) {
                 struct kdbus_cmd_name *n;
@@ -114,6 +120,10 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 return -EINVAL;
         if (!bus->bus_client)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (bus->is_kernel) {
                 struct kdbus_cmd_name *n;
@@ -163,6 +173,10 @@ int sd_bus_list_names(sd_bus *bus, char ***l) {
                 return -EINVAL;
         if (!l)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = sd_bus_call_method(
                         bus,
@@ -213,6 +227,10 @@ int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
                 return -EINVAL;
         if (!name)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = sd_bus_call_method(
                         bus,
@@ -255,6 +273,10 @@ int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
                 return -EINVAL;
         if (!uid)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = sd_bus_call_method(
                         bus,
@@ -288,6 +310,10 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
                 return -EINVAL;
         if (!pid)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = sd_bus_call_method(
                         bus,
@@ -354,6 +380,10 @@ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machi
                 return -EINVAL;
         if (!name)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (streq_ptr(name, bus->unique_name))
                 return sd_id128_get_machine(machine);

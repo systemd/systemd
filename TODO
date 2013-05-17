@@ -29,11 +29,13 @@ Fedora 19:
 
 Features:
 
+* libsystemd-journal:
+  - return ECHILD as soon as somebody tries to reuse a journal object across a fork()
+
 * libsystemd-bus:
   - default policy (allow uid == 0 and our own uid)
   - enforce alignment of pointers passed in
   - negotiation for attach attributes
-  - verify that the PID doesn't change for existing busses
   - when kdbus doesn't take our message without memfds, try again with memfds
   - kdbus: generate correct bloom filter for matches
   - implement translator service
