@@ -68,8 +68,13 @@ enum bus_state {
         BUS_OPENING,
         BUS_AUTHENTICATING,
         BUS_HELLO,
-        BUS_RUNNING
+        BUS_RUNNING,
+        BUS_CLOSED
 };
+
+static inline bool BUS_IS_OPEN(enum bus_state state) {
+        return state > BUS_UNSET && state < BUS_CLOSED;
+}
 
 enum bus_auth {
         _BUS_AUTH_INVALID,

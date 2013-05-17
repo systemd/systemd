@@ -43,6 +43,18 @@
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 
+static void bus_close_fds(sd_bus *b) {
+        assert(b);
+
+        if (b->input_fd >= 0)
+                close_nointr_nofail(b->input_fd);
+
+        if (b->output_fd >= 0 && b->output_fd != b->input_fd)
+                close_nointr_nofail(b->output_fd);
+
+        b->input_fd = b->output_fd = -1;
+}
+
 static void bus_free(sd_bus *b) {
         struct filter_callback *f;
         struct object_callback *c;
@@ -50,7 +62,7 @@ static void bus_free(sd_bus *b) {
 
         assert(b);
 
-        sd_bus_close(b);
+        bus_close_fds(b);
 
         free(b->rbuffer);
         free(b->unique_name);
@@ -922,12 +934,19 @@ void sd_bus_close(sd_bus *bus) {
         if (!bus)
                 return;
 
-        if (bus->input_fd >= 0)
-                close_nointr_nofail(bus->input_fd);
-        if (bus->output_fd >= 0 && bus->output_fd != bus->input_fd)
-                close_nointr_nofail(bus->output_fd);
+        if (bus->state != BUS_CLOSED)
+                return;
 
-        bus->input_fd = bus->output_fd = -1;
+        bus->state = BUS_CLOSED;
+
+        if (!bus->is_kernel)
+                bus_close_fds(bus);
+
+        /* We'll leave the fd open in case this is a kernel bus, since
+         * there might still be memblocks around that reference this
+         * bus, and they might need to invoke the
+         * KDBUS_CMD_MSG_RELEASE ioctl on the fd when they are
+         * freed. */
 }
 
 sd_bus *sd_bus_ref(sd_bus *bus) {
@@ -953,7 +972,7 @@ int sd_bus_is_open(sd_bus *bus) {
         if (!bus)
                 return -EINVAL;
 
-        return bus->state != BUS_UNSET && bus->input_fd >= 0;
+        return BUS_IS_OPEN(bus->state);
 }
 
 int sd_bus_can_send(sd_bus *bus, char type) {
@@ -961,7 +980,7 @@ int sd_bus_can_send(sd_bus *bus, char type) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->output_fd < 0)
+        if (bus->state == BUS_UNSET)
                 return -ENOTCONN;
 
         if (type == SD_BUS_TYPE_UNIX_FD) {
@@ -1012,9 +1031,6 @@ static int dispatch_wqueue(sd_bus *bus) {
         assert(bus);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
-        if (bus->output_fd < 0)
-                return -ENOTCONN;
-
         while (bus->wqueue_size > 0) {
 
                 if (bus->is_kernel)
@@ -1059,9 +1075,6 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
         assert(m);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
-        if (bus->input_fd < 0)
-                return -ENOTCONN;
-
         if (bus->rqueue_size > 0) {
                 /* Dispatch a queued message */
 
@@ -1097,9 +1110,7 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-        if (bus->output_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
@@ -1210,9 +1221,7 @@ int sd_bus_send_with_reply(
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-        if (bus->output_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
@@ -1294,11 +1303,8 @@ int bus_ensure_running(sd_bus *bus) {
 
         assert(bus);
 
-        if (bus->input_fd < 0)
+        if (bus->state == BUS_UNSET || bus->state == BUS_CLOSED)
                 return -ENOTCONN;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-
         if (bus->state == BUS_RUNNING)
                 return 1;
 
@@ -1331,9 +1337,7 @@ int sd_bus_send_with_reply_and_block(
 
         if (!bus)
                 return -EINVAL;
-        if (bus->output_fd < 0)
-                return -ENOTCONN;
-        if (bus->state == BUS_UNSET)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
@@ -1449,7 +1453,7 @@ int sd_bus_send_with_reply_and_block(
 int sd_bus_get_fd(sd_bus *bus) {
         if (!bus)
                 return -EINVAL;
-        if (bus->input_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
         if (bus->input_fd != bus->output_fd)
                 return -EPERM;
@@ -1462,9 +1466,7 @@ int sd_bus_get_events(sd_bus *bus) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-        if (bus->input_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
         if (bus->state == BUS_OPENING)
@@ -1493,9 +1495,7 @@ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
                 return -EINVAL;
         if (!timeout_usec)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-        if (bus->input_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
         if (bus->state == BUS_AUTHENTICATING) {
@@ -1992,8 +1992,6 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->input_fd < 0)
-                return -ENOTCONN;
 
         /* We don't allow recursively invoking sd_bus_process(). */
         if (bus->processing)
@@ -2002,6 +2000,7 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
         switch (bus->state) {
 
         case BUS_UNSET:
+        case BUS_CLOSED:
                 return -ENOTCONN;
 
         case BUS_OPENING:
@@ -2042,7 +2041,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
 
         assert(bus);
 
-        if (bus->input_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
         e = sd_bus_get_events(bus);
@@ -2088,9 +2087,7 @@ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-        if (bus->input_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
         if (bus->rqueue_size > 0)
                 return 0;
@@ -2103,9 +2100,7 @@ int sd_bus_flush(sd_bus *bus) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-        if (bus->output_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
         r = bus_ensure_running(bus);
