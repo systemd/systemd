@@ -33,6 +33,10 @@
  * sending vectors */
 #define MEMFD_MIN_SIZE (32*1024)
 
+/* The size of the per-connection memory pool that we set up and where
+ * the kernel places our incoming messages */
+#define KDBUS_POOL_SIZE (16*1024*1024)
+
 struct memfd_cache {
         int fd;
         void *address;

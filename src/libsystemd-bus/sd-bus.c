@@ -26,6 +26,7 @@
 #include <netdb.h>
 #include <sys/poll.h>
 #include <byteswap.h>
+#include <sys/mman.h>
 
 #include "util.h"
 #include "macro.h"
@@ -63,6 +64,9 @@ static void bus_free(sd_bus *b) {
         assert(b);
 
         bus_close_fds(b);
+
+        if (b->kdbus_buffer)
+                munmap(b->kdbus_buffer, KDBUS_POOL_SIZE);
 
         free(b->rbuffer);
         free(b->unique_name);

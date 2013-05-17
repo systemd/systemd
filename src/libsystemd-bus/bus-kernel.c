@@ -45,8 +45,6 @@
 #define KDBUS_ITEM_HEADER_SIZE offsetof(struct kdbus_item, data)
 #define KDBUS_ITEM_SIZE(s) ALIGN8((s) + KDBUS_ITEM_HEADER_SIZE)
 
-#define KDBUS_POOL_SIZE (4*1024*1024)
-
 static int parse_unique_name(const char *s, uint64_t *id) {
         int r;
 
