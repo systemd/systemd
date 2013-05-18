@@ -1068,10 +1068,10 @@
                                 <term><varname>InaccessibleDirectories=</varname></term>
 
                                 <listitem><para>Sets up a new
-                                file-system name space for executed
+                                file system namespace for executed
                                 processes. These options may be used
                                 to limit access a process might have
-                                to the main file-system
+                                to the main file system
                                 hierarchy. Each setting takes a
                                 space-separated list of absolute
                                 directory paths. Directories listed in

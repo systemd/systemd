@@ -905,7 +905,7 @@ fi</programlisting>
                         <function>sd_listen_fds()</function> returns a
                         positive value), skip the socket creation step
                         and use the passed sockets. Secondly, ensure
-                        that the file-system socket nodes for local
+                        that the file system socket nodes for local
                         AF_UNIX sockets used in the socket-based
                         activation are not removed when the daemon
                         shuts down, if sockets have been

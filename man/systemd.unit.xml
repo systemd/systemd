@@ -195,7 +195,7 @@
                 in a both simpler and more flexible system.</para>
 
                 <para>Some unit names reflect paths existing in the
-                file system name space. Example: a device unit
+                file system namespace. Example: a device unit
                 <filename>dev-sda.device</filename> refers to a device
                 with the device node <filename noindex='true'>/dev/sda</filename> in
                 the file system namespace. If this applies a special
