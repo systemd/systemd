@@ -2404,6 +2404,9 @@ int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handl
 }
 
 int sd_bus_add_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata) {
+        struct bus_match_component *components = NULL;
+        unsigned n_components = 0;
+        uint64_t cookie = 0;
         int r = 0;
 
         if (!bus)
@@ -2413,27 +2416,35 @@ int sd_bus_add_match(sd_bus *bus, const char *match, sd_bus_message_handler_t ca
         if (bus_pid_changed(bus))
                 return -ECHILD;
 
+        r = bus_match_parse(match, &components, &n_components);
+        if (r < 0)
+                goto finish;
+
         if (bus->bus_client) {
-                r = bus_add_match_internal(bus, match);
+                cookie = ++bus->match_cookie;
+
+                r = bus_add_match_internal(bus, match, components, n_components, cookie);
                 if (r < 0)
-                        return r;
+                        goto finish;
         }
 
-        if (callback) {
-                bus->match_callbacks_modified = true;
-                r = bus_match_add(&bus->match_callbacks, match, callback, userdata, NULL);
-                if (r < 0) {
-
-                        if (bus->bus_client)
-                                bus_remove_match_internal(bus, match);
-                }
+        bus->match_callbacks_modified = true;
+        r = bus_match_add(&bus->match_callbacks, components, n_components, callback, userdata, cookie, NULL);
+        if (r < 0) {
+                if (bus->bus_client)
+                        bus_remove_match_internal(bus, match, cookie);
         }
 
+finish:
+        bus_match_parse_free(components, n_components);
         return r;
 }
 
 int sd_bus_remove_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata) {
+        struct bus_match_component *components = NULL;
+        unsigned n_components = 0;
         int r = 0, q = 0;
+        uint64_t cookie = 0;
 
         if (!bus)
                 return -EINVAL;
@@ -2442,17 +2453,19 @@ int sd_bus_remove_match(sd_bus *bus, const char *match, sd_bus_message_handler_t
         if (bus_pid_changed(bus))
                 return -ECHILD;
 
-        if (bus->bus_client)
-                r = bus_remove_match_internal(bus, match);
-
-        if (callback) {
-                bus->match_callbacks_modified = true;
-                q = bus_match_remove(&bus->match_callbacks, match, callback, userdata);
-        }
-
+        r = bus_match_parse(match, &components, &n_components);
         if (r < 0)
                 return r;
-        return q;
+
+        bus->match_callbacks_modified = true;
+        r = bus_match_remove(&bus->match_callbacks, components, n_components, callback, userdata, &cookie);
+
+        if (bus->bus_client)
+                q = bus_remove_match_internal(bus, match, cookie);
+
+        bus_match_parse_free(components, n_components);
+
+        return r < 0 ? r : q;
 }
 
 int sd_bus_emit_signal(

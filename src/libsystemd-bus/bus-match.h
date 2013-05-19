@@ -61,6 +61,7 @@ struct bus_match_node {
                         sd_bus_message_handler_t callback;
                         void *userdata;
                         unsigned last_iteration;
+                        uint64_t cookie;
                 } leaf;
                 struct {
                         /* If this is set, then the child is NULL */
@@ -69,10 +70,16 @@ struct bus_match_node {
         };
 };
 
+struct bus_match_component {
+        enum bus_match_node_type type;
+        uint8_t value_u8;
+        char *value_str;
+};
+
 int bus_match_run(sd_bus *bus, struct bus_match_node *root, sd_bus_message *m);
 
-int bus_match_add(struct bus_match_node *root, const char *match, sd_bus_message_handler_t callback, void *userdata, struct bus_match_node **ret);
-int bus_match_remove(struct bus_match_node *root, const char *match, sd_bus_message_handler_t callback, void *userdata);
+int bus_match_add(struct bus_match_node *root, struct bus_match_component *components, unsigned n_components, sd_bus_message_handler_t callback, void *userdata, uint64_t cookie, struct bus_match_node **ret);
+int bus_match_remove(struct bus_match_node *root, struct bus_match_component *components, unsigned n_components, sd_bus_message_handler_t callback, void *userdata, uint64_t *cookie);
 
 void bus_match_free(struct bus_match_node *node);
 
@@ -80,3 +87,6 @@ void bus_match_dump(struct bus_match_node *node, unsigned level);
 
 const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[], size_t l);
 enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n);
+
+int bus_match_parse(const char *match, struct bus_match_component **_components, unsigned *_n_components);
+void bus_match_parse_free(struct bus_match_component *components, unsigned n_components);

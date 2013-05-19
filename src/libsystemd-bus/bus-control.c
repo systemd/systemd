@@ -32,6 +32,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-control.h"
+#include "bus-bloom.h"
 
 int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         int r;
@@ -339,36 +340,174 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
         return 0;
 }
 
-int bus_add_match_internal(sd_bus *bus, const char *match) {
+int bus_add_match_internal(
+                sd_bus *bus,
+                const char *match,
+                struct bus_match_component *components,
+                unsigned n_components,
+                uint64_t cookie) {
+
+        int r;
+
         assert(bus);
         assert(match);
 
-        return sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "AddMatch",
-                        NULL,
-                        NULL,
-                        "s",
-                        match);
+        if (bus->is_kernel) {
+                struct kdbus_cmd_match *m;
+                struct kdbus_item *item;
+                uint64_t bloom[BLOOM_SIZE/8];
+                size_t sz;
+                const char *sender = NULL;
+                size_t sender_length = 0;
+                uint64_t src_id = KDBUS_MATCH_SRC_ID_ANY;
+                bool using_bloom = false;
+                unsigned i;
+
+                zero(bloom);
+
+                sz = offsetof(struct kdbus_cmd_match, items);
+
+                for (i = 0; i < n_components; i++) {
+                        struct bus_match_component *c = &components[i];
+
+                        switch (c->type) {
+
+                        case BUS_MATCH_SENDER:
+                                r = bus_kernel_parse_unique_name(c->value_str, &src_id);
+                                if (r < 0)
+                                        return r;
+
+                                if (r > 0) {
+                                        sender = c->value_str;
+                                        sender_length = strlen(sender);
+                                        sz += ALIGN8(offsetof(struct kdbus_item, str) + sender_length + 1);
+                                }
+
+                                break;
+
+                        case BUS_MATCH_DESTINATION:
+                                /* The bloom filter does not include
+                                   the destination, since it is only
+                                   available for broadcast messages
+                                   which do not carry a destination
+                                   since they are undirected. */
+                                break;
+
+                        case BUS_MATCH_INTERFACE:
+                                bloom_add_pair(bloom, "interface", c->value_str);
+                                using_bloom = true;
+                                break;
+
+                        case BUS_MATCH_MEMBER:
+                                bloom_add_pair(bloom, "member", c->value_str);
+                                using_bloom = true;
+                                break;
+
+                        case BUS_MATCH_PATH:
+                                bloom_add_pair(bloom, "path", c->value_str);
+                                using_bloom = true;
+                                break;
+
+                        case BUS_MATCH_PATH_NAMESPACE:
+                                bloom_add_pair(bloom, "path-slash-prefix", c->value_str);
+                                using_bloom = true;
+                                break;
+
+                        case BUS_MATCH_ARG...BUS_MATCH_ARG_LAST:
+                        case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST:
+                        case BUS_MATCH_ARG_NAMESPACE...BUS_MATCH_ARG_NAMESPACE_LAST:
+                        case BUS_MATCH_MESSAGE_TYPE:
+                                assert_not_reached("FIXME!");
+                                break;
+
+                        case BUS_MATCH_ROOT:
+                        case BUS_MATCH_VALUE:
+                        case BUS_MATCH_LEAF:
+                        case _BUS_MATCH_NODE_TYPE_MAX:
+                        case _BUS_MATCH_NODE_TYPE_INVALID:
+                                assert_not_reached("Invalid match type?");
+                        }
+                }
+
+                if (using_bloom)
+                        sz += ALIGN8(offsetof(struct kdbus_item, data64) + BLOOM_SIZE);
+
+                m = alloca0(sz);
+                m->size = sz;
+                m->cookie = cookie;
+                m->src_id = src_id;
+
+                item = m->items;
+
+                if (using_bloom) {
+                        item->size = offsetof(struct kdbus_item, data64) + BLOOM_SIZE;
+                        item->type = KDBUS_MATCH_BLOOM;
+                        memcpy(item->data64, bloom, BLOOM_SIZE);
+
+                        item = KDBUS_ITEM_NEXT(item);
+                }
+
+                if (sender) {
+                        item->size = offsetof(struct kdbus_item, str) + sender_length + 1;
+                        item->type = KDBUS_MATCH_SRC_NAME;
+                        memcpy(item->str, sender, sender_length + 1);
+                }
+
+                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                if (r < 0)
+                        return -errno;
+
+        } else {
+                return sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "AddMatch",
+                                NULL,
+                                NULL,
+                                "s",
+                                match);
+        }
+
+        return 0;
 }
 
-int bus_remove_match_internal(sd_bus *bus, const char *match) {
+int bus_remove_match_internal(
+                sd_bus *bus,
+                const char *match,
+                uint64_t cookie) {
+
+        int r;
+
         assert(bus);
         assert(match);
 
-        return sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "RemoveMatch",
-                        NULL,
-                        NULL,
-                        "s",
-                        match);
+        if (bus->is_kernel) {
+                struct kdbus_cmd_match m;
+
+                zero(m);
+                m.size = offsetof(struct kdbus_cmd_match, items);
+                m.cookie = cookie;
+
+                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_REMOVE, &m);
+                if (r < 0)
+                        return -errno;
+
+        } else {
+                return sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "RemoveMatch",
+                                NULL,
+                                NULL,
+                                "s",
+                                match);
+        }
+
+        return 0;
 }
 
 int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {

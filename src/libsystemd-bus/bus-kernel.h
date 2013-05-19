@@ -23,6 +23,17 @@
 
 #include "sd-bus.h"
 
+#define KDBUS_ITEM_NEXT(item) \
+        (typeof(item))(((uint8_t *)item) + ALIGN8((item)->size))
+
+#define KDBUS_ITEM_FOREACH(item, head)                                          \
+        for (item = (head)->items;                                              \
+             (uint8_t *)(item) < (uint8_t *)(head) + (head)->size;              \
+             item = KDBUS_ITEM_NEXT(item))
+
+#define KDBUS_ITEM_HEADER_SIZE offsetof(struct kdbus_item, data)
+#define KDBUS_ITEM_SIZE(s) ALIGN8((s) + KDBUS_ITEM_HEADER_SIZE)
+
 #define MEMFD_CACHE_MAX 32
 
 /* When we cache a memfd block for reuse, we will truncate blocks
@@ -55,3 +66,5 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size);
 void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t size);
 
 void bus_kernel_flush_memfd(sd_bus *bus);
+
+int bus_kernel_parse_unique_name(const char *s, uint64_t *id);

@@ -255,10 +255,11 @@ int bus_match_run(
                         return r;
 
                 /* Run the callback. And then invoke siblings. */
-                assert(node->leaf.callback);
-                r = node->leaf.callback(bus, m, node->leaf.userdata);
-                if (r != 0)
-                        return r;
+                if (node->leaf.callback) {
+                        r = node->leaf.callback(bus, m, node->leaf.userdata);
+                        if (r != 0)
+                                return r;
+                }
 
                 return bus_match_run(bus, node->next, m);
 
@@ -499,6 +500,7 @@ static int bus_match_add_leaf(
                 struct bus_match_node *where,
                 sd_bus_message_handler_t callback,
                 void *userdata,
+                uint64_t cookie,
                 struct bus_match_node **ret) {
 
         struct bus_match_node *n;
@@ -518,6 +520,7 @@ static int bus_match_add_leaf(
                 n->next->prev = n;
         n->leaf.callback = callback;
         n->leaf.userdata = userdata;
+        n->leaf.cookie = cookie;
 
         where->child = n;
 
@@ -648,14 +651,8 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
         return -EINVAL;
 }
 
-struct match_component {
-        enum bus_match_node_type type;
-        uint8_t value_u8;
-        char *value_str;
-};
-
 static int match_component_compare(const void *a, const void *b) {
-        const struct match_component *x = a, *y = b;
+        const struct bus_match_component *x = a, *y = b;
 
         if (x->type < y->type)
                 return -1;
@@ -665,7 +662,7 @@ static int match_component_compare(const void *a, const void *b) {
         return 0;
 }
 
-static void free_components(struct match_component *components, unsigned n_components) {
+void bus_match_parse_free(struct bus_match_component *components, unsigned n_components) {
         unsigned i;
 
         for (i = 0; i < n_components; i++)
@@ -674,13 +671,13 @@ static void free_components(struct match_component *components, unsigned n_compo
         free(components);
 }
 
-static int parse_match(
+int bus_match_parse(
                 const char *match,
-                struct match_component **_components,
+                struct bus_match_component **_components,
                 unsigned *_n_components) {
 
         const char *p = match;
-        struct match_component *components = NULL;
+        struct bus_match_component *components = NULL;
         size_t components_allocated = 0;
         unsigned n_components = 0, i;
         _cleanup_free_ char *value = NULL;
@@ -771,7 +768,7 @@ static int parse_match(
         }
 
         /* Order the whole thing, so that we always generate the same tree */
-        qsort(components, n_components, sizeof(struct match_component), match_component_compare);
+        qsort(components, n_components, sizeof(struct bus_match_component), match_component_compare);
 
         /* Check for duplicates */
         for (i = 0; i+1 < n_components; i++)
@@ -786,29 +783,24 @@ static int parse_match(
         return 0;
 
 fail:
-        free_components(components, n_components);
+        bus_match_parse_free(components, n_components);
         return r;
 }
 
 int bus_match_add(
                 struct bus_match_node *root,
-                const char *match,
+                struct bus_match_component *components,
+                unsigned n_components,
                 sd_bus_message_handler_t callback,
                 void *userdata,
+                uint64_t cookie,
                 struct bus_match_node **ret) {
 
-        struct match_component *components = NULL;
-        unsigned n_components = 0, i;
+        unsigned i;
         struct bus_match_node *n;
         int r;
 
         assert(root);
-        assert(match);
-        assert(callback);
-
-        r = parse_match(match, &components, &n_components);
-        if (r < 0)
-                return r;
 
         n = root;
         for (i = 0; i < n_components; i++) {
@@ -816,38 +808,32 @@ int bus_match_add(
                                 n, components[i].type,
                                 components[i].value_u8, components[i].value_str, &n);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
-        r = bus_match_add_leaf(n, callback, userdata, &n);
+        r = bus_match_add_leaf(n, callback, userdata, cookie, &n);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (ret)
                 *ret = n;
 
-finish:
-        free_components(components, n_components);
-        return r;
+        return 0;
 }
 
 int bus_match_remove(
                 struct bus_match_node *root,
-                const char *match,
+                struct bus_match_component *components,
+                unsigned n_components,
                 sd_bus_message_handler_t callback,
-                void *userdata) {
+                void *userdata,
+                uint64_t *cookie) {
 
-        struct match_component *components = NULL;
-        unsigned n_components = 0, i;
+        unsigned i;
         struct bus_match_node *n, **gc;
         int r;
 
         assert(root);
-        assert(match);
-
-        r = parse_match(match, &components, &n_components);
-        if (r < 0)
-                return r;
 
         gc = newa(struct bus_match_node*, n_components);
 
@@ -858,14 +844,17 @@ int bus_match_remove(
                                 components[i].value_u8, components[i].value_str,
                                 &n);
                 if (r <= 0)
-                        goto finish;
+                        return r;
 
                 gc[i] = n;
         }
 
         r = bus_match_find_leaf(n, callback, userdata, &n);
         if (r <= 0)
-                goto finish;
+                return r;
+
+        if (cookie)
+                *cookie = n->leaf.cookie;
 
         /* Free the leaf */
         bus_match_node_free(n);
@@ -881,8 +870,6 @@ int bus_match_remove(
                         break;
         }
 
-finish:
-        free_components(components, n_components);
         return r;
 }
 

@@ -182,6 +182,8 @@ struct sd_bus {
         pid_t original_pid;
 
         uint64_t hello_flags;
+
+        uint64_t match_cookie;
 };
 
 static inline void bus_unrefp(sd_bus **b) {

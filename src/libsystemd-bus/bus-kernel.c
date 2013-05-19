@@ -34,18 +34,7 @@
 #include "bus-kernel.h"
 #include "bus-bloom.h"
 
-#define KDBUS_ITEM_NEXT(item) \
-        (typeof(item))(((uint8_t *)item) + ALIGN8((item)->size))
-
-#define KDBUS_ITEM_FOREACH(item, head)                                          \
-        for (item = (head)->items;                                              \
-             (uint8_t *)(item) < (uint8_t *)(head) + (head)->size;              \
-             item = KDBUS_ITEM_NEXT(item))
-
-#define KDBUS_ITEM_HEADER_SIZE offsetof(struct kdbus_item, data)
-#define KDBUS_ITEM_SIZE(s) ALIGN8((s) + KDBUS_ITEM_HEADER_SIZE)
-
-static int parse_unique_name(const char *s, uint64_t *id) {
+int bus_kernel_parse_unique_name(const char *s, uint64_t *id) {
         int r;
 
         assert(s);
@@ -215,7 +204,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
                 return 0;
 
         if (m->destination) {
-                r = parse_unique_name(m->destination, &unique);
+                r = bus_kernel_parse_unique_name(m->destination, &unique);
                 if (r < 0)
                         return r;
 

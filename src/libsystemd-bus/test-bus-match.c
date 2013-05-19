@@ -55,6 +55,36 @@ static bool mask_contains(unsigned a[], unsigned n) {
         return true;
 }
 
+static int match_add(struct bus_match_node *root, const char *match, int value) {
+        struct bus_match_component *components = NULL;
+        unsigned n_components = 0;
+        int r;
+
+        r = bus_match_parse(match, &components, &n_components);
+        if (r < 0)
+                return r;
+
+        r = bus_match_add(root, components, n_components, filter, INT_TO_PTR(value), 0, NULL);
+        bus_match_parse_free(components, n_components);
+
+        return r;
+}
+
+static int match_remove(struct bus_match_node *root, const char *match, int value) {
+        struct bus_match_component *components = NULL;
+        unsigned n_components = 0;
+        int r;
+
+        r = bus_match_parse(match, &components, &n_components);
+        if (r < 0)
+                return r;
+
+        r = bus_match_remove(root, components, n_components, filter, INT_TO_PTR(value), 0);
+        bus_match_parse_free(components, n_components);
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
         struct bus_match_node root;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
@@ -63,20 +93,20 @@ int main(int argc, char *argv[]) {
         zero(root);
         root.type = BUS_MATCH_ROOT;
 
-        assert_se(bus_match_add(&root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar',", filter, INT_TO_PTR(1), NULL) >= 0);
-        assert_se(bus_match_add(&root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar',", filter, INT_TO_PTR(2), NULL) >= 0);
-        assert_se(bus_match_add(&root, "arg3='test',sender='foo',type='signal',interface='bar',", filter, INT_TO_PTR(3), NULL) >= 0);
-        assert_se(bus_match_add(&root, "arg3='test',sender='foo',type='method_call',interface='bar',", filter, INT_TO_PTR(4), NULL) >= 0);
-        assert_se(bus_match_add(&root, "", filter, INT_TO_PTR(5), NULL) >= 0);
-        assert_se(bus_match_add(&root, "interface='quux'", filter, INT_TO_PTR(6), NULL) >= 0);
-        assert_se(bus_match_add(&root, "interface='bar'", filter, INT_TO_PTR(7), NULL) >= 0);
-        assert_se(bus_match_add(&root, "member='waldo',path='/foo/bar'", filter, INT_TO_PTR(8), NULL) >= 0);
-        assert_se(bus_match_add(&root, "path='/foo/bar'", filter, INT_TO_PTR(9), NULL) >= 0);
-        assert_se(bus_match_add(&root, "path_namespace='/foo'", filter, INT_TO_PTR(10), NULL) >= 0);
-        assert_se(bus_match_add(&root, "path_namespace='/foo/quux'", filter, INT_TO_PTR(11), NULL) >= 0);
-        assert_se(bus_match_add(&root, "arg1='two'", filter, INT_TO_PTR(12), NULL) >= 0);
-        assert_se(bus_match_add(&root, "member='waldo',arg2path='/prefix/'", filter, INT_TO_PTR(13), NULL) >= 0);
-        assert_se(bus_match_add(&root, "member='waldo',path='/foo/bar',arg3namespace='prefix'", filter, INT_TO_PTR(14), NULL) >= 0);
+        assert_se(match_add(&root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar',", 1) >= 0);
+        assert_se(match_add(&root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar',", 2) >= 0);
+        assert_se(match_add(&root, "arg3='test',sender='foo',type='signal',interface='bar',", 3) >= 0);
+        assert_se(match_add(&root, "arg3='test',sender='foo',type='method_call',interface='bar',", 4) >= 0);
+        assert_se(match_add(&root, "", 5) >= 0);
+        assert_se(match_add(&root, "interface='quux'", 6) >= 0);
+        assert_se(match_add(&root, "interface='bar'", 7) >= 0);
+        assert_se(match_add(&root, "member='waldo',path='/foo/bar'", 8) >= 0);
+        assert_se(match_add(&root, "path='/foo/bar'", 9) >= 0);
+        assert_se(match_add(&root, "path_namespace='/foo'", 10) >= 0);
+        assert_se(match_add(&root, "path_namespace='/foo/quux'", 11) >= 0);
+        assert_se(match_add(&root, "arg1='two'", 12) >= 0);
+        assert_se(match_add(&root, "member='waldo',arg2path='/prefix/'", 13) >= 0);
+        assert_se(match_add(&root, "member='waldo',path='/foo/bar',arg3namespace='prefix'", 14) >= 0);
 
         bus_match_dump(&root, 0);
 
@@ -88,9 +118,9 @@ int main(int argc, char *argv[]) {
         assert_se(bus_match_run(NULL, &root, m) == 0);
         assert_se(mask_contains((unsigned[]) { 9, 8, 7, 5, 10, 12, 13, 14 }, 8));
 
-        assert_se(bus_match_remove(&root, "member='waldo',path='/foo/bar'", filter, INT_TO_PTR(8)) > 0);
-        assert_se(bus_match_remove(&root, "arg2path='/prefix/',member='waldo'", filter, INT_TO_PTR(13)) > 0);
-        assert_se(bus_match_remove(&root, "interface='barxx'", filter, INT_TO_PTR(7)) == 0);
+        assert_se(match_remove(&root, "member='waldo',path='/foo/bar'", 8) > 0);
+        assert_se(match_remove(&root, "arg2path='/prefix/',member='waldo'", 13) > 0);
+        assert_se(match_remove(&root, "interface='barxx'", 7) == 0);
 
         bus_match_dump(&root, 0);
 
