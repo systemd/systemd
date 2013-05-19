@@ -235,7 +235,7 @@ static void service_stop_watchdog(Service *s) {
         s->watchdog_timestamp.monotonic = 0;
 }
 
-static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart);
+static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
 
 static void service_handle_watchdog(Service *s) {
         usec_t offset;
@@ -249,7 +249,7 @@ static void service_handle_watchdog(Service *s) {
         offset = now(CLOCK_MONOTONIC) - s->watchdog_timestamp.monotonic;
         if (offset >= s->watchdog_usec) {
                 log_error_unit(UNIT(s)->id, "%s watchdog timeout!", UNIT(s)->id);
-                service_enter_dead(s, SERVICE_FAILURE_WATCHDOG, true);
+                service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_FAILURE_WATCHDOG);
                 return;
         }
 
@@ -1938,8 +1938,6 @@ fail:
                          UNIT(s)->id, strerror(-r));
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
 }
-
-static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
 
 static void service_enter_stop_post(Service *s, ServiceResult f) {
         int r;
