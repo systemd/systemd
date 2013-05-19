@@ -83,6 +83,7 @@
 /tags
 /test-bus-chat
 /test-bus-kernel
+/test-bus-kernel-bloom
 /test-bus-marshal
 /test-bus-match
 /test-bus-memfd

@@ -385,12 +385,9 @@ int bus_add_match_internal(
 
                                 break;
 
-                        case BUS_MATCH_DESTINATION:
-                                /* The bloom filter does not include
-                                   the destination, since it is only
-                                   available for broadcast messages
-                                   which do not carry a destination
-                                   since they are undirected. */
+                        case BUS_MATCH_MESSAGE_TYPE:
+                                bloom_add_pair(bloom, "message-type", bus_message_type_to_string(c->value_u8));
+                                using_bloom = true;
                                 break;
 
                         case BUS_MATCH_INTERFACE:
@@ -413,11 +410,39 @@ int bus_add_match_internal(
                                 using_bloom = true;
                                 break;
 
-                        case BUS_MATCH_ARG...BUS_MATCH_ARG_LAST:
-                        case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST:
-                        case BUS_MATCH_ARG_NAMESPACE...BUS_MATCH_ARG_NAMESPACE_LAST:
-                        case BUS_MATCH_MESSAGE_TYPE:
-                                assert_not_reached("FIXME!");
+                        case BUS_MATCH_ARG...BUS_MATCH_ARG_LAST: {
+                                char buf[sizeof("arg")-1 + 2 + 1];
+
+                                snprintf(buf, sizeof(buf), "arg%u", c->type - BUS_MATCH_ARG);
+                                bloom_add_pair(bloom, buf, c->value_str);
+                                using_bloom = true;
+                                break;
+                        }
+
+                        case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST: {
+                                char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
+
+                                snprintf(buf, sizeof(buf), "arg%u-slash-prefix", c->type - BUS_MATCH_ARG_PATH);
+                                bloom_add_pair(bloom, buf, c->value_str);
+                                using_bloom = true;
+                                break;
+                        }
+
+                        case BUS_MATCH_ARG_NAMESPACE...BUS_MATCH_ARG_NAMESPACE_LAST: {
+                                char buf[sizeof("arg")-1 + 2 + sizeof("-dot-prefix")];
+
+                                snprintf(buf, sizeof(buf), "arg%u-dot-prefix", c->type - BUS_MATCH_ARG_NAMESPACE);
+                                bloom_add_pair(bloom, buf, c->value_str);
+                                using_bloom = true;
+                                break;
+                        }
+
+                        case BUS_MATCH_DESTINATION:
+                                /* The bloom filter does not include
+                                   the destination, since it is only
+                                   available for broadcast messages
+                                   which do not carry a destination
+                                   since they are undirected. */
                                 break;
 
                         case BUS_MATCH_ROOT:

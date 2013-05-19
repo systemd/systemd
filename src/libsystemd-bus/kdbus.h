@@ -67,7 +67,7 @@ struct kdbus_timestamp {
 
 /* Message Item Types */
 enum {
-	KDBUS_MSG_NULL,
+	_KDBUS_MSG_NULL,
 
 	/* Filled in by userspace */
 	KDBUS_MSG_PAYLOAD_VEC,		/* .data_vec, reference to memory area */
@@ -151,7 +151,7 @@ enum {
 };
 
 enum {
-	KDBUS_PAYLOAD_NULL,
+	_KDBUS_PAYLOAD_NULL,
 	KDBUS_PAYLOAD_DBUS1	= 0x4442757356657231ULL, /* 'DBusVer1' */
 	KDBUS_PAYLOAD_GVARIANT	= 0x4756617269616e74ULL, /* 'GVariant' */
 };
@@ -182,13 +182,13 @@ struct kdbus_msg {
 };
 
 enum {
-	KDBUS_POLICY_NULL,
+	_KDBUS_POLICY_NULL,
 	KDBUS_POLICY_NAME,
 	KDBUS_POLICY_ACCESS,
 };
 
 enum {
-	KDBUS_POLICY_ACCESS_NULL,
+	_KDBUS_POLICY_ACCESS_NULL,
 	KDBUS_POLICY_ACCESS_USER,
 	KDBUS_POLICY_ACCESS_GROUP,
 	KDBUS_POLICY_ACCESS_WORLD,
@@ -237,7 +237,7 @@ enum {
 
 /* Items to append to struct kdbus_cmd_hello */
 enum {
-	KDBUS_HELLO_NULL,
+	_KDBUS_HELLO_NULL,
 	KDBUS_HELLO_POOL,	/* kdbus_vec, userspace supplied pool to
 				 * place received messages */
 };
@@ -274,7 +274,7 @@ enum {
 
 /* Items to append to kdbus_cmd_{bus,ep,ns}_make */
 enum {
-	KDBUS_MAKE_NULL,
+	_KDBUS_MAKE_NULL,
 	KDBUS_MAKE_NAME,
 	KDBUS_MAKE_CGROUP,	/* the cgroup hierarchy ID for which to attach
 				 * cgroup membership paths * to messages. */
@@ -346,7 +346,7 @@ struct kdbus_cmd_names {
 };
 
 enum {
-	KDBUS_NAME_INFO_ITEM_NULL,
+	_KDBUS_NAME_INFO_ITEM_NULL,
 	KDBUS_NAME_INFO_ITEM_NAME,	/* userspace → kernel */
 	KDBUS_NAME_INFO_ITEM_SECLABEL,	/* kernel → userspace */
 	KDBUS_NAME_INFO_ITEM_AUDIT,	/* kernel → userspace */
@@ -361,7 +361,7 @@ struct kdbus_cmd_name_info {
 };
 
 enum {
-	KDBUS_MATCH_NULL,
+	_KDBUS_MATCH_NULL,
 	KDBUS_MATCH_BLOOM,		/* Matches a mask blob against KDBUS_MSG_BLOOM */
 	KDBUS_MATCH_SRC_NAME,		/* Matches a name string against KDBUS_MSG_SRC_NAMES */
 	KDBUS_MATCH_NAME_ADD,		/* Matches a name string against KDBUS_MSG_NAME_ADD */

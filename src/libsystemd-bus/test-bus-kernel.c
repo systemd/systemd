@@ -92,8 +92,8 @@ int main(int argc, char *argv[]) {
 
         printf("unique b: %s\n", ub);
 
-        /* interface='waldo.com',member='Piep' */
-        assert_se(sd_bus_add_match(b, "interface='waldo.com'", NULL, NULL) >= 0);
+        r = sd_bus_add_match(b, "interface='waldo.com',member='Piep'", NULL, NULL);
+        assert_se(r >= 0);
 
         r = sd_bus_emit_signal(a, "/foo/bar/waldo", "waldo.com", "Piep", "sss", "I am a string", "/this/is/a/path", "and.this.a.domain.name");
         assert_se(r >= 0);

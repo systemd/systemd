@@ -1763,6 +1763,7 @@ tests += \
 	test-bus-server \
 	test-bus-match \
 	test-bus-kernel \
+	test-bus-kernel-bloom \
 	test-bus-memfd \
 	test-bus-zero-copy
 
@@ -1832,6 +1833,17 @@ test_bus_kernel_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_bus_kernel_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la \
+	libsystemd-id128-internal.la
+
+test_bus_kernel_bloom_SOURCES = \
+	src/libsystemd-bus/test-bus-kernel-bloom.c
+
+test_bus_kernel_bloom_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_bus_kernel_bloom_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la \
 	libsystemd-id128-internal.la
