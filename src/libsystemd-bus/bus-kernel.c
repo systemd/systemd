@@ -141,6 +141,7 @@ static int bus_message_setup_bloom(sd_bus_message *m, void *bloom) {
                 bloom_add_pair(bloom, "member", m->member);
         if (m->path) {
                 bloom_add_pair(bloom, "path", m->path);
+                bloom_add_pair(bloom, "path-slash-prefix", m->path);
                 bloom_add_prefixes(bloom, "path-slash-prefix", m->path, '/');
         }
 

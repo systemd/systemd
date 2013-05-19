@@ -68,9 +68,11 @@ static void test_one(
         r = sd_bus_start(b);
         assert_se(r >= 0);
 
+        log_debug("match");
         r = sd_bus_add_match(b, match, NULL, NULL);
         assert_se(r >= 0);
 
+        log_debug("signal");
         r = sd_bus_emit_signal(a, path, interface, member, "s", arg0);
         assert_se(r >= 0);
 
@@ -94,6 +96,17 @@ int main(int argc, char *argv[]) {
         test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "arg0='foo_bar'", false);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path='/foo/bar/waldo',interface='waldo.com',member='Piep',arg0='foobar'", true);
         test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path='/foo/bar/waldo',interface='waldo.com',member='Piep',arg0='foobar2'", false);
+
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path='/foo/bar/waldo'", true);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path='/foo/bar'", false);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path='/foo'", false);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path='/'", false);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path='/foo/bar/waldo/quux'", false);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path_namespace='/foo/bar/waldo'", true);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path_namespace='/foo/bar'", true);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path_namespace='/foo'", true);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path_namespace='/'", true);
+        test_one("/foo/bar/waldo", "waldo.com", "Piep", "foobar", "path_namespace='/quux'", false);
 
         return 0;
 }

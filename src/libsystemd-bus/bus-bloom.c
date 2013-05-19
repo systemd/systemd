@@ -49,6 +49,8 @@ void bloom_add_data(uint64_t filter[BLOOM_SIZE/8], const void *data, size_t n) {
 
         for (k = 0; k < ELEMENTSOF(hash); k++)
                 set_bit(filter, hash[k] & 511);
+
+        /* log_debug("bloom: adding <%.*s>", (int) n, (char*) data); */
 }
 
 void bloom_add_pair(uint64_t filter[BLOOM_SIZE/8], const char *a, const char *b) {

@@ -406,8 +406,10 @@ int bus_add_match_internal(
                                 break;
 
                         case BUS_MATCH_PATH_NAMESPACE:
-                                bloom_add_pair(bloom, "path-slash-prefix", c->value_str);
-                                using_bloom = true;
+                                if (!streq(c->value_str, "/")) {
+                                        bloom_add_pair(bloom, "path-slash-prefix", c->value_str);
+                                        using_bloom = true;
+                                }
                                 break;
 
                         case BUS_MATCH_ARG...BUS_MATCH_ARG_LAST: {
