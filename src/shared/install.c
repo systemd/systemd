@@ -1609,24 +1609,29 @@ UnitFileState unit_file_get_state(
                 if (!path)
                         return -ENOMEM;
 
+                /*
+                 * Search for a unit file in our default paths, to
+                 * be sure, that there are no broken symlinks.
+                 */
                 if (lstat(path, &st) < 0) {
                         r = -errno;
-                        if (errno == ENOENT)
+                        if (errno != ENOENT)
+                                return r;
+
+                        if (!unit_name_is_instance(name))
                                 continue;
+                } else {
+                        if (!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode))
+                                return -ENOENT;
 
-                        return -errno;
-                }
-
-                if (!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode))
-                        return -ENOENT;
-
-                r = null_or_empty_path(path);
-                if (r < 0 && r != -ENOENT)
-                        return r;
-                else if (r > 0) {
-                        state = path_startswith(*i, "/run") ?
-                                UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
-                        return state;
+                        r = null_or_empty_path(path);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                        else if (r > 0) {
+                                state = path_startswith(*i, "/run") ?
+                                        UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
+                                return state;
+                        }
                 }
 
                 r = find_symlinks_in_scope(scope, root_dir, name, &state);
