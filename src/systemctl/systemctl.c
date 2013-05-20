@@ -655,11 +655,12 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         }
 
         if (cs) {
-                printf("%-*s %-*.*s%-*s %s\n",
-                       pathlen, "LISTEN",
-                       typelen + arg_show_types, typelen + arg_show_types, "TYPE ",
-                       socklen, "UNIT",
-                       "ACTIVATES");
+                if (!arg_no_legend)
+                        printf("%-*s %-*.*s%-*s %s\n",
+                               pathlen, "LISTEN",
+                               typelen + arg_show_types, typelen + arg_show_types, "TYPE ",
+                               socklen, "UNIT",
+                               "ACTIVATES");
 
                 for (s = socket_infos; s < socket_infos + cs; s++) {
                         char **a;
@@ -678,15 +679,18 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
 
                 on = ansi_highlight(true);
                 off = ansi_highlight(false);
-                printf("\n");
+                if (!arg_no_legend)
+                        printf("\n");
         } else {
                 on = ansi_highlight_red(true);
                 off = ansi_highlight_red(false);
         }
 
-        printf("%s%u sockets listed.%s\n", on, cs, off);
-        if (!arg_all)
-                printf("Pass --all to see loaded but inactive sockets, too.\n");
+        if (!arg_no_legend) {
+                printf("%s%u sockets listed.%s\n", on, cs, off);
+                if (!arg_all)
+                        printf("Pass --all to see loaded but inactive sockets, too.\n");
+        }
 
         return 0;
 }
