@@ -103,8 +103,8 @@ static DEFINE_BUS_PROPERTY_SET_ENUM(bus_service_set_start_limit_action, start_li
 static const BusProperty bus_exec_main_status_properties[] = {
         { "ExecMainStartTimestamp",         bus_property_append_usec, "t", offsetof(ExecStatus, start_timestamp.realtime)  },
         { "ExecMainStartTimestampMonotonic",bus_property_append_usec, "t", offsetof(ExecStatus, start_timestamp.monotonic) },
-        { "ExecMainExitTimestamp",          bus_property_append_usec, "t", offsetof(ExecStatus, start_timestamp.realtime)  },
-        { "ExecMainExitTimestampMonotonic", bus_property_append_usec, "t", offsetof(ExecStatus, start_timestamp.monotonic) },
+        { "ExecMainExitTimestamp",          bus_property_append_usec, "t", offsetof(ExecStatus, exit_timestamp.realtime)   },
+        { "ExecMainExitTimestampMonotonic", bus_property_append_usec, "t", offsetof(ExecStatus, exit_timestamp.monotonic)  },
         { "ExecMainPID",                    bus_property_append_pid,  "u", offsetof(ExecStatus, pid)                       },
         { "ExecMainCode",                   bus_property_append_int,  "i", offsetof(ExecStatus, code)                      },
         { "ExecMainStatus",                 bus_property_append_int,  "i", offsetof(ExecStatus, status)                    },
