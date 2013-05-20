@@ -1405,7 +1405,6 @@ int main(int argc, char *argv[]) {
         /* Reset all signal handlers. */
         assert_se(reset_all_signal_handlers() == 0);
 
-        /* If we are init, we can block sigkill. Yay. */
         ignore_signals(SIGNALS_IGNORE, -1);
 
         if (parse_config_file() < 0)
