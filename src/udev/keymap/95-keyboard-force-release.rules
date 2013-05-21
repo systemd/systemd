@@ -54,4 +54,6 @@ ENV{DMI_VENDOR}=="GIGABYTE", ATTR{[dmi/id]product_name}=="i1520M", RUN+="keyboar
 
 ENV{DMI_VENDOR}=="BenQ", ATTR{[dmi/id]product_name}=="*nScreen*|Joybook Lite*", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
 
+ENV{DMI_VENDOR}=="DIXONSP", ATTR{[dmi/id]product_name}=="DIXON*", RUN+="keyboard-force-release.sh $devpath common-volume-keys"
+
 LABEL="force_release_end"
