@@ -1,4 +1,3 @@
-
 [[Back to systemd|http://www.freedesktop.org/wiki/docs/]] 
 
 
@@ -55,11 +54,12 @@ Does this have any drawbacks? Yes, it does. Previously it was practically guaran
 
 ## I don't like this, how do I disable this?
 
-You basically have three options: 
+You basically have four options: 
 
-   1. You disable the assignment of fixed names, so that the unpredictable kernel names are used again. For this, simply mask udev's rule file for the default policy: `ln -s /dev/null /etc/udev/rules.d/80-net-name-slot.rules` 
-   1. You create your own manual naming scheme, for example by naming your interfaces "internet0", "dmz0" or "lan0". For that create your own udev rules file and set the NAME property for the devices. Make sure to order it before the default policy file, for example by naming it `/etc/udev/rules.d/70-my-net-names.rules` 
-   1. You alter the default policy file, for picking a different naming scheme, for example for naming all interface names after their MAC address by default: `cp /usr/lib/udev/rules.d/80-net-name-slot.rules /etc/udev/rules.d/80-net-name-slot.rules`, then edit the file there and change the lines as necessary. 
+1. You disable the assignment of fixed names, so that the unpredictable kernel names are used again. For this, simply mask udev's rule file for the default policy: `ln -s /dev/null /etc/udev/rules.d/80-net-name-slot.rules` 
+1. You create your own manual naming scheme, for example by naming your interfaces "internet0", "dmz0" or "lan0". For that create your own udev rules file and set the NAME property for the devices. Make sure to order it before the default policy file, for example by naming it `/etc/udev/rules.d/70-my-net-names.rules` 
+1. You alter the default policy file, for picking a different naming scheme, for example for naming all interface names after their MAC address by default: `cp /usr/lib/udev/rules.d/80-net-name-slot.rules /etc/udev/rules.d/80-net-name-slot.rules`, then edit the file there and change the lines as necessary. 
+1. You pass the net.ifnames=0 on the kernel command line (since v199)
 
 ## How does the new naming scheme look like, precisely?
 
