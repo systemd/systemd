@@ -111,6 +111,8 @@ struct sd_bus {
         bool filter_callbacks_modified:1;
         bool object_callbacks_modified:1;
 
+        int use_memfd;
+
         void *rbuffer;
         size_t rbuffer_size;
 

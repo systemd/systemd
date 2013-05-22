@@ -1764,6 +1764,7 @@ tests += \
 	test-bus-match \
 	test-bus-kernel \
 	test-bus-kernel-bloom \
+	test-bus-kernel-benchmark \
 	test-bus-memfd \
 	test-bus-zero-copy
 
@@ -1844,6 +1845,17 @@ test_bus_kernel_bloom_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_bus_kernel_bloom_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la \
+	libsystemd-id128-internal.la
+
+test_bus_kernel_benchmark_SOURCES = \
+	src/libsystemd-bus/test-bus-kernel-benchmark.c
+
+test_bus_kernel_benchmark_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_bus_kernel_benchmark_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la \
 	libsystemd-id128-internal.la

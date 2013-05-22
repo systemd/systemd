@@ -2514,6 +2514,7 @@ int sd_bus_call_method(
         int r;
 
         if (!bus)
+
                 return -EINVAL;
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;

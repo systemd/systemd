@@ -564,7 +564,7 @@ static int message_new_reply(
                 goto fail;
 
         if (call->sender) {
-                r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, call->sender, &t->sender);
+                r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, call->sender, &t->destination);
                 if (r < 0)
                         goto fail;
         }
@@ -3865,9 +3865,9 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
         /* If this is something we can send as memfd, then let's seal
         the memfd now. Note that we can send memfds as payload only
         for directed messages, and not for broadcasts. */
-        if (m->destination) {
+        if (m->destination && m->bus && m->bus->use_memfd) {
                 MESSAGE_FOREACH_PART(part, i, m)
-                        if (part->memfd >= 0 && !part->sealed && part->size > MEMFD_MIN_SIZE) {
+                        if (part->memfd >= 0 && !part->sealed && (part->size > MEMFD_MIN_SIZE || m->bus->use_memfd < 0)) {
                                 bus_body_part_unmap(part);
 
                                 if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SEAL_SET, 1) >= 0)

@@ -326,6 +326,8 @@ int bus_kernel_take_fd(sd_bus *b) {
         if (b->is_server)
                 return -EINVAL;
 
+        b->use_memfd = 1;
+
         if (!b->kdbus_buffer) {
                 b->kdbus_buffer = mmap(NULL, KDBUS_POOL_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
                 if (b->kdbus_buffer == MAP_FAILED) {
