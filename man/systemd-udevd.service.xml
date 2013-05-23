@@ -162,6 +162,8 @@
         </listitem>
       </varlistentry>
     </variablelist>
+    <!-- when adding entries here, consider also adding them
+         in kernel-command-line.xml -->
  </refsect1>
 
  <refsect1><title>Configuration file</title>
