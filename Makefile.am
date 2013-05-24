@@ -2505,6 +2505,7 @@ dist_udevkeymap_DATA = \
 	keymaps/lenovo-thinkpad_x6_tablet \
 	keymaps/lenovo-thinkpad_x200_tablet \
 	keymaps/lg-x110 \
+	keymaps/logitech-usb \
 	keymaps/logitech-wave \
 	keymaps/logitech-wave-cordless \
 	keymaps/logitech-wave-pro-cordless \

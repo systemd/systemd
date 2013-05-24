@@ -23,6 +23,7 @@ LABEL="keyboard_usbcheck"
 ENV{ID_VENDOR}=="Genius", ENV{ID_MODEL_ID}=="0708", ENV{ID_USB_INTERFACE_NUM}=="01", RUN+="keymap $name genius-slimstar-320"
 ENV{ID_VENDOR}=="Logitech*", ATTRS{name}=="Logitech USB Multimedia Keyboard", RUN+="keymap $name logitech-wave"
 ENV{ID_VENDOR}=="Logitech*", ATTRS{name}=="Logitech USB Receiver", RUN+="keymap $name logitech-wave-cordless"
+ENV{ID_VENDOR}=="Logitech*", ATTRS{name}=="* Logitech USB Keyboard*", RUN+="keymap $name logitech-usb"
 # Logitech Cordless Wave Pro looks slightly weird; some hotkeys are coming through the mouse interface
 ENV{ID_VENDOR_ID}=="046d", ENV{ID_MODEL_ID}=="c52[9b]", ATTRS{name}=="Logitech USB Receiver", RUN+="keymap $name logitech-wave-pro-cordless"
 
