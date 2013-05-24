@@ -255,7 +255,7 @@ static int map_blkio(const CGroupSemantics *s, const char *value, char **ret) {
 }
 
 static const CGroupSemantics semantics[] = {
-        { "cpu",     "cpu.shares",                 "CPUShare",              false, parse_cpu_shares,          NULL,       NULL },
+        { "cpu",     "cpu.shares",                 "CPUShares",             false, parse_cpu_shares,          NULL,       NULL },
         { "memory",  "memory.soft_limit_in_bytes", "MemorySoftLimit",       false, parse_memory_limit,        NULL,       NULL },
         { "memory",  "memory.limit_in_bytes",      "MemoryLimit",           false, parse_memory_limit,        NULL,       NULL },
         { "devices", "devices.allow",              "DeviceAllow",           true,  parse_device,              map_device, NULL },
