@@ -21,6 +21,18 @@
 #endif
 
 #define KDBUS_IOC_MAGIC			0x95
+#define KDBUS_SRC_ID_KERNEL		(0)
+#define KDBUS_DST_ID_WELL_KNOWN_NAME	(0)
+#define KDBUS_MATCH_SRC_ID_ANY		(~0ULL)
+#define KDBUS_DST_ID_BROADCAST		(~0ULL)
+
+/* Common first elements in a structure which are used to iterate over
+ * a list of elements. */
+#define KDBUS_PART_HEADER \
+	struct {							\
+		__u64 size;						\
+		__u64 type;						\
+	}
 
 /* Message sent from kernel to userspace, when the owner or starter of
  * a well-known name changes */
@@ -60,10 +72,15 @@ struct kdbus_timestamp {
 	__u64 realtime_ns;
 };
 
-#define KDBUS_SRC_ID_KERNEL		(0)
-#define KDBUS_DST_ID_WELL_KNOWN_NAME	(0)
-#define KDBUS_MATCH_SRC_ID_ANY		(~0ULL)
-#define KDBUS_DST_ID_BROADCAST		(~0ULL)
+struct kdbus_vec {
+	__u64 address;
+	__u64 size;
+};
+
+struct kdbus_memfd {
+	__u64 size;
+	int fd;
+};
 
 /* Message Item Types */
 enum {
@@ -100,16 +117,6 @@ enum {
 	KDBUS_MSG_REPLY_DEAD,		/* dito */
 };
 
-struct kdbus_vec {
-	__u64 address;
-	__u64 size;
-};
-
-struct kdbus_memfd {
-	__u64 size;
-	int fd;
-};
-
 /**
  * struct  kdbus_item - chain of data blocks
  *
@@ -117,8 +124,7 @@ struct kdbus_memfd {
  * type: kdbus_item type of data
  */
 struct kdbus_item {
-	__u64 size;
-	__u64 type;
+	KDBUS_PART_HEADER;
 	union {
 		/* inline data */
 		__u8 data[0];
@@ -151,7 +157,7 @@ enum {
 };
 
 enum {
-	_KDBUS_PAYLOAD_NULL,
+	KDBUS_PAYLOAD_KERNEL,
 	KDBUS_PAYLOAD_DBUS1	= 0x4442757356657231ULL, /* 'DBusVer1' */
 	KDBUS_PAYLOAD_GVARIANT	= 0x4756617269616e74ULL, /* 'GVariant' */
 };
@@ -200,23 +206,24 @@ enum {
 	KDBUS_POLICY_OWN		= 1 <<  0,
 };
 
+struct kdbus_policy_access {
+	__u64 type;		/* USER, GROUP, WORLD */
+	__u64 bits;		/* RECV, SEND, OWN */
+	__u64 id;		/* uid, gid, 0 */
+};
+
 struct kdbus_policy {
-	__u64 size;
-	__u64 type; /* NAME or ACCESS */
+	KDBUS_PART_HEADER;
 	union {
 		char name[0];
-		struct {
-			__u32 type;	/* USER, GROUP, WORLD */
-			__u32 bits;	/* RECV, SEND, OWN */
-			__u64 id;	/* uid, gid, 0 */
-		} access;
+		struct kdbus_policy_access access;
 	};
 };
 
+/* A series of KDBUS_POLICY_NAME, plus one or more KDBUS_POLICY_ACCESS */
 struct kdbus_cmd_policy {
 	__u64 size;
-	__u8 data[0];		/* a series of KDBUS_POLICY_NAME plus one or
-				 * more KDBUS_POLICY_ACCESS each. */
+	struct kdbus_policy policies[0];
 };
 
 /* Flags for struct kdbus_cmd_hello */
@@ -332,10 +339,11 @@ enum {
 	KDBUS_NAME_IN_QUEUE			= 1 << 16,
 };
 
+/* We allow (de)regestration of names of other peers */
 struct kdbus_cmd_name {
 	__u64 size;
-	__u64 name_flags;
-	__u64 id;		/* We allow registration/deregestration of names of other peers */
+	__u64 flags;
+	__u64 id;
 	__u64 conn_flags;
 	char name[0];
 };
@@ -381,7 +389,7 @@ struct kdbus_cmd_match {
 
 struct kdbus_cmd_monitor {
 	__u64 id;		/* We allow setting the monitor flag of other peers */
-	unsigned int enabled;	/* A boolean to enable/disable monitoring */
+	unsigned int enable;	/* A boolean to enable/disable monitoring */
 };
 
 /* FD states:
@@ -394,7 +402,7 @@ struct kdbus_cmd_monitor {
  *   starter    (via KDBUS_CMD_HELLO with KDBUS_CMD_HELLO_STARTER)
  *   ep owner   (via KDBUS_CMD_EP_MAKE)
  */
-enum kdbus_cmd {
+enum {
 	/* kdbus control node commands: require unset state */
 	KDBUS_CMD_BUS_MAKE =		_IOWR(KDBUS_IOC_MAGIC, 0x00, struct kdbus_cmd_bus_make),
 	KDBUS_CMD_NS_MAKE =		_IOWR(KDBUS_IOC_MAGIC, 0x10, struct kdbus_cmd_ns_make),

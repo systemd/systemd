@@ -75,7 +75,7 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 l = strlen(name);
                 n = alloca0(offsetof(struct kdbus_cmd_name, name) + l + 1);
                 n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
-                n->name_flags = flags;
+                n->flags = flags;
                 memcpy(n->name, name, l+1);
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
@@ -86,7 +86,7 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 if (r < 0)
                         return -errno;
 
-                return n->name_flags;
+                return n->flags;
         } else {
                 r = sd_bus_call_method(
                                 bus,
@@ -142,7 +142,7 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 if (r < 0)
                         return -errno;
 
-                return n->name_flags;
+                return n->flags;
         } else {
                 r = sd_bus_call_method(
                                 bus,
