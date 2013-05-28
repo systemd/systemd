@@ -998,6 +998,24 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       </varlistentry>
 
       <varlistentry>
+        <term><command>get-default</command></term>
+
+        <listitem>
+          <para>Get the default target specified
+          via <filename>default.target</filename> link.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>set-default <replaceable>NAME</replaceable></command></term>
+
+        <listitem>
+          <para>Set the default target to boot into. Command links
+          <filename>default.target</filename> to the given unit.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>load <replaceable>NAME</replaceable>...</command></term>
 
         <listitem>

@@ -80,6 +80,8 @@ int unit_file_link(UnitFileScope scope, bool runtime, const char *root_dir, char
 int unit_file_preset(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_mask(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_unmask(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes);
+int unit_file_set_default(UnitFileScope scope, const char *root_dir, char *file, UnitFileChange **changes, unsigned *n_changes);
+int unit_file_get_default(UnitFileScope scope, const char *root_dir, char **name);
 
 UnitFileState unit_file_get_state(UnitFileScope scope, const char *root_dir, const char *filename);
 

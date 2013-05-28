@@ -1570,6 +1570,92 @@ int unit_file_reenable(
         return r;
 }
 
+int unit_file_set_default(
+                UnitFileScope scope,
+                const char *root_dir,
+                char *file,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
+
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_install_context_done_ InstallContext c = {};
+        _cleanup_free_ char *config_path = NULL;
+        char *path;
+        int r;
+        InstallInfo *i = NULL;
+
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+
+        if (unit_name_to_type(file) != UNIT_TARGET)
+                return -EINVAL;
+
+        r = lookup_paths_init_from_scope(&paths, scope);
+        if (r < 0)
+                return r;
+
+        r = get_config_path(scope, false, root_dir, &config_path);
+        if (r < 0)
+                return r;
+
+        r = install_info_add_auto(&c, file);
+        if (r < 0)
+                return r;
+
+        i = (InstallInfo*)hashmap_first(c.will_install);
+
+        r = unit_file_search(&c, i, &paths, root_dir, false);
+        if (r < 0)
+                return r;
+
+        path = strappenda(config_path, "/default.target");
+        r = create_symlink(i->path, path, true, changes, n_changes);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int unit_file_get_default(
+                UnitFileScope scope,
+                const char *root_dir,
+                char **name) {
+
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        char **p;
+        int r;
+
+        r = lookup_paths_init_from_scope(&paths, scope);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(p, paths.unit_path) {
+                _cleanup_free_ char *path = NULL, *tmp = NULL;
+
+                if (isempty(root_dir))
+                        path = strappend(*p, "/default.target");
+                else
+                        path = strjoin(root_dir, "/", *p, "/default.target", NULL);
+
+                if (!path)
+                        return -ENOMEM;
+
+                r = readlink_malloc(path, &tmp);
+                if (r == -ENOENT)
+                        continue;
+                else if (r < 0)
+                        return r;
+
+                *name = strdup(path_get_file_name(tmp));
+                if (!*name)
+                        return -ENOMEM;
+
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
 UnitFileState unit_file_get_state(
                 UnitFileScope scope,
                 const char *root_dir,

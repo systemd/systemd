@@ -227,6 +227,13 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetDefaultTarget\">\n"                         \
+        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
+        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetDefaultTarget\">\n"                         \
+        "   <arg name=\"name\" type=\"s\" direction=\"out\"/>\n" \
         "  </method>\n"
 
 #define BUS_MANAGER_INTERFACE_SIGNALS                                   \
@@ -1728,7 +1735,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                    dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReenableUnitFiles") ||
                    dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "LinkUnitFiles") ||
                    dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "PresetUnitFiles") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "MaskUnitFiles")) {
+                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "MaskUnitFiles") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetDefaultTarget")) {
 
                 char **l = NULL;
                 DBusMessageIter iter;
@@ -1771,6 +1779,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         carries_install_info = r;
                 } else if (streq(member, "MaskUnitFiles"))
                         r = unit_file_mask(scope, runtime, NULL, l, force, &changes, &n_changes);
+                else if (streq(member, "SetDefaultTarget"))
+                        r = unit_file_set_default(scope, NULL, l[0], &changes, &n_changes);
                 else
                         assert_not_reached("Uh? Wrong method");
 
@@ -1838,6 +1848,22 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!reply)
                         goto oom;
 
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetDefaultTarget")) {
+                UnitFileScope scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+                _cleanup_free_ char *default_target = NULL;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                r = unit_file_get_default(scope, NULL, &default_target);
+
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &default_target, DBUS_TYPE_INVALID)) {
+                        goto oom;
+                }
         } else {
                 const BusBoundProperties bps[] = {
                         { "org.freedesktop.systemd1.Manager", bus_systemd_properties, systemd_property_string },

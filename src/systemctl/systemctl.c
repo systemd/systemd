@@ -1177,6 +1177,59 @@ static int list_dependencies(DBusConnection *bus, char **args) {
         return list_dependencies_one(bus, u, 0, &units, 0);
 }
 
+static int get_default(DBusConnection *bus, char **args) {
+        char *path = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        int r;
+        _cleanup_dbus_error_free_ DBusError error;
+
+        dbus_error_init(&error);
+
+        if (!bus || avoid_bus()) {
+                r = unit_file_get_default(arg_scope, arg_root, &path);
+
+                if (r < 0) {
+                        log_error("Operation failed: %s", strerror(-r));
+                        goto finish;
+                }
+
+                r = 0;
+        } else {
+                r = bus_method_call_with_reply(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "GetDefaultTarget",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+
+                if (r < 0) {
+                        log_error("Operation failed: %s", strerror(-r));
+                        goto finish;
+                }
+
+                if (!dbus_message_get_args(reply, &error,
+                                   DBUS_TYPE_STRING, &path,
+                                   DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
+                        dbus_error_free(&error);
+                        return  -EIO;
+                }
+        }
+
+        if (path)
+                printf("%s\n", path);
+
+finish:
+        if ((!bus || avoid_bus()) && path)
+                free(path);
+
+        return r;
+
+}
+
 struct job_info {
         uint32_t id;
         char *name, *type, *state;
@@ -4243,6 +4296,8 @@ static int enable_unit(DBusConnection *bus, char **args) {
                         r = unit_file_mask(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
                         r = unit_file_unmask(arg_scope, arg_runtime, arg_root, mangled_names, &changes, &n_changes);
+                else if (streq(verb, "set-default"))
+                        r = unit_file_set_default(arg_scope, arg_root, args[1], &changes, &n_changes);
                 else
                         assert_not_reached("Unknown verb");
 
@@ -4286,6 +4341,8 @@ static int enable_unit(DBusConnection *bus, char **args) {
                 else if (streq(verb, "unmask")) {
                         method = "UnmaskUnitFiles";
                         send_force = false;
+                } else if (streq(verb, "set-default")) {
+                        method = "SetDefaultTarget";
                 } else
                         assert_not_reached("Unknown verb");
 
@@ -4585,6 +4642,8 @@ static int systemctl_help(void) {
                "  unmask [NAME...]                Unmask one or more units\n"
                "  link [PATH...]                  Link one or more units files into\n"
                "                                  the search path\n"
+               "  get-default                     Get the name of the default target\n"
+               "  set-default NAME                Set the default target\n"
                "  is-enabled [NAME...]            Check whether unit files are enabled\n\n"
                "Job Commands:\n"
                "  list-jobs                       List jobs\n"
@@ -5646,6 +5705,8 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "link",                  MORE,  2, enable_unit       },
                 { "switch-root",           MORE,  2, switch_root       },
                 { "list-dependencies",     LESS,  2, list_dependencies },
+                { "set-default",           EQUAL, 2, enable_unit       },
+                { "get-default",           LESS,  1, get_default       },
         };
 
         int left;
@@ -5717,7 +5778,9 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
             !streq(verbs[i].verb, "preset") &&
             !streq(verbs[i].verb, "mask") &&
             !streq(verbs[i].verb, "unmask") &&
-            !streq(verbs[i].verb, "link")) {
+            !streq(verbs[i].verb, "link") &&
+            !streq(verbs[i].verb, "set-default") &&
+            !streq(verbs[i].verb, "get-default")) {
 
                 if (running_in_chroot() > 0) {
                         log_info("Running in chroot, ignoring request.");
