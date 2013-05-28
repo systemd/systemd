@@ -65,8 +65,8 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
                 if (!part->sealed)
                         bus_kernel_push_memfd(m->bus, part->memfd, part->data, part->mapped);
                 else {
-                        if (part->size > 0)
-                                assert_se(munmap(part->data, PAGE_ALIGN(part->size)) == 0);
+                        if (part->mapped > 0)
+                                assert_se(munmap(part->data, part->mapped) == 0);
 
                         close_nointr_nofail(part->memfd);
                 }
@@ -1244,7 +1244,6 @@ static void message_extend_containers(sd_bus_message *m, size_t expand) {
         for (c = m->containers; c < m->containers + m->n_containers; c++)
                 if (c->array_size)
                         *c->array_size += expand;
-
 }
 
 static void *message_extend_body(sd_bus_message *m, size_t align, size_t sz) {
