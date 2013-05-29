@@ -715,12 +715,12 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size) {
         if (!bus || !bus->is_kernel)
                 return -ENOTSUP;
 
-        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) == 0);
+        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
 
         if (bus->n_memfd_cache <= 0) {
                 int r;
 
-                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
+                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
 
                 r = ioctl(bus->input_fd, KDBUS_CMD_MEMFD_NEW, &fd);
                 if (r < 0)
@@ -740,20 +740,21 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size) {
         *size = c->size;
         fd = c->fd;
 
-        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
+        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
 
         return fd;
 }
 
 static void close_and_munmap(int fd, void *address, size_t size) {
         if (size > 0)
-                assert_se(munmap(address, PAGE_ALIGN(size)) == 0);
+                assert_se(munmap(address, PAGE_ALIGN(size)) >= 0);
 
         close_nointr_nofail(fd);
 }
 
 void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t size) {
         struct memfd_cache *c;
+        uint64_t max_sz = PAGE_ALIGN(MEMFD_CACHE_ITEM_SIZE_MAX);
 
         assert(fd >= 0);
         assert(size == 0 || address);
@@ -763,10 +764,10 @@ void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t size) {
                 return;
         }
 
-        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) == 0);
+        assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
 
         if (bus->n_memfd_cache >= ELEMENTSOF(bus->memfd_cache)) {
-                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
+                assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
 
                 close_and_munmap(fd, address, size);
                 return;
@@ -777,16 +778,14 @@ void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t size) {
         c->address = address;
 
         /* If overly long, let's return a bit to the OS */
-        if (size > MEMFD_CACHE_ITEM_SIZE_MAX) {
-                uint64_t sz = MEMFD_CACHE_ITEM_SIZE_MAX;
-
-                ioctl(bus->input_fd, KDBUS_CMD_MEMFD_SIZE_SET, &sz);
-
-                c->size = MEMFD_CACHE_ITEM_SIZE_MAX;
+        if (size > max_sz) {
+                assert_se(ioctl(fd, KDBUS_CMD_MEMFD_SIZE_SET, &max_sz) >= 0);
+                assert_se(munmap((uint8_t*) address + max_sz, PAGE_ALIGN(size - max_sz)) >= 0);
+                c->size = max_sz;
         } else
                 c->size = size;
 
-        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) == 0);
+        assert_se(pthread_mutex_unlock(&bus->memfd_cache_mutex) >= 0);
 }
 
 void bus_kernel_flush_memfd(sd_bus *b) {
@@ -794,10 +793,6 @@ void bus_kernel_flush_memfd(sd_bus *b) {
 
         assert(b);
 
-        for (i = 0; i < b->n_memfd_cache; i++) {
-                if (b->memfd_cache[i].size > 0)
-                        assert_se(munmap(b->memfd_cache[i].address, PAGE_ALIGN(b->memfd_cache[i].size)) == 0);
-
-                close_nointr_nofail(b->memfd_cache[i].fd);
-        }
+        for (i = 0; i < b->n_memfd_cache; i++)
+                close_and_munmap(b->memfd_cache[i].fd, b->memfd_cache[i].address, b->memfd_cache[i].size);
 }
