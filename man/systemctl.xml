@@ -546,6 +546,19 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </listitem>
       </varlistentry>
 
+       <varlistentry>
+         <term><command>set-log-level <replaceable>LEVEL</replaceable></command></term>
+
+         <listitem>
+           <para>Change current log level of the
+           <command>systemd</command> daemon to
+           <replaceable>LEVEL</replaceable> (accepts the same values
+           as <option>--log-level=</option> described in
+           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
+           </para>
+         </listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><command>start <replaceable>NAME</replaceable>...</command></term>
 

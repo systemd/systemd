@@ -91,8 +91,6 @@ Features:
 
 * we need dynamic units
 
-* add s.th. like "systemctl set-log-level debug"
-
 * cgtop: make cgtop useful in a container
 
 * test/:
