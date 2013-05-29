@@ -410,6 +410,8 @@ static int parse_proc_cmdline_word(const char *word) {
 
         } else if (streq(word, "quiet"))
                 arg_show_status = false;
+        else if (streq(word, "debug"))
+                log_set_max_level(LOG_DEBUG);
         else if (!in_initrd()) {
                 unsigned i;
 

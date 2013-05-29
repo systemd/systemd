@@ -1114,15 +1114,28 @@
                         <varlistentry>
                                 <term><varname>quiet</varname></term>
 
-                                <listitem><para>If passed turns off
+                                <listitem><para>Turn off
                                 status output at boot, much like
                                 <varname>systemd.show_status=false</varname>
                                 would. Note that this option is also
                                 read by the kernel itself and disables
-                                kernel log output to the
-                                kernel. Passing this option hence
-                                turns off the usual output from both
-                                the system manager and the
+                                kernel log output. Passing this option
+                                hence turns off the usual output from
+                                both the system manager and the kernel.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>debug</varname></term>
+
+                                <listitem><para>Turn on debugging
+                                output. This is equivalent to
+                                <varname>systemd.log_level=debug</varname>.
+                                Note that this option is also read by
+                                the kernel itself and enables kernel
+                                debug output.  Passing this option
+                                hence turns on the debug output from
+                                both the system manager and the
                                 kernel.</para></listitem>
                         </varlistentry>
 

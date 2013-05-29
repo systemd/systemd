@@ -56,9 +56,6 @@ Features:
   complain loudly if they have argv[0][0] == '@' set.
   https://bugzilla.redhat.com/show_bug.cgi?id=961044
 
-* read the kernel's console "debug" keyword like we read "quiet" and adjust:
-    systemd.log_level=debug and maybe systemd.log_target=kmsg
-
 * add an option to nspawn that uses seccomp to make socket(AF_NETLINK,
   SOCK_RAW, NETLINK_AUDIT) fail the the appropriate error code that
   makes the audit userspace to think auditing is not available in the
