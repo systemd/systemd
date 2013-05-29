@@ -157,13 +157,24 @@ static bool test_virtualization(const char *parameter) {
         return v > 0 && streq(parameter, id);
 }
 
+static bool test_apparmor_enabled(void) {
+        int r;
+        _cleanup_free_ char *p = NULL;
+
+        r = read_one_line_file("/sys/module/apparmor/parameters/enabled", &p);
+        if (r < 0)
+                return false;
+
+        return parse_boolean(p) > 0;
+}
+
 static bool test_security(const char *parameter) {
 #ifdef HAVE_SELINUX
         if (streq(parameter, "selinux"))
                 return is_selinux_enabled() > 0;
 #endif
         if (streq(parameter, "apparmor"))
-                return access("/sys/kernel/security/apparmor/", F_OK) == 0;
+                return test_apparmor_enabled();
         if (streq(parameter, "ima"))
                 return access("/sys/kernel/security/ima/", F_OK) == 0;
         if (streq(parameter, "smack"))
