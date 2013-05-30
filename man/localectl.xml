@@ -49,7 +49,9 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>localectl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg></command>
+                        <command>localectl</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="req">COMMAND</arg>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -276,6 +278,9 @@
                         <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>kbd</refentrytitle><manvolnum>4</manvolnum></citerefentry>,
+                        <ulink url="http://www.x.org/releases/current/doc/xorg-docs/input/XKB-Config.html">
+                          The XKB Configuration Guide
+                        </ulink>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
