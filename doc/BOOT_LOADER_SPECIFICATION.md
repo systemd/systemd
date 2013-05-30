@@ -1,5 +1,3 @@
-
-
 # The Boot Loader Specification
 
 _TL;DR: Currently there's little cooperation between multiple distributions in dual-boot (or triple, ... multi-boot) setups, and we'd like to improve this situation by getting everybody to commit to a single boot configuration format that is based on drop-in files, and thus is robust, simple, works without rewriting configuration files and is free of namespace clashes._ 
@@ -65,16 +63,14 @@ These configuration snippets shall be Unix-style text files (i.e. line separatio
 * `options` shall contain kernel parameters to pass to the Linux kernel to spawn. This key is optional. 
 Each configuration drop-in snippet must include at least a `linux` or an `efi` key, and is otherwise not valid. Here's an example for a complete drop-in file: 
 
+      # cat /boot/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf
+      title      Fedora 19 (Rawhide)
+      version    3.8.0-2.fc19.x86_64
+      machine-id 6a9857a393724b7a981ebb5b8495b9ea
+      options    root=UUID=6d3376e4-fc93-4509-95ec-a21d68011da2
+      linux      /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux
+      initrd     /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd
 
-[[!format txt """
-# cat /boot/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf
-title      Fedora 19 (Rawhide)
-version    3.8.0-2.fc19.x86_64
-machine-id 6a9857a393724b7a981ebb5b8495b9ea
-options    root=UUID=6d3376e4-fc93-4509-95ec-a21d68011da2
-linux      /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux
-initrd     /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd
-"""]]
 On EFI systems all kernel images shall be EFI images. In order to be compatible with EFI systems it is highly recommended only to install EFI kernel images, even on non-EFI systems, if that's applicable and supported on the specific architecture.  
 
 Note that these configurations snippets do not need to be the only configuration source for a boot loader. It may extend this list of entries with additional items from other configuration files (for example its own native configuration files) or automatically detected other entries without explicit configuration. 
