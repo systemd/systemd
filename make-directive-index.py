@@ -21,6 +21,7 @@ import sys
 import collections
 import re
 from xml_helper import *
+from copy import deepcopy
 
 TEMPLATE = '''\
 <refentry id="systemd.directives" conditional="HAVE_PYTHON">
@@ -226,19 +227,20 @@ def _make_section(template, name, directives, formatting):
     for varname, manpages in sorted(directives.items()):
         entry = tree.SubElement(varlist, 'varlistentry')
         term = tree.SubElement(entry, 'term')
-        term.append(formatting[varname])
+        display = deepcopy(formatting[varname])
+        term.append(display)
 
         para = tree.SubElement(tree.SubElement(entry, 'listitem'), 'para')
 
         b = None
         for manpage, manvolume in sorted(set(manpages)):
-                if b is not None:
-                        b.tail = ', '
-                b = tree.SubElement(para, 'citerefentry')
-                c = tree.SubElement(b, 'refentrytitle')
-                c.text = manpage
-                d = tree.SubElement(b, 'manvolnum')
-                d.text = manvolume
+            if b is not None:
+                b.tail = ', '
+            b = tree.SubElement(para, 'citerefentry')
+            c = tree.SubElement(b, 'refentrytitle')
+            c.text = manpage
+            d = tree.SubElement(b, 'manvolnum')
+            d.text = manvolume
         entry.tail = '\n\n'
 
 def _make_colophon(template, groups):
@@ -264,7 +266,7 @@ def _make_page(template, directive_groups, formatting):
     }
     """
     for name, directives in directive_groups.items():
-            _make_section(template, name, directives, formatting)
+        _make_section(template, name, directives, formatting)
 
     _make_colophon(template, directive_groups.values())
 
