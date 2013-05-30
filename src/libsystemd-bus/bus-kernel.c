@@ -313,12 +313,7 @@ fail:
 }
 
 int bus_kernel_take_fd(sd_bus *b) {
-        uint8_t h[ALIGN8(sizeof(struct kdbus_cmd_hello)) +
-                  ALIGN8(KDBUS_ITEM_HEADER_SIZE) +
-                  ALIGN8(sizeof(struct kdbus_vec))] = {};
-
-        struct kdbus_cmd_hello *hello = (struct kdbus_cmd_hello*) h;
-
+        struct kdbus_cmd_hello hello;
         int r;
 
         assert(b);
@@ -328,41 +323,38 @@ int bus_kernel_take_fd(sd_bus *b) {
 
         b->use_memfd = 1;
 
+        zero(hello);
+        hello.size = sizeof(hello);
+        hello.conn_flags = b->hello_flags;
+        hello.pool_size = KDBUS_POOL_SIZE;
+
+        r = ioctl(b->input_fd, KDBUS_CMD_HELLO, &hello);
+        if (r < 0)
+                return -errno;
+
         if (!b->kdbus_buffer) {
-                b->kdbus_buffer = mmap(NULL, KDBUS_POOL_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+                b->kdbus_buffer = mmap(NULL, KDBUS_POOL_SIZE, PROT_READ, MAP_SHARED, b->input_fd, 0);
                 if (b->kdbus_buffer == MAP_FAILED) {
                         b->kdbus_buffer = NULL;
                         return -errno;
                 }
         }
 
-        hello->size = sizeof(h);
-        hello->conn_flags = b->hello_flags;
-
-        hello->items[0].type = KDBUS_HELLO_POOL;
-        hello->items[0].size = KDBUS_ITEM_HEADER_SIZE + sizeof(struct kdbus_vec);
-        hello->items[0].vec.address = (uint64_t) b->kdbus_buffer;
-        hello->items[0].vec.size = KDBUS_POOL_SIZE;
-
-        r = ioctl(b->input_fd, KDBUS_CMD_HELLO, hello);
-        if (r < 0)
-                return -errno;
-
         /* The higher 32bit of both flags fields are considered
          * 'incompatible flags'. Refuse them all for now. */
-        if (hello->bus_flags > 0xFFFFFFFFULL ||
-            hello->conn_flags > 0xFFFFFFFFULL)
+        if (hello.bus_flags > 0xFFFFFFFFULL ||
+            hello.conn_flags > 0xFFFFFFFFULL)
                 return -ENOTSUP;
 
-        if (hello->bloom_size != BLOOM_SIZE)
+        if (hello.bloom_size != BLOOM_SIZE)
                 return -ENOTSUP;
 
-        if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello->id) < 0)
+        if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello.id) < 0)
                 return -ENOMEM;
 
         b->is_kernel = true;
         b->bus_client = true;
-        b->can_fds = !!(hello->conn_flags & KDBUS_HELLO_ACCEPT_FD);
+        b->can_fds = !!(hello.conn_flags & KDBUS_HELLO_ACCEPT_FD);
 
         r = bus_start_running(b);
         if (r < 0)
@@ -408,12 +400,14 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
 }
 
 static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
+        uint64_t off;
         struct kdbus_item *d;
 
         assert(bus);
         assert(k);
 
-        ioctl(bus->input_fd, KDBUS_CMD_MSG_RELEASE, k);
+        off = (uint8_t *)k - (uint8_t *)bus->kdbus_buffer;
+        ioctl(bus->input_fd, KDBUS_CMD_MSG_RELEASE, &off);
 
         KDBUS_ITEM_FOREACH(d, k) {
 
@@ -446,10 +440,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                 l = d->size - offsetof(struct kdbus_item, data);
 
-                if (d->type == KDBUS_MSG_PAYLOAD_VEC) {
+                if (d->type == KDBUS_MSG_PAYLOAD_OFF) {
 
                         if (!h) {
-                                h = UINT64_TO_PTR(d->vec.address);
+                                h = (struct bus_header *)((uint8_t *)bus->kdbus_buffer + d->vec.offset);
 
                                 if (!bus_header_is_complete(h, d->vec.size))
                                         return -EBADMSG;
@@ -500,7 +494,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                 l = d->size - offsetof(struct kdbus_item, data);
 
-                if (d->type == KDBUS_MSG_PAYLOAD_VEC) {
+                if (d->type == KDBUS_MSG_PAYLOAD_OFF) {
                         size_t begin_body;
 
                         begin_body = BUS_MESSAGE_BODY_BEGIN(m);
@@ -516,15 +510,19 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                                         goto fail;
                                 }
 
+                                /* A -1 offset is NUL padding. */
+                                part->is_zero = d->vec.offset == ~0ULL;
+
                                 if (idx >= begin_body) {
-                                        part->data = UINT64_TO_PTR(d->vec.address);
+                                        if (!part->is_zero)
+                                                part->data = (uint8_t *)bus->kdbus_buffer + d->vec.offset;
                                         part->size = d->vec.size;
                                 } else {
-                                        part->data = d->vec.address != 0 ? (uint8_t*) UINT64_TO_PTR(d->vec.address) + (begin_body - idx) : NULL;
+                                        if (!part->is_zero)
+                                                part->data = (uint8_t *)bus->kdbus_buffer + d->vec.offset + (begin_body - idx);
                                         part->size = d->vec.size - (begin_body - idx);
                                 }
 
-                                part->is_zero = d->vec.address == 0;
                                 part->sealed = true;
                         }
 
@@ -631,21 +629,21 @@ fail:
 }
 
 int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
-        uint64_t addr;
+        uint64_t off;
         struct kdbus_msg *k;
         int r;
 
         assert(bus);
         assert(m);
 
-        r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, &addr);
+        r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, &off);
         if (r < 0) {
                 if (errno == EAGAIN)
                         return 0;
 
                 return -errno;
         }
-        k = UINT64_TO_PTR(addr);
+        k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + off);
 
         r = bus_kernel_make_message(bus, k, m);
         if (r <= 0)

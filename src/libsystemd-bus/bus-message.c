@@ -125,8 +125,12 @@ static void message_free(sd_bus_message *m) {
         if (m->free_kdbus)
                 free(m->kdbus);
 
-        if (m->release_kdbus)
-                ioctl(m->bus->input_fd, KDBUS_CMD_MSG_RELEASE, m->kdbus);
+        if (m->release_kdbus) {
+                uint64_t off;
+
+                off = (uint8_t *)m->kdbus - (uint8_t *)m->bus->kdbus_buffer;
+                ioctl(m->bus->input_fd, KDBUS_CMD_MSG_RELEASE, &off);
+        }
 
         if (m->bus)
                 sd_bus_unref(m->bus);

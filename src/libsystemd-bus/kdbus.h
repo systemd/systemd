@@ -73,8 +73,11 @@ struct kdbus_timestamp {
 };
 
 struct kdbus_vec {
-	__u64 address;
 	__u64 size;
+	union {
+		__u64 address;
+		__u64 offset;
+	};
 };
 
 struct kdbus_memfd {
@@ -88,6 +91,7 @@ enum {
 
 	/* Filled in by userspace */
 	KDBUS_MSG_PAYLOAD_VEC,		/* .data_vec, reference to memory area */
+	KDBUS_MSG_PAYLOAD_OFF,		/* .data_vec, reference to memory area */
 	KDBUS_MSG_PAYLOAD_MEMFD,	/* file descriptor of a special data file */
 	KDBUS_MSG_FDS,			/* .data_fds of file descriptors */
 	KDBUS_MSG_BLOOM,		/* for broadcasts, carries bloom filter blob in .data */
@@ -212,6 +216,7 @@ struct kdbus_policy_access {
 	__u64 id;		/* uid, gid, 0 */
 };
 
+//FIXME: convert access to access[]
 struct kdbus_policy {
 	KDBUS_PART_HEADER;
 	union {
@@ -242,13 +247,6 @@ enum {
 	KDBUS_HELLO_ATTACH_AUDIT	=  1 << 16,
 };
 
-/* Items to append to struct kdbus_cmd_hello */
-enum {
-	_KDBUS_HELLO_NULL,
-	KDBUS_HELLO_POOL,	/* kdbus_vec, userspace supplied pool to
-				 * place received messages */
-};
-
 struct kdbus_cmd_hello {
 	__u64 size;
 
@@ -269,6 +267,7 @@ struct kdbus_cmd_hello {
 	__u64 id;		/* id assigned to this connection */
 	__u64 bloom_size;	/* The bloom filter size chosen by the
 				 * bus owner */
+	__u64 pool_size;	/* maximum size of pool buffer */
 	struct kdbus_item items[0];
 };
 
@@ -284,7 +283,8 @@ enum {
 	_KDBUS_MAKE_NULL,
 	KDBUS_MAKE_NAME,
 	KDBUS_MAKE_CGROUP,	/* the cgroup hierarchy ID for which to attach
-				 * cgroup membership paths * to messages. */
+				 * cgroup membership paths to messages.
+				 * FIXME: remove, use *the* hierarchy */
 	KDBUS_MAKE_CRED,	/* allow translator services which connect
 				 * to the bus on behalf of somebody else,
 				 * allow specifiying the credentials of the
@@ -304,7 +304,6 @@ struct kdbus_cmd_bus_make {
 				 * KDBUS_CMD_HELLO, later */
 	__u64 bloom_size;	/* size of the bloom filter for this bus */
 	struct kdbus_item items[0];
-
 };
 
 struct kdbus_cmd_ep_make {
@@ -414,7 +413,7 @@ enum {
 	/* kdbus ep node commands: require connected state */
 	KDBUS_CMD_MSG_SEND =		_IOWR(KDBUS_IOC_MAGIC, 0x40, struct kdbus_msg),
 	KDBUS_CMD_MSG_RECV =		_IOWR(KDBUS_IOC_MAGIC, 0x41, __u64 *),
-	KDBUS_CMD_MSG_RELEASE =		_IOWR(KDBUS_IOC_MAGIC, 0x42, struct kdbus_msg),
+	KDBUS_CMD_MSG_RELEASE =		_IOWR(KDBUS_IOC_MAGIC, 0x42, __u64 *),
 
 	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOC_MAGIC, 0x50, struct kdbus_cmd_name),
 	KDBUS_CMD_NAME_RELEASE =	_IOWR(KDBUS_IOC_MAGIC, 0x51, struct kdbus_cmd_name),
