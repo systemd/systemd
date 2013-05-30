@@ -128,6 +128,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -ffast-math \
         -fno-common \
         -fdiagnostics-show-option \
+        -fdiagnostics-color \
         -fno-strict-aliasing \
         -fvisibility=hidden \
         -ffunction-sections \
