@@ -35,8 +35,9 @@ The EFI specification provides a boot options logic that can offer similar funct
 We define two directories:  
 
 * `$BOOT/loader/` is the directory containing all files defined by this specification 
-* `$BOOT/loader/entries/` is the directory containing the drop-in snippets. This directory contains one `.conf` file for each boot menu item. 
-These directories are defined below the placeholder file system `$BOOT`. This placeholder file system shall be determined during _installation time_, and an fstab entry for it shall be created mounting it to /boot. The installer program should pick `$BOOT` according to the following rules: 
+* `$BOOT/loader/entries/` is the directory containing the drop-in snippets. This directory contains one `.conf` file for each boot menu item.
+
+These directories are defined below the placeholder file system `$BOOT`. This placeholder file system shall be determined during _installation time_, and an fstab entry for it shall be created mounting it to /boot. The installer program should pick `$BOOT` according to the following rules:
 
 * If the OS is installed on a disk with MBR disk label, and a partition with the MBR type id of 0xEA already exists it should be used as $BOOT. 
 * Otherwise, if the the OS is installed on a disk with MBR disk label, a new partition with MBR type id of 0xEA shall be created, of a suitable size (let's say 500MB), and it should be used as $BOOT. 
@@ -44,7 +45,8 @@ These directories are defined below the placeholder file system `$BOOT`. This pl
 * Otherwise, if the OS is installed on a disk with GPT disk label, and an ESP partition (i.e. with the GPT type UID of c12a7328-f81f-11d2-ba4b-00a0c93ec93b) already exists and is large enough (let's say 250MB) and otherwise qualifies, it should be used as $BOOT. 
 * Otherwise, if the OS is installed on a disk with GPT disk label, and if the ESP partition already exists but is too small, a new suitably sized (let's say 500MB) partition with GPT type GUID of bc13c2ff-59e6-4262-a352-b275fd6f7172 shall be created and it should be used as $BOOT. 
 * Otherwise, if the OS is installed on a disk with GPT disk label, and no ESP partition exists yet, a new suitably sized (let's say 500MB) ESP should be created and should be used as $BOOT. 
-**Note:** _In all cases the /loader directory should be located directly in the root of the file system. Specifically, if $BOOT is the ESP, then /loader directory should be located directly in the root directory of the ESP, and not in the EFI/ subdirectory. _ 
+
+**Note:** _In all cases the /loader directory should be located directly in the root of the file system. Specifically, if $BOOT is the ESP, then /loader directory should be located directly in the root directory of the ESP, and not in the EFI/ subdirectory._
 
 **Note:** _`$BOOT` should be considered **shared** among all OS installations of a system. Instead of maintaining one `$BOOT` per installed OS (as `/boot` was traditionally handled), all installed OS share the same place to drop in their boot-time configuration._ 
 
