@@ -1913,8 +1913,8 @@ static int start_unit_one(
         }
 
         if (need_daemon_reload(bus, n))
-                log_warning("Warning: Unit file of %s changed on disk, 'systemctl %s daemon-reload' recommended.",
-                            n, arg_scope == UNIT_FILE_SYSTEM ? "--system" : "--user");
+                log_warning("Warning: Unit file of %s changed on disk, 'systemctl %sdaemon-reload' recommended.",
+                            n, arg_scope == UNIT_FILE_SYSTEM ? "" : "--user ");
 
         if (s) {
                 char *p;
@@ -2974,10 +2974,10 @@ static void print_status_info(UnitStatusInfo *i) {
         }
 
         if (i->need_daemon_reload)
-                printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %s daemon-reload' recommended.\n",
+                printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %sdaemon-reload' recommended.\n",
                        ansi_highlight_red(true),
                        ansi_highlight_red(false),
-                       arg_scope == UNIT_FILE_SYSTEM ? "--system" : "--user");
+                       arg_scope == UNIT_FILE_SYSTEM ? "" : "--user ");
 }
 
 static void show_unit_help(UnitStatusInfo *i) {

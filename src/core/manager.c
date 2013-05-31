@@ -1037,7 +1037,8 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DB
                 }
         }
 
-        if ((r = unit_add_name(ret, name)) < 0) {
+        r = unit_add_name(ret, name);
+        if (r < 0) {
                 unit_free(ret);
                 return r;
         }
