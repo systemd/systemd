@@ -780,6 +780,9 @@ static int system_journal_open(Server *s) {
         char *fn;
         sd_id128_t machine;
         char ids[33];
+        uint64_t avail;
+
+        avail = available_space(s);
 
         r = sd_id128_get_machine(&machine);
         if (r < 0)
@@ -820,6 +823,10 @@ static int system_journal_open(Server *s) {
                         server_fix_perms(s, s->system_journal, 0);
                         server_driver_message(s, SD_ID128_NULL, "Allowing system journal files to grow to %s.",
                                               format_bytes(fb, sizeof(fb), s->system_metrics.max_use));
+
+                        if (s->system_metrics.max_use > avail)
+                               server_driver_message(s, SD_ID128_NULL, "Journal size currently limited to %s due to SystemKeepFree.",
+                                                     format_bytes(fb, sizeof(fb), avail));
 
                 } else if (r < 0) {
 
@@ -874,6 +881,10 @@ static int system_journal_open(Server *s) {
                         server_fix_perms(s, s->runtime_journal, 0);
                         server_driver_message(s, SD_ID128_NULL, "Allowing runtime journal files to grow to %s.",
                                               format_bytes(fb, sizeof(fb), s->runtime_metrics.max_use));
+
+                        if (s->system_metrics.max_use > avail)
+                               server_driver_message(s, SD_ID128_NULL, "Journal size currently limited to %s due to RuntimeKeepFree.",
+                                                     format_bytes(fb, sizeof(fb), avail));
                 }
         }
 
