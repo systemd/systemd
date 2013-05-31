@@ -83,6 +83,7 @@ struct kdbus_vec {
 struct kdbus_memfd {
 	__u64 size;
 	int fd;
+	__u32 __pad;
 };
 
 /* Message Item Types */
@@ -389,6 +390,7 @@ struct kdbus_cmd_match {
 struct kdbus_cmd_monitor {
 	__u64 id;		/* We allow setting the monitor flag of other peers */
 	unsigned int enable;	/* A boolean to enable/disable monitoring */
+	__u32 __pad;
 };
 
 /* FD states:
@@ -403,35 +405,35 @@ struct kdbus_cmd_monitor {
  */
 enum {
 	/* kdbus control node commands: require unset state */
-	KDBUS_CMD_BUS_MAKE =		_IOWR(KDBUS_IOC_MAGIC, 0x00, struct kdbus_cmd_bus_make),
-	KDBUS_CMD_NS_MAKE =		_IOWR(KDBUS_IOC_MAGIC, 0x10, struct kdbus_cmd_ns_make),
+	KDBUS_CMD_BUS_MAKE =		_IOW(KDBUS_IOC_MAGIC, 0x00, struct kdbus_cmd_bus_make),
+	KDBUS_CMD_NS_MAKE =		_IOR(KDBUS_IOC_MAGIC, 0x10, struct kdbus_cmd_ns_make),
 
 	/* kdbus ep node commands: require unset state */
-	KDBUS_CMD_EP_MAKE =		_IOWR(KDBUS_IOC_MAGIC, 0x20, struct kdbus_cmd_ep_make),
+	KDBUS_CMD_EP_MAKE =		_IOW(KDBUS_IOC_MAGIC, 0x20, struct kdbus_cmd_ep_make),
 	KDBUS_CMD_HELLO =		_IOWR(KDBUS_IOC_MAGIC, 0x30, struct kdbus_cmd_hello),
 
 	/* kdbus ep node commands: require connected state */
-	KDBUS_CMD_MSG_SEND =		_IOWR(KDBUS_IOC_MAGIC, 0x40, struct kdbus_msg),
-	KDBUS_CMD_MSG_RECV =		_IOWR(KDBUS_IOC_MAGIC, 0x41, __u64 *),
-	KDBUS_CMD_MSG_RELEASE =		_IOWR(KDBUS_IOC_MAGIC, 0x42, __u64 *),
+	KDBUS_CMD_MSG_SEND =		_IOW(KDBUS_IOC_MAGIC, 0x40, struct kdbus_msg),
+	KDBUS_CMD_MSG_RECV =		_IOR(KDBUS_IOC_MAGIC, 0x41, __u64 *),
+	KDBUS_CMD_MSG_RELEASE =		_IOW(KDBUS_IOC_MAGIC, 0x42, __u64 *),
 
 	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOC_MAGIC, 0x50, struct kdbus_cmd_name),
-	KDBUS_CMD_NAME_RELEASE =	_IOWR(KDBUS_IOC_MAGIC, 0x51, struct kdbus_cmd_name),
+	KDBUS_CMD_NAME_RELEASE =	_IOW(KDBUS_IOC_MAGIC, 0x51, struct kdbus_cmd_name),
 	KDBUS_CMD_NAME_LIST =		_IOWR(KDBUS_IOC_MAGIC, 0x52, struct kdbus_cmd_names),
 	KDBUS_CMD_NAME_QUERY =		_IOWR(KDBUS_IOC_MAGIC, 0x53, struct kdbus_cmd_name_info),
 
-	KDBUS_CMD_MATCH_ADD =		_IOWR(KDBUS_IOC_MAGIC, 0x60, struct kdbus_cmd_match),
-	KDBUS_CMD_MATCH_REMOVE =	_IOWR(KDBUS_IOC_MAGIC, 0x61, struct kdbus_cmd_match),
-	KDBUS_CMD_MONITOR =		_IOWR(KDBUS_IOC_MAGIC, 0x62, struct kdbus_cmd_monitor),
+	KDBUS_CMD_MATCH_ADD =		_IOW(KDBUS_IOC_MAGIC, 0x60, struct kdbus_cmd_match),
+	KDBUS_CMD_MATCH_REMOVE =	_IOW(KDBUS_IOC_MAGIC, 0x61, struct kdbus_cmd_match),
+	KDBUS_CMD_MONITOR =		_IOW(KDBUS_IOC_MAGIC, 0x62, struct kdbus_cmd_monitor),
 
 	/* kdbus ep node commands: require ep owner state */
-	KDBUS_CMD_EP_POLICY_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x70, struct kdbus_cmd_policy),
+	KDBUS_CMD_EP_POLICY_SET =	_IOW(KDBUS_IOC_MAGIC, 0x70, struct kdbus_cmd_policy),
 
 	/* kdbus memfd commands: */
-	KDBUS_CMD_MEMFD_NEW =		_IOWR(KDBUS_IOC_MAGIC, 0x80, int *),
-	KDBUS_CMD_MEMFD_SIZE_GET =	_IOWR(KDBUS_IOC_MAGIC, 0x81, __u64 *),
-	KDBUS_CMD_MEMFD_SIZE_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x82, __u64 *),
-	KDBUS_CMD_MEMFD_SEAL_GET =	_IOWR(KDBUS_IOC_MAGIC, 0x83, int *),
-	KDBUS_CMD_MEMFD_SEAL_SET =	_IOWR(KDBUS_IOC_MAGIC, 0x84, int),
+	KDBUS_CMD_MEMFD_NEW =		_IOR(KDBUS_IOC_MAGIC, 0x80, int *),
+	KDBUS_CMD_MEMFD_SIZE_GET =	_IOR(KDBUS_IOC_MAGIC, 0x81, __u64 *),
+	KDBUS_CMD_MEMFD_SIZE_SET =	_IOW(KDBUS_IOC_MAGIC, 0x82, __u64 *),
+	KDBUS_CMD_MEMFD_SEAL_GET =	_IOR(KDBUS_IOC_MAGIC, 0x83, int *),
+	KDBUS_CMD_MEMFD_SEAL_SET =	_IO(KDBUS_IOC_MAGIC, 0x84),
 };
 #endif
