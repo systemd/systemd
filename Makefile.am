@@ -280,8 +280,12 @@ rootbin_PROGRAMS = \
 	systemd-notify \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
-	systemd-tmpfiles \
 	systemd-machine-id-setup
+
+if ENABLE_TMPFILES
+rootbin_PROGRAMS += \
+	systemd-tmpfiles
+endif
 
 bin_PROGRAMS = \
 	systemd-cgls \
@@ -336,18 +340,20 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/systemd-analyze \
 	shell-completion/bash/udevadm
 
+if ENABLE_TMPFILES
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
 	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf
 
-dist_sysctl_DATA = \
-	sysctl.d/50-default.conf
-
 if HAVE_SYSV_COMPAT
 dist_tmpfiles_DATA += \
 	tmpfiles.d/legacy.conf
 endif
+endif
+
+dist_sysctl_DATA = \
+	sysctl.d/50-default.conf
 
 dist_systemunit_DATA = \
 	units/graphical.target \
@@ -400,7 +406,6 @@ dist_systemunit_DATA = \
 	units/sound.target \
 	units/bluetooth.target \
 	units/smartcard.target \
-	units/systemd-tmpfiles-clean.timer \
 	units/quotaon.service \
 	units/systemd-ask-password-wall.path \
 	units/systemd-ask-password-console.path \
@@ -419,9 +424,6 @@ nodist_systemunit_DATA = \
 	units/systemd-remount-fs.service \
 	units/systemd-update-utmp.service \
 	units/systemd-update-utmp-runlevel.service \
-	units/systemd-tmpfiles-setup-dev.service \
-	units/systemd-tmpfiles-setup.service \
-	units/systemd-tmpfiles-clean.service \
 	units/systemd-ask-password-wall.service \
 	units/systemd-ask-password-console.service \
 	units/systemd-sysctl.service \
@@ -465,9 +467,6 @@ EXTRA_DIST += \
 	units/systemd-remount-fs.service.in \
 	units/systemd-update-utmp.service.in \
 	units/systemd-update-utmp-runlevel.service.in \
-	units/systemd-tmpfiles-setup-dev.service.in \
-	units/systemd-tmpfiles-setup.service.in \
-	units/systemd-tmpfiles-clean.service.in \
 	units/systemd-ask-password-wall.service.in \
 	units/systemd-ask-password-console.service.in \
 	units/systemd-sysctl.service.in \
@@ -499,6 +498,19 @@ CLEANFILES += \
 	units/console-shell.service.m4 \
 	units/console-getty.service.m4 \
 	units/rescue.service.m4
+
+if ENABLE_TMPFILES
+dist_systemunit_DATA += \
+	units/systemd-tmpfiles-clean.timer
+nodist_systemunit_DATA += \
+	units/systemd-tmpfiles-setup-dev.service \
+	units/systemd-tmpfiles-setup.service \
+	units/systemd-tmpfiles-clean.service
+EXTRA_DIST += \
+	units/systemd-tmpfiles-setup-dev.service.in \
+	units/systemd-tmpfiles-setup.service.in \
+	units/systemd-tmpfiles-clean.service.in
+endif
 
 if HAVE_SYSV_COMPAT
 nodist_systemunit_DATA += \
@@ -1437,6 +1449,7 @@ EXTRA_DIST += \
 	units/systemd-modules-load.service.in
 
 # ------------------------------------------------------------------------------
+if ENABLE_TMPFILES
 systemd_tmpfiles_SOURCES = \
 	src/tmpfiles/tmpfiles.c
 
@@ -1444,6 +1457,7 @@ systemd_tmpfiles_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-capability.la
+endif
 
 # ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
@@ -4115,12 +4129,16 @@ SYSINIT_TARGET_WANTS += \
 	sys-kernel-config.mount \
 	sys-kernel-debug.mount \
 	sys-fs-fuse-connections.mount \
-	systemd-tmpfiles-setup-dev.service \
-	systemd-tmpfiles-setup.service \
 	systemd-sysctl.service \
 	systemd-ask-password-console.path
+
+if ENABLE_TMPFILES
+SYSINIT_TARGET_WANTS += \
+	systemd-tmpfiles-setup-dev.service \
+	systemd-tmpfiles-setup.service
 TIMERS_TARGET_WANTS += \
 	systemd-tmpfiles-clean.timer
+endif
 
 if HAVE_SYSV_COMPAT
 SYSTEM_UNIT_ALIASES += \
@@ -4164,8 +4182,6 @@ INSTALL_DIRS += \
 endif
 
 INSTALL_DIRS += \
-	$(tmpfilesdir) \
-	$(sysconfdir)/tmpfiles.d \
 	$(prefix)/lib/modules-load.d \
 	$(sysconfdir)/modules-load.d \
 	$(prefix)/lib/sysctl.d \
@@ -4184,6 +4200,12 @@ INSTALL_DIRS += \
 	$(pkgsysconfdir)/user \
 	$(dbussessionservicedir) \
 	$(sysconfdir)/xdg/systemd
+
+if ENABLE_TMPFILES
+INSTALL_DIRS += \
+	$(tmpfilesdir) \
+	$(sysconfdir)/tmpfiles.d
+endif
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
 

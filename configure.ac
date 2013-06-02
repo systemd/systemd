@@ -617,6 +617,14 @@ fi
 AM_CONDITIONAL(ENABLE_QUOTACHECK, [test "$have_quotacheck" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_tmpfiles=no
+AC_ARG_ENABLE(tmpfiles, AS_HELP_STRING([--disable-tmpfiles], [disable tmpfiles support]))
+if test "x$enable_tmpfiles" != "xno"; then
+        have_tmpfiles=yes
+fi
+AM_CONDITIONAL(ENABLE_TMPFILES, [test "$have_tmpfiles" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_randomseed=no
 AC_ARG_ENABLE(randomseed, AS_HELP_STRING([--disable-randomseed], [disable randomseed tools]))
 if test "x$enable_randomseed" != "xno"; then
@@ -954,6 +962,7 @@ AC_MSG_RESULT([
         readahead:               ${have_readahead}
         bootchart:               ${have_bootchart}
         quotacheck:              ${have_quotacheck}
+        tmpfiles:                ${have_tmpfiles}
         randomseed:              ${have_randomseed}
         logind:                  ${have_logind}
         hostnamed:               ${have_hostnamed}
