@@ -197,9 +197,7 @@ static void match_free(Match *m) {
 }
 
 static void match_free_if_empty(Match *m) {
-        assert(m);
-
-        if (m->matches)
+        if (!m || m->matches)
                 return;
 
         match_free(m);
@@ -296,17 +294,10 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         return 0;
 
 fail:
-        if (add_here)
-                match_free_if_empty(add_here);
-
-        if (j->level2)
-                match_free_if_empty(j->level2);
-
-        if (j->level1)
-                match_free_if_empty(j->level1);
-
-        if (j->level0)
-                match_free_if_empty(j->level0);
+        match_free_if_empty(add_here);
+        match_free_if_empty(j->level2);
+        match_free_if_empty(j->level1);
+        match_free_if_empty(j->level0);
 
         return -ENOMEM;
 }
