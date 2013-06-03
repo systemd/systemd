@@ -24,6 +24,7 @@
 
 #include "util.h"
 #include "log.h"
+#include "time-util.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -31,8 +32,9 @@
 #include "bus-kernel.h"
 #include "bus-internal.h"
 
-#define N_TRIES 10000
 #define MAX_SIZE (1*1024*1024)
+
+static usec_t arg_loop_usec = 10 * USEC_PER_SEC;
 
 static void server(sd_bus *b, size_t *result) {
         int r;
@@ -107,8 +109,8 @@ static void client(const char *address) {
         rsize = MAX_SIZE;
 
         for (;;) {
-                usec_t copy, memfd, t;
-                unsigned i;
+                usec_t t;
+                unsigned n_copying, n_memfd;
 
                 csize = (lsize + rsize) / 2;
 
@@ -122,24 +124,32 @@ static void client(const char *address) {
 
                 log_info("copying...");
                 b->use_memfd = 0;
+
                 t = now(CLOCK_MONOTONIC);
-                for (i = 0; i <  N_TRIES; i++)
+                for (n_copying = 0;; n_copying++) {
                         transaction(b, csize);
-                copy = (now(CLOCK_MONOTONIC) - t);
-                log_info("%llu usec per copy transaction", (unsigned long long) (copy / N_TRIES));
+                        if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
+                                break;
+                }
+
+                log_info("%u copy transactions per second", (unsigned) ((n_copying * USEC_PER_SEC) / arg_loop_usec));
 
                 log_info("sending memfd...");
                 b->use_memfd = -1;
-                t = now(CLOCK_MONOTONIC);
-                for (i = 0; i <  N_TRIES; i++)
-                        transaction(b, csize);
-                memfd = (now(CLOCK_MONOTONIC) - t);
-                log_info("%llu usec per memfd transaction", (unsigned long long) (memfd / N_TRIES));
 
-                if (copy == memfd)
+                t = now(CLOCK_MONOTONIC);
+                for (n_memfd = 0;; n_memfd++) {
+                        transaction(b, csize);
+                        if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
+                                break;
+                }
+
+                log_info("%u memfd transactions per second", (unsigned) ((n_memfd * USEC_PER_SEC) / arg_loop_usec));
+
+                if (n_copying == n_memfd)
                         break;
 
-                if (copy < memfd)
+                if (n_copying > n_memfd)
                         lsize = csize;
                 else
                         rsize = csize;
@@ -162,6 +172,11 @@ int main(int argc, char *argv[]) {
         int r;
 
         log_set_max_level(LOG_DEBUG);
+
+        if (argc > 1)
+                assert_se(parse_sec(argv[1], &arg_loop_usec) >= 0);
+
+        assert_se(arg_loop_usec > 0);
 
         bus_ref = bus_kernel_create("deine-mutter", &bus_name);
         if (bus_ref == -ENOENT)
