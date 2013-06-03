@@ -1413,7 +1413,9 @@ static int install_context_mark_for_removal(
                 assert_se(hashmap_move_one(c->have_installed, c->will_install, i->name) == 0);
 
                 q = unit_file_search(c, i, paths, root_dir, false);
-                if (q < 0) {
+                if (q == -ENOENT) {
+                        /* do nothing */
+                } else if (q < 0) {
                         if (r >= 0)
                                 r = q;
 
