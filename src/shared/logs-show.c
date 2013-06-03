@@ -931,6 +931,33 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         return r;
 }
 
+int add_match_this_boot(sd_journal *j) {
+        char match[9+32+1] = "_BOOT_ID=";
+        sd_id128_t boot_id;
+        int r;
+
+        assert(j);
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0) {
+                log_error("Failed to get boot id: %s", strerror(-r));
+                return r;
+        }
+
+        sd_id128_to_string(boot_id, match + 9);
+        r = sd_journal_add_match(j, match, strlen(match));
+        if (r < 0) {
+                log_error("Failed to add match: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int show_journal_by_unit(
                 FILE *f,
                 const char *unit,
@@ -957,12 +984,18 @@ int show_journal_by_unit(
         if (r < 0)
                 return r;
 
+        r = add_match_this_boot(j);
+        if (r < 0)
+                return r;
+
         if (system)
                 r = add_matches_for_unit(j, unit);
         else
                 r = add_matches_for_user_unit(j, unit, uid);
         if (r < 0)
                 return r;
+
+        log_debug("Journal filter: %s", journal_make_match_string(j));
 
         r = show_journal(f, j, mode, n_columns, not_before, how_many, flags);
         if (r < 0)

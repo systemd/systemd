@@ -1302,7 +1302,7 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
                 return r;
         }
 
-        log_debug("File %s got added.", f->path);
+        log_debug("File %s added.", f->path);
 
         check_network(j, f->fd);
 
@@ -1330,7 +1330,7 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename) 
 
         hashmap_remove(j->files, f->path);
 
-        log_debug("File %s got removed.", f->path);
+        log_debug("File %s removed.", f->path);
 
         if (j->current_file == f) {
                 j->current_file = NULL;
@@ -1397,7 +1397,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 path = NULL; /* avoid freeing in cleanup */
                 j->current_invalidate_counter ++;
 
-                log_debug("Directory %s got added.", m->path);
+                log_debug("Directory %s added.", m->path);
 
         } else if (m->is_root)
                 return 0;
@@ -1476,7 +1476,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
 
                 j->current_invalidate_counter ++;
 
-                log_debug("Root directory %s got added.", m->path);
+                log_debug("Root directory %s added.", m->path);
 
         } else if (!m->is_root)
                 return 0;
@@ -1537,9 +1537,9 @@ static int remove_directory(sd_journal *j, Directory *d) {
         hashmap_remove(j->directories_by_path, d->path);
 
         if (d->is_root)
-                log_debug("Root directory %s got removed.", d->path);
+                log_debug("Root directory %s removed.", d->path);
         else
-                log_debug("Directory %s got removed.", d->path);
+                log_debug("Directory %s removed.", d->path);
 
         free(d->path);
         free(d);

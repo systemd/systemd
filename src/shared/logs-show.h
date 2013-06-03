@@ -37,6 +37,8 @@ int output_journal(
                 unsigned n_columns,
                 OutputFlags flags);
 
+int add_match_this_boot(sd_journal *j);
+
 int add_matches_for_unit(
                 sd_journal *j,
                 const char *unit);

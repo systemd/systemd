@@ -591,33 +591,10 @@ static int add_matches(sd_journal *j, char **args) {
 }
 
 static int add_this_boot(sd_journal *j) {
-        char match[9+32+1] = "_BOOT_ID=";
-        sd_id128_t boot_id;
-        int r;
-
-        assert(j);
-
         if (!arg_this_boot)
                 return 0;
 
-        r = sd_id128_get_boot(&boot_id);
-        if (r < 0) {
-                log_error("Failed to get boot id: %s", strerror(-r));
-                return r;
-        }
-
-        sd_id128_to_string(boot_id, match + 9);
-        r = sd_journal_add_match(j, match, strlen(match));
-        if (r < 0) {
-                log_error("Failed to add match: %s", strerror(-r));
-                return r;
-        }
-
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return add_match_this_boot(j);
 }
 
 static int add_dmesg(sd_journal *j) {
