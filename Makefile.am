@@ -282,11 +282,6 @@ rootbin_PROGRAMS = \
 	systemd-tty-ask-password-agent \
 	systemd-machine-id-setup
 
-if ENABLE_TMPFILES
-rootbin_PROGRAMS += \
-	systemd-tmpfiles
-endif
-
 bin_PROGRAMS = \
 	systemd-cgls \
 	systemd-cgtop \
@@ -339,18 +334,6 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/systemctl \
 	shell-completion/bash/systemd-analyze \
 	shell-completion/bash/udevadm
-
-if ENABLE_TMPFILES
-dist_tmpfiles_DATA = \
-	tmpfiles.d/systemd.conf \
-	tmpfiles.d/tmp.conf \
-	tmpfiles.d/x11.conf
-
-if HAVE_SYSV_COMPAT
-dist_tmpfiles_DATA += \
-	tmpfiles.d/legacy.conf
-endif
-endif
 
 dist_sysctl_DATA = \
 	sysctl.d/50-default.conf
@@ -498,19 +481,6 @@ CLEANFILES += \
 	units/console-shell.service.m4 \
 	units/console-getty.service.m4 \
 	units/rescue.service.m4
-
-if ENABLE_TMPFILES
-dist_systemunit_DATA += \
-	units/systemd-tmpfiles-clean.timer
-nodist_systemunit_DATA += \
-	units/systemd-tmpfiles-setup-dev.service \
-	units/systemd-tmpfiles-setup.service \
-	units/systemd-tmpfiles-clean.service
-EXTRA_DIST += \
-	units/systemd-tmpfiles-setup-dev.service.in \
-	units/systemd-tmpfiles-setup.service.in \
-	units/systemd-tmpfiles-clean.service.in
-endif
 
 if HAVE_SYSV_COMPAT
 nodist_systemunit_DATA += \
@@ -1457,7 +1427,44 @@ systemd_tmpfiles_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-capability.la
+
+rootbin_PROGRAMS += \
+	systemd-tmpfiles
+
+dist_systemunit_DATA += \
+	units/systemd-tmpfiles-clean.timer
+
+nodist_systemunit_DATA += \
+	units/systemd-tmpfiles-setup-dev.service \
+	units/systemd-tmpfiles-setup.service \
+	units/systemd-tmpfiles-clean.service
+
+dist_tmpfiles_DATA = \
+	tmpfiles.d/systemd.conf \
+	tmpfiles.d/tmp.conf \
+	tmpfiles.d/x11.conf
+
+if HAVE_SYSV_COMPAT
+dist_tmpfiles_DATA += \
+	tmpfiles.d/legacy.conf
 endif
+
+SYSINIT_TARGET_WANTS += \
+	systemd-tmpfiles-setup-dev.service \
+	systemd-tmpfiles-setup.service
+
+TIMERS_TARGET_WANTS += \
+	systemd-tmpfiles-clean.timer
+
+INSTALL_DIRS += \
+	$(tmpfilesdir) \
+	$(sysconfdir)/tmpfiles.d
+endif
+
+EXTRA_DIST += \
+	units/systemd-tmpfiles-setup-dev.service.in \
+	units/systemd-tmpfiles-setup.service.in \
+	units/systemd-tmpfiles-clean.service.in
 
 # ------------------------------------------------------------------------------
 systemd_machine_id_setup_SOURCES = \
@@ -1557,8 +1564,8 @@ systemd_system_update_generator_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
 
-# ------------------------------------------------------------------------------
 if ENABLE_EFI
+# ------------------------------------------------------------------------------
 systemgenerator_PROGRAMS +=  \
 	systemd-efi-boot-generator
 
@@ -1568,6 +1575,22 @@ systemd_efi_boot_generator_SOURCES = \
 systemd_efi_boot_generator_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
+
+# ------------------------------------------------------------------------------
+bootctl_SOURCES = \
+	src/boot/boot.h \
+	src/boot/boot-loader.h \
+	src/boot/bootctl.c \
+	src/boot/boot-loader.c \
+	src/boot/boot-efi.c
+
+bootctl_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-id128.la \
+	libsystemd-daemon.la
+
+bin_PROGRAMS += \
+	bootctl
 endif
 
 # ------------------------------------------------------------------------------
@@ -3472,24 +3495,6 @@ EXTRA_DIST += \
 	units/systemd-timedated.service.in
 
 # ------------------------------------------------------------------------------
-if ENABLE_EFI
-bootctl_SOURCES = \
-	src/boot/boot.h \
-	src/boot/boot-loader.h \
-	src/boot/bootctl.c \
-	src/boot/boot-loader.c \
-	src/boot/boot-efi.c
-
-bootctl_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-id128.la \
-	libsystemd-daemon.la
-
-bin_PROGRAMS += \
-	bootctl
-endif
-
-# ------------------------------------------------------------------------------
 if HAVE_MYHOSTNAME
 libnss_myhostname_la_SOURCES = \
 	src/nss-myhostname/nss-myhostname.c \
@@ -4132,14 +4137,6 @@ SYSINIT_TARGET_WANTS += \
 	systemd-sysctl.service \
 	systemd-ask-password-console.path
 
-if ENABLE_TMPFILES
-SYSINIT_TARGET_WANTS += \
-	systemd-tmpfiles-setup-dev.service \
-	systemd-tmpfiles-setup.service
-TIMERS_TARGET_WANTS += \
-	systemd-tmpfiles-clean.timer
-endif
-
 if HAVE_SYSV_COMPAT
 SYSTEM_UNIT_ALIASES += \
 	poweroff.target runlevel0.target \
@@ -4200,12 +4197,6 @@ INSTALL_DIRS += \
 	$(pkgsysconfdir)/user \
 	$(dbussessionservicedir) \
 	$(sysconfdir)/xdg/systemd
-
-if ENABLE_TMPFILES
-INSTALL_DIRS += \
-	$(tmpfilesdir) \
-	$(sysconfdir)/tmpfiles.d
-endif
 
 install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
