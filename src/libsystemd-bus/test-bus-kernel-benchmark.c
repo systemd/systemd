@@ -34,7 +34,7 @@
 
 #define MAX_SIZE (1*1024*1024)
 
-static usec_t arg_loop_usec = 10 * USEC_PER_SEC;
+static usec_t arg_loop_usec = 100 * USEC_PER_MSEC;
 
 static void server(sd_bus *b, size_t *result) {
         int r;
