@@ -32,7 +32,7 @@
 #include "bus-kernel.h"
 #include "bus-internal.h"
 
-#define MAX_SIZE (1*1024*1024)
+#define MAX_SIZE (8*1024*1024)
 
 static usec_t arg_loop_usec = 100 * USEC_PER_MSEC;
 
@@ -74,21 +74,17 @@ static void server(sd_bus *b, size_t *result) {
 
 static void transaction(sd_bus *b, size_t sz) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
-        /* size_t psz, i; */
         uint8_t *p;
 
         assert_se(sd_bus_message_new_method_call(b, ":1.1", "/", "benchmark.server", "Work", &m) >= 0);
         assert_se(sd_bus_message_append_array_space(m, 'y', sz, (void**) &p) >= 0);
 
-        /* Touch every page */
-        /* psz = page_size(); */
-        /* for (i = 0; i < sz; i += psz) */
-        /*         p[i] = 'X'; */
+        memset(p, 0x80, sz);
 
         assert_se(sd_bus_send_with_reply_and_block(b, m, 0, NULL, &reply) >= 0);
 }
 
-static void client(const char *address) {
+static void client_bisect(const char *address) {
         _cleanup_bus_message_unref_ sd_bus_message *x = NULL;
         size_t lsize, rsize, csize;
         sd_bus *b;
@@ -108,13 +104,13 @@ static void client(const char *address) {
         lsize = 1;
         rsize = MAX_SIZE;
 
+        printf("SIZE\tCOPY\tMEMFD\n");
+
         for (;;) {
                 usec_t t;
                 unsigned n_copying, n_memfd;
 
                 csize = (lsize + rsize) / 2;
-
-                log_info("Trying size=%zu", csize);
 
                 if (csize <= lsize)
                         break;
@@ -122,7 +118,8 @@ static void client(const char *address) {
                 if (csize <= 0)
                         break;
 
-                log_info("copying...");
+                fprintf(stderr, "%zu\t", csize);
+
                 b->use_memfd = 0;
 
                 t = now(CLOCK_MONOTONIC);
@@ -131,10 +128,8 @@ static void client(const char *address) {
                         if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
                                 break;
                 }
+                printf("%u\t", (unsigned) ((n_copying * USEC_PER_SEC) / arg_loop_usec));
 
-                log_info("%u copy transactions per second", (unsigned) ((n_copying * USEC_PER_SEC) / arg_loop_usec));
-
-                log_info("sending memfd...");
                 b->use_memfd = -1;
 
                 t = now(CLOCK_MONOTONIC);
@@ -143,8 +138,7 @@ static void client(const char *address) {
                         if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
                                 break;
                 }
-
-                log_info("%u memfd transactions per second", (unsigned) ((n_memfd * USEC_PER_SEC) / arg_loop_usec));
+                printf("%u\n", (unsigned) ((n_copying * USEC_PER_SEC) / arg_loop_usec));
 
                 if (n_copying == n_memfd)
                         break;
@@ -155,6 +149,63 @@ static void client(const char *address) {
                         rsize = csize;
         }
 
+        b->use_memfd = 1;
+        assert_se(sd_bus_message_new_method_call(b, ":1.1", "/", "benchmark.server", "Exit", &x) >= 0);
+        assert_se(sd_bus_message_append(x, "t", csize) >= 0);
+        assert_se(sd_bus_send(b, x, NULL) >= 0);
+
+        sd_bus_unref(b);
+}
+
+static void client_chart(const char *address) {
+        _cleanup_bus_message_unref_ sd_bus_message *x = NULL;
+        size_t csize;
+        sd_bus *b;
+        int r;
+
+        r = sd_bus_new(&b);
+        assert_se(r >= 0);
+
+        r = sd_bus_set_address(b, address);
+        assert_se(r >= 0);
+
+        r = sd_bus_start(b);
+        assert_se(r >= 0);
+
+        assert_se(sd_bus_call_method(b, ":1.1", "/", "benchmark.server", "Ping", NULL, NULL, NULL) >= 0);
+
+        printf("SIZE\tCOPY\tMEMFD\n");
+
+        for (csize = 1; csize < MAX_SIZE; csize *= 2) {
+                usec_t t;
+                unsigned n_copying, n_memfd;
+
+                fprintf(stderr, "%zu\t", csize);
+
+                b->use_memfd = 0;
+
+                t = now(CLOCK_MONOTONIC);
+                for (n_copying = 0;; n_copying++) {
+                        transaction(b, csize);
+                        if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
+                                break;
+                }
+
+                printf("%u\t", (unsigned) ((n_copying * USEC_PER_SEC) / arg_loop_usec));
+
+                b->use_memfd = -1;
+
+                t = now(CLOCK_MONOTONIC);
+                for (n_memfd = 0;; n_memfd++) {
+                        transaction(b, csize);
+                        if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
+                                break;
+                }
+
+                printf("%u\n", (unsigned) ((n_memfd * USEC_PER_SEC) / arg_loop_usec));
+        }
+
+        b->use_memfd = 1;
         assert_se(sd_bus_message_new_method_call(b, ":1.1", "/", "benchmark.server", "Exit", &x) >= 0);
         assert_se(sd_bus_message_append(x, "t", csize) >= 0);
         assert_se(sd_bus_send(b, x, NULL) >= 0);
@@ -163,6 +214,11 @@ static void client(const char *address) {
 }
 
 int main(int argc, char *argv[]) {
+        enum {
+                MODE_BISECT,
+                MODE_CHART,
+        } mode = MODE_BISECT;
+        int i;
         _cleanup_free_ char *bus_name = NULL, *address = NULL;
         _cleanup_close_ int bus_ref = -1;
         cpu_set_t cpuset;
@@ -173,8 +229,14 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        if (argc > 1)
-                assert_se(parse_sec(argv[1], &arg_loop_usec) >= 0);
+        for (i = 1; i < argc; i++) {
+                if (streq(argv[i], "chart")) {
+                        mode = MODE_CHART;
+                        continue;
+                }
+
+                assert_se(parse_sec(argv[i], &arg_loop_usec) >= 0);
+        }
 
         assert_se(arg_loop_usec > 0);
 
@@ -210,7 +272,16 @@ int main(int argc, char *argv[]) {
                 close_nointr_nofail(bus_ref);
                 sd_bus_unref(b);
 
-                client(address);
+                switch (mode) {
+                case MODE_BISECT:
+                        client_bisect(address);
+                        break;
+
+                case MODE_CHART:
+                        client_chart(address);
+                        break;
+                }
+
                 _exit(0);
         }
 
@@ -220,7 +291,8 @@ int main(int argc, char *argv[]) {
 
         server(b, &result);
 
-        log_info("Copying/memfd are equally fast at %zu", result);
+        if (mode == MODE_BISECT)
+                printf("Copying/memfd are equally fast at %zu bytes\n", result);
 
         assert_se(waitpid(pid, NULL, 0) == pid);
 

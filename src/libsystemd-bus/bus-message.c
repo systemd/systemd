@@ -2358,8 +2358,9 @@ void bus_body_part_unmap(struct bus_body_part *part) {
         if (!part->data)
                 return;
 
-        if (!part->munmap_this)
-                return;
+        //FIXME: this is not set in the benchmark
+        //if (!part->munmap_this)
+        //        return;
 
         assert_se(munmap(part->data, part->mapped) == 0);
 
