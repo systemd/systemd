@@ -729,7 +729,7 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size) {
                 return fd;
         }
 
-        c = &bus->memfd_cache[-- bus->n_memfd_cache];
+        c = &bus->memfd_cache[--bus->n_memfd_cache];
 
         assert(c->fd >= 0);
         assert(c->size == 0 || c->address);

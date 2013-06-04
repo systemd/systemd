@@ -1216,8 +1216,9 @@ static int part_make_space(
 
                         part->mapped = psz;
                         part->data = n;
-                        part->munmap_this = true;
                 }
+
+                part->munmap_this = true;
         } else {
                 n = realloc(part->data, sz);
                 if (!n) {
@@ -2358,9 +2359,8 @@ void bus_body_part_unmap(struct bus_body_part *part) {
         if (!part->data)
                 return;
 
-        //FIXME: this is not set in the benchmark
-        //if (!part->munmap_this)
-        //        return;
+        if (!part->munmap_this)
+                return;
 
         assert_se(munmap(part->data, part->mapped) == 0);
 
