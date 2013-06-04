@@ -263,8 +263,9 @@
                                 that usually seven rotated journal
                                 files are kept as history. Specify
                                 values in bytes or use K, M, G, T, P,
-                                E as units for the specified
-                                sizes. Note that size limits are
+                                E as units for the specified sizes
+                                (equal to 1024, 1024²,... bytes).
+                                Note that size limits are
                                 enforced synchronously to journal
                                 files as they are extended, and need
                                 no explicit rotation step triggered by
