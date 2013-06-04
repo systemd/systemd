@@ -49,6 +49,10 @@ ENV{DMI_VENDOR}=="LENOVO*", KERNELS=="input*", ATTRS{name}=="Lenovo ThinkPad SL 
 ENV{DMI_VENDOR}=="LENOVO*", KERNELS=="input*", ATTRS{name}=="Ideapad extra buttons", RUN+="keymap $name 0x42 f23 0x43 f22"
 
 ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Asus Extra Buttons", ATTR{[dmi/id]product_name}=="W3J", RUN+="keymap $name module-asus-w3j"
+ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Asus Laptop extra buttons", RUN+="keymap $name 0x6B f21"
+ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Asus Laptop Support", RUN+="keymap $name 0x6B f21"
+ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Asus WMI hotkeys", RUN+="keymap $name 0x6B f21"
+ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Asus Notebooks WMI Hotkey Driver", RUN+="keymap $name 0x6B f21"
 ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Eee PC WMI hotkeys|Asus Laptop Support|Asus*WMI*", RUN+="keymap $name 0x6B f21"
 ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Eee PC Hotkey Driver", RUN+="keymap $name 0x37 f21"
 
