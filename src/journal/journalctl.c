@@ -86,6 +86,7 @@ static char **arg_user_units = NULL;
 static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
+static int arg_journal_type = 0;
 static const char *arg_root = NULL;
 
 static enum {
@@ -105,6 +106,8 @@ static int help(void) {
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
                "Flags:\n"
+               "     --system            Show only the system journal\n"
+               "     --user              Show only the user journal for current user\n"
                "     --since=DATE        Start showing entries newer or of the specified date\n"
                "     --until=DATE        Stop showing entries older or of the specified date\n"
                "  -c --cursor=CURSOR     Start showing entries from specified cursor\n"
@@ -158,6 +161,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_TAIL,
                 ARG_NEW_ID128,
+                ARG_USER,
+                ARG_SYSTEM,
                 ARG_ROOT,
                 ARG_HEADER,
                 ARG_FULL,
@@ -171,7 +176,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER_UNIT,
                 ARG_LIST_CATALOG,
                 ARG_DUMP_CATALOG,
-                ARG_UPDATE_CATALOG
+                ARG_UPDATE_CATALOG,
         };
 
         static const struct option options[] = {
@@ -190,6 +195,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "merge",        no_argument,       NULL, 'm'              },
                 { "this-boot",    no_argument,       NULL, 'b'              },
                 { "dmesg",        no_argument,       NULL, 'k'              },
+                { "system",       no_argument,       NULL, ARG_SYSTEM       },
+                { "user",         no_argument,       NULL, ARG_USER         },
                 { "directory",    required_argument, NULL, 'D'              },
                 { "root",         required_argument, NULL, ARG_ROOT         },
                 { "header",       no_argument,       NULL, ARG_HEADER       },
@@ -322,6 +329,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'k':
                         arg_this_boot = arg_dmesg = true;
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_journal_type |= SD_JOURNAL_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_journal_type |= SD_JOURNAL_CURRENT_USER;
                         break;
 
                 case 'D':
@@ -1094,9 +1109,9 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_directory)
-                r = sd_journal_open_directory(&j, arg_directory, 0);
+                r = sd_journal_open_directory(&j, arg_directory, arg_journal_type);
         else
-                r = sd_journal_open(&j, arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY);
+                r = sd_journal_open(&j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0) {
                 log_error("Failed to open journal: %s", strerror(-r));
                 return EXIT_FAILURE;

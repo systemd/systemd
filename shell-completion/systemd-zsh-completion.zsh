@@ -71,6 +71,8 @@ _ctls()
                 '--since=[Start showing entries newer or of the specified date]:YYYY-MM-DD HH\:MM\:SS' \
                 '--until=[Stop showing entries older or of the specified date]:YYYY-MM-DD HH\:MM\:SS' \
                 {-c,--cursor=}'[Start showing entries from specified cursor]:cursors:_journal_fields __CURSORS' \
+                '--system[Show system and kernel messages]' \
+                '--user[Show messages from user services]' \
                 {-b,--this-boot}'[Show data only from current boot]' \
                 {-u,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
                 '--user-unit[Show data only from the specified user session unit]:units:_journal_fields _SYSTEMD_USER_UNIT' \

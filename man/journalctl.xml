@@ -448,6 +448,20 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--system</option></term>
+                                <term><option>--user</option></term>
+
+                                <listitem><para>Show messages from
+                                system services and the kernel (with
+                                <option>--system</option>).  Show
+                                messages from service of current user
+                                (with <option>--user</option>).
+                                If neither is specified, show all
+                                messages that the user can see.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-D</option></term>
                                 <term><option>--directory=</option></term>
 
