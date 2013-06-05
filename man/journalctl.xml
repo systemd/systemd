@@ -462,15 +462,29 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-D</option></term>
-                                <term><option>--directory=</option></term>
+                                <term><option>-D <replaceable>DIR</replaceable></option></term>
+                                <term><option>--directory=<replaceable>DIR</replaceable></option></term>
 
-                                <listitem><para>Takes a
-                                directory path as argument. If
-                                specified journalctl will operate on the
-                                specified journal directory instead of
-                                the default runtime and system journal
-                                paths.</para></listitem>
+                                <listitem><para>Takes a directory path
+                                as argument. If specified journalctl
+                                will operate on the specified journal
+                                directory
+                                <replaceable>DIR</replaceable> instead
+                                of the default runtime and system
+                                journal paths.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--file=<replaceable>GLOB</replaceable></option></term>
+
+                                <listitem><para>Takes a file glob as
+                                argument. If specified journalctl will
+                                operate on the specified journal files
+                                matching <replaceable>GLOB</replaceable>
+                                instead of the default runtime and
+                                system journal paths. May be specified
+                                multiple times, in which case files will
+                                be suitably interleaved.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -439,6 +439,7 @@ char* uid_to_name(uid_t uid);
 char* gid_to_name(gid_t gid);
 
 int glob_exists(const char *path);
+int glob_extend(char ***strv, const char *path);
 
 int dirent_ensure_type(DIR *d, struct dirent *de);
 

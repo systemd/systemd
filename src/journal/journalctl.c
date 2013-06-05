@@ -74,6 +74,7 @@ static bool arg_this_boot = false;
 static bool arg_dmesg = false;
 static const char *arg_cursor = NULL;
 static const char *arg_directory = NULL;
+static char **arg_file = NULL;
 static int arg_priorities = 0xFF;
 static const char *arg_verify_key = NULL;
 #ifdef HAVE_GCRYPT
@@ -130,6 +131,7 @@ static int help(void) {
                "     --no-pager          Do not pipe output into a pager\n"
                "  -m --merge             Show entries from all available journals\n"
                "  -D --directory=PATH    Show journal files from directory\n"
+               "     --file=PATH         Show journal file\n"
                "     --root=ROOT         Operate on catalog files underneath the root ROOT\n"
 #ifdef HAVE_GCRYPT
                "     --interval=TIME     Time interval for changing the FSS sealing key\n"
@@ -167,6 +169,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_HEADER,
                 ARG_FULL,
                 ARG_SETUP_KEYS,
+                ARG_FILE,
                 ARG_INTERVAL,
                 ARG_VERIFY,
                 ARG_VERIFY_KEY,
@@ -198,6 +201,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "system",       no_argument,       NULL, ARG_SYSTEM       },
                 { "user",         no_argument,       NULL, ARG_USER         },
                 { "directory",    required_argument, NULL, 'D'              },
+                { "file",         required_argument, NULL, ARG_FILE         },
                 { "root",         required_argument, NULL, ARG_ROOT         },
                 { "header",       no_argument,       NULL, ARG_HEADER       },
                 { "priority",     required_argument, NULL, 'p'              },
@@ -341,6 +345,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'D':
                         arg_directory = optarg;
+                        break;
+
+                case ARG_FILE:
+                        r = glob_extend(&arg_file, optarg);
+                        if (r < 0) {
+                                log_error("Failed to add paths: %s", strerror(-r));
+                                return r;
+                        };
                         break;
 
                 case ARG_ROOT:
@@ -505,6 +517,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_follow && !arg_no_tail && arg_lines < 0)
                 arg_lines = 10;
+
+        if (arg_directory && arg_file) {
+                log_error("Please specify either -D/--directory= or --file=, not both.");
+                return -EINVAL;
+        }
 
         if (arg_since_set && arg_until_set && arg_since > arg_until) {
                 log_error("--since= must be before --until=.");
@@ -1110,10 +1127,14 @@ int main(int argc, char *argv[]) {
 
         if (arg_directory)
                 r = sd_journal_open_directory(&j, arg_directory, arg_journal_type);
+        else if (arg_file)
+                r = sd_journal_open_files(&j, (const char**) arg_file, 0);
         else
                 r = sd_journal_open(&j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0) {
-                log_error("Failed to open journal: %s", strerror(-r));
+                log_error("Failed to open %s: %s",
+                          arg_directory ? arg_directory : arg_file ? "files" : "journal",
+                          strerror(-r));
                 return EXIT_FAILURE;
         }
 
@@ -1167,10 +1188,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return EXIT_FAILURE;
 
-        /* Opening the fd now means the first sd_journal_wait() will actually wait */
-        r = sd_journal_get_fd(j);
-        if (r < 0)
-                return EXIT_FAILURE;
+        log_debug("Journal filter: %s", j->level0 ? journal_make_match_string(j) : "none");
 
         if (arg_field) {
                 const void *data;
@@ -1204,6 +1222,13 @@ int main(int argc, char *argv[]) {
                 }
 
                 return EXIT_SUCCESS;
+        }
+
+        /* Opening the fd now means the first sd_journal_wait() will actually wait */
+        if (arg_follow) {
+                r = sd_journal_get_fd(j);
+                if (r < 0)
+                        return EXIT_FAILURE;
         }
 
         if (arg_cursor) {

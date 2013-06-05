@@ -4353,7 +4353,7 @@ int in_group(const char *name) {
 
 int glob_exists(const char *path) {
         _cleanup_globfree_ glob_t g = {};
-        int r, k;
+        int k;
 
         assert(path);
 
@@ -4361,15 +4361,37 @@ int glob_exists(const char *path) {
         k = glob(path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
 
         if (k == GLOB_NOMATCH)
-                r = 0;
+                return 0;
         else if (k == GLOB_NOSPACE)
-                r = -ENOMEM;
+                return -ENOMEM;
         else if (k == 0)
-                r = !strv_isempty(g.gl_pathv);
+                return !strv_isempty(g.gl_pathv);
         else
-                r = errno ? -errno : -EIO;
+                return errno ? -errno : -EIO;
+}
 
-        return r;
+int glob_extend(char ***strv, const char *path) {
+        _cleanup_globfree_ glob_t g = {};
+        int k;
+        char **p;
+
+        errno = 0;
+        k = glob(optarg, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
+
+        if (k == GLOB_NOMATCH)
+                return -ENOENT;
+        else if (k == GLOB_NOSPACE)
+                return -ENOMEM;
+        else if (k != 0 || strv_isempty(g.gl_pathv))
+                return errno ? -errno : -EIO;
+
+        STRV_FOREACH(p, g.gl_pathv) {
+                k = strv_extend(strv, *p);
+                if (k < 0)
+                        break;
+        }
+
+        return k;
 }
 
 int dirent_ensure_type(DIR *d, struct dirent *de) {
