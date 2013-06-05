@@ -29,7 +29,9 @@
 #include "journal-authenticate.h"
 #include "journal-vacuum.h"
 
-int main(int argc, char *argv[]) {
+static bool arg_keep = false;
+
+static void test_non_empty(void) {
         dual_timestamp ts;
         JournalFile *f;
         struct iovec iovec;
@@ -119,11 +121,61 @@ int main(int argc, char *argv[]) {
 
         journal_file_close(f);
 
-        journal_directory_vacuum(".", 3000000, 0, 0, NULL);
+        log_info("Done...");
 
-        log_error("Exiting...");
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else {
+                journal_directory_vacuum(".", 3000000, 0, 0, NULL);
 
-        assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+                assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+        }
+
+        puts("------------------------------------------------------------");
+}
+
+static void test_empty(void) {
+        JournalFile *f1, *f2, *f3, *f4;
+        char t[] = "/tmp/journal-XXXXXX";
+
+        log_set_max_level(LOG_DEBUG);
+
+        assert_se(mkdtemp(t));
+        assert_se(chdir(t) >= 0);
+
+        assert_se(journal_file_open("test.journal", O_RDWR|O_CREAT, 0666, false, false, NULL, NULL, NULL, &f1) == 0);
+
+        assert_se(journal_file_open("test-compress.journal", O_RDWR|O_CREAT, 0666, true, false, NULL, NULL, NULL, &f2) == 0);
+
+        assert_se(journal_file_open("test-seal.journal", O_RDWR|O_CREAT, 0666, false, true, NULL, NULL, NULL, &f3) == 0);
+
+        assert_se(journal_file_open("test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, true, NULL, NULL, NULL, &f4) == 0);
+
+        journal_file_print_header(f1);
+        puts("");
+        journal_file_print_header(f2);
+        puts("");
+        journal_file_print_header(f3);
+        puts("");
+        journal_file_print_header(f4);
+        puts("");
+
+        log_info("Done...");
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else {
+                journal_directory_vacuum(".", 3000000, 0, 0, NULL);
+
+                assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+        }
+}
+
+int main(int argc, char *argv[]) {
+        arg_keep = argc > 1;
+
+        test_non_empty();
+        test_empty();
 
         return 0;
 }

@@ -11,6 +11,8 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
+* fix --header to files without entries (see test-journal output).
+
 Fedora 19:
 
 * external: maybe it is time to patch procps so that "ps" links to
