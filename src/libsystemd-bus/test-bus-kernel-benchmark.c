@@ -138,7 +138,7 @@ static void client_bisect(const char *address) {
                         if (now(CLOCK_MONOTONIC) >= t + arg_loop_usec)
                                 break;
                 }
-                printf("%u\n", (unsigned) ((n_copying * USEC_PER_SEC) / arg_loop_usec));
+                printf("%u\n", (unsigned) ((n_memfd * USEC_PER_SEC) / arg_loop_usec));
 
                 if (n_copying == n_memfd)
                         break;
