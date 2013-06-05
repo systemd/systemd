@@ -108,9 +108,9 @@ void session_free(Session *s) {
 }
 
 int session_save(Session *s) {
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *temp_path = NULL;
         int r = 0;
-        char *temp_path;
 
         assert(s);
 
@@ -145,69 +145,43 @@ int session_save(Session *s) {
                 s->kill_processes);
 
         if (s->type >= 0)
-                fprintf(f,
-                        "TYPE=%s\n",
-                        session_type_to_string(s->type));
+                fprintf(f, "TYPE=%s\n", session_type_to_string(s->type));
 
         if (s->class >= 0)
-                fprintf(f,
-                        "CLASS=%s\n",
-                        session_class_to_string(s->class));
+                fprintf(f, "CLASS=%s\n", session_class_to_string(s->class));
 
         if (s->cgroup_path)
-                fprintf(f,
-                        "CGROUP=%s\n",
-                        s->cgroup_path);
+                fprintf(f, "CGROUP=%s\n", s->cgroup_path);
 
         if (s->fifo_path)
-                fprintf(f,
-                        "FIFO=%s\n",
-                        s->fifo_path);
+                fprintf(f, "FIFO=%s\n", s->fifo_path);
 
         if (s->seat)
-                fprintf(f,
-                        "SEAT=%s\n",
-                        s->seat->id);
+                fprintf(f, "SEAT=%s\n", s->seat->id);
 
         if (s->tty)
-                fprintf(f,
-                        "TTY=%s\n",
-                        s->tty);
+                fprintf(f, "TTY=%s\n", s->tty);
 
         if (s->display)
-                fprintf(f,
-                        "DISPLAY=%s\n",
-                        s->display);
+                fprintf(f, "DISPLAY=%s\n", s->display);
 
         if (s->remote_host)
-                fprintf(f,
-                        "REMOTE_HOST=%s\n",
-                        s->remote_host);
+                fprintf(f, "REMOTE_HOST=%s\n", s->remote_host);
 
         if (s->remote_user)
-                fprintf(f,
-                        "REMOTE_USER=%s\n",
-                        s->remote_user);
+                fprintf(f, "REMOTE_USER=%s\n", s->remote_user);
 
         if (s->service)
-                fprintf(f,
-                        "SERVICE=%s\n",
-                        s->service);
+                fprintf(f, "SERVICE=%s\n", s->service);
 
         if (s->seat && seat_can_multi_session(s->seat))
-                fprintf(f,
-                        "VTNR=%i\n",
-                        s->vtnr);
+                fprintf(f, "VTNR=%i\n", s->vtnr);
 
         if (s->leader > 0)
-                fprintf(f,
-                        "LEADER=%lu\n",
-                        (unsigned long) s->leader);
+                fprintf(f, "LEADER=%lu\n", (unsigned long) s->leader);
 
         if (s->audit_id > 0)
-                fprintf(f,
-                        "AUDIT=%llu\n",
-                        (unsigned long long) s->audit_id);
+                fprintf(f, "AUDIT=%"PRIu32"\n", s->audit_id);
 
         fflush(f);
 
@@ -216,9 +190,6 @@ int session_save(Session *s) {
                 unlink(s->state_file);
                 unlink(temp_path);
         }
-
-        fclose(f);
-        free(temp_path);
 
 finish:
         if (r < 0)

@@ -834,17 +834,17 @@ static int request_handler_machine(
                      "\"hostname\" : \"%s\","
                      "\"os_pretty_name\" : \"%s\","
                      "\"virtualization\" : \"%s\","
-                     "\"usage\" : \"%llu\","
-                     "\"cutoff_from_realtime\" : \"%llu\","
-                     "\"cutoff_to_realtime\" : \"%llu\" }\n",
+                     "\"usage\" : \"%"PRIu64"\","
+                     "\"cutoff_from_realtime\" : \"%"PRIu64"\","
+                     "\"cutoff_to_realtime\" : \"%"PRIu64"\" }\n",
                      SD_ID128_FORMAT_VAL(mid),
                      SD_ID128_FORMAT_VAL(bid),
                      hostname_cleanup(hostname, false),
                      os_name ? os_name : "Linux",
                      v ? v : "bare",
-                     (unsigned long long) usage,
-                     (unsigned long long) cutoff_from,
-                     (unsigned long long) cutoff_to);
+                     usage,
+                     cutoff_from,
+                     cutoff_to);
 
         if (r < 0)
                 return respond_oom(connection);

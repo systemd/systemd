@@ -203,7 +203,7 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
         for (i = 0; i < k; i++)
                 fputs("\xe2\x96\x91", stdout);
 
-        printf(" %3lu%%", 100LU * (unsigned long) p / 65535LU);
+        printf(" %3"PRIu64"%%", 100U * p / 65535U);
 
         fputs("\r\x1B[?25h", stdout);
         fflush(stdout);
@@ -288,7 +288,7 @@ static int entry_points_to_data(
         assert(entry_fd >= 0);
 
         if (!contains_uint64(f->mmap, entry_fd, n_entries, entry_p)) {
-                log_error("Data object references invalid entry at %llu", (unsigned long long) data_p);
+                log_error("Data object references invalid entry at %"PRIu64, data_p);
                 return -EBADMSG;
         }
 
@@ -304,7 +304,7 @@ static int entry_points_to_data(
                 }
 
         if (!found) {
-                log_error("Data object not referenced by linked entry at %llu", (unsigned long long) data_p);
+                log_error("Data object not referenced by linked entry at %"PRIu64, data_p);
                 return -EBADMSG;
         }
 
@@ -347,7 +347,7 @@ static int entry_points_to_data(
                                         x = z;
                         }
 
-                        log_error("Entry object doesn't exist in main entry array at %llu", (unsigned long long) entry_p);
+                        log_error("Entry object doesn't exist in main entry array at %"PRIu64, entry_p);
                         return -EBADMSG;
                 }
 
@@ -388,12 +388,12 @@ static int verify_data(
                 uint64_t next, m, j;
 
                 if (a == 0) {
-                        log_error("Array chain too short at %llu", (unsigned long long) p);
+                        log_error("Array chain too short at %"PRIu64, p);
                         return -EBADMSG;
                 }
 
                 if (!contains_uint64(f->mmap, entry_array_fd, n_entry_arrays, a)) {
-                        log_error("Invalid array at %llu", (unsigned long long) p);
+                        log_error("Invalid array at %"PRIu64, p);
                         return -EBADMSG;
                 }
 
@@ -403,7 +403,7 @@ static int verify_data(
 
                 next = le64toh(o->entry_array.next_entry_array_offset);
                 if (next != 0 && next <= a) {
-                        log_error("Array chain has cycle at %llu", (unsigned long long) p);
+                        log_error("Array chain has cycle at %"PRIu64, p);
                         return -EBADMSG;
                 }
 
@@ -412,7 +412,7 @@ static int verify_data(
 
                         q = le64toh(o->entry_array.items[j]);
                         if (q <= last) {
-                                log_error("Data object's entry array not sorted at %llu", (unsigned long long) p);
+                                log_error("Data object's entry array not sorted at %"PRIu64, p);
                                 return -EBADMSG;
                         }
                         last = q;
@@ -463,8 +463,8 @@ static int verify_hash_table(
                         uint64_t next;
 
                         if (!contains_uint64(f->mmap, data_fd, n_data, p)) {
-                                log_error("Invalid data object at hash entry %llu of %llu",
-                                          (unsigned long long) i, (unsigned long long) n);
+                                log_error("Invalid data object at hash entry %"PRIu64" of %"PRIu64,
+                                          i, n);
                                 return -EBADMSG;
                         }
 
@@ -474,14 +474,14 @@ static int verify_hash_table(
 
                         next = le64toh(o->data.next_hash_offset);
                         if (next != 0 && next <= p) {
-                                log_error("Hash chain has a cycle in hash entry %llu of %llu",
-                                          (unsigned long long) i, (unsigned long long) n);
+                                log_error("Hash chain has a cycle in hash entry %"PRIu64" of %"PRIu64,
+                                          i, n);
                                 return -EBADMSG;
                         }
 
                         if (le64toh(o->data.hash) % n != i) {
-                                log_error("Hash value mismatch in hash entry %llu of %llu",
-                                          (unsigned long long) i, (unsigned long long) n);
+                                log_error("Hash value mismatch in hash entry %"PRIu64" of %"PRIu64,
+                                          i, n);
                                 return -EBADMSG;
                         }
 
@@ -548,8 +548,7 @@ static int verify_entry(
                 h = le64toh(o->entry.items[i].hash);
 
                 if (!contains_uint64(f->mmap, data_fd, n_data, q)) {
-                        log_error("Invalid data object at entry %llu",
-                                  (unsigned long long) p);
+                        log_error("Invalid data object at entry %"PRIu64, p);
                                 return -EBADMSG;
                         }
 
@@ -558,8 +557,7 @@ static int verify_entry(
                         return r;
 
                 if (le64toh(u->data.hash) != h) {
-                        log_error("Hash mismatch for data object at entry %llu",
-                                  (unsigned long long) p);
+                        log_error("Hash mismatch for data object at entry %"PRIu64, p);
                         return -EBADMSG;
                 }
 
@@ -567,8 +565,7 @@ static int verify_entry(
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        log_error("Data object missing from hash at entry %llu",
-                                  (unsigned long long) p);
+                        log_error("Data object missing from hash at entry %"PRIu64, p);
                         return -EBADMSG;
                 }
         }
@@ -603,14 +600,12 @@ static int verify_entry_array(
                         draw_progress(0x8000 + (0x3FFF * i / n), last_usec);
 
                 if (a == 0) {
-                        log_error("Array chain too short at %llu of %llu",
-                                  (unsigned long long) i, (unsigned long long) n);
+                        log_error("Array chain too short at %"PRIu64" of %"PRIu64, i, n);
                         return -EBADMSG;
                 }
 
                 if (!contains_uint64(f->mmap, entry_array_fd, n_entry_arrays, a)) {
-                        log_error("Invalid array at %llu of %llu",
-                                  (unsigned long long) i, (unsigned long long) n);
+                        log_error("Invalid array at %"PRIu64" of %"PRIu64, i, n);
                         return -EBADMSG;
                 }
 
@@ -620,8 +615,7 @@ static int verify_entry_array(
 
                 next = le64toh(o->entry_array.next_entry_array_offset);
                 if (next != 0 && next <= a) {
-                        log_error("Array chain has cycle at %llu of %llu",
-                                  (unsigned long long) i, (unsigned long long) n);
+                        log_error("Array chain has cycle at %"PRIu64" of %"PRIu64, i, n);
                         return -EBADMSG;
                 }
 
@@ -631,15 +625,15 @@ static int verify_entry_array(
 
                         p = le64toh(o->entry_array.items[j]);
                         if (p <= last) {
-                                log_error("Entry array not sorted at %llu of %llu",
-                                          (unsigned long long) i, (unsigned long long) n);
+                                log_error("Entry array not sorted at %"PRIu64" of %"PRIu64,
+                                          i, n);
                                 return -EBADMSG;
                         }
                         last = p;
 
                         if (!contains_uint64(f->mmap, entry_fd, n_entries, p)) {
-                                log_error("Invalid array entry at %llu of %llu",
-                                          (unsigned long long) i, (unsigned long long) n);
+                                log_error("Invalid array entry at %"PRIu64" of %"PRIu64,
+                                          i, n);
                                 return -EBADMSG;
                         }
 
@@ -753,7 +747,7 @@ int journal_file_verify(
 
                 r = journal_file_move_to_object(f, -1, p, &o);
                 if (r < 0) {
-                        log_error("Invalid object at %llu", (unsigned long long) p);
+                        log_error("Invalid object at %"PRIu64, p);
                         goto fail;
                 }
 
@@ -770,12 +764,12 @@ int journal_file_verify(
 
                 r = journal_file_object_verify(f, o);
                 if (r < 0) {
-                        log_error("Invalid object contents at %llu", (unsigned long long) p);
+                        log_error("Invalid object contents at %"PRIu64, p);
                         goto fail;
                 }
 
                 if ((o->object.flags & OBJECT_COMPRESSED) && !JOURNAL_HEADER_COMPRESSED(f->header)) {
-                        log_error("Compressed object in file without compression at %llu", (unsigned long long) p);
+                        log_error("Compressed object in file without compression at %"PRIu64, p);
                         r = -EBADMSG;
                         goto fail;
                 }
@@ -796,7 +790,7 @@ int journal_file_verify(
 
                 case OBJECT_ENTRY:
                         if (JOURNAL_HEADER_SEALED(f->header) && n_tags <= 0) {
-                                log_error("First entry before first tag at %llu", (unsigned long long) p);
+                                log_error("First entry before first tag at %"PRIu64, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -806,21 +800,21 @@ int journal_file_verify(
                                 goto fail;
 
                         if (le64toh(o->entry.realtime) < last_tag_realtime) {
-                                log_error("Older entry after newer tag at %llu", (unsigned long long) p);
+                                log_error("Older entry after newer tag at %"PRIu64, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
                         if (!entry_seqnum_set &&
                             le64toh(o->entry.seqnum) != le64toh(f->header->head_entry_seqnum)) {
-                                log_error("Head entry sequence number incorrect at %llu", (unsigned long long) p);
+                                log_error("Head entry sequence number incorrect at %"PRIu64, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
                         if (entry_seqnum_set &&
                             entry_seqnum >= le64toh(o->entry.seqnum)) {
-                                log_error("Entry sequence number out of synchronization at %llu", (unsigned long long) p);
+                                log_error("Entry sequence number out of synchronization at %"PRIu64, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -831,7 +825,7 @@ int journal_file_verify(
                         if (entry_monotonic_set &&
                             sd_id128_equal(entry_boot_id, o->entry.boot_id) &&
                             entry_monotonic > le64toh(o->entry.monotonic)) {
-                                log_error("Entry timestamp out of synchronization at %llu", (unsigned long long) p);
+                                log_error("Entry timestamp out of synchronization at %"PRIu64, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -855,7 +849,7 @@ int journal_file_verify(
 
                 case OBJECT_DATA_HASH_TABLE:
                         if (n_data_hash_tables > 1) {
-                                log_error("More than one data hash table at %llu", (unsigned long long) p);
+                                log_error("More than one data hash table at %"PRIu64, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -872,7 +866,7 @@ int journal_file_verify(
 
                 case OBJECT_FIELD_HASH_TABLE:
                         if (n_field_hash_tables > 1) {
-                                log_error("More than one field hash table at %llu", (unsigned long long) p);
+                                log_error("More than one field hash table at %"PRIu64, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -894,7 +888,7 @@ int journal_file_verify(
 
                         if (p == le64toh(f->header->entry_array_offset)) {
                                 if (found_main_entry_array) {
-                                        log_error("More than one main entry array at %llu", (unsigned long long) p);
+                                        log_error("More than one main entry array at %"PRIu64, p);
                                         r = -EBADMSG;
                                         goto fail;
                                 }
@@ -907,19 +901,19 @@ int journal_file_verify(
 
                 case OBJECT_TAG:
                         if (!JOURNAL_HEADER_SEALED(f->header)) {
-                                log_error("Tag object in file without sealing at %llu", (unsigned long long) p);
+                                log_error("Tag object in file without sealing at %"PRIu64, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
                         if (le64toh(o->tag.seqnum) != n_tags + 1) {
-                                log_error("Tag sequence number out of synchronization at %llu", (unsigned long long) p);
+                                log_error("Tag sequence number out of synchronization at %"PRIu64, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
                         if (le64toh(o->tag.epoch) < last_epoch) {
-                                log_error("Epoch sequence out of synchronization at %llu", (unsigned long long) p);
+                                log_error("Epoch sequence out of synchronization at %"PRIu64, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -928,11 +922,11 @@ int journal_file_verify(
                         if (f->seal) {
                                 uint64_t q, rt;
 
-                                log_debug("Checking tag %llu..", (unsigned long long) le64toh(o->tag.seqnum));
+                                log_debug("Checking tag %"PRIu64"...", le64toh(o->tag.seqnum));
 
                                 rt = f->fss_start_usec + o->tag.epoch * f->fss_interval_usec;
                                 if (entry_realtime_set && entry_realtime >= rt + f->fss_interval_usec) {
-                                        log_error("Tag/entry realtime timestamp out of synchronization at %llu", (unsigned long long) p);
+                                        log_error("Tag/entry realtime timestamp out of synchronization at %"PRIu64, p);
                                         r = -EBADMSG;
                                         goto fail;
                                 }
@@ -975,7 +969,7 @@ int journal_file_verify(
                                         goto fail;
 
                                 if (memcmp(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
-                                        log_error("Tag failed verification at %llu", (unsigned long long) p);
+                                        log_error("Tag failed verification at %"PRIu64, p);
                                         r = -EBADMSG;
                                         goto fail;
                                 }
@@ -1138,11 +1132,11 @@ fail:
         if (show_progress)
                 flush_progress();
 
-        log_error("File corruption detected at %s:%llu (of %llu, %llu%%).",
+        log_error("File corruption detected at %s:%"PRIu64" (of %llu bytes, %"PRIu64"%%).",
                   f->path,
-                  (unsigned long long) p,
+                  p,
                   (unsigned long long) f->last_stat.st_size,
-                  (unsigned long long) (100 * p / f->last_stat.st_size));
+                  100 * p / f->last_stat.st_size);
 
         if (data_fd >= 0) {
                 mmap_cache_close_fd(f->mmap, data_fd);

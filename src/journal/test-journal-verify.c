@@ -130,10 +130,10 @@ int main(int argc, char *argv[]) {
                 for (p = 38448*8+0; p < ((uint64_t) st.st_size * 8); p ++) {
                         bit_toggle("test.journal", p);
 
-                        log_info("[ %llu+%llu]", (unsigned long long) p / 8, (unsigned long long) p % 8);
+                        log_info("[ %"PRIu64"+%"PRIu64"]", p / 8, p % 8);
 
                         if (raw_verify("test.journal", verification_key) >= 0)
-                                log_notice(ANSI_HIGHLIGHT_RED_ON ">>>> %llu (bit %llu) can be toggled without detection." ANSI_HIGHLIGHT_OFF, (unsigned long long) p / 8, (unsigned long long) p % 8);
+                                log_notice(ANSI_HIGHLIGHT_RED_ON ">>>> %"PRIu64" (bit %"PRIu64") can be toggled without detection." ANSI_HIGHLIGHT_OFF, p / 8, p % 8);
 
                         bit_toggle("test.journal", p);
                 }

@@ -549,7 +549,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         if (s < DEFAULT_DATA_HASH_TABLE_SIZE)
                 s = DEFAULT_DATA_HASH_TABLE_SIZE;
 
-        log_debug("Reserving %llu entries in hash table.", (unsigned long long) (s / sizeof(HashItem)));
+        log_debug("Reserving %"PRIu64" entries in hash table.", s / sizeof(HashItem));
 
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
@@ -985,7 +985,7 @@ static int journal_file_append_data(
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
                         o->object.flags |= OBJECT_COMPRESSED;
 
-                        log_debug("Compressed data object %lu -> %lu", (unsigned long) size, (unsigned long) rsize);
+                        log_debug("Compressed data object %"PRIu64" -> %"PRIu64, size, rsize);
                 }
         }
 #endif
@@ -1206,7 +1206,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         if (r < 0)
                 return r;
 
-        /* log_debug("=> %s seqnr=%lu n_entries=%lu", f->path, (unsigned long) o->entry.seqnum, (unsigned long) f->header->n_entries); */
+        /* log_debug("=> %s seqnr=%"PRIu64" n_entries=%"PRIu64, f->path, o->entry.seqnum, f->header->n_entries); */
 
         if (f->header->head_entry_realtime == 0)
                 f->header->head_entry_realtime = o->entry.realtime;
@@ -2227,10 +2227,10 @@ void journal_file_dump(JournalFile *f) {
                         break;
 
                 case OBJECT_ENTRY:
-                        printf("Type: OBJECT_ENTRY seqnum=%llu monotonic=%llu realtime=%llu\n",
-                               (unsigned long long) le64toh(o->entry.seqnum),
-                               (unsigned long long) le64toh(o->entry.monotonic),
-                               (unsigned long long) le64toh(o->entry.realtime));
+                        printf("Type: OBJECT_ENTRY seqnum=%"PRIu64" monotonic=%"PRIu64" realtime=%"PRIu64"\n",
+                               le64toh(o->entry.seqnum),
+                               le64toh(o->entry.monotonic),
+                               le64toh(o->entry.realtime));
                         break;
 
                 case OBJECT_FIELD_HASH_TABLE:
@@ -2246,9 +2246,9 @@ void journal_file_dump(JournalFile *f) {
                         break;
 
                 case OBJECT_TAG:
-                        printf("Type: OBJECT_TAG seqnum=%llu epoch=%llu\n",
-                               (unsigned long long) le64toh(o->tag.seqnum),
-                               (unsigned long long) le64toh(o->tag.epoch));
+                        printf("Type: OBJECT_TAG seqnum=%"PRIu64" epoch=%"PRIu64"\n",
+                               le64toh(o->tag.seqnum),
+                               le64toh(o->tag.epoch));
                         break;
 
                 default:
@@ -2286,17 +2286,17 @@ void journal_file_print_header(JournalFile *f) {
                "State: %s\n"
                "Compatible Flags:%s%s\n"
                "Incompatible Flags:%s%s\n"
-               "Header size: %llu\n"
-               "Arena size: %llu\n"
-               "Data Hash Table Size: %llu\n"
-               "Field Hash Table Size: %llu\n"
+               "Header size: %"PRIu64"\n"
+               "Arena size: %"PRIu64"\n"
+               "Data Hash Table Size: %"PRIu64"\n"
+               "Field Hash Table Size: %"PRIu64"\n"
                "Rotate Suggested: %s\n"
-               "Head Sequential Number: %llu\n"
-               "Tail Sequential Number: %llu\n"
+               "Head Sequential Number: %"PRIu64"\n"
+               "Tail Sequential Number: %"PRIu64"\n"
                "Head Realtime Timestamp: %s\n"
                "Tail Realtime Timestamp: %s\n"
-               "Objects: %llu\n"
-               "Entry Objects: %llu\n",
+               "Objects: %"PRIu64"\n"
+               "Entry Objects: %"PRIu64"\n",
                f->path,
                sd_id128_to_string(f->header->file_id, a),
                sd_id128_to_string(f->header->machine_id, b),
@@ -2309,36 +2309,36 @@ void journal_file_print_header(JournalFile *f) {
                (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SEALED) ? " ???" : "",
                JOURNAL_HEADER_COMPRESSED(f->header) ? " COMPRESSED" : "",
                (le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_COMPRESSED) ? " ???" : "",
-               (unsigned long long) le64toh(f->header->header_size),
-               (unsigned long long) le64toh(f->header->arena_size),
-               (unsigned long long) le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
-               (unsigned long long) le64toh(f->header->field_hash_table_size) / sizeof(HashItem),
+               le64toh(f->header->header_size),
+               le64toh(f->header->arena_size),
+               le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
+               le64toh(f->header->field_hash_table_size) / sizeof(HashItem),
                yes_no(journal_file_rotate_suggested(f, 0)),
-               (unsigned long long) le64toh(f->header->head_entry_seqnum),
-               (unsigned long long) le64toh(f->header->tail_entry_seqnum),
+               le64toh(f->header->head_entry_seqnum),
+               le64toh(f->header->tail_entry_seqnum),
                format_timestamp(x, sizeof(x), le64toh(f->header->head_entry_realtime)),
                format_timestamp(y, sizeof(y), le64toh(f->header->tail_entry_realtime)),
-               (unsigned long long) le64toh(f->header->n_objects),
-               (unsigned long long) le64toh(f->header->n_entries));
+               le64toh(f->header->n_objects),
+               le64toh(f->header->n_entries));
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
-                printf("Data Objects: %llu\n"
+                printf("Data Objects: %"PRIu64"\n"
                        "Data Hash Table Fill: %.1f%%\n",
-                       (unsigned long long) le64toh(f->header->n_data),
+                       le64toh(f->header->n_data),
                        100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))));
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
-                printf("Field Objects: %llu\n"
+                printf("Field Objects: %"PRIu64"\n"
                        "Field Hash Table Fill: %.1f%%\n",
-                       (unsigned long long) le64toh(f->header->n_fields),
+                       le64toh(f->header->n_fields),
                        100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))));
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_tags))
-                printf("Tag Objects: %llu\n",
-                       (unsigned long long) le64toh(f->header->n_tags));
+                printf("Tag Objects: %"PRIu64"\n",
+                       le64toh(f->header->n_tags));
         if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
-                printf("Entry Array Objects: %llu\n",
-                       (unsigned long long) le64toh(f->header->n_entry_arrays));
+                printf("Entry Array Objects: %"PRIu64"\n",
+                       le64toh(f->header->n_entry_arrays));
 
         if (fstat(f->fd, &st) >= 0)
                 printf("Disk usage: %s\n", format_bytes(bytes, sizeof(bytes), (off_t) st.st_blocks * 512ULL));
@@ -2564,9 +2564,9 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
         p[l-8] = '@';
         sd_id128_to_string(old_file->header->seqnum_id, p + l - 8 + 1);
         snprintf(p + l - 8 + 1 + 32, 1 + 16 + 1 + 16 + 8 + 1,
-                 "-%016llx-%016llx.journal",
-                 (unsigned long long) le64toh((*f)->header->head_entry_seqnum),
-                 (unsigned long long) le64toh((*f)->header->head_entry_realtime));
+                 "-%016"PRIx64"-%016"PRIx64".journal",
+                 le64toh((*f)->header->head_entry_seqnum),
+                 le64toh((*f)->header->head_entry_realtime));
 
         r = rename(old_file->path, p);
         free(p);
@@ -2873,23 +2873,23 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
                 if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
-                        log_debug("Data hash table of %s has a fill level at %.1f (%llu of %llu items, %llu file size, %llu bytes per hash table item), suggesting rotation.",
+                        log_debug("Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %llu file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
                                   f->path,
                                   100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
-                                  (unsigned long long) le64toh(f->header->n_data),
-                                  (unsigned long long) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)),
-                                  (unsigned long long) (f->last_stat.st_size),
-                                  (unsigned long long) (f->last_stat.st_size / le64toh(f->header->n_data)));
+                                  le64toh(f->header->n_data),
+                                  le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
+                                  (unsigned long long) f->last_stat.st_size,
+                                  f->last_stat.st_size / le64toh(f->header->n_data));
                         return true;
                 }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
                 if (le64toh(f->header->n_fields) * 4ULL > (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)) * 3ULL) {
-                        log_debug("Field hash table of %s has a fill level at %.1f (%llu of %llu items), suggesting rotation.",
+                        log_debug("Field hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items), suggesting rotation.",
                                   f->path,
                                   100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))),
-                                  (unsigned long long) le64toh(f->header->n_fields),
-                                  (unsigned long long) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)));
+                                  le64toh(f->header->n_fields),
+                                  le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
                         return true;
                 }
 

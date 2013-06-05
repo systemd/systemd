@@ -1837,7 +1837,7 @@ static void strv_fprintf(FILE *f, char **l) {
 }
 
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
-        char ** e;
+        char **e;
         unsigned i;
 
         assert(c);

@@ -60,9 +60,9 @@ int journal_file_append_tag(JournalFile *f) {
         o->tag.seqnum = htole64(journal_file_tag_seqnum(f));
         o->tag.epoch = htole64(FSPRG_GetEpoch(f->fsprg_state));
 
-        log_debug("Writing tag %llu for epoch %llu\n",
-                  (unsigned long long) le64toh(o->tag.seqnum),
-                  (unsigned long long) FSPRG_GetEpoch(f->fsprg_state));
+        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"\n",
+                  le64toh(o->tag.seqnum),
+                  FSPRG_GetEpoch(f->fsprg_state));
 
         /* Add the tag object itself, so that we can protect its
          * header. This will exclude the actual hash value in it */
@@ -152,7 +152,7 @@ int journal_file_fsprg_evolve(JournalFile *f, uint64_t realtime) {
 
         epoch = FSPRG_GetEpoch(f->fsprg_state);
         if (epoch < goal)
-                log_debug("Evolving FSPRG key from epoch %llu to %llu.", (unsigned long long) epoch, (unsigned long long) goal);
+                log_debug("Evolving FSPRG key from epoch %"PRIu64" to %"PRIu64".", epoch, goal);
 
         for (;;) {
                 if (epoch > goal)
@@ -195,7 +195,7 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
                         return -ENOMEM;
         }
 
-        log_debug("Seeking FSPRG key to %llu.", (unsigned long long) goal);
+        log_debug("Seeking FSPRG key to %"PRIu64".", goal);
 
         msk = alloca(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
         FSPRG_GenMK(msk, NULL, f->fsprg_seed, f->fsprg_seed_size, FSPRG_RECOMMENDED_SECPAR);

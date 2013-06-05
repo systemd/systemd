@@ -979,11 +979,11 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
         sd_id128_to_string(o->entry.boot_id, bid);
 
         if (asprintf(cursor,
-                     "s=%s;i=%llx;b=%s;m=%llx;t=%llx;x=%llx",
-                     sid, (unsigned long long) le64toh(o->entry.seqnum),
-                     bid, (unsigned long long) le64toh(o->entry.monotonic),
-                     (unsigned long long) le64toh(o->entry.realtime),
-                     (unsigned long long) le64toh(o->entry.xor_hash)) < 0)
+                     "s=%s;i=%"PRIx64";b=%s;m=%"PRIx64";t=%"PRIx64";x=%"PRIx64,
+                     sid, le64toh(o->entry.seqnum),
+                     bid, le64toh(o->entry.monotonic),
+                     le64toh(o->entry.realtime),
+                     le64toh(o->entry.xor_hash)) < 0)
                 return -ENOMEM;
 
         return 0;

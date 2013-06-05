@@ -76,9 +76,9 @@ int print_qr_code(
                 fprintf(f, "%02x", ((uint8_t*) seed)[i]);
         }
 
-        fprintf(f, "/%llx-%llx?machine=" SD_ID128_FORMAT_STR,
-                (unsigned long long) start,
-                (unsigned long long) interval,
+        fprintf(f, "/%"PRIx64"-%"PRIx64"?machine=" SD_ID128_FORMAT_STR,
+                start,
+                interval,
                 SD_ID128_FORMAT_VAL(machine));
 
         if (hn)
