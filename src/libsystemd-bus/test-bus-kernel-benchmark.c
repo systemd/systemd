@@ -32,7 +32,7 @@
 #include "bus-kernel.h"
 #include "bus-internal.h"
 
-#define MAX_SIZE (8*1024*1024)
+#define MAX_SIZE (4*1024*1024)
 
 static usec_t arg_loop_usec = 100 * USEC_PER_MSEC;
 
@@ -118,7 +118,7 @@ static void client_bisect(const char *address) {
                 if (csize <= 0)
                         break;
 
-                fprintf(stderr, "%zu\t", csize);
+                printf("%zu\t", csize);
 
                 b->use_memfd = 0;
 
@@ -176,11 +176,11 @@ static void client_chart(const char *address) {
 
         printf("SIZE\tCOPY\tMEMFD\n");
 
-        for (csize = 1; csize < MAX_SIZE; csize *= 2) {
+        for (csize = 1; csize <= MAX_SIZE; csize *= 2) {
                 usec_t t;
                 unsigned n_copying, n_memfd;
 
-                fprintf(stderr, "%zu\t", csize);
+                printf("%zu\t", csize);
 
                 b->use_memfd = 0;
 
