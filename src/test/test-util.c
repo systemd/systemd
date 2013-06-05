@@ -439,6 +439,44 @@ static void test_protect_errno(void) {
         assert(errno == 12);
 }
 
+static void test_parse_bytes(void) {
+        off_t bytes;
+
+        assert_se(parse_bytes("111", &bytes) == 0);
+        assert_se(bytes == 111);
+
+        assert_se(parse_bytes(" 112 B", &bytes) == 0);
+        assert_se(bytes == 112);
+
+        assert_se(parse_bytes("3 K", &bytes) == 0);
+        assert_se(bytes == 3*1024);
+
+        assert_se(parse_bytes(" 4 M 11K", &bytes) == 0);
+        assert_se(bytes == 4*1024*1024 + 11 * 1024);
+
+        assert_se(parse_bytes("3B3G", &bytes) == 0);
+        assert_se(bytes == 3ULL*1024*1024*1024 + 3);
+
+        assert_se(parse_bytes("3B3G4T", &bytes) == 0);
+        assert_se(bytes == (4ULL*1024 + 3)*1024*1024*1024 + 3);
+
+        assert_se(parse_bytes("12P", &bytes) == 0);
+        assert_se(bytes == 12ULL * 1024*1024*1024*1024*1024);
+
+        assert_se(parse_bytes("3E 2P", &bytes) == 0);
+        assert_se(bytes == (3 * 1024 + 2ULL) * 1024*1024*1024*1024*1024);
+
+        assert_se(parse_bytes("12X", &bytes) == -EINVAL);
+
+        assert_se(parse_bytes("1024E", &bytes) == -ERANGE);
+        assert_se(parse_bytes("-1", &bytes) == -ERANGE);
+        assert_se(parse_bytes("-1024E", &bytes) == -ERANGE);
+
+        assert_se(parse_bytes("-1024P", &bytes) == -ERANGE);
+
+        assert_se(parse_bytes("-10B 20K", &bytes) == -ERANGE);
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -467,6 +505,7 @@ int main(int argc, char *argv[]) {
         test_u64log2();
         test_get_process_comm();
         test_protect_errno();
+        test_parse_bytes();
 
         return 0;
 }
