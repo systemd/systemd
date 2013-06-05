@@ -107,6 +107,7 @@ MANPAGES_ALIAS += \
 	man/SD_ID128_MAKE.3 \
 	man/SD_INFO.3 \
 	man/SD_JOURNAL_APPEND.3 \
+	man/SD_JOURNAL_CURRENT_USER.3 \
 	man/SD_JOURNAL_FOREACH.3 \
 	man/SD_JOURNAL_FOREACH_BACKWARDS.3 \
 	man/SD_JOURNAL_FOREACH_DATA.3 \
@@ -116,6 +117,7 @@ MANPAGES_ALIAS += \
 	man/SD_JOURNAL_NOP.3 \
 	man/SD_JOURNAL_RUNTIME_ONLY.3 \
 	man/SD_JOURNAL_SUPPRESS_LOCATION.3 \
+	man/SD_JOURNAL_SYSTEM.3 \
 	man/SD_JOURNAL_SYSTEM_ONLY.3 \
 	man/SD_LISTEN_FDS_START.3 \
 	man/SD_NOTICE.3 \
@@ -205,6 +207,7 @@ man/SD_ID128_FORMAT_VAL.3: man/sd-id128.3
 man/SD_ID128_MAKE.3: man/sd-id128.3
 man/SD_INFO.3: man/sd-daemon.3
 man/SD_JOURNAL_APPEND.3: man/sd_journal_get_fd.3
+man/SD_JOURNAL_CURRENT_USER.3: man/sd_journal_open.3
 man/SD_JOURNAL_FOREACH.3: man/sd_journal_next.3
 man/SD_JOURNAL_FOREACH_BACKWARDS.3: man/sd_journal_next.3
 man/SD_JOURNAL_FOREACH_DATA.3: man/sd_journal_get_data.3
@@ -214,6 +217,7 @@ man/SD_JOURNAL_LOCAL_ONLY.3: man/sd_journal_open.3
 man/SD_JOURNAL_NOP.3: man/sd_journal_get_fd.3
 man/SD_JOURNAL_RUNTIME_ONLY.3: man/sd_journal_open.3
 man/SD_JOURNAL_SUPPRESS_LOCATION.3: man/sd_journal_print.3
+man/SD_JOURNAL_SYSTEM.3: man/sd_journal_open.3
 man/SD_JOURNAL_SYSTEM_ONLY.3: man/sd_journal_open.3
 man/SD_LISTEN_FDS_START.3: man/sd_listen_fds.3
 man/SD_NOTICE.3: man/sd-daemon.3
@@ -325,6 +329,9 @@ man/SD_INFO.html: man/sd-daemon.html
 man/SD_JOURNAL_APPEND.html: man/sd_journal_get_fd.html
 	$(html-alias)
 
+man/SD_JOURNAL_CURRENT_USER.html: man/sd_journal_open.html
+	$(html-alias)
+
 man/SD_JOURNAL_FOREACH.html: man/sd_journal_next.html
 	$(html-alias)
 
@@ -350,6 +357,9 @@ man/SD_JOURNAL_RUNTIME_ONLY.html: man/sd_journal_open.html
 	$(html-alias)
 
 man/SD_JOURNAL_SUPPRESS_LOCATION.html: man/sd_journal_print.html
+	$(html-alias)
+
+man/SD_JOURNAL_SYSTEM.html: man/sd_journal_open.html
 	$(html-alias)
 
 man/SD_JOURNAL_SYSTEM_ONLY.html: man/sd_journal_open.html

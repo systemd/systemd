@@ -1010,7 +1010,7 @@ int show_journal_by_unit(
 
         _cleanup_journal_close_ sd_journal*j = NULL;
         int r;
-        int jflags = SD_JOURNAL_LOCAL_ONLY | system * SD_JOURNAL_SYSTEM_ONLY;
+        int jflags = SD_JOURNAL_LOCAL_ONLY | system * SD_JOURNAL_SYSTEM;
 
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);

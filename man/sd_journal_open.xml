@@ -49,7 +49,8 @@
                 <refname>sd_journal</refname>
                 <refname>SD_JOURNAL_LOCAL_ONLY</refname>
                 <refname>SD_JOURNAL_RUNTIME_ONLY</refname>
-                <refname>SD_JOURNAL_SYSTEM_ONLY</refname>
+                <refname>SD_JOURNAL_SYSTEM</refname>
+                <refname>SD_JOURNAL_CURRENT_USER</refname>
                 <refpurpose>Open the system journal for reading</refpurpose>
         </refnamediv>
 
@@ -93,10 +94,14 @@
                 be opened. <literal>SD_JOURNAL_RUNTIME_ONLY</literal>
                 makes sure only volatile journal files will be opened,
                 excluding those which are stored on persistent
-                storage. <literal>SD_JOURNAL_SYSTEM_ONLY</literal>
-                will ensure that only journal files of system services
-                and the kernel (in opposition to user session processes) will
-                be opened.</para>
+                storage. <literal>SD_JOURNAL_SYSTEM</literal>
+                will cause journal files of system services and the
+                kernel (in opposition to user session processes) to
+                be opened. <literal>SD_JOURNAL_CURRENT_USER</literal>
+                will cause journal files of the current user to be
+                opened. If neither <literal>SD_JOURNAL_SYSTEM</literal>
+                nor <literal>SD_JOURNAL_CURRENT_USER</literal> are
+                specified, all journal file types will be opened.</para>
 
                 <para><function>sd_journal_open_directory()</function>
                 is similar to <function>sd_journal_open()</function>
@@ -168,6 +173,26 @@
                 <literal>libsystemd-journal</literal>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>History</title>
+
+                <para><function>sd_journal_open()</function>,
+                <function>sd_journal_close()</function>,
+                <literal>SD_JOURNAL_LOCAL_ONLY</literal>,
+                <literal>SD_JOURNAL_RUNTIME_ONLY</literal>,
+                <literal>SD_JOURNAL_SYSTEM_ONLY</literal> were added
+                in systemd-38.</para>
+
+                <para><function>sd_journal_open_directory()</function>
+                was added in systemd-187.</para>
+
+                <para><literal>SD_JOURNAL_SYSTEM</literal> and
+                <literal>SD_JOURNAL_CURRENT_USER</literal> were added
+                in systemd-205.
+                <literal>SD_JOURNAL_SYSTEM_ONLY</literal>
+                was deprecated.</para>
         </refsect1>
 
         <refsect1>

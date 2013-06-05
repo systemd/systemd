@@ -1097,6 +1097,7 @@ init_reader(void)
         PyModule_AddIntConstant(m, "INVALIDATE", SD_JOURNAL_INVALIDATE) ||
         PyModule_AddIntConstant(m, "LOCAL_ONLY", SD_JOURNAL_LOCAL_ONLY) ||
         PyModule_AddIntConstant(m, "RUNTIME_ONLY", SD_JOURNAL_RUNTIME_ONLY) ||
+        PyModule_AddIntConstant(m, "SYSTEM", SD_JOURNAL_SYSTEM) ||
         PyModule_AddIntConstant(m, "SYSTEM_ONLY", SD_JOURNAL_SYSTEM_ONLY) ||
         PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION)) {
 #if PY_MAJOR_VERSION >= 3

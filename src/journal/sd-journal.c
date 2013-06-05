@@ -1249,6 +1249,42 @@ static void check_network(sd_journal *j, int fd) {
                 F_TYPE_CMP(sfs.f_type, SMB_SUPER_MAGIC);
 }
 
+static bool file_has_type_prefix(const char *prefix, const char *filename) {
+        const char *full, *tilded, *atted;
+
+        full = strappend(prefix, ".journal");
+        tilded = strappenda(full, "~");
+        atted = strappenda(prefix, "@");
+
+        return streq(filename, full) ||
+               streq(filename, tilded) ||
+               startswith(filename, atted);
+}
+
+static bool file_type_wanted(int flags, const char *filename) {
+        if (!endswith(filename, ".journal") && !endswith(filename, ".journal~"))
+                return false;
+
+        /* no flags set → every type is OK */
+        if (!(flags & (SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER)))
+                return true;
+
+        if (flags & SD_JOURNAL_SYSTEM && file_has_type_prefix("system", filename))
+                return true;
+
+        if (flags & SD_JOURNAL_CURRENT_USER) {
+                char prefix[5 + DECIMAL_STR_MAX(uid_t) + 1];
+
+                assert_se(snprintf(prefix, sizeof(prefix), "user-%lu", (unsigned long) getuid())
+                          < (int) sizeof(prefix));
+
+                if (file_has_type_prefix(prefix, filename))
+                        return true;
+        }
+
+        return false;
+}
+
 static int add_file(sd_journal *j, const char *prefix, const char *filename) {
         _cleanup_free_ char *path = NULL;
         int r;
@@ -1258,11 +1294,7 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
         assert(prefix);
         assert(filename);
 
-        if ((j->flags & SD_JOURNAL_SYSTEM_ONLY) &&
-            !(streq(filename, "system.journal") ||
-              streq(filename, "system.journal~") ||
-              (startswith(filename, "system@") &&
-               (endswith(filename, ".journal") || endswith(filename, ".journal~")))))
+        if (!file_type_wanted(j->flags, filename))
                 return 0;
 
         path = strjoin(prefix, "/", filename, NULL);
@@ -1619,7 +1651,8 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 
         if (flags & ~(SD_JOURNAL_LOCAL_ONLY|
                       SD_JOURNAL_RUNTIME_ONLY|
-                      SD_JOURNAL_SYSTEM_ONLY))
+                      SD_JOURNAL_SYSTEM|
+                      SD_JOURNAL_CURRENT_USER))
                 return -EINVAL;
 
         j = journal_new(flags, NULL);

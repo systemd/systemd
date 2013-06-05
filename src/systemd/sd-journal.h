@@ -86,7 +86,9 @@ typedef struct sd_journal sd_journal;
 enum {
         SD_JOURNAL_LOCAL_ONLY = 1,
         SD_JOURNAL_RUNTIME_ONLY = 2,
-        SD_JOURNAL_SYSTEM_ONLY = 4
+        SD_JOURNAL_SYSTEM = 4,
+        SD_JOURNAL_SYSTEM_ONLY = SD_JOURNAL_SYSTEM, /* deprecated */
+        SD_JOURNAL_CURRENT_USER = 8,
 };
 
 /* Wakeup event types */

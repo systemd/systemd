@@ -109,7 +109,7 @@ static int open_journal(RequestMeta *m) {
         if (m->journal)
                 return 0;
 
-        return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM_ONLY);
+        return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
 }
 
 static int respond_oom_internal(struct MHD_Connection *connection) {
