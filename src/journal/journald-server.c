@@ -245,7 +245,7 @@ finish:
 }
 
 static JournalFile* find_journal(Server *s, uid_t uid) {
-        char *p;
+        _cleanup_free_ char *p = NULL;
         int r;
         JournalFile *f;
         sd_id128_t machine;
@@ -283,8 +283,6 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         }
 
         r = journal_file_open_reliably(p, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, s->system_journal, &f);
-        free(p);
-
         if (r < 0)
                 return s->system_journal;
 
@@ -372,7 +370,6 @@ void server_sync(Server *s) {
 }
 
 void server_vacuum(Server *s) {
-        char *p;
         char ids[33];
         sd_id128_t machine;
         int r;
@@ -390,29 +387,19 @@ void server_vacuum(Server *s) {
         sd_id128_to_string(machine, ids);
 
         if (s->system_journal) {
-                p = strappend("/var/log/journal/", ids);
-                if (!p) {
-                        log_oom();
-                        return;
-                }
+                char *p = strappenda("/var/log/journal/", ids);
 
                 r = journal_directory_vacuum(p, s->system_metrics.max_use, s->system_metrics.keep_free, s->max_retention_usec, &s->oldest_file_usec);
                 if (r < 0 && r != -ENOENT)
                         log_error("Failed to vacuum %s: %s", p, strerror(-r));
-                free(p);
         }
 
         if (s->runtime_journal) {
-                p = strappend("/run/log/journal/", ids);
-                if (!p) {
-                        log_oom();
-                        return;
-                }
+                char *p = strappenda("/run/log/journal/", ids);
 
                 r = journal_directory_vacuum(p, s->runtime_metrics.max_use, s->runtime_metrics.keep_free, s->max_retention_usec, &s->oldest_file_usec);
                 if (r < 0 && r != -ENOENT)
                         log_error("Failed to vacuum %s: %s", p, strerror(-r));
-                free(p);
         }
 
         s->cached_available_space_timestamp = 0;

@@ -2272,7 +2272,7 @@ fail:
 
 void journal_file_print_header(JournalFile *f) {
         char a[33], b[33], c[33], d[33];
-        char x[FORMAT_TIMESTAMP_MAX], y[FORMAT_TIMESTAMP_MAX];
+        char x[FORMAT_TIMESTAMP_MAX], y[FORMAT_TIMESTAMP_MAX], z[FORMAT_TIMESTAMP_MAX];
         struct stat st;
         char bytes[FORMAT_BYTES_MAX];
 
@@ -2295,6 +2295,7 @@ void journal_file_print_header(JournalFile *f) {
                "Tail Sequential Number: %"PRIu64"\n"
                "Head Realtime Timestamp: %s\n"
                "Tail Realtime Timestamp: %s\n"
+               "Tail Monotonic Timestamp: %s\n"
                "Objects: %"PRIu64"\n"
                "Entry Objects: %"PRIu64"\n",
                f->path,
@@ -2318,6 +2319,7 @@ void journal_file_print_header(JournalFile *f) {
                le64toh(f->header->tail_entry_seqnum),
                format_timestamp(x, sizeof(x), le64toh(f->header->head_entry_realtime)),
                format_timestamp(y, sizeof(y), le64toh(f->header->tail_entry_realtime)),
+               format_timespan(z, sizeof(z), le64toh(f->header->tail_entry_monotonic), USEC_PER_MSEC),
                le64toh(f->header->n_objects),
                le64toh(f->header->n_entries));
 
@@ -2596,7 +2598,7 @@ int journal_file_open_reliably(
 
         int r;
         size_t l;
-        char *p;
+        _cleanup_free_ char *p = NULL;
 
         r = journal_file_open(fname, flags, mode, compress, seal,
                               metrics, mmap_cache, template, ret);
@@ -2627,7 +2629,6 @@ int journal_file_open_reliably(
                 return -ENOMEM;
 
         r = rename(fname, p);
-        free(p);
         if (r < 0)
                 return -errno;
 
