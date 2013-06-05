@@ -593,42 +593,35 @@ static int next_for_match(
                 }
 
         } else if (m->type == MATCH_AND_TERM) {
-                Match *i;
-                bool continue_looking;
+                Match *i, *last_moved;
 
                 /* Always jump to the next matching entry and repeat
-                 * this until we fine and offset that matches for all
+                 * this until we find an offset that matches for all
                  * matches. */
 
                 if (!m->matches)
                         return 0;
 
-                np = 0;
-                do {
-                        continue_looking = false;
+                r = next_for_match(j, m->matches, f, after_offset, direction, NULL, &np);
+                if (r <= 0)
+                        return r;
 
-                        LIST_FOREACH(matches, i, m->matches) {
-                                uint64_t cp, limit;
+                assert(direction == DIRECTION_DOWN ? np >= after_offset : np <= after_offset);
+                last_moved = m->matches;
 
-                                if (np == 0)
-                                        limit = after_offset;
-                                else if (direction == DIRECTION_DOWN)
-                                        limit = MAX(np, after_offset);
-                                else
-                                        limit = MIN(np, after_offset);
+                LIST_LOOP_BUT_ONE(matches, i, m->matches, last_moved) {
+                        uint64_t cp;
 
-                                r = next_for_match(j, i, f, limit, direction, NULL, &cp);
-                                if (r <= 0)
-                                        return r;
+                        r = next_for_match(j, i, f, np, direction, NULL, &cp);
+                        if (r <= 0)
+                                return r;
 
-                                if ((direction == DIRECTION_DOWN ? cp >= after_offset : cp <= after_offset) &&
-                                    (np == 0 || (direction == DIRECTION_DOWN ? cp > np : cp < np))) {
-                                        np = cp;
-                                        continue_looking = true;
-                                }
+                        assert(direction == DIRECTION_DOWN ? cp >= np : cp <= np);
+                        if (direction == DIRECTION_DOWN ? cp > np : cp < np) {
+                                np = cp;
+                                last_moved = i;
                         }
-
-                } while (continue_looking);
+                }
         }
 
         if (np == 0)

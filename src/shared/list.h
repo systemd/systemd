@@ -123,3 +123,10 @@
 
 #define LIST_FOREACH_AFTER(name,i,p)                                    \
         for ((i) = (p)->name##_next; (i); (i) = (i)->name##_next)
+
+/* Loop starting from p->next until p->prev.
+   p can be adjusted meanwhile. */
+#define LIST_LOOP_BUT_ONE(name,i,head,p)                                \
+        for ((i) = (p)->name##_next ? (p)->name##_next : (head);        \
+             (i) != (p);                                                \
+             (i) = (i)->name##_next ? (i)->name##_next : (head))
