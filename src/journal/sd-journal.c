@@ -33,6 +33,7 @@
 #include "journal-file.h"
 #include "hashmap.h"
 #include "list.h"
+#include "strv.h"
 #include "path-util.h"
 #include "lookup3.h"
 #include "compress.h"
@@ -1278,37 +1279,24 @@ static bool file_type_wanted(int flags, const char *filename) {
         return false;
 }
 
-static int add_file(sd_journal *j, const char *prefix, const char *filename) {
-        _cleanup_free_ char *path = NULL;
-        int r;
+static int add_any_file(sd_journal *j, const char *path) {
         JournalFile *f;
+        int r;
 
         assert(j);
-        assert(prefix);
-        assert(filename);
-
-        if (!file_type_wanted(j->flags, filename))
-                return 0;
-
-        path = strjoin(prefix, "/", filename, NULL);
-        if (!path)
-                return -ENOMEM;
+        assert(path);
 
         if (hashmap_get(j->files, path))
                 return 0;
 
         if (hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
-                log_debug("Too many open journal files, not adding %s, ignoring.", path);
+                log_warning("Too many open journal files, not adding %s.", path);
                 return set_put_error(j, -ETOOMANYREFS);
         }
 
         r = journal_file_open(path, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, &f);
-        if (r < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
+        if (r < 0)
                 return r;
-        }
 
         /* journal_file_dump(f); */
 
@@ -1324,6 +1312,28 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
 
         j->current_invalidate_counter ++;
 
+        return 0;
+}
+
+static int add_file(sd_journal *j, const char *prefix, const char *filename) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(j);
+        assert(prefix);
+        assert(filename);
+
+        if (j->no_new_files ||
+            !file_type_wanted(j->flags, filename))
+                return 0;
+
+        path = strjoin(prefix, "/", filename, NULL);
+        if (!path)
+                return -ENOMEM;
+
+        r = add_any_file(j, path);
+        if (r == -ENOENT)
+                return 0;
         return 0;
 }
 
@@ -1507,6 +1517,9 @@ static int add_root_directory(sd_journal *j, const char *p) {
                         inotify_rm_watch(j->inotify_fd, m->wd);
         }
 
+        if (j->no_new_files)
+                return 0;
+
         for (;;) {
                 struct dirent *de;
                 union dirent_storage buf;
@@ -1586,6 +1599,36 @@ static int add_search_paths(sd_journal *j) {
 
         return 0;
 }
+
+static int add_current_paths(sd_journal *j) {
+        Iterator i;
+        JournalFile *f;
+
+        assert(j);
+        assert(j->no_new_files);
+
+        /* Simply adds all directories for files we have open as
+         * "root" directories. We don't expect errors here, so we
+         * treat them as fatal. */
+
+        HASHMAP_FOREACH(f, j->files, i) {
+                int r;
+                _cleanup_free_ char *dir;
+
+                dir = dirname_malloc(f->path);
+                if (!dir)
+                        return -ENOMEM;
+
+                r = add_root_directory(j, dir);
+                if (r < 0) {
+                        set_put_error(j, r);
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
 
 static int allocate_inotify(sd_journal *j) {
         assert(j);
@@ -1687,6 +1730,40 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
                 set_put_error(j, r);
                 goto fail;
         }
+
+        *ret = j;
+        return 0;
+
+fail:
+        sd_journal_close(j);
+
+        return r;
+}
+
+_public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags) {
+        sd_journal *j;
+        const char **path;
+        int r;
+
+        if (!ret)
+                return -EINVAL;
+
+        if (flags != 0)
+                return -EINVAL;
+
+        j = journal_new(flags, NULL);
+        if (!j)
+                return -ENOMEM;
+
+        STRV_FOREACH(path, paths) {
+                r = add_any_file(j, *path);
+                if (r < 0) {
+                        log_error("Failed to open %s: %s", *path, strerror(-r));
+                        goto fail;
+                }
+        }
+
+        j->no_new_files = true;
 
         *ret = j;
         return 0;
@@ -2017,7 +2094,9 @@ _public_ int sd_journal_get_fd(sd_journal *j) {
 
         /* Iterate through all dirs again, to add them to the
          * inotify */
-        if (j->path)
+        if (j->no_new_files)
+                r = add_current_paths(j);
+        else if (j->path)
                 r = add_root_directory(j, j->path);
         else
                 r = add_search_paths(j);

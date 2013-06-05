@@ -100,6 +100,7 @@ enum {
 
 int sd_journal_open(sd_journal **ret, int flags);
 int sd_journal_open_directory(sd_journal **ret, const char *path, int flags);
+int sd_journal_open_files(sd_journal **ret, const char **paths, int flags);
 void sd_journal_close(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);

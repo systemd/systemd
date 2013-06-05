@@ -123,6 +123,7 @@ struct sd_journal {
         uint64_t unique_offset;
 
         bool on_network;
+        bool no_new_files;
 
         size_t data_threshold;
 

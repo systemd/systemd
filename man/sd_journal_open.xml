@@ -45,6 +45,7 @@
         <refnamediv>
                 <refname>sd_journal_open</refname>
                 <refname>sd_journal_open_directory</refname>
+                <refname>sd_journal_open_files</refname>
                 <refname>sd_journal_close</refname>
                 <refname>sd_journal</refname>
                 <refname>SD_JOURNAL_LOCAL_ONLY</refname>
@@ -68,6 +69,13 @@
                                 <funcdef>int <function>sd_journal_open_directory</function></funcdef>
                                 <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
                                 <paramdef>const char* <parameter>path</parameter></paramdef>
+                                <paramdef>int <parameter>flags</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_open_files</function></funcdef>
+                                <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
+                                <paramdef>const char** <parameter>paths</parameter></paramdef>
                                 <paramdef>int <parameter>flags</parameter></paramdef>
                         </funcprototype>
 
@@ -107,6 +115,14 @@
                 is similar to <function>sd_journal_open()</function>
                 but takes an absolute directory path as argument. All
                 journal files in this directory will be opened and
+                interleaved automatically. This call also takes a
+                flags argument, but it must be passed as 0 as no flags
+                are currently understood for this call.</para>
+
+                <para><function>sd_journal_open_files()</function>
+                is similar to <function>sd_journal_open()</function>
+                but takes a <literal>NULL</literal>-terminated list
+                of file paths to open. All files will be opened and
                 interleaved automatically. This call also takes a
                 flags argument, but it must be passed as 0 as no flags
                 are currently understood for this call.</para>
@@ -188,9 +204,10 @@
                 <para><function>sd_journal_open_directory()</function>
                 was added in systemd-187.</para>
 
-                <para><literal>SD_JOURNAL_SYSTEM</literal> and
-                <literal>SD_JOURNAL_CURRENT_USER</literal> were added
-                in systemd-205.
+                <para><literal>SD_JOURNAL_SYSTEM</literal>,
+                <literal>SD_JOURNAL_CURRENT_USER</literal>,
+                and <function>sd_journal_open_files()</function>
+                were added in systemd-205.
                 <literal>SD_JOURNAL_SYSTEM_ONLY</literal>
                 was deprecated.</para>
         </refsect1>

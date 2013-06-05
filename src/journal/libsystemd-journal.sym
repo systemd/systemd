@@ -104,3 +104,8 @@ LIBSYSTEMD_JOURNAL_202 {
 global:
         sd_journal_add_conjunction;
 } LIBSYSTEMD_JOURNAL_201;
+
+LIBSYSTEMD_JOURNAL_205 {
+global:
+        sd_journal_open_files;
+} LIBSYSTEMD_JOURNAL_202;
