@@ -2271,7 +2271,7 @@ fail:
 }
 
 void journal_file_print_header(JournalFile *f) {
-        char a[33], b[33], c[33];
+        char a[33], b[33], c[33], d[33];
         char x[FORMAT_TIMESTAMP_MAX], y[FORMAT_TIMESTAMP_MAX];
         struct stat st;
         char bytes[FORMAT_BYTES_MAX];
@@ -2301,7 +2301,7 @@ void journal_file_print_header(JournalFile *f) {
                sd_id128_to_string(f->header->file_id, a),
                sd_id128_to_string(f->header->machine_id, b),
                sd_id128_to_string(f->header->boot_id, c),
-               sd_id128_to_string(f->header->seqnum_id, c),
+               sd_id128_to_string(f->header->seqnum_id, d),
                f->header->state == STATE_OFFLINE ? "OFFLINE" :
                f->header->state == STATE_ONLINE ? "ONLINE" :
                f->header->state == STATE_ARCHIVED ? "ARCHIVED" : "UNKNOWN",
