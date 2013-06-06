@@ -249,7 +249,7 @@ static void service_handle_watchdog(Service *s) {
         offset = now(CLOCK_MONOTONIC) - s->watchdog_timestamp.monotonic;
         if (offset >= s->watchdog_usec) {
                 log_error_unit(UNIT(s)->id, "%s watchdog timeout!", UNIT(s)->id);
-                service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_FAILURE_WATCHDOG);
+                service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_FAILURE_WATCHDOG);
                 return;
         }
 
