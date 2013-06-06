@@ -134,7 +134,7 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
         /* Regardless which controller, let's find the maximum number
          * of processes in any of it */
 
-        r = cg_enumerate_tasks(controller, path, &f);
+        r = cg_enumerate_processes(controller, path, &f);
         if (r < 0)
                 return r;
 

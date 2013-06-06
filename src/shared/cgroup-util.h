@@ -44,7 +44,6 @@
  */
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f);
-int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f);
 int cg_read_pid(FILE *f, pid_t *_pid);
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);

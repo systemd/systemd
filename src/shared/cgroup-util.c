@@ -58,25 +58,6 @@ int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) 
         return 0;
 }
 
-int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f) {
-        _cleanup_free_ char *fs = NULL;
-        FILE *f;
-        int r;
-
-        assert(_f);
-
-        r = cg_get_path(controller, path, "tasks", &fs);
-        if (r < 0)
-                return r;
-
-        f = fopen(fs, "re");
-        if (!f)
-                return -errno;
-
-        *_f = f;
-        return 0;
-}
-
 int cg_read_pid(FILE *f, pid_t *_pid) {
         unsigned long ul;
 
@@ -159,16 +140,28 @@ int cg_rmdir(const char *controller, const char *path, bool honour_sticky) {
                 return r;
 
         if (honour_sticky) {
-                char *tasks;
+                char *fn;
 
-                /* If the sticky bit is set don't remove the directory */
+                /* If the sticky bit is set on cgroup.procs, don't
+                 * remove the directory */
 
-                tasks = strappend(p, "/tasks");
-                if (!tasks)
+                fn = strappend(p, "/cgroup.procs");
+                if (!fn)
                         return -ENOMEM;
 
-                r = file_is_priv_sticky(tasks);
-                free(tasks);
+                r = file_is_priv_sticky(fn);
+                free(fn);
+
+                if (r > 0)
+                        return 0;
+
+                /* Compatibility ... */
+                fn = strappend(p, "/tasks");
+                if (!fn)
+                        return -ENOMEM;
+
+                r = file_is_priv_sticky(fn);
+                free(fn);
 
                 if (r > 0)
                         return 0;
@@ -365,7 +358,7 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
                 pid_t pid = 0;
                 done = true;
 
-                r = cg_enumerate_tasks(cfrom, pfrom, &f);
+                r = cg_enumerate_processes(cfrom, pfrom, &f);
                 if (r < 0) {
                         if (ret >= 0 && r != -ENOENT)
                                 return r;
@@ -573,6 +566,19 @@ static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct
         if (ftwbuf->level < 1)
                 return 0;
 
+        p = strappend(path, "/cgroup.procs");
+        if (!p) {
+                errno = ENOMEM;
+                return 1;
+        }
+
+        is_sticky = file_is_priv_sticky(p) > 0;
+        free(p);
+
+        if (is_sticky)
+                return 0;
+
+        /* Compatibility */
         p = strappend(path, "/tasks");
         if (!p) {
                 errno = ENOMEM;
@@ -607,12 +613,21 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
                 bool is_sticky;
                 char *p;
 
-                p = strappend(fs, "/tasks");
+                p = strappend(fs, "/cgroup.procs");
                 if (!p)
                         return -ENOMEM;
 
                 is_sticky = file_is_priv_sticky(p) > 0;
                 free(p);
+
+                if (!is_sticky) {
+                        p = strappend(fs, "/tasks");
+                        if (!p)
+                                return -ENOMEM;
+
+                        is_sticky = file_is_priv_sticky(p) > 0;
+                        free(p);
+                }
 
                 if (!is_sticky)
                         if (rmdir(fs) < 0 && errno != ENOENT && r == 0)
@@ -644,7 +659,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         assert(path);
         assert(pid >= 0);
 
-        r = cg_get_path_and_check(controller, path, "tasks", &fs);
+        r = cg_get_path_and_check(controller, path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
 
@@ -697,7 +712,7 @@ int cg_set_task_access(
         if (mode != (mode_t) -1)
                 mode &= 0666;
 
-        r = cg_get_path(controller, path, "tasks", &fs);
+        r = cg_get_path(controller, path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
 
@@ -727,8 +742,9 @@ int cg_set_task_access(
         if (r < 0)
                 return r;
 
-        /* Always keep values for "cgroup.procs" in sync with "tasks" */
-        r = cg_get_path(controller, path, "cgroup.procs", &procs);
+        /* Compatibility, Always keep values for "tasks" in sync with
+         * "cgroup.procs" */
+        r = cg_get_path(controller, path, "tasks", &procs);
         if (r < 0)
                 return r;
 
@@ -869,7 +885,7 @@ int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
 
         assert(path);
 
-        r = cg_enumerate_tasks(controller, path, &f);
+        r = cg_enumerate_processes(controller, path, &f);
         if (r < 0)
                 return r == -ENOENT ? 1 : r;
 
