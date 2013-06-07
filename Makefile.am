@@ -2781,6 +2781,14 @@ test_journal_verify_LDADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la
 
+test_journal_interleaving_SOURCES = \
+	src/journal/test-journal-interleaving.c
+
+test_journal_interleaving_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la
+
 test_mmap_cache_SOURCES = \
 	src/journal/test-mmap-cache.c
 
@@ -2956,6 +2964,7 @@ tests += \
 	test-journal-match \
 	test-journal-stream \
 	test-journal-verify \
+	test-journal-interleaving \
 	test-mmap-cache \
 	test-catalog
 
