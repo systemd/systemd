@@ -163,7 +163,7 @@ static bool same_field(const void *_a, size_t s, const void *_b, size_t t) {
                         return true;
         }
 
-        return true;
+        assert_not_reached("\"=\" not found");
 }
 
 static Match *match_new(Match *p, MatchType t) {
@@ -371,10 +371,8 @@ static char *match_make_string(Match *m) {
                         p = k;
 
                         enclose = true;
-                } else {
-                        free(p);
+                } else
                         p = t;
-                }
         }
 
         if (enclose) {
@@ -587,10 +585,13 @@ static int next_for_match(
                         if (r < 0)
                                 return r;
                         else if (r > 0) {
-                                if (np == 0 || (direction == DIRECTION_DOWN ? np > cp : np < cp))
+                                if (np == 0 || (direction == DIRECTION_DOWN ? cp < np : cp > np))
                                         np = cp;
                         }
                 }
+
+                if (np == 0)
+                        return 0;
 
         } else if (m->type == MATCH_AND_TERM) {
                 Match *i, *last_moved;
@@ -624,8 +625,7 @@ static int next_for_match(
                 }
         }
 
-        if (np == 0)
-                return 0;
+        assert(np > 0);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, np, &n);
         if (r < 0)
@@ -730,7 +730,7 @@ static int find_location_for_match(
                         if (r <= 0)
                                 return r;
 
-                        if (np == 0 || (direction == DIRECTION_DOWN ? np < cp : np > cp))
+                        if (np == 0 || (direction == DIRECTION_DOWN ? cp > np : cp < np))
                                 np = cp;
                 }
 
@@ -826,7 +826,7 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                         return r;
         }
 
-        /* OK, we found the spot, now let's advance until to an entry
+        /* OK, we found the spot, now let's advance until an entry
          * that is actually different from what we were previously
          * looking at. This is necessary to handle entries which exist
          * in two (or more) journal files, and which shall all be
@@ -888,10 +888,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
 
                         k = compare_entry_order(f, o, new_file, new_offset);
 
-                        if (direction == DIRECTION_DOWN)
-                                found = k < 0;
-                        else
-                                found = k > 0;
+                        found = direction == DIRECTION_DOWN ? k < 0 : k > 0;
                 }
 
                 if (found) {
