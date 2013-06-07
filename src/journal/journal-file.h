@@ -42,10 +42,14 @@ typedef struct JournalMetrics {
         uint64_t keep_free;
 } JournalMetrics;
 
+typedef enum direction {
+        DIRECTION_UP,
+        DIRECTION_DOWN
+} direction_t;
+
 typedef struct JournalFile {
         int fd;
-        char *path;
-        struct stat last_stat;
+
         mode_t mode;
 
         int flags;
@@ -55,6 +59,11 @@ typedef struct JournalFile {
         bool seal;
 
         bool tail_entry_monotonic_valid;
+
+        direction_t last_direction;
+
+        char *path;
+        struct stat last_stat;
 
         Header *header;
         HashItem *data_hash_table;
@@ -89,11 +98,6 @@ typedef struct JournalFile {
         size_t fsprg_seed_size;
 #endif
 } JournalFile;
-
-typedef enum direction {
-        DIRECTION_UP,
-        DIRECTION_DOWN
-} direction_t;
 
 int journal_file_open(
                 const char *fname,

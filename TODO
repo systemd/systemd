@@ -77,9 +77,6 @@ Features:
 
 * investigate endianess issues of UUID vs. GUID
 
-* see if we can fix https://bugs.freedesktop.org/show_bug.cgi?id=63672
-  without dropping the location cache entirely.
-
 * dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
   should be able to safely try another attempt when the bus call LoadUnit() is invoked.
 
