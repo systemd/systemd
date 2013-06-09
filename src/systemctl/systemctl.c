@@ -2700,19 +2700,9 @@ static void print_status_info(UnitStatusInfo *i) {
                 on_tty() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF |
                 arg_full * OUTPUT_FULL_WIDTH;
-        int maxlen = 8; /* a value that'll suffice most of the time */
         char **t, **t2;
 
         assert(i);
-
-        STRV_FOREACH_PAIR(t, t2, i->listen)
-                maxlen = MAX(maxlen, (int)(sizeof("Listen") - 1 + strlen(*t)));
-        if (i->accept)
-                maxlen = MAX(maxlen, (int)sizeof("Accept") - 1);
-        if (i->main_pid > 0)
-                maxlen = MAX(maxlen, (int)sizeof("Main PID") - 1);
-        else if (i->control_pid > 0)
-                maxlen = MAX(maxlen, (int)sizeof("Control") - 1);
 
         /* This shows pretty information about a unit. See
          * print_property() for a low-level property printer */
@@ -2725,7 +2715,7 @@ static void print_status_info(UnitStatusInfo *i) {
         printf("\n");
 
         if (i->following)
-                printf(" %*s: unit currently follows state of %s\n", maxlen, "Follow", i->following);
+                printf("   Follow: unit currently follows state of %s\n", i->following);
 
         if (streq_ptr(i->load_state, "error")) {
                 on = ansi_highlight_red(true);
@@ -2736,17 +2726,17 @@ static void print_status_info(UnitStatusInfo *i) {
         path = i->source_path ? i->source_path : i->fragment_path;
 
         if (i->load_error)
-                printf(" %*s: %s%s%s (Reason: %s)\n",
-                       maxlen, "Loaded", on, strna(i->load_state), off, i->load_error);
+                printf("   Loaded: %s%s%s (Reason: %s)\n",
+                       on, strna(i->load_state), off, i->load_error);
         else if (path && i->unit_file_state)
-                printf(" %*s: %s%s%s (%s; %s)\n",
-                       maxlen, "Loaded", on, strna(i->load_state), off, path, i->unit_file_state);
+                printf("   Loaded: %s%s%s (%s; %s)\n",
+                       on, strna(i->load_state), off, path, i->unit_file_state);
         else if (path)
-                printf(" %*s: %s%s%s (%s)\n",
-                       maxlen, "Loaded", on, strna(i->load_state), off, path);
+                printf("   Loaded: %s%s%s (%s)\n",
+                       on, strna(i->load_state), off, path);
         else
-                printf(" %*s: %s%s%s\n",
-                       maxlen, "Loaded", on, strna(i->load_state), off);
+                printf("   Loaded: %s%s%s\n",
+                       on, strna(i->load_state), off);
 
         if (!strv_isempty(i->dropin_paths)) {
                 char ** dropin;
@@ -2755,7 +2745,7 @@ static void print_status_info(UnitStatusInfo *i) {
 
                 STRV_FOREACH(dropin, i->dropin_paths) {
                         if (! dir || last) {
-                                printf("  %*s ", maxlen, dir ? "" : "Drop-In:");
+                                printf(dir ? "        " : "  Drop-In: ");
 
                                 free(dir);
 
@@ -2764,7 +2754,7 @@ static void print_status_info(UnitStatusInfo *i) {
                                         return;
                                 }
 
-                                printf("%s\n %*s  %s", dir, maxlen, "",
+                                printf("%s\n           %s", dir,
                                        draw_special_char(DRAW_TREE_RIGHT));
                         }
 
@@ -2788,11 +2778,11 @@ static void print_status_info(UnitStatusInfo *i) {
                 on = off = "";
 
         if (ss)
-                printf(" %*s: %s%s (%s)%s",
-                       maxlen, "Active",  on, strna(i->active_state), ss, off);
+                printf("   Active: %s%s (%s)%s",
+                       on, strna(i->active_state), ss, off);
         else
-                printf(" %*s: %s%s%s",
-                       maxlen, "Active", on, strna(i->active_state), off);
+                printf("   Active: %s%s%s",
+                       on, strna(i->active_state), off);
 
         if (!isempty(i->result) && !streq(i->result, "success"))
                 printf(" (Result: %s)", i->result);
@@ -2819,26 +2809,26 @@ static void print_status_info(UnitStatusInfo *i) {
                 s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
 
                 if (s1)
-                        printf(" %*s start condition failed at %s; %s\n", maxlen, "", s2, s1);
+                        printf("          start condition failed at %s; %s\n", s2, s1);
                 else if (s2)
-                        printf(" %*s start condition failed at %s\n", maxlen, "", s2);
+                        printf("          start condition failed at %s\n", s2);
         }
 
         if (i->sysfs_path)
-                printf(" %*s: %s\n", maxlen, "Device", i->sysfs_path);
+                printf("   Device: %s\n", i->sysfs_path);
         if (i->where)
-                printf(" %*s: %s\n", maxlen, "Where", i->where);
+                printf("    Where: %s\n", i->where);
         if (i->what)
-                printf(" %*s: %s\n", maxlen, "What", i->what);
+                printf("     What: %s\n", i->what);
 
         STRV_FOREACH(t, i->documentation)
-                printf(" %*s %s\n", maxlen+1, t == i->documentation ? "Docs:" : "", *t);
+                printf(" %*s %s\n", 9, t == i->documentation ? "Docs:" : "", *t);
 
         STRV_FOREACH_PAIR(t, t2, i->listen)
-                printf(" %*s %s (%s)\n", maxlen+1, t == i->listen ? "Listen:" : "", *t2, *t);
+                printf(" %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
 
         if (i->accept)
-                printf(" %*s: %u; Connected: %u\n", maxlen, "Accepted", i->n_accepted, i->n_connections);
+                printf(" Accepted: %u; Connected: %u\n", i->n_accepted, i->n_connections);
 
         LIST_FOREACH(exec, p, i->exec) {
                 _cleanup_free_ char *argv = NULL;
@@ -2849,7 +2839,7 @@ static void print_status_info(UnitStatusInfo *i) {
                         continue;
 
                 argv = strv_join(p->argv, " ");
-                printf(" %*s: %u %s=%s ", maxlen, "Process", p->pid, p->name, strna(argv));
+                printf("  Process: %u %s=%s ", p->pid, p->name, strna(argv));
 
                 good = is_clean_exit_lsb(p->code, p->status, NULL);
                 if (!good) {
@@ -2886,7 +2876,7 @@ static void print_status_info(UnitStatusInfo *i) {
 
         if (i->main_pid > 0 || i->control_pid > 0) {
                 if (i->main_pid > 0) {
-                        printf(" %*s: %u", maxlen, "Main PID", (unsigned) i->main_pid);
+                        printf(" Main PID: %u", (unsigned) i->main_pid);
 
                         if (i->running) {
                                 _cleanup_free_ char *comm = NULL;
@@ -2917,7 +2907,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 if (i->control_pid > 0) {
                         _cleanup_free_ char *c = NULL;
 
-                        printf(" %*s: %u", i->main_pid ? 0 : maxlen, "Control", (unsigned) i->control_pid);
+                        printf(" %8s: %u", i->main_pid ? "" : " Control", (unsigned) i->control_pid);
 
                         get_process_comm(i->control_pid, &c);
                         if (c)
@@ -2928,20 +2918,18 @@ static void print_status_info(UnitStatusInfo *i) {
         }
 
         if (i->status_text)
-                printf(" %*s: \"%s\"\n", maxlen, "Status", i->status_text);
+                printf("   Status: \"%s\"\n", i->status_text);
 
         if (i->default_control_group &&
             (i->main_pid > 0 || i->control_pid > 0 || cg_is_empty_by_spec(i->default_control_group, false) == 0)) {
                 unsigned c;
 
-                printf(" %*s: %s\n", maxlen, "CGroup", i->default_control_group);
+                printf("   CGroup: %s\n", i->default_control_group);
 
                 if (arg_transport != TRANSPORT_SSH) {
                         unsigned k = 0;
                         pid_t extra[2];
-                        char prefix[maxlen + 4];
-                        memset(prefix, ' ', sizeof(prefix) - 1);
-                        prefix[sizeof(prefix) - 1] = '\0';
+                        char prefix[] = "           ";
 
                         c = columns();
                         if (c > sizeof(prefix) - 1)
