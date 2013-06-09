@@ -129,7 +129,8 @@ static enum transport {
         TRANSPORT_SSH,
         TRANSPORT_POLKIT
 } arg_transport = TRANSPORT_NORMAL;
-static const char *arg_host = NULL;
+static char *arg_host = NULL;
+static char *arg_user = NULL;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
@@ -5065,7 +5066,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 'H':
                         arg_transport = TRANSPORT_SSH;
-                        arg_host = optarg;
+                        parse_user_at_host(optarg, &arg_user, &arg_host);
                         break;
 
                 case ARG_RUNTIME:
@@ -6086,7 +6087,7 @@ int main(int argc, char*argv[]) {
                         bus_connect_system_polkit(&bus, &error);
                         private_bus = false;
                 } else if (arg_transport == TRANSPORT_SSH) {
-                        bus_connect_system_ssh(NULL, arg_host, &bus, &error);
+                        bus_connect_system_ssh(arg_user, arg_host, &bus, &error);
                         private_bus = false;
                 } else
                         assert_not_reached("Uh, invalid transport...");

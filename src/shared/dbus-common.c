@@ -178,9 +178,9 @@ int bus_connect_system_ssh(const char *user, const char *host, DBusConnection **
         assert(user || host);
 
         if (user && host)
-                asprintf(&p, "unixexec:path=ssh,argv1=-xT,argv2=%s@%s,argv3=systemd-stdio-bridge", user, host);
+                asprintf(&p, "unixexec:path=ssh,argv1=-xT,argv2=%s%%40%s,argv3=systemd-stdio-bridge", user, host);
         else if (user)
-                asprintf(&p, "unixexec:path=ssh,argv1=-xT,argv2=%s@localhost,argv3=systemd-stdio-bridge", user);
+                asprintf(&p, "unixexec:path=ssh,argv1=-xT,argv2=%s%%40localhost,argv3=systemd-stdio-bridge", user);
         else if (host)
                 asprintf(&p, "unixexec:path=ssh,argv1=-xT,argv2=%s,argv3=systemd-stdio-bridge", host);
 

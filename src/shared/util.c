@@ -5847,3 +5847,17 @@ bool id128_is_valid(const char *s) {
 
         return true;
 }
+
+void parse_user_at_host(char *arg, char **user, char **host) {
+        assert(arg);
+        assert(user);
+        assert(host);
+
+        *host = strchr(arg, '@');
+        if (*host == NULL)
+                *host = arg;
+        else {
+                *host[0]++ = '\0';
+                *user = arg;
+        }
+}

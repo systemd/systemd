@@ -46,7 +46,8 @@ static enum transport {
         TRANSPORT_POLKIT
 } arg_transport = TRANSPORT_NORMAL;
 static bool arg_ask_password = true;
-static const char *arg_host = NULL;
+static char *arg_host = NULL;
+static char *arg_user = NULL;
 static bool arg_convert = true;
 
 static void pager_open_if_enabled(void) {
@@ -777,7 +778,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'H':
                         arg_transport = TRANSPORT_SSH;
-                        arg_host = optarg;
+                        parse_user_at_host(optarg, &arg_user, &arg_host);
                         break;
 
                 case ARG_NO_CONVERT:
