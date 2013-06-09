@@ -272,6 +272,7 @@ unsigned manager_dispatch_load_queue(Manager *m);
 unsigned manager_dispatch_run_queue(Manager *m);
 unsigned manager_dispatch_dbus_queue(Manager *m);
 
+int manager_set_default_environment(Manager *m, char **environment);
 int manager_set_default_controllers(Manager *m, char **controllers);
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
 

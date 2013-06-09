@@ -2570,6 +2570,18 @@ void manager_undo_generators(Manager *m) {
         remove_generator_dir(m, &m->generator_unit_path_late);
 }
 
+int manager_set_default_environment(Manager *m, char **environment) {
+
+        char **e = NULL;
+        assert(m);
+        e = strv_env_merge(2, m->environment, environment);
+        if (!e)
+                return -ENOMEM;
+        strv_free(m->environment);
+        m->environment = e;
+        return 0;
+}
+
 int manager_set_default_controllers(Manager *m, char **controllers) {
         char **l;
 

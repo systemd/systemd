@@ -94,6 +94,7 @@ static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 static usec_t arg_runtime_watchdog = 0;
 static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
+static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[RLIMIT_NLIMITS] = {};
 static uint64_t arg_capability_bounding_set_drop = 0;
 static nsec_t arg_timer_slack_nsec = (nsec_t) -1;
@@ -646,6 +647,7 @@ static int parse_config_file(void) {
                 { "Manager", "ShutdownWatchdogSec",   config_parse_sec,          0, &arg_shutdown_watchdog   },
                 { "Manager", "CapabilityBoundingSet", config_parse_bounding_set, 0, &arg_capability_bounding_set_drop },
                 { "Manager", "TimerSlackNSec",        config_parse_nsec,         0, &arg_timer_slack_nsec    },
+                { "Manager", "DefaultEnvironment",    config_parse_environ,      0, &arg_default_environment },
                 { "Manager", "DefaultLimitCPU",       config_parse_limit,        0, &arg_default_rlimit[RLIMIT_CPU]},
                 { "Manager", "DefaultLimitFSIZE",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_FSIZE]},
                 { "Manager", "DefaultLimitDATA",      config_parse_limit,        0, &arg_default_rlimit[RLIMIT_DATA]},
@@ -1629,6 +1631,9 @@ int main(int argc, char *argv[]) {
 
         if (arg_default_controllers)
                 manager_set_default_controllers(m, arg_default_controllers);
+
+        if (arg_default_environment)
+                manager_set_default_environment(m, arg_default_environment);
 
         manager_set_show_status(m, arg_show_status);
 

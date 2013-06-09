@@ -288,8 +288,9 @@
                                 variables is reset, all prior
                                 assignments have no effect.
                                 Variable expansion is not performed
-                                inside the strings, and $ has no special
-                                meaning.
+                                inside the strings, however, specifier
+                                expansion is possible. $ character has
+                                no special meaning.
                                 If you need to assign a value containing spaces
                                 to a variable, use double quotes (")
                                 for the assignment.</para>

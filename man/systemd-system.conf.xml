@@ -263,6 +263,27 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>DefaultEnvironment=</varname></term>
+
+                                <listitem><para>Sets systemd manager
+                                environment variables for executed
+                                processes. Takes a space-separated
+                                list of variable assignments.
+                                </para>
+
+                                <para>Example:
+                                <programlisting>Environment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>
+                                gives three variables <literal>VAR1</literal>,
+                                <literal>VAR2</literal>, <literal>VAR3</literal>.
+                                </para>
+
+                                <para>
+                                See
+                                <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details about environment variables.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>DefaultLimitCPU=</varname></term>
                                 <term><varname>DefaultLimitFSIZE=</varname></term>
                                 <term><varname>DefaultLimitDATA=</varname></term>

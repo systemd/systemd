@@ -1564,7 +1564,7 @@ int config_parse_environ(const char *unit,
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(u);
+        assert(data);
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
@@ -1573,7 +1573,11 @@ int config_parse_environ(const char *unit,
                 return 0;
         }
 
-        k = unit_full_printf(u, rvalue);
+        if (u)
+                k = unit_full_printf(u, rvalue);
+        else
+                k = strdup(rvalue);
+
         if (!k)
                 return log_oom();
 
