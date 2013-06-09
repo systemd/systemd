@@ -1865,7 +1865,7 @@ static int main_pid_good(Service *s) {
 
                 /* If it's an alien child let's check if it is still
                  * alive ... */
-                if (s->main_pid_alien)
+                if (s->main_pid_alien && s->main_pid > 0)
                         return kill(s->main_pid, 0) >= 0 || errno != ESRCH;
 
                 /* .. otherwise assume we'll get a SIGCHLD for it,
