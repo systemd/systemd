@@ -125,7 +125,11 @@
                 of file paths to open. All files will be opened and
                 interleaved automatically. This call also takes a
                 flags argument, but it must be passed as 0 as no flags
-                are currently understood for this call.</para>
+                are currently understood for this call. Please note
+                that in case of a live journal, this function is only
+                useful for debugging, because individual journal files
+                can be rotated at any moment, and the opening of
+                specific files in inherently racy.</para>
 
                 <para><function>sd_journal_close()</function> will
                 close the journal context allocated with
