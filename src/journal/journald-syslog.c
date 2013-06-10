@@ -268,7 +268,7 @@ void syslog_parse_priority(char **p, int *priority) {
         if (a < 0 || b < 0 || c < 0)
                 return;
 
-        *priority = a*100+b*10+c;
+        *priority = (*priority & LOG_FACMASK) | (a*100 + b*10 + c);
         *p += k;
 }
 
