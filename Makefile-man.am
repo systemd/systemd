@@ -118,7 +118,6 @@ MANPAGES_ALIAS += \
 	man/SD_JOURNAL_RUNTIME_ONLY.3 \
 	man/SD_JOURNAL_SUPPRESS_LOCATION.3 \
 	man/SD_JOURNAL_SYSTEM.3 \
-	man/SD_JOURNAL_SYSTEM_ONLY.3 \
 	man/SD_LISTEN_FDS_START.3 \
 	man/SD_NOTICE.3 \
 	man/SD_WARNING.3 \
@@ -219,7 +218,6 @@ man/SD_JOURNAL_NOP.3: man/sd_journal_get_fd.3
 man/SD_JOURNAL_RUNTIME_ONLY.3: man/sd_journal_open.3
 man/SD_JOURNAL_SUPPRESS_LOCATION.3: man/sd_journal_print.3
 man/SD_JOURNAL_SYSTEM.3: man/sd_journal_open.3
-man/SD_JOURNAL_SYSTEM_ONLY.3: man/sd_journal_open.3
 man/SD_LISTEN_FDS_START.3: man/sd_listen_fds.3
 man/SD_NOTICE.3: man/sd-daemon.3
 man/SD_WARNING.3: man/sd-daemon.3
@@ -362,9 +360,6 @@ man/SD_JOURNAL_SUPPRESS_LOCATION.html: man/sd_journal_print.html
 	$(html-alias)
 
 man/SD_JOURNAL_SYSTEM.html: man/sd_journal_open.html
-	$(html-alias)
-
-man/SD_JOURNAL_SYSTEM_ONLY.html: man/sd_journal_open.html
 	$(html-alias)
 
 man/SD_LISTEN_FDS_START.html: man/sd_listen_fds.html
