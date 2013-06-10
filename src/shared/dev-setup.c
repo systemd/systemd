@@ -54,13 +54,19 @@ void dev_setup(const char *prefix) {
         const char *j, *k;
 
         static const char symlinks[] =
-                "/proc/kcore\0"      "/dev/core\0"
+                "-/proc/kcore\0"     "/dev/core\0"
                 "/proc/self/fd\0"    "/dev/fd\0"
                 "/proc/self/fd/0\0"  "/dev/stdin\0"
                 "/proc/self/fd/1\0"  "/dev/stdout\0"
                 "/proc/self/fd/2\0"  "/dev/stderr\0";
 
         NULSTR_FOREACH_PAIR(j, k, symlinks) {
+                if (j[0] == '-') {
+                        j++;
+
+                        if (access(j, F_OK))
+                                continue;
+                }
 
                 if (prefix) {
                         char *linkname;
