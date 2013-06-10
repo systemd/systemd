@@ -163,7 +163,7 @@ static int output_short(
 
         sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : PRINT_THRESHOLD);
 
-        SD_JOURNAL_FOREACH_DATA(j, data, length) {
+        JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
 
                 r = parse_field(data, length, "PRIORITY=", &priority, &priority_len);
                 if (r < 0)
@@ -218,6 +218,9 @@ static int output_short(
                         return r;
         }
 
+        if (r < 0)
+                return r;
+
         if (!message)
                 return 0;
 
@@ -240,7 +243,7 @@ static int output_short(
                         r = sd_journal_get_monotonic_usec(j, &t, &boot_id);
 
                 if (r < 0) {
-                        log_error("Failed to get monotonic: %s", strerror(-r));
+                        log_error("Failed to get monotonic timestamp: %s", strerror(-r));
                         return r;
                 }
 
@@ -265,7 +268,7 @@ static int output_short(
                         r = sd_journal_get_realtime_usec(j, &x);
 
                 if (r < 0) {
-                        log_error("Failed to get realtime: %s", strerror(-r));
+                        log_error("Failed to get realtime timestamp: %s", strerror(-r));
                         return r;
                 }
 
@@ -336,7 +339,8 @@ static int output_verbose(
 
         r = sd_journal_get_realtime_usec(j, &realtime);
         if (r < 0) {
-                log_error("Failed to get realtime timestamp: %s", strerror(-r));
+                log_full(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_ERR,
+                         "Failed to get realtime timestamp: %s", strerror(-r));
                 return r;
         }
 
@@ -350,7 +354,7 @@ static int output_verbose(
                 format_timestamp(ts, sizeof(ts), realtime),
                 cursor);
 
-        SD_JOURNAL_FOREACH_DATA(j, data, length) {
+        JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 const char *c;
                 int fieldlen;
                 c = memchr(data, '=', length);
@@ -372,6 +376,9 @@ static int output_verbose(
                                 format_bytes(bytes, sizeof(bytes), length - (c - (const char *) data) - 1));
                 }
         }
+
+        if (r < 0)
+                return r;
 
         if (flags & OUTPUT_CATALOG)
                 print_catalog(f, j);
@@ -426,7 +433,7 @@ static int output_export(
                 (unsigned long long) monotonic,
                 sd_id128_to_string(boot_id, sid));
 
-        SD_JOURNAL_FOREACH_DATA(j, data, length) {
+        JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
 
                 /* We already printed the boot id, from the data in
                  * the header, hence let's suppress it here */
@@ -454,6 +461,9 @@ static int output_export(
 
                 fputc('\n', f);
         }
+
+        if (r < 0)
+                return r;
 
         fputc('\n', f);
 
@@ -583,7 +593,7 @@ static int output_json(
                 return -ENOMEM;
 
         /* First round, iterate through the entry and count how often each field appears */
-        SD_JOURNAL_FOREACH_DATA(j, data, length) {
+        JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 const char *eq;
                 char *n;
                 unsigned u;
@@ -616,6 +626,9 @@ static int output_json(
                                 goto finish;
                 }
         }
+
+        if (r < 0)
+                return r;
 
         separator = true;
         do {

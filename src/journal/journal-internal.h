@@ -139,3 +139,6 @@ static inline void journal_closep(sd_journal **j) {
 }
 
 #define _cleanup_journal_close_ _cleanup_(journal_closep)
+
+#define JOURNAL_FOREACH_DATA_RETVAL(j, data, l, retval)                     \
+        for (sd_journal_restart_data(j); ((retval) = sd_journal_enumerate_data((j), &(data), &(l))) > 0; )

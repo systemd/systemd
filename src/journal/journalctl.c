@@ -1288,10 +1288,9 @@ int main(int argc, char *argv[]) {
                                         log_error("Failed to iterate through journal: %s", strerror(-r));
                                         goto finish;
                                 }
+                                if (r == 0)
+                                        break;
                         }
-
-                        if (r == 0)
-                                break;
 
                         if (arg_until_set && !arg_reverse) {
                                 usec_t usec;
@@ -1338,10 +1337,12 @@ int main(int argc, char *argv[]) {
                                 arg_catalog * OUTPUT_CATALOG;
 
                         r = output_journal(stdout, j, arg_output, 0, flags);
-                        if (r < 0 || ferror(stdout))
+                        need_seek = true;
+                        if (r == -EADDRNOTAVAIL)
+                                break;
+                        else if (r < 0 || ferror(stdout))
                                 goto finish;
 
-                        need_seek = true;
                         n_shown++;
                 }
 
