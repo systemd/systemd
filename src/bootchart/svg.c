@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright (C) 2009-2013 Intel Coproration
+  Copyright (C) 2009-2013 Intel Corporation
 
   Authors:
     Auke Kok <auke-jan.h.kok@intel.com>
