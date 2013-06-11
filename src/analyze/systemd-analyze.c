@@ -826,7 +826,7 @@ static int list_dependencies_one(DBusConnection *bus, const char *name, unsigned
         return 0;
 }
 
-static int list_dependencies(DBusConnection *bus) {
+static int list_dependencies(DBusConnection *bus, const char *name) {
         _cleanup_strv_free_ char **units = NULL;
         char ts[FORMAT_TIMESPAN_MAX];
         struct unit_times *times;
@@ -841,7 +841,7 @@ static int list_dependencies(DBusConnection *bus) {
 
         assert(bus);
 
-        path = unit_dbus_path_from_name(SPECIAL_DEFAULT_TARGET);
+        path = unit_dbus_path_from_name(name);
         if (path == NULL)
                 return -EINVAL;
 
@@ -890,10 +890,10 @@ static int list_dependencies(DBusConnection *bus) {
                         printf("%s\n", id);
         }
 
-        return list_dependencies_one(bus, SPECIAL_DEFAULT_TARGET, 0, &units, 0);
+        return list_dependencies_one(bus, name, 0, &units, 0);
 }
 
-static int analyze_critical_chain(DBusConnection *bus) {
+static int analyze_critical_chain(DBusConnection *bus, char *names[]) {
         struct unit_times *times;
         int n, r;
         unsigned int i;
@@ -917,7 +917,13 @@ static int analyze_critical_chain(DBusConnection *bus) {
         puts("The time after the unit is active or started is printed after the \"@\" character.\n"
              "The time the unit takes to start is printed after the \"+\" character.\n");
 
-        list_dependencies(bus);
+        if (!strv_isempty(names)) {
+                char **name;
+                STRV_FOREACH(name, names)
+                        list_dependencies(bus, *name);
+        } else {
+                list_dependencies(bus, SPECIAL_DEFAULT_TARGET);
+        }
 
         hashmap_free(h);
         free_unit_times(times, (unsigned) n);
@@ -1301,7 +1307,7 @@ int main(int argc, char *argv[]) {
         else if (streq(argv[optind], "blame"))
                 r = analyze_blame(bus);
         else if (streq(argv[optind], "critical-chain"))
-                r = analyze_critical_chain(bus);
+                r = analyze_critical_chain(bus, argv+optind+1);
         else if (streq(argv[optind], "plot"))
                 r = analyze_plot(bus);
         else if (streq(argv[optind], "dot"))
