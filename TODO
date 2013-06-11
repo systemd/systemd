@@ -28,6 +28,12 @@ Fedora 19:
 
 Features:
 
+* document logic of auto/noauto and fail/nofail in fstab in systemd.mount or systemd-fstab-generator man page
+
+* we should properly escape hostnames we add into dbus server strings
+
+* something pulls in pcre as so dep into our daemons such as hostnamed.
+
 * cgroup-agent: downgrade error messages
 
 * document systemd-journal-flush.service properly
