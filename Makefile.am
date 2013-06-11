@@ -389,7 +389,6 @@ dist_systemunit_DATA = \
 	units/sound.target \
 	units/bluetooth.target \
 	units/smartcard.target \
-	units/quotaon.service \
 	units/systemd-ask-password-wall.path \
 	units/systemd-ask-password-console.path \
 	units/systemd-udevd-control.socket \
