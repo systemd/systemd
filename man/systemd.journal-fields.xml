@@ -286,23 +286,75 @@
                                 <listitem>
                                         <para>How the entry was
                                         received by the journal
-                                        service. One of
-                                        <literal>driver</literal>,
-                                        <literal>syslog</literal>,
-                                        <literal>journal</literal>,
-                                        <literal>stdout</literal>,
-                                        <literal>kernel</literal> for
-                                        internally generated messages,
-                                        for those received via the
-                                        local syslog socket with the
-                                        syslog protocol, for those
-                                        received via the native
-                                        journal protocol, for the
-                                        those read from a services'
-                                        standard output or error
-                                        output, or for those read
-                                        from the kernel, respectively.
+                                        service. Valid transports are:
                                         </para>
+                                        <variablelist>
+                                                <varlistentry>
+                                                        <term>
+                                                                <option>driver</option>
+                                                        </term>
+                                                        <listitem>
+                                                                <para>for
+                                                                internally
+                                                                generated
+                                                                messages
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
+
+                                                <varlistentry>
+                                                        <term>
+                                                                <option>syslog</option>
+                                                        </term>
+                                                        <listitem>
+                                                                <para>for those
+                                                                received via the
+                                                                local syslog
+                                                                socket with the
+                                                                syslog protocol
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
+
+                                                <varlistentry>
+                                                        <term>
+                                                                <option>journal</option>
+                                                        </term>
+                                                        <listitem>
+                                                                <para>for those
+                                                                received via the
+                                                                native journal
+                                                                protocol
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
+
+                                                <varlistentry>
+                                                        <term>
+                                                                <option>stdout</option>
+                                                        </term>
+                                                        <listitem>
+                                                                <para>for those
+                                                                read from a
+                                                                service's
+                                                                standard output
+                                                                or error output
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
+
+                                                <varlistentry>
+                                                        <term>
+                                                                <option>kernel</option>
+                                                        </term>
+                                                        <listitem>
+                                                                <para>for those
+                                                                read from the
+                                                                kernel
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
+                                        </variablelist>
                                 </listitem>
                         </varlistentry>
                 </variablelist>
