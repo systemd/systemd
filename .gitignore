@@ -109,6 +109,7 @@
 /test-job-type
 /test-journal
 /test-journal-enum
+/test-journal-interleaving
 /test-journal-match
 /test-journal-send
 /test-journal-stream
