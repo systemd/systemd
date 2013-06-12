@@ -1987,7 +1987,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
 
                 service_set_state(s, SERVICE_STOP_POST);
         } else
-                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_SUCCESS);
+                service_enter_dead(s, SERVICE_SUCCESS, true);
 
         return;
 
