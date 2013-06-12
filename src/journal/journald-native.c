@@ -71,6 +71,10 @@ static bool valid_user_field(const char *p, size_t l) {
         return true;
 }
 
+static bool allow_object_pid(struct ucred *ucred) {
+        return ucred && ucred->uid == 0;
+}
+
 void server_process_native_message(
                 Server *s,
                 const void *buffer, size_t buffer_size,
@@ -79,11 +83,12 @@ void server_process_native_message(
                 const char *label, size_t label_len) {
 
         struct iovec *iovec = NULL;
-        unsigned n = 0, m = 0, j, tn = (unsigned) -1;
+        unsigned n = 0, j, tn = (unsigned) -1;
         const char *p;
-        size_t remaining;
+        size_t remaining, m = 0;
         int priority = LOG_INFO;
         char *identifier = NULL, *message = NULL;
+        pid_t object_pid = 0;
 
         assert(s);
         assert(buffer || buffer_size == 0);
@@ -104,7 +109,7 @@ void server_process_native_message(
 
                 if (e == p) {
                         /* Entry separator */
-                        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority);
+                        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority, object_pid);
                         n = 0;
                         priority = LOG_INFO;
 
@@ -124,19 +129,10 @@ void server_process_native_message(
                 /* A property follows */
 
                 /* n received properties, +1 for _TRANSPORT */
-                if (n + 1 + N_IOVEC_META_FIELDS >= m) {
-                        struct iovec *c;
-                        unsigned u;
-
-                        u = MAX((n + 1 + N_IOVEC_META_FIELDS) * 2U, 4U);
-                        c = realloc(iovec, u * sizeof(struct iovec));
-                        if (!c) {
-                                log_oom();
-                                break;
-                        }
-
-                        iovec = c;
-                        m = u;
+                if (!GREEDY_REALLOC(iovec, m, n + 1 + N_IOVEC_META_FIELDS +
+                                              !!object_pid * N_IOVEC_OBJECT_FIELDS)) {
+                        log_oom();
+                        break;
                 }
 
                 q = memchr(p, '=', e - p);
@@ -191,6 +187,16 @@ void server_process_native_message(
                                                 free(message);
                                                 message = t;
                                         }
+                                } else if (l > strlen("OBJECT_PID=") &&
+                                           l < strlen("OBJECT_PID=")  + DECIMAL_STR_MAX(pid_t) &&
+                                           hasprefix(p, "OBJECT_PID=") &&
+                                           allow_object_pid(ucred)) {
+                                        char buf[DECIMAL_STR_MAX(pid_t)];
+                                        memcpy(buf, p + strlen("OBJECT_PID="), l - strlen("OBJECT_PID="));
+                                        char_array_0(buf);
+
+                                        /* ignore error */
+                                        parse_pid(buf, &object_pid);
                                 }
                         }
 
@@ -260,7 +266,7 @@ void server_process_native_message(
                         server_forward_console(s, priority, identifier, message, ucred);
         }
 
-        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority);
+        server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority, object_pid);
 
 finish:
         for (j = 0; j < n; j++)  {

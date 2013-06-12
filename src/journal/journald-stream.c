@@ -127,7 +127,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         }
 #endif
 
-        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, s->unit_id, priority);
+        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, s->unit_id, priority, 0);
 
         free(message);
         free(syslog_priority);

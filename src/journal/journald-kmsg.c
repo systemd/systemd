@@ -304,7 +304,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, NULL, priority);
+        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, NULL, priority, 0);
 
 finish:
         for (j = 0; j < z; j++)
