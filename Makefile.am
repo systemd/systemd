@@ -511,6 +511,9 @@ MANPAGES_ALIAS =
 
 include Makefile-man.am
 
+.PHONY: man
+man: $(MANPAGES) $(MANPAGES_ALIAS) $(HTML_FILES) $(HTML_ALIAS)
+
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
 HTML_FILES = \
