@@ -35,12 +35,15 @@
  *   o<index>                              -- on-board device index number
  *   s<slot>[f<function>][d<dev_id>]       -- hotplug slot index number
  *   x<MAC>                                -- MAC address
- *   p<bus>s<slot>[f<function>][d<dev_id>] -- PCI geographical location
- *   p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
+ *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_id>]
+ *                                         -- PCI geographical location
+ *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
  *                                         -- USB port number chain
  *
  * All multi-function PCI devices will carry the [f<function>] number in the
  * device name, including the function 0 device.
+ *
+ * When using PCI geography, The PCI domain is only prepended when it is not 0.
  *
  * For USB devices the full chain of port numbers of hubs is composed. If the
  * name gets longer than the maximum number of 15 characters, the name is not
@@ -163,6 +166,7 @@ out:
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         struct udev *udev = udev_device_get_udev(names->pcidev);
+        unsigned int domain;
         unsigned int bus;
         unsigned int slot;
         unsigned int func;
@@ -178,7 +182,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         int hotplug_slot = 0;
         int err = 0;
 
-        if (sscanf(udev_device_get_sysname(names->pcidev), "0000:%x:%x.%d", &bus, &slot, &func) != 3)
+        if (sscanf(udev_device_get_sysname(names->pcidev), "%x:%x:%x.%d", &domain, &bus, &slot, &func) != 4)
                 return -ENOENT;
 
         /* kernel provided multi-device index */
@@ -188,7 +192,10 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
 
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
         s = names->pci_path;
-        l = strpcpyf(&s, sizeof(names->pci_path), "p%ds%d", bus, slot);
+        l = sizeof(names->pci_path);
+        if (domain > 0)
+                l = strpcpyf(&s, l, "P%d", domain);
+        l = strpcpyf(&s, l, "p%ds%d", bus, slot);
         if (func > 0 || is_pci_multifunction(names->pcidev))
                 l = strpcpyf(&s, l, "f%d", func);
         if (dev_id > 0)
@@ -236,7 +243,10 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
 
         if (hotplug_slot > 0) {
                 s = names->pci_slot;
-                l = strpcpyf(&s, sizeof(names->pci_slot), "s%d", hotplug_slot);
+                l = sizeof(names->pci_slot);
+                if (domain > 0)
+                        l = strpcpyf(&s, l, "P%d", domain);
+                l = strpcpyf(&s, l, "s%d", hotplug_slot);
                 if (func > 0 || is_pci_multifunction(names->pcidev))
                         l = strpcpyf(&s, l, "f%d", func);
                 if (dev_id > 0)
