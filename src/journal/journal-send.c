@@ -204,8 +204,14 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         struct iovec *w;
         uint64_t *l;
         int i, j = 0;
-        struct msghdr mh;
-        struct sockaddr_un sa;
+        struct sockaddr_un sa = {
+                .sun_family = AF_UNIX,
+                .sun_path = "/run/systemd/journal/socket",
+        };
+        struct msghdr mh = {
+                .msg_name = &sa,
+                .msg_namelen = offsetof(struct sockaddr_un, sun_path) + strlen(sa.sun_path),
+        };
         ssize_t k;
         union {
                 struct cmsghdr cmsghdr;
@@ -292,13 +298,6 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (_unlikely_(fd < 0))
                 return fd;
 
-        zero(sa);
-        sa.sun_family = AF_UNIX;
-        strncpy(sa.sun_path, "/run/systemd/journal/socket", sizeof(sa.sun_path));
-
-        zero(mh);
-        mh.msg_name = &sa;
-        mh.msg_namelen = offsetof(struct sockaddr_un, sun_path) + strlen(sa.sun_path);
         mh.msg_iov = w;
         mh.msg_iovlen = j;
 
@@ -402,7 +401,10 @@ _public_ int sd_journal_perror(const char *message) {
 }
 
 _public_ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix) {
-        union sockaddr_union sa;
+        union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/journal/stdout",
+        };
         int fd;
         char *header;
         size_t l;
@@ -414,10 +416,6 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
-
-        zero(sa);
-        sa.un.sun_family = AF_UNIX;
-        strncpy(sa.un.sun_path, "/run/systemd/journal/stdout", sizeof(sa.un.sun_path));
 
         r = connect(fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
         if (r < 0) {
