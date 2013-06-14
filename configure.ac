@@ -74,6 +74,8 @@ AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap])
 
 AC_PATH_PROG([KILL], [kill], [/usr/bin/kill])
 
+AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod])
+
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
 GTK_DOC_CHECK([1.18],[--flavour no-tmpl])],
@@ -216,7 +218,7 @@ PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2])
 have_kmod=no
 AC_ARG_ENABLE(kmod, AS_HELP_STRING([--disable-kmod], [disable loadable modules support]))
 if test "x$enable_kmod" != "xno"; then
-        PKG_CHECK_MODULES(KMOD, [ libkmod >= 5 ],
+        PKG_CHECK_MODULES(KMOD, [ libkmod >= 14 ],
                 [AC_DEFINE(HAVE_KMOD, 1, [Define if kmod is available]) have_kmod=yes], have_kmod=no)
         if test "x$have_kmod" = xno -a "x$enable_kmod" = xyes; then
                 AC_MSG_ERROR([*** kmod support requested but libraries not found])

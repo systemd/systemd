@@ -6,12 +6,11 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Create static device nodes in /dev
-Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
+Description=Create list of required static device nodes for the current kernel
 DefaultDependencies=no
-Before=sysinit.target local-fs-pre.target systemd-udevd.service
-ConditionCapability=CAP_MKNOD
+Before=sysinit.target systemd-tmpfiles-setup-dev.service
 
 [Service]
 Type=oneshot
-ExecStart=@rootbindir@/systemd-tmpfiles --prefix=/dev --create
+ExecStartPre=/usr/bin/mkdir -p /run/tmpfiles.d
+ExecStart=@KMOD@ static-nodes --format=tmpfiles --output=/run/tmpfiles.d/kmod.conf

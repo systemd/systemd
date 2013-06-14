@@ -1464,10 +1464,18 @@ nodist_systemunit_DATA += \
 SYSINIT_TARGET_WANTS += \
 	systemd-modules-load.service
 
+if ENABLE_TMPFILES
+nodist_systemunit_DATA += \
+	units/kmod-static-nodes.service
+
+SYSINIT_TARGET_WANTS += \
+	kmod-static-nodes.service
+endif
 endif
 
 EXTRA_DIST += \
-	units/systemd-modules-load.service.in
+        units/systemd-modules-load.service.in \
+        units/kmod-static-nodes.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_TMPFILES
@@ -4137,6 +4145,7 @@ substitutions = \
        '|SUSHELL=$(SUSHELL)|' \
        '|DEBUGTTY=$(DEBUGTTY)|' \
        '|KILL=$(KILL)|' \
+       '|KMOD=$(KMOD)|' \
        '|QUOTAON=$(QUOTAON)|' \
        '|QUOTACHECK=$(QUOTACHECK)|' \
        '|SYSTEM_SYSVINIT_PATH=$(sysvinitdir)|' \
