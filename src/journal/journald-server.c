@@ -465,7 +465,12 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
         }
 
         if (vacuumed || !shall_try_append_again(f, r)) {
-                log_error("Failed to write entry, ignoring: %s", strerror(-r));
+                size_t size = 0;
+                unsigned i;
+                for (i = 0; i < n; i++)
+                        size += iovec[i].iov_len;
+
+                log_error("Failed to write entry (%d items, %zu bytes), ignoring: %s", n, size, strerror(-r));
                 return;
         }
 
@@ -478,8 +483,14 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 
         log_debug("Retrying write.");
         r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
-        if (r < 0)
-                log_error("Failed to write entry, ignoring: %s", strerror(-r));
+        if (r < 0) {
+                size_t size = 0;
+                unsigned i;
+                for (i = 0; i < n; i++)
+                        size += iovec[i].iov_len;
+
+                log_error("Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %s", n, size, strerror(-r));
+        }
 }
 
 static void dispatch_message_real(
@@ -767,9 +778,6 @@ static int system_journal_open(Server *s) {
         char *fn;
         sd_id128_t machine;
         char ids[33];
-        uint64_t avail;
-
-        avail = available_space(s);
 
         r = sd_id128_get_machine(&machine);
         if (r < 0)
@@ -790,26 +798,22 @@ static int system_journal_open(Server *s) {
                 if (s->storage == STORAGE_PERSISTENT)
                         (void) mkdir("/var/log/journal/", 0755);
 
-                fn = strappend("/var/log/journal/", ids);
-                if (!fn)
-                        return -ENOMEM;
-
+                fn = strappenda("/var/log/journal/", ids);
                 (void) mkdir(fn, 0755);
-                free(fn);
 
-                fn = strjoin("/var/log/journal/", ids, "/system.journal", NULL);
-                if (!fn)
-                        return -ENOMEM;
-
+                fn = strappenda(fn, "/system.journal");
                 r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
-                free(fn);
 
                 if (r >= 0) {
                         char fb[FORMAT_BYTES_MAX];
+                        uint64_t avail;
 
                         server_fix_perms(s, s->system_journal, 0);
+
                         server_driver_message(s, SD_ID128_NULL, "Allowing system journal files to grow to %s.",
                                               format_bytes(fb, sizeof(fb), s->system_metrics.max_use));
+
+                        avail = available_space(s);
 
                         if (s->system_metrics.max_use > avail)
                                server_driver_message(s, SD_ID128_NULL, "Journal size currently limited to %s due to SystemKeepFree.",
@@ -864,10 +868,13 @@ static int system_journal_open(Server *s) {
 
                 if (s->runtime_journal) {
                         char fb[FORMAT_BYTES_MAX];
+                        uint64_t avail;
 
                         server_fix_perms(s, s->runtime_journal, 0);
                         server_driver_message(s, SD_ID128_NULL, "Allowing runtime journal files to grow to %s.",
                                               format_bytes(fb, sizeof(fb), s->runtime_metrics.max_use));
+
+                        avail = available_space(s);
 
                         if (s->system_metrics.max_use > avail)
                                server_driver_message(s, SD_ID128_NULL, "Journal size currently limited to %s due to RuntimeKeepFree.",
