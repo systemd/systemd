@@ -314,7 +314,7 @@
                                         dependencies of type
                                         <varname>Before=</varname> to
                                         <filename>sysroot-usr.mount</filename>
-                                        and all mount points fround in
+                                        and all mount points found in
                                         <filename>/etc/fstab</filename>
                                         that have the
                                         <option>auto</option> and

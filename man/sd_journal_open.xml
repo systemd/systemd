@@ -175,8 +175,9 @@
         <refsect1>
                 <title>Return Value</title>
 
-                <para>The <function>sd_journal_open()</function> and
-                <function>sd_journal_open_directory()</function> calls
+                <para>The <function>sd_journal_open()</function>,
+                <function>sd_journal_open_directory()</function>, and
+                <function>sd_journal_open_files()</function> calls
                 return 0 on success or a negative errno-style error
                 code. <function>sd_journal_close()</function> returns
                 nothing.</para>
