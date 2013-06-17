@@ -1534,43 +1534,15 @@ int unit_file_reenable(
                 bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
+        int r;
 
-        _cleanup_lookup_paths_free_ LookupPaths paths = {};
-        _cleanup_install_context_done_ InstallContext c = {};
-        char **i;
-        _cleanup_free_ char *config_path = NULL;
-        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
-        int r, q;
-
-        assert(scope >= 0);
-        assert(scope < _UNIT_FILE_SCOPE_MAX);
-
-        r = lookup_paths_init_from_scope(&paths, scope);
+        r = unit_file_disable(scope, runtime, root_dir, files,
+                              changes, n_changes);
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, runtime, root_dir, &config_path);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(i, files) {
-                r = mark_symlink_for_removal(&remove_symlinks_to, *i);
-                if (r < 0)
-                        return r;
-
-                r = install_info_add_auto(&c, *i);
-                if (r < 0)
-                        return r;
-        }
-
-        r = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
-
-        /* Returns number of symlinks that where supposed to be installed. */
-        q = install_context_apply(&c, &paths, config_path, root_dir, force, changes, n_changes);
-        if (r == 0)
-                r = q;
-
-        return r;
+        return unit_file_enable(scope, runtime, root_dir, files, force,
+                                changes, n_changes);
 }
 
 int unit_file_set_default(
