@@ -2058,6 +2058,48 @@ int config_parse_syscall_filter(const char *unit,
         return 0;
 }
 
+int config_parse_unit_slice(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *k = NULL;
+        Unit *u = userdata, *slice;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(u);
+
+        k = unit_name_printf(u, rvalue);
+        if (!k)
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Failed to resolve unit specifiers on %s. Ignoring.", rvalue);
+
+        r = manager_load_unit(u->manager, k ? k : rvalue, NULL, NULL, &slice);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -r,
+                           "Failed to load slice unit %s. Ignoring.", k ? k : rvalue);
+                return 0;
+        }
+
+        if (slice->type != UNIT_SLICE) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Slice unit %s is not a slice. Ignoring.", k ? k : rvalue);
+                return 0;
+        }
+
+        unit_ref_set(&u->slice, slice);
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
@@ -2446,6 +2488,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unit_condition_path,   "CONDITION" },
                 { config_parse_unit_condition_string, "CONDITION" },
                 { config_parse_unit_condition_null,   "CONDITION" },
+                { config_parse_unit_slice,            "SLICE" },
         };
 
         const char *prev = NULL;

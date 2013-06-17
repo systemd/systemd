@@ -3736,7 +3736,7 @@ static int snapshot(DBusConnection *bus, char **args) {
         dbus_error_init(&error);
 
         if (strv_length(args) > 1)
-                n = snapshot_name_mangle(args[1]);
+                n = unit_name_mangle_with_suffix(args[1], ".snapshot");
         else
                 n = strdup("");
         if (!n)
@@ -3811,7 +3811,7 @@ static int delete_snapshot(DBusConnection *bus, char **args) {
                 _cleanup_free_ char *n = NULL;
                 int r;
 
-                n = snapshot_name_mangle(*name);
+                n = unit_name_mangle_with_suffix(*name, ".snapshot");
                 if (!n)
                         return log_oom();
 

@@ -1225,6 +1225,10 @@ static int service_load(Unit *u) {
                 if (r < 0)
                         return r;
 
+                r = unit_add_default_slice(u);
+                if (r < 0)
+                        return r;
+
                 r = unit_add_default_cgroups(u);
                 if (r < 0)
                         return r;

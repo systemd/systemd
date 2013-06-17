@@ -1617,3 +1617,53 @@ bool cg_controller_is_valid(const char *p, bool allow_named) {
 
         return true;
 }
+
+int cg_slice_to_path(const char *unit, char **ret) {
+        _cleanup_free_ char *p = NULL, *s = NULL, *e = NULL;
+        const char *dash;
+
+        assert(unit);
+        assert(ret);
+
+        if (!unit_name_is_valid(unit, false))
+                return -EINVAL;
+
+        if (!endswith(unit, ".slice"))
+                return -EINVAL;
+
+        p = unit_name_to_prefix(unit);
+        if (!p)
+                return -ENOMEM;
+
+        dash = strchr(p, '-');
+        while (dash) {
+                _cleanup_free_ char *escaped = NULL;
+                char n[dash - p + sizeof(".slice")];
+
+                strcpy(stpncpy(n, p, dash - p), ".slice");
+
+                if (!unit_name_is_valid(n, false))
+                        return -EINVAL;
+
+                escaped = cg_escape(n);
+                if (!escaped)
+                        return -ENOMEM;
+
+                if (!strextend(&s, escaped, "/", NULL))
+                        return -ENOMEM;
+
+                dash = strchr(dash+1, '-');
+        }
+
+        e = cg_escape(unit);
+        if (!e)
+                return -ENOMEM;
+
+        if (!strextend(&s, e, NULL))
+                return -ENOMEM;
+
+        *ret = s;
+        s = NULL;
+
+        return 0;
+}

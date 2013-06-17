@@ -28,6 +28,17 @@ Fedora 19:
 
 Features:
 
+* when a service changes state make reflect that in the
+  RUNNING/LISTENING states of its socket
+
+* slices:
+  - fix libsystemd-login to handle slices properly
+  - add option to pam_systemd to move login session into a slice
+  - add call to logind's dbus intrface to register a machine (also, calls for listing them)
+
+* when recursively showing the cgroup hierarchy, optionally also show
+  the hierarchies of child processes
+
 * document logic of auto/noauto and fail/nofail in fstab in systemd.mount or systemd-fstab-generator man page
 
 * we should properly escape hostnames we add into dbus server strings

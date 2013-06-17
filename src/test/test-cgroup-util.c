@@ -170,6 +170,25 @@ static void test_controller_is_valid(void) {
         assert_se(!cg_controller_is_valid("tatü", false));
 }
 
+static void test_slice_to_path_one(const char *unit, const char *path, int error) {
+        _cleanup_free_ char *ret = NULL;
+
+        assert_se(cg_slice_to_path(unit, &ret) == error);
+        assert_se(streq_ptr(ret, path));
+}
+
+static void test_slice_to_path(void) {
+
+        test_slice_to_path_one("foobar.slice", "foobar.slice", 0);
+        test_slice_to_path_one("foobar-waldo.slice", "foobar.slice/foobar-waldo.slice", 0);
+        test_slice_to_path_one("foobar-waldo.service", NULL, -EINVAL);
+        test_slice_to_path_one("-.slice", NULL, -EINVAL);
+        test_slice_to_path_one("-foo-.slice", NULL, -EINVAL);
+        test_slice_to_path_one("-foo.slice", NULL, -EINVAL);
+        test_slice_to_path_one("a-b.slice", "a.slice/a-b.slice", 0);
+        test_slice_to_path_one("a-b-c-d-e.slice", "a.slice/a-b.slice/a-b-c.slice/a-b-c-d.slice/a-b-c-d-e.slice", 0);
+}
+
 int main(void) {
         test_path_decode_unit();
         test_path_get_unit();
@@ -178,6 +197,7 @@ int main(void) {
         test_proc();
         test_escape();
         test_controller_is_valid();
+        test_slice_to_path();
 
         return 0;
 }

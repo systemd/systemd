@@ -647,6 +647,10 @@ static int mount_add_extras(Mount *m) {
                         return r;
         }
 
+        r = unit_add_default_slice(u);
+        if (r < 0)
+                return r;
+
         r = unit_add_default_cgroups(u);
         if (r < 0)
                 return r;

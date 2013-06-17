@@ -340,14 +340,14 @@ int manager_setup_cgroup(Manager *m) {
         }
 
         if (m->running_as == SYSTEMD_SYSTEM)
-                suffix = "/system";
+                suffix = NULL;
         else {
                 sprintf(suffix_buffer, "/systemd-%lu", (unsigned long) getpid());
                 suffix = suffix_buffer;
         }
 
         free(m->cgroup_hierarchy);
-        if (endswith(current, suffix)) {
+        if (!suffix || endswith(current, suffix)) {
                 /* We probably got reexecuted and can continue to use our root cgroup */
                 m->cgroup_hierarchy = current;
                 current = NULL;

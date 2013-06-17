@@ -44,6 +44,7 @@ static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_TIMER] = "timer",
         [UNIT_SWAP] = "swap",
         [UNIT_PATH] = "path",
+        [UNIT_SLICE] = "slice"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
@@ -184,6 +185,7 @@ char *unit_name_change_suffix(const char *n, const char *suffix) {
         assert(n);
         assert(unit_name_is_valid(n, true));
         assert(suffix);
+        assert(suffix[0] == '.');
 
         assert_se(e = strrchr(n, '.'));
         a = e - n;
@@ -506,16 +508,18 @@ char *unit_name_mangle(const char *name) {
         return r;
 }
 
-char *snapshot_name_mangle(const char *name) {
+char *unit_name_mangle_with_suffix(const char *name, const char *suffix) {
         char *r, *t;
         const char *f;
 
         assert(name);
+        assert(suffix);
+        assert(suffix[0] == '.');
 
         /* Similar to unit_name_mangle(), but is called when we know
          * that this is about snapshot units. */
 
-        r = new(char, strlen(name) * 4 + 1 + sizeof(".snapshot")-1);
+        r = new(char, strlen(name) * 4 + strlen(suffix) + 1);
         if (!r)
                 return NULL;
 
@@ -528,8 +532,8 @@ char *snapshot_name_mangle(const char *name) {
                         *(t++) = *f;
         }
 
-        if (!endswith(name, ".snapshot"))
-                strcpy(t, ".snapshot");
+        if (!endswith(name, suffix))
+                strcpy(t, suffix);
         else
                 *t = 0;
 

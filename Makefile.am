@@ -843,6 +843,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/timer.h \
 	src/core/path.c \
 	src/core/path.h \
+	src/core/slice.c \
+	src/core/slice.h \
 	src/core/load-dropin.c \
 	src/core/load-dropin.h \
 	src/core/execute.c \
@@ -881,6 +883,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/dbus-kill.h \
 	src/core/dbus-path.c \
 	src/core/dbus-path.h \
+	src/core/dbus-slice.c \
+	src/core/dbus-slice.h \
 	src/core/cgroup.c \
 	src/core/cgroup.h \
 	src/core/selinux-access.c \

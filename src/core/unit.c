@@ -60,7 +60,8 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_AUTOMOUNT] = &automount_vtable,
         [UNIT_SNAPSHOT] = &snapshot_vtable,
         [UNIT_SWAP] = &swap_vtable,
-        [UNIT_PATH] = &path_vtable
+        [UNIT_PATH] = &path_vtable,
+        [UNIT_SLICE] = &slice_vtable
 };
 
 Unit *unit_new(Manager *m, size_t size) {
@@ -853,6 +854,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
 }
 
 static int unit_add_default_dependencies(Unit *u) {
+
         static const UnitDependency deps[] = {
                 UNIT_REQUIRED_BY,
                 UNIT_REQUIRED_BY_OVERRIDABLE,
@@ -868,9 +870,17 @@ static int unit_add_default_dependencies(Unit *u) {
         assert(u);
 
         for (k = 0; k < ELEMENTSOF(deps); k++)
-                SET_FOREACH(target, u->dependencies[deps[k]], i)
-                        if ((r = unit_add_default_target_dependency(u, target)) < 0)
+                SET_FOREACH(target, u->dependencies[deps[k]], i) {
+                        r = unit_add_default_target_dependency(u, target);
+                        if (r < 0)
                                 return r;
+                }
+
+        if (u->default_dependencies && UNIT_DEREF(u->slice)) {
+                r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, UNIT_DEREF(u->slice), true);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -1977,9 +1987,16 @@ static int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 }
 
 char *unit_default_cgroup_path(Unit *u) {
-        _cleanup_free_ char *escaped_instance = NULL;
+        _cleanup_free_ char *escaped_instance = NULL, *slice = NULL;
+        int r;
 
         assert(u);
+
+        if (UNIT_DEREF(u->slice)) {
+                r = cg_slice_to_path(UNIT_DEREF(u->slice)->id, &slice);
+                if (r < 0)
+                        return NULL;
+        }
 
         escaped_instance = cg_escape(u->id);
         if (!escaped_instance)
@@ -1996,9 +2013,13 @@ char *unit_default_cgroup_path(Unit *u) {
                 if (!escaped_template)
                         return NULL;
 
-                return strjoin(u->manager->cgroup_hierarchy, "/", escaped_template, "/", escaped_instance, NULL);
+                return strjoin(u->manager->cgroup_hierarchy, "/",
+                               slice ? slice : "", slice ? "/" : "",
+                               escaped_template, "/", escaped_instance, NULL);
         } else
-                return strjoin(u->manager->cgroup_hierarchy, "/", escaped_instance, NULL);
+                return strjoin(u->manager->cgroup_hierarchy, "/",
+                               slice ? slice : "", slice ? "/" : "",
+                               escaped_instance, NULL);
 }
 
 int unit_add_cgroup_from_text(Unit *u, const char *name, bool overwrite, CGroupBonding **ret) {
@@ -2141,6 +2162,26 @@ fail:
         free(b);
 
         return r;
+}
+
+int unit_add_default_slice(Unit *u) {
+        Unit *slice;
+        int r;
+
+        assert(u);
+
+        if (UNIT_DEREF(u->slice))
+                return 0;
+
+        if (u->manager->running_as != SYSTEMD_SYSTEM)
+                return 0;
+
+        r = manager_load_unit(u->manager, SPECIAL_SYSTEM_SLICE, NULL, NULL, &slice);
+        if (r < 0)
+                return r;
+
+        unit_ref_set(&u->slice, slice);
+        return 0;
 }
 
 int unit_add_default_cgroups(Unit *u) {

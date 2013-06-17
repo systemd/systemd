@@ -395,7 +395,12 @@ static int socket_load(Unit *u) {
                         if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
                                 return r;
 
-                if ((r = unit_add_default_cgroups(u)) < 0)
+                r = unit_add_default_slice(u);
+                if (r < 0)
+                        return r;
+
+                r = unit_add_default_cgroups(u);
+                if (r < 0)
                         return r;
 
                 if (UNIT(s)->default_dependencies)

@@ -118,6 +118,15 @@ enum UnitDependency {
 #include "cgroup.h"
 #include "cgroup-attr.h"
 
+struct UnitRef {
+        /* Keeps tracks of references to a unit. This is useful so
+         * that we can merge two units if necessary and correct all
+         * references to them */
+
+        Unit* unit;
+        LIST_FIELDS(UnitRef, refs);
+};
+
 struct Unit {
         Manager *manager;
 
@@ -167,6 +176,8 @@ struct Unit {
         /* Counterparts in the cgroup filesystem */
         CGroupBonding *cgroup_bondings;
         CGroupAttribute *cgroup_attributes;
+
+        UnitRef slice;
 
         /* Per type list */
         LIST_FIELDS(Unit, units_by_type);
@@ -240,15 +251,6 @@ struct Unit {
         bool in_audit:1;
 };
 
-struct UnitRef {
-        /* Keeps tracks of references to a unit. This is useful so
-         * that we can merge two units if necessary and correct all
-         * references to them */
-
-        Unit* unit;
-        LIST_FIELDS(UnitRef, refs);
-};
-
 struct UnitStatusMessageFormats {
         const char *starting_stopping[2];
         const char *finished_start_job[_JOB_RESULT_MAX];
@@ -265,6 +267,7 @@ struct UnitStatusMessageFormats {
 #include "snapshot.h"
 #include "swap.h"
 #include "path.h"
+#include "slice.h"
 
 struct UnitVTable {
         /* How much memory does an object of this unit type need */
@@ -433,6 +436,7 @@ DEFINE_CAST(AUTOMOUNT, Automount);
 DEFINE_CAST(SNAPSHOT, Snapshot);
 DEFINE_CAST(SWAP, Swap);
 DEFINE_CAST(PATH, Path);
+DEFINE_CAST(SLICE, Slice);
 
 Unit *unit_new(Manager *m, size_t size);
 void unit_free(Unit *u);
@@ -473,6 +477,8 @@ Unit *unit_follow_merge(Unit *u) _pure_;
 int unit_load_fragment_and_dropin(Unit *u);
 int unit_load_fragment_and_dropin_optional(Unit *u);
 int unit_load(Unit *unit);
+
+int unit_add_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
 
