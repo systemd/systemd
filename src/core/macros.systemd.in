@@ -20,6 +20,7 @@
 # RPM macros for packages installing systemd unit files
 
 %_unitdir @systemunitdir@
+%_userunitdir @userunitdir@
 %_presetdir @systempresetdir@
 %_udevhwdbdir @udevhwdbdir@
 %_udevrulesdir @udevrulesdir@
