@@ -222,6 +222,7 @@ install-target-wants-hook:
 	what="$(SYSINIT_TARGET_WANTS)" && wants=sysinit.target && $(add-wants)
 	what="$(SOCKETS_TARGET_WANTS)" && wants=sockets.target && $(add-wants)
 	what="$(TIMERS_TARGET_WANTS)" && wants=timers.target && $(add-wants)
+	what="$(SLICES_TARGET_WANTS)" && wants=slices.target && $(add-wants)
 
 define add-wants
 	[ -z "$$what" ] || ( \
@@ -376,6 +377,10 @@ dist_systemunit_DATA = \
 	units/paths.target \
 	units/suspend.target \
 	units/swap.target \
+	units/slices.target \
+	units/system.slice \
+	units/user.slice \
+	units/machine.slice \
 	units/systemd-initctl.socket \
 	units/systemd-shutdownd.socket \
 	units/syslog.socket \
@@ -4181,6 +4186,8 @@ USER_UNIT_ALIASES += \
 GENERAL_ALIASES += \
 	$(systemunitdir)/remote-fs.target $(pkgsysconfdir)/system/multi-user.target.wants/remote-fs.target \
 	$(systemunitdir)/getty@.service $(pkgsysconfdir)/system/getty.target.wants/getty@tty1.service \
+	$(systemunitdir)/machine.slice $(pkgsysconfdir)/system/slices.target.wants/machine.slice \
+	$(systemunitdir)/user.slice $(pkgsysconfdir)/system/slices.target.wants/user.slice \
 	$(pkgsysconfdir)/user $(sysconfdir)/xdg/systemd/user \
 	../system-services/org.freedesktop.systemd1.service $(dbussessionservicedir)/org.freedesktop.systemd1.service
 

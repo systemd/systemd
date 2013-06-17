@@ -6,9 +6,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Basic System
+Description=Slices
 Documentation=man:systemd.special(7)
-Requires=sysinit.target
-Wants=sockets.target timers.target paths.target slices.target
-After=sysinit.target sockets.target timers.target paths.target slices.target
-RefuseManualStart=yes
+Wants=system.slice
+After=system.slice
