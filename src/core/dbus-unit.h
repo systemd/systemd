@@ -64,6 +64,7 @@
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"Names\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"Following\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"Slice\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Requires\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequiresOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Requisite\" type=\"as\" access=\"read\"/>\n" \

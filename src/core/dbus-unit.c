@@ -81,6 +81,25 @@ static int bus_unit_append_following(DBusMessageIter *i, const char *property, v
         return 0;
 }
 
+static int bus_unit_append_slice(DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        const char *d;
+
+        assert(i);
+        assert(property);
+        assert(u);
+
+        if (UNIT_DEREF(u->slice))
+                d = UNIT_DEREF(u->slice)->id;
+        else
+                d = "";
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int bus_unit_append_dependencies(DBusMessageIter *i, const char *property, void *data) {
         Unit *u;
         Iterator j;
@@ -1255,6 +1274,7 @@ const BusProperty bus_unit_properties[] = {
         { "Id",                   bus_property_append_string,         "s", offsetof(Unit, id),                                         true },
         { "Names",                bus_unit_append_names,             "as", 0 },
         { "Following",            bus_unit_append_following,          "s", 0 },
+        { "Slice",                bus_unit_append_slice,              "s", 0 },
         { "Requires",             bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRES]),                true },
         { "RequiresOverridable",  bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRES_OVERRIDABLE]),    true },
         { "Requisite",            bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUISITE]),               true },
