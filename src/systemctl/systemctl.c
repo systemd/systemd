@@ -4599,7 +4599,7 @@ static int systemctl_help(void) {
                "                      the 'list-unit-files' command instead.\n"
                "     --reverse        Show reverse dependencies with 'list-dependencies'\n"
                "     --failed         Show only failed units\n"
-               "     --full           Don't ellipsize unit names on output\n"
+               "  -l --full           Don't ellipsize unit names on output\n"
                "     --fail           When queueing a new job, fail if conflicting jobs are\n"
                "                      pending\n"
                "     --irreversible   Create jobs which cannot be implicitly cancelled\n"
@@ -4819,7 +4819,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_WALL,
                 ARG_ROOT,
-                ARG_FULL,
                 ARG_NO_RELOAD,
                 ARG_KILL_WHO,
                 ARG_NO_ASK_PASSWORD,
@@ -4840,7 +4839,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "before",    no_argument,       NULL, ARG_BEFORE    },
                 { "show-types", no_argument,      NULL, ARG_SHOW_TYPES },
                 { "failed",    no_argument,       NULL, ARG_FAILED    },
-                { "full",      no_argument,       NULL, ARG_FULL      },
+                { "full",      no_argument,       NULL, 'l'           },
                 { "fail",      no_argument,       NULL, ARG_FAIL      },
                 { "irreversible", no_argument,    NULL, ARG_IRREVERSIBLE },
                 { "ignore-dependencies", no_argument, NULL, ARG_IGNORE_DEPENDENCIES },
@@ -5021,7 +5020,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_root = optarg;
                         break;
 
-                case ARG_FULL:
+                case 'l':
                         arg_full = true;
                         break;
 

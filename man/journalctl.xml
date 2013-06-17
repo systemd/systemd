@@ -138,6 +138,7 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-l</option></term>
                                 <term><option>--full</option></term>
 
                                 <listitem><para>Show all (printable) fields in

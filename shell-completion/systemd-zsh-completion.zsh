@@ -16,7 +16,7 @@ _ctls()
                 '--after[Show units ordered after]' \
                 '--before[Show units ordered before]' \
                 '--failed[Show only failed units]' \
-                "--full[Don't ellipsize unit names on output]" \
+                {-l,--full}"[Don't ellipsize unit names on output]" \
                 '--fail[When queueing a new job, fail if conflicting jobs are pending]' \
                 '--ignore-dependencies[When queueing a new job, ignore all its dependencies]' \
                 '--kill-who=[Who to send signal to]:killwho:(main control all)' \
@@ -81,7 +81,7 @@ _ctls()
                 {-n,--lines=}'[Number of journal entries to show]:integer' \
                 '--no-tail[Show all lines, even in follow mode]' \
                 {-o,--output=}'[Change journal output mode]:output modes:_outputmodes' \
-                '--full[Show long fields in full]' \
+                {-l,--full}'[Show long fields in full]' \
                 {-a,--all}'[Show all fields, including long and unprintable]' \
                 {-q,--quiet}"[Don't show privilege warning]" \
                 '--no-pager[Do not pipe output into a pager]' \

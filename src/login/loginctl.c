@@ -1297,7 +1297,7 @@ static int help(void) {
                "  -p --property=NAME     Show only properties by this name\n"
                "  -a --all               Show all properties, including empty ones\n"
                "     --kill-who=WHO      Who to send signal to\n"
-               "     --full              Do not ellipsize output\n"
+               "  -l --full              Do not ellipsize output\n"
                "  -s --signal=SIGNAL     Which signal to send\n"
                "     --no-ask-password   Don't prompt for password\n"
                "  -H --host=[USER@]HOST  Show information for remote host\n"
@@ -1339,7 +1339,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_KILL_WHO,
                 ARG_NO_ASK_PASSWORD,
-                ARG_FULL,
         };
 
         static const struct option options[] = {
@@ -1353,7 +1352,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "host",            required_argument, NULL, 'H'                 },
                 { "privileged",      no_argument,       NULL, 'P'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "full",            no_argument,       NULL, ARG_FULL            },
+                { "full",            no_argument,       NULL, 'l'                 },
                 { NULL,              0,                 NULL, 0                   }
         };
 
@@ -1425,7 +1424,7 @@ static int parse_argv(int argc, char *argv[]) {
                         parse_user_at_host(optarg, &arg_user, &arg_host);
                         break;
 
-                case ARG_FULL:
+                case 'l':
                         arg_full = true;
                         break;
 

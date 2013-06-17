@@ -125,7 +125,7 @@ static int help(void) {
                "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
                "                         verbose, export, json, json-pretty, json-sse, cat)\n"
                "  -x --catalog           Add message explanations where available\n"
-               "     --full              Do not ellipsize fields\n"
+               "  -l --full              Do not ellipsize fields\n"
                "  -a --all               Show all fields, including long and unprintable\n"
                "  -q --quiet             Don't show privilege warning\n"
                "     --no-pager          Do not pipe output into a pager\n"
@@ -167,7 +167,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_ROOT,
                 ARG_HEADER,
-                ARG_FULL,
                 ARG_SETUP_KEYS,
                 ARG_FILE,
                 ARG_INTERVAL,
@@ -190,7 +189,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "follow",       no_argument,       NULL, 'f'              },
                 { "output",       required_argument, NULL, 'o'              },
                 { "all",          no_argument,       NULL, 'a'              },
-                { "full",         no_argument,       NULL, ARG_FULL         },
+                { "full",         no_argument,       NULL, 'l'              },
                 { "lines",        optional_argument, NULL, 'n'              },
                 { "no-tail",      no_argument,       NULL, ARG_NO_TAIL      },
                 { "new-id128",    no_argument,       NULL, ARG_NEW_ID128    },
@@ -229,7 +228,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:an::qmbkD:p:c:u:F:xr", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmbkD:p:c:u:F:xr", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -274,7 +273,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_FULL:
+                case 'l':
                         arg_full = true;
                         break;
 

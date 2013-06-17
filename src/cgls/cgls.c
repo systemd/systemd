@@ -49,7 +49,7 @@ static void help(void) {
                "     --version        Show package version\n"
                "     --no-pager       Do not pipe output into a pager\n"
                "  -a --all            Show all groups, including empty\n"
-               "  --full              Do not ellipsize output\n"
+               "  -l --full           Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n"
                "  -M --machine        Show container\n",
                program_invocation_short_name);
@@ -60,7 +60,6 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_NO_PAGER = 0x100,
                 ARG_VERSION,
-                ARG_FULL,
         };
 
         static const struct option options[] = {
@@ -68,7 +67,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",   no_argument,       NULL, ARG_VERSION  },
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER },
                 { "all",       no_argument,       NULL, 'a'          },
-                { "full",      no_argument,       NULL, ARG_FULL     },
+                { "full",      no_argument,       NULL, 'l'          },
                 { "machine",   required_argument, NULL, 'M'          },
                 { NULL,        0,                 NULL, 0            }
         };
@@ -99,7 +98,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_all = true;
                         break;
 
-                case ARG_FULL:
+                case 'l':
                         arg_full = true;
                         break;
 
