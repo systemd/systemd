@@ -1538,9 +1538,11 @@ static int mount_add_one(
                 if (r < 0)
                         goto fail;
 
-                r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
-                if (r < 0)
-                        goto fail;
+                if (!path_equal(where, "/")) {
+                        r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+                        if (r < 0)
+                                goto fail;
+                }
 
                 unit_add_to_load_queue(u);
         } else {
