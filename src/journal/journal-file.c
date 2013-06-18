@@ -2270,6 +2270,15 @@ fail:
         log_error("File corrupt");
 }
 
+static const char* format_timestamp_safe(char *buf, size_t l, usec_t t) {
+        const char *x;
+
+        x = format_timestamp(buf, l, t);
+        if (x)
+                return x;
+        return " --- ";
+}
+
 void journal_file_print_header(JournalFile *f) {
         char a[33], b[33], c[33], d[33];
         char x[FORMAT_TIMESTAMP_MAX], y[FORMAT_TIMESTAMP_MAX], z[FORMAT_TIMESTAMP_MAX];
@@ -2317,8 +2326,8 @@ void journal_file_print_header(JournalFile *f) {
                yes_no(journal_file_rotate_suggested(f, 0)),
                le64toh(f->header->head_entry_seqnum),
                le64toh(f->header->tail_entry_seqnum),
-               format_timestamp(x, sizeof(x), le64toh(f->header->head_entry_realtime)),
-               format_timestamp(y, sizeof(y), le64toh(f->header->tail_entry_realtime)),
+               format_timestamp_safe(x, sizeof(x), le64toh(f->header->head_entry_realtime)),
+               format_timestamp_safe(y, sizeof(y), le64toh(f->header->tail_entry_realtime)),
                format_timespan(z, sizeof(z), le64toh(f->header->tail_entry_monotonic), USEC_PER_MSEC),
                le64toh(f->header->n_objects),
                le64toh(f->header->n_entries));
