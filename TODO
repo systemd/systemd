@@ -24,6 +24,8 @@ Fedora 19:
 * localed:
   - localectl: support new converted x11→console keymaps
 
+* when installing fedora with yum --installroot /var/run is a directory, not a symlink
+
 Features:
 
 * when a service changes state make reflect that in the
