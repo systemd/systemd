@@ -130,9 +130,15 @@
                                 by
                                 <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
                                 <option>--setup-keys</option>
-                                command), forward secure sealing (FSS) for
-                                all persistent journal files is
-                                enabled.</para></listitem>
+                                command), forward secure sealing (FSS)
+                                for all persistent journal files is
+                                enabled. FSS is based on <ulink
+                                url="http://eprint.iacr.org/2013/397">Seekable
+                                Sequential Key Generators</ulink> by
+                                G. A. Marson and B. Poettering and
+                                may be used to protect journal files
+                                from unnoticed
+                                alteration.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

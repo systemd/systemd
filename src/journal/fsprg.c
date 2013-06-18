@@ -19,7 +19,13 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301  USA
+ */
+
+/*
+ * See "Practical Secure Logging: Seekable Sequential Key Generators"
+ * by G. A. Marson, B. Poettering for details:
  *
+ * http://eprint.iacr.org/2013/397
  */
 
 #include <gcrypt.h>

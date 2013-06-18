@@ -593,7 +593,10 @@
                                 sealing key is stored in the journal
                                 data directory and shall remain on the
                                 host. The verification key should be
-                                stored externally.</para></listitem>
+                                stored externally. Also see the
+                                <option>Seal=</option> option in
+                                <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
