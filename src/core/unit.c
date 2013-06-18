@@ -416,6 +416,8 @@ void unit_free(Unit *u) {
 
         condition_free_list(u->conditions);
 
+        unit_ref_unset(&u->slice);
+
         while (u->refs)
                 unit_ref_unset(u->refs);
 
