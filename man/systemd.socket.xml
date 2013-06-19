@@ -381,9 +381,15 @@
                                 performance reasons, it is recommended
                                 to write new daemons only in a way
                                 that is suitable for
-                                <option>Accept=false</option>. This
-                                option is mostly useful to allow
-                                daemons designed for usage with
+                                <option>Accept=false</option>. A daemon
+                                listening on an AF_UNIX socket may, but does not need to, call
+                                <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                or
+                                <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                on the received socket before exiting. However,
+                                it must not unlink the socket from a
+                                filesystem. This option is mostly useful
+                                to allow daemons designed for usage with
                                 <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                                 to work unmodified with systemd socket
                                 activation.</para></listitem>
