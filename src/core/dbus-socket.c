@@ -205,7 +205,7 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { "org.freedesktop.systemd1.Socket", bus_socket_properties,       s },
                 { "org.freedesktop.systemd1.Socket", bus_exec_context_properties, &s->exec_context },
                 { "org.freedesktop.systemd1.Socket", bus_kill_context_properties, &s->kill_context },
-                { "org.freedesktop.systemd1.Socket", bus_unit_properties,         u },
+                { "org.freedesktop.systemd1.Socket", bus_unit_cgroup_properties,  u },
                 { NULL, }
         };
 
