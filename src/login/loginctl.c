@@ -1346,13 +1346,13 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "property",        required_argument, NULL, 'p'                 },
                 { "all",             no_argument,       NULL, 'a'                 },
+                { "full",            no_argument,       NULL, 'l'                 },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "kill-who",        required_argument, NULL, ARG_KILL_WHO        },
                 { "signal",          required_argument, NULL, 's'                 },
                 { "host",            required_argument, NULL, 'H'                 },
                 { "privileged",      no_argument,       NULL, 'P'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "full",            no_argument,       NULL, 'l'                 },
                 { NULL,              0,                 NULL, 0                   }
         };
 
@@ -1361,7 +1361,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:as:H:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hp:als:H:P", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -1395,6 +1395,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_all = true;
                         break;
 
+                case 'l':
+                        arg_full = true;
+                        break;
+
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
                         break;
@@ -1422,10 +1426,6 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'H':
                         arg_transport = TRANSPORT_SSH;
                         parse_user_at_host(optarg, &arg_user, &arg_host);
-                        break;
-
-                case 'l':
-                        arg_full = true;
                         break;
 
                 case '?':
