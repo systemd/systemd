@@ -374,23 +374,30 @@
                                 and only one service unit is spawned
                                 for all connections (also see
                                 above). This value is ignored for
-                                datagram sockets and FIFOs where
-                                a single service unit unconditionally
+                                datagram sockets and FIFOs where a
+                                single service unit unconditionally
                                 handles all incoming traffic. Defaults
                                 to <option>false</option>. For
                                 performance reasons, it is recommended
                                 to write new daemons only in a way
                                 that is suitable for
-                                <option>Accept=false</option>. A daemon
-                                listening on an AF_UNIX socket may, but does not need to, call
+                                <option>Accept=false</option>. A
+                                daemon listening on an AF_UNIX socket
+                                may, but does not need to, call
                                 <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                or
+                                on the received socket before
+                                exiting. However, it must not unlink
+                                the socket from a filesystem. It
+                                should note invoke
                                 <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                on the received socket before exiting. However,
-                                it must not unlink the socket from a
-                                filesystem. This option is mostly useful
-                                to allow daemons designed for usage with
-                                <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                                on sockets it got with
+                                <varname>Accept=false</varname>, but
+                                it may do so for sockets it got with
+                                <varname>Accept=true</varname> set.
+                                Setting <varname>Accept=true</varname>
+                                is mostly useful to allow daemons
+                                designed for usage with
+                                <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 to work unmodified with systemd socket
                                 activation.</para></listitem>
                         </varlistentry>
