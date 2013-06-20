@@ -3713,6 +3713,8 @@ UNINSTALL_EXEC_HOOKS += libsystemd-login-uninstall-hook
 nodist_systemunit_DATA += \
 	units/systemd-logind.service \
 	units/systemd-user-sessions.service
+
+dist_systemunit_DATA += \
 	units/user.slice \
 	units/machine.slice
 
