@@ -74,16 +74,18 @@ Manager *manager_new(void) {
         m->users = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitors = hashmap_new(string_hash_func, string_compare_func);
         m->buttons = hashmap_new(string_hash_func, string_compare_func);
+        m->machines = hashmap_new(string_hash_func, string_compare_func);
 
         m->user_cgroups = hashmap_new(string_hash_func, string_compare_func);
         m->session_cgroups = hashmap_new(string_hash_func, string_compare_func);
+        m->machine_cgroups = hashmap_new(string_hash_func, string_compare_func);
 
         m->session_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitor_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->button_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
 
-        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons ||
-            !m->user_cgroups || !m->session_cgroups ||
+        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->machines ||
+            !m->user_cgroups || !m->session_cgroups || !m->machine_cgroups ||
             !m->session_fds || !m->inhibitor_fds || !m->button_fds) {
                 manager_free(m);
                 return NULL;
@@ -102,10 +104,13 @@ Manager *manager_new(void) {
                 return NULL;
         }
 
-        if (cg_get_user_path(&m->cgroup_path) < 0) {
+        if (cg_get_root_path(&m->cgroup_root) < 0) {
                 manager_free(m);
                 return NULL;
         }
+
+        if (streq(m->cgroup_root, "/"))
+                m->cgroup_root[0] = 0;
 
         return m;
 }
@@ -117,6 +122,7 @@ void manager_free(Manager *m) {
         Seat *s;
         Inhibitor *i;
         Button *b;
+        Machine *machine;
 
         assert(m);
 
@@ -138,15 +144,20 @@ void manager_free(Manager *m) {
         while ((b = hashmap_first(m->buttons)))
                 button_free(b);
 
+        while ((machine = hashmap_first(m->machines)))
+                machine_free(machine);
+
         hashmap_free(m->devices);
         hashmap_free(m->seats);
         hashmap_free(m->sessions);
         hashmap_free(m->users);
         hashmap_free(m->inhibitors);
         hashmap_free(m->buttons);
+        hashmap_free(m->machines);
 
         hashmap_free(m->user_cgroups);
         hashmap_free(m->session_cgroups);
+        hashmap_free(m->machine_cgroups);
 
         hashmap_free(m->session_fds);
         hashmap_free(m->inhibitor_fds);
@@ -190,7 +201,7 @@ void manager_free(Manager *m) {
 
         free(m->action_job);
 
-        free(m->cgroup_path);
+        free(m->cgroup_root);
         free(m);
 }
 
@@ -242,7 +253,7 @@ int manager_add_seat(Manager *m, const char *id, Seat **_seat) {
         return 0;
 }
 
-int manager_add_session(Manager *m, User *u, const char *id, Session **_session) {
+int manager_add_session(Manager *m, const char *id, Session **_session) {
         Session *s;
 
         assert(m);
@@ -256,7 +267,7 @@ int manager_add_session(Manager *m, User *u, const char *id, Session **_session)
                 return 0;
         }
 
-        s = session_new(m, u, id);
+        s = session_new(m, id);
         if (!s)
                 return -ENOMEM;
 
@@ -362,6 +373,30 @@ int manager_add_button(Manager *m, const char *name, Button **_button) {
 
         if (_button)
                 *_button = b;
+
+        return 0;
+}
+
+int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
+        Machine *machine;
+
+        assert(m);
+        assert(name);
+
+        machine = hashmap_get(m->machines, name);
+        if (machine) {
+                if (_machine)
+                        *_machine = machine;
+
+                return 0;
+        }
+
+        machine = machine_new(m, name);
+        if (!m)
+                return -ENOMEM;
+
+        if (_machine)
+                *_machine = machine;
 
         return 0;
 }
@@ -554,7 +589,7 @@ finish:
 }
 
 int manager_enumerate_seats(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
 
@@ -573,7 +608,7 @@ int manager_enumerate_seats(Manager *m) {
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, return -errno) {
                 Seat *s;
                 int k;
 
@@ -591,65 +626,15 @@ int manager_enumerate_seats(Manager *m) {
                         r = k;
         }
 
-        closedir(d);
-
-        return r;
-}
-
-static int manager_enumerate_users_from_cgroup(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
-        int r = 0, k;
-        char *name;
-
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, &d);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return 0;
-
-                log_error("Failed to open %s: %s", m->cgroup_path, strerror(-r));
-                return r;
-        }
-
-        while ((k = cg_read_subgroup(d, &name)) > 0) {
-                User *user;
-                char *e;
-
-                e = endswith(name, ".user");
-                if (e) {
-                        *e = 0;
-
-                        k = manager_add_user_by_name(m, name, &user);
-                        if (k < 0) {
-                                free(name);
-                                r = k;
-                                continue;
-                        }
-
-                        user_add_to_gc_queue(user);
-
-                        if (!user->cgroup_path) {
-                                user->cgroup_path = strjoin(m->cgroup_path, "/", name, NULL);
-                                if (!user->cgroup_path) {
-                                        k = log_oom();
-                                        free(name);
-                                        break;
-                                }
-                        }
-                }
-
-                free(name);
-        }
-
-        if (k < 0)
-                r = k;
-
         return r;
 }
 
 static int manager_enumerate_linger_users(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
+
+        assert(m);
 
         d = opendir("/var/lib/systemd/linger");
         if (!d) {
@@ -660,7 +645,7 @@ static int manager_enumerate_linger_users(Manager *m) {
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, return -errno) {
                 int k;
 
                 if (!dirent_is_file(de))
@@ -673,27 +658,22 @@ static int manager_enumerate_linger_users(Manager *m) {
                 }
         }
 
-        closedir(d);
-
         return r;
 }
 
 int manager_enumerate_users(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r, k;
 
         assert(m);
 
-        /* First, enumerate user cgroups */
-        r = manager_enumerate_users_from_cgroup(m);
-
-        /* Second, add lingering users on top */
+        /* Add lingering users */
         k = manager_enumerate_linger_users(m);
         if (k < 0)
                 r = k;
 
-        /* Third, read in user data stored on disk */
+        /* Read in user data stored on disk */
         d = opendir("/run/systemd/users");
         if (!d) {
                 if (errno == ENOENT)
@@ -703,88 +683,23 @@ int manager_enumerate_users(Manager *m) {
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
-                uid_t uid;
+        FOREACH_DIRENT(de, d, return -errno) {
                 User *u;
 
                 if (!dirent_is_file(de))
                         continue;
 
-                k = parse_uid(de->d_name, &uid);
+                k = manager_add_user_by_name(m, de->d_name, &u);
                 if (k < 0) {
-                        log_error("Failed to parse file name %s: %s", de->d_name, strerror(-k));
+                        log_error("Failed to add user by file name %s: %s", de->d_name, strerror(-k));
+
+                        r = k;
                         continue;
                 }
 
-                u = hashmap_get(m->users, ULONG_TO_PTR(uid));
-                if (!u) {
-                        unlinkat(dirfd(d), de->d_name, 0);
-                        continue;
-                }
+                user_add_to_gc_queue(u);
 
                 k = user_load(u);
-                if (k < 0)
-                        r = k;
-        }
-
-        closedir(d);
-
-        return r;
-}
-
-static int manager_enumerate_sessions_from_cgroup(Manager *m) {
-        User *u;
-        Iterator i;
-        int r = 0;
-
-        HASHMAP_FOREACH(u, m->users, i) {
-                _cleanup_closedir_ DIR *d = NULL;
-                char *name;
-                int k;
-
-                if (!u->cgroup_path)
-                        continue;
-
-                k = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, &d);
-                if (k < 0) {
-                        if (k == -ENOENT)
-                                continue;
-
-                        log_error("Failed to open %s: %s", u->cgroup_path, strerror(-k));
-                        r = k;
-                        continue;
-                }
-
-                while ((k = cg_read_subgroup(d, &name)) > 0) {
-                        Session *session;
-                        char *e;
-
-                        e = endswith(name, ".session");
-                        if (e) {
-                                *e = 0;
-
-                                k = manager_add_session(m, u, name, &session);
-                                if (k < 0) {
-                                        free(name);
-                                        r = k;
-                                        continue;
-                                }
-
-                                session_add_to_gc_queue(session);
-
-                                if (!session->cgroup_path) {
-                                        session->cgroup_path = strjoin(m->cgroup_path, "/", name, NULL);
-                                        if (!session->cgroup_path) {
-                                                k = log_oom();
-                                                free(name);
-                                                break;
-                                        }
-                                }
-                        }
-
-                        free(name);
-                }
-
                 if (k < 0)
                         r = k;
         }
@@ -793,16 +708,13 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
 }
 
 int manager_enumerate_sessions(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
 
         assert(m);
 
-        /* First enumerate session cgroups */
-        r = manager_enumerate_sessions_from_cgroup(m);
-
-        /* Second, read in session data stored on disk */
+        /* Read in session data stored on disk */
         d = opendir("/run/systemd/sessions");
         if (!d) {
                 if (errno == ENOENT)
@@ -812,31 +724,33 @@ int manager_enumerate_sessions(Manager *m) {
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, return -errno) {
                 struct Session *s;
                 int k;
 
                 if (!dirent_is_file(de))
                         continue;
 
-                s = hashmap_get(m->sessions, de->d_name);
-                if (!s) {
-                        unlinkat(dirfd(d), de->d_name, 0);
+                k = manager_add_session(m, de->d_name, &s);
+                if (k < 0) {
+                        log_error("Failed to add session by file name %s: %s", de->d_name, strerror(-k));
+
+                        r = k;
                         continue;
                 }
+
+                session_add_to_gc_queue(s);
 
                 k = session_load(s);
                 if (k < 0)
                         r = k;
         }
 
-        closedir(d);
-
         return r;
 }
 
 int manager_enumerate_inhibitors(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
 
@@ -851,7 +765,7 @@ int manager_enumerate_inhibitors(Manager *m) {
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, return -errno) {
                 int k;
                 Inhibitor *i;
 
@@ -870,7 +784,47 @@ int manager_enumerate_inhibitors(Manager *m) {
                         r = k;
         }
 
-        closedir(d);
+        return r;
+}
+
+int manager_enumerate_machines(Manager *m) {
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
+        int r = 0;
+
+        assert(m);
+
+        /* Read in machine data stored on disk */
+        d = opendir("/run/systemd/machines");
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                log_error("Failed to open /run/systemd/machines: %m");
+                return -errno;
+        }
+
+        FOREACH_DIRENT(de, d, return -errno) {
+                struct Machine *machine;
+                int k;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                k = manager_add_machine(m, de->d_name, &machine);
+                if (k < 0) {
+                        log_error("Failed to add machine by file name %s: %s", de->d_name, strerror(-k));
+
+                        r = k;
+                        continue;
+                }
+
+                machine_add_to_gc_queue(machine);
+
+                k = machine_load(machine);
+                if (k < 0)
+                        r = k;
+        }
 
         return r;
 }
@@ -1109,6 +1063,43 @@ int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user) {
         }
 }
 
+int manager_get_machine_by_cgroup(Manager *m, const char *cgroup, Machine **machine) {
+        Machine *u;
+        char *p;
+
+        assert(m);
+        assert(cgroup);
+        assert(machine);
+
+        u = hashmap_get(m->machine_cgroups, cgroup);
+        if (u) {
+                *machine = u;
+                return 1;
+        }
+
+        p = strdupa(cgroup);
+        if (!p)
+                return log_oom();
+
+        for (;;) {
+                char *e;
+
+                e = strrchr(p, '/');
+                if (!e || e == p) {
+                        *machine = NULL;
+                        return 0;
+                }
+
+                *e = 0;
+
+                u = hashmap_get(m->machine_cgroups, p);
+                if (u) {
+                        *machine = u;
+                        return 1;
+                }
+        }
+}
+
 int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
         _cleanup_free_ char *p = NULL;
         int r;
@@ -1124,7 +1115,38 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
         return manager_get_session_by_cgroup(m, p, session);
 }
 
+int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(m);
+        assert(pid >= 1);
+        assert(user);
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &p);
+        if (r < 0)
+                return r;
+
+        return manager_get_user_by_cgroup(m, p, user);
+}
+
+int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(m);
+        assert(pid >= 1);
+        assert(machine);
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &p);
+        if (r < 0)
+                return r;
+
+        return manager_get_machine_by_cgroup(m, p, machine);
+}
+
 void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
+        Machine *machine;
         Session *s;
         User *u;
         int r;
@@ -1136,6 +1158,10 @@ void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
         r = manager_get_user_by_cgroup(m, cgroup, &u);
         if (r > 0)
                 user_add_to_gc_queue(u);
+
+        r = manager_get_machine_by_cgroup(m, cgroup, &machine);
+        if (r > 0)
+                machine_add_to_gc_queue(machine);
 }
 
 static void manager_dispatch_other(Manager *m, int fd) {
@@ -1197,6 +1223,7 @@ static int manager_connect_bus(Manager *m) {
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/seat", &bus_seat_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/session", &bus_session_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/user", &bus_user_vtable, m) ||
+            !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/machine", &bus_machine_vtable, m) ||
             !dbus_connection_add_filter(m->bus, bus_message_filter, m, NULL)) {
                 r = log_oom();
                 goto fail;
@@ -1371,6 +1398,7 @@ void manager_gc(Manager *m, bool drop_not_started) {
         Seat *seat;
         Session *session;
         User *user;
+        Machine *machine;
 
         assert(m);
 
@@ -1401,6 +1429,16 @@ void manager_gc(Manager *m, bool drop_not_started) {
                 if (user_check_gc(user, drop_not_started) == 0) {
                         user_stop(user);
                         user_free(user);
+                }
+        }
+
+        while ((machine = m->machine_gc_queue)) {
+                LIST_REMOVE(Machine, gc_queue, m->machine_gc_queue, machine);
+                machine->in_gc_queue = false;
+
+                if (machine_check_gc(machine, drop_not_started) == 0) {
+                        machine_stop(machine);
+                        machine_free(machine);
                 }
         }
 }
@@ -1521,6 +1559,7 @@ int manager_startup(Manager *m) {
         Session *session;
         User *user;
         Inhibitor *inhibitor;
+        Machine *machine;
         Iterator i;
 
         assert(m);
@@ -1560,6 +1599,7 @@ int manager_startup(Manager *m) {
         manager_enumerate_sessions(m);
         manager_enumerate_inhibitors(m);
         manager_enumerate_buttons(m);
+        manager_enumerate_machines(m);
 
         /* Remove stale objects before we start them */
         manager_gc(m, false);
@@ -1579,6 +1619,9 @@ int manager_startup(Manager *m) {
 
         HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
                 inhibitor_start(inhibitor);
+
+        HASHMAP_FOREACH(machine, m->machines, i)
+                machine_start(machine);
 
         manager_dispatch_idle_action(m);
 
@@ -1731,6 +1774,7 @@ int main(int argc, char *argv[]) {
         mkdir_label("/run/systemd/seats", 0755);
         mkdir_label("/run/systemd/users", 0755);
         mkdir_label("/run/systemd/sessions", 0755);
+        mkdir_label("/run/systemd/machines", 0755);
 
         m = manager_new();
         if (!m) {

@@ -28,20 +28,33 @@ Fedora 19:
 
 Features:
 
+* move systemctl dump to systemd-analyze
+
+* libsystemd-logind: sd_session_is_active() and friends: verify
+  validity of session name before appending it to a path
+
+* logind: when a PAM client calls ReleaseSession() start a timeout and
+  kill the session entirely after that is reached.
+
+* gparted needs to disable auto-activation of mount units somehow, or
+  maybe we should stop doing auto-activiation of this after boot
+  entirely. https://bugzilla.gnome.org/show_bug.cgi?id=701676
+
 * when a service changes state make reflect that in the
   RUNNING/LISTENING states of its socket
 
 * slices:
-  - fix libsystemd-login to handle slices properly
   - add option to pam_systemd to move login session into a slice
-  - add call to logind's dbus intrface to register a machine (also, calls for listing them)
+  - remove ControlGroup= setting
+  - in sd_pid_get_owner_uid() fallback to query session file
+  - add api to determine slice of unit
 
 * when recursively showing the cgroup hierarchy, optionally also show
   the hierarchies of child processes
 
 * document logic of auto/noauto and fail/nofail in fstab in systemd.mount or systemd-fstab-generator man page
 
-* we should properly escape hostnames we add into dbus server strings
+* we should properly escape ssh hostnames we add into dbus server strings
 
 * something pulls in pcre as so dep into our daemons such as hostnamed.
 

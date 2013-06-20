@@ -22,6 +22,7 @@
 ***/
 
 typedef struct Session Session;
+typedef enum KillWho KillWho;
 
 #include "list.h"
 #include "util.h"
@@ -54,12 +55,12 @@ typedef enum SessionType {
         _SESSION_TYPE_INVALID = -1
 } SessionType;
 
-typedef enum KillWho {
+enum KillWho {
         KILL_LEADER,
         KILL_ALL,
         _KILL_WHO_MAX,
         _KILL_WHO_INVALID = -1
-} KillWho;
+};
 
 struct Session {
         Manager *manager;
@@ -82,6 +83,7 @@ struct Session {
         char *remote_host;
 
         char *service;
+        char *slice;
 
         int vtnr;
         Seat *seat;
@@ -108,8 +110,9 @@ struct Session {
         LIST_FIELDS(Session, gc_queue);
 };
 
-Session *session_new(Manager *m, User *u, const char *id);
+Session *session_new(Manager *m, const char *id);
 void session_free(Session *s);
+void session_set_user(Session *s, User *u);
 int session_check_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);

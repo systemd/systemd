@@ -38,6 +38,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "fileio.h"
+#include "special.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         _cleanup_free_ char *fs = NULL;
@@ -470,19 +471,19 @@ static const char *normalize_controller(const char *controller) {
 static int join_path(const char *controller, const char *path, const char *suffix, char **fs) {
         char *t = NULL;
 
-        if (controller) {
-                if (path && suffix)
+        if (!isempty(controller)) {
+                if (!isempty(path) && !isempty(suffix))
                         t = strjoin("/sys/fs/cgroup/", controller, "/", path, "/", suffix, NULL);
-                else if (path)
+                else if (!isempty(path))
                         t = strjoin("/sys/fs/cgroup/", controller, "/", path, NULL);
-                else if (suffix)
+                else if (!isempty(suffix))
                         t = strjoin("/sys/fs/cgroup/", controller, "/", suffix, NULL);
                 else
                         t = strappend("/sys/fs/cgroup/", controller);
         } else {
-                if (path && suffix)
+                if (!isempty(path) && !isempty(suffix))
                         t = strjoin(path, "/", suffix, NULL);
-                else if (path)
+                else if (!isempty(path))
                         t = strdup(path);
                 else
                         return -EINVAL;
@@ -1091,95 +1092,19 @@ int cg_mangle_path(const char *path, char **result) {
         return cg_get_path(c ? c : SYSTEMD_CGROUP_CONTROLLER, p ? p : "/", NULL, result);
 }
 
-int cg_get_system_path(char **path) {
-        char *p;
+int cg_get_root_path(char **path) {
+        char *p, *e;
         int r;
 
         assert(path);
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 1, &p);
-        if (r < 0) {
-                p = strdup("/system");
-                if (!p)
-                        return -ENOMEM;
-        }
-
-        if (endswith(p, "/system"))
-                *path = p;
-        else {
-                char *q;
-
-                q = strappend(p, "/system");
-                free(p);
-                if (!q)
-                        return -ENOMEM;
-
-                *path = q;
-        }
-
-        return 0;
-}
-
-int cg_get_root_path(char **path) {
-        char *root, *e;
-        int r;
-
-        assert(path);
-
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 1, &root);
         if (r < 0)
                 return r;
 
-        e = endswith(root, "/system");
-        if (e == root)
-                e[1] = 0;
-        else if (e)
+        e = endswith(p, "/" SPECIAL_SYSTEM_SLICE);
+        if (e)
                 *e = 0;
-
-        *path = root;
-        return 0;
-}
-
-int cg_get_user_path(char **path) {
-        _cleanup_free_ char *root = NULL;
-        char *p;
-
-        assert(path);
-
-        /* Figure out the place to put user cgroups below. We use the
-         * same as PID 1 has but with the "/system" suffix replaced by
-         * "/user" */
-
-        if (cg_get_root_path(&root) < 0 || streq(root, "/"))
-                p = strdup("/user");
-        else
-                p = strappend(root, "/user");
-
-        if (!p)
-                return -ENOMEM;
-
-        *path = p;
-        return 0;
-}
-
-int cg_get_machine_path(const char *machine, char **path) {
-        _cleanup_free_ char *root = NULL, *escaped = NULL;
-        char *p;
-
-        assert(path);
-
-        if (machine) {
-                const char *name = strappenda(machine, ".nspawn");
-
-                escaped = cg_escape(name);
-                if (!escaped)
-                        return -ENOMEM;
-        }
-
-        p = strjoin(cg_get_root_path(&root) >= 0 && !streq(root, "/") ? root : "",
-                    "/machine", machine ? "/" : "", machine ? escaped : "", NULL);
-        if (!p)
-                return -ENOMEM;
 
         *path = p;
         return 0;
@@ -1301,15 +1226,29 @@ int cg_path_decode_unit(const char *cgroup, char **unit){
         return 0;
 }
 
+static const char *skip_slices(const char *p) {
+        size_t n;
+
+        /* Skips over all slice assignments */
+
+        for (;;) {
+                p += strspn(p, "/");
+
+                n = strcspn(p, "/");
+                if (n <= 6 || memcmp(p + n - 6, ".slice", 6) != 0)
+                        return p;
+
+                p += n;
+        }
+}
+
 int cg_path_get_unit(const char *path, char **unit) {
         const char *e;
 
         assert(path);
         assert(unit);
 
-        e = path_startswith(path, "/system/");
-        if (!e)
-                return -ENOENT;
+        e = skip_slices(path);
 
         return cg_path_decode_unit(e, unit);
 }
@@ -1327,15 +1266,55 @@ int cg_pid_get_unit(pid_t pid, char **unit) {
         return cg_path_get_unit(cgroup, unit);
 }
 
-_pure_ static const char *skip_label(const char *e) {
-        assert(e);
+static const char *skip_user(const char *p) {
+        size_t n;
 
-        e = strchr(e, '/');
-        if (!e)
+        assert(p);
+
+        p += strspn(p, "/");
+
+        n = strcspn(p, "/");
+        if (n <= 5 || memcmp(p + n - 5, ".user", 5) != 0)
+                return p;
+
+        p += n;
+        p += strspn(p, "/");
+
+        return p;
+}
+
+static const char *skip_session(const char *p) {
+        size_t n;
+
+        assert(p);
+
+        p += strspn(p, "/");
+
+        n = strcspn(p, "/");
+        if (n <= 8 || memcmp(p + n - 8, ".session", 8) != 0)
                 return NULL;
 
-        e += strspn(e, "/");
-        return e;
+        p += n;
+        p += strspn(p, "/");
+
+        return p;
+}
+
+static const char *skip_systemd_label(const char *p) {
+        size_t n;
+
+        assert(p);
+
+        p += strspn(p, "/");
+
+        n = strcspn(p, "/");
+        if (n < 8 || memcmp(p, "systemd-", 8) != 0)
+                return p;
+
+        p += n;
+        p += strspn(p, "/");
+
+        return p;
 }
 
 int cg_path_get_user_unit(const char *path, char **unit) {
@@ -1348,24 +1327,19 @@ int cg_path_get_user_unit(const char *path, char **unit) {
          * cgroups might have arbitrary child cgroups and we shouldn't get
          * confused by those */
 
-        e = path_startswith(path, "/user/");
+        /* Skip slices, if there are any */
+        e = skip_slices(path);
+
+        /* Skip the user name, if there is one */
+        e = skip_user(e);
+
+        /* Skip the session ID, require that there is one */
+        e = skip_session(e);
         if (!e)
                 return -ENOENT;
 
-        /* Skip the user name */
-        e = skip_label(e);
-        if (!e)
-                return -ENOENT;
-
-        /* Skip the session ID */
-        e = skip_label(e);
-        if (!e)
-                return -ENOENT;
-
-        /* Skip the systemd cgroup */
-        e = skip_label(e);
-        if (!e)
-                return -ENOENT;
+        /* Skip the systemd cgroup, if there is one */
+        e = skip_systemd_label(e);
 
         return cg_path_decode_unit(e, unit);
 }
@@ -1384,23 +1358,27 @@ int cg_pid_get_user_unit(pid_t pid, char **unit) {
 }
 
 int cg_path_get_machine_name(const char *path, char **machine) {
-        const char *e, *n;
+        const char *e, *n, *x;
         char *s, *r;
 
         assert(path);
         assert(machine);
 
-        e = path_startswith(path, "/machine/");
-        if (!e)
-                return -ENOENT;
+        /* Skip slices, if there are any */
+        e = skip_slices(path);
 
         n = strchrnul(e, '/');
         if (e == n)
                 return -ENOENT;
 
         s = strndupa(e, n - e);
+        s = cg_unescape(s);
 
-        r = strdup(cg_unescape(s));
+        x = endswith(s, ".machine");
+        if (!x)
+                return -ENOENT;
+
+        r = strndup(s, x - s);
         if (!r)
                 return -ENOMEM;
 
@@ -1428,14 +1406,11 @@ int cg_path_get_session(const char *path, char **session) {
         assert(path);
         assert(session);
 
-        e = path_startswith(path, "/user/");
-        if (!e)
-                return -ENOENT;
+        /* Skip slices, if there are any */
+        e = skip_slices(path);
 
-        /* Skip the user name */
-        e = skip_label(e);
-        if (!e)
-                return -ENOENT;
+        /* Skip the user name, if there is one */
+        e = skip_user(e);
 
         n = strchrnul(e, '/');
         if (n - e < 8)
@@ -1471,9 +1446,8 @@ int cg_path_get_owner_uid(const char *path, uid_t *uid) {
         assert(path);
         assert(uid);
 
-        e = path_startswith(path, "/user/");
-        if (!e)
-                return -ENOENT;
+        /* Skip slices, if there are any */
+        e = skip_slices(path);
 
         n = strchrnul(e, '/');
         if (n - e < 5)

@@ -542,6 +542,8 @@ void unit_reset_failed(Unit *u);
 
 Unit *unit_following(Unit *u);
 
+const char *unit_slice_name(Unit *u);
+
 bool unit_stop_pending(Unit *u) _pure_;
 bool unit_inactive_or_pending(Unit *u) _pure_;
 bool unit_active_or_pending(Unit *u);
@@ -563,6 +565,7 @@ Unit* unit_ref_set(UnitRef *ref, Unit *u);
 void unit_ref_unset(UnitRef *ref);
 
 #define UNIT_DEREF(ref) ((ref).unit)
+#define UNIT_ISSET(ref) (!!(ref).unit)
 
 int unit_add_one_mount_link(Unit *u, Mount *m);
 int unit_add_mount_links(Unit *u);

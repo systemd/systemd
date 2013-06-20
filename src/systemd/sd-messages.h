@@ -31,6 +31,10 @@ extern "C" {
 /* Hey! If you add a new message here, you *must* also update the
  * message catalog with an appropriate explanation */
 
+/* And if you add a new ID here, make sure to generate a random one
+ * with journalctl --new-id128. Do not use any other IDs, and do not
+ * count them up manually. */
+
 #define SD_MESSAGE_JOURNAL_START    SD_ID128_MAKE(f7,73,79,a8,49,0b,40,8b,be,5f,69,40,50,5a,77,7b)
 #define SD_MESSAGE_JOURNAL_STOP     SD_ID128_MAKE(d9,3f,b3,c9,c2,4d,45,1a,97,ce,a6,15,ce,59,c0,0b)
 #define SD_MESSAGE_JOURNAL_DROPPED  SD_ID128_MAKE(a5,96,d6,fe,7b,fa,49,94,82,8e,72,30,9e,95,d6,1e)
@@ -42,6 +46,8 @@ extern "C" {
 #define SD_MESSAGE_SESSION_STOP     SD_ID128_MAKE(33,54,93,94,24,b4,45,6d,98,02,ca,83,33,ed,42,4a)
 #define SD_MESSAGE_SEAT_START       SD_ID128_MAKE(fc,be,fc,5d,a2,3d,42,80,93,f9,7c,82,a9,29,0f,7b)
 #define SD_MESSAGE_SEAT_STOP        SD_ID128_MAKE(e7,85,2b,fe,46,78,4e,d0,ac,cd,e0,4b,c8,64,c2,d5)
+#define SD_MESSAGE_MACHINE_START    SD_ID128_MAKE(24,d8,d4,45,25,73,40,24,96,06,83,81,a6,31,2d,f2)
+#define SD_MESSAGE_MACHINE_STOP     SD_ID128_MAKE(58,43,2b,d3,ba,ce,47,7c,b5,14,b5,63,81,b8,a7,58)
 
 #define SD_MESSAGE_TIME_CHANGE      SD_ID128_MAKE(c7,a7,87,07,9b,35,4e,aa,a9,e7,7b,37,18,93,cd,27)
 #define SD_MESSAGE_TIMEZONE_CHANGE  SD_ID128_MAKE(45,f8,2f,4a,ef,7a,4b,bf,94,2c,e8,61,d1,f2,09,90)

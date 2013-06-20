@@ -209,8 +209,8 @@ static int bus_seat_append_idle_hint_since(DBusMessageIter *i, const char *prope
 }
 
 static int get_seat_for_path(Manager *m, const char *path, Seat **_s) {
+        _cleanup_free_ char *id = NULL;
         Seat *s;
-        char *id;
 
         assert(m);
         assert(path);
@@ -224,8 +224,6 @@ static int get_seat_for_path(Manager *m, const char *path, Seat **_s) {
                 return -ENOMEM;
 
         s = hashmap_get(m->seats, id);
-        free(id);
-
         if (!s)
                 return -ENOENT;
 
@@ -348,7 +346,7 @@ const DBusObjectPathVTable bus_seat_vtable = {
 };
 
 char *seat_bus_path(Seat *s) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
 
         assert(s);
 

@@ -89,10 +89,7 @@ static int bus_unit_append_slice(DBusMessageIter *i, const char *property, void 
         assert(property);
         assert(u);
 
-        if (UNIT_DEREF(u->slice))
-                d = UNIT_DEREF(u->slice)->id;
-        else
-                d = "";
+        d = strempty(unit_slice_name(u));
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
                 return -ENOMEM;

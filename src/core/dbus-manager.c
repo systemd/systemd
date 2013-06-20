@@ -301,7 +301,6 @@
         "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ShowStatus\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n" \
@@ -614,7 +613,6 @@ static const BusProperty bus_manager_properties[] = {
         { "ConfirmSpawn",                bus_property_append_bool,       "b",  offsetof(Manager, confirm_spawn)                 },
         { "ShowStatus",                  bus_property_append_bool,       "b",  offsetof(Manager, show_status)                   },
         { "UnitPath",                    bus_property_append_strv,       "as", offsetof(Manager, lookup_paths.unit_path),       true },
-        { "ControlGroupHierarchy",       bus_property_append_string,     "s",  offsetof(Manager, cgroup_hierarchy),             true },
         { "DefaultControllers",          bus_property_append_strv,       "as", offsetof(Manager, default_controllers),          true },
         { "DefaultStandardOutput",       bus_manager_append_exec_output, "s",  offsetof(Manager, default_std_output)            },
         { "DefaultStandardError",        bus_manager_append_exec_output, "s",  offsetof(Manager, default_std_error)             },

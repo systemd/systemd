@@ -199,7 +199,7 @@ struct Manager {
 
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_bondings; /* path string => CGroupBonding object 1:n */
-        char *cgroup_hierarchy;
+        char *cgroup_root;
 
         usec_t gc_queue_timestamp;
         int gc_marker;

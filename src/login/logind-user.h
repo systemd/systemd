@@ -49,6 +49,7 @@ struct User {
         char *runtime_path;
         char *service;
         char *cgroup_path;
+        char *slice;
 
         Session *display;
 

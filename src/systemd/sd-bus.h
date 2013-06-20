@@ -205,6 +205,12 @@ int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);
 int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
 
+#define SD_BUS_APPEND_ID128(x) 16,                                          \
+                (x).bytes[0],  (x).bytes[1],  (x).bytes[2],  (x).bytes[3],  \
+                (x).bytes[4],  (x).bytes[5],  (x).bytes[6],  (x).bytes[7],  \
+                (x).bytes[8],  (x).bytes[9],  (x).bytes[10], (x).bytes[11], \
+                (x).bytes[12], (x).bytes[13], (x).bytes[14], (x).bytes[15]
+
 #ifdef __cplusplus
 }
 #endif

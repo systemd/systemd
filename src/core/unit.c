@@ -672,7 +672,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tActive Exit Timestamp: %s\n"
                 "%s\tInactive Enter Timestamp: %s\n"
                 "%s\tGC Check Good: %s\n"
-                "%s\tNeed Daemon Reload: %s\n",
+                "%s\tNeed Daemon Reload: %s\n"
+                "%s\tSlice: %s\n",
                 prefix, u->id,
                 prefix, unit_description(u),
                 prefix, strna(u->instance),
@@ -683,7 +684,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->active_exit_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->inactive_enter_timestamp.realtime)),
                 prefix, yes_no(unit_check_gc(u)),
-                prefix, yes_no(unit_need_daemon_reload(u)));
+                prefix, yes_no(unit_need_daemon_reload(u)),
+                prefix, strna(unit_slice_name(u)));
 
         SET_FOREACH(t, u->names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
@@ -878,7 +880,7 @@ static int unit_add_default_dependencies(Unit *u) {
                                 return r;
                 }
 
-        if (u->default_dependencies && UNIT_DEREF(u->slice)) {
+        if (u->default_dependencies && UNIT_ISSET(u->slice)) {
                 r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, UNIT_DEREF(u->slice), true);
                 if (r < 0)
                         return r;
@@ -1994,7 +1996,7 @@ char *unit_default_cgroup_path(Unit *u) {
 
         assert(u);
 
-        if (UNIT_DEREF(u->slice)) {
+        if (UNIT_ISSET(u->slice)) {
                 r = cg_slice_to_path(UNIT_DEREF(u->slice)->id, &slice);
                 if (r < 0)
                         return NULL;
@@ -2015,11 +2017,11 @@ char *unit_default_cgroup_path(Unit *u) {
                 if (!escaped_template)
                         return NULL;
 
-                return strjoin(u->manager->cgroup_hierarchy, "/",
+                return strjoin(u->manager->cgroup_root, "/",
                                slice ? slice : "", slice ? "/" : "",
                                escaped_template, "/", escaped_instance, NULL);
         } else
-                return strjoin(u->manager->cgroup_hierarchy, "/",
+                return strjoin(u->manager->cgroup_root, "/",
                                slice ? slice : "", slice ? "/" : "",
                                escaped_instance, NULL);
 }
@@ -2172,7 +2174,7 @@ int unit_add_default_slice(Unit *u) {
 
         assert(u);
 
-        if (UNIT_DEREF(u->slice))
+        if (UNIT_ISSET(u->slice))
                 return 0;
 
         if (u->manager->running_as != SYSTEMD_SYSTEM)
@@ -2186,6 +2188,15 @@ int unit_add_default_slice(Unit *u) {
         return 0;
 }
 
+const char *unit_slice_name(Unit *u) {
+        assert(u);
+
+        if (!UNIT_ISSET(u->slice))
+                return NULL;
+
+        return UNIT_DEREF(u->slice)->id;
+}
+
 int unit_add_default_cgroups(Unit *u) {
         CGroupAttribute *a;
         char **c;
@@ -2196,7 +2207,7 @@ int unit_add_default_cgroups(Unit *u) {
         /* Adds in the default cgroups, if they weren't specified
          * otherwise. */
 
-        if (!u->manager->cgroup_hierarchy)
+        if (!u->manager->cgroup_root)
                 return 0;
 
         r = unit_add_one_default_cgroup(u, NULL);

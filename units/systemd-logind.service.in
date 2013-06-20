@@ -9,7 +9,8 @@
 Description=Login Service
 Documentation=man:systemd-logind.service(8) man:logind.conf(5)
 Documentation=http://www.freedesktop.org/wiki/Software/systemd/multiseat
-After=nss-user-lookup.target
+Wants=user.slice machine.slice
+After=nss-user-lookup.target user.slice machine.slice
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-logind

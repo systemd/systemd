@@ -379,8 +379,6 @@ dist_systemunit_DATA = \
 	units/swap.target \
 	units/slices.target \
 	units/system.slice \
-	units/user.slice \
-	units/machine.slice \
 	units/systemd-initctl.socket \
 	units/systemd-shutdownd.socket \
 	units/syslog.socket \
@@ -1701,7 +1699,8 @@ systemd_nspawn_LDADD = \
 	libsystemd-capability.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-id128-internal.la
+	libsystemd-id128-internal.la \
+	libsystemd-bus.la
 
 # ------------------------------------------------------------------------------
 systemd_stdio_bridge_SOURCES = \
@@ -3552,6 +3551,8 @@ systemd_logind_SOURCES = \
 	src/login/logind-seat.h \
 	src/login/logind-session.c \
 	src/login/logind-session.h \
+	src/login/logind-machine.c \
+	src/login/logind-machine.h \
 	src/login/logind-user.c \
 	src/login/logind-user.h \
 	src/login/logind-inhibit.c \
@@ -3559,6 +3560,7 @@ systemd_logind_SOURCES = \
 	src/login/logind-session-dbus.c \
 	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \
+	src/login/logind-machine-dbus.c \
 	src/login/logind-acl.h
 
 nodist_systemd_logind_SOURCES = \
@@ -3574,6 +3576,7 @@ systemd_logind_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	libsystemd-dbus.la \
+	libsystemd-id128-internal.la \
 	libudev.la
 
 if HAVE_ACL
@@ -3710,6 +3713,8 @@ UNINSTALL_EXEC_HOOKS += libsystemd-login-uninstall-hook
 nodist_systemunit_DATA += \
 	units/systemd-logind.service \
 	units/systemd-user-sessions.service
+	units/user.slice \
+	units/machine.slice
 
 dist_dbussystemservice_DATA += \
 	src/login/org.freedesktop.login1.service
@@ -4186,8 +4191,6 @@ USER_UNIT_ALIASES += \
 GENERAL_ALIASES += \
 	$(systemunitdir)/remote-fs.target $(pkgsysconfdir)/system/multi-user.target.wants/remote-fs.target \
 	$(systemunitdir)/getty@.service $(pkgsysconfdir)/system/getty.target.wants/getty@tty1.service \
-	$(systemunitdir)/machine.slice $(pkgsysconfdir)/system/slices.target.wants/machine.slice \
-	$(systemunitdir)/user.slice $(pkgsysconfdir)/system/slices.target.wants/user.slice \
 	$(pkgsysconfdir)/user $(sysconfdir)/xdg/systemd/user \
 	../system-services/org.freedesktop.systemd1.service $(dbussessionservicedir)/org.freedesktop.systemd1.service
 

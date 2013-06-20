@@ -36,6 +36,8 @@
 #include "systemd/sd-messages.h"
 #include "fileio-label.h"
 #include "label.h"
+#include "utf8.h"
+#include "unit-name.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
         " <interface name=\"org.freedesktop.login1.Manager\">\n"        \
@@ -51,9 +53,21 @@
         "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
         "   <arg name=\"user\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
+        "  <method name=\"GetUserByPID\">\n"                            \
+        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"          \
+        "   <arg name=\"user\" type=\"o\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
         "  <method name=\"GetSeat\">\n"                                 \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "   <arg name=\"seat\" type=\"o\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetMachine\">\n"                              \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"machine\" type=\"o\" direction=\"out\"/>\n"     \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetMachineByPID\">\n"                         \
+        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"          \
+        "   <arg name=\"machine\" type=\"o\" direction=\"out\"/>\n"     \
         "  </method>\n"                                                 \
         "  <method name=\"ListSessions\">\n"                            \
         "   <arg name=\"sessions\" type=\"a(susso)\" direction=\"out\"/>\n" \
@@ -63,6 +77,9 @@
         "  </method>\n"                                                 \
         "  <method name=\"ListSeats\">\n"                               \
         "   <arg name=\"seats\" type=\"a(so)\" direction=\"out\"/>\n"   \
+        "  </method>\n"                                                 \
+        "  <method name=\"ListMachines\">\n"                            \
+        "   <arg name=\"machines\" type=\"a(ssso)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"CreateSession\">\n"                           \
         "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
@@ -90,6 +107,16 @@
         "  </method>\n"                                                 \
         "  <method name=\"ReleaseSession\">\n"                          \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
+        "  </method>\n"                                                 \
+        "  <method name=\"CreateMachine\">\n"                           \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"id\" type=\"ay\" direction=\"in\"/>\n"          \
+        "   <arg name=\"service\" type=\"s\" direction=\"in\"/>\n"      \
+        "   <arg name=\"class\" type=\"s\" direction=\"in\"/>\n"        \
+        "   <arg name=\"leader\" type=\"u\" direction=\"in\"/>\n"       \
+        "   <arg name=\"slice\" type=\"s\" direction=\"in\"/>\n"        \
+        "   <arg name=\"root_directory\" type=\"s\" direction=\"in\"/>\n" \
+        "   <arg name=\"path\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"ActivateSession\">\n"                         \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
@@ -122,6 +149,9 @@
         "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
         "  </method>\n"                                                 \
         "  <method name=\"TerminateSeat\">\n"                           \
+        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
+        "  </method>\n"                                                 \
+        "  <method name=\"TerminateMachine\">\n"                        \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
         "  <method name=\"SetUserLinger\">\n"                           \
@@ -201,13 +231,20 @@
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
         "   <arg name=\"path\" type=\"o\"/>\n"                          \
         "  </signal>\n"                                                 \
+        "  <signal name=\"MachineNew\">\n"                              \
+        "   <arg name=\"machine\" type=\"s\"/>\n"                       \
+        "   <arg name=\"path\" type=\"o\"/>\n"                          \
+        "  </signal>\n"                                                 \
+        "  <signal name=\"MachineRemoved\">\n"                          \
+        "   <arg name=\"machine\" type=\"s\"/>\n"                       \
+        "   <arg name=\"path\" type=\"o\"/>\n"                          \
+        "  </signal>\n"                                                 \
         "  <signal name=\"PrepareForShutdown\">\n"                      \
         "   <arg name=\"active\" type=\"b\"/>\n"                        \
         "  </signal>\n"                                                 \
         "  <signal name=\"PrepareForSleep\">\n"                         \
         "   <arg name=\"active\" type=\"b\"/>\n"                        \
         "  </signal>\n"                                                 \
-        "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Controllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ResetControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"NAutoVTs\" type=\"u\" access=\"read\"/>\n" \
@@ -342,8 +379,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
 
         dbus_message_iter_get_basic(&iter, &leader);
 
-        if (leader <= 0 ||
-            !dbus_message_iter_next(&iter) ||
+        if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
                 return -EINVAL;
 
@@ -507,6 +543,12 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
 
         dbus_message_iter_get_basic(&iter, &kill_processes);
 
+        if (leader <= 0) {
+                leader = bus_get_unix_process_id(m->bus, dbus_message_get_sender(message), NULL);
+                if (leader == 0)
+                        return -EINVAL;
+        }
+
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, leader, &cgroup);
         if (r < 0)
                 goto fail;
@@ -601,9 +643,11 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         if (r < 0)
                 goto fail;
 
-        r = manager_add_session(m, user, id, &session);
+        r = manager_add_session(m, id, &session);
         if (r < 0)
                 goto fail;
+
+        session_set_user(session, user);
 
         session->leader = leader;
         session->audit_id = audit_id;
@@ -714,6 +758,183 @@ fail:
 
         if (user)
                 user_add_to_gc_queue(user);
+
+        return r;
+}
+
+static bool valid_machine_name(const char *p) {
+        size_t l;
+
+        if (!filename_is_safe(p))
+                return false;
+
+        if (!ascii_is_valid(p))
+                return false;
+
+        l = strlen(p);
+
+        if (l < 1 || l> 64)
+                return false;
+
+        return true;
+}
+
+static int bus_manager_create_machine(
+                Manager *manager,
+                DBusMessage *message,
+                DBusMessage **_reply) {
+
+        const char *name, *service, *class, *slice, *root_directory;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_free_ char *p = NULL;
+        DBusMessageIter iter, sub;
+        MachineClass c;
+        uint32_t leader;
+        sd_id128_t id;
+        dbus_bool_t b;
+        Machine *m;
+        int n, r;
+        void *v;
+
+        assert(manager);
+        assert(message);
+        assert(_reply);
+
+        if (!dbus_message_iter_init(message, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &name);
+
+        if (!valid_machine_name(name) ||
+            !dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_BYTE)
+                return -EINVAL;
+
+        dbus_message_iter_recurse(&iter, &sub);
+        dbus_message_iter_get_fixed_array(&sub, &v, &n);
+
+        if (n == 0)
+                id = SD_ID128_NULL;
+        else if (n == 16)
+                memcpy(&id, v, n);
+        else
+                return -EINVAL;
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &service);
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &class);
+
+        if (isempty(class))
+                c = _MACHINE_CLASS_INVALID;
+        else {
+                c = machine_class_from_string(class);
+                if (c < 0)
+                        return -EINVAL;
+        }
+
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT32)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &leader);
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &slice);
+        if (!(isempty(slice) || (unit_name_is_valid(slice, false) && endswith(slice, ".slice"))) ||
+            !dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+                return -EINVAL;
+
+        dbus_message_iter_get_basic(&iter, &root_directory);
+
+        if (!(isempty(root_directory) || path_is_absolute(root_directory)))
+                return -EINVAL;
+
+        if (hashmap_get(manager->machines, name))
+                return -EEXIST;
+
+        if (leader <= 0) {
+                leader = bus_get_unix_process_id(manager->bus, dbus_message_get_sender(message), NULL);
+                if (leader == 0)
+                        return -EINVAL;
+        }
+
+        r = manager_add_machine(manager, name, &m);
+        if (r < 0)
+                goto fail;
+
+        m->leader = leader;
+        m->class = c;
+        m->id = id;
+
+        if (!isempty(service)) {
+                m->service = strdup(service);
+                if (!m->service) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        if (!isempty(slice)) {
+                m->slice = strdup(slice);
+                if (!m->slice) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        if (!isempty(root_directory)) {
+                m->root_directory = strdup(root_directory);
+                if (!m->root_directory) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
+        r = machine_start(m);
+        if (r < 0)
+                goto fail;
+
+        reply = dbus_message_new_method_return(message);
+        if (!reply) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        p = machine_bus_path(m);
+        if (!p) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        b = dbus_message_append_args(
+                        reply,
+                        DBUS_TYPE_OBJECT_PATH, &p,
+                        DBUS_TYPE_INVALID);
+        if (!b) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        *_reply = reply;
+        reply = NULL;
+        return 0;
+
+fail:
+        if (m)
+                machine_add_to_gc_queue(m);
 
         return r;
 }
@@ -1387,7 +1608,6 @@ static int bus_manager_do_shutdown_or_sleep(
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_handle_action, handle_action, HandleAction);
 
 static const BusProperty bus_login_manager_properties[] = {
-        { "ControlGroupHierarchy",  bus_property_append_string,         "s",  offsetof(Manager, cgroup_path),        true },
         { "Controllers",            bus_property_append_strv,           "as", offsetof(Manager, controllers),        true },
         { "ResetControllers",       bus_property_append_strv,           "as", offsetof(Manager, reset_controllers),  true },
         { "NAutoVTs",               bus_property_append_unsigned,       "u",  offsetof(Manager, n_autovts)           },
@@ -1530,6 +1750,107 @@ static DBusHandlerResult manager_message_handler(
                 if (!b)
                         goto oom;
 
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "GetUserByPID")) {
+                uint32_t pid;
+                char *p;
+                User *user;
+                bool b;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &pid,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                r = manager_get_user_by_pid(m, pid, &user);
+                if (r <= 0)
+                        return bus_send_error_reply(connection, message, NULL, r < 0 ? r : -ENOENT);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                p = user_bus_path(user);
+                if (!p)
+                        goto oom;
+
+                b = dbus_message_append_args(
+                                reply,
+                                DBUS_TYPE_OBJECT_PATH, &p,
+                                DBUS_TYPE_INVALID);
+                free(p);
+
+                if (!b)
+                        goto oom;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "GetMachine")) {
+                Machine *machine;
+                const char *name;
+                char *p;
+                bool b;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                machine = hashmap_get(m->machines, name);
+                if (!machine)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                p = machine_bus_path(machine);
+                if (!p)
+                        goto oom;
+
+                b = dbus_message_append_args(
+                                reply,
+                                DBUS_TYPE_OBJECT_PATH, &p,
+                                DBUS_TYPE_INVALID);
+                free(p);
+
+                if (!b)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "GetMachineByPID")) {
+                uint32_t pid;
+                char *p;
+                Machine *machine;
+                bool b;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &pid,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                r = manager_get_machine_by_pid(m, pid, &machine);
+                if (r <= 0)
+                        return bus_send_error_reply(connection, message, NULL, r < 0 ? r : -ENOENT);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                p = machine_bus_path(machine);
+                if (!p)
+                        goto oom;
+
+                b = dbus_message_append_args(
+                                reply,
+                                DBUS_TYPE_OBJECT_PATH, &p,
+                                DBUS_TYPE_INVALID);
+                free(p);
+
+                if (!b)
+                        goto oom;
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "GetSeat")) {
                 const char *name;
                 char *p;
@@ -1612,7 +1933,6 @@ static DBusHandlerResult manager_message_handler(
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListUsers")) {
-                char *p;
                 User *user;
                 Iterator i;
                 DBusMessageIter iter, sub;
@@ -1627,6 +1947,7 @@ static DBusHandlerResult manager_message_handler(
                         goto oom;
 
                 HASHMAP_FOREACH(user, m->users, i) {
+                        _cleanup_free_ char *p = NULL;
                         DBusMessageIter sub2;
                         uint32_t uid;
 
@@ -1646,8 +1967,6 @@ static DBusHandlerResult manager_message_handler(
                                 goto oom;
                         }
 
-                        free(p);
-
                         if (!dbus_message_iter_close_container(&sub, &sub2))
                                 goto oom;
                 }
@@ -1656,7 +1975,6 @@ static DBusHandlerResult manager_message_handler(
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListSeats")) {
-                char *p;
                 Seat *seat;
                 Iterator i;
                 DBusMessageIter iter, sub;
@@ -1671,6 +1989,7 @@ static DBusHandlerResult manager_message_handler(
                         goto oom;
 
                 HASHMAP_FOREACH(seat, m->seats, i) {
+                        _cleanup_free_ char *p = NULL;
                         DBusMessageIter sub2;
 
                         if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
@@ -1685,8 +2004,6 @@ static DBusHandlerResult manager_message_handler(
                                 free(p);
                                 goto oom;
                         }
-
-                        free(p);
 
                         if (!dbus_message_iter_close_container(&sub, &sub2))
                                 goto oom;
@@ -1739,6 +2056,49 @@ static DBusHandlerResult manager_message_handler(
                 if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
 
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListMachines")) {
+                Machine *machine;
+                Iterator i;
+                DBusMessageIter iter, sub;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                dbus_message_iter_init_append(reply, &iter);
+
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ssso)", &sub))
+                        goto oom;
+
+                HASHMAP_FOREACH(machine, m->machines, i) {
+                        _cleanup_free_ char *p = NULL;
+                        DBusMessageIter sub2;
+                        const char *class;
+
+                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
+                                goto oom;
+
+                        p = machine_bus_path(machine);
+                        if (!p)
+                                goto oom;
+
+                        class = strempty(machine_class_to_string(machine->class));
+
+                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &machine->name) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &class) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &machine->service) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &p)) {
+                                free(p);
+                                goto oom;
+                        }
+
+                        if (!dbus_message_iter_close_container(&sub, &sub2))
+                                goto oom;
+                }
+
+                if (!dbus_message_iter_close_container(&iter, &sub))
+                        goto oom;
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Inhibit")) {
 
                 r = bus_manager_inhibit(m, connection, message, &error, &reply);
@@ -1756,6 +2116,11 @@ static DBusHandlerResult manager_message_handler(
                  * send a dupped fd to the client), and we'd rather
                  * see this fail quickly then be retried later */
 
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CreateMachine")) {
+
+                r = bus_manager_create_machine(m, message, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
 
@@ -1945,6 +2310,45 @@ static DBusHandlerResult manager_message_handler(
                 if (!reply)
                         goto oom;
 
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "KillMachine")) {
+                const char *swho;
+                int32_t signo;
+                KillWho who;
+                const char *name;
+                Machine *machine;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_STRING, &swho,
+                                    DBUS_TYPE_INT32, &signo,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                if (isempty(swho))
+                        who = KILL_ALL;
+                else {
+                        who = kill_who_from_string(swho);
+                        if (who < 0)
+                                return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                if (signo <= 0 || signo >= _NSIG)
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                machine = hashmap_get(m->machines, name);
+                if (!machine)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                r = machine_kill(machine, who, signo);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "TerminateSession")) {
                 const char *name;
                 Session *session;
@@ -2007,6 +2411,29 @@ static DBusHandlerResult manager_message_handler(
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
 
                 r = seat_stop_sessions(seat);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "TerminateMachine")) {
+                const char *name;
+                Machine *machine;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                machine = hashmap_get(m->machines, name);
+                if (!machine)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                r = machine_stop(machine);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
 

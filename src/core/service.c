@@ -220,7 +220,7 @@ static void service_close_socket_fd(Service *s) {
 static void service_connection_unref(Service *s) {
         assert(s);
 
-        if (!UNIT_DEREF(s->accept_socket))
+        if (!UNIT_ISSET(s->accept_socket))
                 return;
 
         socket_connection_unref(SOCKET(UNIT_DEREF(s->accept_socket)));

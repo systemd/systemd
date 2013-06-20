@@ -1005,7 +1005,7 @@ static int socket_open_fds(Socket *s) {
                                 if ((r = socket_instantiate_service(s)) < 0)
                                         return r;
 
-                                if (UNIT_DEREF(s->service) &&
+                                if (UNIT_ISSET(s->service) &&
                                     SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
                                         r = label_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
 
@@ -1633,7 +1633,7 @@ static int socket_start(Unit *u) {
                 return 0;
 
         /* Cannot run this without the service being around */
-        if (UNIT_DEREF(s->service)) {
+        if (UNIT_ISSET(s->service)) {
                 Service *service;
 
                 service = SERVICE(UNIT_DEREF(s->service));

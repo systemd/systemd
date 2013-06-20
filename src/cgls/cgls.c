@@ -34,6 +34,7 @@
 #include "pager.h"
 #include "build.h"
 #include "output-mode.h"
+#include "fileio.h"
 
 static bool arg_no_pager = false;
 static bool arg_kernel_threads = false;
@@ -184,9 +185,11 @@ int main(int argc, char *argv[]) {
                         r = show_cgroup_by_path(p, NULL, 0,
                                                 arg_kernel_threads, output_flags);
                 } else {
-                        if (arg_machine)
-                                r = cg_get_machine_path(arg_machine, &root);
-                        else
+                        if (arg_machine) {
+                                char *m;
+                                m = strappenda("/run/systemd/machines/", arg_machine);
+                                r = parse_env_file(m, NEWLINE, "CGROUP", &root, NULL);
+                        } else
                                 r = cg_get_root_path(&root);
                         if (r < 0) {
                                 log_error("Failed to get %s path: %s",

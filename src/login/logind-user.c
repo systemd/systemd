@@ -30,6 +30,7 @@
 #include "hashmap.h"
 #include "strv.h"
 #include "fileio.h"
+#include "special.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         User *u;
@@ -42,29 +43,27 @@ User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
                 return NULL;
 
         u->name = strdup(name);
-        if (!u->name) {
-                free(u);
-                return NULL;
-        }
+        if (!u->name)
+                goto fail;
 
-        if (asprintf(&u->state_file, "/run/systemd/users/%lu", (unsigned long) uid) < 0) {
-                free(u->name);
-                free(u);
-                return NULL;
-        }
+        if (asprintf(&u->state_file, "/run/systemd/users/%lu", (unsigned long) uid) < 0)
+                goto fail;
 
-        if (hashmap_put(m->users, ULONG_TO_PTR((unsigned long) uid), u) < 0) {
-                free(u->state_file);
-                free(u->name);
-                free(u);
-                return NULL;
-        }
+        if (hashmap_put(m->users, ULONG_TO_PTR((unsigned long) uid), u) < 0)
+                goto fail;
 
         u->manager = m;
         u->uid = uid;
         u->gid = gid;
 
         return u;
+
+fail:
+        free(u->state_file);
+        free(u->name);
+        free(u);
+
+        return NULL;
 }
 
 void user_free(User *u) {
@@ -76,9 +75,10 @@ void user_free(User *u) {
         while (u->sessions)
                 session_free(u->sessions);
 
-        if (u->cgroup_path)
+        if (u->cgroup_path) {
                 hashmap_remove(u->manager->user_cgroups, u->cgroup_path);
-        free(u->cgroup_path);
+                free(u->cgroup_path);
+        }
 
         free(u->service);
         free(u->runtime_path);
@@ -87,13 +87,14 @@ void user_free(User *u) {
 
         free(u->name);
         free(u->state_file);
+        free(u->slice);
         free(u);
 }
 
 int user_save(User *u) {
-        FILE *f;
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
-        char *temp_path;
 
         assert(u);
         assert(u->state_file);
@@ -119,24 +120,26 @@ int user_save(User *u) {
                 user_state_to_string(user_get_state(u)));
 
         if (u->cgroup_path)
-                fprintf(f,
-                        "CGROUP=%s\n",
-                        u->cgroup_path);
+                fprintf(f, "CGROUP=%s\n", u->cgroup_path);
 
         if (u->runtime_path)
-                fprintf(f,
-                        "RUNTIME=%s\n",
-                        u->runtime_path);
+                fprintf(f, "RUNTIME=%s\n", u->runtime_path);
 
         if (u->service)
-                fprintf(f,
-                        "SERVICE=%s\n",
-                        u->service);
+                fprintf(f, "SERVICE=%s\n", u->service);
+
+        if (u->slice)
+                fprintf(f, "SLICE=%s\n", u->slice);
 
         if (u->display)
+                fprintf(f, "DISPLAY=%s\n", u->display->id);
+
+        if (dual_timestamp_is_set(&u->timestamp))
                 fprintf(f,
-                        "DISPLAY=%s\n",
-                        u->display->id);
+                        "REALTIME=%llu\n"
+                        "MONOTONIC=%llu\n",
+                        (unsigned long long) u->timestamp.realtime,
+                        (unsigned long long) u->timestamp.monotonic);
 
         if (u->sessions) {
                 Session *i;
@@ -233,9 +236,6 @@ int user_save(User *u) {
                 unlink(temp_path);
         }
 
-        fclose(f);
-        free(temp_path);
-
 finish:
         if (r < 0)
                 log_error("Failed to save user data for %s: %s", u->name, strerror(-r));
@@ -244,21 +244,22 @@ finish:
 }
 
 int user_load(User *u) {
-        int r;
-        char *display = NULL;
+        _cleanup_free_ char *display = NULL, *realtime = NULL, *monotonic = NULL;
         Session *s = NULL;
+        int r;
 
         assert(u);
 
         r = parse_env_file(u->state_file, NEWLINE,
-                           "CGROUP", &u->cgroup_path,
-                           "RUNTIME", &u->runtime_path,
-                           "SERVICE", &u->service,
-                           "DISPLAY", &display,
+                           "CGROUP",    &u->cgroup_path,
+                           "RUNTIME",   &u->runtime_path,
+                           "SERVICE",   &u->service,
+                           "DISPLAY",   &display,
+                           "SLICE",     &u->slice,
+                           "REALTIME",  &realtime,
+                           "MONOTONIC", &monotonic,
                            NULL);
         if (r < 0) {
-                free(display);
-
                 if (r == -ENOENT)
                         return 0;
 
@@ -266,13 +267,23 @@ int user_load(User *u) {
                 return r;
         }
 
-        if (display) {
+        if (display)
                 s = hashmap_get(u->manager->sessions, display);
-                free(display);
-        }
 
         if (s && s->display && display_is_local(s->display))
                 u->display = s;
+
+        if (realtime) {
+                unsigned long long l;
+                if (sscanf(realtime, "%llu", &l) > 0)
+                        u->timestamp.realtime = l;
+        }
+
+        if (monotonic) {
+                unsigned long long l;
+                if (sscanf(monotonic, "%llu", &l) > 0)
+                        u->timestamp.monotonic = l;
+        }
 
         return r;
 }
@@ -309,13 +320,18 @@ static int user_mkdir_runtime_path(User *u) {
 
 static int user_create_cgroup(User *u) {
         char **k;
-        char *p;
         int r;
 
         assert(u);
 
+        if (!u->slice) {
+                u->slice = strdup(SPECIAL_USER_SLICE);
+                if (!u->slice)
+                        return log_oom();
+        }
+
         if (!u->cgroup_path) {
-                _cleanup_free_ char *name = NULL, *escaped = NULL;
+                _cleanup_free_ char *name = NULL, *escaped = NULL, *slice = NULL;
 
                 if (asprintf(&name, "%lu.user", (unsigned long) u->uid) < 0)
                         return log_oom();
@@ -324,30 +340,29 @@ static int user_create_cgroup(User *u) {
                 if (!escaped)
                         return log_oom();
 
-                p = strjoin(u->manager->cgroup_path, "/", escaped, NULL);
-                if (!p)
-                        return log_oom();
-        } else
-                p = u->cgroup_path;
+                r = cg_slice_to_path(u->slice, &slice);
+                if (r < 0)
+                        return r;
 
-        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, p, NULL);
-        if (r < 0) {
-                log_error("Failed to create cgroup "SYSTEMD_CGROUP_CONTROLLER":%s: %s", p, strerror(-r));
-                free(p);
-                u->cgroup_path = NULL;
-                return r;
+                u->cgroup_path = strjoin(u->manager->cgroup_root, "/", slice, "/", escaped, NULL);
+                if (!u->cgroup_path)
+                        return log_oom();
         }
 
-        u->cgroup_path = p;
+        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL);
+        if (r < 0) {
+                log_error("Failed to create cgroup "SYSTEMD_CGROUP_CONTROLLER":%s: %s", u->cgroup_path, strerror(-r));
+                return r;
+        }
 
         STRV_FOREACH(k, u->manager->controllers) {
 
                 if (strv_contains(u->manager->reset_controllers, *k))
                         continue;
 
-                r = cg_create(*k, p, NULL);
+                r = cg_create(*k, u->cgroup_path, NULL);
                 if (r < 0)
-                        log_warning("Failed to create cgroup %s:%s: %s", *k, p, strerror(-r));
+                        log_warning("Failed to create cgroup %s:%s: %s", *k, u->cgroup_path, strerror(-r));
         }
 
         r = hashmap_put(u->manager->user_cgroups, u->cgroup_path, u);
@@ -390,7 +405,8 @@ int user_start(User *u) {
         if (r < 0)
                 return r;
 
-        dual_timestamp_get(&u->timestamp);
+        if (!dual_timestamp_is_set(&u->timestamp))
+                dual_timestamp_get(&u->timestamp);
 
         u->started = true;
 
@@ -633,8 +649,8 @@ UserState user_get_state(User *u) {
 }
 
 int user_kill(User *u, int signo) {
-        int r = 0, q;
-        Set *pid_set = NULL;
+        _cleanup_set_free_ Set *pid_set = NULL;
+        int r;
 
         assert(u);
 
@@ -645,15 +661,11 @@ int user_kill(User *u, int signo) {
         if (!pid_set)
                 return -ENOMEM;
 
-        q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, true, false, pid_set);
-        if (q < 0)
-                if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
-                        r = q;
+        r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, true, false, pid_set);
+        if (r < 0 && (r != -EAGAIN && r != -ESRCH && r != -ENOENT))
+                return r;
 
-        if (pid_set)
-                set_free(pid_set);
-
-        return r;
+        return 0;
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {

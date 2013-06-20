@@ -8,6 +8,4 @@
 [Unit]
 Description=Virtual Machine and Container Slice
 Documentation=man:systemd.special(7)
-
-[Install]
-WantedBy=slices.target
+Before=slices.target

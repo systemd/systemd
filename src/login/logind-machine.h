@@ -1,0 +1,80 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+#pragma once
+
+/***
+  This file is part of systemd.
+
+  Copyright 2013 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+typedef struct Machine Machine;
+
+#include "list.h"
+#include "util.h"
+#include "logind.h"
+#include "logind-session.h"
+
+typedef enum MachineClass {
+        MACHINE_CONTAINER,
+        MACHINE_VM,
+        _MACHINE_CLASS_MAX,
+        _MACHINE_CLASS_INVALID = -1
+} MachineClass;
+
+struct Machine {
+        Manager *manager;
+
+        char *name;
+        sd_id128_t id;
+
+        MachineClass class;
+
+        char *state_file;
+        char *service;
+        char *cgroup_path;
+        char *slice;
+        char *root_directory;
+
+        pid_t leader;
+
+        dual_timestamp timestamp;
+
+        bool in_gc_queue:1;
+        bool started:1;
+
+        LIST_FIELDS(Machine, gc_queue);
+};
+
+Machine* machine_new(Manager *manager, const char *name);
+void machine_free(Machine *m);
+int machine_check_gc(Machine *m, bool drop_not_started);
+void machine_add_to_gc_queue(Machine *m);
+int machine_start(Machine *m);
+int machine_stop(Machine *m);
+int machine_save(Machine *m);
+int machine_load(Machine *m);
+int machine_kill(Machine *m, KillWho who, int signo);
+
+char *machine_bus_path(Machine *s);
+
+extern const DBusObjectPathVTable bus_machine_vtable;
+
+int machine_send_signal(Machine *m, bool new_machine);
+int machine_send_changed(Machine *m, const char *properties);
+
+const char* machine_class_to_string(MachineClass t) _const_;
+MachineClass machine_class_from_string(const char *s) _pure_;

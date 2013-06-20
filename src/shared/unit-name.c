@@ -455,7 +455,7 @@ char *unit_name_to_path(const char *name) {
 }
 
 char *unit_dbus_path_from_name(const char *name) {
-        char *e, *p;
+        _cleanup_free_ char *e = NULL;
 
         assert(name);
 
@@ -463,10 +463,7 @@ char *unit_dbus_path_from_name(const char *name) {
         if (!e)
                 return NULL;
 
-        p = strappend("/org/freedesktop/systemd1/unit/", e);
-        free(e);
-
-        return p;
+        return strappend("/org/freedesktop/systemd1/unit/", e);
 }
 
 char *unit_name_mangle(const char *name) {

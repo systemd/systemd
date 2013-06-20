@@ -43,11 +43,8 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 
-#ifdef HAVE_XATTR
-#include <attr/xattr.h>
-#endif
-
 #include <systemd/sd-daemon.h>
+#include <systemd/sd-bus.h>
 
 #include "log.h"
 #include "util.h"
@@ -64,6 +61,8 @@
 #include "fdset.h"
 #include "build.h"
 #include "fileio.h"
+#include "bus-internal.h"
+#include "bus-message.h"
 
 #ifndef TTY_GID
 #define TTY_GID 5
@@ -78,9 +77,9 @@ typedef enum LinkJournal {
 
 static char *arg_directory = NULL;
 static char *arg_user = NULL;
-static char **arg_controllers = NULL;
-static char *arg_uuid = NULL;
+static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
+static const char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
 static bool arg_boot = false;
@@ -123,10 +122,9 @@ static int help(void) {
                "  -D --directory=NAME      Root directory for the container\n"
                "  -b --boot                Boot up full system (i.e. invoke init)\n"
                "  -u --user=USER           Run the command under specified user or uid\n"
-               "  -C --controllers=LIST    Put the container in specified comma-separated\n"
-               "                           cgroup hierarchies\n"
                "     --uuid=UUID           Set a specific machine UUID for the container\n"
                "  -M --machine=NAME        Set the machine name for the container\n"
+               "  -S --slice=SLICE         Place the container in the specified slice\n"
                "     --private-network     Disable network in container\n"
                "     --read-only           Mount the root directory read-only\n"
                "     --capability=CAP      In addition to the default, retain specified\n"
@@ -159,7 +157,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "directory",       required_argument, NULL, 'D'                 },
                 { "user",            required_argument, NULL, 'u'                 },
-                { "controllers",     required_argument, NULL, 'C'                 },
                 { "private-network", no_argument,       NULL, ARG_PRIVATE_NETWORK },
                 { "boot",            no_argument,       NULL, 'b'                 },
                 { "uuid",            required_argument, NULL, ARG_UUID            },
@@ -169,15 +166,16 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind",            required_argument, NULL, ARG_BIND            },
                 { "bind-ro",         required_argument, NULL, ARG_BIND_RO         },
                 { "machine",         required_argument, NULL, 'M'                 },
+                { "slice",           required_argument, NULL, 'S'                 },
                 { NULL,              0,                 NULL, 0                   }
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:C:bM:j", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hD:u:C:bM:jS:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -208,15 +206,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case 'C':
-                        strv_free(arg_controllers);
-                        arg_controllers = strv_split(optarg, ",");
-                        if (!arg_controllers)
-                                return log_oom();
-
-                        cg_shorten_controllers(arg_controllers);
-                        break;
-
                 case ARG_PRIVATE_NETWORK:
                         arg_private_network = true;
                         break;
@@ -226,12 +215,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_UUID:
-                        if (!id128_is_valid(optarg)) {
+                        r = sd_id128_from_string(optarg, &arg_uuid);
+                        if (r < 0) {
                                 log_error("Invalid UUID: %s", optarg);
-                                return -EINVAL;
+                                return r;
                         }
+                        break;
 
-                        arg_uuid = optarg;
+                case 'S':
+                        arg_slice = strdup(optarg);
                         break;
 
                 case 'M':
@@ -301,7 +293,6 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ char *a = NULL, *b = NULL;
                         char *e;
                         char ***x;
-                        int r;
 
                         x = c == ARG_BIND ? &arg_bind : &arg_bind_ro;
 
@@ -912,68 +903,6 @@ static int setup_journal(const char *directory) {
         return 0;
 }
 
-static int setup_cgroup(const char *path) {
-        char **c;
-        int r;
-
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, path, 1);
-        if (r < 0) {
-                log_error("Failed to create cgroup: %s", strerror(-r));
-                return r;
-        }
-
-        STRV_FOREACH(c, arg_controllers) {
-                r = cg_create_and_attach(*c, path, 1);
-                if (r < 0)
-                        log_warning("Failed to create cgroup in controller %s: %s", *c, strerror(-r));
-        }
-
-        return 0;
-}
-
-static int save_attributes(const char *cgroup, pid_t pid, const char *uuid, const char *directory) {
-#ifdef HAVE_XATTR
-        _cleanup_free_ char *path = NULL;
-        char buf[DECIMAL_STR_MAX(pid_t)];
-        int r = 0, k;
-
-        assert(cgroup);
-        assert(pid >= 0);
-        assert(arg_directory);
-
-        assert_se(snprintf(buf, sizeof(buf), "%lu", (unsigned long) pid) < (int) sizeof(buf));
-
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup, NULL, &path);
-        if (r < 0) {
-                log_error("Failed to get path: %s", strerror(-r));
-                return r;
-        }
-
-        r = setxattr(path, "trusted.init_pid", buf, strlen(buf), XATTR_CREATE);
-        if (r < 0)
-                log_warning("Failed to set %s attribute on %s: %m", "trusted.init_pid", path);
-
-        if (uuid) {
-                k = setxattr(path, "trusted.machine_id", uuid, strlen(uuid), XATTR_CREATE);
-                if (k < 0) {
-                        log_warning("Failed to set %s attribute on %s: %m", "trusted.machine_id", path);
-                        if (r == 0)
-                                r = k;
-                }
-        }
-
-        k = setxattr(path, "trusted.root_directory", directory, strlen(directory), XATTR_CREATE);
-        if (k < 0) {
-                log_warning("Failed to set %s attribute on %s: %m", "trusted.root_directory", path);
-                if (r == 0)
-                        r = k;
-        }
-        return r;
-#else
-        return 0;
-#endif
-}
-
 static int drop_capabilities(void) {
         return capability_bounding_set_drop(~arg_retain, false);
 }
@@ -1220,6 +1149,41 @@ finish:
         return r;
 }
 
+static int register_machine(void) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0) {
+                log_error("Failed to open system bus: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "CreateMachine",
+                        &error,
+                        NULL,
+                        "sayssuss",
+                        arg_machine,
+                        SD_BUS_APPEND_ID128(arg_uuid),
+                        "nspawn",
+                        "container",
+                        (uint32_t) 0,
+                        strempty(arg_slice),
+                        strempty(arg_directory));
+        if (r < 0) {
+                log_error("Failed to register machine: %s", error.message);
+                return r;
+        }
+
+        return 0;
+}
+
 static bool audit_enabled(void) {
         int fd;
 
@@ -1234,7 +1198,6 @@ static bool audit_enabled(void) {
 int main(int argc, char *argv[]) {
         pid_t pid = 0;
         int r = EXIT_FAILURE, k;
-        _cleanup_free_ char *newcg = NULL;
         _cleanup_close_ int master = -1;
         int n_fd_passed;
         const char *console = NULL;
@@ -1324,22 +1287,6 @@ int main(int argc, char *argv[]) {
         }
         fdset_close_others(fds);
         log_open();
-
-        k = cg_get_machine_path(arg_machine, &newcg);
-        if (k < 0) {
-                log_error("Failed to determine machine cgroup path: %s", strerror(-k));
-                goto finish;
-        }
-
-        k = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, newcg, true);
-        if (k <= 0 && k != -ENOENT) {
-                log_error("Container already running.");
-
-                free(newcg);
-                newcg = NULL;
-
-                goto finish;
-        }
 
         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
         if (master < 0) {
@@ -1484,10 +1431,11 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
                         }
 
-                        if (setup_cgroup(newcg) < 0)
-                                goto child_fail;
-
                         close_pipe(pipefd2);
+
+                        r = register_machine();
+                        if (r < 0)
+                                goto finish;
 
                         /* Mark everything as slave, so that we still
                          * receive mounts from the real root, but don't
@@ -1639,8 +1587,8 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
                         }
 
-                        if (arg_uuid) {
-                                if (asprintf((char**)(envp + n_env++), "container_uuid=%s", arg_uuid) < 0) {
+                        if (!sd_id128_equal(arg_uuid, SD_ID128_NULL)) {
+                                if (asprintf((char**)(envp + n_env++), "container_uuid=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid)) < 0) {
                                         log_oom();
                                         goto child_fail;
                                 }
@@ -1702,8 +1650,6 @@ int main(int argc, char *argv[]) {
                 fd_wait_for_event(pipefd2[0], POLLHUP, -1);
                 close_nointr_nofail(pipefd2[0]);
 
-                save_attributes(newcg, pid, arg_uuid, arg_directory);
-
                 fdset_free(fds);
                 fds = NULL;
 
@@ -1756,12 +1702,11 @@ finish:
 
         close_pipe(kmsg_socket_pair);
 
-        if (newcg)
-                cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, newcg, true);
+        if (pid > 0)
+                kill(pid, SIGKILL);
 
         free(arg_directory);
         free(arg_machine);
-        strv_free(arg_controllers);
 
         fdset_free(fds);
 

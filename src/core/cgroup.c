@@ -32,6 +32,7 @@
 #include "log.h"
 #include "strv.h"
 #include "path-util.h"
+#include "special.h"
 
 int cgroup_bonding_realize(CGroupBonding *b) {
         int r;
@@ -304,7 +305,8 @@ int cgroup_bonding_is_empty_list(CGroupBonding *first) {
         LIST_FOREACH(by_unit, b, first) {
                 int r;
 
-                if ((r = cgroup_bonding_is_empty(b)) < 0) {
+                r = cgroup_bonding_is_empty(b);
+                if (r < 0) {
                         /* If this returned -EAGAIN, then we don't know if the
                          * group is empty, so let's see if another group can
                          * tell us */
@@ -319,10 +321,9 @@ int cgroup_bonding_is_empty_list(CGroupBonding *first) {
 }
 
 int manager_setup_cgroup(Manager *m) {
-        _cleanup_free_ char *current = NULL, *path = NULL;
-        char suffix_buffer[sizeof("/systemd-") + DECIMAL_STR_MAX(pid_t)];
-        const char *suffix;
+        _cleanup_free_ char *path = NULL;
         int r;
+        char *e, *a;
 
         assert(m);
 
@@ -333,37 +334,30 @@ int manager_setup_cgroup(Manager *m) {
         }
 
         /* 1. Determine hierarchy */
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &current);
+        free(m->cgroup_root);
+        m->cgroup_root = NULL;
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &m->cgroup_root);
         if (r < 0) {
                 log_error("Cannot determine cgroup we are running in: %s", strerror(-r));
                 return r;
         }
 
-        if (m->running_as == SYSTEMD_SYSTEM)
-                suffix = NULL;
-        else {
-                sprintf(suffix_buffer, "/systemd-%lu", (unsigned long) getpid());
-                suffix = suffix_buffer;
+        /* Already in /system.slice? If so, let's cut this off again */
+        if (m->running_as == SYSTEMD_SYSTEM) {
+                e = endswith(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
+                if (e)
+                        *e = 0;
         }
 
-        free(m->cgroup_hierarchy);
-        if (!suffix || endswith(current, suffix)) {
-                /* We probably got reexecuted and can continue to use our root cgroup */
-                m->cgroup_hierarchy = current;
-                current = NULL;
-        } else {
-                /* We need a new root cgroup */
-                if (streq(current, "/"))
-                        m->cgroup_hierarchy = strdup(suffix);
-                else
-                        m->cgroup_hierarchy = strappend(current, suffix);
-
-                if (!m->cgroup_hierarchy)
-                        return log_oom();
-        }
+        /* And make sure to store away the root value without trailing
+         * slash, even for the root dir, so that we can easily prepend
+         * it everywhere. */
+        if (streq(m->cgroup_root, "/"))
+                m->cgroup_root[0] = 0;
 
         /* 2. Show data */
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, NULL, &path);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, NULL, &path);
         if (r < 0) {
                 log_error("Cannot find cgroup mount point: %s", strerror(-r));
                 return r;
@@ -382,8 +376,9 @@ int manager_setup_cgroup(Manager *m) {
                         log_debug("Release agent already installed.");
         }
 
-        /* 4. Realize the group */
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, 0);
+        /* 4. Realize the system slice and put us in there */
+        a = strappenda(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
+        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, a, 0);
         if (r < 0) {
                 log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
                 return r;
@@ -402,30 +397,24 @@ int manager_setup_cgroup(Manager *m) {
         /* 6. Remove non-existing controllers from the default controllers list */
         cg_shorten_controllers(m->default_controllers);
 
-        /* 7. Let's create the user and machine hierarchies
-         * right-away, so that people can inotify on them, if they
-         * wish, without this being racy. */
-        if (m->running_as == SYSTEMD_SYSTEM) {
-                cg_create(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, "../user");
-                cg_create(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy, "../machine");
-        }
-
         return 0;
 }
 
 void manager_shutdown_cgroup(Manager *m, bool delete) {
         assert(m);
 
-        if (delete && m->cgroup_hierarchy)
-                cg_delete(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_hierarchy);
+        /* We can't really delete the group, since we are in it. But
+         * let's trim it. */
+        if (delete && m->cgroup_root)
+                cg_trim(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, false);
 
         if (m->pin_cgroupfs_fd >= 0) {
                 close_nointr_nofail(m->pin_cgroupfs_fd);
                 m->pin_cgroupfs_fd = -1;
         }
 
-        free(m->cgroup_hierarchy);
-        m->cgroup_hierarchy = NULL;
+        free(m->cgroup_root);
+        m->cgroup_root = NULL;
 }
 
 int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding) {

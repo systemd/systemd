@@ -56,6 +56,7 @@
         "  <property name=\"RemoteHost\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RemoteUser\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Service\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"Slice\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Leader\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"Audit\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
@@ -233,8 +234,8 @@ static int bus_session_append_state(DBusMessageIter *i, const char *property, vo
 }
 
 static int get_session_for_path(Manager *m, const char *path, Session **_s) {
+        _cleanup_free_ char *id = NULL;
         Session *s;
-        char *id;
 
         assert(m);
         assert(path);
@@ -248,8 +249,6 @@ static int get_session_for_path(Manager *m, const char *path, Session **_s) {
                 return -ENOMEM;
 
         s = hashmap_get(m->sessions, id);
-        free(id);
-
         if (!s)
                 return -ENOENT;
 
@@ -270,6 +269,7 @@ static const BusProperty bus_login_session_properties[] = {
         { "RemoteUser",             bus_property_append_string,         "s", offsetof(Session, remote_user),        true },
         { "RemoteHost",             bus_property_append_string,         "s", offsetof(Session, remote_host),        true },
         { "Service",                bus_property_append_string,         "s", offsetof(Session, service),            true },
+        { "Slice",                  bus_property_append_string,         "s", offsetof(Session, slice),              true },
         { "Leader",                 bus_property_append_pid,            "u", offsetof(Session, leader)              },
         { "Audit",                  bus_property_append_uint32,         "u", offsetof(Session, audit_id)            },
         { "Type",                   bus_session_append_type,            "s", offsetof(Session, type)                },
@@ -448,7 +448,7 @@ const DBusObjectPathVTable bus_session_vtable = {
 };
 
 char *session_bus_path(Session *s) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
 
         assert(s);
 

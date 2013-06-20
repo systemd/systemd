@@ -27,6 +27,8 @@
 #include "unit-name.h"
 #include "unit-printf.h"
 #include "macro.h"
+#include "cgroup-util.h"
+#include "special.h"
 
 static char *specifier_prefix_and_instance(char specifier, void *data, void *userdata) {
         Unit *u = userdata;
@@ -86,22 +88,22 @@ static char *specifier_cgroup(char specifier, void *data, void *userdata) {
 }
 
 static char *specifier_cgroup_root(char specifier, void *data, void *userdata) {
+        _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
-        char *p;
+        const char *slice;
+        int r;
+
         assert(u);
 
-        if (specifier == 'r')
-                return strdup(u->manager->cgroup_hierarchy);
+        slice = unit_slice_name(u);
+        if (specifier == 'R' || !slice)
+                return strdup(u->manager->cgroup_root);
 
-        if (path_get_parent(u->manager->cgroup_hierarchy, &p) < 0)
-                return strdup("");
+        r = cg_slice_to_path(slice, &p);
+        if (r < 0)
+                return NULL;
 
-        if (streq(p, "/")) {
-                free(p);
-                return strdup("");
-        }
-
-        return p;
+        return strjoin(u->manager->cgroup_root, "/", p, NULL);
 }
 
 static char *specifier_runtime(char specifier, void *data, void *userdata) {
@@ -256,8 +258,8 @@ char *unit_full_printf(Unit *u, const char *format) {
          *
          * %f the the instance if set, otherwise the id
          * %c cgroup path of unit
-         * %r root cgroup path of this systemd instance (e.g. "/user/lennart/shared/systemd-4711")
-         * %R parent of root cgroup path (e.g. "/usr/lennart/shared")
+         * %r where units in this slice are place in the cgroup tree
+         * %R the root of this systemd's instance tree
          * %t the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
          * %U the UID of the configured user or running user
          * %u the username of the configured user or running user

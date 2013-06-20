@@ -269,3 +269,21 @@ This does not interfere with mounting, but the pre-exisiting files in
 this directory become inaccessible. To see those over-mounted files,
 please manually mount the underlying file system to a secondary
 location.
+
+-- 24d8d4452573402496068381a6312df2
+Subject: A virtual machine or container has been started
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The virtual machine @NAME@ with its leader PID @LEADER@ has been
+started is now ready to use.
+
+-- 58432bd3bace477cb514b56381b8a758
+Subject: A virtual machine or container has been terminated
+Defined-By: systemd
+Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
+
+The virtual machine @NAME@ with its leader PID @LEADER@ has been
+shut down.
