@@ -38,15 +38,22 @@ if ! [[ $PRETTY_NAME ]]; then
     PRETTY_NAME="Linux $KERNEL_VERSION"
 fi
 
+declare -a BOOT_OPTIONS
+
 if [[ -f /etc/kernel/cmdline ]]; then
     readarray -t BOOT_OPTIONS < /etc/kernel/cmdline
 fi
 
 if ! [[ ${BOOT_OPTIONS[*]} ]]; then
-    readarray -t BOOT_OPTIONS < /proc/cmdline
+    readarray -t line < /proc/cmdline
+    for i in ${line[*]}; do
+        if [[ "${i#initrd=*}" == "$i" ]]; then
+            BOOT_OPTIONS[${#BOOT_OPTIONS[@]}]="$i"
+        fi
+    done
 fi
 
-if ! [[ $BOOT_OPTIONS ]]; then
+if ! [[ ${BOOT_OPTIONS[*]} ]]; then
     echo "Could not determine the kernel command line parameters." >&2
     echo "Please specify the kernel command line in /etc/kernel/cmdline!" >&2
     exit 1
