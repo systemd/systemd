@@ -509,9 +509,13 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
                 goto fail;
 
         /* Try to connect to the busses, if possible. */
-        r = bus_init(m, running_as != SYSTEMD_SYSTEM);
-        if (r < 0)
-                goto fail;
+        if ((running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS")) ||
+            running_as == SYSTEMD_SYSTEM) {
+                r = bus_init(m, running_as != SYSTEMD_SYSTEM);
+                if (r < 0)
+                        goto fail;
+        } else
+                log_debug("Skipping DBus session bus connection attempt - no DBUS_SESSION_BUS_ADDRESS set...");
 
         m->taint_usr = dir_is_empty("/usr") > 0;
 
