@@ -669,9 +669,7 @@ int manager_enumerate_users(Manager *m) {
         assert(m);
 
         /* Add lingering users */
-        k = manager_enumerate_linger_users(m);
-        if (k < 0)
-                r = k;
+        r = manager_enumerate_linger_users(m);
 
         /* Read in user data stored on disk */
         d = opendir("/run/systemd/users");
