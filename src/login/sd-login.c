@@ -592,40 +592,7 @@ _public_ int sd_get_uids(uid_t **users) {
 }
 
 _public_ int sd_get_machine_names(char ***machines) {
-        _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_strv_free_ char **l = NULL;
-        _cleanup_free_ char *md = NULL;
-        char *n;
-        int c = 0, r;
-
-        r = cg_get_root_path(&md);
-        if (r < 0)
-                return r;
-
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, md, &d);
-        if (r < 0)
-                return r;
-
-        while ((r = cg_read_subgroup(d, &n)) > 0) {
-
-                r = strv_push(&l, n);
-                if (r < 0) {
-                        free(n);
-                        return -ENOMEM;
-                }
-
-                c++;
-        }
-
-        if (r < 0)
-                return r;
-
-        if (machines) {
-                *machines = l;
-                l = NULL;
-        }
-
-        return c;
+        return get_files_in_directory("/run/systemd/machines/", machines);
 }
 
 static inline int MONITOR_TO_FD(sd_login_monitor *m) {
@@ -678,18 +645,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         }
 
         if (!category || streq(category, "machine")) {
-                _cleanup_free_ char *md = NULL, *p = NULL;
-                int r;
-
-                r = cg_get_root_path(&md);
-                if (r < 0)
-                        return r;
-
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, md, NULL, &p);
-                if (r < 0)
-                        return r;
-
-                k = inotify_add_watch(fd, p, IN_MOVED_TO|IN_CREATE|IN_DELETE);
+                k = inotify_add_watch(fd, "/run/systemd/machines/", IN_MOVED_TO|IN_DELETE);
                 if (k < 0) {
                         close_nointr_nofail(fd);
                         return -errno;

@@ -44,7 +44,7 @@ Features:
   RUNNING/LISTENING states of its socket
 
 * slices:
-  - add option to pam_systemd to move login session into a slice
+  - add option to pam_systemd to move login session into a slice (?)
   - remove ControlGroup= setting
   - in sd_pid_get_owner_uid() fallback to query session file
   - add api to determine slice of unit
