@@ -72,6 +72,16 @@ _public_ int sd_pid_get_machine_name(pid_t pid, char **name) {
         return cg_pid_get_machine_name(pid, name);
 }
 
+_public_ int sd_pid_get_slice(pid_t pid, char **slice) {
+
+        if (pid < 0)
+                return -EINVAL;
+        if (!slice)
+                return -EINVAL;
+
+        return cg_pid_get_slice(pid, slice);
+}
+
 _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
 
         if (pid < 0)

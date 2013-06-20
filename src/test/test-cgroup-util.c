@@ -134,7 +134,7 @@ static void test_proc(void) {
         assert_se(d);
 
         FOREACH_DIRENT(de, d, break) {
-                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *prefix = NULL;
+                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *prefix = NULL, *slice = NULL;
                 pid_t pid;
                 uid_t uid = (uid_t) -1;
 
@@ -156,8 +156,9 @@ static void test_proc(void) {
                 cg_pid_get_unit(pid, &unit);
                 cg_pid_get_user_unit(pid, &user_unit);
                 cg_pid_get_machine_name(pid, &machine);
+                cg_pid_get_slice(pid, &slice);
 
-                printf("%lu\t%s\t%s\t%s\t%lu\t%s\t%s\t%s\t%s\n",
+                printf("%lu\t%s\t%s\t%s\t%lu\t%s\t%s\t%s\t%s\t%s\n",
                        (unsigned long) pid,
                        path,
                        prefix,
@@ -166,7 +167,8 @@ static void test_proc(void) {
                        session,
                        unit,
                        user_unit,
-                       machine);
+                       machine,
+                       slice);
         }
 }
 

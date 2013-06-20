@@ -1227,11 +1227,11 @@ int cg_path_decode_unit(const char *cgroup, char **unit){
 }
 
 static const char *skip_slices(const char *p) {
-        size_t n;
-
         /* Skips over all slice assignments */
 
         for (;;) {
+                size_t n;
+
                 p += strspn(p, "/");
 
                 n = strcspn(p, "/");
@@ -1473,6 +1473,53 @@ int cg_pid_get_owner_uid(pid_t pid, uid_t *uid) {
                 return r;
 
         return cg_path_get_owner_uid(cgroup, uid);
+}
+
+int cg_path_get_slice(const char *p, char **slice) {
+        const char *e = NULL;
+        size_t m = 0;
+
+        assert(p);
+        assert(slice);
+
+        for (;;) {
+                size_t n;
+
+                p += strspn(p, "/");
+
+                n = strcspn(p, "/");
+                if (n <= 6 || memcmp(p + n - 6, ".slice", 6) != 0) {
+                        char *s;
+
+                        if (!e)
+                                return -ENOENT;
+
+                        s = strndup(e, m);
+                        if (!s)
+                                return -ENOMEM;
+
+                        *slice = s;
+                        return 0;
+                }
+
+                e = p;
+                m = n;
+
+                p += n;
+        }
+}
+
+int cg_pid_get_slice(pid_t pid, char **slice) {
+        _cleanup_free_ char *cgroup = NULL;
+        int r;
+
+        assert(slice);
+
+        r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
+        if (r < 0)
+                return r;
+
+        return cg_path_get_slice(cgroup, slice);
 }
 
 int cg_controller_from_attr(const char *attr, char **controller) {
