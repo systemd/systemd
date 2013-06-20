@@ -28,6 +28,10 @@ Fedora 19:
 
 Features:
 
+* when creating a session or machine, automatically move the process into the root cgroup for all other hierarchies
+
+* maybe reintroduce nspawn -C?
+
 * move systemctl dump to systemd-analyze
 
 * libsystemd-logind: sd_session_is_active() and friends: verify
