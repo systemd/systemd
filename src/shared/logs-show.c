@@ -101,7 +101,7 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
         return true;
 }
 
-static void print_multiline(FILE *f, unsigned prefix, unsigned n_columns, int flags, int priority, const char* message, size_t message_len) {
+static void print_multiline(FILE *f, unsigned prefix, unsigned n_columns, OutputMode flags, int priority, const char* message, size_t message_len) {
         const char *color_on = "", *color_off = "";
         const char *pos, *end;
         bool continuation = false;
@@ -123,7 +123,7 @@ static void print_multiline(FILE *f, unsigned prefix, unsigned n_columns, int fl
                 len = end - pos;
                 assert(len >= 0);
 
-                if ((flags & OUTPUT_FULL_WIDTH) || (prefix + len + 1 < n_columns))
+                if (flags & (OUTPUT_FULL_WIDTH | OUTPUT_SHOW_ALL) || prefix + len + 1 < n_columns)
                         fprintf(f, "%*s%s%.*s%s\n",
                                 continuation * prefix, "",
                                 color_on, len, pos, color_off);
