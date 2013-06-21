@@ -927,8 +927,8 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
 
             /* Look for coredumps of the service */
             (r = sd_journal_add_disjunction(j)) ||
-            (r = sd_journal_add_match(j,
-                        "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", 0)) ||
+            (r = sd_journal_add_match(j, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", 0)) ||
+            (r = sd_journal_add_match(j, "_UID=0", 0)) ||
             (r = sd_journal_add_match(j, m2, 0)) ||
 
              /* Look for messages from PID 1 about this service */
@@ -965,7 +965,8 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
                 /* Look for coredumps of the service */
                 (r = sd_journal_add_disjunction(j)) ||
                 (r = sd_journal_add_match(j, m3, 0)) ||
-                (r = sd_journal_add_match(j, m4, 0))
+                (r = sd_journal_add_match(j, m4, 0)) ||
+                (r = sd_journal_add_match(j, "_UID=0", 0))
         );
         return r;
 }
