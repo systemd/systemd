@@ -28,6 +28,8 @@ Fedora 19:
 
 Features:
 
+* journald: make sure ratelimit is actually really per-service with the new cgroup changes
+
 * when creating a session or machine, automatically move the process into the root cgroup for all other hierarchies
 
 * maybe reintroduce nspawn -C?
