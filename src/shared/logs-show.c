@@ -911,15 +911,15 @@ finish:
 
 int add_matches_for_unit(sd_journal *j, const char *unit) {
         int r;
-        _cleanup_free_ char *m1 = NULL, *m2 = NULL, *m3 = NULL;
+        char *m1, *m2, *m3, *m4;
 
         assert(j);
         assert(unit);
 
-        if (asprintf(&m1, "_SYSTEMD_UNIT=%s", unit) < 0 ||
-            asprintf(&m2, "COREDUMP_UNIT=%s", unit) < 0 ||
-            asprintf(&m3, "UNIT=%s", unit) < 0)
-                return -ENOMEM;
+        m1 = strappenda("_SYSTEMD_UNIT=", unit);
+        m2 = strappenda("COREDUMP_UNIT=", unit);
+        m3 = strappenda("UNIT=", unit);
+        m4 = strappenda("OBJECT_SYSTEMD_UNIT=", unit);
 
         (void)(
             /* Look for messages from the service itself */
@@ -934,38 +934,51 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
              /* Look for messages from PID 1 about this service */
             (r = sd_journal_add_disjunction(j)) ||
             (r = sd_journal_add_match(j, "_PID=1", 0)) ||
-            (r = sd_journal_add_match(j, m3, 0))
+            (r = sd_journal_add_match(j, m3, 0)) ||
+
+            /* Look for messages from authorized daemons about this service */
+            (r = sd_journal_add_disjunction(j)) ||
+            (r = sd_journal_add_match(j, "_UID=0", 0)) ||
+            (r = sd_journal_add_match(j, m4, 0))
         );
+
         return r;
 }
 
 int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         int r;
-        _cleanup_free_ char *m1 = NULL, *m2 = NULL, *m3 = NULL, *m4 = NULL;
+        char *m1, *m2, *m3, *m4;
+        char muid[sizeof("_UID=") + DECIMAL_STR_MAX(uid_t)];
 
         assert(j);
         assert(unit);
 
-        if (asprintf(&m1, "_SYSTEMD_USER_UNIT=%s", unit) < 0 ||
-            asprintf(&m2, "USER_UNIT=%s", unit) < 0 ||
-            asprintf(&m3, "COREDUMP_USER_UNIT=%s", unit) < 0 ||
-            asprintf(&m4, "_UID=%d", uid) < 0)
-                return -ENOMEM;
+        m1 = strappenda("_SYSTEMD_USER_UNIT=", unit);
+        m2 = strappenda("USER_UNIT=", unit);
+        m3 = strappenda("COREDUMP_USER_UNIT=", unit);
+        m4 = strappenda("OBJECT_SYSTEMD_USER_UNIT=", unit);
+        sprintf(muid, "_UID=%lu", (unsigned long) uid);
 
         (void) (
                 /* Look for messages from the user service itself */
                 (r = sd_journal_add_match(j, m1, 0)) ||
-                (r = sd_journal_add_match(j, m4, 0)) ||
+                (r = sd_journal_add_match(j, muid, 0)) ||
 
                 /* Look for messages from systemd about this service */
                 (r = sd_journal_add_disjunction(j)) ||
                 (r = sd_journal_add_match(j, m2, 0)) ||
-                (r = sd_journal_add_match(j, m4, 0)) ||
+                (r = sd_journal_add_match(j, muid, 0)) ||
 
                 /* Look for coredumps of the service */
                 (r = sd_journal_add_disjunction(j)) ||
                 (r = sd_journal_add_match(j, m3, 0)) ||
+                (r = sd_journal_add_match(j, muid, 0)) ||
+                (r = sd_journal_add_match(j, "_UID=0", 0)) ||
+
+                /* Look for messages from authorized daemons about this service */
+                (r = sd_journal_add_disjunction(j)) ||
                 (r = sd_journal_add_match(j, m4, 0)) ||
+                (r = sd_journal_add_match(j, muid, 0)) ||
                 (r = sd_journal_add_match(j, "_UID=0", 0))
         );
         return r;
