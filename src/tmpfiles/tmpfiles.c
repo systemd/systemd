@@ -783,7 +783,7 @@ static int create_item(Item *i) {
 
                 r = glob_item(i, item_set_perms);
                 if (r < 0)
-                        return 0;
+                        return r;
                 break;
 
         case RECURSIVE_RELABEL_PATH:
