@@ -158,23 +158,23 @@ void server_process_native_message(
                                  * of this entry for the rate limiting
                                  * logic */
                                 if (l == 10 &&
-                                    memcmp(p, "PRIORITY=", 9) == 0 &&
+                                    hasprefix(p, "PRIORITY=") &&
                                     p[9] >= '0' && p[9] <= '9')
                                         priority = (priority & LOG_FACMASK) | (p[9] - '0');
 
                                 else if (l == 17 &&
-                                         memcmp(p, "SYSLOG_FACILITY=", 16) == 0 &&
+                                         hasprefix(p, "SYSLOG_FACILITY=") &&
                                          p[16] >= '0' && p[16] <= '9')
                                         priority = (priority & LOG_PRIMASK) | ((p[16] - '0') << 3);
 
                                 else if (l == 18 &&
-                                         memcmp(p, "SYSLOG_FACILITY=", 16) == 0 &&
+                                         hasprefix(p, "SYSLOG_FACILITY=") &&
                                          p[16] >= '0' && p[16] <= '9' &&
                                          p[17] >= '0' && p[17] <= '9')
                                         priority = (priority & LOG_PRIMASK) | (((p[16] - '0')*10 + (p[17] - '0')) << 3);
 
                                 else if (l >= 19 &&
-                                         memcmp(p, "SYSLOG_IDENTIFIER=", 18) == 0) {
+                                         hasprefix(p, "SYSLOG_IDENTIFIER=")) {
                                         char *t;
 
                                         t = strndup(p + 18, l - 18);
@@ -183,7 +183,7 @@ void server_process_native_message(
                                                 identifier = t;
                                         }
                                 } else if (l >= 8 &&
-                                           memcmp(p, "MESSAGE=", 8) == 0) {
+                                           hasprefix(p, "MESSAGE=")) {
                                         char *t;
 
                                         t = strndup(p + 8, l - 8);

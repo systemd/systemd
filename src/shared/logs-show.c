@@ -438,7 +438,7 @@ static int output_export(
                 /* We already printed the boot id, from the data in
                  * the header, hence let's suppress it here */
                 if (length >= 9 &&
-                    memcmp(data, "_BOOT_ID=", 9) == 0)
+                    hasprefix(data, "_BOOT_ID="))
                         continue;
 
                 if (!utf8_is_printable(data, length)) {
