@@ -34,10 +34,15 @@
 #include "compress.h"
 #include "fsprg.h"
 
-static int journal_file_object_verify(JournalFile *f, Object *o) {
+/* Use six characters to cover the offsets common in smallish journal
+ * files without adding to many zeros. */
+#define OFSfmt "%06"PRIx64
+
+static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o) {
         uint64_t i;
 
         assert(f);
+        assert(offset);
         assert(o);
 
         /* This does various superficial tests about the length an
@@ -53,12 +58,21 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
         case OBJECT_DATA: {
                 uint64_t h1, h2;
 
-                if (le64toh(o->data.entry_offset) <= 0 ||
-                    le64toh(o->data.n_entries) <= 0)
-                        return -EBADMSG;
+                if (le64toh(o->data.entry_offset) == 0)
+                        log_warning(OFSfmt": unused data (entry_offset==0)", offset);
 
-                if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0)
+                if ((le64toh(o->data.entry_offset) == 0) ^ (le64toh(o->data.n_entries) == 0)) {
+                        log_error(OFSfmt": bad n_entries: %"PRIu64, offset, o->data.n_entries);
                         return -EBADMSG;
+                }
+
+                if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0) {
+                        log_error(OFSfmt": bad object size (<= %"PRIu64"): %"PRIu64,
+                                  offset,
+                                  offsetof(DataObject, payload),
+                                  le64toh(o->object.size));
+                        return -EBADMSG;
+                }
 
                 h1 = le64toh(o->data.hash);
 
@@ -69,104 +83,197 @@ static int journal_file_object_verify(JournalFile *f, Object *o) {
 
                         if (!uncompress_blob(o->data.payload,
                                              le64toh(o->object.size) - offsetof(Object, data.payload),
-                                             &b, &alloc, &b_size, 0))
+                                             &b, &alloc, &b_size, 0)) {
+                                log_error(OFSfmt": uncompression failed", offset);
                                 return -EBADMSG;
+                        }
 
                         h2 = hash64(b, b_size);
                         free(b);
 #else
+                        log_error("Compression is not supported");
                         return -EPROTONOSUPPORT;
 #endif
                 } else
                         h2 = hash64(o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
 
-                if (h1 != h2)
+                if (h1 != h2) {
+                        log_error(OFSfmt": invalid hash (%08"PRIx64" vs. %08"PRIx64, offset, h1, h2);
                         return -EBADMSG;
+                }
 
                 if (!VALID64(o->data.next_hash_offset) ||
                     !VALID64(o->data.next_field_offset) ||
                     !VALID64(o->data.entry_offset) ||
-                    !VALID64(o->data.entry_array_offset))
+                    !VALID64(o->data.entry_array_offset)) {
+                        log_error(OFSfmt": invalid offset (next_hash_offset="OFSfmt", next_field_offset="OFSfmt", entry_offset="OFSfmt", entry_array_offset="OFSfmt,
+                                  offset,
+                                  o->data.next_hash_offset,
+                                  o->data.next_field_offset,
+                                  o->data.entry_offset,
+                                  o->data.entry_array_offset);
                         return -EBADMSG;
+                }
 
                 break;
         }
 
         case OBJECT_FIELD:
-                if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0)
+                if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0) {
+                        log_error(OFSfmt": bad field size (<= %"PRIu64"): %"PRIu64,
+                                  offset,
+                                  offsetof(FieldObject, payload),
+                                  le64toh(o->object.size));
                         return -EBADMSG;
+                }
 
                 if (!VALID64(o->field.next_hash_offset) ||
-                    !VALID64(o->field.head_data_offset))
+                    !VALID64(o->field.head_data_offset)) {
+                        log_error(OFSfmt": invalid offset (next_hash_offset="OFSfmt", head_data_offset="OFSfmt,
+                                  offset,
+                                  o->field.next_hash_offset,
+                                  o->field.head_data_offset);
                         return -EBADMSG;
+                }
                 break;
 
         case OBJECT_ENTRY:
-                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0)
+                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0) {
+                        log_error(OFSfmt": bad entry size (<= %"PRIu64"): %"PRIu64,
+                                  offset,
+                                  offsetof(EntryObject, items),
+                                  le64toh(o->object.size));
                         return -EBADMSG;
+                }
 
-                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0)
+                if ((le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0) {
+                        log_error(OFSfmt": invalid number items in entry: %"PRIu64,
+                                  offset,
+                                  (le64toh(o->object.size) - offsetof(EntryObject, items)) / sizeof(EntryItem));
                         return -EBADMSG;
+                }
 
-                if (le64toh(o->entry.seqnum) <= 0 ||
-                    !VALID_REALTIME(le64toh(o->entry.realtime)) ||
-                    !VALID_MONOTONIC(le64toh(o->entry.monotonic)))
+                if (le64toh(o->entry.seqnum) <= 0) {
+                        log_error(OFSfmt": invalid entry seqnum: %"PRIx64,
+                                  offset,
+                                  le64toh(o->entry.seqnum));
                         return -EBADMSG;
+                }
+
+                if (!VALID_REALTIME(le64toh(o->entry.realtime))) {
+                        log_error(OFSfmt": invalid entry realtime timestamp: %"PRIu64,
+                                  offset,
+                                  le64toh(o->entry.realtime));
+                        return -EBADMSG;
+                }
+
+                if (!VALID_MONOTONIC(le64toh(o->entry.monotonic))) {
+                        log_error(OFSfmt": invalid entry monotonic timestamp: %"PRIu64,
+                                  offset,
+                                  le64toh(o->entry.monotonic));
+                        return -EBADMSG;
+                }
 
                 for (i = 0; i < journal_file_entry_n_items(o); i++) {
                         if (o->entry.items[i].object_offset == 0 ||
-                            !VALID64(o->entry.items[i].object_offset))
+                            !VALID64(o->entry.items[i].object_offset)) {
+                                log_error(OFSfmt": invalid entry item (%"PRIu64"/%"PRIu64" offset: "OFSfmt,
+                                          offset,
+                                          i, journal_file_entry_n_items(o),
+                                          o->entry.items[i].object_offset);
                                 return -EBADMSG;
+                        }
                 }
 
                 break;
 
         case OBJECT_DATA_HASH_TABLE:
         case OBJECT_FIELD_HASH_TABLE:
-                if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0)
+                if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0 ||
+                    (le64toh(o->object.size) - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0) {
+                        log_error(OFSfmt": invalid %s hash table size: %"PRIu64,
+                                  offset,
+                                  o->object.type == OBJECT_DATA_HASH_TABLE ? "data" : "field",
+                                  le64toh(o->object.size));
                         return -EBADMSG;
-
-                if ((le64toh(o->object.size) - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0)
-                        return -EBADMSG;
+                }
 
                 for (i = 0; i < journal_file_hash_table_n_items(o); i++) {
                         if (o->hash_table.items[i].head_hash_offset != 0 &&
-                            !VALID64(le64toh(o->hash_table.items[i].head_hash_offset)))
+                            !VALID64(le64toh(o->hash_table.items[i].head_hash_offset))) {
+                                log_error(OFSfmt": invalid %s hash table item (%"PRIu64"/%"PRIu64") head_hash_offset: "OFSfmt,
+                                          offset,
+                                          o->object.type == OBJECT_DATA_HASH_TABLE ? "data" : "field",
+                                          i, journal_file_hash_table_n_items(o),
+                                          le64toh(o->hash_table.items[i].head_hash_offset));
                                 return -EBADMSG;
+                        }
                         if (o->hash_table.items[i].tail_hash_offset != 0 &&
-                            !VALID64(le64toh(o->hash_table.items[i].tail_hash_offset)))
+                            !VALID64(le64toh(o->hash_table.items[i].tail_hash_offset))) {
+                                log_error(OFSfmt": invalid %s hash table item (%"PRIu64"/%"PRIu64") tail_hash_offset: "OFSfmt,
+                                          offset,
+                                          o->object.type == OBJECT_DATA_HASH_TABLE ? "data" : "field",
+                                          i, journal_file_hash_table_n_items(o),
+                                          le64toh(o->hash_table.items[i].tail_hash_offset));
                                 return -EBADMSG;
+                        }
 
                         if ((o->hash_table.items[i].head_hash_offset != 0) !=
-                            (o->hash_table.items[i].tail_hash_offset != 0))
+                            (o->hash_table.items[i].tail_hash_offset != 0)) {
+                                log_error(OFSfmt": invalid %s hash table item (%"PRIu64"/%"PRIu64"): head_hash_offset="OFSfmt" tail_hash_offset="OFSfmt,
+                                          offset,
+                                          o->object.type == OBJECT_DATA_HASH_TABLE ? "data" : "field",
+                                          i, journal_file_hash_table_n_items(o),
+                                          le64toh(o->hash_table.items[i].head_hash_offset),
+                                          le64toh(o->hash_table.items[i].tail_hash_offset));
                                 return -EBADMSG;
+                        }
                 }
 
                 break;
 
         case OBJECT_ENTRY_ARRAY:
-                if ((le64toh(o->object.size) - offsetof(EntryArrayObject, items)) % sizeof(le64_t) != 0)
+                if ((le64toh(o->object.size) - offsetof(EntryArrayObject, items)) % sizeof(le64_t) != 0 ||
+                    (le64toh(o->object.size) - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0) {
+                        log_error(OFSfmt": invalid object entry array size: %"PRIu64,
+                                  offset,
+                                  le64toh(o->object.size));
                         return -EBADMSG;
+                }
 
-                if ((le64toh(o->object.size) - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0)
+                if (!VALID64(o->entry_array.next_entry_array_offset)) {
+                        log_error(OFSfmt": invalid object entry array next_entry_array_offset: "OFSfmt,
+                                  offset,
+                                  o->entry_array.next_entry_array_offset);
                         return -EBADMSG;
-
-                if (!VALID64(o->entry_array.next_entry_array_offset))
-                        return -EBADMSG;
+                }
 
                 for (i = 0; i < journal_file_entry_array_n_items(o); i++)
                         if (o->entry_array.items[i] != 0 &&
-                            !VALID64(o->entry_array.items[i]))
+                            !VALID64(o->entry_array.items[i])) {
+                                log_error(OFSfmt": invalid object entry array item (%"PRIu64"/%"PRIu64"): "OFSfmt,
+                                          offset,
+                                          i, journal_file_entry_array_n_items(o),
+                                          o->entry_array.items[i]);
                                 return -EBADMSG;
+                        }
 
                 break;
 
         case OBJECT_TAG:
-                if (le64toh(o->object.size) != sizeof(TagObject))
+                if (le64toh(o->object.size) != sizeof(TagObject)) {
+                        log_error(OFSfmt": invalid object tag size: %"PRIu64,
+                                  offset,
+                                  le64toh(o->object.size));
                         return -EBADMSG;
+                }
 
-                if (!VALID_EPOCH(o->tag.epoch))
+                if (!VALID_EPOCH(o->tag.epoch)) {
+                        log_error(OFSfmt": invalid object tag epoch: %"PRIu64,
+                                  offset,
+                                  o->tag.epoch);
                         return -EBADMSG;
+                }
 
                 break;
         }
@@ -375,8 +482,18 @@ static int verify_data(
         n = le64toh(o->data.n_entries);
         a = le64toh(o->data.entry_array_offset);
 
-        /* We already checked this earlier */
-        assert(n > 0);
+        /* Entry array means at least two objects */
+        if (a && n < 2) {
+                log_error("Entry array present (entry_array_offset=%"PRIu64", but n_entries=%"PRIu64,
+                          a, n);
+                return -EBADMSG;
+        }
+
+        if (n == 0)
+                return 0;
+
+        /* We already checked that earlier */
+        assert(o->data.entry_offset);
 
         last = q = le64toh(o->data.entry_offset);
         r = entry_points_to_data(f, entry_fd, n_entries, q, p);
@@ -747,7 +864,7 @@ int journal_file_verify(
 
                 r = journal_file_move_to_object(f, -1, p, &o);
                 if (r < 0) {
-                        log_error("Invalid object at %"PRIu64, p);
+                        log_error("Invalid object at "OFSfmt, p);
                         goto fail;
                 }
 
@@ -762,14 +879,14 @@ int journal_file_verify(
 
                 n_objects ++;
 
-                r = journal_file_object_verify(f, o);
+                r = journal_file_object_verify(f, p, o);
                 if (r < 0) {
-                        log_error("Invalid object contents at %"PRIu64, p);
+                        log_error("Invalid object contents at "OFSfmt": %s", p, strerror(-r));
                         goto fail;
                 }
 
                 if ((o->object.flags & OBJECT_COMPRESSED) && !JOURNAL_HEADER_COMPRESSED(f->header)) {
-                        log_error("Compressed object in file without compression at %"PRIu64, p);
+                        log_error("Compressed object in file without compression at "OFSfmt, p);
                         r = -EBADMSG;
                         goto fail;
                 }
@@ -790,7 +907,7 @@ int journal_file_verify(
 
                 case OBJECT_ENTRY:
                         if (JOURNAL_HEADER_SEALED(f->header) && n_tags <= 0) {
-                                log_error("First entry before first tag at %"PRIu64, p);
+                                log_error("First entry before first tag at "OFSfmt, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -800,21 +917,21 @@ int journal_file_verify(
                                 goto fail;
 
                         if (le64toh(o->entry.realtime) < last_tag_realtime) {
-                                log_error("Older entry after newer tag at %"PRIu64, p);
+                                log_error("Older entry after newer tag at "OFSfmt, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
                         if (!entry_seqnum_set &&
                             le64toh(o->entry.seqnum) != le64toh(f->header->head_entry_seqnum)) {
-                                log_error("Head entry sequence number incorrect at %"PRIu64, p);
+                                log_error("Head entry sequence number incorrect at "OFSfmt, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
                         if (entry_seqnum_set &&
                             entry_seqnum >= le64toh(o->entry.seqnum)) {
-                                log_error("Entry sequence number out of synchronization at %"PRIu64, p);
+                                log_error("Entry sequence number out of synchronization at "OFSfmt, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -825,7 +942,7 @@ int journal_file_verify(
                         if (entry_monotonic_set &&
                             sd_id128_equal(entry_boot_id, o->entry.boot_id) &&
                             entry_monotonic > le64toh(o->entry.monotonic)) {
-                                log_error("Entry timestamp out of synchronization at %"PRIu64, p);
+                                log_error("Entry timestamp out of synchronization at "OFSfmt, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -849,7 +966,7 @@ int journal_file_verify(
 
                 case OBJECT_DATA_HASH_TABLE:
                         if (n_data_hash_tables > 1) {
-                                log_error("More than one data hash table at %"PRIu64, p);
+                                log_error("More than one data hash table at "OFSfmt, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -866,7 +983,7 @@ int journal_file_verify(
 
                 case OBJECT_FIELD_HASH_TABLE:
                         if (n_field_hash_tables > 1) {
-                                log_error("More than one field hash table at %"PRIu64, p);
+                                log_error("More than one field hash table at "OFSfmt, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -888,7 +1005,7 @@ int journal_file_verify(
 
                         if (p == le64toh(f->header->entry_array_offset)) {
                                 if (found_main_entry_array) {
-                                        log_error("More than one main entry array at %"PRIu64, p);
+                                        log_error("More than one main entry array at "OFSfmt, p);
                                         r = -EBADMSG;
                                         goto fail;
                                 }
@@ -901,19 +1018,19 @@ int journal_file_verify(
 
                 case OBJECT_TAG:
                         if (!JOURNAL_HEADER_SEALED(f->header)) {
-                                log_error("Tag object in file without sealing at %"PRIu64, p);
+                                log_error("Tag object in file without sealing at "OFSfmt, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
                         if (le64toh(o->tag.seqnum) != n_tags + 1) {
-                                log_error("Tag sequence number out of synchronization at %"PRIu64, p);
+                                log_error("Tag sequence number out of synchronization at "OFSfmt, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
 
                         if (le64toh(o->tag.epoch) < last_epoch) {
-                                log_error("Epoch sequence out of synchronization at %"PRIu64, p);
+                                log_error("Epoch sequence out of synchronization at "OFSfmt, p);
                                 r = -EBADMSG;
                                 goto fail;
                         }
@@ -926,7 +1043,7 @@ int journal_file_verify(
 
                                 rt = f->fss_start_usec + o->tag.epoch * f->fss_interval_usec;
                                 if (entry_realtime_set && entry_realtime >= rt + f->fss_interval_usec) {
-                                        log_error("Tag/entry realtime timestamp out of synchronization at %"PRIu64, p);
+                                        log_error("Tag/entry realtime timestamp out of synchronization at "OFSfmt, p);
                                         r = -EBADMSG;
                                         goto fail;
                                 }
@@ -969,7 +1086,7 @@ int journal_file_verify(
                                         goto fail;
 
                                 if (memcmp(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
-                                        log_error("Tag failed verification at %"PRIu64, p);
+                                        log_error("Tag failed verification at "OFSfmt, p);
                                         r = -EBADMSG;
                                         goto fail;
                                 }
@@ -1132,7 +1249,7 @@ fail:
         if (show_progress)
                 flush_progress();
 
-        log_error("File corruption detected at %s:%"PRIu64" (of %llu bytes, %"PRIu64"%%).",
+        log_error("File corruption detected at %s:"OFSfmt" (of %llu bytes, %"PRIu64"%%).",
                   f->path,
                   p,
                   (unsigned long long) f->last_stat.st_size,

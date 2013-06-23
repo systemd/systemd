@@ -317,7 +317,7 @@
             <para>The name of a symlink targeting the node. Every matching rule adds
             this value to the list of symlinks to be created.</para>
             <para>The set of characters to name a symlink is limited. Allowed
-            characters are [0-9A-Za-z#+-.:=@_/], valid utf8 character sequences,
+            characters are [0-9A-Za-z#+-.:=@_/], valid UTF-8 character sequences,
             and "\x00" hex encoding. All other characters are replaced by
             a '_' character.</para>
             <para>Multiple symlinks may be specified by separating the names by the
