@@ -135,10 +135,11 @@ int journal_directory_vacuum(
                 usec_t max_retention_usec,
                 usec_t *oldest_usec) {
 
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         int r = 0;
         struct vacuum_info *list = NULL;
-        unsigned n_list = 0, n_allocated = 0, i;
+        unsigned n_list = 0, i;
+        size_t n_allocated = 0;
         uint64_t sum = 0;
         usec_t retention_limit = 0;
 
@@ -248,19 +249,7 @@ int journal_directory_vacuum(
 
                 patch_realtime(directory, de->d_name, &st, &realtime);
 
-                if (n_list >= n_allocated) {
-                        struct vacuum_info *j;
-
-                        n_allocated = MAX(n_allocated * 2U, 8U);
-                        j = realloc(list, n_allocated * sizeof(struct vacuum_info));
-                        if (!j) {
-                                free(p);
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        list = j;
-                }
+                GREEDY_REALLOC(list, n_allocated, n_list + 1);
 
                 list[n_list].filename = p;
                 list[n_list].usage = 512UL * (uint64_t) st.st_blocks;
@@ -308,11 +297,7 @@ int journal_directory_vacuum(
 finish:
         for (i = 0; i < n_list; i++)
                 free(list[i].filename);
-
         free(list);
-
-        if (d)
-                closedir(d);
 
         return r;
 }
