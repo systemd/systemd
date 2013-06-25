@@ -94,7 +94,7 @@
                 files automatically and interleave them automatically
                 when reading. As first argument it takes a pointer to
                 a <literal>sd_journal</literal> pointer, which on
-                success will contain journal context object afterwards. The
+                success will contain a journal context object. The
                 second argument is a flags field, which may consist of
                 the following flags ORed together:
                 <literal>SD_JOURNAL_LOCAL_ONLY</literal> makes sure
@@ -126,10 +126,10 @@
                 interleaved automatically. This call also takes a
                 flags argument, but it must be passed as 0 as no flags
                 are currently understood for this call. Please note
-                that in case of a live journal, this function is only
+                that in the case of a live journal, this function is only
                 useful for debugging, because individual journal files
                 can be rotated at any moment, and the opening of
-                specific files in inherently racy.</para>
+                specific files is inherently racy.</para>
 
                 <para><function>sd_journal_close()</function> will
                 close the journal context allocated with
@@ -144,7 +144,7 @@
 
                 <para>See
                 <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                for an example how to iterate through the journal
+                for an example of how to iterate through the journal
                 after opening it with
                 <function>sd_journal_open()</function>.</para>
 
@@ -189,7 +189,7 @@
                 <para>The <function>sd_journal_open()</function>,
                 <function>sd_journal_open_directory()</function> and
                 <function>sd_journal_close()</function> interfaces are
-                available as shared library, which can be compiled and
+                available as a shared library, which can be compiled and
                 linked to with the
                 <literal>libsystemd-journal</literal>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
