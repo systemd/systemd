@@ -1125,7 +1125,8 @@ int unit_start(Unit *u) {
         }
 
         /* Forward to the main object, if we aren't it. */
-        if ((following = unit_following(u))) {
+        following = unit_following(u);
+        if (following) {
                 log_debug_unit(u->id, "Redirecting start request from %s to %s.",
                                u->id, following->id);
                 return unit_start(following);

@@ -250,7 +250,7 @@ static bool test_ac_power(const char *parameter) {
         return (on_ac_power() != 0) == !!r;
 }
 
-bool condition_test(Condition *c) {
+static bool condition_test(Condition *c) {
         assert(c);
 
         switch(c->type) {
@@ -358,6 +358,7 @@ bool condition_test_list(const char *unit, Condition *first) {
                                        c->parameter,
                                        b ? "succeeded" : "failed",
                                        unit);
+                c->state = b ? 1 : -1;
 
                 if (!c->trigger && !b)
                         return false;
@@ -377,12 +378,13 @@ void condition_dump(Condition *c, FILE *f, const char *prefix) {
                 prefix = "";
 
         fprintf(f,
-                "%s\t%s: %s%s%s\n",
+                "%s\t%s: %s%s%s %s\n",
                 prefix,
                 condition_type_to_string(c->type),
                 c->trigger ? "|" : "",
                 c->negate ? "!" : "",
-                c->parameter);
+                c->parameter,
+                c->state < 0 ? "failed" : c->state > 0 ? "succeeded" : "untested");
 }
 
 void condition_dump_list(Condition *first, FILE *f, const char *prefix) {

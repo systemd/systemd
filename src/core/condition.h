@@ -48,10 +48,13 @@ typedef enum ConditionType {
 
 typedef struct Condition {
         ConditionType type;
-        char *parameter;
 
         bool trigger:1;
         bool negate:1;
+
+        char *parameter;
+
+        int state;
 
         LIST_FIELDS(struct Condition, conditions);
 } Condition;
@@ -60,7 +63,6 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
 void condition_free(Condition *c);
 void condition_free_list(Condition *c);
 
-bool condition_test(Condition *c);
 bool condition_test_list(const char *unit, Condition *c);
 
 void condition_dump(Condition *c, FILE *f, const char *prefix);

@@ -311,6 +311,58 @@ static int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *pr
         return 0;
 }
 
+static int bus_property_append_condition(DBusMessageIter *i, const char *property, void *data) {
+        Condition **cp = data;
+        Condition *c;
+        const char *name, *param;
+        dbus_bool_t trigger, negate;
+        dbus_int32_t state;
+        DBusMessageIter sub;
+
+        assert(i);
+        assert(property);
+        assert(cp);
+
+        c = *cp;
+        assert(c);
+
+        name = condition_type_to_string(c->type);
+        param = c->parameter;
+        trigger = c->trigger;
+        negate = c->negate;
+        state = c->state;
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_STRUCT, NULL, &sub) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &name) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_BOOLEAN, &trigger) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_BOOLEAN, &negate) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &param) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_INT32, &state) ||
+            !dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_property_append_condition_list(DBusMessageIter *i, const char *property, void *data) {
+        Condition **first = data, *c;
+        DBusMessageIter sub;
+
+        assert(i);
+        assert(data);
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sbbsi)", &sub))
+                return -ENOMEM;
+
+        LIST_FOREACH(conditions, c, *first)
+                bus_property_append_condition(&sub, property, &c);
+
+        if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int bus_unit_append_load_error(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         const char *name, *message;
@@ -975,68 +1027,69 @@ int bus_unit_set_properties(
 }
 
 const BusProperty bus_unit_properties[] = {
-        { "Id",                   bus_property_append_string,         "s", offsetof(Unit, id),                                         true },
-        { "Names",                bus_unit_append_names,             "as", 0 },
-        { "Following",            bus_unit_append_following,          "s", 0 },
-        { "Requires",             bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRES]),                true },
-        { "RequiresOverridable",  bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRES_OVERRIDABLE]),    true },
-        { "Requisite",            bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUISITE]),               true },
-        { "RequisiteOverridable", bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUISITE_OVERRIDABLE]),   true },
-        { "Wants",                bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_WANTS]),                   true },
-        { "BindsTo",              bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_BINDS_TO]),                true },
-        { "PartOf",               bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_PART_OF]),                 true },
-        { "RequiredBy",           bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRED_BY]),             true },
-        { "RequiredByOverridable",bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRED_BY_OVERRIDABLE]), true },
-        { "WantedBy",             bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_WANTED_BY]),               true },
-        { "BoundBy",              bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_BOUND_BY]),                true },
-        { "ConsistsOf",           bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_CONSISTS_OF]),             true },
-        { "Conflicts",            bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_CONFLICTS]),               true },
-        { "ConflictedBy",         bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_CONFLICTED_BY]),           true },
-        { "Before",               bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_BEFORE]),                  true },
-        { "After",                bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_AFTER]),                   true },
-        { "OnFailure",            bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_ON_FAILURE]),              true },
-        { "Triggers",             bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_TRIGGERS]),                true },
-        { "TriggeredBy",          bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_TRIGGERED_BY]),            true },
-        { "PropagatesReloadTo",   bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_PROPAGATES_RELOAD_TO]),    true },
-        { "ReloadPropagatedFrom", bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_RELOAD_PROPAGATED_FROM]),  true },
-        { "RequiresMountsFor",    bus_property_append_strv,          "as", offsetof(Unit, requires_mounts_for),                        true },
-        { "Documentation",        bus_property_append_strv,          "as", offsetof(Unit, documentation),                              true },
-        { "Description",          bus_unit_append_description,        "s", 0 },
-        { "LoadState",            bus_unit_append_load_state,         "s", offsetof(Unit, load_state)                         },
-        { "ActiveState",          bus_unit_append_active_state,       "s", 0 },
-        { "SubState",             bus_unit_append_sub_state,          "s", 0 },
-        { "FragmentPath",         bus_property_append_string,         "s", offsetof(Unit, fragment_path),                              true },
-        { "SourcePath",           bus_property_append_string,         "s", offsetof(Unit, source_path),                                true },
-        { "DropInPaths",          bus_property_append_strv,          "as", offsetof(Unit, dropin_paths),                               true },
-        { "UnitFileState",        bus_unit_append_file_state,         "s", 0 },
-        { "InactiveExitTimestamp",bus_property_append_usec,           "t", offsetof(Unit, inactive_exit_timestamp.realtime)   },
-        { "InactiveExitTimestampMonotonic", bus_property_append_usec, "t", offsetof(Unit, inactive_exit_timestamp.monotonic)  },
-        { "ActiveEnterTimestamp", bus_property_append_usec,           "t", offsetof(Unit, active_enter_timestamp.realtime)    },
-        { "ActiveEnterTimestampMonotonic", bus_property_append_usec,  "t", offsetof(Unit, active_enter_timestamp.monotonic)   },
-        { "ActiveExitTimestamp",  bus_property_append_usec,           "t", offsetof(Unit, active_exit_timestamp.realtime)     },
-        { "ActiveExitTimestampMonotonic",  bus_property_append_usec,  "t", offsetof(Unit, active_exit_timestamp.monotonic)    },
-        { "InactiveEnterTimestamp", bus_property_append_usec,         "t", offsetof(Unit, inactive_enter_timestamp.realtime)  },
-        { "InactiveEnterTimestampMonotonic",bus_property_append_usec, "t", offsetof(Unit, inactive_enter_timestamp.monotonic) },
-        { "CanStart",             bus_unit_append_can_start,          "b", 0 },
-        { "CanStop",              bus_unit_append_can_stop,           "b", 0 },
-        { "CanReload",            bus_unit_append_can_reload,         "b", 0 },
-        { "CanIsolate",           bus_unit_append_can_isolate,        "b", 0 },
-        { "Job",                  bus_unit_append_job,             "(uo)", 0 },
-        { "StopWhenUnneeded",     bus_property_append_bool,           "b", offsetof(Unit, stop_when_unneeded)                 },
-        { "RefuseManualStart",    bus_property_append_bool,           "b", offsetof(Unit, refuse_manual_start)                },
-        { "RefuseManualStop",     bus_property_append_bool,           "b", offsetof(Unit, refuse_manual_stop)                 },
-        { "AllowIsolate",         bus_property_append_bool,           "b", offsetof(Unit, allow_isolate)                      },
-        { "DefaultDependencies",  bus_property_append_bool,           "b", offsetof(Unit, default_dependencies)               },
-        { "OnFailureIsolate",     bus_property_append_bool,           "b", offsetof(Unit, on_failure_isolate)                 },
-        { "IgnoreOnIsolate",      bus_property_append_bool,           "b", offsetof(Unit, ignore_on_isolate)                  },
-        { "IgnoreOnSnapshot",     bus_property_append_bool,           "b", offsetof(Unit, ignore_on_snapshot)                 },
-        { "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", 0 },
-        { "JobTimeoutUSec",       bus_property_append_usec,           "t", offsetof(Unit, job_timeout)                        },
-        { "ConditionTimestamp",   bus_property_append_usec,           "t", offsetof(Unit, condition_timestamp.realtime)       },
-        { "ConditionTimestampMonotonic", bus_property_append_usec,    "t", offsetof(Unit, condition_timestamp.monotonic)      },
-        { "ConditionResult",      bus_property_append_bool,           "b", offsetof(Unit, condition_result)                   },
-        { "LoadError",            bus_unit_append_load_error,      "(ss)", 0 },
-        { "Transient",            bus_property_append_bool,           "b", offsetof(Unit, transient)                          },
+        { "Id",                              bus_property_append_string,                "s", offsetof(Unit, id),                                         true },
+        { "Names",                           bus_unit_append_names,                    "as", 0                                                                },
+        { "Following",                       bus_unit_append_following,                 "s", 0                                                                },
+        { "Requires",                        bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUIRES]),                true },
+        { "RequiresOverridable",             bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUIRES_OVERRIDABLE]),    true },
+        { "Requisite",                       bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUISITE]),               true },
+        { "RequisiteOverridable",            bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUISITE_OVERRIDABLE]),   true },
+        { "Wants",                           bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_WANTS]),                   true },
+        { "BindsTo",                         bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_BINDS_TO]),                true },
+        { "PartOf",                          bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_PART_OF]),                 true },
+        { "RequiredBy",                      bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUIRED_BY]),             true },
+        { "RequiredByOverridable",           bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUIRED_BY_OVERRIDABLE]), true },
+        { "WantedBy",                        bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_WANTED_BY]),               true },
+        { "BoundBy",                         bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_BOUND_BY]),                true },
+        { "ConsistsOf",                      bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_CONSISTS_OF]),             true },
+        { "Conflicts",                       bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_CONFLICTS]),               true },
+        { "ConflictedBy",                    bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_CONFLICTED_BY]),           true },
+        { "Before",                          bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_BEFORE]),                  true },
+        { "After",                           bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_AFTER]),                   true },
+        { "OnFailure",                       bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_ON_FAILURE]),              true },
+        { "Triggers",                        bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_TRIGGERS]),                true },
+        { "TriggeredBy",                     bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_TRIGGERED_BY]),            true },
+        { "PropagatesReloadTo",              bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_PROPAGATES_RELOAD_TO]),    true },
+        { "ReloadPropagatedFrom",            bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_RELOAD_PROPAGATED_FROM]),  true },
+        { "RequiresMountsFor",               bus_property_append_strv,                 "as", offsetof(Unit, requires_mounts_for),                        true },
+        { "Documentation",                   bus_property_append_strv,                 "as", offsetof(Unit, documentation),                              true },
+        { "Description",                     bus_unit_append_description,               "s", 0                                                                },
+        { "LoadState",                       bus_unit_append_load_state,                "s", offsetof(Unit, load_state)                                       },
+        { "ActiveState",                     bus_unit_append_active_state,              "s", 0                                                                },
+        { "SubState",                        bus_unit_append_sub_state,                 "s", 0                                                                },
+        { "FragmentPath",                    bus_property_append_string,                "s", offsetof(Unit, fragment_path),                              true },
+        { "SourcePath",                      bus_property_append_string,                "s", offsetof(Unit, source_path),                                true },
+        { "DropInPaths",                     bus_property_append_strv,                 "as", offsetof(Unit, dropin_paths),                               true },
+        { "UnitFileState",                   bus_unit_append_file_state,                "s", 0                                                                },
+        { "InactiveExitTimestamp",           bus_property_append_usec,                  "t", offsetof(Unit, inactive_exit_timestamp.realtime)                 },
+        { "InactiveExitTimestampMonotonic",  bus_property_append_usec,                  "t", offsetof(Unit, inactive_exit_timestamp.monotonic)                },
+        { "ActiveEnterTimestamp",            bus_property_append_usec,                  "t", offsetof(Unit, active_enter_timestamp.realtime)                  },
+        { "ActiveEnterTimestampMonotonic",   bus_property_append_usec,                  "t", offsetof(Unit, active_enter_timestamp.monotonic)                 },
+        { "ActiveExitTimestamp",             bus_property_append_usec,                  "t", offsetof(Unit, active_exit_timestamp.realtime)                   },
+        { "ActiveExitTimestampMonotonic",    bus_property_append_usec,                  "t", offsetof(Unit, active_exit_timestamp.monotonic)                  },
+        { "InactiveEnterTimestamp",          bus_property_append_usec,                  "t", offsetof(Unit, inactive_enter_timestamp.realtime)                },
+        { "InactiveEnterTimestampMonotonic", bus_property_append_usec,                  "t", offsetof(Unit, inactive_enter_timestamp.monotonic)               },
+        { "CanStart",                        bus_unit_append_can_start,                 "b", 0                                                                },
+        { "CanStop",                         bus_unit_append_can_stop,                  "b", 0                                                                },
+        { "CanReload",                       bus_unit_append_can_reload,                "b", 0                                                                },
+        { "CanIsolate",                      bus_unit_append_can_isolate,               "b", 0                                                                },
+        { "Job",                             bus_unit_append_job,                    "(uo)", 0                                                                },
+        { "StopWhenUnneeded",                bus_property_append_bool,                  "b", offsetof(Unit, stop_when_unneeded)                               },
+        { "RefuseManualStart",               bus_property_append_bool,                  "b", offsetof(Unit, refuse_manual_start)                              },
+        { "RefuseManualStop",                bus_property_append_bool,                  "b", offsetof(Unit, refuse_manual_stop)                               },
+        { "AllowIsolate",                    bus_property_append_bool,                  "b", offsetof(Unit, allow_isolate)                                    },
+        { "DefaultDependencies",             bus_property_append_bool,                  "b", offsetof(Unit, default_dependencies)                             },
+        { "OnFailureIsolate",                bus_property_append_bool,                  "b", offsetof(Unit, on_failure_isolate)                               },
+        { "IgnoreOnIsolate",                 bus_property_append_bool,                  "b", offsetof(Unit, ignore_on_isolate)                                },
+        { "IgnoreOnSnapshot",                bus_property_append_bool,                  "b", offsetof(Unit, ignore_on_snapshot)                               },
+        { "NeedDaemonReload",                bus_unit_append_need_daemon_reload,        "b", 0                                                                },
+        { "JobTimeoutUSec",                  bus_property_append_usec,                  "t", offsetof(Unit, job_timeout)                                      },
+        { "ConditionTimestamp",              bus_property_append_usec,                  "t", offsetof(Unit, condition_timestamp.realtime)                     },
+        { "ConditionTimestampMonotonic",     bus_property_append_usec,                  "t", offsetof(Unit, condition_timestamp.monotonic)                    },
+        { "ConditionResult",                 bus_property_append_bool,                  "b", offsetof(Unit, condition_result)                                 },
+        { "Conditions",                      bus_property_append_condition_list, "a(sbbsi)", offsetof(Unit, conditions)                                       },
+        { "LoadError",                       bus_unit_append_load_error,             "(ss)", 0                                                                },
+        { "Transient",                       bus_property_append_bool,                  "b", offsetof(Unit, transient)                                        },
         {}
 };
 

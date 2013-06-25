@@ -125,6 +125,7 @@
         "  <property name=\"ConditionTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionResult\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"Conditions\" type=\"a(sbbsi)\" access=\"read\"/>\n" \
         "  <property name=\"LoadError\" type=\"(ss)\" access=\"read\"/>\n" \
         "  <property name=\"Transient\" type=\"b\" access=\"read\"/>\n" \
         " </interface>\n"

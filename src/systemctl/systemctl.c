@@ -2534,6 +2534,10 @@ typedef struct UnitStatusInfo {
 
         usec_t condition_timestamp;
         bool condition_result;
+        bool failed_condition_trigger;
+        bool failed_condition_negate;
+        const char *failed_condition;
+        const char *failed_condition_param;
 
         /* Socket */
         unsigned n_accepted;
@@ -2676,10 +2680,15 @@ static void print_status_info(UnitStatusInfo *i) {
                 s1 = format_timestamp_relative(since1, sizeof(since1), i->condition_timestamp);
                 s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
 
-                if (s1)
-                        printf("          start condition failed at %s; %s\n", s2, s1);
-                else if (s2)
-                        printf("          start condition failed at %s\n", s2);
+                printf("           start condition failed at %s%s%s\n",
+                       s2, s1 ? "; " : "", s1 ? s1 : "");
+                if (i->failed_condition_trigger)
+                        printf("           none of the trigger conditions were met\n");
+                else if (i->failed_condition)
+                        printf("           %s=%s%s was not met\n",
+                               i->failed_condition,
+                               i->failed_condition_negate ? "!" : "",
+                               i->failed_condition_param);
         }
 
         if (i->sysfs_path)
@@ -3038,15 +3047,18 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 ExecStatusInfo *info;
                                 int r;
 
-                                if (!(info = new0(ExecStatusInfo, 1)))
+                                info = new0(ExecStatusInfo, 1);
+                                if (!info)
                                         return -ENOMEM;
 
-                                if (!(info->name = strdup(name))) {
+                                info->name = strdup(name);
+                                if (!info->name) {
                                         free(info);
                                         return -ENOMEM;
                                 }
 
-                                if ((r = exec_status_info_deserialize(&sub, info)) < 0) {
+                                r = exec_status_info_deserialize(&sub, info);
+                                if (r < 0) {
                                         free(info);
                                         return r;
                                 }
@@ -3056,7 +3068,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 dbus_message_iter_next(&sub);
                         }
 
-                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Listen")) {
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT &&
+                           streq(name, "Listen")) {
                         DBusMessageIter sub, sub2;
 
                         dbus_message_iter_recurse(iter, &sub);
@@ -3082,7 +3095,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                         return 0;
 
-                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING && streq(name, "DropInPaths")) {
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING &&
+                           streq(name, "DropInPaths")) {
                         int r = bus_parse_strv_iter(iter, &i->dropin_paths);
                         if (r < 0)
                                 return r;
@@ -3102,6 +3116,36 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 r = strv_extend(&i->documentation, s);
                                 if (r < 0)
                                         return r;
+
+                                dbus_message_iter_next(&sub);
+                        }
+
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT &&
+                           streq(name, "Conditions")) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *cond, *param;
+                                dbus_bool_t trigger, negate;
+                                dbus_int32_t state;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+                                log_debug("here");
+
+                                if(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &cond, true) >= 0 &&
+                                   bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_BOOLEAN, &trigger, true) >= 0 &&
+                                   bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_BOOLEAN, &negate, true) >= 0 &&
+                                   bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &param, true) >= 0 &&
+                                   bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &state, false) >= 0) {
+                                        log_debug("%s %d %d %s %d", cond, trigger, negate, param, state);
+                                        if (state < 0 && (!trigger || !i->failed_condition)) {
+                                                i->failed_condition = cond;
+                                                i->failed_condition_trigger = trigger;
+                                                i->failed_condition_negate = negate;
+                                                i->failed_condition_param = param;
+                                        }
+                                }
 
                                 dbus_message_iter_next(&sub);
                         }
