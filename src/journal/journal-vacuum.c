@@ -128,6 +128,24 @@ static void patch_realtime(
 #endif
 }
 
+static int journal_file_empty(int dir_fd, const char *name) {
+        int fd, r;
+        le64_t n_entries;
+
+        fd = openat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+        if (fd < 0)
+                return -errno;
+
+        if (lseek(fd, offsetof(Header, n_entries), SEEK_SET) < 0)
+                return -errno;
+
+        r = read(fd, &n_entries, sizeof(n_entries));
+        if (r != sizeof(n_entries))
+                return r == 0 ? -EINVAL : -errno;
+
+        return le64toh(n_entries) == 0;
+}
+
 int journal_directory_vacuum(
                 const char *directory,
                 uint64_t max_use,
@@ -246,6 +264,17 @@ int journal_directory_vacuum(
                 } else
                         /* We do not vacuum active files or unknown files! */
                         continue;
+
+                if (journal_file_empty(dirfd(d), de->d_name)) {
+
+                        /* Always vacuum empty non-online files. */
+
+                        if (unlinkat(dirfd(d), de->d_name, 0) >= 0)
+                                log_debug("Deleted empty journal %s/%s.", directory, de->d_name);
+                        else if (errno != ENOENT)
+                                log_warning("Failed to delete %s/%s: %m", directory, de->d_name);
+                        continue;
+                }
 
                 patch_realtime(directory, de->d_name, &st, &realtime);
 
