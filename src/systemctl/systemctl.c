@@ -3550,7 +3550,7 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
 
         if (!streq_ptr(info.active_state, "active") &&
             !streq_ptr(info.active_state, "reloading") &&
-            streq(verb, "status"))
+            streq(verb, "status")) {
                 /* According to LSB: "program not running" */
                 /* 0: program is running or service is OK
                  * 1: program is dead and /var/run pid file exists
@@ -3558,10 +3558,11 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
                  * 3: program is not running
                  * 4: program or service status is unknown
                  */
-                if (info.pid_file)
+                if (info.pid_file && access(info.pid_file, F_OK) == 0)
                         r = 1;
                 else
                         r = 3;
+	}
 
         while ((p = info.exec)) {
                 LIST_REMOVE(ExecStatusInfo, exec, info.exec, p);
