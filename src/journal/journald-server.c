@@ -89,21 +89,22 @@ static const char* const split_mode_table[] = {
 DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode, "Failed to parse split mode setting");
 
-static uint64_t available_space(Server *s) {
+static uint64_t available_space(Server *s, bool verbose) {
         char ids[33];
         _cleanup_free_ char *p = NULL;
-        const char *f;
         sd_id128_t machine;
         struct statvfs ss;
-        uint64_t sum = 0, avail = 0, ss_avail = 0;
+        uint64_t sum = 0, ss_avail = 0, avail = 0;
         int r;
         _cleanup_closedir_ DIR *d = NULL;
         usec_t ts;
+        const char *f;
         JournalMetrics *m;
 
         ts = now(CLOCK_MONOTONIC);
 
-        if (s->cached_available_space_timestamp + RECHECK_AVAILABLE_SPACE_USEC > ts)
+        if (s->cached_available_space_timestamp + RECHECK_AVAILABLE_SPACE_USEC > ts
+            && !verbose)
                 return s->cached_available_space;
 
         r = sd_id128_get_machine(&machine);
@@ -156,19 +157,27 @@ static uint64_t available_space(Server *s) {
                 sum += (uint64_t) st.st_blocks * 512UL;
         }
 
-        avail = sum >= m->max_use ? 0 : m->max_use - sum;
-
         ss_avail = ss.f_bsize * ss.f_bavail;
+        avail = ss_avail > m->keep_free ? ss_avail - m->keep_free : 0;
 
-        ss_avail = ss_avail < m->keep_free ? 0 : ss_avail - m->keep_free;
-
-        if (ss_avail < avail)
-                avail = ss_avail;
-
-        s->cached_available_space = avail;
+        s->cached_available_space = MIN(m->max_use, avail) > sum ? MIN(m->max_use, avail) - sum : 0;
         s->cached_available_space_timestamp = ts;
 
-        return avail;
+        if (verbose) {
+                char    fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX],
+                        fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX];
+
+                server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
+                                      "%s journal is using %s (max %s, leaving %s of free %s, current limit %s).",
+                                      s->system_journal ? "Permanent" : "Runtime",
+                                      format_bytes(fb1, sizeof(fb1), sum),
+                                      format_bytes(fb2, sizeof(fb2), m->max_use),
+                                      format_bytes(fb3, sizeof(fb3), m->keep_free),
+                                      format_bytes(fb4, sizeof(fb4), ss_avail),
+                                      format_bytes(fb5, sizeof(fb5), MIN(m->max_use, avail)));
+        }
+
+        return s->cached_available_space;
 }
 
 static void server_read_file_gid(Server *s) {
@@ -853,7 +862,7 @@ void server_dispatch_message(
         }
 
         rl = journal_rate_limit_test(s->rate_limit, path,
-                                     priority & LOG_PRIMASK, available_space(s));
+                                     priority & LOG_PRIMASK, available_space(s, false));
 
         if (rl == 0)
                 return;
@@ -899,28 +908,13 @@ static int system_journal_open(Server *s) {
                 fn = strappenda(fn, "/system.journal");
                 r = journal_file_open_reliably(fn, O_RDWR|O_CREAT, 0640, s->compress, s->seal, &s->system_metrics, s->mmap, NULL, &s->system_journal);
 
-                if (r >= 0) {
-                        char fb[FORMAT_BYTES_MAX];
-                        uint64_t avail;
-
+                if (r >= 0)
                         server_fix_perms(s, s->system_journal, 0);
+        } else if (r < 0) {
+                if (r != -ENOENT && r != -EROFS)
+                        log_warning("Failed to open system journal: %s", strerror(-r));
 
-                        server_driver_message(s, SD_ID128_NULL, "Allowing system journal files to grow to %s.",
-                                              format_bytes(fb, sizeof(fb), s->system_metrics.max_use));
-
-                        avail = available_space(s);
-
-                        if (s->system_metrics.max_use > avail)
-                               server_driver_message(s, SD_ID128_NULL, "Journal size currently limited to %s due to SystemKeepFree.",
-                                                     format_bytes(fb, sizeof(fb), avail));
-
-                } else if (r < 0) {
-
-                        if (r != -ENOENT && r != -EROFS)
-                                log_warning("Failed to open system journal: %s", strerror(-r));
-
-                        r = 0;
-                }
+                r = 0;
         }
 
         if (!s->runtime_journal &&
@@ -961,21 +955,11 @@ static int system_journal_open(Server *s) {
                         }
                 }
 
-                if (s->runtime_journal) {
-                        char fb[FORMAT_BYTES_MAX];
-                        uint64_t avail;
-
+                if (s->runtime_journal)
                         server_fix_perms(s, s->runtime_journal, 0);
-                        server_driver_message(s, SD_ID128_NULL, "Allowing runtime journal files to grow to %s.",
-                                              format_bytes(fb, sizeof(fb), s->runtime_metrics.max_use));
-
-                        avail = available_space(s);
-
-                        if (s->system_metrics.max_use > avail)
-                               server_driver_message(s, SD_ID128_NULL, "Journal size currently limited to %s due to RuntimeKeepFree.",
-                                                     format_bytes(fb, sizeof(fb), avail));
-                }
         }
+
+        available_space(s, true);
 
         return r;
 }
@@ -1228,8 +1212,8 @@ int process_event(Server *s, struct epoll_event *ev) {
                                         label = (char*) CMSG_DATA(cmsg);
                                         label_len = cmsg->cmsg_len - CMSG_LEN(0);
                                 } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                                         cmsg->cmsg_type == SO_TIMESTAMP &&
-                                         cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
+                                           cmsg->cmsg_type == SO_TIMESTAMP &&
+                                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
                                         tv = (struct timeval*) CMSG_DATA(cmsg);
                                 else if (cmsg->cmsg_level == SOL_SOCKET &&
                                          cmsg->cmsg_type == SCM_RIGHTS) {
@@ -1455,7 +1439,7 @@ int server_init(Server *s) {
 
         zero(*s);
         s->sync_timer_fd = s->syslog_fd = s->native_fd = s->stdout_fd =
-            s->signal_fd = s->epoll_fd = s->dev_kmsg_fd = -1;
+                s->signal_fd = s->epoll_fd = s->dev_kmsg_fd = -1;
         s->compress = true;
         s->seal = true;
 
