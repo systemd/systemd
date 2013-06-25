@@ -2658,6 +2658,7 @@ typedef struct UnitStatusInfo {
         pid_t main_pid;
         pid_t control_pid;
         const char *status_text;
+        const char *pid_file;
         bool running:1;
 
         usec_t start_timestamp;
@@ -3057,6 +3058,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 i->default_control_group = s;
                         else if (streq(name, "StatusText"))
                                 i->status_text = s;
+                        else if (streq(name, "PIDFile"))
+                                i->pid_file = s;
                         else if (streq(name, "SysFSPath"))
                                 i->sysfs_path = s;
                         else if (streq(name, "Where"))
@@ -3549,7 +3552,16 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
             !streq_ptr(info.active_state, "reloading") &&
             streq(verb, "status"))
                 /* According to LSB: "program not running" */
-                r = 3;
+                /* 0: program is running or service is OK
+                 * 1: program is dead and /var/run pid file exists
+                 * 2: program is dead and /var/lock lock file exists
+                 * 3: program is not running
+                 * 4: program or service status is unknown
+                 */
+                if (info.pid_file)
+                        r = 1;
+                else
+                        r = 3;
 
         while ((p = info.exec)) {
                 LIST_REMOVE(ExecStatusInfo, exec, info.exec, p);
