@@ -61,7 +61,7 @@ void condition_free(Condition *c);
 void condition_free_list(Condition *c);
 
 bool condition_test(Condition *c);
-bool condition_test_list(Condition *c);
+bool condition_test_list(const char *unit, Condition *c);
 
 void condition_dump(Condition *c, FILE *f, const char *prefix);
 void condition_dump_list(Condition *c, FILE *f, const char *prefix);

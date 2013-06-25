@@ -37,6 +37,7 @@
 #include "virt.h"
 #include "path-util.h"
 #include "fileio.h"
+#include "unit.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
@@ -333,7 +334,7 @@ bool condition_test(Condition *c) {
         }
 }
 
-bool condition_test_list(Condition *first) {
+bool condition_test_list(const char *unit, Condition *first) {
         Condition *c;
         int triggered = -1;
 
@@ -348,6 +349,15 @@ bool condition_test_list(Condition *first) {
                 bool b;
 
                 b = condition_test(c);
+                if (unit)
+                        log_debug_unit(unit,
+                                       "%s=%s%s%s %s for %s.",
+                                       condition_type_to_string(c->type),
+                                       c->trigger ? "|" : "",
+                                       c->negate ? "!" : "",
+                                       c->parameter,
+                                       b ? "succeeded" : "failed",
+                                       unit);
 
                 if (!c->trigger && !b)
                         return false;
