@@ -33,7 +33,7 @@
 
 static bool ignore_proc(pid_t pid) {
         _cleanup_fclose_ FILE *f = NULL;
-        char c;
+        char c, *p;
         size_t count;
         uid_t uid;
         int r;
@@ -50,7 +50,8 @@ static bool ignore_proc(pid_t pid) {
         if (uid != 0)
                 return false;
 
-        f = fopen(procfs_file_alloca(pid, "cmdline"), "re");
+        p = procfs_file_alloca(pid, "cmdline");
+        f = fopen(p, "re");
         if (!f)
                 return true; /* not really, but has the desired effect */
 
