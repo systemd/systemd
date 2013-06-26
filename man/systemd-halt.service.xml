@@ -89,10 +89,10 @@
                 executables in
                 <filename>/usr/lib/systemd/system-shutdown/</filename>
                 and pass one arguments to them: either
-                "<literal>halt</literal>",
-                "<literal>poweroff</literal>",
-                "<literal>reboot</literal>" or
-                "<literal>kexec</literal>", depending on the chosen
+                <literal>halt</literal>,
+                <literal>poweroff</literal>,
+                <literal>reboot</literal> or
+                <literal>kexec</literal>, depending on the chosen
                 action. All executables in this directory are executed
                 in parallel, and execution of the action is not
                 continued before all executables finished.</para>
@@ -101,7 +101,7 @@
                 <filename>systemd-halt.service</filename> (and the
                 related units) should never be executed
                 directly. Instead, trigger system shutdown with a
-                command such as "<literal>systemctl halt</literal>" or
+                command such as <literal>systemctl halt</literal> or
                 suchlike.</para>
         </refsect1>
 

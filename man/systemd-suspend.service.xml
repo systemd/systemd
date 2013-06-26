@@ -80,14 +80,14 @@
                 executables in
                 <filename>/usr/lib/systemd/system-sleep/</filename>
                 and pass two arguments to them. The first argument
-                will be "<literal>pre</literal>", the second either
-                "<literal>suspend</literal>",
-                "<literal>hibernate</literal>", or
-                "<literal>hybrid-sleep</literal>" depending on the
+                will be <literal>pre</literal>, the second either
+                <literal>suspend</literal>,
+                <literal>hibernate</literal>, or
+                <literal>hybrid-sleep</literal> depending on the
                 chosen action. Immediately after leaving system
                 suspend and/or hibernation the same executables are run,
                 but the first argument is now
-                "<literal>post</literal>". All executables in this
+                <literal>post</literal>. All executables in this
                 directory are executed in parallel, and execution of
                 the action is not continued until all executables
                 have finished.</para>
@@ -105,11 +105,11 @@
                 <filename>systemd-hybrid-sleep.service</filename>
                 should never be executed directly. Instead, trigger
                 system sleep states with a command such as
-                "<literal>systemctl suspend</literal>" or
+                <literal>systemctl suspend</literal> or
                 similar.</para>
 
                 <para>Internally, this service will echo a string like
-                "<literal>mem</literal>" into
+                <literal>mem</literal> into
                 <filename>/sys/power/state</filename>, to trigger the
                 actual system suspend. What exactly is written
                 where can be configured in the <literal>[Sleep]</literal>

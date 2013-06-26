@@ -68,7 +68,7 @@
                 describes encrypted block devices that are set up
                 during system boot.</para>
 
-                <para>Empty lines and lines starting with the #
+                <para>Empty lines and lines starting with the <literal>#</literal>
                 character are ignored.  Each of the remaining lines
                 describes one encrypted block device, fields on the
                 line are delimited by white space.  The first two

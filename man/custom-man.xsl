@@ -52,4 +52,13 @@
     <xsl:call-template name="mark.subheading"/>
 </xsl:template>
 
+<xsl:template match="literal">
+  <xsl:if test="$man.hyphenate.computer.inlines = 0">
+    <xsl:call-template name="suppress.hyphenation"/>
+  </xsl:if>
+  <xsl:text>"</xsl:text>
+  <xsl:call-template name="inline.monoseq"/>
+  <xsl:text>"</xsl:text>
+</xsl:template>
+
 </xsl:stylesheet>

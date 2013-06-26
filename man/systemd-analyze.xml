@@ -243,7 +243,7 @@
                 <title>Examples</title>
 
                 <para>This plots all dependencies of any unit whose
-                name starts with "<literal>avahi-daemon.</literal>":</para>
+                name starts with <literal>avahi-daemon.</literal>:</para>
 
                 <programlisting>$ systemd-analyze dot 'avahi-daemon.*' | dot -Tsvg > avahi.svg
 $ eog avahi.svg</programlisting>

@@ -107,7 +107,7 @@
                                 available. Note that this and the
                                 other tags are not taken into account
                                 unless the device is tagged with the
-                                "<literal>systemd</literal>" string in
+                                <literal>systemd</literal> string in
                                 the udev database, because otherwise
                                 the device is not exposed as systemd
                                 unit.</para></listitem>

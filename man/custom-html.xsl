@@ -172,6 +172,12 @@
   <hr/>
 </xsl:template>
 
+<xsl:template match="literal">
+  <xsl:text>"</xsl:text>
+  <xsl:call-template name="inline.monoseq"/>
+  <xsl:text>"</xsl:text>
+</xsl:template>
+
 <!-- Switch things to UTF-8, ISO-8859-1 is soo yesteryear -->
 <xsl:output method="html" encoding="UTF-8" indent="no"/>
 

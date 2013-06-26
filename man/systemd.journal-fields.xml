@@ -375,15 +375,15 @@
                                         name. If the entry is
                                         associated to a block device,
                                         the major and minor of the
-                                        device node, separated by ':'
-                                        and prefixed by 'b'. Similar
+                                        device node, separated by <literal>:</literal>
+                                        and prefixed by <literal>b</literal>. Similar
                                         for character devices, but
-                                        prefixed by 'c'. For network
+                                        prefixed by <literal>c</literal>. For network
                                         devices the interface index,
-                                        prefixed by 'n'. For all other
-                                        devices '+' followed by the
+                                        prefixed by <literal>n</literal>. For all other
+                                        devices <literal>+</literal> followed by the
                                         subsystem name, followed by
-                                        ':', followed by the kernel
+                                        <literal>:</literal>, followed by the kernel
                                         device name.</para>
                                 </listitem>
                         </varlistentry>

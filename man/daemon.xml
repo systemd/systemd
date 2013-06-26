@@ -547,7 +547,7 @@
                         systemd, kernel devices appearing in the
                         sysfs/udev device tree can be exposed as units
                         if they are tagged with the string
-                        "<literal>systemd</literal>". Like any other
+                        <literal>systemd</literal>. Like any other
                         kind of unit they may then pull in other units
                         when activated (i.e. Plugged in) and thus
                         implement device-based activation. Systemd

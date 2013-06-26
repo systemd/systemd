@@ -84,7 +84,7 @@
                 alternatives, i.e. the resulting output will show
                 entries matching any of the specified matches for the
                 same field. Finally, if the character
-                "<literal>+</literal>" appears as separate word on the
+                <literal>+</literal> appears as separate word on the
                 command line all matches before and after are combined
                 in a disjunction (i.e. logical OR).</para>
 
@@ -415,14 +415,15 @@
                                 <listitem><para>Start showing entries
                                 on or newer than the specified date,
                                 or on or older than the specified
-                                date, respectively. Date specifications should be of
-                                the format "2012-10-30 18:17:16". If
-                                the time part is omitted, 00:00:00 is
-                                assumed. If only the seconds component
-                                is omitted, :00 is assumed. If the
-                                date component is omitted, the
-                                current day is assumed. Alternatively
-                                the strings
+                                date, respectively. Date specifications
+                                should be of the format
+                                <literal>2012-10-30 18:17:16</literal>.
+                                If the time part is omitted,
+                                <literal>00:00:00</literal> is assumed.
+                                If only the seconds component is omitted,
+                                <literal>:00</literal> is assumed. If the
+                                date component is omitted, the current
+                                day is assumed. Alternatively the strings
                                 <literal>yesterday</literal>,
                                 <literal>today</literal>,
                                 <literal>tomorrow</literal> are
@@ -681,7 +682,7 @@
 
                 <programlisting>journalctl _SYSTEMD_UNIT=avahi-daemon.service _SYSTEMD_UNIT=dbus.service</programlisting>
 
-                <para>If the separator "<literal>+</literal>" is used
+                <para>If the separator <literal>+</literal> is used
                 two expressions may be combined in a logical OR. The
                 following will show all messages from the Avahi
                 service process with the PID 28097 plus all messages

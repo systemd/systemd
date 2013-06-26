@@ -646,7 +646,7 @@
                                 <listitem><para>Lists one or more
                                 units that are activated when this
                                 unit enters the
-                                '<literal>failed</literal>'
+                                <literal>failed</literal>
                                 state.</para></listitem>
                         </varlistentry>
 
@@ -812,7 +812,7 @@
                                 time. If this time limit is reached
                                 the job will be cancelled, the unit
                                 however will not change state or even
-                                enter the '<literal>failed</literal>'
+                                enter the <literal>failed</literal>
                                 mode. This value defaults to 0 (job
                                 timeouts disabled), except for device
                                 units. NB: this timeout is independent
@@ -871,7 +871,7 @@
                                 to
                                 <varname>ConditionPathExists=</varname>
                                 is prefixed with an exclamation mark
-                                ('!'), the test is negated, and the unit
+                                (<literal>!</literal>), the test is negated, and the unit
                                 is only started if the path does not
                                 exist.</para>
 
@@ -940,7 +940,7 @@
                                 exclamation mark unset). The argument
                                 must either be a single word, or an
                                 assignment (i.e. two words, separated
-                                '='). In the former
+                                <literal>=</literal>). In the former
                                 case the kernel command line is
                                 searched for the word appearing as is,
                                 or as left hand side of an

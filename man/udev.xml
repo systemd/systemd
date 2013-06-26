@@ -73,7 +73,7 @@
       extensions are ignored.</para>
 
       <para>Every line in the rules file contains at least one key-value pair.
-      Except for empty lines or lines beginning with '#', which are ignored.
+      Except for empty lines or lines beginning with <literal>#</literal>, which are ignored.
       There are two kinds of keys: match and assignment.
       If all match keys match against their values, the rule gets applied and the
       assignment keys get the specified values assigned.</para>
@@ -130,28 +130,28 @@
       one and the same parent device.</para>
       <variablelist class='udev-directives'>
         <varlistentry>
-          <term><option>ACTION</option></term>
+          <term><varname>ACTION</varname></term>
           <listitem>
             <para>Match the name of the event action.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>DEVPATH</option></term>
+          <term><varname>DEVPATH</varname></term>
           <listitem>
             <para>Match the devpath of the event device.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>KERNEL</option></term>
+          <term><varname>KERNEL</varname></term>
           <listitem>
             <para>Match the name of the event device.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>NAME</option></term>
+          <term><varname>NAME</varname></term>
           <listitem>
             <para>Match the name of a network interface. It can be used once the
             NAME key has been set in one of the preceding rules.</para>
@@ -159,7 +159,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>SYMLINK</option></term>
+          <term><varname>SYMLINK</varname></term>
           <listitem>
             <para>Match the name of a symlink targeting the node. It can
             be used once a SYMLINK key has been set in one of the preceding
@@ -169,20 +169,20 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>SUBSYSTEM</option></term>
+          <term><varname>SUBSYSTEM</varname></term>
           <listitem>
             <para>Match the subsystem of the event device.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><option>DRIVER</option></term>
+          <term><varname>DRIVER</varname></term>
           <listitem>
             <para>Match the driver name of the event device. Only set this key for devices
             which are bound to a driver at the time the event is generated.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><option>ATTR{<replaceable>filename</replaceable>}</option></term>
+          <term><varname>ATTR{<replaceable>filename</replaceable>}</varname></term>
           <listitem>
             <para>Match sysfs attribute values of the event device. Trailing
             whitespace in the attribute values is ignored unless the specified match
@@ -192,59 +192,59 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>KERNELS</option></term>
+          <term><varname>KERNELS</varname></term>
           <listitem>
             <para>Search the devpath upwards for a matching device name.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>SUBSYSTEMS</option></term>
+          <term><varname>SUBSYSTEMS</varname></term>
           <listitem>
             <para>Search the devpath upwards for a matching device subsystem name.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>DRIVERS</option></term>
+          <term><varname>DRIVERS</varname></term>
           <listitem>
             <para>Search the devpath upwards for a matching device driver name.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>ATTRS{<replaceable>filename</replaceable>}</option></term>
+          <term><varname>ATTRS{<replaceable>filename</replaceable>}</varname></term>
           <listitem>
             <para>Search the devpath upwards for a device with matching sysfs attribute values.
-            If multiple <option>ATTRS</option> matches are specified, all of them
+            If multiple <varname>ATTRS</varname> matches are specified, all of them
             must match on the same device. Trailing whitespace in the attribute values is ignored
             unless the specified match value itself contains trailing whitespace.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>TAGS</option></term>
+          <term><varname>TAGS</varname></term>
           <listitem>
             <para>Search the devpath upwards for a device with matching tag.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>ENV{<replaceable>key</replaceable>}</option></term>
+          <term><varname>ENV{<replaceable>key</replaceable>}</varname></term>
           <listitem>
             <para>Match against a device property value.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>TAG</option></term>
+          <term><varname>TAG</varname></term>
           <listitem>
             <para>Match against a device tag.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>TEST{<replaceable>octal mode mask</replaceable>}</option></term>
+          <term><varname>TEST{<replaceable>octal mode mask</replaceable>}</varname></term>
           <listitem>
             <para>Test the existence of a file. An octal mode mask can be specified
             if needed.</para>
@@ -252,7 +252,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>PROGRAM</option></term>
+          <term><varname>PROGRAM</varname></term>
           <listitem>
             <para>Execute a program to determine whether there
             is a match; the key is true if the program returns
@@ -260,12 +260,12 @@
             executed program in the environment. The program's stdout
             is available in the RESULT key.</para>
             <para>This can only be used for very short-running foreground tasks. For details
-            see <option>RUN</option>.</para>
+            see <varname>RUN</varname>.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>RESULT</option></term>
+          <term><varname>RESULT</varname></term>
           <listitem>
             <para>Match the returned string of the last PROGRAM call. This key can
             be used in the same or in any later rule after a PROGRAM call.</para>
@@ -292,11 +292,12 @@
           <term><literal>[]</literal></term>
           <listitem>
             <para>Matches any single character specified within the brackets. For
-            example, the pattern string 'tty[SR]' would match either 'ttyS' or 'ttyR'.
-            Ranges are also supported via the '-' character.
+            example, the pattern string <literal>tty[SR]</literal>
+            would match either <literal>ttyS</literal> or <literal>ttyR</literal>.
+            Ranges are also supported via the <literal>-</literal> character.
             For example, to match on the range of all digits, the pattern [0-9] could
-            be used. If the first character following the '[' is a '!', any characters
-            not enclosed are matched.</para>
+            be used. If the first character following the <literal>[</literal> is a
+            <literal>!</literal>, any characters not enclosed are matched.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -304,7 +305,7 @@
       <para>The following keys can get values assigned:</para>
       <variablelist class='udev-directives'>
         <varlistentry>
-          <term><option>NAME</option></term>
+          <term><varname>NAME</varname></term>
           <listitem>
             <para>The name to use for a network interface. The name of a device node
             cannot be changed by udev, only additional symlinks can be created.</para>
@@ -312,14 +313,14 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>SYMLINK</option></term>
+          <term><varname>SYMLINK</varname></term>
           <listitem>
             <para>The name of a symlink targeting the node. Every matching rule adds
             this value to the list of symlinks to be created.</para>
             <para>The set of characters to name a symlink is limited. Allowed
-            characters are [0-9A-Za-z#+-.:=@_/], valid UTF-8 character sequences,
-            and "\x00" hex encoding. All other characters are replaced by
-            a '_' character.</para>
+            characters are <literal>0-9A-Za-z#+-.:=@_/</literal>, valid UTF-8 character
+            sequences, and <literal>\x00</literal> hex encoding. All other
+            characters are replaced by a <literal>_</literal> character.</para>
             <para>Multiple symlinks may be specified by separating the names by the
             space character. In case multiple devices claim the same name, the link
             always points to the device with the highest link_priority. If the current
@@ -334,7 +335,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>OWNER</option>, <option>GROUP</option>, <option>MODE</option></term>
+          <term><varname>OWNER</varname>, <varname>GROUP</varname>, <varname>MODE</varname></term>
           <listitem>
             <para>The permissions for the device node. Every specified value overrides
             the compiled-in default value.</para>
@@ -342,7 +343,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>ATTR{<replaceable>key</replaceable>}</option></term>
+          <term><varname>ATTR{<replaceable>key</replaceable>}</varname></term>
           <listitem>
             <para>The value that should be written to a sysfs attribute of the
             event device.</para>
@@ -350,16 +351,16 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>ENV{<replaceable>key</replaceable>}</option></term>
+          <term><varname>ENV{<replaceable>key</replaceable>}</varname></term>
           <listitem>
-            <para>Set a device property value. Property names with a leading '.'
+            <para>Set a device property value. Property names with a leading <literal>.</literal>
             are neither stored in the database nor exported to events or
             external tools (run by, say, the PROGRAM match key).</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>TAG</option></term>
+          <term><varname>TAG</varname></term>
           <listitem>
             <para>Attach a tag to a device. This is used to filter events for users
             of libudev's monitor functionality, or to enumerate a group of tagged
@@ -372,7 +373,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>RUN{<replaceable>type</replaceable>}</option></term>
+          <term><varname>RUN{<replaceable>type</replaceable>}</varname></term>
           <listitem>
             <para>Add a program to the list of programs to be executed after processing all the
             rules for a specific event, depending on <literal>type</literal>:</para>
@@ -390,7 +391,7 @@
               <varlistentry>
                 <term><literal>builtin</literal></term>
                 <listitem>
-                  <para>As <option>program</option>, but use one of the built-in programs rather
+                  <para>As <varname>program</varname>, but use one of the built-in programs rather
                   than an external one.</para>
                 </listitem>
               </varlistentry>
@@ -407,21 +408,21 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>LABEL</option></term>
+          <term><varname>LABEL</varname></term>
           <listitem>
             <para>A named label to which a GOTO may jump.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>GOTO</option></term>
+          <term><varname>GOTO</varname></term>
           <listitem>
             <para>Jumps to the next LABEL with a matching name.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><option>IMPORT{<replaceable>type</replaceable>}</option></term>
+          <term><varname>IMPORT{<replaceable>type</replaceable>}</varname></term>
           <listitem>
             <para>Import a set of variables as device properties,
             depending on <literal>type</literal>:</para>
@@ -432,14 +433,14 @@
                   <para>Execute an external program specified as the assigned value and
                   import its output, which must be in environment key
                   format. Path specification, command/argument separation,
-                  and quoting work like in <option>RUN</option>.</para>
+                  and quoting work like in <varname>RUN</varname>.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term><literal>builtin</literal></term>
                 <listitem>
-                  <para>As <option>program</option>, but use one of the built-in programs rather
-                  than an external one.</para>
+                  <para>Similar to <literal>program</literal>, but use one of the
+                  built-in programs rather than an external one.</para>
                 </listitem>
               </varlistentry>
              <varlistentry>
@@ -461,7 +462,7 @@
                 <term><literal>cmdline</literal></term>
                 <listitem>
                   <para>Import a single property from the kernel command line. For simple flags
-                  the value of the property is set to '1'.</para>
+                  the value of the property is set to <literal>1</literal>.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -481,7 +482,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>WAIT_FOR</option></term>
+          <term><varname>WAIT_FOR</varname></term>
           <listitem>
             <para>Wait for a file to become available or until a timeout of
             10 seconds expires. The path is relative to the sysfs device;
@@ -490,7 +491,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>OPTIONS</option></term>
+          <term><varname>OPTIONS</varname></term>
           <listitem>
             <para>Rule and device options:</para>
             <variablelist class='udev-directives'>
@@ -543,9 +544,9 @@
         </varlistentry>
       </variablelist>
 
-      <para>The <option>NAME</option>, <option>SYMLINK</option>, <option>PROGRAM</option>,
-      <option>OWNER</option>, <option>GROUP</option>, <option>MODE</option>  and  <option>RUN</option>
-      fields support simple string substitutions. The <option>RUN</option>
+      <para>The <varname>NAME</varname>, <varname>SYMLINK</varname>, <varname>PROGRAM</varname>,
+      <varname>OWNER</varname>, <varname>GROUP</varname>, <varname>MODE</varname>  and  <varname>RUN</varname>
+      fields support simple string substitutions. The <varname>RUN</varname>
       substitutions are performed after all rules have been processed, right before the program
       is executed, allowing for the use of device properties set by earlier matching
       rules. For all other fields, substitutions are performed while the individual rule is
@@ -561,8 +562,8 @@
         <varlistentry>
           <term><option>$number</option>, <option>%n</option></term>
           <listitem>
-            <para>The kernel number for this device. For example, 'sda3' has
-            kernel number of '3'</para>
+            <para>The kernel number for this device. For example,
+            <literal>sda3</literal> has kernel number <literal>3</literal>.</para>
           </listitem>
         </varlistentry>
 
@@ -630,9 +631,9 @@
           <listitem>
             <para>The string returned by the external program requested with PROGRAM.
             A single part of the string, separated by a space character, may be selected
-            by specifying the part number as an attribute: <option>%c{N}</option>.
-            If the number is followed by the '+' character, this part plus all remaining parts
-            of the result string are substituted: <option>%c{N+}</option></para>
+            by specifying the part number as an attribute: <literal>%c{N}</literal>.
+            If the number is followed by the <literal>+</literal> character, this part plus all remaining parts
+            of the result string are substituted: <literal>%c{N+}</literal>.</para>
           </listitem>
         </varlistentry>
 
@@ -681,16 +682,16 @@
         </varlistentry>
 
         <varlistentry>
-          <term><literal>%%</literal></term>
+          <term><option>%%</option></term>
           <listitem>
-          <para>The '%' character itself.</para>
+          <para>The <literal>%</literal> character itself.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><literal>$$</literal></term>
+          <term><option>$$</option></term>
           <listitem>
-          <para>The '$' character itself.</para>
+          <para>The <literal>$</literal> character itself.</para>
           </listitem>
         </varlistentry>
       </variablelist>

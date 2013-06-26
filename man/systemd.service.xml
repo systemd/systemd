@@ -319,7 +319,7 @@
                                 suitable for XDG
                                 <filename>.desktop</filename> files.
                                 Lone semicolons may be escaped as
-                                '<literal>\;</literal>'. If the empty
+                                <literal>\;</literal>. If the empty
                                 string is assigned to this option the
                                 list of commands to start is reset,
                                 prior assignments of this option will
@@ -330,7 +330,7 @@
                                 one by one sequentially in the order
                                 they appear in the unit file. If one
                                 of the commands fails (and is not
-                                prefixed with '<literal>-</literal>'),
+                                prefixed with <literal>-</literal>),
                                 other lines are not executed and the
                                 unit is considered failed.</para>
 
@@ -341,7 +341,7 @@
                                 main process of the daemon.</para>
 
                                 <para>The command line accepts
-                                '<literal>%</literal>' specifiers as
+                                <literal>%</literal> specifiers as
                                 described in
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
                                 that the first argument of the command
@@ -370,19 +370,19 @@
 
                                 <para>Optionally, if the absolute file
                                 name is prefixed with
-                                '<literal>@</literal>', the second token
+                                <literal>@</literal>, the second token
                                 will be passed as
                                 <literal>argv[0]</literal> to the
                                 executed process, followed by the
                                 further arguments specified. If the
                                 absolute file name is prefixed with
-                                '<literal>-</literal>' an exit code of
+                                <literal>-</literal> an exit code of
                                 the command normally considered a
                                 failure (i.e. non-zero exit status or
                                 abnormal exit due to signal) is ignored
                                 and considered success. If both
-                                '<literal>-</literal>' and
-                                '<literal>@</literal>' are used they
+                                <literal>-</literal> and
+                                <literal>@</literal> are used they
                                 can appear in either order.</para>
 
                                 <para>Note that this setting does not
@@ -417,7 +417,7 @@
                                 after the other, serially.</para>
 
                                 <para>If any of those commands (not
-                                prefixed with '<literal>-</literal>')
+                                prefixed with <literal>-</literal>)
                                 fail, the rest are not executed and
                                 the unit is considered failed.</para>
                                 </listitem>
@@ -662,8 +662,8 @@
                                 definitions can either be numeric exit
                                 codes or termination signal names,
                                 separated by spaces. Example:
-                                "<literal>SuccessExitStatus=1 2 8
-                                SIGKILL</literal>", ensures that exit
+                                <literal>SuccessExitStatus=1 2 8
+                                SIGKILL</literal>, ensures that exit
                                 codes 1, 2, 8 and the termination
                                 signal SIGKILL are considered clean
                                 service terminations. This option may
@@ -692,8 +692,8 @@
                                 that by default no exit status is
                                 excluded from the configured restart
                                 logic. Example:
-                                "<literal>RestartPreventExitStatus=1 6
-                                SIGABRT</literal>", ensures that exit
+                                <literal>RestartPreventExitStatus=1 6
+                                SIGABRT</literal>, ensures that exit
                                 codes 1 and 6 and the termination
                                 signal SIGABRT will not result in
                                 automatic service restarting. This
