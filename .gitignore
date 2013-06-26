@@ -116,6 +116,7 @@
 /test-journal-syslog
 /test-journal-verify
 /test-libudev
+/test-list
 /test-log
 /test-login
 /test-loopback

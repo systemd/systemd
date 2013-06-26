@@ -81,7 +81,7 @@
                 (head) = _item;                                         \
         } while (false)
 
-/* Find the head of the list */
+/* Find the tail of the list */
 #define LIST_FIND_TAIL(t,name,item,tail)                                \
         do {                                                            \
                 t *_item = (item);                                      \
