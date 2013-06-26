@@ -131,6 +131,13 @@
                 can be rotated at any moment, and the opening of
                 specific files is inherently racy.</para>
 
+                <para><varname>sd_journal</varname> objects cannot be
+                used in the child after a fork. Functions which take a
+                journal object as an argument
+                (<function>sd_journal_next()</function> and others)
+                will return <constant>-ECHILD</constant> after a fork.
+                </para>
+
                 <para><function>sd_journal_close()</function> will
                 close the journal context allocated with
                 <function>sd_journal_open()</function> or

@@ -126,16 +126,13 @@ Features:
 
 * document systemd-journal-flush.service properly
 
-* chane systemd-journal-flush into a service that stays around during
+* change systemd-journal-flush into a service that stays around during
   boot, and causes the journal to be moved back to /run on shutdown,
   so that we don't keep /var busy. This needs to happen synchronously,
   hence doing this via signals is not going to work.
 
 * allow implementation of InaccessibleDirectories=/ plus
   ReadOnlyDirectories=... for whitelisting files for a service.
-
-* libsystemd-journal:
-  - return ECHILD as soon as somebody tries to reuse a journal object across a fork()
 
 * libsystemd-bus:
   - default policy (allow uid == 0 and our own uid)

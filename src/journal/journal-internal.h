@@ -97,8 +97,6 @@ struct Directory {
 };
 
 struct sd_journal {
-        int flags;
-
         char *path;
 
         Hashmap *files;
@@ -109,27 +107,29 @@ struct sd_journal {
         JournalFile *current_file;
         uint64_t current_field;
 
-        Hashmap *directories_by_path;
-        Hashmap *directories_by_wd;
-
-        int inotify_fd;
-
         Match *level0, *level1, *level2;
 
+        pid_t original_pid;
+
+        int inotify_fd;
         unsigned current_invalidate_counter, last_invalidate_counter;
+        usec_t last_process_usec;
 
         char *unique_field;
         JournalFile *unique_file;
         uint64_t unique_offset;
+
+        int flags;
 
         bool on_network;
         bool no_new_files;
 
         size_t data_threshold;
 
-        Set *errors;
+        Hashmap *directories_by_path;
+        Hashmap *directories_by_wd;
 
-        usec_t last_process_usec;
+        Set *errors;
 };
 
 char *journal_make_match_string(sd_journal *j);
