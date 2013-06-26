@@ -357,6 +357,8 @@ static int output_verbose(
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 const char *c;
                 int fieldlen;
+                const char *on = "", *off = "";
+
                 c = memchr(data, '=', length);
                 if (!c) {
                         log_error("Invalid field.");
@@ -364,16 +366,25 @@ static int output_verbose(
                 }
                 fieldlen = c - (const char*) data;
 
-                if ((flags & OUTPUT_SHOW_ALL) || (length < PRINT_THRESHOLD && utf8_is_printable(data, length))) {
-                        fprintf(f, "    %.*s=", fieldlen, (const char*)data);
+                if (flags & OUTPUT_COLOR && startswith(data, "MESSAGE=")) {
+                        on = ANSI_HIGHLIGHT_ON;
+                        off = ANSI_HIGHLIGHT_OFF;
+                }
+
+                if (flags & OUTPUT_SHOW_ALL ||
+                    (((length < PRINT_THRESHOLD) || flags & OUTPUT_FULL_WIDTH) && utf8_is_printable(data, length))) {
+                        fprintf(f, "    %s%.*s=", on, fieldlen, (const char*)data);
                         print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, c + 1, length - fieldlen - 1);
+                        fputs(off, f);
                 } else {
                         char bytes[FORMAT_BYTES_MAX];
 
-                        fprintf(f, "    %.*s=[%s blob data]\n",
+                        fprintf(f, "    %s%.*s=[%s blob data]%s\n",
+                                on,
                                 (int) (c - (const char*) data),
                                 (const char*) data,
-                                format_bytes(bytes, sizeof(bytes), length - (c - (const char *) data) - 1));
+                                format_bytes(bytes, sizeof(bytes), length - (c - (const char *) data) - 1),
+                                off);
                 }
         }
 
