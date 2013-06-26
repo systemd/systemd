@@ -87,7 +87,7 @@
                         <varlistentry>
                                 <term><varname>Relative=no</varname></term>
                                 <listitem><para>Configures whether the left axis of the
-                                output graph equals time=0.0 (CLOCK_MONOTONIC start). This
+                                output graph equals time=0.0 (<constant>CLOCK_MONOTONIC</constant> start). This
                                 is useful for using bootchart at post-boot time to profile
                                 an already booted system, otherwise the graph would become
                                 extremely large. If set to yes, the horizontal axis starts

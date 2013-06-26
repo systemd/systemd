@@ -127,15 +127,15 @@
                 currently active (&gt; 0), where the user is currently
                 online but possibly inactive (= 0), or
                 logged in at all but possibly closing the session (&lt; 0). The call returns a
-                NULL terminated string array of session identifiers in
+                <constant>NULL</constant> terminated string array of session identifiers in
                 <parameter>sessions</parameter> which needs to be
                 freed by the caller with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use, including all the strings
                 referenced. If the string array parameter is passed as
-                NULL the array will not be filled in, but the return
+                <constant>NULL</constant> the array will not be filled in, but the return
                 code still indicates the number of current
-                sessions. Note that instead of an empty array NULL may
+                sessions. Note that instead of an empty array <constant>NULL</constant> may
                 be returned and should be considered equivalent to an
                 empty array.</para>
 
@@ -172,7 +172,7 @@
                 <function>sd_uid_get_sessions()</function>, and
                 <function>sd_uid_get_seats()</function> interfaces are
                 available as shared library, which can be compiled and
-                linked to with the <literal>libsystemd-login</literal>
+                linked to with the <constant>libsystemd-login</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>

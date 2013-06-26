@@ -102,14 +102,14 @@
                 or
                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
                 priority value is one of
-                <literal>LOG_EMERG</literal>,
-                <literal>LOG_ALERT</literal>,
-                <literal>LOG_CRIT</literal>,
-                <literal>LOG_ERR</literal>,
-                <literal>LOG_WARNING</literal>,
-                <literal>LOG_NOTICE</literal>,
-                <literal>LOG_INFO</literal>,
-                <literal>LOG_DEBUG</literal>, as defined in
+                <constant>LOG_EMERG</constant>,
+                <constant>LOG_ALERT</constant>,
+                <constant>LOG_CRIT</constant>,
+                <constant>LOG_ERR</constant>,
+                <constant>LOG_WARNING</constant>,
+                <constant>LOG_NOTICE</constant>,
+                <constant>LOG_INFO</constant>,
+                <constant>LOG_DEBUG</constant>, as defined in
                 <filename>syslog.h</filename>, see
                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for details. It is recommended to use this call to
@@ -120,7 +120,7 @@
                 <para><function>sd_journal_printv()</function> is
                 similar to <function>sd_journal_print()</function> but
                 takes a variable argument list encapsulated in an
-                object of type <literal>va_list</literal> (see
+                object of type <varname>va_list</varname> (see
                 <citerefentry><refentrytitle>stdarg</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for more information) instead of the format string. It
                 is otherwise equivalent in behavior.</para>
@@ -129,7 +129,7 @@
                 used to submit structured log entries to the system
                 journal. It takes a series of format strings, each
                 immediately followed by their associated parameters,
-                terminated by NULL. The strings passed should be of
+                terminated by <constant>NULL</constant>. The strings passed should be of
                 the format <literal>VARIABLE=value</literal>. The
                 variable name must be in uppercase and consist only of
                 characters, numbers and underscores, and may not begin
@@ -147,7 +147,7 @@
 
                 <para><function>sd_journal_sendv()</function> is
                 similar to <function>sd_journal_send()</function> but
-                takes an array of <literal>struct iovec</literal> (as
+                takes an array of <varname>struct iovec</varname> (as
                 defined in <filename>uio.h</filename>, see
                 <citerefentry><refentrytitle>readv</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for details) instead of the format string. Each
@@ -166,12 +166,12 @@
                 readable representation of the current error code
                 stored in
                 <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
-                the message string is passed as NULL or empty string
+                the message string is passed as <constant>NULL</constant> or empty string
                 only the error string representation will be written,
                 prefixed with nothing. An additional journal field
                 ERRNO= is included in the entry containing the numeric
                 error code formatted as decimal string. The log
-                priority used is <literal>LOG_ERR</literal> (3).</para>
+                priority used is <constant>LOG_ERR</constant> (3).</para>
 
                 <para>Note that <function>sd_journal_send()</function>
                 is a wrapper around
@@ -229,7 +229,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                 <function>sd_journal_sendv()</function> interfaces
                 are available as shared library, which can be compiled
                 and linked to with the
-                <literal>libsystemd-journal</literal>
+                <constant>libsystemd-journal</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>

@@ -79,9 +79,11 @@
                 three arguments: the journal context object and two
                 pointers to 64 Bit unsigned integers to store the
                 timestamps in. The timestamps are in microseconds
-                since the epoch, i.e. CLOCK_REALTIME. Either one of
-                the two timestamp arguments may be passed as NULL in
-                case the timestamp is not needed, but not both.</para>
+                since the epoch,
+                i.e. <constant>CLOCK_REALTIME</constant>. Either one
+                of the two timestamp arguments may be passed as
+                <constant>NULL</constant> in case the timestamp is not
+                needed, but not both.</para>
 
                 <para><function>sd_journal_get_cutoff_monotonic_usec()</function>
                 gets the monotonic timestamps of the first and last
@@ -90,7 +92,8 @@
                 identifier for the boot, and two pointers to 64 Bit
                 unsigned integers to store the timestamps. The
                 timestamps are in microseconds since boot-up of the
-                specific boot, i.e. CLOCK_MONOTONIC. Since the
+                specific boot,
+                i.e. <constant>CLOCK_MONOTONIC</constant>. Since the
                 monotonic clock begins new with every reboot it only
                 defines a well-defined point in time when used
                 together with an identifier identifying the boot, see
@@ -98,8 +101,8 @@
                 for more information. The function will return the
                 timestamps for the boot identified by the passed boot
                 ID. Either one of the two timestamp arguments may be
-                passed as NULL in case the timestamp is not needed,
-                but not both.</para>
+                passed as <constant>NULL</constant> in case the
+                timestamp is not needed, but not both.</para>
         </refsect1>
 
         <refsect1>
@@ -121,7 +124,7 @@
                 <function>sd_journal_get_cutoff_monotonic_usec()</function>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-journal</literal>
+                <constant>libsystemd-journal</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>

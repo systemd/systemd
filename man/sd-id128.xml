@@ -149,7 +149,7 @@
                 <para>Note that new, randomized IDs may be generated
                 with
                 <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-                <literal>--new-id</literal> option.</para>
+                <option>--new-id</option> option.</para>
         </refsect1>
 
         <refsect1>

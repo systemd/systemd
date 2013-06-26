@@ -79,19 +79,19 @@
                 <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 for more information). The second argument shall be
                 the default priority level for all messages. The
-                priority level is one of <literal>LOG_EMERG</literal>,
-                <literal>LOG_ALERT</literal>,
-                <literal>LOG_CRIT</literal>,
-                <literal>LOG_ERR</literal>,
-                <literal>LOG_WARNING</literal>,
-                <literal>LOG_NOTICE</literal>,
-                <literal>LOG_INFO</literal>,
-                <literal>LOG_DEBUG</literal>, as defined in
+                priority level is one of <constant>LOG_EMERG</constant>,
+                <constant>LOG_ALERT</constant>,
+                <constant>LOG_CRIT</constant>,
+                <constant>LOG_ERR</constant>,
+                <constant>LOG_WARNING</constant>,
+                <constant>LOG_NOTICE</constant>,
+                <constant>LOG_INFO</constant>,
+                <constant>LOG_DEBUG</constant>, as defined in
                 <filename>syslog.h</filename>, see
                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for details. The third argument is a boolean: if true
                 kernel-style log priority level prefixes (such as
-                <literal>SD_WARNING</literal>) are interpreted, see
+                <constant>SD_WARNING</constant>) are interpreted, see
                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for more information.</para>
 
@@ -114,7 +114,7 @@
                 <para>The <function>sd_journal_stream_fd()</function>
                 interface is available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-journal</literal>
+                <constant>libsystemd-journal</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>

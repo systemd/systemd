@@ -146,7 +146,7 @@
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
-                <para>If the <literal>pid</literal> parameter of any
+                <para>If the <varname>pid</varname> parameter of any
                 of these functions is passed as 0 the operation is
                 executed for the calling process.</para>
         </refsect1>
@@ -169,7 +169,7 @@
                 <function>sd_pid_get_machine_name()</function>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-login</literal>
+                <constant>libsystemd-login</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
 

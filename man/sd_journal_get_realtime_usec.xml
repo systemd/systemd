@@ -77,24 +77,25 @@
                 journal context object and a pointer to a 64 Bit
                 unsigned integer to store the timestamp in. The
                 timestamp is in microseconds since the epoch,
-                i.e. CLOCK_REALTIME.</para>
+                i.e. <constant>CLOCK_REALTIME</constant>.</para>
 
                 <para><function>sd_journal_get_monotonic_usec()</function>
-                gets the monotonic timestamp of the current
-                journal entry.  It takes three arguments: the journal
-                context object, a pointer to a 64 Bit unsigned integer
-                to store the timestamp in as well as a 128 Bit ID
-                buffer to store the boot ID of the monotonic timestamp
+                gets the monotonic timestamp of the current journal
+                entry.  It takes three arguments: the journal context
+                object, a pointer to a 64 Bit unsigned integer to
+                store the timestamp in as well as a 128 Bit ID buffer
+                to store the boot ID of the monotonic timestamp
                 in. The timestamp is in microseconds since boot-up of
-                the specific boot, i.e. CLOCK_MONOTONIC. Since the
+                the specific boot,
+                i.e. <constant>CLOCK_MONOTONIC</constant>. Since the
                 monotonic clock begins new with every reboot it only
                 defines a well-defined point in time when used
                 together with an identifier identifying the boot, see
                 <citerefentry><refentrytitle>sd_id128_get_boot</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for more information. If the boot ID parameter is
-                passed NULL the function will fail if the monotonic
-                timestamp of the current entry is not of the current
-                system boot.</para>
+                passed <constant>NULL</constant> the function will
+                fail if the monotonic timestamp of the current entry
+                is not of the current system boot.</para>
 
                 <para>Note that these functions will not work before
                 <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -109,7 +110,7 @@
                 and
                 <function>sd_journal_get_monotonic_usec()</function>
                 returns 0 on success or a negative errno-style error
-                code. If the boot ID parameter was passed NULL and the
+                code. If the boot ID parameter was passed <constant>NULL</constant> and the
                 monotonic timestamp of the current journal entry is
                 not of the current system boot, -ESTALE is returned by <function>sd_journal_get_monotonic_usec()</function>.</para>
         </refsect1>
@@ -123,7 +124,7 @@
                 <function>sd_journal_get_monotonic_usec()</function>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-journal</literal>
+                <constant>libsystemd-journal</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>

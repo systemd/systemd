@@ -202,10 +202,11 @@
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
-                <para>If the <literal>session</literal> parameter of
-                any of these functions is passed as NULL the operation
-                is executed for the session the calling process is a
-                member of, if there is any.</para>
+                <para>If the <varname>session</varname> parameter of
+                any of these functions is passed as
+                <constant>NULL</constant> the operation is executed
+                for the session the calling process is a member of, if
+                there is any.</para>
         </refsect1>
 
         <refsect1>
@@ -240,7 +241,7 @@
                 <function>sd_session_get_tty()</function>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-login</literal>
+                <constant>libsystemd-login</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>

@@ -95,7 +95,7 @@
                 each other.</para>
 
                 <para>If the functions return string arrays, these are
-                generally NULL terminated and need to be freed by the
+                generally <constant>NULL</constant> terminated and need to be freed by the
                 caller with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use, including the strings referenced
@@ -103,7 +103,7 @@
                 be freed, as well.</para>
 
                 <para>As a special exception, instead of an empty
-                string array NULL may be returned, which should be
+                string array <constant>NULL</constant> may be returned, which should be
                 treated equivalent to an empty string array.</para>
 
                 <para>See
@@ -122,7 +122,7 @@
 
                 <para>These APIs are implemented as shared library,
                 which can be compiled and linked to with the
-                <literal>libsystemd-login</literal>
+                <constant>libsystemd-login</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>

@@ -93,22 +93,22 @@
                 the log journal for reading. It will find all journal
                 files automatically and interleave them automatically
                 when reading. As first argument it takes a pointer to
-                a <literal>sd_journal</literal> pointer, which on
+                a <varname>sd_journal</varname> pointer, which on
                 success will contain a journal context object. The
                 second argument is a flags field, which may consist of
                 the following flags ORed together:
-                <literal>SD_JOURNAL_LOCAL_ONLY</literal> makes sure
+                <constant>SD_JOURNAL_LOCAL_ONLY</constant> makes sure
                 only journal files generated on the local machine will
-                be opened. <literal>SD_JOURNAL_RUNTIME_ONLY</literal>
+                be opened. <constant>SD_JOURNAL_RUNTIME_ONLY</constant>
                 makes sure only volatile journal files will be opened,
                 excluding those which are stored on persistent
-                storage. <literal>SD_JOURNAL_SYSTEM</literal>
+                storage. <constant>SD_JOURNAL_SYSTEM</constant>
                 will cause journal files of system services and the
                 kernel (in opposition to user session processes) to
-                be opened. <literal>SD_JOURNAL_CURRENT_USER</literal>
+                be opened. <constant>SD_JOURNAL_CURRENT_USER</constant>
                 will cause journal files of the current user to be
-                opened. If neither <literal>SD_JOURNAL_SYSTEM</literal>
-                nor <literal>SD_JOURNAL_CURRENT_USER</literal> are
+                opened. If neither <constant>SD_JOURNAL_SYSTEM</constant>
+                nor <constant>SD_JOURNAL_CURRENT_USER</constant> are
                 specified, all journal file types will be opened.</para>
 
                 <para><function>sd_journal_open_directory()</function>
@@ -121,7 +121,7 @@
 
                 <para><function>sd_journal_open_files()</function>
                 is similar to <function>sd_journal_open()</function>
-                but takes a <literal>NULL</literal>-terminated list
+                but takes a <constant>NULL</constant>-terminated list
                 of file paths to open. All files will be opened and
                 interleaved automatically. This call also takes a
                 flags argument, but it must be passed as 0 as no flags
@@ -191,7 +191,7 @@
                 <function>sd_journal_close()</function> interfaces are
                 available as a shared library, which can be compiled and
                 linked to with the
-                <literal>libsystemd-journal</literal>
+                <constant>libsystemd-journal</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
@@ -201,19 +201,19 @@
 
                 <para><function>sd_journal_open()</function>,
                 <function>sd_journal_close()</function>,
-                <literal>SD_JOURNAL_LOCAL_ONLY</literal>,
-                <literal>SD_JOURNAL_RUNTIME_ONLY</literal>,
-                <literal>SD_JOURNAL_SYSTEM_ONLY</literal> were added
+                <constant>SD_JOURNAL_LOCAL_ONLY</constant>,
+                <constant>SD_JOURNAL_RUNTIME_ONLY</constant>,
+                <constant>SD_JOURNAL_SYSTEM_ONLY</constant> were added
                 in systemd-38.</para>
 
                 <para><function>sd_journal_open_directory()</function>
                 was added in systemd-187.</para>
 
-                <para><literal>SD_JOURNAL_SYSTEM</literal>,
-                <literal>SD_JOURNAL_CURRENT_USER</literal>,
+                <para><constant>SD_JOURNAL_SYSTEM</constant>,
+                <constant>SD_JOURNAL_CURRENT_USER</constant>,
                 and <function>sd_journal_open_files()</function>
                 were added in systemd-205.
-                <literal>SD_JOURNAL_SYSTEM_ONLY</literal>
+                <constant>SD_JOURNAL_SYSTEM_ONLY</constant>
                 was deprecated.</para>
         </refsect1>
 

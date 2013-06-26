@@ -894,7 +894,7 @@ fi</programlisting>
 
                         <listitem><para>If the daemon offers
                         interfaces to other software running on the
-                        local system via local AF_UNIX sockets,
+                        local system via local <constant>AF_UNIX</constant> sockets,
                         consider implementing socket-based activation
                         (see above). Usually a minimal patch is
                         sufficient to implement this: Extend the
@@ -906,7 +906,7 @@ fi</programlisting>
                         positive value), skip the socket creation step
                         and use the passed sockets. Secondly, ensure
                         that the file system socket nodes for local
-                        AF_UNIX sockets used in the socket-based
+                        <constant>AF_UNIX</constant> sockets used in the socket-based
                         activation are not removed when the daemon
                         shuts down, if sockets have been
                         passed. Third, if the daemon normally closes

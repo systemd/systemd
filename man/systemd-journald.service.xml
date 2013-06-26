@@ -87,8 +87,8 @@
                 the data.</para>
 
                 <para><filename>systemd-journald</filename> will
-                forward all received log messages to the AF_UNIX
-                SOCK_DGRAM socket
+                forward all received log messages to the <constant>AF_UNIX</constant>
+                <constant>SOCK_DGRAM</constant> socket
                 <filename>/run/systemd/journal/syslog</filename> (if it exists) which
                 may be used by UNIX syslog daemons to process the data
                 further.</para>

@@ -100,9 +100,9 @@
                                         enforced, and formatted
                                         differently. Developers can
                                         generate a new ID for this
-                                        purpose with
-                                        <command>journalctl
-                                        --new-id</command>.</para>
+                                        purpose with <command>journalctl
+                                        <option>--new-id</option></command>.
+                                        </para>
                                 </listitem>
                         </varlistentry>
 
@@ -474,8 +474,8 @@
                                         describes the position of an
                                         entry in the journal and is
                                         portable across machines,
-                                        platforms and journal
-                                        files.</para>
+                                        platforms and journal files.
+                                        </para>
                                 </listitem>
                         </varlistentry>
 
@@ -483,16 +483,17 @@
                                 <term><varname>__REALTIME_TIMESTAMP=</varname></term>
                                 <listitem>
                                         <para>The wallclock time
-                                        (CLOCK_REALTIME) at the point
-                                        in time the entry was received
-                                        by the journal, in usec since
-                                        the epoch UTC formatted as
-                                        decimal string. This has
-                                        different properties from
+                                        (<constant>CLOCK_REALTIME</constant>)
+                                        at the point in time the entry
+                                        was received by the journal,
+                                        in usec since the epoch UTC
+                                        formatted as decimal
+                                        string. This has different
+                                        properties from
                                         <literal>_SOURCE_REALTIME_TIMESTAMP=</literal>
                                         as it is usually a bit later
-                                        but more likely to be
-                                        monotonic.</para>
+                                        but more likely to be monotonic.
+                                        </para>
                                 </listitem>
                         </varlistentry>
 
@@ -500,15 +501,15 @@
                                 <term><varname>__MONOTONIC_TIMESTAMP=</varname></term>
                                 <listitem>
                                         <para>The monotonic time
-                                        (CLOCK_MONOTONIC) at the point
-                                        in time the entry was received
-                                        by the journal in usec
-                                        formatted as decimal
+                                        (<constant>CLOCK_MONOTONIC</constant>)
+                                        at the point in time the entry
+                                        was received by the journal in
+                                        usec formatted as decimal
                                         string. To be useful as an
                                         address for the entry this
                                         should be combined with with
-                                        boot ID in
-                                        <literal>_BOOT_ID=</literal>.</para>
+                                        boot ID in <literal>_BOOT_ID=</literal>.
+                                        </para>
                                 </listitem>
                         </varlistentry>
                 </variablelist>

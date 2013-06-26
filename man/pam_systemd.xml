@@ -285,7 +285,7 @@
                                 include the value of <varname>$XDG_SESSION_ID</varname>
                                 in the filename. This directory shall
                                 be used for runtime file system
-                                objects such as AF_UNIX sockets,
+                                objects such as <constant>AF_UNIX</constant> sockets,
                                 FIFOs, PID files and similar. It is
                                 guaranteed that this directory is
                                 local and offers the greatest possible

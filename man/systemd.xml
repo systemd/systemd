@@ -611,7 +611,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term>SIGTERM</term>
+                                <term><constant>SIGTERM</constant></term>
 
                                 <listitem><para>Upon receiving this
                                 signal the systemd system manager
@@ -631,7 +631,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGINT</term>
+                                <term><constant>SIGINT</constant></term>
 
                                 <listitem><para>Upon receiving this
                                 signal the systemd system manager will
@@ -647,7 +647,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGWINCH</term>
+                                <term><constant>SIGWINCH</constant></term>
 
                                 <listitem><para>When this signal is
                                 received the systemd system manager
@@ -663,7 +663,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGPWR</term>
+                                <term><constant>SIGPWR</constant></term>
 
                                 <listitem><para>When this signal is
                                 received the systemd manager
@@ -675,7 +675,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGUSR1</term>
+                                <term><constant>SIGUSR1</constant></term>
 
                                 <listitem><para>When this signal is
                                 received the systemd manager will try
@@ -684,7 +684,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGUSR2</term>
+                                <term><constant>SIGUSR2</constant></term>
 
                                 <listitem><para>When this signal is
                                 received the systemd manager will log
@@ -695,7 +695,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGHUP</term>
+                                <term><constant>SIGHUP</constant></term>
 
                                 <listitem><para>Reloads the complete
                                 daemon configuration. This is mostly
@@ -704,7 +704,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+0</term>
+                                <term><constant>SIGRTMIN+0</constant></term>
 
                                 <listitem><para>Enters default mode, starts the
                                 <filename>default.target</filename>
@@ -714,7 +714,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+1</term>
+                                <term><constant>SIGRTMIN+1</constant></term>
 
                                 <listitem><para>Enters rescue mode,
                                 starts the
@@ -725,7 +725,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+2</term>
+                                <term><constant>SIGRTMIN+2</constant></term>
 
                                 <listitem><para>Enters emergency mode,
                                 starts the
@@ -736,7 +736,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+3</term>
+                                <term><constant>SIGRTMIN+3</constant></term>
 
                                 <listitem><para>Halts the machine,
                                 starts the
@@ -747,7 +747,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+4</term>
+                                <term><constant>SIGRTMIN+4</constant></term>
 
                                 <listitem><para>Powers off the machine,
                                 starts the
@@ -758,7 +758,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+5</term>
+                                <term><constant>SIGRTMIN+5</constant></term>
 
                                 <listitem><para>Reboots the machine,
                                 starts the
@@ -769,7 +769,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+6</term>
+                                <term><constant>SIGRTMIN+6</constant></term>
 
                                 <listitem><para>Reboots the machine via kexec,
                                 starts the
@@ -780,31 +780,31 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+13</term>
+                                <term><constant>SIGRTMIN+13</constant></term>
 
                                 <listitem><para>Immediately halts the machine.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+14</term>
+                                <term><constant>SIGRTMIN+14</constant></term>
 
                                 <listitem><para>Immediately powers off the machine.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+15</term>
+                                <term><constant>SIGRTMIN+15</constant></term>
 
                                 <listitem><para>Immediately reboots the machine.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+16</term>
+                                <term><constant>SIGRTMIN+16</constant></term>
 
                                 <listitem><para>Immediately reboots the machine with kexec.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+20</term>
+                                <term><constant>SIGRTMIN+20</constant></term>
 
                                 <listitem><para>Enables display of
                                 status messages on the console, as
@@ -815,7 +815,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+21</term>
+                                <term><constant>SIGRTMIN+21</constant></term>
 
                                 <listitem><para>Disables display of
                                 status messages on the console, as
@@ -826,23 +826,23 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+22</term>
-                                <term>SIGRTMIN+23</term>
+                                <term><constant>SIGRTMIN+22</constant></term>
+                                <term><constant>SIGRTMIN+23</constant></term>
 
                                 <listitem><para>Sets the log level to
                                 <literal>debug</literal>
                                 (or <literal>info</literal> on
-                                <literal>SIGRTMIN+23</literal>), as
+                                <constant>SIGRTMIN+23</constant>), as
                                 controlled via
                                 <varname>systemd.log_level=debug</varname>
                                 (or <varname>systemd.log_level=info</varname>
-                                on <literal>SIGRTMIN+23</literal>) on
+                                on <constant>SIGRTMIN+23</constant>) on
                                 the kernel command
                                 line.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+24</term>
+                                <term><constant>SIGRTMIN+24</constant></term>
 
                                 <listitem><para>Immediately exits the
                                 manager (only available for --user
@@ -850,28 +850,28 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+26</term>
-                                <term>SIGRTMIN+27</term>
-                                <term>SIGRTMIN+28</term>
-                                <term>SIGRTMIN+29</term>
+                                <term><constant>SIGRTMIN+26</constant></term>
+                                <term><constant>SIGRTMIN+27</constant></term>
+                                <term><constant>SIGRTMIN+28</constant></term>
+                                <term><constant>SIGRTMIN+29</constant></term>
 
                                 <listitem><para>Sets the log level to
                                 <literal>journal-or-kmsg</literal>
                                 (or <literal>console</literal> on
-                                <literal>SIGRTMIN+27</literal>,
+                                <constant>SIGRTMIN+27</constant>,
                                 <literal>kmsg</literal> on
-                                <literal>SIGRTMIN+28</literal>,
+                                <constant>SIGRTMIN+28</constant>,
                                 or <literal>syslog-or-kmsg</literal>
-                                on <literal>SIGRTMIN+29</literal>), as
+                                on <constant>SIGRTMIN+29</constant>), as
                                 controlled via
                                 <varname>systemd.log_target=journal-or-kmsg</varname>
                                 (or <varname>systemd.log_target=console</varname>
-                                on <literal>SIGRTMIN+27</literal>,
+                                on <constant>SIGRTMIN+27</constant>,
                                 <varname>systemd.log_target=kmsg</varname>
-                                on <literal>SIGRTMIN+28</literal>,
+                                on <constant>SIGRTMIN+28</constant>,
                                 or
                                 <varname>systemd.log_target=syslog-or-kmsg</varname>
-                                on <literal>SIGRTMIN+29</literal>) on
+                                on <constant>SIGRTMIN+29</constant>) on
                                 the kernel command
                                 line.</para></listitem>
                         </varlistentry>
@@ -1044,7 +1044,7 @@
                                 argument. If positive systemd
                                 activates the specified virtual
                                 terminal when it crashes. Defaults to
-                                <literal>-1</literal>.</para></listitem>
+                                <constant>-1</constant>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -1223,7 +1223,7 @@
 
                                 <listitem><para>Daemon status
                                 notification socket. This is an
-                                AF_UNIX datagram socket and is used to
+                                <constant>AF_UNIX</constant> datagram socket and is used to
                                 implement the daemon notification
                                 logic as implemented by
                                 <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
@@ -1236,7 +1236,7 @@
                                 <listitem><para>Used internally by the
                                 <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 tool to implement delayed
-                                shutdowns. This is an AF_UNIX datagram
+                                shutdowns. This is an <constant>AF_UNIX</constant> datagram
                                 socket.</para></listitem>
                         </varlistentry>
 
@@ -1247,7 +1247,7 @@
                                 communication channel between
                                 <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 and the systemd process. This is an
-                                AF_UNIX stream socket. This interface
+                                <constant>AF_UNIX</constant> stream socket. This interface
                                 is private to systemd and should not
                                 be used in external
                                 projects.</para></listitem>

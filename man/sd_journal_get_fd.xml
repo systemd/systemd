@@ -123,22 +123,28 @@
                 <para><function>sd_journal_get_events()</function>
                 will return the <function>poll()</function> mask to
                 wait for. This function will return a combination of
-                <literal>POLLIN</literal> and
-                <literal>POLLOUT</literal> and similar to fill into
+                <constant>POLLIN</constant> and
+                <constant>POLLOUT</constant> and similar to fill into
                 the <literal>.events</literal> field of
-                <literal>struct pollfd</literal>.</para>
+                <varname>struct pollfd</varname>.</para>
 
                 <para><function>sd_journal_get_timeout()</function>
-                will return a timeout value for usage in <function>poll()</function>. This returns a value in microseconds since the epoch of CLOCK_MONOTONIC for timing out <function>poll()</function> in <literal>timeout_usec</literal>. See
+                will return a timeout value for usage in
+                <function>poll()</function>. This returns a value in
+                microseconds since the epoch of
+                <constant>CLOCK_MONOTONIC</constant> for timing out
+                <function>poll()</function> in
+                <varname>timeout_usec</varname>. See
                 <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                 for details about
-                <literal>CLOCK_MONOTONIC</literal>. If there's no
+                <constant>CLOCK_MONOTONIC</constant>. If there's no
                 timeout to wait for this will fill in
-                <literal>(uint64_t) -1</literal> instead. Note that
+                <constant>(uint64_t) -1</constant> instead. Note that
                 <function>poll()</function> takes a relative timeout
                 in milliseconds rather than an absolute timeout in
-                microseconds. To convert the absolute 'us' timeout into
-                relative 'ms', use code like the following:</para>
+                microseconds. To convert the absolute 'us' timeout
+                into relative 'ms', use code like the
+                following:</para>
 
                 <programlisting>uint64_t t;
 int msec;
@@ -154,7 +160,7 @@ else {
 }</programlisting>
 
                 <para>The code above does not do any error checking
-                for brevity's sake. The calculated <literal>msec</literal>
+                for brevity's sake. The calculated <varname>msec</varname>
                 integer can be passed directly as
                 <function>poll()</function>'s timeout
                 parameter.</para>
@@ -174,7 +180,7 @@ else {
                 synchronously wait until the journal gets changed. The
                 maximum time this call sleeps may be controlled with
                 the <parameter>timeout_usec</parameter>
-                parameter. Pass <literal>(uint64_t) -1</literal> to
+                parameter. Pass <constant>(uint64_t) -1</constant> to
                 wait indefinitely. Internally this call simply
                 combines <function>sd_journal_get_fd()</function>,
                 <function>sd_journal_get_events()</function>,
@@ -209,8 +215,8 @@ else {
                 errno-style error code.</para>
 
                 <para><function>sd_journal_get_events()</function>
-                returns a combination of <literal>POLLIN</literal>,
-                <literal>POLLOUT</literal> and suchlike on success or
+                returns a combination of <constant>POLLIN</constant>,
+                <constant>POLLOUT</constant> and suchlike on success or
                 a negative errno-style error code.</para>
 
                 <para><function>sd_journal_reliable_fd()</function>
@@ -222,19 +228,19 @@ else {
 
                 <para><function>sd_journal_process()</function> and
                 <function>sd_journal_wait()</function> return one of
-                <literal>SD_JOURNAL_NOP</literal>,
-                <literal>SD_JOURNAL_APPEND</literal> or
-                <literal>SD_JOURNAL_INVALIDATE</literal> on success or
+                <constant>SD_JOURNAL_NOP</constant>,
+                <constant>SD_JOURNAL_APPEND</constant> or
+                <constant>SD_JOURNAL_INVALIDATE</constant> on success or
                 a negative errno-style error code. If
-                <literal>SD_JOURNAL_NOP</literal> is returned the
+                <constant>SD_JOURNAL_NOP</constant> is returned the
                 journal didn't change since the last invocation. If
-                <literal>SD_JOURNAL_APPEND</literal> is returned new
+                <constant>SD_JOURNAL_APPEND</constant> is returned new
                 entries have been appended to the end of the
-                journal. If <literal>SD_JOURNAL_INVALIDATE</literal>
+                journal. If <constant>SD_JOURNAL_INVALIDATE</constant>
                 journal files were added or removed (possibly due to
                 rotation). In the latter event live-view UIs should
                 probably refresh their entire display while in the
-                case of <literal>SD_JOURNAL_APPEND</literal> it is
+                case of <constant>SD_JOURNAL_APPEND</constant> it is
                 sufficient to simply continue reading at the previous
                 end of the journal.</para>
         </refsect1>
@@ -249,7 +255,7 @@ else {
                 <function>sd_journal_wait()</function> interfaces are
                 available as shared library, which can be compiled and
                 linked to with the
-                <literal>libsystemd-journal</literal>
+                <constant>libsystemd-journal</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>

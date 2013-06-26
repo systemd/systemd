@@ -109,11 +109,13 @@
                 called to check whether the specified file descriptor
                 refers to a socket. If the
                 <parameter>family</parameter> parameter is not
-                AF_UNSPEC it is checked whether the socket is of the
-                specified family (AF_UNIX, AF_INET, ...). If the
+                <constant>AF_UNSPEC</constant> it is checked whether
+                the socket is of the specified family (AF_UNIX,
+                <constant>AF_INET</constant>, ...). If the
                 <parameter>type</parameter> parameter is not 0 it is
                 checked whether the socket is of the specified type
-                (SOCK_STREAM, SOCK_DGRAM, ...). If the
+                (<constant>SOCK_STREAM</constant>,
+                <constant>SOCK_DGRAM</constant>, ...). If the
                 <parameter>listening</parameter> parameter is positive
                 it is checked whether the socket is in accepting mode,
                 i.e. <function>listen()</function> has been called for
@@ -129,14 +131,14 @@
                 optionally checks the IPv4 or IPv6 port number the
                 socket is bound to, unless <parameter>port</parameter>
                 is zero. For this call <parameter>family</parameter>
-                must be passed as either AF_UNSPEC, AF_INET, or
-                AF_INET6.</para>
+                must be passed as either <constant>AF_UNSPEC</constant>, <constant>AF_INET</constant>, or
+                <constant>AF_INET6</constant>.</para>
 
                 <para><function>sd_is_socket_unix()</function> is
                 similar to <function>sd_is_socket()</function>, but
-                optionally checks the AF_UNIX path the socket is bound
+                optionally checks the <constant>AF_UNIX</constant> path the socket is bound
                 to, unless the <parameter>path</parameter> parameter
-                is NULL. For normal file system AF_UNIX sockets set
+                is <constant>NULL</constant>. For normal file system <constant>AF_UNIX</constant> sockets set
                 the <parameter>length</parameter> parameter to 0. For
                 Linux abstract namespace sockets set the
                 <parameter>length</parameter> to the size of the
@@ -190,7 +192,7 @@
                 <filename>sd-daemon.h</filename> files. These
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-daemon</literal>
+                <constant>libsystemd-daemon</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file. Alternatively, applications consuming these APIs
                 may copy the implementation into their source

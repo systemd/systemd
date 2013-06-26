@@ -150,19 +150,19 @@
                                 <term><varname>ListenSequentialPacket=</varname></term>
                                 <listitem><para>Specifies an address
                                 to listen on for a stream
-                                (SOCK_STREAM), datagram (SOCK_DGRAM),
+                                (<constant>SOCK_STREAM</constant>), datagram (<constant>SOCK_DGRAM</constant>),
                                 or sequential packet
-                                (SOCK_SEQPACKET) socket, respectively. The address
+                                (<constant>SOCK_SEQPACKET</constant>) socket, respectively. The address
                                 can be written in various formats:</para>
 
                                 <para>If the address starts with a
                                 slash (/), it is read as file system
-                                socket in the AF_UNIX socket
+                                socket in the <constant>AF_UNIX</constant> socket
                                 family.</para>
 
                                 <para>If the address starts with an
                                 at symbol (@) it is read as abstract
-                                namespace socket in the AF_UNIX
+                                namespace socket in the <constant>AF_UNIX</constant>
                                 family. The @ is replaced with a NUL
                                 character before binding. For details
                                 see
@@ -193,13 +193,13 @@
                                 setting (see below).
                                 </para>
 
-                                <para>Note that SOCK_SEQPACKET
+                                <para>Note that <constant>SOCK_SEQPACKET</constant>
                                 (i.e. <varname>ListenSequentialPacket=</varname>)
-                                is only available for AF_UNIX
-                                sockets. SOCK_STREAM
+                                is only available for <constant>AF_UNIX</constant>
+                                sockets. <constant>SOCK_STREAM</constant>
                                 (i.e. <varname>ListenStream=</varname>)
                                 when used for IP sockets refers to TCP
-                                sockets, SOCK_DGRAM
+                                sockets, <constant>SOCK_DGRAM</constant>
                                 (i.e. <varname>ListenDatagram=</varname>)
                                 to UDP.</para>
 
@@ -258,7 +258,7 @@
                                 <listitem><para>Specifies a Netlink
                                 family to create a socket for to
                                 listen on. This expects a short string
-                                referring to the AF_NETLINK family
+                                referring to the <constant>AF_NETLINK</constant> family
                                 name (such as <varname>audit</varname>
                                 or <varname>kobject-uevent</varname>)
                                 as argument, optionally suffixed by a
@@ -382,7 +382,7 @@
                                 to write new daemons only in a way
                                 that is suitable for
                                 <option>Accept=false</option>. A
-                                daemon listening on an AF_UNIX socket
+                                daemon listening on an <constant>AF_UNIX</constant> socket
                                 may, but does not need to, call
                                 <citerefentry><refentrytitle>close</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 on the received socket before
@@ -584,7 +584,7 @@
                                 <term><varname>PassCredentials=</varname></term>
                                 <listitem><para>Takes a boolean
                                 value. This controls the SO_PASSCRED
-                                socket option, which allows AF_UNIX sockets to
+                                socket option, which allows <constant>AF_UNIX</constant> sockets to
                                 receive the credentials of the sending
                                 process in an ancillary message.
                                 Defaults to
@@ -595,7 +595,7 @@
                                 <term><varname>PassSecurity=</varname></term>
                                 <listitem><para>Takes a boolean
                                 value. This controls the SO_PASSSEC
-                                socket option, which allows AF_UNIX
+                                socket option, which allows <constant>AF_UNIX</constant>
                                 sockets to receive the security
                                 context of the sending process in an
                                 ancillary message.  Defaults to

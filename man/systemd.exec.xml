@@ -721,9 +721,9 @@
                                 separated list of capability names as
                                 read by
                                 <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                                e.g. <literal>CAP_SYS_ADMIN
-                                CAP_DAC_OVERRIDE
-                                CAP_SYS_PTRACE</literal>.
+                                e.g. <constant>CAP_SYS_ADMIN</constant>,
+                                <constant>CAP_DAC_OVERRIDE</constant>,
+                                <constant>CAP_SYS_PTRACE</constant>.
                                 Capabilities listed will be included
                                 in the bounding set, all others are
                                 removed. If the list of capabilities
@@ -1217,7 +1217,8 @@
                                 system calls executed by the unit
                                 process except for the listed ones
                                 will result in immediate process
-                                termination with the SIGSYS signal
+                                termination with the
+                                <constant>SIGSYS</constant> signal
                                 (whitelisting). If the first character
                                 of the list is <literal>~</literal>
                                 the effect is inverted: only the

@@ -101,18 +101,18 @@
 
                 <para><function>sd_seat_get_sessions()</function> may
                 be used to determine all sessions on the specified
-                seat. Returns two arrays, one (NULL terminated) with
+                seat. Returns two arrays, one (<constant>NULL</constant> terminated) with
                 the session identifiers of the sessions and one with
                 the user identifiers of the Unix users the sessions
                 belong to. An additional parameter may be used to
                 return the number of entries in the latter array. The
                 two arrays and the latter parameter may be passed as
-                NULL in case these values need not to be
+                <constant>NULL</constant> in case these values need not to be
                 determined. The arrays and the strings referenced by
                 them need to be freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use. Note that instead of an empty array
-                NULL may be returned and should be considered
+                <constant>NULL</constant> may be returned and should be considered
                 equivalent to an empty array.</para>
 
                 <para><function>sd_seat_can_multi_session()</function>
@@ -130,10 +130,11 @@
                 graphics functionality, i.e. is useful as a graphics
                 display.</para>
 
-                <para>If the <literal>seat</literal> parameter of any
-                of these functions is passed as NULL the operation is
-                executed for the seat of the session of the calling
-                process, if there is any.</para>
+                <para>If the <varname>seat</varname> parameter of any
+                of these functions is passed as
+                <constant>NULL</constant> the operation is executed
+                for the seat of the session of the calling process, if
+                there is any.</para>
         </refsect1>
 
         <refsect1>
@@ -162,7 +163,7 @@
                 <function>sd_seat_can_grapical()</function> interfaces
                 are available as shared library, which can be compiled
                 and linked to with the
-                <literal>libsystemd-login</literal>
+                <constant>libsystemd-login</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>

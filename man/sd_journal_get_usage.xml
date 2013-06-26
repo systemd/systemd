@@ -66,7 +66,7 @@
                 <para><function>sd_journal_get_usage()</function>
                 determines the total disk space currently used by
                 journal files (in bytes). If
-                <literal>SD_JOURNAL_LOCAL_ONLY</literal> was passed
+                <constant>SD_JOURNAL_LOCAL_ONLY</constant> was passed
                 when opening the journal this value will only reflect
                 the size of journal files of the local host, otherwise
                 of all hosts.</para>
@@ -86,7 +86,7 @@
                 <para>The <function>sd_journal_get_usage()</function>
                 interface is available as shared library, which can be
                 compiled and linked to with the
-                <literal>libsystemd-journal</literal>
+                <constant>libsystemd-journal</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>

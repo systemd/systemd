@@ -217,7 +217,7 @@
 
                 <para>Internally, these functions send a single
                 datagram with the state string as payload to the
-                AF_UNIX socket referenced in the
+                <constant>AF_UNIX</constant> socket referenced in the
                 <varname>$NOTIFY_SOCKET</varname> environment
                 variable. If the first character of
                 <varname>$NOTIFY_SOCKET</varname> is @ the string is
@@ -238,7 +238,7 @@
                 <filename>sd-daemon.h</filename> files. These
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-daemon</literal>
+                <constant>libsystemd-daemon</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file. Alternatively, applications consuming these APIs
                 may copy the implementation into their source tree. For

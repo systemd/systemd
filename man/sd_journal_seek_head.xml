@@ -101,13 +101,15 @@
 
                 <para><function>sd_journal_seek_monotonic_usec()</function>
                 seeks to the entry with the specified monotonic
-                timestamp, i.e. CLOCK_MONOTONIC. Since monotonic time
-                restarts on every reboot a boot ID needs to be
-                specified as well.</para>
+                timestamp,
+                i.e. <constant>CLOCK_MONOTONIC</constant>. Since
+                monotonic time restarts on every reboot a boot ID
+                needs to be specified as well.</para>
 
                 <para><function>sd_journal_seek_realtime_usec()</function>
                 seeks to the entry with the specified realtime
-                (wallclock) timestamp, i.e. CLOCK_REALTIME. Note that
+                (wallclock) timestamp,
+                i.e. <constant>CLOCK_REALTIME</constant>. Note that
                 the realtime clock is not necessarily monotonic. If a
                 realtime timestamp is ambiguous it is not defined
                 which position is sought to.</para>
@@ -156,7 +158,7 @@
                 and <function>sd_journal_seek_cursor()</function>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-journal</literal>
+                <constant>libsystemd-journal</constant>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
