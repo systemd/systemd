@@ -139,6 +139,14 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
+                <title>Constants</title>
+
+                <para>Various constant used and/or defined by systemd.</para>
+
+                <variablelist id='constants' />
+        </refsect1>
+
+        <refsect1>
                 <title>Miscellaneous options and directives</title>
 
                 <para>Other configuration elements which don't fit in
@@ -221,6 +229,16 @@ def _extract_directives(directive_groups, formatting, page):
                 text = ' '.join(name.itertext())
                 storfile[text].append((pagename, section))
                 formatting[text] = name
+
+    storfile = directive_groups['constants']
+    for name in t.iterfind('.//constant'):
+        if name.attrib.get('noindex'):
+            continue
+        name.tail = ''
+        if name.text.startswith('('): # a cast, strip it
+            name.text = name.text.partition(' ')[2]
+        storfile[name.text].append((pagename, section))
+        formatting[name.text] = name
 
 def _make_section(template, name, directives, formatting):
     varlist = template.find(".//*[@id='{}']".format(name))
