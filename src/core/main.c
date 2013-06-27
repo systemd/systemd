@@ -106,7 +106,10 @@ static void nop_handler(int sig) {
 
 _noreturn_ static void crash(int sig) {
 
-        if (!arg_dump_core)
+        if (getpid() != 1)
+                /* Pass this on immediately, if this is not PID 1 */
+                raise(sig);
+        else if (!arg_dump_core)
                 log_error("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
                 struct sigaction sa = {
@@ -116,7 +119,7 @@ _noreturn_ static void crash(int sig) {
                 pid_t pid;
 
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
-                assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
+                sigaction(SIGCHLD, &sa, NULL);
 
                 pid = fork();
                 if (pid < 0)
@@ -128,7 +131,7 @@ _noreturn_ static void crash(int sig) {
                         /* Enable default signal handler for core dump */
                         zero(sa);
                         sa.sa_handler = SIG_DFL;
-                        assert_se(sigaction(sig, &sa, NULL) == 0);
+                        sigaction(sig, &sa, NULL);
 
                         /* Don't limit the core dump size */
                         rl.rlim_cur = RLIM_INFINITY;
@@ -136,7 +139,7 @@ _noreturn_ static void crash(int sig) {
                         setrlimit(RLIMIT_CORE, &rl);
 
                         /* Just to be sure... */
-                        assert_se(chdir("/") == 0);
+                        chdir("/");
 
                         /* Raise the signal again */
                         raise(sig);
