@@ -88,7 +88,6 @@ static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static bool arg_show_status = true;
 static bool arg_switched_root = false;
-static char **arg_default_controllers = NULL;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
@@ -642,7 +641,6 @@ static int parse_config_file(void) {
                 { "Manager", "ShowStatus",            config_parse_bool,         0, &arg_show_status         },
                 { "Manager", "CrashChVT",             config_parse_int,          0, &arg_crash_chvt          },
                 { "Manager", "CPUAffinity",           config_parse_cpu_affinity2, 0, NULL                    },
-                { "Manager", "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers },
                 { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
                 { "Manager", "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error   },
                 { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
@@ -1632,9 +1630,6 @@ int main(int argc, char *argv[]) {
 
         manager_set_default_rlimits(m, arg_default_rlimit);
 
-        if (arg_default_controllers)
-                manager_set_default_controllers(m, arg_default_controllers);
-
         if (arg_default_environment)
                 manager_set_default_environment(m, arg_default_environment);
 
@@ -1807,7 +1802,6 @@ finish:
                 free(arg_default_rlimit[j]);
 
         free(arg_default_unit);
-        strv_free(arg_default_controllers);
         free_join_controllers();
 
         dbus_shutdown();

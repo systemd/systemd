@@ -2378,150 +2378,6 @@ static int kill_unit(DBusConnection *bus, char **args) {
         return 0;
 }
 
-static int set_cgroup(DBusConnection *bus, char **args) {
-        _cleanup_free_ char *n = NULL;
-        const char *method, *runtime;
-        char **argument;
-        int r;
-
-        assert(bus);
-        assert(args);
-
-        method =
-                streq(args[0], "set-cgroup")   ? "SetUnitControlGroup" :
-                streq(args[0], "unset-cgroup") ? "UnsetUnitControlGroup"
-                                               : "UnsetUnitControlGroupAttribute";
-
-        runtime = arg_runtime ? "runtime" : "persistent";
-
-        n = unit_name_mangle(args[1]);
-        if (!n)
-                return log_oom();
-
-        STRV_FOREACH(argument, args + 2) {
-
-                r = bus_method_call_with_reply(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                method,
-                                NULL,
-                                NULL,
-                                DBUS_TYPE_STRING, &n,
-                                DBUS_TYPE_STRING, argument,
-                                DBUS_TYPE_STRING, &runtime,
-                                DBUS_TYPE_INVALID);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int set_cgroup_attr(DBusConnection *bus, char **args) {
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
-        DBusMessageIter iter;
-        _cleanup_free_ char *n = NULL;
-        const char *runtime;
-        int r;
-
-        assert(bus);
-        assert(args);
-
-        dbus_error_init(&error);
-
-        runtime = arg_runtime ? "runtime" : "persistent";
-
-        n = unit_name_mangle(args[1]);
-        if (!n)
-                return log_oom();
-
-        m = dbus_message_new_method_call(
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "SetUnitControlGroupAttribute");
-        if (!m)
-                return log_oom();
-
-        dbus_message_iter_init_append(m, &iter);
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &n) ||
-            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &args[2]))
-                return log_oom();
-
-        r = bus_append_strv_iter(&iter, args + 3);
-        if (r < 0)
-                return log_oom();
-
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &runtime))
-                return log_oom();
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                dbus_error_free(&error);
-                return -EIO;
-        }
-
-        return 0;
-}
-
-static int get_cgroup_attr(DBusConnection *bus, char **args) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        _cleanup_free_ char *n = NULL;
-        char **argument;
-        int r;
-
-        assert(bus);
-        assert(args);
-
-        n = unit_name_mangle(args[1]);
-        if (!n)
-                return log_oom();
-
-        STRV_FOREACH(argument, args + 2) {
-                _cleanup_strv_free_ char **list = NULL;
-                DBusMessageIter iter;
-                char **a;
-
-                r = bus_method_call_with_reply(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "GetUnitControlGroupAttribute",
-                                &reply,
-                                NULL,
-                                DBUS_TYPE_STRING, &n,
-                                DBUS_TYPE_STRING, argument,
-                                DBUS_TYPE_INVALID);
-                if (r < 0)
-                        return r;
-
-                if (!dbus_message_iter_init(reply, &iter)) {
-                        log_error("Failed to initialize iterator.");
-                        return -EIO;
-                }
-
-                r = bus_parse_strv_iter(&iter, &list);
-                if (r < 0) {
-                        log_error("Failed to parse value list.");
-                        return r;
-                }
-
-                STRV_FOREACH(a, list) {
-                        if (endswith(*a, "\n"))
-                                fputs(*a, stdout);
-                        else
-                                puts(*a);
-                }
-        }
-
-        return 0;
-}
-
 typedef struct ExecStatusInfo {
         char *name;
 
@@ -2639,7 +2495,7 @@ typedef struct UnitStatusInfo {
 
         const char *fragment_path;
         const char *source_path;
-        const char *default_control_group;
+        const char *control_group;
 
         char **dropin_paths;
 
@@ -2922,11 +2778,11 @@ static void print_status_info(UnitStatusInfo *i) {
         if (i->status_text)
                 printf("   Status: \"%s\"\n", i->status_text);
 
-        if (i->default_control_group &&
-            (i->main_pid > 0 || i->control_pid > 0 || cg_is_empty_by_spec(i->default_control_group, false) == 0)) {
+        if (i->control_group &&
+            (i->main_pid > 0 || i->control_pid > 0 || cg_is_empty_by_spec(i->control_group, false) == 0)) {
                 unsigned c;
 
-                printf("   CGroup: %s\n", i->default_control_group);
+                printf("   CGroup: %s\n", i->control_group);
 
                 if (arg_transport != TRANSPORT_SSH) {
                         unsigned k = 0;
@@ -2945,7 +2801,7 @@ static void print_status_info(UnitStatusInfo *i) {
                         if (i->control_pid > 0)
                                 extra[k++] = i->control_pid;
 
-                        show_cgroup_and_extra_by_spec(i->default_control_group, prefix,
+                        show_cgroup_and_extra_by_spec(i->control_group, prefix,
                                                       c, false, extra, k, flags);
                 }
         }
@@ -3054,8 +2910,12 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 i->fragment_path = s;
                         else if (streq(name, "SourcePath"))
                                 i->source_path = s;
+#ifndef LEGACY
                         else if (streq(name, "DefaultControlGroup"))
-                                i->default_control_group = s;
+                                i->control_group = s;
+#endif
+                        else if (streq(name, "ControlGroup"))
+                                i->control_group = s;
                         else if (streq(name, "StatusText"))
                                 i->status_text = s;
                         else if (streq(name, "PIDFile"))
@@ -3457,7 +3317,43 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
 
                         return 0;
+
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "DeviceAllow")) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *path, *rwm;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &rwm, false) >= 0)
+                                        printf("%s=%s %s\n", name, strna(path), strna(rwm));
+
+                                dbus_message_iter_next(&sub);
+                        }
+                        return 0;
+
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && (streq(name, "BlockIOReadBandwidth") || streq(name, "BlockIOWriteBandwidth"))) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *path;
+                                uint64_t bandwidth;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &bandwidth, false) >= 0)
+                                        printf("%s=%s %" PRIu64 "\n", name, strna(path), bandwidth);
+
+                                dbus_message_iter_next(&sub);
+                        }
+                        return 0;
                 }
+
 
                 break;
         }
@@ -4667,14 +4563,6 @@ static int systemctl_help(void) {
                "  help [NAME...|PID...]           Show manual for one or more units\n"
                "  reset-failed [NAME...]          Reset failed state for all, one, or more\n"
                "                                  units\n"
-               "  get-cgroup-attr [NAME] [ATTR] ...\n"
-               "                                  Get control group attrubute\n"
-               "  set-cgroup-attr [NAME] [ATTR] [VALUE] ...\n"
-               "                                  Set control group attribute\n"
-               "  unset-cgroup-attr [NAME] [ATTR...]\n"
-               "                                  Unset control group attribute\n"
-               "  set-cgroup [NAME] [CGROUP...]   Add unit to a control group\n"
-               "  unset-cgroup [NAME] [CGROUP...] Remove unit from a control group\n"
                "  load [NAME...]                  Load one or more units\n"
                "  list-dependencies [NAME]        Recursively show units which are required\n"
                "                                  or wanted by this unit or by which this\n"
@@ -5711,11 +5599,6 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "condreload",            MORE,  2, start_unit        }, /* For compatibility with ALTLinux */
                 { "condrestart",           MORE,  2, start_unit        }, /* For compatibility with RH */
                 { "isolate",               EQUAL, 2, start_unit        },
-                { "set-cgroup",            MORE,  3, set_cgroup        },
-                { "unset-cgroup",          MORE,  3, set_cgroup        },
-                { "get-cgroup-attr",       MORE,  3, get_cgroup_attr   },
-                { "set-cgroup-attr",       MORE,  4, set_cgroup_attr   },
-                { "unset-cgroup-attr",     MORE,  3, set_cgroup        },
                 { "kill",                  MORE,  2, kill_unit         },
                 { "is-active",             MORE,  2, check_unit_active },
                 { "check",                 MORE,  2, check_unit_active },

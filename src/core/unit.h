@@ -37,10 +37,10 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "list.h"
 #include "socket-util.h"
 #include "execute.h"
+#include "cgroup.h"
 #include "condition.h"
 #include "install.h"
 #include "unit-name.h"
-#include "cgroup-semantics.h"
 
 enum UnitActiveState {
         UNIT_ACTIVE,
@@ -115,8 +115,6 @@ enum UnitDependency {
 
 #include "manager.h"
 #include "job.h"
-#include "cgroup.h"
-#include "cgroup-attr.h"
 
 struct UnitRef {
         /* Keeps tracks of references to a unit. This is useful so
@@ -174,8 +172,9 @@ struct Unit {
         dual_timestamp inactive_enter_timestamp;
 
         /* Counterparts in the cgroup filesystem */
-        CGroupBonding *cgroup_bondings;
-        CGroupAttribute *cgroup_attributes;
+        char *cgroup_path;
+        bool cgroup_realized;
+        CGroupControllerMask cgroup_mask;
 
         UnitRef slice;
 
@@ -196,6 +195,9 @@ struct Unit {
 
         /* GC queue */
         LIST_FIELDS(Unit, gc_queue);
+
+        /* CGroup realize members queue */
+        LIST_FIELDS(Unit, cgroup_queue);
 
         /* Used during GC sweeps */
         unsigned gc_marker;
@@ -243,6 +245,7 @@ struct Unit {
         bool in_dbus_queue:1;
         bool in_cleanup_queue:1;
         bool in_gc_queue:1;
+        bool in_cgroup_queue:1;
 
         bool sent_dbus_new_signal:1;
 
@@ -277,8 +280,12 @@ struct UnitVTable {
          * ExecContext is found, if the unit type has that */
         size_t exec_context_offset;
 
-        /* The name of the section with the exec settings of ExecContext */
-        const char *exec_section;
+        /* If greater than 0, the offset into the object where
+         * CGroupContext is found, if the unit type has that */
+        size_t cgroup_context_offset;
+
+        /* The name of the configuration file section with the private settings of this unit*/
+        const char *private_section;
 
         /* Config file sections this unit type understands, separated
          * by NUL chars */
@@ -350,7 +357,7 @@ struct UnitVTable {
 
         /* Called whenever any of the cgroups this unit watches for
          * ran empty */
-        void (*cgroup_notify_empty)(Unit *u);
+        void (*notify_cgroup_empty)(Unit *u);
 
         /* Called whenever a process of this unit sends us a message */
         void (*notify_message)(Unit *u, pid_t pid, char **tags);
@@ -453,11 +460,6 @@ int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *n
 int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
-
-int unit_add_cgroup_from_text(Unit *u, const char *name, bool overwrite, CGroupBonding **ret);
-int unit_add_default_cgroups(Unit *u);
-CGroupBonding* unit_get_default_cgroup(Unit *u);
-int unit_add_cgroup_attribute(Unit *u, const CGroupSemantics *semantics, const char *controller, const char *name, const char *value, CGroupAttribute **ret);
 
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
@@ -573,6 +575,7 @@ int unit_add_mount_links(Unit *u);
 int unit_exec_context_defaults(Unit *u, ExecContext *c);
 
 ExecContext *unit_get_exec_context(Unit *u) _pure_;
+CGroupContext *unit_get_cgroup_context(Unit *u) _pure_;
 
 int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data);
 int unit_remove_drop_in(Unit *u, bool runtime, const char *name);

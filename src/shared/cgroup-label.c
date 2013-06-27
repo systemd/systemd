@@ -36,15 +36,18 @@
 #include "util.h"
 #include "mkdir.h"
 
-int cg_create(const char *controller, const char *path, const char *suffix) {
+/* This is split out since it needs label calls, either directly or
+ * indirectly. */
+
+int cg_create(const char *controller, const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        r = cg_get_path_and_check(controller, path, suffix, &fs);
+        r = cg_get_path_and_check(controller, path, NULL, &fs);
         if (r < 0)
                 return r;
 
-        r = mkdir_parents_label(fs, 0755);
+        r = mkdir_parents_prefix("/sys/fs/cgroup", fs, 0755);
         if (r < 0)
                 return r;
 
@@ -64,7 +67,7 @@ int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
 
         assert(pid >= 0);
 
-        r = cg_create(controller, path, NULL);
+        r = cg_create(controller, path);
         if (r < 0)
                 return r;
 

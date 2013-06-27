@@ -36,6 +36,23 @@ static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
         [SLICE_ACTIVE] = UNIT_ACTIVE
 };
 
+static void slice_init(Unit *u) {
+        Slice *s = SLICE(u);
+
+        assert(u);
+        assert(u->load_state == UNIT_STUB);
+
+        cgroup_context_init(&s->cgroup_context);
+}
+
+static void slice_done(Unit *u) {
+        Slice *s = SLICE(u);
+
+        assert(u);
+
+        cgroup_context_done(&s->cgroup_context);
+}
+
 static void slice_set_state(Slice *t, SliceState state) {
         SliceState old_state;
         assert(t);
@@ -52,23 +69,25 @@ static void slice_set_state(Slice *t, SliceState state) {
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], true);
 }
 
-static int slice_add_slice_link(Slice *s) {
+static int slice_add_parent_slice(Slice *s) {
         char *a, *dash;
-        int r;
         Unit *parent;
+        int r;
 
         assert(s);
 
-        if (UNIT_DEREF(UNIT(s)->slice))
+        if (UNIT_ISSET(UNIT(s)->slice))
+                return 0;
+
+        if (unit_has_name(UNIT(s), SPECIAL_ROOT_SLICE))
                 return 0;
 
         a = strdupa(UNIT(s)->id);
-
         dash = strrchr(a, '-');
-        if (!dash)
-                return 0;
-
-        strcpy(dash, ".slice");
+        if (dash)
+                strcpy(dash, ".slice");
+        else
+                a = (char*) SPECIAL_ROOT_SLICE;
 
         r = manager_load_unit(UNIT(s)->manager, a, NULL, NULL, &parent);
         if (r < 0)
@@ -102,14 +121,15 @@ static int slice_verify(Slice *s) {
 
                 a = strdupa(UNIT(s)->id);
                 dash = strrchr(a, '-');
-                if (dash) {
+                if (dash)
                         strcpy(dash, ".slice");
+                else
+                        a = (char*) SPECIAL_ROOT_SLICE;
 
-                        if (!unit_has_name(UNIT_DEREF(UNIT(s)->slice), a)) {
-                                log_error_unit(UNIT(s)->id,
-                                               "%s located outside its parent slice. Refusing.", UNIT(s)->id);
-                                return -EINVAL;
-                        }
+                if (!unit_has_name(UNIT_DEREF(UNIT(s)->slice), a)) {
+                        log_error_unit(UNIT(s)->id,
+                                       "%s located outside its parent slice. Refusing.", UNIT(s)->id);
+                        return -EINVAL;
                 }
         }
 
@@ -122,14 +142,14 @@ static int slice_load(Unit *u) {
 
         assert(s);
 
-        r = unit_load_fragment_and_dropin(u);
+        r = unit_load_fragment_and_dropin_optional(u);
         if (r < 0)
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
         if (u->load_state == UNIT_LOADED) {
 
-                r = slice_add_slice_link(s);
+                r = slice_add_parent_slice(s);
                 if (r < 0)
                         return r;
 
@@ -138,10 +158,6 @@ static int slice_load(Unit *u) {
                         if (r < 0)
                                 return r;
                 }
-
-                r = unit_add_default_cgroups(UNIT(s));
-                if (r < 0)
-                        return r;
         }
 
         return slice_verify(s);
@@ -168,20 +184,17 @@ static void slice_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sSlice State: %s\n",
                 prefix, slice_state_to_string(t->state));
+
+        cgroup_context_dump(&t->cgroup_context, f, prefix);
 }
 
 static int slice_start(Unit *u) {
         Slice *t = SLICE(u);
-        int r;
 
         assert(t);
         assert(t->state == SLICE_DEAD);
 
-        r = cgroup_bonding_realize_list(u->cgroup_bondings);
-        if (r < 0)
-                return r;
-
-        cgroup_attribute_apply_list(u->cgroup_attributes, u->cgroup_bondings);
+        unit_realize_cgroup(u);
 
         slice_set_state(t, SLICE_ACTIVE);
         return 0;
@@ -193,8 +206,8 @@ static int slice_stop(Unit *u) {
         assert(t);
         assert(t->state == SLICE_ACTIVE);
 
-        /* We do not need to trim the cgroup explicitly, unit_notify()
-         * will do that for us anyway. */
+        /* We do not need to destroy the cgroup explicitly,
+         * unit_notify() will do that for us anyway. */
 
         slice_set_state(t, SLICE_DEAD);
         return 0;
@@ -264,10 +277,16 @@ const UnitVTable slice_vtable = {
                 "Slice\0"
                 "Install\0",
 
+        .private_section = "Slice",
+        .cgroup_context_offset = offsetof(Slice, cgroup_context),
+
         .no_alias = true,
         .no_instances = true,
 
+        .init = slice_init,
         .load = slice_load,
+        .done = slice_done,
+
         .coldplug = slice_coldplug,
 
         .dump = slice_dump,
@@ -288,11 +307,11 @@ const UnitVTable slice_vtable = {
 
         .status_message_formats = {
                 .finished_start_job = {
-                        [JOB_DONE]       = "Installed slice %s.",
+                        [JOB_DONE]       = "Created slice %s.",
                         [JOB_DEPENDENCY] = "Dependency failed for %s.",
                 },
                 .finished_stop_job = {
-                        [JOB_DONE]       = "Deinstalled slice %s.",
+                        [JOB_DONE]       = "Removed slice %s.",
                 },
         },
 };

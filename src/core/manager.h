@@ -27,6 +27,7 @@
 #include <dbus/dbus.h>
 
 #include "fdset.h"
+#include "cgroup-util.h"
 
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
@@ -86,6 +87,7 @@ struct Watch {
 #include "dbus.h"
 #include "path-lookup.h"
 #include "execute.h"
+#include "unit-name.h"
 
 struct Manager {
         /* Note that the set of units we know of is allowed to be
@@ -122,6 +124,9 @@ struct Manager {
         /* Units to check when doing GC */
         LIST_HEAD(Unit, gc_queue);
 
+        /* Units that should be realized */
+        LIST_HEAD(Unit, cgroup_queue);
+
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
         char *notify_socket;
@@ -139,7 +144,6 @@ struct Manager {
         Set *unit_path_cache;
 
         char **environment;
-        char **default_controllers;
 
         usec_t runtime_watchdog;
         usec_t shutdown_watchdog;
@@ -198,7 +202,8 @@ struct Manager {
         int dev_autofs_fd;
 
         /* Data specific to the cgroup subsystem */
-        Hashmap *cgroup_bondings; /* path string => CGroupBonding object 1:n */
+        Hashmap *cgroup_unit;
+        CGroupControllerMask cgroup_supported;
         char *cgroup_root;
 
         usec_t gc_queue_timestamp;
@@ -273,7 +278,6 @@ unsigned manager_dispatch_run_queue(Manager *m);
 unsigned manager_dispatch_dbus_queue(Manager *m);
 
 int manager_set_default_environment(Manager *m, char **environment);
-int manager_set_default_controllers(Manager *m, char **controllers);
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
 
 int manager_loop(Manager *m);

@@ -75,9 +75,7 @@ $1.MountFlags,                   config_parse_exec_mount_flags,      0,         
 $1.TCPWrapName,                  config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.tcpwrap_name)
 $1.PAMName,                      config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)
 $1.IgnoreSIGPIPE,                config_parse_bool,                  0,                             offsetof($1, exec_context.ignore_sigpipe)
-$1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
-$1.ControlGroupModify,           config_parse_bool,                  0,                             offsetof($1, exec_context.control_group_modify)
-$1.ControlGroupPersistent,       config_parse_tristate,              0,                             offsetof($1, exec_context.control_group_persistent)'
+$1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)'
 )m4_dnl
 m4_define(`KILL_CONTEXT_CONFIG_ITEMS',
 `$1.SendSIGKILL,                 config_parse_bool,                  0,                             offsetof($1, kill_context.send_sigkill)
@@ -85,16 +83,17 @@ $1.KillMode,                     config_parse_kill_mode,             0,         
 $1.KillSignal,                   config_parse_kill_signal,           0,                             offsetof($1, kill_context.kill_signal)'
 )m4_dnl
 m4_define(`CGROUP_CONTEXT_CONFIG_ITEMS',
-`$1.ControlGroup,                 config_parse_unit_cgroup,          0,                             0
-$1.ControlGroupAttribute,        config_parse_unit_cgroup_attr,      0,                             0
-$1.CPUShares,                    config_parse_unit_cgroup_attr_pretty, 0,                           0
-$1.MemoryLimit,                  config_parse_unit_cgroup_attr_pretty, 0,                           0
-$1.MemorySoftLimit,              config_parse_unit_cgroup_attr_pretty, 0,                           0
-$1.DeviceAllow,                  config_parse_unit_cgroup_attr_pretty, 0,                           0
-$1.DeviceDeny,                   config_parse_unit_cgroup_attr_pretty, 0,                           0
-$1.BlockIOWeight,                config_parse_unit_cgroup_attr_pretty, 0,                           0
-$1.BlockIOReadBandwidth,         config_parse_unit_cgroup_attr_pretty, 0,                           0
-$1.BlockIOWriteBandwidth,        config_parse_unit_cgroup_attr_pretty, 0,                           0'
+`$1.CPUAccounting,               config_parse_bool,                  0,                             offsetof($1, cgroup_context.cpu_accounting)
+$1.CPUShares,                    config_parse_cpu_shares,            0,                             offsetof($1, cgroup_context)
+$1.MemoryAccounting,             config_parse_bool,                  0,                             offsetof($1, cgroup_context.memory_accounting)
+$1.MemoryLimit,                  config_parse_memory_limit,          0,                             offsetof($1, cgroup_context)
+$1.MemorySoftLimit,              config_parse_memory_limit,          0,                             offsetof($1, cgroup_context)
+$1.DeviceAllow,                  config_parse_device_allow,          0,                             offsetof($1, cgroup_context)
+$1.DevicePolicy,                 config_parse_device_policy,         0,                             offsetof($1, cgroup_context.device_policy)
+$1.BlockIOAccounting,            config_parse_bool,                  0,                             offsetof($1, cgroup_context.blockio_accounting)
+$1.BlockIOWeight,                config_parse_blockio_weight,        0,                             offsetof($1, cgroup_context)
+$1.BlockIOReadBandwidth,         config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)
+$1.BlockIOWriteBandwidth,        config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)'
 )m4_dnl
 Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
 Unit.Documentation,              config_parse_documentation,         0,                             offsetof(Unit, documentation)

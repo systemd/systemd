@@ -92,8 +92,6 @@
         "  <property name=\"PrivateNetwork\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"SameProcessGroup\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"UtmpIdentifier\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroupModify\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroupPersistent\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"IgnoreSIGPIPE\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"NoNewPrivileges\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"SystemCallFilter\" type=\"au\" access=\"read\"/>\n"
@@ -106,18 +104,4 @@ extern const BusProperty bus_exec_context_properties[];
 #define BUS_EXEC_COMMAND_PROPERTY(name, command, indirect)             \
         { name, bus_execute_append_command, "a(sasbttttuii)", (command), (indirect), NULL }
 
-int bus_execute_append_output(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_input(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_oom_score_adjust(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_nice(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_ioprio(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_cpu_sched_policy(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_cpu_sched_priority(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_affinity(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_timer_slack_nsec(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_capabilities(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_capability_bs(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_rlimits(DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_command(DBusMessageIter *u, const char *property, void *data);
-int bus_execute_append_env_files(DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_syscall_filter(DBusMessageIter *i, const char *property, void *data);

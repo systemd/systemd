@@ -55,7 +55,6 @@
 #include "sd-messages.h"
 #include "ioprio.h"
 #include "securebits.h"
-#include "cgroup.h"
 #include "namespace.h"
 #include "tcpwrap.h"
 #include "exit-status.h"
@@ -67,6 +66,7 @@
 #include "syscall-list.h"
 #include "env-util.h"
 #include "fileio.h"
+#include "unit.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 
@@ -986,18 +986,17 @@ int exec_spawn(ExecCommand *command,
                bool apply_chroot,
                bool apply_tty_stdin,
                bool confirm_spawn,
-               CGroupBonding *cgroup_bondings,
-               CGroupAttribute *cgroup_attributes,
-               const char *cgroup_suffix,
+               CGroupControllerMask cgroup_mask,
+               const char *cgroup_path,
                const char *unit_id,
                int idle_pipe[2],
                pid_t *ret) {
 
+        _cleanup_strv_free_ char **files_env = NULL;
+        int socket_fd;
+        char *line;
         pid_t pid;
         int r;
-        char *line;
-        int socket_fd;
-        _cleanup_strv_free_ char **files_env = NULL;
 
         assert(command);
         assert(context);
@@ -1042,17 +1041,6 @@ int exec_spawn(ExecCommand *command,
                         NULL);
         free(line);
 
-        r = cgroup_bonding_realize_list(cgroup_bondings);
-        if (r < 0)
-                return r;
-
-        /* We must initialize the attributes in the parent, before we
-        fork, because we really need them initialized before making
-        the process a member of the group (which we do in both the
-        child and the parent), and we cannot really apply them twice
-        (due to 'append' style attributes) */
-        cgroup_attribute_apply_list(cgroup_attributes, cgroup_bondings);
-
         if (context->private_tmp && !context->tmp_dir && !context->var_tmp_dir) {
                 r = setup_tmpdirs(&context->tmp_dir, &context->var_tmp_dir);
                 if (r < 0)
@@ -1072,7 +1060,6 @@ int exec_spawn(ExecCommand *command,
                 _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL,
                         **final_env = NULL, **final_argv = NULL;
                 unsigned n_env = 0;
-                bool set_access = false;
 
                 /* child */
 
@@ -1185,8 +1172,8 @@ int exec_spawn(ExecCommand *command,
                         goto fail_child;
                 }
 
-                if (cgroup_bondings) {
-                        err = cgroup_bonding_install_list(cgroup_bondings, 0, cgroup_suffix);
+                if (cgroup_path) {
+                        err = cg_attach_with_mask(cgroup_mask, cgroup_path, 0);
                         if (err < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail_child;
@@ -1268,36 +1255,6 @@ int exec_spawn(ExecCommand *command,
                                         r = EXIT_STDIN;
                                         goto fail_child;
                                 }
-                        }
-
-                        if (cgroup_bondings && context->control_group_modify) {
-                                err = cgroup_bonding_set_group_access_list(cgroup_bondings, 0755, uid, gid);
-                                if (err >= 0)
-                                        err = cgroup_bonding_set_task_access_list(
-                                                        cgroup_bondings,
-                                                        0644,
-                                                        uid,
-                                                        gid,
-                                                        context->control_group_persistent);
-                                if (err < 0) {
-                                        r = EXIT_CGROUP;
-                                        goto fail_child;
-                                }
-
-                                set_access = true;
-                        }
-                }
-
-                if (cgroup_bondings && !set_access && context->control_group_persistent >= 0)  {
-                        err = cgroup_bonding_set_task_access_list(
-                                        cgroup_bondings,
-                                        (mode_t) -1,
-                                        (uid_t) -1,
-                                        (uid_t) -1,
-                                        context->control_group_persistent);
-                        if (err < 0) {
-                                r = EXIT_CGROUP;
-                                goto fail_child;
                         }
                 }
 
@@ -1562,7 +1519,8 @@ int exec_spawn(ExecCommand *command,
          * outside of the cgroup) and in the parent (so that we can be
          * sure that when we kill the cgroup the process will be
          * killed too). */
-        cgroup_bonding_install_list(cgroup_bondings, pid, cgroup_suffix);
+        if (cgroup_path)
+                cg_attach(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, pid);
 
         exec_status_start(&command->exec_status, pid);
 
@@ -1578,7 +1536,6 @@ void exec_context_init(ExecContext *c) {
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->syslog_level_prefix = true;
-        c->control_group_persistent = -1;
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = (nsec_t) -1;
 }
@@ -1843,8 +1800,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         assert(c);
         assert(f);
 
-        if (!prefix)
-                prefix = "";
+        prefix = strempty(prefix);
 
         fprintf(f,
                 "%sUMask: %04o\n"
@@ -1852,8 +1808,6 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sRootDirectory: %s\n"
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
-                "%sControlGroupModify: %s\n"
-                "%sControlGroupPersistent: %s\n"
                 "%sPrivateNetwork: %s\n"
                 "%sIgnoreSIGPIPE: %s\n",
                 prefix, c->umask,
@@ -1861,8 +1815,6 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, c->root_directory ? c->root_directory : "/",
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
-                prefix, yes_no(c->control_group_modify),
-                prefix, yes_no(c->control_group_persistent),
                 prefix, yes_no(c->private_network),
                 prefix, yes_no(c->ignore_sigpipe));
 

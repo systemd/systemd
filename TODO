@@ -28,11 +28,17 @@ Fedora 19:
 
 Features:
 
+* split out CreateMachine into systemd-machined
+
+* "transient" units, i.e units that are not sourced from disk but
+  created only transiently via bus calls
+
+* introduce new Scope unit type then make logind's session and machine
+  registration use this to set up cgroups
+
+* should Slice= be part of [Unit] or of [Service]?
+
 * journald: make sure ratelimit is actually really per-service with the new cgroup changes
-
-* when creating a session or machine, automatically move the process into the root cgroup for all other hierarchies
-
-* maybe reintroduce nspawn -C?
 
 * move systemctl dump to systemd-analyze
 
@@ -48,12 +54,6 @@ Features:
 
 * when a service changes state make reflect that in the
   RUNNING/LISTENING states of its socket
-
-* slices:
-  - add option to pam_systemd to move login session into a slice (?)
-  - remove ControlGroup= setting
-  - in sd_pid_get_owner_uid() fallback to query session file
-  - add api to determine slice of unit
 
 * when recursively showing the cgroup hierarchy, optionally also show
   the hierarchies of child processes

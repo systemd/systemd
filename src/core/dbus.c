@@ -28,7 +28,6 @@
 #include "dbus.h"
 #include "log.h"
 #include "strv.h"
-#include "cgroup.h"
 #include "mkdir.h"
 #include "missing.h"
 #include "dbus-unit.h"
@@ -453,7 +452,7 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse Released message: %s", bus_error_message(&error));
                 else
-                        cgroup_notify_empty(m, cgroup);
+                        manager_notify_cgroup_empty(m, cgroup);
         }
 
         dbus_error_free(&error);
@@ -489,7 +488,7 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse Released message: %s", bus_error_message(&error));
                 else
-                        cgroup_notify_empty(m, cgroup);
+                        manager_notify_cgroup_empty(m, cgroup);
 
                 /* Forward the message to the system bus, so that user
                  * instances are notified as well */

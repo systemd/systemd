@@ -379,6 +379,7 @@ dist_systemunit_DATA = \
 	units/swap.target \
 	units/slices.target \
 	units/system.slice \
+	units/-.slice \
 	units/systemd-initctl.socket \
 	units/systemd-shutdownd.socket \
 	units/syslog.socket \
@@ -880,14 +881,16 @@ libsystemd_core_la_SOURCES = \
 	src/core/dbus-snapshot.h \
 	src/core/dbus-device.c \
 	src/core/dbus-device.h \
-	src/core/dbus-execute.c \
-	src/core/dbus-execute.h \
-	src/core/dbus-kill.c \
-	src/core/dbus-kill.h \
 	src/core/dbus-path.c \
 	src/core/dbus-path.h \
 	src/core/dbus-slice.c \
 	src/core/dbus-slice.h \
+	src/core/dbus-execute.c \
+	src/core/dbus-execute.h \
+	src/core/dbus-kill.c \
+	src/core/dbus-kill.h \
+	src/core/dbus-cgroup.c \
+	src/core/dbus-cgroup.h \
 	src/core/cgroup.c \
 	src/core/cgroup.h \
 	src/core/selinux-access.c \
@@ -914,10 +917,6 @@ libsystemd_core_la_SOURCES = \
 	src/core/namespace.h \
 	src/core/tcpwrap.c \
 	src/core/tcpwrap.h \
-	src/core/cgroup-attr.c \
-	src/core/cgroup-attr.h \
-	src/core/cgroup-semantics.c \
-	src/core/cgroup-semantics.h \
 	src/core/securebits.h \
 	src/core/initreq.h \
 	src/core/special.h \
@@ -1136,6 +1135,10 @@ test_ns_SOURCES = \
 
 test_ns_LDADD = \
 	libsystemd-core.la
+
+test_ns_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
 
 test_loopback_SOURCES = \
 	src/test/test-loopback.c

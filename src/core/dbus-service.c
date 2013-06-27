@@ -24,9 +24,10 @@
 #include "dbus-unit.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
-#include "dbus-service.h"
+#include "dbus-cgroup.h"
 #include "dbus-common.h"
 #include "selinux-access.h"
+#include "dbus-service.h"
 
 #define BUS_SERVICE_INTERFACE                                           \
         " <interface name=\"org.freedesktop.systemd1.Service\">\n"      \
@@ -50,7 +51,6 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
         "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RemainAfterExit\" type=\"b\" access=\"read\"/>\n" \
@@ -152,8 +152,8 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 { "org.freedesktop.systemd1.Service", bus_service_properties,          s },
                 { "org.freedesktop.systemd1.Service", bus_exec_context_properties,     &s->exec_context },
                 { "org.freedesktop.systemd1.Service", bus_kill_context_properties,     &s->kill_context },
+                { "org.freedesktop.systemd1.Service", bus_cgroup_context_properties,   &s->cgroup_context },
                 { "org.freedesktop.systemd1.Service", bus_exec_main_status_properties, &s->main_exec_status },
-                { "org.freedesktop.systemd1.Service", bus_unit_cgroup_properties,      u },
                 { NULL, }
         };
 

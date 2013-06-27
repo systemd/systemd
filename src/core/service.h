@@ -135,6 +135,7 @@ struct Service {
 
         ExecContext exec_context;
         KillContext kill_context;
+        CGroupContext cgroup_context;
 
         ServiceState state, deserialized_state;
 

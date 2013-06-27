@@ -22,11 +22,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/types.h>
+
 int mkdir_label(const char *path, mode_t mode);
+
 int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid);
+
 int mkdir_parents(const char *path, mode_t mode);
 int mkdir_parents_label(const char *path, mode_t mode);
+int mkdir_parents_prefix(const char *prefix, const char *path, mode_t mode);
+
 int mkdir_p(const char *path, mode_t mode);
 int mkdir_p_label(const char *path, mode_t mode);
+int mkdir_p_prefix(const char *prefix, const char *path, mode_t mode);
+
 #endif

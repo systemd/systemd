@@ -613,7 +613,6 @@ static const BusProperty bus_manager_properties[] = {
         { "ConfirmSpawn",                bus_property_append_bool,       "b",  offsetof(Manager, confirm_spawn)                 },
         { "ShowStatus",                  bus_property_append_bool,       "b",  offsetof(Manager, show_status)                   },
         { "UnitPath",                    bus_property_append_strv,       "as", offsetof(Manager, lookup_paths.unit_path),       true },
-        { "DefaultControllers",          bus_property_append_strv,       "as", offsetof(Manager, default_controllers),          true },
         { "DefaultStandardOutput",       bus_manager_append_exec_output, "s",  offsetof(Manager, default_std_output)            },
         { "DefaultStandardError",        bus_manager_append_exec_output, "s",  offsetof(Manager, default_std_error)             },
         { "RuntimeWatchdogUSec",         bus_property_append_usec,       "t",  offsetof(Manager, runtime_watchdog),             false, bus_manager_set_runtime_watchdog_usec },
@@ -683,7 +682,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                u = cgroup_unit_by_pid(m, (pid_t) pid);
+                u = manager_get_unit_by_pid(m, (pid_t) pid);
                 if (!u) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "No unit for PID %lu is loaded.", (unsigned long) pid);
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
@@ -894,151 +893,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitControlGroup")) {
-                const char *name;
-                Unit *u;
-                DBusMessageIter iter;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
-
-                r = bus_unit_cgroup_set(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetUnitControlGroup")) {
-                const char *name;
-                Unit *u;
-                DBusMessageIter iter;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
-
-                r = bus_unit_cgroup_unset(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitControlGroupAttribute")) {
-                const char *name;
-                Unit *u;
-                DBusMessageIter iter;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
-
-                r = bus_unit_cgroup_attribute_set(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetUnitControlGroupAttribute")) {
-                const char *name;
-                Unit *u;
-                DBusMessageIter iter;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
-
-                r = bus_unit_cgroup_attribute_unset(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitControlGroupAttribute")) {
-                const char *name;
-                Unit *u;
-                DBusMessageIter iter;
-                _cleanup_strv_free_ char **list = NULL;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
-
-                r = bus_unit_cgroup_attribute_get(u, &iter, &list);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                dbus_message_iter_init_append(reply, &iter);
-                if (bus_append_strv_iter(&iter, list) < 0)
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListUnits")) {

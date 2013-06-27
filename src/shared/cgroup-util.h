@@ -28,6 +28,15 @@
 #include "set.h"
 #include "def.h"
 
+/* A bit mask of well known cgroup controllers */
+typedef enum CGroupControllerMask {
+        CGROUP_CPU = 1,
+        CGROUP_CPUACCT = 2,
+        CGROUP_BLKIO = 4,
+        CGROUP_MEMORY = 8,
+        CGROUP_DEVICE = 16
+} CGroupControllerMask;
+
 /*
  * General rules:
  *
@@ -67,15 +76,17 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path);
 
 int cg_trim(const char *controller, const char *path, bool delete_root);
 
-int cg_rmdir(const char *controller, const char *path, bool honour_sticky);
+int cg_rmdir(const char *controller, const char *path);
 int cg_delete(const char *controller, const char *path);
 
-int cg_create(const char *controller, const char *path, const char *suffix);
+int cg_create(const char *controller, const char *path);
 int cg_attach(const char *controller, const char *path, pid_t pid);
 int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
 
+int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
+
 int cg_set_group_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid);
-int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid, int sticky);
+int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid);
 
 int cg_install_release_agent(const char *controller, const char *agent);
 
@@ -113,3 +124,10 @@ char *cg_unescape(const char *p) _pure_;
 bool cg_controller_is_valid(const char *p, bool allow_named);
 
 int cg_slice_to_path(const char *unit, char **ret);
+
+int cg_create_with_mask(CGroupControllerMask mask, const char *path);
+int cg_attach_with_mask(CGroupControllerMask mask, const char *path, pid_t pid);
+int cg_migrate_with_mask(CGroupControllerMask mask, const char *from, const char *to);
+int cg_trim_with_mask(CGroupControllerMask mask, const char *path, bool delete_root);
+
+CGroupControllerMask cg_mask_supported(void);

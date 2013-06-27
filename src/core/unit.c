@@ -44,7 +44,6 @@
 #include "special.h"
 #include "cgroup-util.h"
 #include "missing.h"
-#include "cgroup-attr.h"
 #include "mkdir.h"
 #include "label.h"
 #include "fileio-label.h"
@@ -402,9 +401,10 @@ void unit_free(Unit *u) {
                 u->manager->n_in_gc_queue--;
         }
 
-        cgroup_bonding_free_list(u->cgroup_bondings, u->manager->n_reloading <= 0);
-        cgroup_attribute_free_list(u->cgroup_attributes);
+        if (u->in_cgroup_queue)
+                LIST_REMOVE(Unit, cgroup_queue, u->manager->cgroup_queue, u);
 
+        free(u->cgroup_path);
         free(u->description);
         strv_free(u->documentation);
         free(u->fragment_path);
@@ -673,7 +673,10 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tInactive Enter Timestamp: %s\n"
                 "%s\tGC Check Good: %s\n"
                 "%s\tNeed Daemon Reload: %s\n"
-                "%s\tSlice: %s\n",
+                "%s\tSlice: %s\n"
+                "%s\tCGroup: %s\n"
+                "%s\tCGroup realized: %s\n"
+                "%s\tCGroup mask: 0x%x\n",
                 prefix, u->id,
                 prefix, unit_description(u),
                 prefix, strna(u->instance),
@@ -685,7 +688,10 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->inactive_enter_timestamp.realtime)),
                 prefix, yes_no(unit_check_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
-                prefix, strna(unit_slice_name(u)));
+                prefix, strna(unit_slice_name(u)),
+                prefix, strna(u->cgroup_path),
+                prefix, yes_no(u->cgroup_realized),
+                prefix, u->cgroup_mask);
 
         SET_FOREACH(t, u->names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
@@ -735,8 +741,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         }
 
         if (u->load_state == UNIT_LOADED) {
-                CGroupBonding *b;
-                CGroupAttribute *a;
 
                 fprintf(f,
                         "%s\tStopWhenUnneeded: %s\n"
@@ -753,20 +757,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, yes_no(u->on_failure_isolate),
                         prefix, yes_no(u->ignore_on_isolate),
                         prefix, yes_no(u->ignore_on_snapshot));
-
-                LIST_FOREACH(by_unit, b, u->cgroup_bondings)
-                        fprintf(f, "%s\tControlGroup: %s:%s\n",
-                                prefix, b->controller, b->path);
-
-                LIST_FOREACH(by_unit, a, u->cgroup_attributes) {
-                        _cleanup_free_ char *v = NULL;
-
-                        if (a->semantics && a->semantics->map_write)
-                                a->semantics->map_write(a->semantics, a->value, &v);
-
-                        fprintf(f, "%s\tControlGroupAttribute: %s %s \"%s\"\n",
-                                prefix, a->controller, a->name, v ? v : a->value);
-                }
 
                 if (UNIT_VTABLE(u)->dump)
                         UNIT_VTABLE(u)->dump(u, f, prefix2);
@@ -795,14 +785,16 @@ int unit_load_fragment_and_dropin(Unit *u) {
         assert(u);
 
         /* Load a .service file */
-        if ((r = unit_load_fragment(u)) < 0)
+        r = unit_load_fragment(u);
+        if (r < 0)
                 return r;
 
         if (u->load_state == UNIT_STUB)
                 return -ENOENT;
 
         /* Load drop-in directory data */
-        if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
+        r = unit_load_dropin(unit_follow_merge(u));
+        if (r < 0)
                 return r;
 
         return 0;
@@ -818,14 +810,16 @@ int unit_load_fragment_and_dropin_optional(Unit *u) {
          * something can be loaded or not doesn't matter. */
 
         /* Load a .service file */
-        if ((r = unit_load_fragment(u)) < 0)
+        r = unit_load_fragment(u);
+        if (r < 0)
                 return r;
 
         if (u->load_state == UNIT_STUB)
                 u->load_state = UNIT_LOADED;
 
         /* Load drop-in directory data */
-        if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
+        r = unit_load_dropin(unit_follow_merge(u));
+        if (r < 0)
                 return r;
 
         return 0;
@@ -880,8 +874,12 @@ static int unit_add_default_dependencies(Unit *u) {
                                 return r;
                 }
 
-        if (u->default_dependencies && UNIT_ISSET(u->slice)) {
-                r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, UNIT_DEREF(u->slice), true);
+        if (u->default_dependencies && unit_get_cgroup_context(u)) {
+                if (UNIT_ISSET(u->slice))
+                        r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, UNIT_DEREF(u->slice), true);
+                else
+                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, SPECIAL_ROOT_SLICE, NULL, true);
+
                 if (r < 0)
                         return r;
         }
@@ -1382,7 +1380,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 
         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                cgroup_bonding_trim_list(u->cgroup_bondings, true);
+                unit_destroy_cgroup(u);
 
         if (UNIT_IS_INACTIVE_OR_FAILED(os) != UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                 ExecContext *ec = unit_get_exec_context(u);
@@ -1952,51 +1950,16 @@ char *unit_dbus_path(Unit *u) {
         return unit_dbus_path_from_name(u->id);
 }
 
-static int unit_add_cgroup(Unit *u, CGroupBonding *b) {
-        int r;
-
-        assert(u);
-        assert(b);
-
-        assert(b->path);
-
-        if (!b->controller) {
-                b->controller = strdup(SYSTEMD_CGROUP_CONTROLLER);
-                if (!b->controller)
-                        return log_oom();
-
-                b->ours = true;
-        }
-
-        /* Ensure this hasn't been added yet */
-        assert(!b->unit);
-
-        if (streq(b->controller, SYSTEMD_CGROUP_CONTROLLER)) {
-                CGroupBonding *l;
-
-                l = hashmap_get(u->manager->cgroup_bondings, b->path);
-                LIST_PREPEND(CGroupBonding, by_path, l, b);
-
-                r = hashmap_replace(u->manager->cgroup_bondings, b->path, l);
-                if (r < 0) {
-                        LIST_REMOVE(CGroupBonding, by_path, l, b);
-                        return r;
-                }
-        }
-
-        LIST_PREPEND(CGroupBonding, by_unit, u->cgroup_bondings, b);
-        b->unit = u;
-
-        return 0;
-}
-
 char *unit_default_cgroup_path(Unit *u) {
         _cleanup_free_ char *escaped_instance = NULL, *slice = NULL;
         int r;
 
         assert(u);
 
-        if (UNIT_ISSET(u->slice)) {
+        if (unit_has_name(u, SPECIAL_ROOT_SLICE))
+                return strdup(u->manager->cgroup_root);
+
+        if (UNIT_ISSET(u->slice) && !unit_has_name(UNIT_DEREF(u->slice), SPECIAL_ROOT_SLICE)) {
                 r = cg_slice_to_path(UNIT_DEREF(u->slice)->id, &slice);
                 if (r < 0)
                         return NULL;
@@ -2026,148 +1989,6 @@ char *unit_default_cgroup_path(Unit *u) {
                                escaped_instance, NULL);
 }
 
-int unit_add_cgroup_from_text(Unit *u, const char *name, bool overwrite, CGroupBonding **ret) {
-        char *controller = NULL, *path = NULL;
-        CGroupBonding *b = NULL;
-        bool ours = false;
-        int r;
-
-        assert(u);
-        assert(name);
-
-        r = cg_split_spec(name, &controller, &path);
-        if (r < 0)
-                return r;
-
-        if (!path) {
-                path = unit_default_cgroup_path(u);
-                ours = true;
-        }
-
-        if (!controller) {
-                controller = strdup("systemd");
-                ours = true;
-        }
-
-        if (!path || !controller) {
-                free(path);
-                free(controller);
-                return log_oom();
-        }
-
-        if (streq(controller, "systemd")) {
-                /* Within the systemd unit hierarchy we do not allow changes. */
-                if (path_startswith(path, "/system")) {
-                        log_warning_unit(u->id, "Manipulating the systemd:/system cgroup hierarchy is not permitted.");
-                        free(path);
-                        free(controller);
-                        return -EPERM;
-                }
-        }
-
-        b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
-        if (b) {
-                if (streq(path, b->path)) {
-                        free(path);
-                        free(controller);
-
-                        if (ret)
-                                *ret = b;
-                        return 0;
-                }
-
-                if (overwrite && !b->essential) {
-                        free(controller);
-
-                        free(b->path);
-                        b->path = path;
-
-                        b->ours = ours;
-                        b->realized = false;
-
-                        if (ret)
-                                *ret = b;
-
-                        return 1;
-                }
-
-                r = -EEXIST;
-                b = NULL;
-                goto fail;
-        }
-
-        b = new0(CGroupBonding, 1);
-        if (!b) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        b->controller = controller;
-        b->path = path;
-        b->ours = ours;
-        b->essential = streq(controller, SYSTEMD_CGROUP_CONTROLLER);
-
-        r = unit_add_cgroup(u, b);
-        if (r < 0)
-                goto fail;
-
-        if (ret)
-                *ret = b;
-
-        return 1;
-
-fail:
-        free(path);
-        free(controller);
-        free(b);
-
-        return r;
-}
-
-static int unit_add_one_default_cgroup(Unit *u, const char *controller) {
-        CGroupBonding *b = NULL;
-        int r = -ENOMEM;
-
-        assert(u);
-
-        if (controller && !cg_controller_is_valid(controller, true))
-                return -EINVAL;
-
-        if (!controller)
-                controller = SYSTEMD_CGROUP_CONTROLLER;
-
-        if (cgroup_bonding_find_list(u->cgroup_bondings, controller))
-                return 0;
-
-        b = new0(CGroupBonding, 1);
-        if (!b)
-                return -ENOMEM;
-
-        b->controller = strdup(controller);
-        if (!b->controller)
-                goto fail;
-
-        b->path = unit_default_cgroup_path(u);
-        if (!b->path)
-                goto fail;
-
-        b->ours = true;
-        b->essential = streq(controller, SYSTEMD_CGROUP_CONTROLLER);
-
-        r = unit_add_cgroup(u, b);
-        if (r < 0)
-                goto fail;
-
-        return 1;
-
-fail:
-        free(b->path);
-        free(b->controller);
-        free(b);
-
-        return r;
-}
-
 int unit_add_default_slice(Unit *u) {
         Unit *slice;
         int r;
@@ -2177,10 +1998,10 @@ int unit_add_default_slice(Unit *u) {
         if (UNIT_ISSET(u->slice))
                 return 0;
 
-        if (u->manager->running_as != SYSTEMD_SYSTEM)
+        if (!unit_get_cgroup_context(u))
                 return 0;
 
-        r = manager_load_unit(u->manager, SPECIAL_SYSTEM_SLICE, NULL, NULL, &slice);
+        r = manager_load_unit(u->manager, u->manager->running_as == SYSTEMD_SYSTEM ? SPECIAL_SYSTEM_SLICE : SPECIAL_ROOT_SLICE, NULL, NULL, &slice);
         if (r < 0)
                 return r;
 
@@ -2195,148 +2016,6 @@ const char *unit_slice_name(Unit *u) {
                 return NULL;
 
         return UNIT_DEREF(u->slice)->id;
-}
-
-int unit_add_default_cgroups(Unit *u) {
-        CGroupAttribute *a;
-        char **c;
-        int r;
-
-        assert(u);
-
-        /* Adds in the default cgroups, if they weren't specified
-         * otherwise. */
-
-        if (!u->manager->cgroup_root)
-                return 0;
-
-        r = unit_add_one_default_cgroup(u, NULL);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(c, u->manager->default_controllers)
-                unit_add_one_default_cgroup(u, *c);
-
-        LIST_FOREACH(by_unit, a, u->cgroup_attributes)
-                unit_add_one_default_cgroup(u, a->controller);
-
-        return 0;
-}
-
-CGroupBonding* unit_get_default_cgroup(Unit *u) {
-        assert(u);
-
-        return cgroup_bonding_find_list(u->cgroup_bondings, NULL);
-}
-
-int unit_add_cgroup_attribute(
-                Unit *u,
-                const CGroupSemantics *semantics,
-                const char *controller,
-                const char *name,
-                const char *value,
-                CGroupAttribute **ret) {
-
-        _cleanup_free_ char *c = NULL;
-        CGroupAttribute *a;
-        int r;
-
-        assert(u);
-        assert(value);
-
-        if (semantics) {
-                /* Semantics always take precedence */
-                if (semantics->name)
-                        name = semantics->name;
-
-                if (semantics->controller)
-                        controller = semantics->controller;
-        }
-
-        if (!name)
-                return -EINVAL;
-
-        if (!controller) {
-                r = cg_controller_from_attr(name, &c);
-                if (r < 0)
-                        return -EINVAL;
-
-                controller = c;
-        }
-
-        if (!controller ||
-            streq(controller, SYSTEMD_CGROUP_CONTROLLER) ||
-            streq(controller, "systemd"))
-                return -EINVAL;
-
-        if (!filename_is_safe(name))
-                return -EINVAL;
-
-        if (!cg_controller_is_valid(controller, false))
-                return -EINVAL;
-
-        /* Check if this attribute already exists. Note that we will
-         * explicitly check for the value here too, as there are
-         * attributes which accept multiple values. */
-        a = cgroup_attribute_find_list(u->cgroup_attributes, controller, name);
-        if (a) {
-                if (streq(value, a->value)) {
-                        /* Exactly the same value is always OK, let's ignore this */
-                        if (ret)
-                                *ret = a;
-
-                        return 0;
-                }
-
-                if (semantics && !semantics->multiple) {
-                        char *v;
-
-                        /* If this is a single-item entry, we can
-                         * simply patch the existing attribute */
-
-                        v = strdup(value);
-                        if (!v)
-                                return -ENOMEM;
-
-                        free(a->value);
-                        a->value = v;
-
-                        if (ret)
-                                *ret = a;
-                        return 1;
-                }
-        }
-
-        a = new0(CGroupAttribute, 1);
-        if (!a)
-                return -ENOMEM;
-
-        if (c) {
-                a->controller = c;
-                c = NULL;
-        } else
-                a->controller = strdup(controller);
-
-        a->name = strdup(name);
-        a->value = strdup(value);
-
-        if (!a->controller || !a->name || !a->value) {
-                free(a->controller);
-                free(a->name);
-                free(a->value);
-                free(a);
-                return -ENOMEM;
-        }
-
-        a->semantics = semantics;
-        a->unit = u;
-
-        LIST_PREPEND(CGroupAttribute, by_unit, u->cgroup_attributes, a);
-
-        if (ret)
-                *ret = a;
-
-        return 1;
 }
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
@@ -2804,7 +2483,7 @@ int unit_kill_common(
                         if (kill(main_pid, signo) < 0)
                                 r = -errno;
 
-        if (who == KILL_ALL) {
+        if (who == KILL_ALL && u->cgroup_path) {
                 _cleanup_set_free_ Set *pid_set = NULL;
                 int q;
 
@@ -2825,7 +2504,7 @@ int unit_kill_common(
                                 return q;
                 }
 
-                q = cgroup_bonding_kill_list(u->cgroup_bondings, signo, false, false, pid_set, NULL);
+                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, true, false, pid_set);
                 if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                         r = q;
         }
@@ -2924,7 +2603,6 @@ int unit_exec_context_defaults(Unit *u, ExecContext *c) {
         assert(c);
 
         /* This only copies in the ones that need memory */
-
         for (i = 0; i < RLIMIT_NLIMITS; i++)
                 if (u->manager->rlimit[i] && !c->rlimit[i]) {
                         c->rlimit[i] = newdup(struct rlimit, u->manager->rlimit[i], 1);
@@ -2952,6 +2630,16 @@ ExecContext *unit_get_exec_context(Unit *u) {
                 return NULL;
 
         return (ExecContext*) ((uint8_t*) u + offset);
+}
+
+CGroupContext *unit_get_cgroup_context(Unit *u) {
+        size_t offset;
+
+        offset = UNIT_VTABLE(u)->cgroup_context_offset;
+        if (offset <= 0)
+                return NULL;
+
+        return (CGroupContext*) ((uint8_t*) u + offset);
 }
 
 static int drop_in_file(Unit *u, bool runtime, const char *name, char **_p, char **_q) {
@@ -3072,7 +2760,7 @@ int unit_kill_context(
                         wait_for_exit = true;
         }
 
-        if (c->kill_mode == KILL_CONTROL_GROUP) {
+        if (c->kill_mode == KILL_CONTROL_GROUP && u->cgroup_path) {
                 _cleanup_set_free_ Set *pid_set = NULL;
 
                 pid_set = set_new(trivial_hash_func, trivial_compare_func);
@@ -3092,7 +2780,7 @@ int unit_kill_context(
                                 return r;
                 }
 
-                r = cgroup_bonding_kill_list(u->cgroup_bondings, sig, true, false, pid_set, NULL);
+                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, true, false, pid_set);
                 if (r < 0) {
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                 log_warning_unit(u->id, "Failed to kill control group: %s", strerror(-r));

@@ -132,41 +132,13 @@ int cg_read_subgroup(DIR *d, char **fn) {
         return 0;
 }
 
-int cg_rmdir(const char *controller, const char *path, bool honour_sticky) {
+int cg_rmdir(const char *controller, const char *path) {
         _cleanup_free_ char *p = NULL;
         int r;
 
         r = cg_get_path(controller, path, NULL, &p);
         if (r < 0)
                 return r;
-
-        if (honour_sticky) {
-                char *fn;
-
-                /* If the sticky bit is set on cgroup.procs, don't
-                 * remove the directory */
-
-                fn = strappend(p, "/cgroup.procs");
-                if (!fn)
-                        return -ENOMEM;
-
-                r = file_is_priv_sticky(fn);
-                free(fn);
-
-                if (r > 0)
-                        return 0;
-
-                /* Compatibility ... */
-                fn = strappend(p, "/tasks");
-                if (!fn)
-                        return -ENOMEM;
-
-                r = file_is_priv_sticky(fn);
-                free(fn);
-
-                if (r > 0)
-                        return 0;
-        }
 
         r = rmdir(p);
         if (r < 0 && errno != ENOENT)
@@ -298,7 +270,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool si
                 ret = r;
 
         if (rem) {
-                r = cg_rmdir(controller, path, true);
+                r = cg_rmdir(controller, path);
                 if (r < 0 && ret >= 0 && r != -ENOENT && r != -EBUSY)
                         return r;
         }
@@ -407,7 +379,14 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
         return ret;
 }
 
-int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool rem) {
+int cg_migrate_recursive(
+                const char *cfrom,
+                const char *pfrom,
+                const char *cto,
+                const char *pto,
+                bool ignore_self,
+                bool rem) {
+
         _cleanup_closedir_ DIR *d = NULL;
         int r, ret = 0;
         char *fn;
@@ -448,7 +427,7 @@ int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, 
                 ret = r;
 
         if (rem) {
-                r = cg_rmdir(cfrom, pfrom, true);
+                r = cg_rmdir(cfrom, pfrom);
                 if (r < 0 && ret >= 0 && r != -ENOENT && r != -EBUSY)
                         return r;
         }
@@ -558,38 +537,14 @@ int cg_get_path_and_check(const char *controller, const char *path, const char *
 }
 
 static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
-        char *p;
-        bool is_sticky;
+        assert(path);
+        assert(sb);
+        assert(ftwbuf);
 
         if (typeflag != FTW_DP)
                 return 0;
 
         if (ftwbuf->level < 1)
-                return 0;
-
-        p = strappend(path, "/cgroup.procs");
-        if (!p) {
-                errno = ENOMEM;
-                return 1;
-        }
-
-        is_sticky = file_is_priv_sticky(p) > 0;
-        free(p);
-
-        if (is_sticky)
-                return 0;
-
-        /* Compatibility */
-        p = strappend(path, "/tasks");
-        if (!p) {
-                errno = ENOMEM;
-                return 1;
-        }
-
-        is_sticky = file_is_priv_sticky(p) > 0;
-        free(p);
-
-        if (is_sticky)
                 return 0;
 
         rmdir(path);
@@ -611,28 +566,8 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
                 r = errno ? -errno : -EIO;
 
         if (delete_root) {
-                bool is_sticky;
-                char *p;
-
-                p = strappend(fs, "/cgroup.procs");
-                if (!p)
-                        return -ENOMEM;
-
-                is_sticky = file_is_priv_sticky(p) > 0;
-                free(p);
-
-                if (!is_sticky) {
-                        p = strappend(fs, "/tasks");
-                        if (!p)
-                                return -ENOMEM;
-
-                        is_sticky = file_is_priv_sticky(p) > 0;
-                        free(p);
-                }
-
-                if (!is_sticky)
-                        if (rmdir(fs) < 0 && errno != ENOENT && r == 0)
-                                return -errno;
+                if (rmdir(fs) < 0 && errno != ENOENT)
+                        return -errno;
         }
 
         return r;
@@ -699,15 +634,14 @@ int cg_set_task_access(
                 const char *path,
                 mode_t mode,
                 uid_t uid,
-                gid_t gid,
-                int sticky) {
+                gid_t gid) {
 
         _cleanup_free_ char *fs = NULL, *procs = NULL;
         int r;
 
         assert(path);
 
-        if (mode == (mode_t) -1 && uid == (uid_t) -1 && gid == (gid_t) -1 && sticky < 0)
+        if (mode == (mode_t) -1 && uid == (uid_t) -1 && gid == (gid_t) -1)
                 return 0;
 
         if (mode != (mode_t) -1)
@@ -716,28 +650,6 @@ int cg_set_task_access(
         r = cg_get_path(controller, path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
-
-        if (sticky >= 0 && mode != (mode_t) -1)
-                /* Both mode and sticky param are passed */
-                mode |= (sticky ? S_ISVTX : 0);
-        else if ((sticky >= 0 && mode == (mode_t) -1) ||
-                 (mode != (mode_t) -1 && sticky < 0)) {
-                struct stat st;
-
-                /* Only one param is passed, hence read the current
-                 * mode from the file itself */
-
-                r = lstat(fs, &st);
-                if (r < 0)
-                        return -errno;
-
-                if (mode == (mode_t) -1)
-                        /* No mode set, we just shall set the sticky bit */
-                        mode = (st.st_mode & ~S_ISVTX) | (sticky ? S_ISVTX : 0);
-                else
-                        /* Only mode set, leave sticky bit untouched */
-                        mode = (st.st_mode & ~0777) | mode;
-        }
 
         r = chmod_and_chown(fs, mode, uid, gid);
         if (r < 0)
@@ -1687,4 +1599,149 @@ int cg_slice_to_path(const char *unit, char **ret) {
         s = NULL;
 
         return 0;
+}
+
+int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = cg_get_path(controller, path, attribute, &p);
+        if (r < 0)
+                return r;
+
+        return write_string_file(p, value);
+}
+
+static const char mask_names[] =
+        "cpu\0"
+        "cpuacct\0"
+        "blkio\0"
+        "memory\0"
+        "devices\0";
+
+int cg_create_with_mask(CGroupControllerMask mask, const char *path) {
+        CGroupControllerMask bit = 1;
+        const char *n;
+        int r;
+
+        /* This one will create a cgroup in our private tree, but also
+         * duplicate it in the trees specified in mask, and remove it
+         * in all others */
+
+        /* First create the cgroup in our own hierarchy. */
+        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
+        if (r < 0)
+                return r;
+
+        /* Then, do the same in the other hierarchies */
+        NULSTR_FOREACH(n, mask_names) {
+                if (bit & mask)
+                        cg_create(n, path);
+                else
+                        cg_trim(n, path, true);
+
+                bit <<= 1;
+        }
+
+        return r;
+}
+
+int cg_attach_with_mask(CGroupControllerMask mask, const char *path, pid_t pid) {
+        CGroupControllerMask bit = 1;
+        const char *n;
+        int r;
+
+        r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, path, pid);
+
+        NULSTR_FOREACH(n, mask_names) {
+                if (bit & mask)
+                        cg_attach(n, path, pid);
+                else {
+                        char prefix[strlen(path) + 1], *slash;
+
+                        /* OK, this one is a bit harder... Now we need
+                         * to add to the closest parent cgroup we
+                         * can find */
+                        strcpy(prefix, path);
+                        while ((slash = strrchr(prefix, '/'))) {
+                                int q;
+                                *slash = 0;
+
+                                q = cg_attach(n, prefix, pid);
+                                if (q >= 0)
+                                        break;
+                        }
+                }
+
+                bit <<= 1;
+        }
+
+        return r;
+}
+
+int cg_migrate_with_mask(CGroupControllerMask mask, const char *from, const char *to) {
+        CGroupControllerMask bit = 1;
+        const char *n;
+        int r;
+
+        if (path_equal(from, to))
+                return 0;
+
+        r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, false, true);
+
+        NULSTR_FOREACH(n, mask_names) {
+                if (bit & mask)
+                        cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, to, n, to, false, false);
+                else {
+                        char prefix[strlen(to) + 1], *slash;
+
+                        strcpy(prefix, to);
+                        while ((slash = strrchr(prefix, '/'))) {
+                                int q;
+
+                                *slash = 0;
+
+                                q = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, to, n, prefix, false, false);
+                                if (q >= 0)
+                                        break;
+                        }
+                }
+
+                bit <<= 1;
+        }
+
+        return r;
+}
+
+int cg_trim_with_mask(CGroupControllerMask mask, const char *path, bool delete_root) {
+        CGroupControllerMask bit = 1;
+        const char *n;
+        int r;
+
+        r = cg_trim(SYSTEMD_CGROUP_CONTROLLER, path, delete_root);
+        if (r < 0)
+                return r;
+
+        NULSTR_FOREACH(n, mask_names) {
+                if (bit & mask)
+                        cg_trim(n, path, delete_root);
+
+                bit <<= 1;
+        }
+
+        return r;
+}
+
+CGroupControllerMask cg_mask_supported(void) {
+        CGroupControllerMask bit = 1, mask = 0;
+        const char *n;
+
+        NULSTR_FOREACH(n, mask_names) {
+                if (check_hierarchy(n) >= 0)
+                        mask |= bit;
+
+                bit <<= 1;
+        }
+
+        return mask;
 }

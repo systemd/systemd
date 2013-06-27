@@ -88,6 +88,7 @@ static void socket_init(Unit *u) {
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
         kill_context_init(&s->kill_context);
+        cgroup_context_init(&s->cgroup_context);
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 }
@@ -128,6 +129,8 @@ static void socket_done(Unit *u) {
         socket_free_ports(s);
 
         exec_context_done(&s->exec_context, manager_is_reloading_or_reexecuting(u->manager));
+        cgroup_context_init(&s->cgroup_context);
+
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -396,10 +399,6 @@ static int socket_load(Unit *u) {
                                 return r;
 
                 r = unit_add_default_slice(u);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_default_cgroups(u);
                 if (r < 0)
                         return r;
 
@@ -1210,6 +1209,8 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
+        unit_realize_cgroup(UNIT(s));
+
         r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_usec, &s->timer_watch);
         if (r < 0)
                 goto fail;
@@ -1229,9 +1230,8 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        true,
                        true,
                        UNIT(s)->manager->confirm_spawn,
-                       UNIT(s)->cgroup_bondings,
-                       UNIT(s)->cgroup_attributes,
-                       NULL,
+                       UNIT(s)->cgroup_mask,
+                       UNIT(s)->cgroup_path,
                        UNIT(s)->id,
                        NULL,
                        &pid);
@@ -2361,8 +2361,9 @@ const UnitVTable socket_vtable = {
                 "Socket\0"
                 "Install\0",
 
+        .private_section = "Socket",
         .exec_context_offset = offsetof(Socket, exec_context),
-        .exec_section = "Socket",
+        .cgroup_context_offset = offsetof(Socket, cgroup_context),
 
         .init = socket_init,
         .done = socket_done,

@@ -22,11 +22,12 @@
 #include <errno.h>
 
 #include "dbus-unit.h"
-#include "dbus-socket.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
+#include "dbus-cgroup.h"
 #include "dbus-common.h"
 #include "selinux-access.h"
+#include "dbus-socket.h"
 
 #define BUS_SOCKET_INTERFACE                                            \
         " <interface name=\"org.freedesktop.systemd1.Socket\">\n"       \
@@ -39,7 +40,6 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"BindToDevice\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
@@ -201,11 +201,11 @@ static const BusProperty bus_socket_properties[] = {
 DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Socket *s = SOCKET(u);
         const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",   bus_unit_properties,         u },
-                { "org.freedesktop.systemd1.Socket", bus_socket_properties,       s },
-                { "org.freedesktop.systemd1.Socket", bus_exec_context_properties, &s->exec_context },
-                { "org.freedesktop.systemd1.Socket", bus_kill_context_properties, &s->kill_context },
-                { "org.freedesktop.systemd1.Socket", bus_unit_cgroup_properties,  u },
+                { "org.freedesktop.systemd1.Unit",   bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Socket", bus_socket_properties,         s },
+                { "org.freedesktop.systemd1.Socket", bus_exec_context_properties,   &s->exec_context },
+                { "org.freedesktop.systemd1.Socket", bus_kill_context_properties,   &s->kill_context },
+                { "org.freedesktop.systemd1.Socket", bus_cgroup_context_properties, &s->cgroup_context },
                 { NULL, }
         };
 

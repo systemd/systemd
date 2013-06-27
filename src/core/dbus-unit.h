@@ -123,40 +123,14 @@
         "  <property name=\"ConditionTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionResult\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"LoadError\" type=\"(ss)\" access=\"read\"/>\n" \
+        "  <property name=\"ControlGroup\" type=\"s\" access=\"read\"/>\n" \
         " </interface>\n"
-
-#define BUS_UNIT_CGROUP_INTERFACE                                       \
-        "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroupAttributes\" type=\"a(sss)\" access=\"read\"/>\n" \
-        "  <method name=\"SetControlGroup\">\n"                         \
-        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetControlGroup\">\n"                       \
-        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetControlGroupAttribute\">\n"                \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"values\" type=\"as\" direction=\"out\"/>\n"     \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetControlGroupAttribute\">\n"                \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"values\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetControlGroupAttribute\">\n"              \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"
 
 #define BUS_UNIT_INTERFACES_LIST                \
         BUS_GENERIC_INTERFACES_LIST             \
         "org.freedesktop.systemd1.Unit\0"
 
 extern const BusProperty bus_unit_properties[];
-extern const BusProperty bus_unit_cgroup_properties[];
 
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);

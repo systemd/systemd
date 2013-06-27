@@ -82,6 +82,7 @@ static void mount_init(Unit *u) {
         }
 
         kill_context_init(&m->kill_context);
+        cgroup_context_init(&m->cgroup_context);
 
         /* We need to make sure that /bin/mount is always called in
          * the same process group as us, so that the autofs kernel
@@ -127,6 +128,7 @@ static void mount_done(Unit *u) {
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
 
+        cgroup_context_done(&m->cgroup_context);
         exec_context_done(&m->exec_context, manager_is_reloading_or_reexecuting(u->manager));
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
@@ -651,10 +653,6 @@ static int mount_add_extras(Mount *m) {
         if (r < 0)
                 return r;
 
-        r = unit_add_default_cgroups(u);
-        if (r < 0)
-                return r;
-
         r = mount_fix_timeouts(m);
         if (r < 0)
                 return r;
@@ -848,28 +846,31 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
+        unit_realize_cgroup(UNIT(m));
+
         r = unit_watch_timer(UNIT(m), CLOCK_MONOTONIC, true, m->timeout_usec, &m->timer_watch);
         if (r < 0)
                 goto fail;
 
-        if ((r = exec_spawn(c,
-                            NULL,
-                            &m->exec_context,
-                            NULL, 0,
-                            UNIT(m)->manager->environment,
-                            true,
-                            true,
-                            true,
-                            UNIT(m)->manager->confirm_spawn,
-                            UNIT(m)->cgroup_bondings,
-                            UNIT(m)->cgroup_attributes,
-                            NULL,
-                            UNIT(m)->id,
-                            NULL,
-                            &pid)) < 0)
+        r = exec_spawn(c,
+                       NULL,
+                       &m->exec_context,
+                       NULL, 0,
+                       UNIT(m)->manager->environment,
+                       true,
+                       true,
+                       true,
+                       UNIT(m)->manager->confirm_spawn,
+                       UNIT(m)->cgroup_mask,
+                       UNIT(m)->cgroup_path,
+                       UNIT(m)->id,
+                       NULL,
+                       &pid);
+        if (r < 0)
                 goto fail;
 
-        if ((r = unit_watch_pid(UNIT(m), pid)) < 0)
+        r = unit_watch_pid(UNIT(m), pid);
+        if (r < 0)
                 /* FIXME: we need to do something here */
                 goto fail;
 
@@ -1878,8 +1879,9 @@ const UnitVTable mount_vtable = {
                 "Mount\0"
                 "Install\0",
 
+        .private_section = "Mount",
         .exec_context_offset = offsetof(Mount, exec_context),
-        .exec_section = "Mount",
+        .cgroup_context_offset = offsetof(Mount, cgroup_context),
 
         .no_alias = true,
         .no_instances = true,

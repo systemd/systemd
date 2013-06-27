@@ -102,6 +102,7 @@ struct Socket {
         ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
         ExecContext exec_context;
         KillContext kill_context;
+        CGroupContext cgroup_context;
 
         /* For Accept=no sockets refers to the one service we'll
         activate. For Accept=yes sockets is either NULL, or filled

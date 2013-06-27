@@ -349,7 +349,7 @@ static int user_create_cgroup(User *u) {
                         return log_oom();
         }
 
-        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL);
+        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
         if (r < 0) {
                 log_error("Failed to create cgroup "SYSTEMD_CGROUP_CONTROLLER":%s: %s", u->cgroup_path, strerror(-r));
                 return r;
@@ -360,7 +360,7 @@ static int user_create_cgroup(User *u) {
                 if (strv_contains(u->manager->reset_controllers, *k))
                         continue;
 
-                r = cg_create(*k, u->cgroup_path, NULL);
+                r = cg_create(*k, u->cgroup_path);
                 if (r < 0)
                         log_warning("Failed to create cgroup %s:%s: %s", *k, u->cgroup_path, strerror(-r));
         }

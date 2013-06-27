@@ -241,7 +241,6 @@ static int show_extra_pids(const char *controller, const char *path, const char 
         unsigned i, j;
         int r;
 
-        assert(controller);
         assert(path);
 
         if (n_pids <= 0)

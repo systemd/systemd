@@ -31,10 +31,10 @@ int main(int argc, char*argv[]) {
         char *path;
         char *c, *p;
 
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a", NULL) == 0);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a", NULL) == 0);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-b", NULL) == 0);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-b/test-c", NULL) == 0);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-b") == 0);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-b/test-c") == 0);
         assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0) == 0);
 
         assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid(), &path) == 0);

@@ -223,7 +223,7 @@ static int machine_create_one_group(Machine *m, const char *controller, const ch
                 r = -EINVAL;
 
         if (r < 0) {
-                r = cg_create(controller, path, NULL);
+                r = cg_create(controller, path);
                 if (r < 0)
                         return r;
         }

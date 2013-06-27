@@ -22,13 +22,13 @@
 #include <errno.h>
 
 #include "dbus-unit.h"
-#include "dbus-slice.h"
 #include "dbus-common.h"
+#include "dbus-cgroup.h"
 #include "selinux-access.h"
+#include "dbus-slice.h"
 
 #define BUS_SLICE_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Slice\">\n"        \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -48,9 +48,11 @@
 const char bus_slice_interface[] _introspect_("Slice") = BUS_SLICE_INTERFACE;
 
 DBusHandlerResult bus_slice_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
+        Slice *s = SLICE(u);
+
         const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,             u },
-                { "org.freedesktop.systemd1.Slice", bus_unit_cgroup_properties,      u },
+                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Slice", bus_cgroup_context_properties, &s->cgroup_context },
                 { NULL, }
         };
 

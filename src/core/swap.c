@@ -92,6 +92,7 @@ static void swap_init(Unit *u) {
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
         kill_context_init(&s->kill_context);
+        cgroup_context_init(&s->cgroup_context);
 
         s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
 
@@ -128,6 +129,8 @@ static void swap_done(Unit *u) {
         exec_context_done(&s->exec_context, manager_is_reloading_or_reexecuting(u->manager));
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
+
+        cgroup_context_done(&s->cgroup_context);
 
         swap_unwatch_control_pid(s);
 
@@ -288,10 +291,6 @@ static int swap_load(Unit *u) {
                         return r;
 
                 r = unit_add_default_slice(u);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_default_cgroups(u);
                 if (r < 0)
                         return r;
 
@@ -593,6 +592,8 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
+        unit_realize_cgroup(UNIT(s));
+
         r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_usec, &s->timer_watch);
         if (r < 0)
                 goto fail;
@@ -606,9 +607,8 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                        true,
                        true,
                        UNIT(s)->manager->confirm_spawn,
-                       UNIT(s)->cgroup_bondings,
-                       UNIT(s)->cgroup_attributes,
-                       NULL,
+                       UNIT(s)->cgroup_mask,
+                       UNIT(s)->cgroup_path,
                        UNIT(s)->id,
                        NULL,
                        &pid);
@@ -1327,8 +1327,9 @@ const UnitVTable swap_vtable = {
                 "Swap\0"
                 "Install\0",
 
+        .private_section = "Swap",
         .exec_context_offset = offsetof(Swap, exec_context),
-        .exec_section = "Swap",
+        .cgroup_context_offset = offsetof(Swap, cgroup_context),
 
         .no_alias = true,
         .no_instances = true,

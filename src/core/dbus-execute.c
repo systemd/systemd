@@ -31,10 +31,10 @@
 #include "syscall-list.h"
 #include "fileio.h"
 
-DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_input, exec_input, ExecInput);
-DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_output, exec_output, ExecOutput);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_input, exec_input, ExecInput);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_output, exec_output, ExecOutput);
 
-int bus_execute_append_env_files(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_env_files(DBusMessageIter *i, const char *property, void *data) {
         char **env_files = data, **j;
         DBusMessageIter sub, sub2;
 
@@ -66,7 +66,7 @@ int bus_execute_append_env_files(DBusMessageIter *i, const char *property, void 
         return 0;
 }
 
-int bus_execute_append_oom_score_adjust(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_oom_score_adjust(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         int32_t n;
 
@@ -92,7 +92,7 @@ int bus_execute_append_oom_score_adjust(DBusMessageIter *i, const char *property
         return 0;
 }
 
-int bus_execute_append_nice(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_nice(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         int32_t n;
 
@@ -111,7 +111,7 @@ int bus_execute_append_nice(DBusMessageIter *i, const char *property, void *data
         return 0;
 }
 
-int bus_execute_append_ioprio(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_ioprio(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         int32_t n;
 
@@ -130,7 +130,7 @@ int bus_execute_append_ioprio(DBusMessageIter *i, const char *property, void *da
         return 0;
 }
 
-int bus_execute_append_cpu_sched_policy(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_cpu_sched_policy(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         int32_t n;
 
@@ -149,7 +149,7 @@ int bus_execute_append_cpu_sched_policy(DBusMessageIter *i, const char *property
         return 0;
 }
 
-int bus_execute_append_cpu_sched_priority(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_cpu_sched_priority(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         int32_t n;
 
@@ -174,7 +174,7 @@ int bus_execute_append_cpu_sched_priority(DBusMessageIter *i, const char *proper
         return 0;
 }
 
-int bus_execute_append_affinity(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_affinity(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         dbus_bool_t b;
         DBusMessageIter sub;
@@ -200,7 +200,7 @@ int bus_execute_append_affinity(DBusMessageIter *i, const char *property, void *
         return 0;
 }
 
-int bus_execute_append_timer_slack_nsec(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_timer_slack_nsec(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         uint64_t u;
 
@@ -219,7 +219,7 @@ int bus_execute_append_timer_slack_nsec(DBusMessageIter *i, const char *property
         return 0;
 }
 
-int bus_execute_append_capability_bs(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_capability_bs(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         uint64_t normal, inverted;
 
@@ -236,7 +236,7 @@ int bus_execute_append_capability_bs(DBusMessageIter *i, const char *property, v
         return bus_property_append_uint64(i, property, &inverted);
 }
 
-int bus_execute_append_capabilities(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_capabilities(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         char *t = NULL;
         const char *s;
@@ -265,7 +265,7 @@ int bus_execute_append_capabilities(DBusMessageIter *i, const char *property, vo
         return 0;
 }
 
-int bus_execute_append_rlimits(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_rlimits(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         int r;
         uint64_t u;
@@ -347,7 +347,7 @@ int bus_execute_append_command(DBusMessageIter *i, const char *property, void *d
         return 0;
 }
 
-int bus_execute_append_syscall_filter(DBusMessageIter *i, const char *property, void *data) {
+static int bus_execute_append_syscall_filter(DBusMessageIter *i, const char *property, void *data) {
         ExecContext *c = data;
         dbus_bool_t b;
         DBusMessageIter sub;
@@ -430,10 +430,8 @@ const BusProperty bus_exec_context_properties[] = {
         { "PrivateNetwork",           bus_property_append_bool,              "b", offsetof(ExecContext, private_network)              },
         { "SameProcessGroup",         bus_property_append_bool,              "b", offsetof(ExecContext, same_pgrp)                    },
         { "UtmpIdentifier",           bus_property_append_string,            "s", offsetof(ExecContext, utmp_id),                true },
-        { "ControlGroupModify",       bus_property_append_bool,              "b", offsetof(ExecContext, control_group_modify)         },
-        { "ControlGroupPersistent",   bus_property_append_tristate_false,    "b", offsetof(ExecContext, control_group_persistent)     },
         { "IgnoreSIGPIPE",            bus_property_append_bool,              "b", offsetof(ExecContext, ignore_sigpipe)               },
         { "NoNewPrivileges",          bus_property_append_bool,              "b", offsetof(ExecContext, no_new_privileges)            },
         { "SystemCallFilter",         bus_execute_append_syscall_filter,    "au", 0                                                   },
-        { NULL, }
+        {}
 };

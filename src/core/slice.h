@@ -36,6 +36,8 @@ struct Slice {
         Unit meta;
 
         SliceState state, deserialized_state;
+
+        CGroupContext cgroup_context;
 };
 
 extern const UnitVTable slice_vtable;

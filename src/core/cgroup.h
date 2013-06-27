@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2013 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,74 +21,96 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-typedef struct CGroupBonding CGroupBonding;
+#include "list.h"
 
-#include "unit.h"
+typedef struct CGroupContext CGroupContext;
+typedef struct CGroupDeviceAllow CGroupDeviceAllow;
+typedef struct CGroupBlockIODeviceWeight CGroupBlockIODeviceWeight;
+typedef struct CGroupBlockIODeviceBandwidth CGroupBlockIODeviceBandwidth;
 
-/* Binds a cgroup to a name */
-struct CGroupBonding {
-        char *controller;
+typedef enum CGroupDevicePolicy {
+
+        /* When devices listed, will allow those, plus built-in ones,
+        if none are listed will allow everything. */
+        CGROUP_AUTO,
+
+        /* Everything forbidden, except built-in ones and listed ones. */
+        CGROUP_CLOSED,
+
+        /* Everythings forbidden, except for the listed devices */
+        CGROUP_STRICT,
+
+        _CGROUP_DEVICE_POLICY_MAX,
+        _CGROUP_DEVICE_POLICY_INVALID = -1
+} CGroupDevicePolicy;
+
+struct CGroupDeviceAllow {
+        LIST_FIELDS(CGroupDeviceAllow, device_allow);
         char *path;
-
-        Unit *unit;
-
-        /* For the Unit::cgroup_bondings list */
-        LIST_FIELDS(CGroupBonding, by_unit);
-
-        /* For the Manager::cgroup_bondings hashmap */
-        LIST_FIELDS(CGroupBonding, by_path);
-
-        /* When shutting down, remove cgroup? Are our own tasks the
-         * only ones in this group?*/
-        bool ours:1;
-
-        /* If we cannot create this group, or add a process to it, is this fatal? */
-        bool essential:1;
-
-        /* This cgroup is realized */
-        bool realized:1;
+        bool r:1;
+        bool w:1;
+        bool m:1;
 };
 
-int cgroup_bonding_realize(CGroupBonding *b);
-int cgroup_bonding_realize_list(CGroupBonding *first);
+struct CGroupBlockIODeviceWeight {
+        LIST_FIELDS(CGroupBlockIODeviceWeight, device_weights);
+        char *path;
+        unsigned long weight;
+};
 
-void cgroup_bonding_free(CGroupBonding *b, bool trim);
-void cgroup_bonding_free_list(CGroupBonding *first, bool trim);
+struct CGroupBlockIODeviceBandwidth {
+        LIST_FIELDS(CGroupBlockIODeviceBandwidth, device_bandwidths);
+        char *path;
+        uint64_t bandwidth;
+        bool read;
+};
 
-int cgroup_bonding_install(CGroupBonding *b, pid_t pid, const char *suffix);
-int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid, const char *suffix);
+struct CGroupContext {
+        bool cpu_accounting;
+        bool blockio_accounting;
+        bool memory_accounting;
 
-int cgroup_bonding_migrate(CGroupBonding *b, CGroupBonding *list);
-int cgroup_bonding_migrate_to(CGroupBonding *b, const char *target, bool rem);
+        unsigned long cpu_shares;
 
-int cgroup_bonding_set_group_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid);
-int cgroup_bonding_set_group_access_list(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid);
+        unsigned long blockio_weight;
+        LIST_HEAD(CGroupBlockIODeviceWeight, blockio_device_weights);
+        LIST_HEAD(CGroupBlockIODeviceBandwidth, blockio_device_bandwidths);
 
-int cgroup_bonding_set_task_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid, int sticky);
-int cgroup_bonding_set_task_access_list(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid, int sticky);
+        uint64_t memory_limit;
+        uint64_t memory_soft_limit;
 
-int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, bool rem, Set *s, const char *suffix);
-int cgroup_bonding_kill_list(CGroupBonding *first, int sig, bool sigcont, bool rem, Set *s, const char *suffix);
+        CGroupDevicePolicy device_policy;
+        LIST_HEAD(CGroupDeviceAllow, device_allow);
+};
 
-void cgroup_bonding_trim(CGroupBonding *first, bool delete_root);
-void cgroup_bonding_trim_list(CGroupBonding *first, bool delete_root);
-
-int cgroup_bonding_is_empty(CGroupBonding *b);
-int cgroup_bonding_is_empty_list(CGroupBonding *first);
-
-CGroupBonding *cgroup_bonding_find_list(CGroupBonding *first, const char *controller) _pure_;
-
-char *cgroup_bonding_to_string(CGroupBonding *b);
-
-pid_t cgroup_bonding_search_main_pid(CGroupBonding *b);
-pid_t cgroup_bonding_search_main_pid_list(CGroupBonding *b);
-
+#include "unit.h"
 #include "manager.h"
+#include "cgroup-util.h"
+
+void cgroup_context_init(CGroupContext *c);
+void cgroup_context_done(CGroupContext *c);
+void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix);
+void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path);
+CGroupControllerMask cgroup_context_get_mask(CGroupContext *c);
+
+void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
+void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);
+void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
+
+void unit_realize_cgroup(Unit *u);
+void unit_destroy_cgroup(Unit *u);
 
 int manager_setup_cgroup(Manager *m);
 void manager_shutdown_cgroup(Manager *m, bool delete);
 
-int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding);
-int cgroup_notify_empty(Manager *m, const char *group);
+unsigned manager_dispatch_cgroup_queue(Manager *m);
 
-Unit* cgroup_unit_by_pid(Manager *m, pid_t pid);
+Unit *manager_get_unit_by_cgroup(Manager *m, const char *cgroup);
+Unit* manager_get_unit_by_pid(Manager *m, pid_t pid);
+
+pid_t unit_search_main_pid(Unit *u);
+
+int manager_notify_cgroup_empty(Manager *m, const char *group);
+
+const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
+CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;

@@ -55,7 +55,6 @@
 #include "util.h"
 #include "mkdir.h"
 #include "ratelimit.h"
-#include "cgroup.h"
 #include "mount-setup.h"
 #include "unit-name.h"
 #include "dbus-unit.h"
@@ -467,12 +466,6 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
 
         manager_strip_environment(m);
 
-        if (running_as == SYSTEMD_SYSTEM) {
-                m->default_controllers = strv_new("cpu", NULL);
-                if (!m->default_controllers)
-                        goto fail;
-        }
-
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
 
@@ -482,7 +475,8 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         if (!(m->watch_pids = hashmap_new(trivial_hash_func, trivial_compare_func)))
                 goto fail;
 
-        if (!(m->cgroup_bondings = hashmap_new(string_hash_func, string_compare_func)))
+        m->cgroup_unit = hashmap_new(string_hash_func, string_compare_func);
+        if (!m->cgroup_unit)
                 goto fail;
 
         if (!(m->watch_bus = hashmap_new(string_hash_func, string_compare_func)))
@@ -712,9 +706,7 @@ void manager_free(Manager *m) {
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
 
-        strv_free(m->default_controllers);
-
-        hashmap_free(m->cgroup_bondings);
+        hashmap_free(m->cgroup_unit);
         set_free_free(m->unit_path_cache);
 
         close_pipe(m->idle_pipe);
@@ -1220,7 +1212,7 @@ static int manager_process_notify_fd(Manager *m) {
 
                 u = hashmap_get(m->watch_pids, LONG_TO_PTR(ucred->pid));
                 if (!u) {
-                        u = cgroup_unit_by_pid(m, ucred->pid);
+                        u = manager_get_unit_by_pid(m, ucred->pid);
                         if (!u) {
                                 log_warning("Cannot find unit for notify message of PID %lu.", (unsigned long) ucred->pid);
                                 continue;
@@ -1285,7 +1277,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                 /* And now figure out the unit this belongs to */
                 u = hashmap_get(m->watch_pids, LONG_TO_PTR(si.si_pid));
                 if (!u)
-                        u = cgroup_unit_by_pid(m, si.si_pid);
+                        u = manager_get_unit_by_pid(m, si.si_pid);
 
                 /* And now, we actually reap the zombie. */
                 if (waitid(P_PID, si.si_pid, &si, WEXITED) < 0) {
@@ -1739,6 +1731,9 @@ int manager_loop(Manager *m) {
                         continue;
 
                 if (manager_dispatch_gc_queue(m) > 0)
+                        continue;
+
+                if (manager_dispatch_cgroup_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_dbus_queue(m) > 0)
@@ -2583,23 +2578,6 @@ int manager_set_default_environment(Manager *m, char **environment) {
                 return -ENOMEM;
         strv_free(m->environment);
         m->environment = e;
-        return 0;
-}
-
-int manager_set_default_controllers(Manager *m, char **controllers) {
-        char **l;
-
-        assert(m);
-
-        l = strv_copy(controllers);
-        if (!l)
-                return -ENOMEM;
-
-        strv_free(m->default_controllers);
-        m->default_controllers = l;
-
-        cg_shorten_controllers(m->default_controllers);
-
         return 0;
 }
 

@@ -23,11 +23,12 @@
 #include <errno.h>
 
 #include "dbus-unit.h"
-#include "dbus-swap.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
+#include "dbus-cgroup.h"
 #include "dbus-common.h"
 #include "selinux-access.h"
+#include "dbus-swap.h"
 
 #define BUS_SWAP_INTERFACE                                              \
         " <interface name=\"org.freedesktop.systemd1.Swap\">\n"         \
@@ -38,7 +39,6 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecDeactivate")                    \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
         " </interface>\n"
@@ -103,11 +103,11 @@ static const BusProperty bus_swap_properties[] = {
 DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Swap *s = SWAP(u);
         const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit", bus_unit_properties,         u },
-                { "org.freedesktop.systemd1.Swap", bus_swap_properties,         s },
-                { "org.freedesktop.systemd1.Swap", bus_exec_context_properties, &s->exec_context },
-                { "org.freedesktop.systemd1.Swap", bus_kill_context_properties, &s->kill_context },
-                { "org.freedesktop.systemd1.Swap", bus_unit_cgroup_properties,  u },
+                { "org.freedesktop.systemd1.Unit", bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Swap", bus_swap_properties,           s },
+                { "org.freedesktop.systemd1.Swap", bus_exec_context_properties,   &s->exec_context },
+                { "org.freedesktop.systemd1.Swap", bus_kill_context_properties,   &s->kill_context },
+                { "org.freedesktop.systemd1.Swap", bus_cgroup_context_properties, &s->cgroup_context },
                 { NULL, }
         };
 

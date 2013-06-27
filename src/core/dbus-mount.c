@@ -22,11 +22,12 @@
 #include <errno.h>
 
 #include "dbus-unit.h"
-#include "dbus-mount.h"
-#include "dbus-kill.h"
 #include "dbus-execute.h"
+#include "dbus-kill.h"
+#include "dbus-cgroup.h"
 #include "dbus-common.h"
 #include "selinux-access.h"
+#include "dbus-mount.h"
 
 #define BUS_MOUNT_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Mount\">\n"        \
@@ -40,7 +41,6 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecRemount")                       \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
@@ -156,11 +156,11 @@ DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMess
         Mount *m = MOUNT(u);
 
         const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,         u },
-                { "org.freedesktop.systemd1.Mount", bus_mount_properties,        m },
-                { "org.freedesktop.systemd1.Mount", bus_exec_context_properties, &m->exec_context },
-                { "org.freedesktop.systemd1.Mount", bus_kill_context_properties, &m->kill_context },
-                { "org.freedesktop.systemd1.Mount", bus_unit_cgroup_properties,  u },
+                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Mount", bus_mount_properties,          m },
+                { "org.freedesktop.systemd1.Mount", bus_exec_context_properties,   &m->exec_context },
+                { "org.freedesktop.systemd1.Mount", bus_kill_context_properties,   &m->kill_context },
+                { "org.freedesktop.systemd1.Mount", bus_cgroup_context_properties, &m->cgroup_context },
                 { NULL, }
         };
 

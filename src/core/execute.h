@@ -33,13 +33,10 @@ typedef struct ExecContext ExecContext;
 #include <stdio.h>
 #include <sched.h>
 
-struct CGroupBonding;
-struct CGroupAttribute;
-
-typedef struct Unit Unit;
-
 #include "list.h"
 #include "util.h"
+
+typedef struct Unit Unit;
 
 typedef enum ExecInput {
         EXEC_INPUT_NULL,
@@ -148,9 +145,6 @@ struct ExecContext {
 
         bool no_new_privileges;
 
-        bool control_group_modify;
-        int control_group_persistent;
-
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn
          * /bin/mount it is run in the same process group as us so
@@ -166,6 +160,8 @@ struct ExecContext {
         bool cpu_sched_set:1;
 };
 
+#include "cgroup.h"
+
 int exec_spawn(ExecCommand *command,
                char **argv,
                ExecContext *context,
@@ -175,9 +171,8 @@ int exec_spawn(ExecCommand *command,
                bool apply_chroot,
                bool apply_tty_stdin,
                bool confirm_spawn,
-               struct CGroupBonding *cgroup_bondings,
-               struct CGroupAttribute *cgroup_attributes,
-               const char *cgroup_suffix,
+               CGroupControllerMask cgroup_mask,
+               const char *cgroup_path,
                const char *unit_id,
                int pipe_fd[2],
                pid_t *ret);

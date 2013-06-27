@@ -24,7 +24,6 @@
 #include "util.h"
 #include "strv.h"
 
-
 int write_string_to_file(FILE *f, const char *line) {
         errno = 0;
         fputs(line, f);

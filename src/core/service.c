@@ -141,6 +141,7 @@ static void service_init(Unit *u) {
 
         exec_context_init(&s->exec_context);
         kill_context_init(&s->kill_context);
+        cgroup_context_init(&s->cgroup_context);
 
         RATELIMIT_INIT(s->start_limit, 10*USEC_PER_SEC, 5);
 
@@ -283,6 +284,7 @@ static void service_done(Unit *u) {
         free(s->status_text);
         s->status_text = NULL;
 
+        cgroup_context_done(&s->cgroup_context);
         exec_context_done(&s->exec_context, manager_is_reloading_or_reexecuting(u->manager));
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
@@ -1229,10 +1231,6 @@ static int service_load(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = unit_add_default_cgroups(u);
-                if (r < 0)
-                        return r;
-
 #ifdef HAVE_SYSV_COMPAT
                 r = sysv_fix_order(s);
                 if (r < 0)
@@ -1457,7 +1455,7 @@ static int service_search_main_pid(Service *s) {
 
         assert(s->main_pid <= 0);
 
-        pid = cgroup_bonding_search_main_pid_list(UNIT(s)->cgroup_bondings);
+        pid = unit_search_main_pid(UNIT(s));
         if (pid <= 0)
                 return -ENOENT;
 
@@ -1582,7 +1580,7 @@ static void service_set_state(Service *s, ServiceState state) {
         /* For the inactive states unit_notify() will trim the cgroup,
          * but for exit we have to do that ourselves... */
         if (state == SERVICE_EXITED && UNIT(s)->manager->n_reloading <= 0)
-                cgroup_bonding_trim_list(UNIT(s)->cgroup_bondings, true);
+                unit_destroy_cgroup(UNIT(s));
 
         if (old_state != state)
                 log_debug_unit(UNIT(s)->id,
@@ -1751,10 +1749,13 @@ static int service_spawn(
         unsigned n_fds = 0, n_env = 0;
         _cleanup_strv_free_ char
                 **argv = NULL, **final_env = NULL, **our_env = NULL;
+        const char *path;
 
         assert(s);
         assert(c);
         assert(_pid);
+
+        unit_realize_cgroup(UNIT(s));
 
         if (pass_fds ||
             s->exec_context.std_input == EXEC_INPUT_SOCKET ||
@@ -1811,7 +1812,7 @@ static int service_spawn(
                         goto fail;
                 }
 
-        if (s->meta.manager->running_as != SYSTEMD_SYSTEM)
+        if (UNIT(s)->manager->running_as != SYSTEMD_SYSTEM)
                 if (asprintf(our_env + n_env++, "MANAGERPID=%lu", (unsigned long) getpid()) < 0) {
                         r = -ENOMEM;
                         goto fail;
@@ -1823,6 +1824,12 @@ static int service_spawn(
                 goto fail;
         }
 
+        if (is_control && UNIT(s)->cgroup_path) {
+                path = strappenda(UNIT(s)->cgroup_path, "/control");
+                cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
+        } else
+                path = UNIT(s)->cgroup_path;
+
         r = exec_spawn(c,
                        argv,
                        &s->exec_context,
@@ -1832,9 +1839,8 @@ static int service_spawn(
                        apply_chroot,
                        apply_tty_stdin,
                        UNIT(s)->manager->confirm_spawn,
-                       UNIT(s)->cgroup_bondings,
-                       UNIT(s)->cgroup_attributes,
-                       is_control ? "control" : NULL,
+                       UNIT(s)->cgroup_mask,
+                       path,
                        UNIT(s)->id,
                        s->type == SERVICE_IDLE ? UNIT(s)->manager->idle_pipe : NULL,
                        &pid);
@@ -1893,7 +1899,10 @@ static int cgroup_good(Service *s) {
 
         assert(s);
 
-        r = cgroup_bonding_is_empty_list(UNIT(s)->cgroup_bondings);
+        if (!UNIT(s)->cgroup_path)
+                return 0;
+
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path, true);
         if (r < 0)
                 return r;
 
@@ -2123,10 +2132,21 @@ fail:
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
+static void service_kill_control_processes(Service *s) {
+        char *p;
+
+        if (!UNIT(s)->cgroup_path)
+                return;
+
+        p = strappenda(UNIT(s)->cgroup_path, "/control");
+
+        cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, p, SIGKILL, true, true, true, NULL);
+}
+
 static void service_enter_start(Service *s) {
+        ExecCommand *c;
         pid_t pid;
         int r;
-        ExecCommand *c;
 
         assert(s);
 
@@ -2141,7 +2161,7 @@ static void service_enter_start(Service *s) {
         /* We want to ensure that nobody leaks processes from
          * START_PRE here, so let's go on a killing spree, People
          * should not spawn long running processes from START_PRE. */
-        cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, true, NULL, "control");
+        service_kill_control_processes(s);
 
         if (s->type == SERVICE_FORKING) {
                 s->control_command_id = SERVICE_EXEC_START;
@@ -2217,11 +2237,9 @@ static void service_enter_start_pre(Service *s) {
 
         s->control_command = s->exec_command[SERVICE_EXEC_START_PRE];
         if (s->control_command) {
-
                 /* Before we start anything, let's clear up what might
                  * be left from previous runs. */
-                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL,
-                                         true,true, NULL, "control");
+                service_kill_control_processes(s);
 
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 
@@ -3045,7 +3063,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 }
 
         } else if (s->control_pid == pid) {
-
                 s->control_pid = 0;
 
                 if (s->control_command) {
@@ -3066,8 +3083,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* Immediately get rid of the cgroup, so that the
                  * kernel doesn't delay the cgroup empty messages for
                  * the service cgroup any longer than necessary */
-                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL,
-                                         true, true, NULL, "control");
+                service_kill_control_processes(s);
 
                 if (s->control_command &&
                     s->control_command->command_next &&
@@ -3296,7 +3312,7 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
         }
 }
 
-static void service_cgroup_notify_event(Unit *u) {
+static void service_notify_cgroup_empty_event(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(u);
@@ -3823,8 +3839,9 @@ const UnitVTable service_vtable = {
                 "Service\0"
                 "Install\0",
 
+        .private_section = "Service",
         .exec_context_offset = offsetof(Service, exec_context),
-        .exec_section = "Service",
+        .cgroup_context_offset = offsetof(Service, cgroup_context),
 
         .init = service_init,
         .done = service_done,
@@ -3857,7 +3874,7 @@ const UnitVTable service_vtable = {
 
         .reset_failed = service_reset_failed,
 
-        .cgroup_notify_empty = service_cgroup_notify_event,
+        .notify_cgroup_empty = service_notify_cgroup_empty_event,
         .notify_message = service_notify_message,
 
         .bus_name_owner_change = service_bus_name_owner_change,
