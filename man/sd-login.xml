@@ -122,8 +122,7 @@
 
                 <para>These APIs are implemented as shared library,
                 which can be compiled and linked to with the
-                <constant>libsystemd-login</constant>
-                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

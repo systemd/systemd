@@ -169,8 +169,7 @@
                 <function>sd_pid_get_machine_name()</function>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <constant>libsystemd-login</constant>
-                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
 
                 <para>Note that the login session identifier as

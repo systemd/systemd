@@ -86,8 +86,7 @@
                 <para>The <function>sd_journal_get_usage()</function>
                 interface is available as shared library, which can be
                 compiled and linked to with the
-                <constant>libsystemd-journal</constant>
-                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 
