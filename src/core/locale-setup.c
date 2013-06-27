@@ -117,14 +117,6 @@ int locale_setup(void) {
                         log_warning("Failed to read /etc/locale.conf: %s", strerror(-r));
         }
 
-        if (!variables[VARIABLE_LANG]) {
-                variables[VARIABLE_LANG] = strdup("C");
-                if (!variables[VARIABLE_LANG]) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-        }
-
         for (i = 0; i < _VARIABLE_MAX; i++) {
                 if (variables[i]) {
                         if (setenv(variable_names[i], variables[i], 1) < 0) {
