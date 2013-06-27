@@ -27,5 +27,8 @@
 
 DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
+int bus_service_set_property(Unit *u, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
+int bus_service_commit_properties(Unit *u);
+
 extern const char bus_service_interface[];
 extern const char bus_service_invalidating_properties[];

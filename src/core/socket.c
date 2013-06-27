@@ -2396,6 +2396,8 @@ const UnitVTable socket_vtable = {
         .bus_interface = "org.freedesktop.systemd1.Socket",
         .bus_message_handler = bus_socket_message_handler,
         .bus_invalidating_properties =  bus_socket_invalidating_properties,
+        .bus_set_property = bus_socket_set_property,
+        .bus_commit_properties = bus_socket_commit_properties,
 
         .status_message_formats = {
                 /*.starting_stopping = {

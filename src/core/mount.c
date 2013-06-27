@@ -1916,6 +1916,8 @@ const UnitVTable mount_vtable = {
         .bus_interface = "org.freedesktop.systemd1.Mount",
         .bus_message_handler = bus_mount_message_handler,
         .bus_invalidating_properties =  bus_mount_invalidating_properties,
+        .bus_set_property = bus_mount_set_property,
+        .bus_commit_properties = bus_mount_commit_properties,
 
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown,

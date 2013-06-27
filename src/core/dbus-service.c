@@ -161,3 +161,31 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
 
         return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
 }
+
+int bus_service_set_property(
+                Unit *u,
+                const char *name,
+                DBusMessageIter *i,
+                UnitSetPropertiesMode mode,
+                DBusError *error) {
+
+        Service *s = SERVICE(u);
+        int r;
+
+        assert(name);
+        assert(u);
+        assert(i);
+
+        r = bus_cgroup_set_property(u, &s->cgroup_context, name, i, mode, error);
+        if (r != 0)
+                return r;
+
+        return 0;
+}
+
+int bus_service_commit_properties(Unit *u) {
+        assert(u);
+
+        unit_realize_cgroup(u);
+        return 0;
+}

@@ -1363,6 +1363,8 @@ const UnitVTable swap_vtable = {
         .bus_interface = "org.freedesktop.systemd1.Swap",
         .bus_message_handler = bus_swap_message_handler,
         .bus_invalidating_properties =  bus_swap_invalidating_properties,
+        .bus_set_property = bus_swap_set_property,
+        .bus_commit_properties = bus_swap_commit_properties,
 
         .following = swap_following,
         .following_set = swap_following_set,

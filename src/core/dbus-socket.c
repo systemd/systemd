@@ -213,3 +213,31 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
 
         return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }
+
+int bus_socket_set_property(
+                Unit *u,
+                const char *name,
+                DBusMessageIter *i,
+                UnitSetPropertiesMode mode,
+                DBusError *error) {
+
+        Socket *s = SOCKET(u);
+        int r;
+
+        assert(name);
+        assert(u);
+        assert(i);
+
+        r = bus_cgroup_set_property(u, &s->cgroup_context, name, i, mode, error);
+        if (r != 0)
+                return r;
+
+        return 0;
+}
+
+int bus_socket_commit_properties(Unit *u) {
+        assert(u);
+
+        unit_realize_cgroup(u);
+        return 0;
+}

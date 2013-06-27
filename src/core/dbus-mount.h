@@ -27,5 +27,8 @@
 
 DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
+int bus_mount_set_property(Unit *u, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
+int bus_mount_commit_properties(Unit *u);
+
 extern const char bus_mount_interface[];
 extern const char bus_mount_invalidating_properties[];
