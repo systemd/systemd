@@ -5420,20 +5420,24 @@ bool is_locale_utf8(void) {
                 goto out;
         }
 
-        /* For LC_CTYPE=="C" return true,
-         * because CTYPE is effectly unset and
-         * everything defaults to UTF-8 nowadays. */
-
+        /* For LC_CTYPE=="C" return true, because CTYPE is effectly
+         * unset and everything can do to UTF-8 nowadays. */
         set = setlocale(LC_CTYPE, NULL);
         if (!set) {
                 cached_answer = true;
                 goto out;
         }
 
-        cached_answer = streq(set, "C");
+        /* Check result, but ignore the result if C was set
+         * explicitly. */
+        cached_answer =
+                streq(set, "C") &&
+                !getenv("LC_ALL") &&
+                !getenv("LC_CTYPE") &&
+                !getenv("LANG");
 
 out:
-        return (bool)cached_answer;
+        return (bool) cached_answer;
 }
 
 const char *draw_special_char(DrawSpecialChar ch) {
