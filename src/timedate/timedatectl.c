@@ -198,7 +198,7 @@ static void print_status_info(StatusInfo *i) {
 
         if (i->local_rtc)
                 fputs("\n" ANSI_HIGHLIGHT_ON
-                      "Warning: The RTC is configured to maintain time in the local time zone. This\n"
+                      "Warning: The RTC is configured to maintain time in the local timezone. This\n"
                       "         mode is not fully supported and will create various problems with time\n"
                       "         zone changes and daylight saving adjustments. If at all possible use\n"
                       "         RTC in UTC, by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);

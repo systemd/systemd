@@ -133,7 +133,7 @@
                                 existing at time that the automount
                                 point is installed it is created. This
                                 string must be reflected in the unit
-                                file name. (See above.) This option is
+                                filename. (See above.) This option is
                                 mandatory.</para></listitem>
                         </varlistentry>
 

@@ -160,7 +160,7 @@
                                 monotonic clock stops too.</para>
 
                                 <para>If the empty string is assigned
-                                to any of these options the list of
+                                to any of these options, the list of
                                 timers is reset, and all prior
                                 assignments will have no
                                 effect.</para></listitem>

@@ -184,10 +184,10 @@
                                 <term><varname>KillExcludeUsers=</varname></term>
 
                                 <listitem><para>These settings take
-                                space separated lists of user names
+                                space-separated lists of usernames
                                 that influence the effect of
                                 <varname>KillUserProcesses=</varname>. If
-                                not empty only processes of users
+                                not empty, only processes of users
                                 listed in
                                 <varname>KillOnlyUsers</varname> will
                                 be killed when they log out
@@ -210,12 +210,12 @@
                                 users logging in are added to, in
                                 addition to the
                                 <literal>name=systemd</literal> named
-                                hierarchy. These settings take space
-                                separated lists of controller
+                                hierarchy. These settings take
+                                space-separated lists of controller
                                 names. Pass the empty string to ensure
                                 that logind does not touch any
                                 hierarchies but systemd's own. When
-                                logging in user sessions will get
+                                logging in, user sessions will get
                                 private control groups in all
                                 hierarchies listed in
                                 <varname>Controllers=</varname> and be
@@ -228,8 +228,8 @@
                                 <literal>cpu</literal>. Note that for
                                 all controllers that are not listed in
                                 either <varname>Controllers=</varname>
-                                nor
-                                <varname>ResetControllers=</varname>
+                                or
+                                <varname>ResetControllers=</varname>,
                                 newly created sessions will be part of
                                 the control groups of the system
                                 service that created the
@@ -269,11 +269,11 @@
                                 <literal>hibernate</literal>,
                                 <literal>hybrid-sleep</literal> and
                                 <literal>lock</literal>. If
-                                <literal>ignore</literal> logind will
+                                <literal>ignore</literal>, logind will
                                 never handle these keys. If
-                                <literal>lock</literal> all running
-                                sessions will be screen
-                                locked. Otherwise the specified action
+                                <literal>lock</literal>, all running
+                                sessions will be screen-locked; otherwise,
+                                the specified action
                                 will be taken in the respective
                                 event. Only input devices with the
                                 <literal>power-switch</literal> udev
@@ -301,10 +301,10 @@
                                 sleep keys and the lid switch are
                                 subject to inhibitor locks. These
                                 settings take boolean arguments. If
-                                <literal>off</literal> the inhibitor
+                                <literal>off</literal>, the inhibitor
                                 locks taken by applications in order
                                 to block the requested operation are
-                                respected, if <literal>on</literal>
+                                respected, if <literal>on</literal>,
                                 the requested operation is executed in
                                 any
                                 case. <varname>PowerKeyIgnoreInhibited=</varname>,

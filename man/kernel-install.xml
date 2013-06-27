@@ -67,7 +67,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     located in the directory <filename>/usr/lib/kernel/install.d/</filename>
     and the local administration directory <filename>/etc/kernel/install.d/</filename>.
     All files are collectively sorted and executed in lexical order, regardless of the directory in
-    which they live. However, files with identical file names replace each other.
+    which they live. However, files with identical filenames replace each other.
     Files in <filename>/etc/kernel/install.d/</filename> take precedence over files with the same name
     in <filename>/usr/lib/kernel/install.d/</filename>. This can be used to override a system-supplied
     executables with a local file if needed; a symbolic link in <filename>/etc/kernel/install.d/</filename>

@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemd-hostnamed.service</refname>
                 <refname>systemd-hostnamed</refname>
-                <refpurpose>Hostname bus mechanism</refpurpose>
+                <refpurpose>Host name bus mechanism</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -57,14 +57,14 @@
                 <title>Description</title>
 
                 <para><filename>systemd-hostnamed</filename> is a system
-                service that may be used as mechanism to change the
-                system hostname. <filename>systemd-hostnamed</filename> is
+                service that may be used as a mechanism to change the
+                system's hostname. <filename>systemd-hostnamed</filename> is
                 automatically activated on request and terminates
                 itself when it is unused.</para>
 
                 <para>The tool
                 <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                is a command line client to this service.</para>
+                is a command-line client to this service.</para>
 
                 <para>See the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/hostnamed">

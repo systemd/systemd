@@ -182,7 +182,7 @@
                 directive.</para>
 
                 <para>If a line starts with <option>.include</option>
-                followed by a file name, the specified file will be
+                followed by a filename, the specified file will be
                 parsed at this point. Make sure that the file that is
                 included has the appropriate section headers before
                 any directives.</para>
@@ -200,7 +200,7 @@
                 with the device node <filename noindex='true'>/dev/sda</filename> in
                 the file system namespace. If this applies a special
                 way to escape the path name is used, so that the
-                result is usable as part of a file name. Basically,
+                result is usable as part of a filename. Basically,
                 given a path, "/" is replaced by "-", and all
                 unprintable characters and the "-" are replaced by
                 C-style "\x20" escapes. The root directory "/" is
@@ -382,7 +382,7 @@
 
                         <varlistentry>
                                 <term><varname>Documentation=</varname></term>
-                                <listitem><para>A space separated list
+                                <listitem><para>A space-separated list
                                 of URIs referencing documentation for
                                 this unit or its
                                 configuration. Accepted are only URIs
@@ -393,7 +393,7 @@
                                 <literal>info:</literal>,
                                 <literal>man:</literal>. For more
                                 information about the syntax of these
-                                URIs see
+                                URIs, see
                                 <citerefentry><refentrytitle>uri</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
                                 URIs should be listed in order of
                                 relevance, starting with the most
@@ -405,7 +405,7 @@
                                 option may be specified more than once
                                 in which case the specified list of
                                 URIs is merged. If the empty string is
-                                assigned to this option the list is
+                                assigned to this option, the list is
                                 reset and all prior assignments will
                                 have no effect.</para></listitem>
                         </varlistentry>
@@ -669,8 +669,8 @@
                         <varlistentry>
                                 <term><varname>RequiresMountsFor=</varname></term>
 
-                                <listitem><para>Takes a space
-                                separated list of absolute paths. Automatically
+                                <listitem><para>Takes a space-separated
+                                list of absolute paths. Automatically
                                 adds dependencies of type
                                 <varname>Requires=</varname> and
                                 <varname>After=</varname> for all
@@ -1007,11 +1007,11 @@
 
                                 <para><varname>ConditionHost=</varname>
                                 may be used to match against the
-                                host name or machine ID of the
-                                host. This either takes a host name
+                                hostname or machine ID of the
+                                host. This either takes a hostname
                                 string (optionally with shell style
                                 globs) which is tested against the
-                                locally set host name as returned by
+                                locally set hostname as returned by
                                 <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
                                 or a machine ID formatted as string
                                 (see
@@ -1108,7 +1108,7 @@
                                 time,
                                 <command>systemctl enable</command>
                                 will create symlinks from these names
-                                to the unit file name.</para></listitem>
+                                to the unit filename.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -1207,7 +1207,7 @@
                       </row>
                       <row>
                         <entry><literal>%f</literal></entry>
-                        <entry>Unescaped file name</entry>
+                        <entry>Unescaped filename</entry>
                         <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the prefix name similarly prepended with <filename>/</filename>.</entry>
                       </row>
                       <row>
@@ -1263,7 +1263,7 @@
                       <row>
                         <entry><literal>%H</literal></entry>
                         <entry>Host name</entry>
-                        <entry>The host name of the running system.</entry>
+                        <entry>The hostname of the running system.</entry>
                       </row>
                       <row>
                         <entry><literal>%%</literal></entry>

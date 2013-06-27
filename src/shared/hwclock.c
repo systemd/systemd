@@ -151,7 +151,7 @@ int hwclock_reset_timezone(void) {
         /*
          * The very first time we set the kernel's timezone, it will warp
          * the clock. Do a dummy call here, so the time warping is sealed
-         * and we set only the time zone with next call.
+         * and we set only the timezone with next call.
          */
         if (settimeofday(tv_null, &tz) < 0)
                 return -errno;

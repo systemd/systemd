@@ -375,7 +375,7 @@
                                 <literal>argv[0]</literal> to the
                                 executed process, followed by the
                                 further arguments specified. If the
-                                absolute file name is prefixed with
+                                absolute filename is prefixed with
                                 <literal>-</literal> an exit code of
                                 the command normally considered a
                                 failure (i.e. non-zero exit status or

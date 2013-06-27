@@ -242,7 +242,7 @@
                         <varlistentry>
                                 <term><option>--uuid=</option></term>
 
-                                <listitem><para>Set the specified uuid
+                                <listitem><para>Set the specified UUID
                                 for the container. The init system
                                 will initialize
                                 <filename>/etc/machine-id</filename>
@@ -274,7 +274,7 @@
                                 <term><option>--read-only</option></term>
 
                                 <listitem><para>Mount the root file
-                                system read only for the
+                                system read-only for the
                                 container.</para></listitem>
                         </varlistentry>
 
@@ -283,7 +283,7 @@
 
                                 <listitem><para>List one or more
                                 additional capabilities to grant the
-                                container. Takes a comma separated
+                                container. Takes a comma-separated
                                 list of capability names, see
                                 <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for more information. Note that the

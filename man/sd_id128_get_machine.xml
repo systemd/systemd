@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>sd_id128_get_machine</refname>
                 <refname>sd_id128_get_boot</refname>
-                <refpurpose>Retrieve 128 bit IDs</refpurpose>
+                <refpurpose>Retrieve 128-bit IDs</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -92,10 +92,10 @@
                 <function>sd_id128_get_boot()</function> always returns
                 a UUID v4 compatible
                 ID. <function>sd_id128_get_machine()</function> will
-                also return a UUID v4 compatible ID on new
-                installations, but might not on older. It is possible
-                to convert the machine ID into an UUID v4 compatible
-                one. For more information see
+                also return a UUID v4-compatible ID on new
+                installations but might not on older. It is possible
+                to convert the machine ID into a UUID v4-compatible
+                one. For more information, see
                 <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                 <para>For more information about the

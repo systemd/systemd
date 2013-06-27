@@ -50,16 +50,16 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>In systemd timestamps, timespans, and calendar
+                <para>In systemd, timestamps, time spans, and calendar
                 events are displayed and may be specified in closely
                 related syntaxes.</para>
         </refsect1>
 
         <refsect1>
-                <title>Displaying Timespans</title>
+                <title>Displaying Time Spans</title>
 
-                <para>Timespans refer to time durations. On display
-                systemd will present timespans as a space separated
+                <para>Time spans refer to time durations. On display,
+                systemd will present time spans as a space-separated
                 series of time values each suffixed by a time
                 unit.</para>
 
@@ -70,10 +70,10 @@
         </refsect1>
 
         <refsect1>
-                <title>Parsing Timespans</title>
+                <title>Parsing Time Spans</title>
 
-                <para>When parsing systemd will accept the same
-                timespan syntax. Separating spaces may be omitted. The
+                <para>When parsing, systemd will accept the same
+                time span syntax. Separating spaces may be omitted. The
                 following time units are understood:</para>
 
                 <itemizedlist>
@@ -92,9 +92,9 @@
                 are assumed, but some exceptions exist and are marked
                 as such. In a few cases <literal>ns</literal>,
                 <literal>nsec</literal> is accepted too, where the
-                granularity of the timespan allows for this.</para>
+                granularity of the time span allows for this.</para>
 
-                <para>Examples for valid timespan specifications:</para>
+                <para>Examples for valid time span specifications:</para>
 
                 <programlisting>2 h
 2hours
@@ -108,12 +108,12 @@
                 <title>Displaying Timestamps</title>
 
                 <para>Timestamps refer to specific, unique points in
-                time. On display systemd will format these in the
+                time. On display, systemd will format these in the
                 local timezone as follows:</para>
 
                 <programlisting>Fri 2012-11-23 23:02:15 CET</programlisting>
 
-                <para>The week day is printed according to the locale
+                <para>The weekday is printed according to the locale
                 choice of the user.</para>
         </refsect1>
 
@@ -123,10 +123,10 @@
                 <para>When parsing systemd will accept a similar
                 timestamp syntax, but excluding any timezone
                 specification (this limitation might be removed
-                eventually). The week day specification is optional,
-                but when the week day is specified it must either be
+                eventually). The weekday specification is optional,
+                but when the weekday is specified it must either be
                 in the abbreviated (<literal>Wed</literal>) or
-                non-abbreviated (<literal>Wednesday</literal>) english
+                non-abbreviated (<literal>Wednesday</literal>) English
                 language form (case doesn't matter), and is not
                 subject to the locale choice of the user. Either the
                 date, or the time part may be omitted, in which case
@@ -136,11 +136,11 @@
                 specified in full or may be abbreviated (omitting the
                 century).</para>
 
-                <para>A timestamp is considered invalid if a week day
+                <para>A timestamp is considered invalid if a weekday
                 is specified and the date does not actually match the
                 specified day of the week.</para>
 
-                <para>When parsing systemd will also accept a few
+                <para>When parsing, systemd will also accept a few
                 special placeholders instead of timestamps:
                 <literal>now</literal> may be used to refer to the
                 current time (or of the invocation of the command
@@ -150,14 +150,14 @@
                 current day, the day before or the next day,
                 respectively.</para>
 
-                <para>When parsing systemd will also accept relative
-                time specifications. A timespan (see above) that is
+                <para>When parsing, systemd will also accept relative
+                time specifications. A time span (see above) that is
                 prefixed with <literal>+</literal> is evaluated to the
                 current time plus the specified
-                timespan. Correspondingly a timespan that is prefix
+                time span. Correspondingly, a time span that is prefixed
                 with <literal>-</literal> is evaluated to the current
-                time minus the specified timespan. Instead of
-                prefixing the timespan with <literal>-</literal> it
+                time minus the specified time span. Instead of
+                prefixing the time span with <literal>-</literal> it
                 may also be suffixed with a space and the word
                 <literal>ago</literal>.</para>
 
@@ -182,10 +182,10 @@
                 <para>Note that timestamps printed by systemd will not
                 be parsed correctly by systemd, as the timezone
                 specification is not accepted, and printing timestamps
-                is subject to locale settings for the week day while
-                parsing only accepts english week day names.</para>
+                is subject to locale settings for the weekday while
+                parsing only accepts English weekday names.</para>
 
-                <para>In some cases systemd will display a relative
+                <para>In some cases, systemd will display a relative
                 timestamp (relative to the current time, or the time
                 of invocation of the command) instead or in addition
                 to an absolute timestamp as described above. A
@@ -208,17 +208,17 @@
 
                 <para>The above refers to 11:12:13 of the first or
                 fifth day of any month of the year 2012, given that it
-                is a thursday or friday.</para>
+                is a Thursday or Friday.</para>
 
                 <para>The weekday specification is optional. If
-                specified it should consist of one or more english
-                language week day names, either in the abbreviated
+                specified, it should consist of one or more English
+                language weekday names, either in the abbreviated
                 (Wed) or non-abbreviated (Wednesday) form (case does
-                not matter), separated by commas. Specifying two week
-                days separated by "-" refers to a range of continuous
-                week days. "," and "-" may be combined freely.</para>
+                not matter), separated by commas. Specifying two weekdays
+                separated by "-" refers to a range of continuous
+                weekdays. "," and "-" may be combined freely.</para>
 
-                <para>In the date and time specifications any
+                <para>In the date and time specifications, any
                 component may be specified as "*" in which case any
                 value will match. Alternatively, each component can be
                 specified as list of values separated by

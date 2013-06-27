@@ -131,13 +131,13 @@
                         <varlistentry>
                                 <term><option>kill-only-users=</option></term>
 
-                                <listitem><para>Takes a comma
-                                separated list of user names or
-                                numeric user ids as argument. If this
-                                option is used the effect of the
+                                <listitem><para>Takes a comma-separated
+                                list of usernames or
+                                numeric user IDs as argument. If this
+                                option is used, the effect of the
                                 <option>kill-session-processes=</option> options
                                 will apply only to the listed
-                                users. If this option is not used the
+                                users. If this option is not used, the
                                 option applies to all local
                                 users. Note that
                                 <option>kill-exclude-users=</option>
@@ -149,13 +149,13 @@
                         <varlistentry>
                                 <term><option>kill-exclude-users=</option></term>
 
-                                <listitem><para>Takes a comma
-                                separated list of user names or
-                                numeric user ids as argument. Users
+                                <listitem><para>Takes a comma-separated
+                                list of usernames or
+                                numeric user IDs as argument. Users
                                 listed in this argument will not be
                                 subject to the effect of
-                                <option>kill-session-processes=</option>.  Note
-                                that this option takes precedence
+                                <option>kill-session-processes=</option>.
+                                Note that this option takes precedence
                                 over
                                 <option>kill-only-users=</option>, and
                                 hence whatever is listed for
@@ -169,8 +169,8 @@
                         <varlistentry>
                                 <term><option>controllers=</option></term>
 
-                                <listitem><para>Takes a comma
-                                separated list of control group
+                                <listitem><para>Takes a comma-separated
+                                list of control group
                                 controllers in which hierarchies a
                                 user/session control group will be
                                 created by default for each user
@@ -183,8 +183,8 @@
                         <varlistentry>
                                 <term><option>reset-controllers=</option></term>
 
-                                <listitem><para>Takes a comma
-                                separated list of control group
+                                <listitem><para>Takes a comma-separated
+                                list of control group
                                 controllers in which hierarchies the
                                 logged in processes will be reset to
                                 the root control
@@ -222,7 +222,7 @@
                 configured system-wide in
                 <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
                 former kills processes of a session as soon as it
-                ends, the latter kills processes as soon as the last
+                ends; the latter kills processes as soon as the last
                 session of the user ends.</para>
 
                 <para>If the options are omitted they default to
@@ -250,7 +250,7 @@
                                 <term><varname>$XDG_SESSION_ID</varname></term>
 
                                 <listitem><para>A session identifier,
-                                suitable to be used in file names. The
+                                suitable to be used in filenames. The
                                 string itself should be considered
                                 opaque, although often it is just the
                                 audit session ID as reported by
@@ -281,7 +281,7 @@
                                 applications should not rely on this
                                 behavior and must be able to deal with
                                 stale files. To store session-private
-                                data in this directory the user should
+                                data in this directory, the user should
                                 include the value of <varname>$XDG_SESSION_ID</varname>
                                 in the filename. This directory shall
                                 be used for runtime file system

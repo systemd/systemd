@@ -206,14 +206,14 @@
                                 the mount point does not exist at the
                                 time of mounting, it is created. This
                                 string must be reflected in the unit
-                                file name. (See above.) This option is
+                                filename. (See above.) This option is
                                 mandatory.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>Type=</varname></term>
                                 <listitem><para>Takes a string for the
-                                filesystem type. See
+                                file system type. See
                                 <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 for details. This setting is
                                 optional.</para></listitem>
@@ -223,8 +223,8 @@
                                 <term><varname>Options=</varname></term>
 
                                 <listitem><para>Mount options to use
-                                when mounting. This takes a comma
-                                separated list of options. This
+                                when mounting. This takes a
+                                comma-separated list of options. This
                                 setting is optional.</para></listitem>
                         </varlistentry>
 
@@ -245,7 +245,7 @@
                                 <listitem><para>Configures the time to
                                 wait for the mount command to
                                 finish. If a command does not exit
-                                within the configured time the mount
+                                within the configured time, the mount
                                 will be considered failed and be shut
                                 down again. All commands still running
                                 will be terminated forcibly via

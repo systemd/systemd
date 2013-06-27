@@ -77,7 +77,7 @@
                 gets the realtime (wallclock) timestamps of the first
                 and last entries accessible in the journal.  It takes
                 three arguments: the journal context object and two
-                pointers to 64 Bit unsigned integers to store the
+                pointers to 64-bit unsigned integers to store the
                 timestamps in. The timestamps are in microseconds
                 since the epoch,
                 i.e. <constant>CLOCK_REALTIME</constant>. Either one
@@ -88,8 +88,8 @@
                 <para><function>sd_journal_get_cutoff_monotonic_usec()</function>
                 gets the monotonic timestamps of the first and last
                 entries accessible in the journal. It takes three
-                arguments: the journal context object, a 128 Bit
-                identifier for the boot, and two pointers to 64 Bit
+                arguments: the journal context object, a 128-bit
+                identifier for the boot, and two pointers to 64-bit
                 unsigned integers to store the timestamps. The
                 timestamps are in microseconds since boot-up of the
                 specific boot,

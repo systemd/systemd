@@ -92,7 +92,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--type=</option></term>
 
         <listitem>
-          <para>The argument should be a comma separated list of unit
+          <para>The argument should be a comma-separated list of unit
           types such as <option>service</option> and
           <option>socket</option>, or unit load states such as
           <option>loaded</option> and <option>masked</option>
@@ -732,7 +732,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           names such as <literal>cpu.shares</literal>. This will
           output the current values of the specified attributes,
           separated by new-lines. For attributes that take list of
-          items the output will be new-line separated, too. This
+          items the output will be new-line-separated, too. This
           operation will always try to retrieve the data in question
           from the kernel first, and if that is not available use the
           configured values instead. Instead of low-level control

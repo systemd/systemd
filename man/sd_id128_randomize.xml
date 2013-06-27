@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>sd_id128_randomize</refname>
-                <refpurpose>Generate 128 bit IDs</refpurpose>
+                <refpurpose>Generate 128-bit IDs</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -63,7 +63,7 @@
                 <title>Description</title>
 
                 <para><function>sd_id128_randomize()</function>
-                generates a new randomized 128 bit ID and returns it
+                generates a new randomized 128-bit ID and returns it
                 in <parameter>ret</parameter>. Every invocation
                 returns a new randomly generated ID. This uses the
                 <filename>/dev/urandom</filename> kernel random number
@@ -71,16 +71,15 @@
 
                 <para>Note that
                 <function>sd_id128_randomize()</function> always returns
-                a UUID v4 compatible
-                ID.</para>
+                a UUID v4-compatible ID.</para>
 
                 <para>For more information about the
-                <literal>sd_id128_t</literal> type see
+                <literal>sd_id128_t</literal> type, see
                 <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
                 <para><citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-                <option>--new-id</option> option may be used as
-                command line front-end for
+                <option>--new-id</option> option may be used as a
+                command-line front-end for
                 <function>sd_id128_randomize()</function>.</para>
         </refsect1>
 

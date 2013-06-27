@@ -73,27 +73,27 @@
 
                 <para><function>sd_journal_get_realtime_usec()</function>
                 gets the realtime (wallclock) timestamp of the
-                current journal entry.  It takes two arguments: the
-                journal context object and a pointer to a 64 Bit
+                current journal entry. It takes two arguments: the
+                journal context object and a pointer to a 64-bit
                 unsigned integer to store the timestamp in. The
                 timestamp is in microseconds since the epoch,
                 i.e. <constant>CLOCK_REALTIME</constant>.</para>
 
                 <para><function>sd_journal_get_monotonic_usec()</function>
                 gets the monotonic timestamp of the current journal
-                entry.  It takes three arguments: the journal context
-                object, a pointer to a 64 Bit unsigned integer to
-                store the timestamp in as well as a 128 Bit ID buffer
-                to store the boot ID of the monotonic timestamp
-                in. The timestamp is in microseconds since boot-up of
+                entry. It takes three arguments: the journal context
+                object, a pointer to a 64-bit unsigned integer to
+                store the timestamp in, as well as a 128-bit ID buffer
+                to store the boot ID of the monotonic timestamp.
+                The timestamp is in microseconds since boot-up of
                 the specific boot,
                 i.e. <constant>CLOCK_MONOTONIC</constant>. Since the
-                monotonic clock begins new with every reboot it only
+                monotonic clock begins new with every reboot, it only
                 defines a well-defined point in time when used
-                together with an identifier identifying the boot, see
+                together with an identifier identifying the boot. See
                 <citerefentry><refentrytitle>sd_id128_get_boot</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 for more information. If the boot ID parameter is
-                passed <constant>NULL</constant> the function will
+                passed <constant>NULL</constant>, the function will
                 fail if the monotonic timestamp of the current entry
                 is not of the current system boot.</para>
 

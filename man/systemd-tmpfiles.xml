@@ -76,7 +76,7 @@
 
                 <para>If invoked with no arguments, it applies all
                 directives from all configuration files. If one or
-                more file names are passed on the command line, only
+                more filenames are passed on the command line, only
                 the directives in these files are applied. If only
                 the basename of a configuration file is specified,
                 all configuration directories as specified in <citerefentry>

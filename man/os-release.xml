@@ -142,7 +142,7 @@
                                 identifying the operating system,
                                 excluding any version information and
                                 suitable for processing by scripts or
-                                usage in generated file names. If not
+                                usage in generated filenames. If not
                                 set defaults to
                                 <literal>ID=linux</literal>. Example:
                                 <literal>ID=fedora</literal> or
@@ -199,7 +199,7 @@
                                 system version, excluding any OS name
                                 information or release code name, and
                                 suitable for processing by scripts or
-                                usage in generated file names. This
+                                usage in generated filenames. This
                                 field is optional. Example:
                                 <literal>VERSION_ID=17</literal> or
                                 <literal>VERSION_ID=11.04</literal>.</para></listitem>

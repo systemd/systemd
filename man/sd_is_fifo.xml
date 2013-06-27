@@ -109,14 +109,14 @@
                 called to check whether the specified file descriptor
                 refers to a socket. If the
                 <parameter>family</parameter> parameter is not
-                <constant>AF_UNSPEC</constant> it is checked whether
+                <constant>AF_UNSPEC</constant>, it is checked whether
                 the socket is of the specified family (AF_UNIX,
                 <constant>AF_INET</constant>, ...). If the
-                <parameter>type</parameter> parameter is not 0 it is
+                <parameter>type</parameter> parameter is not 0, it is
                 checked whether the socket is of the specified type
                 (<constant>SOCK_STREAM</constant>,
                 <constant>SOCK_DGRAM</constant>, ...). If the
-                <parameter>listening</parameter> parameter is positive
+                <parameter>listening</parameter> parameter is positive,
                 it is checked whether the socket is in accepting mode,
                 i.e. <function>listen()</function> has been called for
                 it. If <parameter>listening</parameter> is 0, it is
@@ -135,14 +135,14 @@
                 <constant>AF_INET6</constant>.</para>
 
                 <para><function>sd_is_socket_unix()</function> is
-                similar to <function>sd_is_socket()</function>, but
+                similar to <function>sd_is_socket()</function> but
                 optionally checks the <constant>AF_UNIX</constant> path the socket is bound
                 to, unless the <parameter>path</parameter> parameter
-                is <constant>NULL</constant>. For normal file system <constant>AF_UNIX</constant> sockets set
-                the <parameter>length</parameter> parameter to 0. For
-                Linux abstract namespace sockets set the
+                is <constant>NULL</constant>. For normal file system <constant>AF_UNIX</constant> sockets,
+                set the <parameter>length</parameter> parameter to 0. For
+                Linux abstract namespace sockets, set the
                 <parameter>length</parameter> to the size of the
-                address, including the initial 0 byte and set
+                address, including the initial 0 byte, and set the
                 <parameter>path</parameter> to the initial 0 byte of
                 the socket address.</para>
 
@@ -170,7 +170,7 @@
                 <para>These functions are provided by the reference
                 implementation of APIs for new-style daemons and
                 distributed with the systemd package. The algorithms
-                they implement are simple, and can easily be
+                they implement are simple, and they can easily be
                 reimplemented in daemons if it is important to support
                 this interface without using the reference
                 implementation.</para>
@@ -180,7 +180,7 @@
                 <filename>getsockname()</filename> to check the file
                 descriptor type and where it is bound to.</para>
 
-                <para>For details about the algorithms check the
+                <para>For details about the algorithms, check the
                 liberally licensed reference implementation sources:
                 <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>
                 and <ulink

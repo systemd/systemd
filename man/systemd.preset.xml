@@ -109,7 +109,7 @@
                 by default, <literal>disable</literal> to disable
                 units by default.</para>
 
-                <para>If multiple lines apply to a unit name the
+                <para>If multiple lines apply to a unit name, the
                 first matching one takes precedence over all
                 others.</para>
 
@@ -131,14 +131,14 @@
                 precedence over another file with an alphabetically
                 earlier name, if both files contain lines that apply
                 to the same unit names. It is recommended to prefix
-                all file names with two-digit number, to simplify
+                all filenames with two-digit number, to simplify
                 ordering.</para>
 
                 <para>If the administrator wants to disable a preset
-                file supplied by the vendor the recommended way is to
+                file supplied by the vendor, the recommended way is to
                 place a symlink to <filename>/dev/null</filename> in
                 <filename>/etc/systemd/system-preset/</filename>
-                bearing the same file name.</para>
+                bearing the same filename.</para>
         </refsect1>
 
         <refsect1>
@@ -150,8 +150,8 @@
                         <programlisting>disable *</programlisting>
                 </example>
 
-                <para>This disables all units. Due to the file name
-                prefix <literal>99-</literal> it will be read last and
+                <para>This disables all units. Due to the filename
+                prefix <literal>99-</literal>, it will be read last and
                 hence can easily be overridden by spin or
                 administrator preset policy or suchlike.</para>
 
@@ -187,7 +187,7 @@ disable *</programlisting>
                 <para>This enables three specific services and
                 disables all others. This is useful for administrators
                 to specifically select the units to enable, and
-                disable all others. Due to the file name prefix
+                disable all others. Due to the filename prefix
                 <literal>00-</literal> it will be read early and hence
                 overrides all other preset policy files.</para>
         </refsect1>

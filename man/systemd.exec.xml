@@ -129,7 +129,7 @@
 
                                 <listitem><para>Sets the supplementary
                                 Unix groups the processes are executed
-                                as. This takes a space separated list
+                                as. This takes a space-separated list
                                 of group names or IDs. This option may
                                 be specified more than once in which
                                 case all listed groups are set as
@@ -312,7 +312,7 @@
                                 <varname>Environment=</varname> but
                                 reads the environment variables from a
                                 text file. The text file should
-                                contain new-line separated variable
+                                contain new-line-separated variable
                                 assignments. Empty lines and lines
                                 starting with ; or # will be ignored,
                                 which may be used for commenting. A line
@@ -324,7 +324,7 @@
                                 double quotes (").</para>
 
                                 <para>The argument passed should be an
-                                absolute file name or wildcard
+                                absolute filename or wildcard
                                 expression, optionally prefixed with
                                 "-", which indicates that if the file
                                 does not exist it won't be read and no
@@ -717,9 +717,8 @@
                                 capability bounding set for the
                                 executed process. See
                                 <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for details. Takes a whitespace
-                                separated list of capability names as
-                                read by
+                                for details. Takes a whitespace-separated
+                                list of capability names as read by
                                 <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                                 e.g. <constant>CAP_SYS_ADMIN</constant>,
                                 <constant>CAP_DAC_OVERRIDE</constant>,
@@ -986,7 +985,7 @@
 
                                 <listitem><para>Control access to
                                 specific device nodes by the executed processes. Takes two
-                                space separated strings: a device node
+                                space-separated strings: a device node
                                 path (such as
                                 <filename>/dev/null</filename>)
                                 followed by a combination of r, w, m
@@ -1011,7 +1010,7 @@
                                 processes. Takes either a single
                                 weight value (between 10 and 1000) to
                                 set the default block IO weight, or a
-                                space separated pair of a file path
+                                space-separated pair of a file path
                                 and a weight value to specify the
                                 device specific weight value (Example:
                                 "/dev/sda 500"). The file path may be
@@ -1037,8 +1036,8 @@
 
                                 <listitem><para>Set the per-device
                                 overall block IO bandwidth limit for
-                                the executed processes. Takes a space
-                                separated pair of a file path and a
+                                the executed processes. Takes a
+                                space-separated pair of a file path and a
                                 bandwidth value (in bytes per second)
                                 to specify the device specific
                                 bandwidth. The file path may be
@@ -1185,9 +1184,9 @@
                                 <term><varname>IgnoreSIGPIPE=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true causes SIGPIPE to be
+                                argument. If true, causes SIGPIPE to be
                                 ignored in the executed
-                                process. Defaults to true, since
+                                process. Defaults to true because
                                 SIGPIPE generally is useful only in
                                 shell pipelines.</para></listitem>
                         </varlistentry>
@@ -1196,7 +1195,7 @@
                                 <term><varname>NoNewPrivileges=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true ensures that the
+                                argument. If true, ensures that the
                                 service process and all its children
                                 can never gain new privileges. This
                                 option is more powerful than the respective
@@ -1211,9 +1210,9 @@
                         <varlistentry>
                                 <term><varname>SystemCallFilter=</varname></term>
 
-                                <listitem><para>Takes a space
-                                separated list of system call
-                                names. If this setting is used all
+                                <listitem><para>Takes a space-separated
+                                list of system call
+                                names. If this setting is used, all
                                 system calls executed by the unit
                                 process except for the listed ones
                                 will result in immediate process

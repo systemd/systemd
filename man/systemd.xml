@@ -473,7 +473,7 @@
 
                 <para>Systemd contains native implementations of
                 various tasks that need to be executed as part of the
-                boot process. For example, it sets the host name or
+                boot process. For example, it sets the hostname or
                 configures the loopback network device. It also sets
                 up and mounts various API file systems, such as
                 <filename>/sys</filename> or

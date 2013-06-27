@@ -101,8 +101,8 @@
                         <varlistentry>
                                 <term><option>--what=</option></term>
 
-                                <listitem><para>Takes a colon
-                                separated list of one or more
+                                <listitem><para>Takes a colon-separated
+                                list of one or more
                                 operations to inhibit:
                                 <literal>shutdown</literal>,
                                 <literal>sleep</literal>,
@@ -124,9 +124,9 @@
                         <varlistentry>
                                 <term><option>--who=</option></term>
 
-                                <listitem><para>Takes a short human
-                                readable descriptive string for the
-                                program taking the lock. If not passed
+                                <listitem><para>Takes a short,
+                                human-readable descriptive string for the
+                                program taking the lock. If not passed,
                                 defaults to the command line
                                 string.</para></listitem>
                         </varlistentry>
@@ -134,8 +134,8 @@
                         <varlistentry>
                                 <term><option>--why=</option></term>
 
-                                <listitem><para>Takes a short human
-                                readable descriptive string for the
+                                <listitem><para>Takes a short,
+                                human-readable descriptive string for the
                                 reason for taking the lock. Defaults
                                 to "Unknown reason".</para></listitem>
                         </varlistentry>
@@ -155,7 +155,7 @@
                                 <literal>delay</literal> is used, the
                                 lock can only delay the requested
                                 operations for a limited time. If the
-                                time elapses the lock is ignored and
+                                time elapses, the lock is ignored and
                                 the operation executed. The time limit
                                 may be specified in
                                 <citerefentry><refentrytitle>systemd-logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note

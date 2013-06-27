@@ -95,7 +95,7 @@
                 prints the time spent in the kernel before
                 userspace has been reached, the time spent in the
                 initial RAM disk (initrd) before normal system
-                userspace has been reached and the time normal system
+                userspace has been reached, and the time normal system
                 userspace took to initialize. Note that these
                 measurements simply measure the time passed up to the
                 point where all system services have been spawned, but
@@ -111,7 +111,7 @@
                 of another service to complete.</para>
 
                 <para><command>systemd-analyze critical-chain [<replaceable>UNIT...</replaceable>]</command>
-                prints a tree of the time critical chain of units
+                prints a tree of the time-critical chain of units
                 (for each of the specified <replaceable>UNIT</replaceable>s
                 or for the default target otherwise).
                 The time after the unit is active or started is printed
@@ -135,7 +135,7 @@
                 dot | dot -Tsvg > systemd.svg</command> to generate a
                 graphical dependency tree. Unless
                 <option>--order</option> or <option>--require</option>
-                is passed the generated graph will show both ordering
+                is passed, the generated graph will show both ordering
                 and requirement dependencies. Optional pattern
                 globbing style specifications
                 (e.g. <filename>*.target</filename>) may be given at
@@ -143,7 +143,7 @@
                 any of these patterns match either the origin or
                 destination node.</para>
 
-                <para>If no command is passed <command>systemd-analyze
+                <para>If no command is passed, <command>systemd-analyze
                 time</command> is implied.</para>
 
         </refsect1>
@@ -191,7 +191,7 @@
                                 <varname>RequisiteOverridable=</varname>,
                                 <varname>Wants=</varname> and
                                 <varname>Conflicts=</varname> are
-                                shown. If neither is passed, shows
+                                shown. If neither is passed, this shows
                                 dependencies of all these
                                 types.</para></listitem>
                         </varlistentry>
@@ -203,16 +203,16 @@
                                 <listitem><para>When used in
                                 conjunction with the
                                 <command>dot</command> command (see
-                                above), selects which relationships
+                                above), this selects which relationships
                                 are shown in the dependency graph.
                                 They both require
                                 <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 patterns as arguments, which are
-                                matched against lefthand and
-                                righthand, respectively, nodes of a
+                                matched against left-hand and
+                                right-hand, respectively, nodes of a
                                 relationship. Each of these can be
-                                used more than once which means a
-                                unit name must match one of given
+                                used more than once, which means a
+                                unit name must match one of the given
                                 values.</para></listitem>
                         </varlistentry>
 
@@ -226,7 +226,7 @@
                                 latest unit in the same level. The unit of
                                 <replaceable>timespan</replaceable> is seconds
                                 unless specified with a different unit,
-                                i.e. "50ms".</para></listitem>
+                                e.g. "50ms".</para></listitem>
                         </varlistentry>
                 </variablelist>
 

@@ -61,7 +61,7 @@
       and the local administration directory <filename>/etc/udev/rules.d</filename>.
       All rules files are collectively sorted and processed in lexical order,
       regardless of the directories in which they live. However, files with
-      identical file names replace each other. Files in <filename>/etc</filename>
+      identical filenames replace each other. Files in <filename>/etc</filename>
       have the highest priority, files in <filename>/run</filename> take precedence
       over files with the same name in <filename>/lib</filename>. This can be
       used to override a system-supplied rules file with a local file if needed;

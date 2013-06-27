@@ -112,8 +112,8 @@
                                 addition to the
                                 <literal>name=systemd</literal> named
                                 hierarchy. Defaults to
-                                <literal>cpu</literal>. Takes a space
-                                separated list of controller
+                                <literal>cpu</literal>. Takes a
+                                space-separated list of controller
                                 names. Pass the empty string to ensure
                                 that systemd does not touch any
                                 hierarchies but its own.</para>
@@ -138,8 +138,8 @@
                                 enabled in the kernel in individual
                                 hierarchies, with the exception of
                                 those listed in this setting. Takes a
-                                space separated list of comma
-                                separated controller names, in order
+                                space-separated list of comma-separated
+                                controller names, in order
                                 to allow multiple joined
                                 hierarchies. Defaults to
                                 'cpu,cpuacct'. Pass an empty string to
@@ -150,7 +150,7 @@
                                 <para>Note that this option is only
                                 applied once, at very early boot. If
                                 you use an initial RAM disk (initrd)
-                                that uses systemd it might hence be
+                                that uses systemd, it might hence be
                                 necessary to rebuild the initrd if
                                 this option is changed, and make sure
                                 the new configuration file is included
@@ -214,9 +214,8 @@
                                 capability bounding set for PID 1 and
                                 its children. See
                                 <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for details. Takes a whitespace
-                                separated list of capability names as
-                                read by
+                                for details. Takes a whitespace-separated
+                                list of capability names as read by
                                 <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
                                 Capabilities listed will be included
                                 in the bounding set, all others are

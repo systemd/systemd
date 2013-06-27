@@ -72,7 +72,7 @@
                 time. <filename>systemd-readahead-replay.service</filename>
                 is a service that replays this access data collected
                 at the subsequent boot. Since disks tend to be
-                magnitudes slower than RAM this is intended to improve
+                magnitudes slower than RAM, this is intended to improve
                 boot speeds by pre-loading early at boot all data on
                 disk that is known to be read for the complete boot
                 process.</para>
@@ -80,9 +80,9 @@
                 <para><filename>systemd-readahead-done.service</filename>
                 is executed a short while after boot completed and signals
                 <filename>systemd-readahead-collect.service</filename>
-                to end data collection. On this signal this service
+                to end data collection. On this signal, this service
                 will then sort the collected disk accesses and store
-                information about them disk in
+                information about them in
                 <filename>/.readahead</filename>.</para>
 
                 <para>Normally, both
@@ -92,17 +92,17 @@
                 are activated at boot so that access patterns from the
                 preceding boot are replayed and new data collected
                 for the subsequent boot. However, on read-only media
-                where the collected data cannot be stored it might
+                where the collected data cannot be stored, it might
                 be a good idea to disable
                 <filename>systemd-readahead-collect.service</filename>.</para>
 
                 <para>On rotating media, when replaying disk accesses
-                at early boot
+                at early boot,
                 <filename>systemd-readahead-replay.service</filename>
                 will order read requests by their location on disk. On
                 non-rotating media, they will be ordered by their
                 original access timestamp. If the file system supports
-                it
+                it,
                 <filename>systemd-readahead-collect.service</filename>
                 will also defragment and rearrange files on disk to
                 optimize subsequent boot times.</para>
@@ -136,7 +136,7 @@
                                 <term><option>--file-size-max=</option></term>
 
                                 <listitem><para>Maximum size of files
-                                (in bytes) to read ahead. Only valid
+                                in bytes to read ahead. Only valid
                                 for the <command>collect</command>
                                 and <command>replay</command>
                                 commands.</para></listitem>
@@ -145,8 +145,8 @@
                         <varlistentry>
                                 <term><option>--timeout=</option></term>
 
-                                <listitem><para>Maximum time (in usec)
-                                to to spend collecting data. Only valid
+                                <listitem><para>Maximum time in microseconds
+                                to spend collecting data. Only valid
                                 for the <command>collect</command>
                                 command.</para></listitem>
                         </varlistentry>
@@ -164,7 +164,7 @@
                                 [<replaceable>DIRECTORY</replaceable>]</command></term>
                                 <listitem>
                                         <para>Collect read-ahead data on
-                                        early boot. When terminating it will
+                                        early boot. When terminating, it will
                                         write out a pack file to the indicated
                                         directory containing the read-ahead
                                         data. </para>
@@ -186,9 +186,9 @@
                                 <listitem>
                                         <para>Dumps the content of the
                                         read-ahead pack file to the
-                                        terminal. The output lists
-                                        approximately for each file
-                                        how much will be read-ahead by
+                                        terminal. For each file, the
+                                        output lists approximately how
+                                        much will be read ahead by
                                         the <command>replay</command>
                                         command.</para>
                                 </listitem>

@@ -73,14 +73,14 @@
                 </para>
 
                 <para>Log data collected by the journal is primarily
-                text based but can also include binary data where
+                text-based but can also include binary data where
                 necessary. All objects stored in the journal can be up
                 to 2^64-1 bytes in size.</para>
 
                 <para>By default the journal stores log data in
                 <filename>/run/log/journal/</filename>. Since
-                <filename>/run/</filename> is volatile log data is
-                lost at reboot. To make the data persistent it
+                <filename>/run/</filename> is volatile, log data is
+                lost at reboot. To make the data persistent, it
                 is sufficient to create
                 <filename>/var/log/journal/</filename> where
                 <filename>systemd-journald</filename> will then store
@@ -89,8 +89,8 @@
                 <para><filename>systemd-journald</filename> will
                 forward all received log messages to the <constant>AF_UNIX</constant>
                 <constant>SOCK_DGRAM</constant> socket
-                <filename>/run/systemd/journal/syslog</filename> (if it exists) which
-                may be used by UNIX syslog daemons to process the data
+                <filename>/run/systemd/journal/syslog</filename>, if it exists, which
+                may be used by Unix syslog daemons to process the data
                 further.</para>
 
                 <para>See
@@ -161,15 +161,15 @@
         <refsect1>
                 <title>Access Control</title>
 
-                <para>Journal files are by default owned and readable
+                <para>Journal files are, by default, owned and readable
                 by the <literal>systemd-journal</literal> system group
-                (but not writable). Adding a user to this group thus
+                but are not writable. Adding a user to this group thus
                 enables her/him to read the journal files.</para>
 
                 <para>By default, each logged in user will get her/his
                 own set of journal files in
                 <filename>/var/log/journal/</filename>. These files
-                will not be owned by the user however, in order to
+                will not be owned by the user, however, in order to
                 avoid that the user can write to them
                 directly. Instead, file system ACLs are used to ensure
                 the user gets read access only.</para>

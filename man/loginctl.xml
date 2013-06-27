@@ -144,7 +144,7 @@
                                 <option>all</option> to select whether
                                 to kill only the leader process of the
                                 session or all processes of the
-                                session. If omitted defaults to
+                                session. If omitted, defaults to
                                 <option>all</option>.</para></listitem>
                         </varlistentry>
 
@@ -157,8 +157,8 @@
                                 <command>kill-user</command>, choose
                                 which signal to send to selected
                                 processes. Must be one of the well
-                                known signal specifiers such as
-                                SIGTERM, SIGINT or SIGSTOP. If omitted
+                                known signal specifiers, such as
+                                SIGTERM, SIGINT or SIGSTOP. If omitted,
                                 defaults to
                                 <option>SIGTERM</option>.</para></listitem>
                         </varlistentry>
@@ -308,10 +308,10 @@
 
                                 <listitem><para>Show properties of one
                                 or more users or the manager
-                                itself. If no argument is specified
+                                itself. If no argument is specified,
                                 properties of the manager will be
-                                shown. If a user is specified
-                                properties of the user is shown. By
+                                shown. If a user is specified,
+                                properties of the user are shown. By
                                 default, empty properties are
                                 suppressed. Use <option>--all</option>
                                 to show those too. To select specific
@@ -332,9 +332,9 @@
 
                                 <listitem><para>Enable/disable user
                                 lingering for one or more users. If
-                                enabled for a specific user a user
+                                enabled for a specific user, a user
                                 manager is spawned for him/her at
-                                boot, and kept around after
+                                boot and kept around after
                                 logouts. This allows users who aren't
                                 logged in to run long-running
                                 services.</para></listitem>
@@ -386,14 +386,14 @@
 
                                 <listitem><para>Show properties of one
                                 or more seats or the manager
-                                itself. If no argument is specified
+                                itself. If no argument is specified,
                                 properties of the manager will be
-                                shown. If a seat is specified
+                                shown. If a seat is specified,
                                 properties of the seat are shown. By
                                 default, empty properties are
                                 suppressed. Use <option>--all</option>
                                 to show those too. To select specific
-                                properties to show use
+                                properties to show, use
                                 <option>--property=</option>. This
                                 command is intended to be used
                                 whenever computer-parsable output is
@@ -411,13 +411,13 @@
                                 one or more devices to a seat. The
                                 devices should be specified via device
                                 paths in the <filename>/sys</filename>
-                                file system. To create a new seat
+                                file system. To create a new seat,
                                 attach at least one graphics card to a
                                 previously unused seat name. Seat
                                 names may consist only of a-z, A-Z,
                                 0-9, "-" and "_" and must be prefixed
                                 with "seat". To drop assignment of a
-                                device to a specific seat just
+                                device to a specific seat, just
                                 reassign it to a different seat, or
                                 use
                                 <command>flush-devices</command>.</para></listitem>
@@ -429,8 +429,8 @@
                                 <listitem><para>Removes all device
                                 assignments previously created with
                                 <command>attach</command>. After this
-                                call only automatically generated
-                                seats will remain and all seat
+                                call, only automatically generated
+                                seats will remain, and all seat
                                 hardware is assigned to
                                 them.</para></listitem>
                         </varlistentry>

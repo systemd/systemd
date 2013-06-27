@@ -101,12 +101,12 @@
                                 present to the user and does not
                                 suffer by the syntax limitations of
                                 internet domain names. If possible the
-                                internet host name as configured in
+                                internet hostname as configured in
                                 <filename>/etc/hostname</filename>
                                 should be kept similar to this
                                 one. Example: if this value is
                                 <literal>Lennart's Computer</literal>
-                                an Internet host name of
+                                an Internet hostname of
                                 <literal>lennarts-computer</literal>
                                 might be a good choice. If this
                                 parameter is not set an application

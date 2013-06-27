@@ -60,9 +60,9 @@
                 query and change the system hostname and related
                 settings.</para>
 
-                <para>This tool distinguishes three different host
-                names: the high-level "pretty" hostname which might
-                include all kinds of special characters
+                <para>This tool distinguishes three different
+                hostnames: the high-level "pretty" hostname which
+                might include all kinds of special characters
                 (e.g. "Lennart's Laptop"), the static hostname which
                 is used to initialize the kernel hostname at boot
                 (e.g. "lennarts-laptop"), and the transient hostname
@@ -77,10 +77,10 @@
                 and transient hostnames are limited to the usually
                 accepted characters of internet domain names.</para>
 
-                <para>The static host name is stored in
+                <para>The static hostname is stored in
                 <filename>/etc/hostname</filename>, see
                 <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for more information. The pretty host name, chassis
+                for more information. The pretty hostname, chassis
                 type and icon name are stored in
                 <filename>/etc/machine-info</filename>, see
                 <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
@@ -143,8 +143,8 @@
                                 <listitem><para>If
                                 <command>set-hostname</command> is
                                 invoked and one or more of these
-                                options are passed only the selected
-                                hostnames is
+                                options are passed, only the selected
+                                hostname(s) is/are
                                 updated.</para></listitem>
                         </varlistentry>
                 </variablelist>
@@ -164,34 +164,34 @@
                                 <term><command>set-hostname [NAME]</command></term>
 
                                 <listitem><para>Set the system
-                                hostname. By default this will alter
+                                hostname. By default, this will alter
                                 the pretty, the static, and the
-                                transient hostname alike, however if
+                                transient hostname alike; however, if
                                 one or more of
                                 <option>--static</option>,
                                 <option>--transient</option>,
-                                <option>--pretty</option> are used
+                                <option>--pretty</option> are used,
                                 only the selected hostnames are
                                 changed. If the pretty hostname is
                                 being set, and static or transient are
-                                being set as well the specified host
-                                name will be simplified in regards to
-                                the character set used before the
+                                being set as well, the specified
+                                hostname will be simplified in regards
+                                to the character set used before the
                                 latter are updated. This is done by
-                                replacing spaces by "-" and removing
+                                replacing spaces with "-" and removing
                                 special characters. This ensures that
-                                the pretty and the static hostname
-                                are always closely related while still
+                                the pretty and the static hostname are
+                                always closely related while still
                                 following the validity rules of the
                                 specific name. This simplification of
                                 the hostname string is not done if
-                                only the transient and/or static host
-                                names are set, and the pretty host
-                                name is left untouched. Pass the empty
-                                string "" as hostname to reset the
-                                selected hostnames to their default
-                                (usually
-                                "localhost").</para></listitem>
+                                only the transient and/or static
+                                hostnames are set, and the pretty
+                                hostname is left untouched. Pass the
+                                empty string "" as the hostname to
+                                reset the selected hostnames to their
+                                default (usually "localhost").
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -206,7 +206,7 @@
                                 Naming Specification</ulink>. Pass an
                                 empty string to this operation to
                                 reset the icon name to the default
-                                value which is determined from chassis
+                                value, which is determined from chassis
                                 type (see below) and possibly other
                                 parameters.</para></listitem>
                         </varlistentry>

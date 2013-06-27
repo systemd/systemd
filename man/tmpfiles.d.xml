@@ -89,7 +89,7 @@
                 recommended way is to place a symlink to
                 <filename>/dev/null</filename> in
                 <filename>/etc/tmpfiles.d/</filename> bearing the
-                same file name.</para>
+                same filename.</para>
 
                 <para>The configuration format is one line per path
                 containing action, path, mode, ownership, age and argument

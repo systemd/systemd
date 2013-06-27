@@ -67,7 +67,7 @@
                 <para><function>sd_journal_stream_fd()</function> may
                 be used to create a log stream file descriptor. Log
                 messages written to this file descriptor as simple
-                newline separated text strings are written to the
+                newline-separated text strings are written to the
                 journal. This file descriptor can be used internally
                 by applications or be made STDOUT/STDERR of other
                 processes executed.</para>

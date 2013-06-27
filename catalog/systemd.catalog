@@ -138,7 +138,7 @@ Subject: Time zone change to @TIMEZONE@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
-The system time zone has been changed to @TIMEZONE@.
+The system timezone has been changed to @TIMEZONE@.
 
 -- b07a249cd024414a82dd00cd181378ff
 Subject: System start-up is now complete

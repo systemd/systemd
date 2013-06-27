@@ -94,7 +94,7 @@
                 recommended way is to place a symlink to
                 <filename>/dev/null</filename> in
                 <filename>/etc/modules-load.d/</filename> bearing the
-                same file name.</para>
+                same filename.</para>
         </refsect1>
 
         <refsect1>

@@ -72,7 +72,7 @@
                         <varlistentry>
                                 <term><varname>MESSAGE=</varname></term>
                                 <listitem>
-                                        <para>The human readable
+                                        <para>The human-readable
                                         message string for this
                                         entry. This is supposed to be
                                         the primary text shown to the
@@ -87,16 +87,16 @@
                         <varlistentry>
                                 <term><varname>MESSAGE_ID=</varname></term>
                                 <listitem>
-                                        <para>A 128bit message
+                                        <para>A 128-bit message
                                         identifier ID for recognizing
                                         certain message types, if this
                                         is desirable. This should
-                                        contain a 128bit id formatted
-                                        as lower-case hexadecimal
+                                        contain a 128-bit ID formatted
+                                        as a lower-case hexadecimal
                                         string, without any separating
                                         dashes or suchlike. This is
-                                        recommended to be a UUID
-                                        compatible ID, but this is not
+                                        recommended to be a
+                                        UUID-compatible ID, but this is not
                                         enforced, and formatted
                                         differently. Developers can
                                         generate a new ID for this
@@ -113,7 +113,7 @@
                                         0 (<literal>emerg</literal>)
                                         and 7
                                         (<literal>debug</literal>)
-                                        formatted as decimal
+                                        formatted as a decimal
                                         string. This field is
                                         compatible with syslog's
                                         priority concept.</para>
@@ -128,7 +128,7 @@
                                         <para>The code location
                                         generating this message, if
                                         known. Contains the source
-                                        file name, the line number and
+                                        filename, the line number and
                                         the function name.</para>
                                 </listitem>
                         </varlistentry>
@@ -141,7 +141,7 @@
                                         any. Contains the numeric
                                         value of
                                         <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                        formatted as decimal
+                                        formatted as a decimal
                                         string.</para>
                                 </listitem>
                         </varlistentry>
@@ -179,7 +179,7 @@
                                         <para>The process, user and
                                         group ID of the process the
                                         journal entry originates from
-                                        formatted as decimal
+                                        formatted as a decimal
                                         string.</para>
                                 </listitem>
                         </varlistentry>
@@ -246,8 +246,8 @@
                                         any is known that is different
                                         from the reception time of the
                                         journal. This is the time in
-                                        usec since the epoch UTC
-                                        formatted as decimal
+                                        microseconds since the epoch UTC,
+                                        formatted as a decimal
                                         string.</para>
                                 </listitem>
                         </varlistentry>
@@ -258,7 +258,7 @@
                                         <para>The kernel boot ID for
                                         the boot the message was
                                         generated in, formatted as
-                                        128bit hexadecimal
+                                        a 128-bit hexadecimal
                                         string.</para>
                                 </listitem>
                         </varlistentry>
@@ -457,7 +457,7 @@
                 JSON Format</ulink>, the addresses of journal entries
                 are serialized into fields prefixed with double
                 underscores. Note that these aren't proper fields when
-                stored in the journal, but addressing meta data of
+                stored in the journal but for addressing meta data of
                 entries. They cannot be written as part of structured
                 log entries via calls such as
                 <citerefentry><refentrytitle>sd_journal_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>. They
@@ -486,11 +486,11 @@
                                         (<constant>CLOCK_REALTIME</constant>)
                                         at the point in time the entry
                                         was received by the journal,
-                                        in usec since the epoch UTC
-                                        formatted as decimal
+                                        in microseconds since the epoch
+                                        UTC, formatted as a decimal
                                         string. This has different
                                         properties from
-                                        <literal>_SOURCE_REALTIME_TIMESTAMP=</literal>
+                                        <literal>_SOURCE_REALTIME_TIMESTAMP=</literal>,
                                         as it is usually a bit later
                                         but more likely to be monotonic.
                                         </para>
@@ -504,10 +504,10 @@
                                         (<constant>CLOCK_MONOTONIC</constant>)
                                         at the point in time the entry
                                         was received by the journal in
-                                        usec formatted as decimal
+                                        microseconds, formatted as a decimal
                                         string. To be useful as an
-                                        address for the entry this
-                                        should be combined with with
+                                        address for the entry, this
+                                        should be combined with with the
                                         boot ID in <literal>_BOOT_ID=</literal>.
                                         </para>
                                 </listitem>
