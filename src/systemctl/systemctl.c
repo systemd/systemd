@@ -3661,6 +3661,43 @@ static int append_assignment(DBusMessageIter *iter, const char *assignment) {
                     !dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT64, &u))
                         return log_oom();
 
+        } else if (streq(field, "DevicePolicy")) {
+
+                if (!dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "s", &sub) ||
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &eq))
+                        return log_oom();
+
+        } else if (streq(field, "DeviceAllow")) {
+                DBusMessageIter sub2;
+
+                if (!dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "a(ss)", &sub) ||
+                    !dbus_message_iter_open_container(&sub, DBUS_TYPE_ARRAY, "(ss)", &sub2))
+                        return log_oom();
+
+                if (!isempty(eq)) {
+                        const char *path, *rwm;
+                        DBusMessageIter sub3;
+                        char *e;
+
+                        e = strchr(eq, ' ');
+                        if (e) {
+                                path = strndupa(eq, e - eq);
+                                rwm = e+1;
+                        } else {
+                                path = eq;
+                                rwm = "";
+                        }
+
+                        if (!dbus_message_iter_open_container(&sub2, DBUS_TYPE_STRUCT, NULL, &sub3) ||
+                            !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, &path) ||
+                            !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, &rwm) ||
+                            !dbus_message_iter_close_container(&sub2, &sub3))
+                                return log_oom();
+                }
+
+                if (!dbus_message_iter_close_container(&sub, &sub2))
+                        return log_oom();
+
         } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;

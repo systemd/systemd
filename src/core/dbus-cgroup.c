@@ -21,6 +21,7 @@
 
 #include <dbus/dbus.h>
 
+#include "path-util.h"
 #include "dbus-cgroup.h"
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_cgroup_append_device_policy, cgroup_device_policy, CGroupDevicePolicy);
@@ -262,6 +263,110 @@ int bus_cgroup_set_property(
                                 sprintf(buf, "MemorySoftLimit=%" PRIu64, limit);
                                 unit_write_drop_in_private_section(u, mode, "memory-soft-limit", buf);
                         }
+                }
+
+                return 1;
+
+        } else if (streq(name, "DevicePolicy")) {
+                const char *policy;
+                CGroupDevicePolicy p;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_STRING)
+                        return -EINVAL;
+
+                dbus_message_iter_get_basic(i, &policy);
+                p = cgroup_device_policy_from_string(policy);
+                if (p < 0)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        char *buf;
+
+                        c->device_policy = p;
+
+                        buf = strappenda("DevicePolicy=", policy);
+                        unit_write_drop_in_private_section(u, mode, "device-policy", buf);
+                }
+
+                return 1;
+
+        } else if (streq(name, "DeviceAllow")) {
+                DBusMessageIter sub;
+                unsigned n = 0;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_ARRAY ||
+                    dbus_message_iter_get_element_type(i) != DBUS_TYPE_STRUCT)
+                        return -EINVAL;
+
+                dbus_message_iter_recurse(i, &sub);
+                while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                        DBusMessageIter sub2;
+                        const char *path, *rwm;
+                        CGroupDeviceAllow *a;
+
+                        dbus_message_iter_recurse(&sub, &sub2);
+
+                        if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0 ||
+                            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &rwm, false) < 0)
+                                return -EINVAL;
+
+                        if (!path_startswith(path, "/dev")) {
+                                dbus_set_error(error, DBUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node");
+                                return -EINVAL;
+                        }
+
+                        if (isempty(rwm))
+                                rwm = "rwm";
+
+                        if (!in_charset(rwm, "rwm")) {
+                                dbus_set_error(error, DBUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
+                                return -EINVAL;
+                        }
+
+                        n++;
+
+                        if (mode != UNIT_CHECK) {
+                                a = new0(CGroupDeviceAllow, 1);
+                                if (!a)
+                                        return -ENOMEM;
+
+                                a->path = strdup(path);
+                                if (!a->path) {
+                                        free(a);
+                                        return -ENOMEM;
+                                }
+
+                                a->r = !!strchr(rwm, 'r');
+                                a->w = !!strchr(rwm, 'w');
+                                a->m = !!strchr(rwm, 'm');
+
+                                LIST_PREPEND(CGroupDeviceAllow, device_allow, c->device_allow, a);
+                        }
+
+                        dbus_message_iter_next(&sub);
+                }
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        CGroupDeviceAllow *a;
+                        size_t size = 0;
+
+                        if (n == 0) {
+                                while (c->device_allow)
+                                        cgroup_context_free_device_allow(c, c->device_allow);
+                        }
+
+                        f = open_memstream(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs("DeviceAllow=\n", f);
+                        LIST_FOREACH(device_allow, a, c->device_allow)
+                                fprintf(f, "DeviceAllow=%s %s%s%s\n", a->path, a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
+
+                        fflush(f);
+                        unit_write_drop_in_private_section(u, mode, "device-allow", buf);
                 }
 
                 return 1;

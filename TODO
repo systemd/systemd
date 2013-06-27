@@ -28,6 +28,10 @@ Fedora 19:
 
 Features:
 
+* split up BlockIOWeight= and BlockIODeviceWeight=
+
+* how to reset dynamically changed attributes sanely?
+
 * when reloading configuration, apply new cgroup configuration
 
 * implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory, fair scheduling?)
