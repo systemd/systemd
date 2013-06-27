@@ -590,6 +590,7 @@ ExecContext *unit_get_exec_context(Unit *u) _pure_;
 CGroupContext *unit_get_cgroup_context(Unit *u) _pure_;
 
 int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data);
+int unit_write_drop_in_private_section(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data);
 int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name);
 
 int unit_kill_context(Unit *u, KillContext *c, bool sigkill, pid_t main_pid, pid_t control_pid, bool main_pid_alien);

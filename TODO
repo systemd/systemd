@@ -28,6 +28,8 @@ Fedora 19:
 
 Features:
 
+* when reloading configuration, apply new cgroup configuration
+
 * implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory, fair scheduling?)
 
 * handle jointly mounted controllers correctly

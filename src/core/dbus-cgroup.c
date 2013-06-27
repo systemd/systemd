@@ -152,50 +152,120 @@ int bus_cgroup_set_property(
         assert(i);
 
         if (streq(name, "CPUAccounting")) {
-                dbus_bool_t b;
 
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
                         return -EINVAL;
 
                 if (mode != UNIT_CHECK) {
+                        dbus_bool_t b;
                         dbus_message_iter_get_basic(i, &b);
 
                         c->cpu_accounting = b;
-                        unit_write_drop_in(u, mode, "cpu-accounting", b ? "CPUAccounting=yes" : "CPUAccounting=no");
+                        unit_write_drop_in_private_section(u, mode, "cpu-accounting", b ? "CPUAccounting=yes" : "CPUAccounting=no");
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUShares")) {
+                uint64_t u64;
+                unsigned long ul;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_UINT64)
+                        return -EINVAL;
+
+                dbus_message_iter_get_basic(i, &u64);
+                ul = (unsigned long) u64;
+
+                if (u64 <= 0 || u64 != (uint64_t) ul)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        char buf[sizeof("CPUShares=") + DECIMAL_STR_MAX(ul)];
+                        c->cpu_shares = ul;
+
+                        sprintf(buf, "CPUShares=%lu", ul);
+                        unit_write_drop_in_private_section(u, mode, "cpu-shares", buf);
                 }
 
                 return 1;
 
         } else if (streq(name, "BlockIOAccounting")) {
-                dbus_bool_t b;
 
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
                         return -EINVAL;
 
                 if (mode != UNIT_CHECK) {
+                        dbus_bool_t b;
                         dbus_message_iter_get_basic(i, &b);
 
                         c->blockio_accounting = b;
-                        unit_write_drop_in(u, mode, "block-io-accounting", b ? "BlockIOAccounting=yes" : "BlockIOAccounting=no");
+                        unit_write_drop_in_private_section(u, mode, "block-io-accounting", b ? "BlockIOAccounting=yes" : "BlockIOAccounting=no");
                 }
 
                 return 1;
+
+        } else if (streq(name, "BlockIOWeight")) {
+                uint64_t u64;
+                unsigned long ul;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_UINT64)
+                        return -EINVAL;
+
+                dbus_message_iter_get_basic(i, &u64);
+                ul = (unsigned long) u64;
+
+                if (u64 < 10 || u64 > 1000)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        char buf[sizeof("BlockIOWeight=") + DECIMAL_STR_MAX(ul)];
+                        c->cpu_shares = ul;
+
+                        sprintf(buf, "BlockIOWeight=%lu", ul);
+                        unit_write_drop_in_private_section(u, mode, "blockio-weight", buf);
+                }
+
+                return 1;
+
         } else if (streq(name, "MemoryAccounting")) {
-                dbus_bool_t b;
 
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
                         return -EINVAL;
 
                 if (mode != UNIT_CHECK) {
+                        dbus_bool_t b;
                         dbus_message_iter_get_basic(i, &b);
 
-                        c->blockio_accounting = b;
-                        unit_write_drop_in(u, mode, "memory-accounting", b ? "MemoryAccounting=yes" : "MemoryAccounting=no");
+                        c->memory_accounting = b;
+                        unit_write_drop_in_private_section(u, mode, "memory-accounting", b ? "MemoryAccounting=yes" : "MemoryAccounting=no");
+                }
+
+                return 1;
+
+        } else if (streq(name, "MemoryLimit") || streq(name, "MemorySoftLimit")) {
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_UINT64)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        uint64_t limit;
+                        char buf[sizeof("MemorySoftLimit=") + DECIMAL_STR_MAX(limit)];
+
+                        dbus_message_iter_get_basic(i, &limit);
+
+                        if (streq(name, "MemoryLimit")) {
+                                c->memory_limit = limit;
+                                sprintf(buf, "MemoryLimit=%" PRIu64, limit);
+                                unit_write_drop_in_private_section(u, mode, "memory-limit", buf);
+                        } else {
+                                c->memory_soft_limit = limit;
+                                sprintf(buf, "MemorySoftLimit=%" PRIu64, limit);
+                                unit_write_drop_in_private_section(u, mode, "memory-soft-limit", buf);
+                        }
                 }
 
                 return 1;
         }
-
 
         return 0;
 }

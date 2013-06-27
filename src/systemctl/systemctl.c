@@ -3632,6 +3632,35 @@ static int append_assignment(DBusMessageIter *iter, const char *assignment) {
                 if (!dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "b", &sub) ||
                     !dbus_message_iter_append_basic(&sub, DBUS_TYPE_BOOLEAN, &b))
                         return log_oom();
+
+        } else if (streq(field, "MemoryLimit") || streq(field, "MemorySoftLimit")) {
+                off_t bytes;
+                uint64_t u;
+
+                r = parse_bytes(eq, &bytes);
+                if (r < 0) {
+                        log_error("Failed to parse bytes specification %s", assignment);
+                        return -EINVAL;
+                }
+
+                u = bytes;
+                if (!dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "t", &sub) ||
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT64, &u))
+                        return log_oom();
+
+        } else if (streq(field, "CPUShares") || streq(field, "BlockIOWeight")) {
+                uint64_t u;
+
+                r = safe_atou64(eq, &u);
+                if (r < 0) {
+                        log_error("Failed to parse %s value %s.", field, eq);
+                        return -EINVAL;
+                }
+
+                if (!dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "t", &sub) ||
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT64, &u))
+                        return log_oom();
+
         } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;

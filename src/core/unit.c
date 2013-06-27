@@ -2691,6 +2691,8 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
         int r;
 
         assert(u);
+        assert(name);
+        assert(data);
 
         if (!(mode & (UNIT_PERSISTENT|UNIT_RUNTIME)))
                 return 0;
@@ -2701,6 +2703,23 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
 
         mkdir_p(p, 0755);
         return write_string_file_atomic_label(q, data);
+}
+
+int unit_write_drop_in_private_section(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
+        _cleanup_free_ char *ndata = NULL;
+
+        assert(u);
+        assert(name);
+        assert(data);
+
+        if (!UNIT_VTABLE(u)->private_section)
+                return -EINVAL;
+
+        ndata = strjoin("[", UNIT_VTABLE(u)->private_section, "]\n", data, NULL);
+        if (!ndata)
+                return -ENOMEM;
+
+        return unit_write_drop_in(u, mode, name, ndata);
 }
 
 int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
