@@ -28,6 +28,8 @@ Fedora 19:
 
 Features:
 
+* make BlockIODeviceWeight=, BlockIODeviceBandwidth= runtime settable
+
 * split up BlockIOWeight= and BlockIODeviceWeight=
 
 * how to reset dynamically changed attributes sanely?

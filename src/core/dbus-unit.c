@@ -783,7 +783,6 @@ int bus_unit_set_properties(Unit *u, DBusMessageIter *iter, UnitSetPropertiesMod
                 return -EINVAL;
 
         dbus_message_iter_recurse(iter, &sub);
-
         for (;;) {
                 DBusMessageIter sub2, sub3;
                 const char *name;
@@ -830,7 +829,7 @@ int bus_unit_set_properties(Unit *u, DBusMessageIter *iter, UnitSetPropertiesMod
         if (n > 0 && UNIT_VTABLE(u)->bus_commit_properties)
                 UNIT_VTABLE(u)->bus_commit_properties(u);
 
-        return 0;
+        return n;
 }
 
 const BusProperty bus_unit_properties[] = {

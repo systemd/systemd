@@ -2675,7 +2675,7 @@ static int drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, c
         if (!p)
                 return -ENOMEM;
 
-        q = strjoin(p, "/50-", name, ".conf", NULL);
+        q = strjoin(p, "/90-", name, ".conf", NULL);
         if (!q) {
                 free(p);
                 return -ENOMEM;
@@ -2733,9 +2733,9 @@ int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
 
         r = drop_in_file(u, mode, name, &p, &q);
         if (unlink(q) < 0)
-                r = -errno;
+                r = errno == ENOENT ? 0 : -errno;
         else
-                r = 0;
+                r = 1;
 
         rmdir(p);
         return r;

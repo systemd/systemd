@@ -62,7 +62,7 @@
         "  </method>\n"                                                 \
         "  <method name=\"ResetFailed\"/>\n"                            \
         "  <method name=\"SetProperties\">\n"                           \
-        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"         \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
