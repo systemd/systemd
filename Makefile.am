@@ -380,7 +380,7 @@ dist_systemunit_DATA = \
 	units/swap.target \
 	units/slices.target \
 	units/system.slice \
-	units/-.slice \
+	units/x-.slice \
 	units/systemd-initctl.socket \
 	units/systemd-shutdownd.socket \
 	units/syslog.socket \
@@ -498,6 +498,17 @@ endif
 EXTRA_DIST += \
 	units/rc-local.service.in \
 	units/halt-local.service.in
+
+# automake is broken and can't handle files with a dash in front
+# http://debbugs.gnu.org/cgi/bugreport.cgi?bug=14728#8
+units-install-hook:
+	mv $(DESTDIR)$(systemunitdir)/x-.slice $(DESTDIR)/$(systemunitdir)/-.slice
+
+units-uninstall-hook:
+	rm -f $(DESTDIR)/$(systemunitdir)/-.slice
+
+INSTALL_DATA_HOOKS += units-install-hook
+UNINSTALL_DATA_HOOKS += units-uninstall-hook
 
 dist_doc_DATA = \
 	README \
