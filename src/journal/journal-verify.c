@@ -67,7 +67,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 }
 
                 if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0) {
-                        log_error(OFSfmt": bad object size (<= %"PRIu64"): %"PRIu64,
+                        log_error(OFSfmt": bad object size (<= %zu): %"PRIu64,
                                   offset,
                                   offsetof(DataObject, payload),
                                   le64toh(o->object.size));
@@ -120,7 +120,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
         case OBJECT_FIELD:
                 if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0) {
-                        log_error(OFSfmt": bad field size (<= %"PRIu64"): %"PRIu64,
+                        log_error(OFSfmt": bad field size (<= %zu): %"PRIu64,
                                   offset,
                                   offsetof(FieldObject, payload),
                                   le64toh(o->object.size));
@@ -139,7 +139,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
         case OBJECT_ENTRY:
                 if ((le64toh(o->object.size) - offsetof(EntryObject, items)) % sizeof(EntryItem) != 0) {
-                        log_error(OFSfmt": bad entry size (<= %"PRIu64"): %"PRIu64,
+                        log_error(OFSfmt": bad entry size (<= %zu): %"PRIu64,
                                   offset,
                                   offsetof(EntryObject, items),
                                   le64toh(o->object.size));
