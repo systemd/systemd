@@ -137,3 +137,65 @@ const BusProperty bus_cgroup_context_properties[] = {
         { "DeviceAllow",             bus_cgroup_append_device_allow,      "a(ss)", 0                                           },
         {}
 };
+
+int bus_cgroup_set_property(
+                Unit *u,
+                CGroupContext *c,
+                const char *name,
+                DBusMessageIter *i,
+                UnitSetPropertiesMode mode,
+                DBusError *error) {
+
+        assert(name);
+        assert(u);
+        assert(c);
+        assert(i);
+
+        if (streq(name, "CPUAccounting")) {
+                dbus_bool_t b;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        dbus_message_iter_get_basic(i, &b);
+
+                        c->cpu_accounting = b;
+                        unit_write_drop_in(u, mode, "cpu-accounting", b ? "CPUAccounting=yes" : "CPUAccounting=no");
+                }
+
+                return 1;
+
+        } else if (streq(name, "BlockIOAccounting")) {
+                dbus_bool_t b;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        dbus_message_iter_get_basic(i, &b);
+
+                        c->blockio_accounting = b;
+                        unit_write_drop_in(u, mode, "block-io-accounting", b ? "BlockIOAccounting=yes" : "BlockIOAccounting=no");
+                }
+
+                return 1;
+        } else if (streq(name, "MemoryAccounting")) {
+                dbus_bool_t b;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        dbus_message_iter_get_basic(i, &b);
+
+                        c->blockio_accounting = b;
+                        unit_write_drop_in(u, mode, "memory-accounting", b ? "MemoryAccounting=yes" : "MemoryAccounting=no");
+                }
+
+                return 1;
+        }
+
+
+        return 0;
+}

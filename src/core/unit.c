@@ -2642,7 +2642,7 @@ CGroupContext *unit_get_cgroup_context(Unit *u) {
         return (CGroupContext*) ((uint8_t*) u + offset);
 }
 
-static int drop_in_file(Unit *u, bool runtime, const char *name, char **_p, char **_q) {
+static int drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, char **_p, char **_q) {
         char *p, *q;
         int r;
 
@@ -2650,8 +2650,9 @@ static int drop_in_file(Unit *u, bool runtime, const char *name, char **_p, char
         assert(name);
         assert(_p);
         assert(_q);
+        assert(mode & (UNIT_PERSISTENT|UNIT_RUNTIME));
 
-        if (u->manager->running_as == SYSTEMD_USER && runtime)
+        if (u->manager->running_as == SYSTEMD_USER && !(mode & UNIT_PERSISTENT))
                 return -ENOTSUP;
 
         if (!filename_is_safe(name))
@@ -2667,10 +2668,10 @@ static int drop_in_file(Unit *u, bool runtime, const char *name, char **_p, char
                         return -ENOENT;
 
                 p = strjoin(c, "/", u->id, ".d", NULL);
-        } else  if (runtime)
-                p = strjoin("/run/systemd/system/", u->id, ".d", NULL);
-        else
+        } else  if (mode & UNIT_PERSISTENT)
                 p = strjoin("/etc/systemd/system/", u->id, ".d", NULL);
+        else
+                p = strjoin("/run/systemd/system/", u->id, ".d", NULL);
         if (!p)
                 return -ENOMEM;
 
@@ -2685,13 +2686,16 @@ static int drop_in_file(Unit *u, bool runtime, const char *name, char **_p, char
         return 0;
 }
 
-int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data) {
+int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
         _cleanup_free_ char *p = NULL, *q = NULL;
         int r;
 
         assert(u);
 
-        r = drop_in_file(u, runtime, name, &p, &q);
+        if (!(mode & (UNIT_PERSISTENT|UNIT_RUNTIME)))
+                return 0;
+
+        r = drop_in_file(u, mode, name, &p, &q);
         if (r < 0)
                 return r;
 
@@ -2699,13 +2703,16 @@ int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data
         return write_string_file_atomic_label(q, data);
 }
 
-int unit_remove_drop_in(Unit *u, bool runtime, const char *name) {
+int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
         _cleanup_free_ char *p = NULL, *q = NULL;
         int r;
 
         assert(u);
 
-        r = drop_in_file(u, runtime, name, &p, &q);
+        if (!(mode & (UNIT_PERSISTENT|UNIT_RUNTIME)))
+                return 0;
+
+        r = drop_in_file(u, mode, name, &p, &q);
         if (unlink(q) < 0)
                 r = -errno;
         else

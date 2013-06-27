@@ -228,12 +228,17 @@
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
-        "  <method name=\"SetDefaultTarget\">\n"                         \
+        "  <method name=\"SetDefaultTarget\">\n"                        \
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
-        "  <method name=\"GetDefaultTarget\">\n"                         \
-        "   <arg name=\"name\" type=\"s\" direction=\"out\"/>\n" \
+        "  <method name=\"GetDefaultTarget\">\n"                        \
+        "   <arg name=\"name\" type=\"s\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetUnitProperties\">\n"                       \
+        "   <arg name=\"name\" type=\"s\" direction=\"out\"/>\n"        \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
         "  </method>\n"
 
 #define BUS_MANAGER_INTERFACE_SIGNALS                                   \
@@ -1725,13 +1730,42 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
 
                 r = unit_file_get_default(scope, NULL, &default_target);
-
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
 
                 if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &default_target, DBUS_TYPE_INVALID)) {
                         goto oom;
                 }
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitProperties")) {
+                DBusMessageIter iter;
+                dbus_bool_t runtime;
+                const char *name;
+                Unit *u;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                if (bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true) < 0 ||
+                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &runtime, true) < 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                u = manager_get_unit(m, name);
+                if (!u) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                }
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
+
+                r = bus_unit_set_properties(u, &iter, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
         } else {
                 const BusBoundProperties bps[] = {
                         { "org.freedesktop.systemd1.Manager", bus_systemd_properties, systemd_property_string },

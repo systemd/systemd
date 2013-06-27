@@ -61,6 +61,10 @@
         "   <arg name=\"signal\" type=\"i\" direction=\"in\"/>\n"       \
         "  </method>\n"                                                 \
         "  <method name=\"ResetFailed\"/>\n"                            \
+        "  <method name=\"SetProperties\">\n"                           \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"         \
+        "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"Names\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"Following\" type=\"s\" access=\"read\"/>\n" \
@@ -135,19 +139,9 @@ extern const BusProperty bus_unit_properties[];
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);
 
-DBusHandlerResult bus_unit_queue_job(
-                DBusConnection *connection,
-                DBusMessage *message,
-                Unit *u,
-                JobType type,
-                JobMode mode,
-                bool reload_if_possible);
+DBusHandlerResult bus_unit_queue_job(DBusConnection *connection, DBusMessage *message, Unit *u, JobType type, JobMode mode, bool reload_if_possible);
 
-int bus_unit_cgroup_set(Unit *u, DBusMessageIter *iter);
-int bus_unit_cgroup_unset(Unit *u, DBusMessageIter *iter);
-int bus_unit_cgroup_attribute_get(Unit *u, DBusMessageIter *iter, char ***_result);
-int bus_unit_cgroup_attribute_set(Unit *u, DBusMessageIter *iter);
-int bus_unit_cgroup_attribute_unset(Unit *u, DBusMessageIter *iter);
+int bus_unit_set_properties(Unit *u, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
 
 extern const DBusObjectPathVTable bus_unit_vtable;
 

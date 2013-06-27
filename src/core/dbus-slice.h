@@ -27,4 +27,7 @@
 
 DBusHandlerResult bus_slice_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
+int bus_slice_set_property(Unit *u, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
+int bus_slice_commit_properties(Unit *u);
+
 extern const char bus_slice_interface[];

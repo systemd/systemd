@@ -260,6 +260,12 @@ struct UnitStatusMessageFormats {
         const char *finished_stop_job[_JOB_RESULT_MAX];
 };
 
+typedef enum UnitSetPropertiesMode {
+        UNIT_CHECK = 0,
+        UNIT_RUNTIME = 1,
+        UNIT_PERSISTENT = 2,
+} UnitSetPropertiesMode;
+
 #include "service.h"
 #include "timer.h"
 #include "socket.h"
@@ -371,6 +377,12 @@ struct UnitVTable {
 
         /* Called for each message received on the bus */
         DBusHandlerResult (*bus_message_handler)(Unit *u, DBusConnection *c, DBusMessage *message);
+
+        /* Called for each property that is being set */
+        int (*bus_set_property)(Unit *u, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
+
+        /* Called after at least one property got changed to apply the necessary change */
+        int (*bus_commit_properties)(Unit *u);
 
         /* Return the unit this unit is following */
         Unit *(*following)(Unit *u);
@@ -577,8 +589,8 @@ int unit_exec_context_defaults(Unit *u, ExecContext *c);
 ExecContext *unit_get_exec_context(Unit *u) _pure_;
 CGroupContext *unit_get_cgroup_context(Unit *u) _pure_;
 
-int unit_write_drop_in(Unit *u, bool runtime, const char *name, const char *data);
-int unit_remove_drop_in(Unit *u, bool runtime, const char *name);
+int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data);
+int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name);
 
 int unit_kill_context(Unit *u, KillContext *c, bool sigkill, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
 

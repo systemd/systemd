@@ -403,6 +403,25 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
                         goto oom;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "SetProperties")) {
+                DBusMessageIter iter;
+                dbus_bool_t runtime;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                if (bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &runtime, true) < 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
+
+                r = bus_unit_set_properties(u, &iter, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
 
         } else if (UNIT_VTABLE(u)->bus_message_handler)
                 return UNIT_VTABLE(u)->bus_message_handler(u, connection, message);
@@ -743,6 +762,75 @@ oom:
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
+}
+
+int bus_unit_set_properties(Unit *u, DBusMessageIter *iter, UnitSetPropertiesMode mode, DBusError *error) {
+        bool for_real = false;
+        DBusMessageIter sub;
+        unsigned n = 0;
+        int r;
+
+        assert(u);
+        assert(iter);
+
+        /* We iterate through the array twice. First run we just check
+         * if all passed data is valid, second run actually applies
+         * it. This is to implement transaction-like behaviour without
+         * actually providing full transactions. */
+
+        if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(iter) != DBUS_TYPE_STRUCT)
+                return -EINVAL;
+
+        dbus_message_iter_recurse(iter, &sub);
+
+        for (;;) {
+                DBusMessageIter sub2, sub3;
+                const char *name;
+
+                if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_INVALID) {
+
+                        if (for_real)
+                                break;
+
+                        /* Reached EOF. Let's try again, and this time for realz... */
+                        dbus_message_iter_recurse(iter, &sub);
+                        for_real = true;
+                        continue;
+                }
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT)
+                        return -EINVAL;
+
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &name, true) < 0 ||
+                    dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT)
+                        return -EINVAL;
+
+                if (!UNIT_VTABLE(u)->bus_set_property) {
+                        dbus_set_error(error, DBUS_ERROR_PROPERTY_READ_ONLY, "Objects of this type do not support setting properties.");
+                        return -ENOENT;
+                }
+
+                dbus_message_iter_recurse(&sub2, &sub3);
+                r = UNIT_VTABLE(u)->bus_set_property(u, name, &sub3, for_real ? mode : UNIT_CHECK, error);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        dbus_set_error(error, DBUS_ERROR_PROPERTY_READ_ONLY, "Cannot set property %s, or unknown property.", name);
+                        return -ENOENT;
+                }
+
+                dbus_message_iter_next(&sub);
+
+                n += for_real;
+        }
+
+        if (n > 0 && UNIT_VTABLE(u)->bus_commit_properties)
+                UNIT_VTABLE(u)->bus_commit_properties(u);
+
+        return 0;
 }
 
 const BusProperty bus_unit_properties[] = {

@@ -42,3 +42,5 @@
         "  <property name=\"DeviceAllow\" type=\"a(ss)\" access=\"read\"/>\n"
 
 extern const BusProperty bus_cgroup_context_properties[];
+
+int bus_cgroup_set_property(Unit *u, CGroupContext *c, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);

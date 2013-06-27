@@ -3596,6 +3596,109 @@ static int show(DBusConnection *bus, char **args) {
         return ret;
 }
 
+static int append_assignment(DBusMessageIter *iter, const char *assignment) {
+        const char *eq;
+        char *field;
+        DBusMessageIter sub;
+        int r;
+
+        assert(iter);
+        assert(assignment);
+
+        eq = strchr(assignment, '=');
+        if (!eq) {
+                log_error("Not an assignment: %s", assignment);
+                return -EINVAL;
+        }
+
+        field = strndupa(assignment, eq - assignment);
+        eq ++;
+
+        if (!dbus_message_iter_append_basic(iter, DBUS_TYPE_STRING, &field))
+                return log_oom();
+
+        if (streq(field, "CPUAccounting") ||
+            streq(field, "MemoryAccounting") ||
+            streq(field, "BlockIOAccounting")) {
+                dbus_bool_t b;
+
+                r = parse_boolean(eq);
+                if (r < 0) {
+                        log_error("Failed to parse boolean assignment %s.", assignment);
+                        return -EINVAL;
+                }
+
+                b = r;
+                if (!dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "b", &sub) ||
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_BOOLEAN, &b))
+                        return log_oom();
+        } else {
+                log_error("Unknown assignment %s.", assignment);
+                return -EINVAL;
+        }
+
+        if (!dbus_message_iter_close_container(iter, &sub))
+                return log_oom();
+
+        return 0;
+}
+
+static int set_property(DBusConnection *bus, char **args) {
+
+        _cleanup_free_ DBusMessage *m = NULL, *reply = NULL;
+        DBusMessageIter iter, sub;
+        dbus_bool_t runtime;
+        DBusError error;
+        char **i;
+        int r;
+
+        dbus_error_init(&error);
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "SetUnitProperties");
+        if (!m)
+                return log_oom();
+
+        dbus_message_iter_init_append(m, &iter);
+
+        runtime = arg_runtime;
+
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &args[1]) ||
+            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &runtime) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sv)", &sub))
+                return log_oom();
+
+        STRV_FOREACH(i, args + 2) {
+                DBusMessageIter sub2;
+
+                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
+                        return log_oom();
+
+                r = append_assignment(&sub2, *i);
+                if (r < 0)
+                        return r;
+
+                if (!dbus_message_iter_close_container(&sub, &sub2))
+                        return log_oom();
+
+        }
+
+        if (!dbus_message_iter_close_container(&iter, &sub))
+                return log_oom();
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+                return -EIO;
+        }
+
+        return 0;
+}
+
 static int dump(DBusConnection *bus, char **args) {
         _cleanup_free_ DBusMessage *reply = NULL;
         DBusError error;
@@ -4560,6 +4663,8 @@ static int systemctl_help(void) {
                "  status [NAME...|PID...]         Show runtime status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
                "                                  units/jobs or the manager\n"
+               "  set-property [NAME] [ASSIGNMENT...]\n"
+               "                                  Sets one or more properties of a unit\n"
                "  help [NAME...|PID...]           Show manual for one or more units\n"
                "  reset-failed [NAME...]          Reset failed state for all, one, or more\n"
                "                                  units\n"
@@ -5639,6 +5744,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "set-default",           EQUAL, 2, enable_unit       },
                 { "get-default",           LESS,  1, get_default       },
                 { "set-log-level",         EQUAL, 2, set_log_level     },
+                { "set-property",          MORE,  3, set_property      },
         };
 
         int left;

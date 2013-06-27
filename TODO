@@ -28,6 +28,10 @@ Fedora 19:
 
 Features:
 
+* implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory, fair scheduling?)
+
+* handle jointly mounted controllers correctly
+
 * split out CreateMachine into systemd-machined
 
 * "transient" units, i.e units that are not sourced from disk but
