@@ -128,6 +128,7 @@
         "  <property name=\"ConditionResult\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"LoadError\" type=\"(ss)\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroup\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"Transient\" type=\"b\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define BUS_UNIT_INTERFACES_LIST                \
@@ -141,7 +142,7 @@ void bus_unit_send_removed_signal(Unit *u);
 
 DBusHandlerResult bus_unit_queue_job(DBusConnection *connection, DBusMessage *message, Unit *u, JobType type, JobMode mode, bool reload_if_possible);
 
-int bus_unit_set_properties(Unit *u, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
+int bus_unit_set_properties(Unit *u, DBusMessageIter *i, UnitSetPropertiesMode mode, bool commit, DBusError *error);
 
 extern const DBusObjectPathVTable bus_unit_vtable;
 

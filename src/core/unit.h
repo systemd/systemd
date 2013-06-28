@@ -241,6 +241,9 @@ struct Unit {
         /* Did the last condition check succeed? */
         bool condition_result;
 
+        /* Is this a transient unit? */
+        bool transient;
+
         bool in_load_queue:1;
         bool in_dbus_queue:1;
         bool in_cleanup_queue:1;
@@ -425,6 +428,9 @@ struct UnitVTable {
 
         /* Exclude from automatic gc */
         bool no_gc:1;
+
+        /* True if transient units of this type are OK */
+        bool can_transient:1;
 };
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
@@ -594,6 +600,8 @@ int unit_write_drop_in_private_section(Unit *u, UnitSetPropertiesMode mode, cons
 int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name);
 
 int unit_kill_context(Unit *u, KillContext *c, bool sigkill, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
+
+int unit_make_transient(Unit *u);
 
 const char *unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;

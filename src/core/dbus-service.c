@@ -21,6 +21,8 @@
 
 #include <errno.h>
 
+#include "strv.h"
+#include "path-util.h"
 #include "dbus-unit.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
@@ -162,6 +164,124 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
         return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
 }
 
+static int bus_service_set_transient_properties(
+                Service *s,
+                const char *name,
+                DBusMessageIter *i,
+                UnitSetPropertiesMode mode,
+                DBusError *error) {
+
+        int r;
+
+        assert(name);
+        assert(s);
+        assert(i);
+
+        if (streq(name, "ExecStart")) {
+                DBusMessageIter sub;
+                unsigned n = 0;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_ARRAY ||
+                    dbus_message_iter_get_element_type(i) != DBUS_TYPE_STRUCT)
+                        return -EINVAL;
+
+                dbus_message_iter_recurse(i, &sub);
+                while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                        _cleanup_strv_free_ char **argv = NULL;
+                        DBusMessageIter sub2;
+                        dbus_bool_t ignore;
+                        const char *path;
+
+                        dbus_message_iter_recurse(&sub, &sub2);
+
+                        if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0)
+                                return -EINVAL;
+
+                        if (!path_is_absolute(path)) {
+                                dbus_set_error(error, DBUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
+                                return -EINVAL;
+                        }
+
+                        r = bus_parse_strv_iter(&sub2, &argv);
+                        if (r < 0)
+                                return r;
+
+                        dbus_message_iter_next(&sub2);
+
+                        if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_BOOLEAN, &ignore, false) < 0)
+                                return -EINVAL;
+
+                        if (mode != UNIT_CHECK) {
+                                ExecCommand *c;
+
+                                c = new0(ExecCommand, 1);
+                                if (!c)
+                                        return -ENOMEM;
+
+                                c->path = strdup(path);
+                                if (!c->path) {
+                                        free(c);
+                                        return -ENOMEM;
+                                }
+
+                                c->argv = argv;
+                                argv = NULL;
+
+                                c->ignore = ignore;
+
+                                path_kill_slashes(c->path);
+                                exec_command_append_list(&s->exec_command[SERVICE_EXEC_START], c);
+                        }
+
+                        n++;
+                        dbus_message_iter_next(&sub);
+                }
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        ExecCommand *c;
+                        size_t size = 0;
+
+                        if (n == 0) {
+                                exec_command_free_list(s->exec_command[SERVICE_EXEC_START]);
+                                s->exec_command[SERVICE_EXEC_START] = NULL;
+                        }
+
+                        f = open_memstream(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs("ExecStart=\n", f);
+
+                        LIST_FOREACH(command, c, s->exec_command[SERVICE_EXEC_START]) {
+                                char **a;
+                                fputs("ExecStart=", f);
+
+                                if (c->ignore)
+                                        fputc('-', f);
+
+                                fputc('@', f);
+                                fputs(c->path, f);
+
+                                STRV_FOREACH(a, c->argv) {
+                                        fputc(' ', f);
+                                        fputs(*a, f);
+                                }
+
+                                fputc('\n', f);
+                        }
+
+                        fflush(f);
+                        unit_write_drop_in_private_section(UNIT(s), mode, "exec-start", buf);
+                }
+
+                return 1;
+        }
+
+        return 0;
+}
+
 int bus_service_set_property(
                 Unit *u,
                 const char *name,
@@ -179,6 +299,14 @@ int bus_service_set_property(
         r = bus_cgroup_set_property(u, &s->cgroup_context, name, i, mode, error);
         if (r != 0)
                 return r;
+
+        if (u->transient && u->load_state == UNIT_STUB) {
+                /* This is a transient unit, let's load a little more */
+
+                r = bus_service_set_transient_properties(s, name, i, mode, error);
+                if (r != 0)
+                        return r;
+        }
 
         return 0;
 }

@@ -993,7 +993,13 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         return n;
 }
 
-int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret) {
+int manager_load_unit_prepare(
+                Manager *m,
+                const char *name,
+                const char *path,
+                DBusError *e,
+                Unit **_ret) {
+
         Unit *ret;
         UnitType t;
         int r;
@@ -1053,7 +1059,13 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DB
         return 0;
 }
 
-int manager_load_unit(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret) {
+int manager_load_unit(
+                Manager *m,
+                const char *name,
+                const char *path,
+                DBusError *e,
+                Unit **_ret) {
+
         int r;
 
         assert(m);

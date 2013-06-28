@@ -1666,7 +1666,7 @@ int main(int argc, char *argv[]) {
                 if (r < 0) {
                         log_error("Failed to load default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
-                } else if (target->load_state == UNIT_ERROR)
+                } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND)
                         log_error("Failed to load default target: %s", strerror(-target->load_error));
                 else if (target->load_state == UNIT_MASKED)
                         log_error("Default target masked.");
@@ -1679,7 +1679,7 @@ int main(int argc, char *argv[]) {
                                 log_error("Failed to load rescue target: %s", bus_error(&error, r));
                                 dbus_error_free(&error);
                                 goto finish;
-                        } else if (target->load_state == UNIT_ERROR) {
+                        } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_ERROR) {
                                 log_error("Failed to load rescue target: %s", strerror(-target->load_error));
                                 goto finish;
                         } else if (target->load_state == UNIT_MASKED) {

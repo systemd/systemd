@@ -983,7 +983,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
         assert(s);
         assert(name);
 
-	/* For SysV services we strip the *.sh suffixes. */
+        /* For SysV services we strip the *.sh suffixes. */
         if (endswith(name, ".sh.service"))
                 return -ENOENT;
 
@@ -1193,27 +1193,32 @@ static int service_load(Unit *u) {
         assert(s);
 
         /* Load a .service file */
-        if ((r = unit_load_fragment(u)) < 0)
+        r = unit_load_fragment(u);
+        if (r < 0)
                 return r;
 
 #ifdef HAVE_SYSV_COMPAT
         /* Load a classic init script as a fallback, if we couldn't find anything */
-        if (u->load_state == UNIT_STUB)
-                if ((r = service_load_sysv(s)) < 0)
+        if (u->load_state == UNIT_STUB) {
+                r = service_load_sysv(s);
+                if (r < 0)
                         return r;
+        }
 #endif
 
         /* Still nothing found? Then let's give up */
         if (u->load_state == UNIT_STUB)
                 return -ENOENT;
 
-        /* We were able to load something, then let's add in the
-         * dropin directories. */
-        if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
-                return r;
-
         /* This is a new unit? Then let's add in some extras */
         if (u->load_state == UNIT_LOADED) {
+
+                /* We were able to load something, then let's add in
+                 * the dropin directories. */
+                r = unit_load_dropin(u);
+                if (r < 0)
+                        return r;
+
                 if (s->type == _SERVICE_TYPE_INVALID)
                         s->type = s->bus_name ? SERVICE_DBUS : SERVICE_SIMPLE;
 
@@ -3885,6 +3890,8 @@ const UnitVTable service_vtable = {
         .bus_invalidating_properties =  bus_service_invalidating_properties,
         .bus_set_property = bus_service_set_property,
         .bus_commit_properties = bus_service_commit_properties,
+
+        .can_transient = true,
 
 #ifdef HAVE_SYSV_COMPAT
         .enumerate = service_enumerate,

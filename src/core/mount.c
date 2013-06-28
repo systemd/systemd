@@ -1562,7 +1562,7 @@ static int mount_add_one(
                         }
                 }
 
-                if (u->load_state == UNIT_ERROR) {
+                if (u->load_state == UNIT_NOT_FOUND) {
                         u->load_state = UNIT_LOADED;
                         u->load_error = 0;
 

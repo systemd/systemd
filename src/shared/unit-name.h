@@ -49,6 +49,7 @@ enum UnitType {
 enum UnitLoadState {
         UNIT_STUB = 0,
         UNIT_LOADED,
+        UNIT_NOT_FOUND,
         UNIT_ERROR,
         UNIT_MERGED,
         UNIT_MASKED,

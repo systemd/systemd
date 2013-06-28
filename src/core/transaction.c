@@ -851,12 +851,13 @@ int transaction_add_job_and_dependencies(
 
         if (unit->load_state != UNIT_LOADED &&
             unit->load_state != UNIT_ERROR &&
+            unit->load_state != UNIT_NOT_FOUND &&
             unit->load_state != UNIT_MASKED) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
                 return -EINVAL;
         }
 
-        if (type != JOB_STOP && unit->load_state == UNIT_ERROR) {
+        if (type != JOB_STOP && (unit->load_state == UNIT_ERROR || unit->load_state == UNIT_NOT_FOUND)) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
                                "Unit %s failed to load: %s. "
                                "See system logs and 'systemctl status %s' for details.",

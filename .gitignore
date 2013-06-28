@@ -65,6 +65,7 @@
 /systemd-remount-api-vfs
 /systemd-remount-fs
 /systemd-reply-password
+/systemd-run
 /systemd-shutdown
 /systemd-shutdownd
 /systemd-sleep

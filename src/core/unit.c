@@ -348,12 +348,38 @@ static void bidi_set_free(Unit *u, Set *s) {
         set_free(s);
 }
 
+static void unit_remove_transient(Unit *u) {
+        char **i;
+
+        assert(u);
+
+        if (!u->transient)
+                return;
+
+        if (u->fragment_path)
+                unlink(u->fragment_path);
+
+        STRV_FOREACH(i, u->dropin_paths) {
+                _cleanup_free_ char *p = NULL;
+                int r;
+
+                unlink(*i);
+
+                r = path_get_parent(*i, &p);
+                if (r >= 0)
+                        rmdir(p);
+        }
+}
+
 void unit_free(Unit *u) {
         UnitDependency d;
         Iterator i;
         char *t;
 
         assert(u);
+
+        if (u->manager->n_reloading <= 0)
+                unit_remove_transient(u);
 
         bus_unit_send_removed_signal(u);
 
@@ -524,7 +550,7 @@ int unit_merge(Unit *u, Unit *other) {
                 return -EINVAL;
 
         if (other->load_state != UNIT_STUB &&
-            other->load_state != UNIT_ERROR)
+            other->load_state != UNIT_NOT_FOUND)
                 return -EEXIST;
 
         if (other->job)
@@ -580,7 +606,8 @@ int unit_merge_by_name(Unit *u, const char *name) {
                 name = s;
         }
 
-        if (!(other = manager_get_unit(u->manager, name)))
+        other = manager_get_unit(u->manager, name);
+        if (!other)
                 r = unit_add_name(u, name);
         else
                 r = unit_merge(u, other);
@@ -673,6 +700,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tInactive Enter Timestamp: %s\n"
                 "%s\tGC Check Good: %s\n"
                 "%s\tNeed Daemon Reload: %s\n"
+                "%s\tTransient: %s\n"
                 "%s\tSlice: %s\n"
                 "%s\tCGroup: %s\n"
                 "%s\tCGroup realized: %s\n"
@@ -688,6 +716,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->inactive_enter_timestamp.realtime)),
                 prefix, yes_no(unit_check_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
+                prefix, yes_no(u->transient),
                 prefix, strna(unit_slice_name(u)),
                 prefix, strna(u->cgroup_path),
                 prefix, yes_no(u->cgroup_realized),
@@ -903,34 +932,38 @@ int unit_load(Unit *u) {
         if (u->load_state != UNIT_STUB)
                 return 0;
 
-        if (UNIT_VTABLE(u)->load)
-                if ((r = UNIT_VTABLE(u)->load(u)) < 0)
+        if (UNIT_VTABLE(u)->load) {
+                r = UNIT_VTABLE(u)->load(u);
+                if (r < 0)
                         goto fail;
+        }
 
         if (u->load_state == UNIT_STUB) {
                 r = -ENOENT;
                 goto fail;
         }
 
-        if (u->load_state == UNIT_LOADED &&
-            u->default_dependencies)
-                if ((r = unit_add_default_dependencies(u)) < 0)
-                        goto fail;
-
         if (u->load_state == UNIT_LOADED) {
+
+                if (u->default_dependencies) {
+                        r = unit_add_default_dependencies(u);
+                        if (r < 0)
+                                goto fail;
+                }
+
                 r = unit_add_mount_links(u);
                 if (r < 0)
-                        return r;
-        }
+                        goto fail;
 
-        if (u->on_failure_isolate &&
-            set_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
+                if (u->on_failure_isolate &&
+                    set_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
 
-                log_error_unit(u->id,
-                               "More than one OnFailure= dependencies specified for %s but OnFailureIsolate= enabled. Refusing.", u->id);
+                        log_error_unit(u->id,
+                                       "More than one OnFailure= dependencies specified for %s but OnFailureIsolate= enabled. Refusing.", u->id);
 
-                r = -EINVAL;
-                goto fail;
+                        r = -EINVAL;
+                        goto fail;
+                }
         }
 
         assert((u->load_state != UNIT_MERGED) == !u->merged_into);
@@ -941,7 +974,7 @@ int unit_load(Unit *u) {
         return 0;
 
 fail:
-        u->load_state = UNIT_ERROR;
+        u->load_state = u->load_state == UNIT_STUB ? UNIT_NOT_FOUND : UNIT_ERROR;
         u->load_error = r;
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
@@ -2117,6 +2150,11 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (dual_timestamp_is_set(&u->condition_timestamp))
                 unit_serialize_item(u, f, "condition-result", yes_no(u->condition_result));
 
+        unit_serialize_item(u, f, "transient", yes_no(u->transient));
+
+        if (u->cgroup_path)
+                unit_serialize_item(u, f, "cgroup", u->cgroup_path);
+
         /* End marker */
         fputc('\n', f);
         return 0;
@@ -2239,15 +2277,38 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 } else if (streq(l, "condition-result")) {
                         int b;
 
-                        if ((b = parse_boolean(v)) < 0)
+                        b = parse_boolean(v);
+                        if (b < 0)
                                 log_debug("Failed to parse condition result value %s", v);
                         else
                                 u->condition_result = b;
 
                         continue;
+
+                } else if (streq(l, "transient")) {
+                        int b;
+
+                        b = parse_boolean(v);
+                        if (b < 0)
+                                log_debug("Failed to parse transient bool %s", v);
+                        else
+                                u->transient = b;
+
+                        continue;
+                } else if (streq(l, "cgroup")) {
+                        char *s;
+
+                        s = strdup(v);
+                        if (!v)
+                                return -ENOMEM;
+
+                        free(u->cgroup_path);
+                        u->cgroup_path = s;
+                        continue;
                 }
 
-                if ((r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds)) < 0)
+                r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
+                if (r < 0)
                         return r;
         }
 }
@@ -2652,9 +2713,6 @@ static int drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, c
         assert(_q);
         assert(mode & (UNIT_PERSISTENT|UNIT_RUNTIME));
 
-        if (u->manager->running_as == SYSTEMD_USER && !(mode & UNIT_PERSISTENT))
-                return -ENOTSUP;
-
         if (!filename_is_safe(name))
                 return -EINVAL;
 
@@ -2668,7 +2726,7 @@ static int drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, c
                         return -ENOENT;
 
                 p = strjoin(c, "/", u->id, ".d", NULL);
-        } else  if (mode & UNIT_PERSISTENT)
+        } else if (mode & UNIT_PERSISTENT)
                 p = strjoin("/etc/systemd/system/", u->id, ".d", NULL);
         else
                 p = strjoin("/run/systemd/system/", u->id, ".d", NULL);
@@ -2739,6 +2797,43 @@ int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
 
         rmdir(p);
         return r;
+}
+
+int unit_make_transient(Unit *u) {
+        int r;
+
+        assert(u);
+
+        u->load_state = UNIT_STUB;
+        u->load_error = 0;
+        u->transient = true;
+
+        free(u->fragment_path);
+        u->fragment_path = NULL;
+
+        if (u->manager->running_as == SYSTEMD_USER) {
+                _cleanup_free_ char *c = NULL;
+
+                r = user_config_home(&c);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -ENOENT;
+
+                u->fragment_path = strjoin(c, "/", u->id, NULL);
+                if (!u->fragment_path)
+                        return -ENOMEM;
+
+                mkdir_p(c, 0755);
+        } else {
+                u->fragment_path = strappend("/run/systemd/system/", u->id);
+                if (!u->fragment_path)
+                        return -ENOMEM;
+
+                mkdir_p("/run/systemd/system", 0755);
+        }
+
+        return write_string_file_atomic_label(u->fragment_path, "# Transient stub");
 }
 
 int unit_kill_context(

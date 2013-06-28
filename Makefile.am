@@ -290,7 +290,8 @@ bin_PROGRAMS = \
 	systemd-nspawn \
 	systemd-detect-virt \
 	systemd-delta \
-	systemd-analyze
+	systemd-analyze \
+	systemd-run
 
 dist_bin_SCRIPTS = \
 	src/kernel-install/kernel-install
@@ -1708,6 +1709,18 @@ systemd_nspawn_SOURCES = \
 	src/core/loopback-setup.h
 
 systemd_nspawn_LDADD = \
+	libsystemd-label.la \
+	libsystemd-capability.la \
+	libsystemd-shared.la \
+	libsystemd-daemon.la \
+	libsystemd-id128-internal.la \
+	libsystemd-bus.la
+
+# ------------------------------------------------------------------------------
+systemd_run_SOURCES = \
+	src/run/run.c
+
+systemd_run_LDADD = \
 	libsystemd-label.la \
 	libsystemd-capability.la \
 	libsystemd-shared.la \

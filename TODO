@@ -36,7 +36,9 @@ Features:
 
 * when reloading configuration, apply new cgroup configuration
 
-* implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory, fair scheduling?)
+* implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
+
+* implement per-slice CPUFairScheduling=1 switch
 
 * handle jointly mounted controllers correctly
 

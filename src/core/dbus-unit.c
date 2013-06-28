@@ -415,7 +415,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
 
                 SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
 
-                r = bus_unit_set_properties(u, &iter, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, &error);
+                r = bus_unit_set_properties(u, &iter, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, &error);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
@@ -716,7 +716,7 @@ DBusHandlerResult bus_unit_queue_job(
                                   (type == JOB_START || type == JOB_RESTART || type == JOB_TRY_RESTART) ? "start" :
                                   type == JOB_STOP ? "stop" : "reload");
 
-        if (type == JOB_STOP && u->load_state == UNIT_ERROR && unit_active_state(u) == UNIT_INACTIVE) {
+        if (type == JOB_STOP && (u->load_state == UNIT_NOT_FOUND || u->load_state == UNIT_ERROR) && unit_active_state(u) == UNIT_INACTIVE) {
                 dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
                 return bus_send_error_reply(connection, message, &error, -EPERM);
         }
@@ -764,7 +764,13 @@ oom:
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
-int bus_unit_set_properties(Unit *u, DBusMessageIter *iter, UnitSetPropertiesMode mode, DBusError *error) {
+int bus_unit_set_properties(
+                Unit *u,
+                DBusMessageIter *iter,
+                UnitSetPropertiesMode mode,
+                bool commit,
+                DBusError *error) {
+
         bool for_real = false;
         DBusMessageIter sub;
         unsigned n = 0;
@@ -772,6 +778,9 @@ int bus_unit_set_properties(Unit *u, DBusMessageIter *iter, UnitSetPropertiesMod
 
         assert(u);
         assert(iter);
+
+        if (u->transient)
+                mode &= UNIT_RUNTIME;
 
         /* We iterate through the array twice. First run we just check
          * if all passed data is valid, second run actually applies
@@ -826,7 +835,7 @@ int bus_unit_set_properties(Unit *u, DBusMessageIter *iter, UnitSetPropertiesMod
                 n += for_real;
         }
 
-        if (n > 0 && UNIT_VTABLE(u)->bus_commit_properties)
+        if (commit && n > 0 && UNIT_VTABLE(u)->bus_commit_properties)
                 UNIT_VTABLE(u)->bus_commit_properties(u);
 
         return n;
@@ -896,5 +905,6 @@ const BusProperty bus_unit_properties[] = {
         { "ConditionResult",      bus_property_append_bool,           "b", offsetof(Unit, condition_result)                   },
         { "LoadError",            bus_unit_append_load_error,      "(ss)", 0 },
         { "ControlGroup",         bus_property_append_string,         "s", offsetof(Unit, cgroup_path),                                true },
+        { "Transient",            bus_property_append_bool,           "b", offsetof(Unit, transient)                          },
         { NULL, }
 };

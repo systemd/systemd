@@ -323,8 +323,6 @@ int bus_cgroup_set_property(
                                 return -EINVAL;
                         }
 
-                        n++;
-
                         if (mode != UNIT_CHECK) {
                                 a = new0(CGroupDeviceAllow, 1);
                                 if (!a)
@@ -343,6 +341,7 @@ int bus_cgroup_set_property(
                                 LIST_PREPEND(CGroupDeviceAllow, device_allow, c->device_allow, a);
                         }
 
+                        n++;
                         dbus_message_iter_next(&sub);
                 }
 

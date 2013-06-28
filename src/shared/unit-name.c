@@ -52,6 +52,7 @@ DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",
+        [UNIT_NOT_FOUND] = "not-found",
         [UNIT_ERROR] = "error",
         [UNIT_MERGED] = "merged",
         [UNIT_MASKED] = "masked"
@@ -403,7 +404,6 @@ char *unit_name_template(const char *f) {
 
         strcpy(mempcpy(r, f, a), e);
         return r;
-
 }
 
 char *unit_name_from_path(const char *path, const char *suffix) {

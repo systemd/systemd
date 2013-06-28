@@ -239,6 +239,13 @@
         "   <arg name=\"name\" type=\"s\" direction=\"out\"/>\n"        \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"StartTransientUnit\">\n"                      \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
+        "   <arg name=\"aux\" type=\"a(sa(sv))\" direction=\"in\"/>\n"  \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"
 
 #define BUS_MANAGER_INTERFACE_SIGNALS                                   \
@@ -1758,13 +1765,73 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
 
-                r = bus_unit_set_properties(u, &iter, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, &error);
+                r = bus_unit_set_properties(u, &iter, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, &error);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
                         goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartTransientUnit")) {
+                const char *name, *smode;
+                DBusMessageIter iter;
+                JobMode mode;
+                UnitType t;
+                Unit *u;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                if (bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true) < 0 ||
+                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &smode, true) < 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                t = unit_name_to_type(name);
+                if (t < 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+                if (!unit_vtable[t]->can_transient) {
+                        dbus_set_error(&error, DBUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.", unit_type_to_string(t));
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                mode = job_mode_from_string(smode);
+                if (mode < 0) {
+                        dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                r = manager_load_unit(m, name, NULL, NULL, &u);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
+
+                if (u->load_state != UNIT_NOT_FOUND || set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0) {
+                        dbus_set_error(&error, BUS_ERROR_UNIT_EXISTS, "Unit %s already exists.", name);
+                        return bus_send_error_reply(connection, message, &error, -EEXIST);
+                }
+
+                /* OK, the unit failed to load and is unreferenced,
+                 * now let's fill in the transient data instead */
+                r = unit_make_transient(u);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                /* Set our properties */
+                r = bus_unit_set_properties(u, &iter, UNIT_RUNTIME, false, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                /* And load this stub fully */
+                r = unit_load(u);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                manager_dispatch_load_queue(m);
+
+                /* Finally, start it */
+                return bus_unit_queue_job(connection, message, u, JOB_START, mode, false);
 
         } else {
                 const BusBoundProperties bps[] = {
