@@ -261,55 +261,51 @@ static int job_send_message(Job *j, DBusMessage* (*new_message)(Job *j)) {
 }
 
 static DBusMessage* new_change_signal_message(Job *j) {
-        DBusMessage *m = NULL;
-        char *p = NULL;
+        _cleanup_free_ char *p = NULL;
+        DBusMessage *m;
 
         p = job_dbus_path(j);
         if (!p)
-                goto oom;
+                return NULL;
 
         if (j->sent_dbus_new_signal) {
                 /* Send a properties changed signal */
                 m = bus_properties_changed_new(p, "org.freedesktop.systemd1.Job", INVALIDATING_PROPERTIES);
                 if (!m)
-                        goto oom;
+                        return NULL;
 
         } else {
                 /* Send a new signal */
 
                 m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobNew");
                 if (!m)
-                        goto oom;
+                        return NULL;
 
                 if (!dbus_message_append_args(m,
                                               DBUS_TYPE_UINT32, &j->id,
                                               DBUS_TYPE_OBJECT_PATH, &p,
                                               DBUS_TYPE_STRING, &j->unit->id,
-                                              DBUS_TYPE_INVALID))
-                        goto oom;
+                                              DBUS_TYPE_INVALID)) {
+                        dbus_message_unref(m);
+                        return NULL;
+                }
         }
 
         return m;
-
-oom:
-        if (m)
-                dbus_message_unref(m);
-        free(p);
-        return NULL;
 }
 
 static DBusMessage* new_removed_signal_message(Job *j) {
-        DBusMessage *m = NULL;
-        char *p = NULL;
+        _cleanup_free_ char *p = NULL;
+        DBusMessage *m;
         const char *r;
 
         p = job_dbus_path(j);
         if (!p)
-                goto oom;
+                return NULL;
 
         m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobRemoved");
         if (!m)
-                goto oom;
+                return NULL;
 
         r = job_result_to_string(j->result);
 
@@ -318,16 +314,12 @@ static DBusMessage* new_removed_signal_message(Job *j) {
                                       DBUS_TYPE_OBJECT_PATH, &p,
                                       DBUS_TYPE_STRING, &j->unit->id,
                                       DBUS_TYPE_STRING, &r,
-                                      DBUS_TYPE_INVALID))
-                goto oom;
+                                      DBUS_TYPE_INVALID)) {
+                dbus_message_unref(m);
+                return NULL;
+        }
 
         return m;
-
-oom:
-        if (m)
-                dbus_message_unref(m);
-        free(p);
-        return NULL;
 }
 
 void bus_job_send_change_signal(Job *j) {
