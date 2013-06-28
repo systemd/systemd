@@ -70,7 +70,8 @@ static int arg_lines = -1;
 static bool arg_no_tail = false;
 static bool arg_quiet = false;
 static bool arg_merge = false;
-static bool arg_this_boot = false;
+static bool arg_boot_id = false;
+static char *arg_boot_id_descriptor = NULL;
 static bool arg_dmesg = false;
 static const char *arg_cursor = NULL;
 static const char *arg_directory = NULL;
@@ -103,6 +104,11 @@ static enum {
         ACTION_UPDATE_CATALOG
 } arg_action = ACTION_SHOW;
 
+typedef struct boot_id_t {
+        sd_id128_t id;
+        uint64_t timestamp;
+} boot_id_t;
+
 static int help(void) {
 
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
@@ -113,8 +119,8 @@ static int help(void) {
                "     --since=DATE        Start showing entries newer or of the specified date\n"
                "     --until=DATE        Stop showing entries older or of the specified date\n"
                "  -c --cursor=CURSOR     Start showing entries from specified cursor\n"
-               "  -b --this-boot         Show data only from current boot\n"
-               "  -k --dmesg             Show kmsg log from current boot\n"
+               "  -b --boot[=ID]         Show data only from ID or current boot if unspecified\n"
+               "  -k --dmesg             Show kernel message log from current boot\n"
                "  -u --unit=UNIT         Show data only from the specified unit\n"
                "     --user-unit=UNIT    Show data only from the specified user session unit\n"
                "  -p --priority=RANGE    Show only messages within the specified priority range\n"
@@ -199,7 +205,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "new-id128",    no_argument,       NULL, ARG_NEW_ID128    },
                 { "quiet",        no_argument,       NULL, 'q'              },
                 { "merge",        no_argument,       NULL, 'm'              },
-                { "this-boot",    no_argument,       NULL, 'b'              },
+                { "boot",         optional_argument, NULL, 'b'              },
+                { "this-boot",    optional_argument, NULL, 'b'              }, /* deprecated */
                 { "dmesg",        no_argument,       NULL, 'k'              },
                 { "system",       no_argument,       NULL, ARG_SYSTEM       },
                 { "user",         no_argument,       NULL, ARG_USER         },
@@ -232,7 +239,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmbkD:p:c:u:F:xr", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:u:F:xr", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -331,11 +338,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'b':
-                        arg_this_boot = true;
+                        if (optarg)
+                                arg_boot_id_descriptor = optarg;
+                        else if (optind < argc && argv[optind][0] != '-') {
+                                arg_boot_id_descriptor = argv[optind];
+                                optind++;
+                        }
+                        arg_boot_id = true;
                         break;
 
                 case 'k':
-                        arg_this_boot = arg_dmesg = true;
+                        arg_boot_id = arg_dmesg = true;
                         break;
 
                 case ARG_SYSTEM:
@@ -630,11 +643,170 @@ static int add_matches(sd_journal *j, char **args) {
         return 0;
 }
 
-static int add_this_boot(sd_journal *j) {
-        if (!arg_this_boot)
+static int boot_id_cmp(const void *a, const void *b) {
+        uint64_t _a, _b;
+
+        _a = ((const boot_id_t *)a)->timestamp;
+        _b = ((const boot_id_t *)b)->timestamp;
+
+        return _a < _b ? -1 : (_a > _b ? 1 : 0);
+}
+
+static int get_relative_boot_id(sd_journal *j, sd_id128_t *boot_id, int relative) {
+        int r;
+        const void *data;
+        unsigned int id_count = 0;
+        size_t length, allocated = 0;
+        boot_id_t ref_boot_id, *id;
+        _cleanup_free_ boot_id_t *all_ids = NULL;
+        bool find_first_boot = false, ref_boot_found = false;
+
+        assert(j);
+        assert(boot_id);
+
+        if (relative == 0)
                 return 0;
 
-        return add_match_this_boot(j);
+        if (sd_id128_equal(*boot_id, SD_ID128_NULL) && relative > 0) {
+                find_first_boot = true;
+                relative--;
+        }
+
+        r = sd_journal_query_unique(j, "_BOOT_ID");
+        if (r < 0)
+                return r;
+
+        SD_JOURNAL_FOREACH_UNIQUE(j, data, length) {
+                if (length < strlen("_BOOT_ID="))
+                        continue;
+
+                if (!GREEDY_REALLOC(all_ids, allocated, id_count + 1))
+                        return log_oom();
+
+                id = &all_ids[id_count];
+
+                r = sd_id128_from_string(((const char *)data) + strlen("_BOOT_ID="), &id->id);
+                if (r < 0) {
+                        continue;
+                }
+
+                sd_journal_flush_matches(j);
+                r = sd_journal_add_match(j, data, length);
+                if (r < 0)
+                        continue;
+
+                r = sd_journal_seek_head(j);
+                if (r < 0)
+                        continue;
+
+                r = sd_journal_next(j);
+                if (r <= 0)
+                        continue;
+
+                r = sd_journal_get_realtime_usec(j, &id->timestamp);
+                if (r < 0)
+                        continue;
+
+                if (!find_first_boot && sd_id128_equal(id->id, *boot_id)) {
+                        ref_boot_id = *id;
+                        ref_boot_found = true;
+                }
+
+                id_count++;
+        }
+
+        *boot_id = SD_ID128_NULL;
+        sd_journal_flush_matches(j);
+
+        if (id_count == 0 || (!find_first_boot && !ref_boot_found))
+                return 0;
+
+        qsort(all_ids, id_count, sizeof(boot_id_t), boot_id_cmp);
+        if (find_first_boot)
+                id = all_ids;
+        else
+                id = bsearch(&ref_boot_id, all_ids, id_count, sizeof(boot_id_t), boot_id_cmp);
+
+        if (!id || (relative < 0 && ((id - all_ids) + relative) < 0) ||
+            (relative >= 0 && (unsigned long)((id - all_ids) + relative) >= id_count))
+                return 0;
+
+        id += relative;
+        *boot_id = id->id;
+        return 0;
+}
+
+static int add_boot(sd_journal *j) {
+        char match[9+32+1] = "_BOOT_ID=";
+        char *marker;
+        sd_id128_t boot_id;
+        int r, relative = 0;
+
+        assert(j);
+
+        if (!arg_boot_id)
+                return 0;
+
+        if (arg_boot_id_descriptor) {
+                marker = strchr(arg_boot_id_descriptor, ':');
+                if (marker) {
+                        *marker = '\0';
+                        marker++;
+
+                        if (*marker == '\0')
+                                relative = -1;
+                        else {
+                                r = safe_atoi(marker, &relative);
+                                if (r < 0) {
+                                        log_error("Failed to parse relative boot ID number '%s'", marker);
+                                        return -EINVAL;
+                                }
+                        }
+                }
+        }
+
+        if (isempty(arg_boot_id_descriptor)) {
+                if (relative > 0) {
+                        /* We cannot look into the future. Instead, we look
+                         * into the past (starting from first boot). The ID
+                         * will be looked up later */
+                        boot_id = SD_ID128_NULL;
+                } else {
+                        r = sd_id128_get_boot(&boot_id);
+                        if (r < 0) {
+                                log_error("Failed to get boot ID: %s", strerror(-r));
+                                return r;
+                        }
+                }
+        } else {
+                r = sd_id128_from_string(arg_boot_id_descriptor, &boot_id);
+                if (r < 0) {
+                        log_error("Failed to parse boot ID: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        r = get_relative_boot_id(j, &boot_id, relative);
+        if (r < 0) {
+                log_error("Failed to look up boot ID: %s", strerror(-r));
+                return r;
+        } else if (sd_id128_equal(boot_id, SD_ID128_NULL)) {
+                log_error("Failed to find boot ID");
+                return -1;
+        }
+
+        sd_id128_to_string(boot_id, match + 9);
+        r = sd_journal_add_match(j, match, strlen(match));
+        if (r < 0) {
+                log_error("Failed to add match: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int add_dmesg(sd_journal *j) {
@@ -1195,7 +1367,9 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        r = add_this_boot(j);
+        /* add_boot() must be called first!
+         * It may need to seek the journal to find parent boot IDs. */
+        r = add_boot(j);
         if (r < 0)
                 return EXIT_FAILURE;
 

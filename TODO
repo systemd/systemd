@@ -356,7 +356,6 @@ Features:
   - journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
   - journal: find a way to allow dropping history early, based on priority, other rules
   - journal: When used on NFS, check payload hashes
-  - Introduce journalctl -b <nr> to show journal messages of a previous boot
   - journald: check whether it is OK if the client can still modify delivered journal entries
   - journal live copy, based on libneon (client) and libmicrohttpd (server)
   - journald: add kernel cmdline option to disable ratelimiting for debug purposes
