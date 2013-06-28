@@ -28,6 +28,8 @@ Fedora 19:
 
 Features:
 
+* transient units: allow creating auxiliary units with the same call
+
 * make BlockIODeviceWeight=, BlockIODeviceBandwidth= runtime settable
 
 * split up BlockIOWeight= and BlockIODeviceWeight=
@@ -43,9 +45,6 @@ Features:
 * handle jointly mounted controllers correctly
 
 * split out CreateMachine into systemd-machined
-
-* "transient" units, i.e units that are not sourced from disk but
-  created only transiently via bus calls
 
 * introduce new Scope unit type then make logind's session and machine
   registration use this to set up cgroups
