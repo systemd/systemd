@@ -729,6 +729,8 @@ int is_kernel_thread(pid_t pid) {
 
 int get_process_exe(pid_t pid, char **name) {
         const char *p;
+        char *d;
+        int r;
 
         assert(pid >= 0);
         assert(name);
@@ -738,7 +740,15 @@ int get_process_exe(pid_t pid, char **name) {
         else
                 p = procfs_file_alloca(pid, "exe");
 
-        return readlink_malloc(p, name);
+        r = readlink_malloc(p, name);
+        if (r < 0)
+                return r;
+
+        d = endswith(*name, " (deleted)");
+        if (d)
+                *d = '\0';
+
+        return 0;
 }
 
 static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
