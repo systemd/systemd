@@ -249,8 +249,8 @@
                                 will be considered failed and be shut
                                 down again. All commands still running
                                 will be terminated forcibly via
-                                SIGTERM, and after another delay of
-                                this time with SIGKILL. (See
+                                <constant>SIGTERM</constant>, and after another delay of
+                                this time with <constant>SIGKILL</constant>. (See
                                 <option>KillMode=</option> in
                                 <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.)
                                 Takes a unit-less value in seconds, or

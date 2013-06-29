@@ -326,15 +326,16 @@
                                 <para>The argument passed should be an
                                 absolute filename or wildcard
                                 expression, optionally prefixed with
-                                "-", which indicates that if the file
-                                does not exist it won't be read and no
-                                error or warning message is logged.
-                                This option may be specified more than
-                                once in which case all specified files
-                                are read. If the empty string is
-                                assigned to this option the list of
-                                file to read is reset, all prior
-                                assignments have no effect.</para>
+                                <literal>-</literal>, which indicates
+                                that if the file does not exist it
+                                won't be read and no error or warning
+                                message is logged.  This option may be
+                                specified more than once in which case
+                                all specified files are read. If the
+                                empty string is assigned to this
+                                option the list of file to read is
+                                reset, all prior assignments have no
+                                effect.</para>
 
                                 <para>The files listed with this
                                 directive will be read shortly before
@@ -1184,10 +1185,10 @@
                                 <term><varname>IgnoreSIGPIPE=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true, causes SIGPIPE to be
+                                argument. If true, causes <constant>SIGPIPE</constant> to be
                                 ignored in the executed
                                 process. Defaults to true because
-                                SIGPIPE generally is useful only in
+                                <constant>SIGPIPE</constant> generally is useful only in
                                 shell pipelines.</para></listitem>
                         </varlistentry>
 

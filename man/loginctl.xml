@@ -158,9 +158,11 @@
                                 which signal to send to selected
                                 processes. Must be one of the well
                                 known signal specifiers, such as
-                                SIGTERM, SIGINT or SIGSTOP. If omitted,
-                                defaults to
-                                <option>SIGTERM</option>.</para></listitem>
+                                <constant>SIGTERM</constant>,
+                                <constant>SIGINT</constant> or
+                                <constant>SIGSTOP</constant>. If
+                                omitted defaults to
+                                <constant>SIGTERM</constant>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -169,7 +171,7 @@
 
                                 <listitem><para>Execute operation
                                 remotely. Specify a hostname, or
-                                username and hostname separated by @,
+                                username and hostname separated by <literal>@</literal>,
                                 to connect to. This will use SSH to
                                 talk to the remote login manager
                                 instance.</para></listitem>
@@ -415,12 +417,14 @@
                                 attach at least one graphics card to a
                                 previously unused seat name. Seat
                                 names may consist only of a-z, A-Z,
-                                0-9, "-" and "_" and must be prefixed
-                                with "seat". To drop assignment of a
-                                device to a specific seat, just
-                                reassign it to a different seat, or
-                                use
-                                <command>flush-devices</command>.</para></listitem>
+                                0-9, <literal>-</literal> and
+                                <literal>_</literal> and must be
+                                prefixed with <literal>seat</literal>.
+                                To drop assignment of a device to a
+                                specific seat, just reassign it to a
+                                different seat, or use
+                                <command>flush-devices</command>.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>

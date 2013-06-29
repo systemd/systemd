@@ -156,16 +156,18 @@
                                 can be written in various formats:</para>
 
                                 <para>If the address starts with a
-                                slash (/), it is read as file system
+                                slash (<literal>/</literal>), it is read as file system
                                 socket in the <constant>AF_UNIX</constant> socket
                                 family.</para>
 
-                                <para>If the address starts with an
-                                at symbol (@) it is read as abstract
-                                namespace socket in the <constant>AF_UNIX</constant>
-                                family. The @ is replaced with a NUL
-                                character before binding. For details
-                                see
+                                <para>If the address starts with an at
+                                symbol (<literal>@</literal>) it is read as abstract
+                                namespace socket in the
+                                <constant>AF_UNIX</constant>
+                                family. The <literal>@</literal> is
+                                replaced with a
+                                <constant>NUL</constant> character
+                                before binding. For details see
                                 <citerefentry><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                                 <para>If the address string is a
@@ -657,8 +659,8 @@
                                 will be considered failed and be shut
                                 down again. All commands still running,
                                 will be terminated forcibly via
-                                SIGTERM, and after another delay of
-                                this time with SIGKILL. (See
+                                <constant>SIGTERM</constant>, and after another delay of
+                                this time with <constant>SIGKILL</constant>. (See
                                 <option>KillMode=</option> in <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.)
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min

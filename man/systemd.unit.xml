@@ -214,9 +214,9 @@
                 systemd looks for a unit configuration file it will
                 first search for the literal unit name in the
                 filesystem. If that yields no success and the unit
-                name contains an @ character, systemd will look for a
+                name contains an <literal>@</literal> character, systemd will look for a
                 unit template that shares the same name but with the
-                instance string (i.e. the part between the @ character
+                instance string (i.e. the part between the <literal>@</literal> character
                 and the suffix) removed. Example: if a service
                 <filename>getty@tty3.service</filename> is requested
                 and no file by that name is found, systemd will look
@@ -1198,7 +1198,7 @@
                       <row>
                         <entry><literal>%i</literal></entry>
                         <entry>Instance name</entry>
-                        <entry>For instantiated units: this is the string between the @ character and the suffix.</entry>
+                        <entry>For instantiated units: this is the string between the <literal>@</literal> character and the suffix.</entry>
                       </row>
                       <row>
                         <entry><literal>%I</literal></entry>

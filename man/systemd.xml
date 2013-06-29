@@ -643,7 +643,7 @@
 
                                 <para>systemd user managers
                                 treat this signal the same way as
-                                SIGTERM.</para></listitem>
+                                <constant>SIGTERM</constant>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

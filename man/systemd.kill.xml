@@ -115,14 +115,14 @@
                                 <option>control-group</option>.</para>
 
                                 <para>Processes will first be
-                                terminated via SIGTERM (unless the
+                                terminated via <constant>SIGTERM</constant> (unless the
                                 signal to send is changed via
                                 <varname>KillSignal=</varname>). If
                                 then after a delay (configured via the
                                 <varname>TimeoutSec=</varname> option)
                                 processes still remain, the
                                 termination request is repeated with
-                                the SIGKILL signal (unless this is
+                                the <constant>SIGKILL</constant> signal (unless this is
                                 disabled via the
                                 <varname>SendSIGKILL=</varname>
                                 option). See
@@ -135,14 +135,14 @@
                                 <term><varname>KillSignal=</varname></term>
                                 <listitem><para>Specifies which signal
                                 to use when killing a
-                                service. Defaults to SIGTERM.
+                                service. Defaults to <constant>SIGTERM</constant>.
                                 </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>SendSIGKILL=</varname></term>
                                 <listitem><para>Specifies whether to
-                                send SIGKILL to remaining processes
+                                send <constant>SIGKILL</constant> to remaining processes
                                 after a timeout, if the normal
                                 shutdown procedure left processes of
                                 the service around. Takes a boolean

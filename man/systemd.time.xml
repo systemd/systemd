@@ -214,23 +214,24 @@
                 specified, it should consist of one or more English
                 language weekday names, either in the abbreviated
                 (Wed) or non-abbreviated (Wednesday) form (case does
-                not matter), separated by commas. Specifying two weekdays
-                separated by "-" refers to a range of continuous
-                weekdays. "," and "-" may be combined freely.</para>
+                not matter), separated by commas. Specifying two
+                weekdays separated by <literal>-</literal> refers to a
+                range of continuous weekdays. <literal>,</literal> and
+                <literal>-</literal> may be combined freely.</para>
 
                 <para>In the date and time specifications, any
-                component may be specified as "*" in which case any
-                value will match. Alternatively, each component can be
-                specified as list of values separated by
-                commas. Values may also be suffixed with "/" and a
-                repetition value, which indicates that the value and
-                all values plus multiples of the repetition value are
-                matched.</para>
+                component may be specified as <literal>*</literal> in
+                which case any value will match. Alternatively, each
+                component can be specified as list of values separated
+                by commas. Values may also be suffixed with
+                <literal>/</literal> and a repetition value, which
+                indicates that the value and all values plus multiples
+                of the repetition value are matched.</para>
 
                 <para>Either time or date specification may be
                 omitted, in which case the current day and 00:00:00 is
                 implied, respectively. If the second component is not
-                specified ":00" is assumed.</para>
+                specified <literal>:00</literal> is assumed.</para>
 
                 <para>Timezone names may not be specified.</para>
 

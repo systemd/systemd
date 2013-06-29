@@ -92,7 +92,7 @@
                                 best done by iterating through the
                                 available signals up to the limit of
                                 _NSIG and resetting them to
-                                SIG_DFL.</para></listitem>
+                                <constant>SIG_DFL</constant>.</para></listitem>
 
                                 <listitem><para>Reset the signal mask
                                 using
@@ -237,11 +237,11 @@
                         to implement the following:</para>
 
                         <orderedlist>
-                                <listitem><para>If SIGTERM is
+                                <listitem><para>If <constant>SIGTERM</constant> is
                                 received, shut down the daemon and
                                 exit cleanly.</para></listitem>
 
-                                <listitem><para>If SIGHUP is received,
+                                <listitem><para>If <constant>SIGHUP</constant> is received,
                                 reload the configuration files, if
                                 this applies.</para></listitem>
 

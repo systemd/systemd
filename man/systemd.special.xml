@@ -1007,7 +1007,7 @@
                                         terminate the user service
                                         manager should start this
                                         unit. If systemd receives
-                                        SIGTERM or SIGINT when running
+                                        <constant>SIGTERM</constant> or <constant>SIGINT</constant> when running
                                         as user service daemon it will
                                         start this unit.</para>
 

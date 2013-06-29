@@ -220,7 +220,7 @@
                 <constant>AF_UNIX</constant> socket referenced in the
                 <varname>$NOTIFY_SOCKET</varname> environment
                 variable. If the first character of
-                <varname>$NOTIFY_SOCKET</varname> is @ the string is
+                <varname>$NOTIFY_SOCKET</varname> is <literal>@</literal> the string is
                 understood as Linux abstract namespace socket. The
                 datagram is accompanied by the process credentials of
                 the sending daemon, using SCM_CREDENTIALS.</para>

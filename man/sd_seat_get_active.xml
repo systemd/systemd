@@ -93,9 +93,10 @@
                 a seat, if there is any. Returns the session
                 identifier and the user identifier of the Unix user
                 the session is belonging to. Either the session or the
-                user identifier parameter can be passed NULL, in
-                case only one of the parameters shall be queried. The
-                returned string needs to be freed with the libc
+                user identifier parameter can be passed
+                <constant>NULL</constant>, in case only one of the
+                parameters shall be queried. The returned string needs
+                to be freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 

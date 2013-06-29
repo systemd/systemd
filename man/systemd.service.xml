@@ -529,9 +529,9 @@
                                 wait for stop. If a service is asked
                                 to stop but does not terminate in the
                                 specified time, it will be terminated
-                                forcibly via SIGTERM, and after
+                                forcibly via <constant>SIGTERM</constant>, and after
                                 another delay of this time with
-                                SIGKILL (See
+                                <constant>SIGKILL</constant> (See
                                 <varname>KillMode=</varname>
                                 in <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
                                 Takes a unit-less value in seconds, or a
@@ -620,7 +620,7 @@
                                 exits cleanly.
                                 In this context, a clean exit means
                                 an exit code of 0, or one of the signals
-                                SIGHUP, SIGINT, SIGTERM, or SIGPIPE, and
+                                <constant>SIGHUP</constant>, <constant>SIGINT</constant>, <constant>SIGTERM</constant>, or <constant>SIGPIPE</constant>, and
                                 additionally, exit statuses and signals
                                 specified in <varname>SuccessExitStatus=</varname>.
                                 If set to <option>on-failure</option>
@@ -657,15 +657,15 @@
                                 by the main service process will be
                                 considered successful termination, in
                                 addition to the normal successful exit
-                                code 0 and the signals SIGHUP, SIGINT,
-                                SIGTERM and SIGPIPE. Exit status
+                                code 0 and the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
+                                <constant>SIGTERM</constant> and <constant>SIGPIPE</constant>. Exit status
                                 definitions can either be numeric exit
                                 codes or termination signal names,
                                 separated by spaces. Example:
                                 <literal>SuccessExitStatus=1 2 8
-                                SIGKILL</literal>, ensures that exit
+                                <constant>SIGKILL</constant></literal>, ensures that exit
                                 codes 1, 2, 8 and the termination
-                                signal SIGKILL are considered clean
+                                signal <constant>SIGKILL</constant> are considered clean
                                 service terminations. This option may
                                 appear more than once in which case
                                 the list of successful exit statuses

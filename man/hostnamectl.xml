@@ -129,7 +129,7 @@
 
                                 <listitem><para>Execute the operation
                                 remotely. Specify a hostname, or
-                                username and hostname separated by @,
+                                username and hostname separated by <literal>@</literal>,
                                 to connect to. This will use SSH to
                                 talk to a remote
                                 system.</para></listitem>
@@ -178,20 +178,21 @@
                                 hostname will be simplified in regards
                                 to the character set used before the
                                 latter are updated. This is done by
-                                replacing spaces with "-" and removing
+                                replacing spaces with
+                                <literal>-</literal> and removing
                                 special characters. This ensures that
                                 the pretty and the static hostname are
                                 always closely related while still
                                 following the validity rules of the
                                 specific name. This simplification of
                                 the hostname string is not done if
-                                only the transient and/or static
-                                hostnames are set, and the pretty
-                                hostname is left untouched. Pass the
-                                empty string "" as the hostname to
-                                reset the selected hostnames to their
-                                default (usually "localhost").
-                                </para></listitem>
+                                only the transient and/or static host
+                                names are set, and the pretty host
+                                name is left untouched. Pass the empty
+                                string <literal></literal> as the
+                                hostname to reset the selected
+                                hostnames to their default (usually
+                                <literal>localhost</literal>).</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
