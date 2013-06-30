@@ -38,7 +38,8 @@
         "  <property name=\"PIDFile\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"NotifyAccess\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RestartUSec\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"TimeoutStartUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"TimeoutStopUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"WatchdogUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"WatchdogTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"WatchdogTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
@@ -110,7 +111,7 @@ static const BusProperty bus_exec_main_status_properties[] = {
         { "ExecMainPID",                    bus_property_append_pid,  "u", offsetof(ExecStatus, pid)                       },
         { "ExecMainCode",                   bus_property_append_int,  "i", offsetof(ExecStatus, code)                      },
         { "ExecMainStatus",                 bus_property_append_int,  "i", offsetof(ExecStatus, status)                    },
-        { NULL, }
+        {}
 };
 
 static const BusProperty bus_service_properties[] = {
@@ -119,7 +120,6 @@ static const BusProperty bus_service_properties[] = {
         { "PIDFile",                bus_property_append_string,       "s", offsetof(Service, pid_file),               true },
         { "NotifyAccess",           bus_service_append_notify_access, "s", offsetof(Service, notify_access)                },
         { "RestartUSec",            bus_property_append_usec,         "t", offsetof(Service, restart_usec)                 },
-        { "TimeoutUSec",            bus_property_append_usec,         "t", offsetof(Service, timeout_start_usec)           },
         { "TimeoutStartUSec",       bus_property_append_usec,         "t", offsetof(Service, timeout_start_usec)           },
         { "TimeoutStopUSec",        bus_property_append_usec,         "t", offsetof(Service, timeout_stop_usec)            },
         { "WatchdogUSec",           bus_property_append_usec,         "t", offsetof(Service, watchdog_usec)                },
@@ -143,7 +143,7 @@ static const BusProperty bus_service_properties[] = {
         { "BusName",                bus_property_append_string,       "s", offsetof(Service, bus_name),               true },
         { "StatusText",             bus_property_append_string,       "s", offsetof(Service, status_text),            true },
         { "Result",                 bus_service_append_service_result,"s", offsetof(Service, result)                       },
-        { NULL, }
+        {}
 };
 
 DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connection, DBusMessage *message) {
@@ -156,7 +156,7 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 { "org.freedesktop.systemd1.Service", bus_kill_context_properties,     &s->kill_context },
                 { "org.freedesktop.systemd1.Service", bus_cgroup_context_properties,   &s->cgroup_context },
                 { "org.freedesktop.systemd1.Service", bus_exec_main_status_properties, &s->main_exec_status },
-                { NULL, }
+                {}
         };
 
         SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
