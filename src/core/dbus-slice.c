@@ -29,6 +29,7 @@
 
 #define BUS_SLICE_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Slice\">\n"        \
+        BUS_CGROUP_CONTEXT_INTERFACE                                    \
         " </interface>\n"
 
 #define INTROSPECTION                                                   \

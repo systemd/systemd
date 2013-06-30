@@ -41,6 +41,7 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecRemount")                       \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
+        BUS_CGROUP_CONTEXT_INTERFACE                                    \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \

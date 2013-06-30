@@ -40,6 +40,7 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
+        BUS_CGROUP_CONTEXT_INTERFACE                                    \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"BindToDevice\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \

@@ -54,6 +54,7 @@
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
+        BUS_CGROUP_CONTEXT_INTERFACE                                    \
         "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RemainAfterExit\" type=\"b\" access=\"read\"/>\n" \

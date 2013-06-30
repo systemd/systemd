@@ -27,7 +27,7 @@
 #include "dbus-common.h"
 #include "cgroup.h"
 
-#define BUS_CGROUP_CONTEXT_INTERFACE \
+#define BUS_CGROUP_CONTEXT_INTERFACE                                    \
         "  <property name=\"CPUAccounting\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"CPUShares\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"BlockIOAccounting\" type=\"b\" access=\"read\"/>\n" \
