@@ -733,8 +733,12 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
                 return 0;
 
         u = manager_get_unit_by_cgroup(m, cgroup);
-        if (u && UNIT_VTABLE(u)->notify_cgroup_empty)
-                UNIT_VTABLE(u)->notify_cgroup_empty(u);
+        if (u) {
+                if (UNIT_VTABLE(u)->notify_cgroup_empty)
+                        UNIT_VTABLE(u)->notify_cgroup_empty(u);
+
+                unit_add_to_gc_queue(u);
+        }
 
         return 0;
 }
