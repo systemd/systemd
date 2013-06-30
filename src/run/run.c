@@ -20,21 +20,103 @@
 ***/
 
 #include <stdio.h>
+#include <getopt.h>
 
 #include "sd-bus.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "strv.h"
+#include "build.h"
+#include "unit-name.h"
 
-static int start_transient_service(
-                sd_bus *bus,
-                const char *name,
-                char **argv,
-                sd_bus_error *error) {
+static bool arg_scope = false;
+static bool arg_user = false;
+static const char *arg_unit = NULL;
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
-        char **i;
+static int help(void) {
+
+        printf("%s [OPTIONS...] [COMMAND LINE...]\n\n"
+               "Notify the init system about service status updates.\n\n"
+               "  -h --help             Show this help\n"
+               "     --version          Show package version\n"
+               "     --user             Run as user unit\n"
+               "     --scope            Run this as scope rather than service\n"
+               "     --unit=UNIT        Run under the specified unit name\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_VERSION = 0x100,
+                ARG_USER,
+                ARG_SCOPE,
+                ARG_UNIT
+        };
+
+        static const struct option options[] = {
+                { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
+                { "user",      no_argument,       NULL, ARG_USER      },
+                { "scope",     no_argument,       NULL, ARG_SCOPE     },
+                { "unit",      required_argument, NULL, ARG_UNIT      },
+                { NULL,        0,                 NULL, 0             }
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "+h", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'h':
+                        help();
+                        return 0;
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
+                        return 0;
+
+                case ARG_USER:
+                        arg_user = true;
+                        break;
+
+                case ARG_SCOPE:
+                        arg_scope = true;
+                        break;
+
+                case ARG_UNIT:
+                        arg_unit = optarg;
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        if (optind >= argc) {
+                log_error("Command line to execute required.");
+                return -EINVAL;
+        }
+
+        return 1;
+}
+
+static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bus_message **ret) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
+
+        log_info("Running as unit %s.", name);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -54,6 +136,47 @@ static int start_transient_service(
                 return r;
 
         r = sd_bus_message_open_container(m, 'r', "sv");
+        if (r < 0)
+                return r;
+
+        *ret = m;
+        m = NULL;
+
+        return 0;
+}
+
+static int message_start_transient_unit_send(sd_bus *bus, sd_bus_message *m, sd_bus_error *error, sd_bus_message **reply) {
+        int r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send_with_reply_and_block(bus, m, 0, error, reply);
+}
+
+static int start_transient_service(
+                sd_bus *bus,
+                char **argv,
+                sd_bus_error *error) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_free_ char *name = NULL;
+        char **i;
+        int r;
+
+        if (arg_unit)
+                name = unit_name_mangle_with_suffix(arg_unit, ".service");
+        else
+                asprintf(&name, "run-%lu.service", (unsigned long) getpid());
+        if (!name)
+                return -ENOMEM;
+
+        r = message_start_transient_unit_new(bus, name, &m);
         if (r < 0)
                 return r;
 
@@ -107,46 +230,69 @@ static int start_transient_service(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_close_container(m);
+        return  message_start_transient_unit_send(bus, m, error, &reply);
+}
+
+static int start_transient_scope(
+                sd_bus *bus,
+                char **argv,
+                sd_bus_error *error) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        if (arg_unit)
+                name = unit_name_mangle_with_suffix(arg_unit, ".scope");
+        else
+                asprintf(&name, "run-%lu.scope", (unsigned long) getpid());
+        if (!name)
+                return -ENOMEM;
+
+        r = message_start_transient_unit_new(bus, name, &m);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_close_container(m);
+        r = sd_bus_message_append(m, "sv", "PIDs", "au", 1, (uint32_t) getpid());
         if (r < 0)
                 return r;
 
-        return sd_bus_send_with_reply_and_block(bus, m, 0, error, &reply);
+        r = message_start_transient_unit_send(bus, m, error, &reply);
+        if (r < 0)
+                return r;
+
+        execvp(argv[0], argv);
+        log_error("Failed to execute: %m");
+        return -errno;
 }
 
 int main(int argc, char* argv[]) {
         sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
-        _cleanup_free_ char *name = NULL;
         int r;
 
         log_parse_environment();
         log_open();
 
-        if (argc < 2) {
-                log_error("Missing command line.");
-                r = -EINVAL;
+        r = parse_argv(argc, argv);
+        if (r <= 0)
                 goto fail;
-        }
 
-        r = sd_bus_open_user(&bus);
+        if (arg_user)
+                r = sd_bus_open_user(&bus);
+        else
+                r = sd_bus_open_system(&bus);
         if (r < 0) {
-                log_error("Failed to create new bus: %s", strerror(-r));
+                log_error("Failed to create new bus connection: %s", strerror(-r));
                 goto fail;
         }
 
-        if (asprintf(&name, "run-%lu.service", (unsigned long) getpid()) < 0) {
-                r = log_oom();
-                goto fail;
-        }
-
-        r = start_transient_service(bus, name, argv + 1, &error);
+        if (arg_scope)
+                r = start_transient_scope(bus, argv + optind, &error);
+        else
+                r = start_transient_service(bus, argv + optind, &error);
         if (r < 0) {
-                log_error("Failed start transient service: %s", error.message);
+                log_error("Failed start transient unit: %s", error.message);
                 sd_bus_error_free(&error);
                 goto fail;
         }

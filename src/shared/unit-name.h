@@ -42,6 +42,7 @@ enum UnitType {
         UNIT_SWAP,
         UNIT_PATH,
         UNIT_SLICE,
+        UNIT_SCOPE,
         _UNIT_TYPE_MAX,
         _UNIT_TYPE_INVALID = -1
 };

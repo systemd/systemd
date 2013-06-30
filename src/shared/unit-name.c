@@ -44,7 +44,8 @@ static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_TIMER] = "timer",
         [UNIT_SWAP] = "swap",
         [UNIT_PATH] = "path",
-        [UNIT_SLICE] = "slice"
+        [UNIT_SLICE] = "slice",
+        [UNIT_SCOPE] = "scope"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);

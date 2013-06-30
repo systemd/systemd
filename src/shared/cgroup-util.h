@@ -127,6 +127,7 @@ int cg_slice_to_path(const char *unit, char **ret);
 
 int cg_create_with_mask(CGroupControllerMask mask, const char *path);
 int cg_attach_with_mask(CGroupControllerMask mask, const char *path, pid_t pid);
+int cg_attach_many_with_mask(CGroupControllerMask mask, const char *path, Set* pids);
 int cg_migrate_with_mask(CGroupControllerMask mask, const char *from, const char *to);
 int cg_trim_with_mask(CGroupControllerMask mask, const char *path, bool delete_root);
 

@@ -157,7 +157,8 @@ int main(int argc, char* argv[]) {
         log_parse_environment();
         log_open();
 
-        if ((r = parse_argv(argc, argv)) <= 0) {
+        r = parse_argv(argc, argv);
+        if (r <= 0) {
                 retval = r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
                 goto finish;
         }

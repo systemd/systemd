@@ -280,6 +280,7 @@ typedef enum UnitSetPropertiesMode {
 #include "swap.h"
 #include "path.h"
 #include "slice.h"
+#include "scope.h"
 
 struct UnitVTable {
         /* How much memory does an object of this unit type need */
@@ -462,6 +463,7 @@ DEFINE_CAST(SNAPSHOT, Snapshot);
 DEFINE_CAST(SWAP, Swap);
 DEFINE_CAST(PATH, Path);
 DEFINE_CAST(SLICE, Slice);
+DEFINE_CAST(SCOPE, Scope);
 
 Unit *unit_new(Manager *m, size_t size);
 void unit_free(Unit *u);

@@ -850,6 +850,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/path.h \
 	src/core/slice.c \
 	src/core/slice.h \
+	src/core/scope.c \
+	src/core/scope.h \
 	src/core/load-dropin.c \
 	src/core/load-dropin.h \
 	src/core/execute.c \
@@ -886,6 +888,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/dbus-path.h \
 	src/core/dbus-slice.c \
 	src/core/dbus-slice.h \
+	src/core/dbus-scope.c \
+	src/core/dbus-scope.h \
 	src/core/dbus-execute.c \
 	src/core/dbus-execute.h \
 	src/core/dbus-kill.c \

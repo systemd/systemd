@@ -28,6 +28,8 @@ Fedora 19:
 
 Features:
 
+* service_coldplug() appears to reinstall the wrong stop timeout watch?
+
 * transient units: allow creating auxiliary units with the same call
 
 * make BlockIODeviceWeight=, BlockIODeviceBandwidth= runtime settable

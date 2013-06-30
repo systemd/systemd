@@ -1679,6 +1679,23 @@ int cg_attach_with_mask(CGroupControllerMask mask, const char *path, pid_t pid) 
         return r;
 }
 
+int cg_attach_many_with_mask(CGroupControllerMask mask, const char *path, Set* pids) {
+        Iterator i;
+        void *pidp;
+        int r = 0;
+
+        SET_FOREACH(pidp, pids, i) {
+                pid_t pid = PTR_TO_LONG(pidp);
+                int k;
+
+                k = cg_attach_with_mask(mask, path, pid);
+                if (k < 0)
+                        r = k;
+        }
+
+        return r;
+}
+
 int cg_migrate_with_mask(CGroupControllerMask mask, const char *from, const char *to) {
         CGroupControllerMask bit = 1;
         const char *n;

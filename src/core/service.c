@@ -1617,6 +1617,7 @@ static int service_coldplug(Unit *u) {
                     s->deserialized_state == SERVICE_FINAL_SIGTERM ||
                     s->deserialized_state == SERVICE_FINAL_SIGKILL ||
                     s->deserialized_state == SERVICE_AUTO_RESTART) {
+
                         if (s->deserialized_state == SERVICE_AUTO_RESTART || s->timeout_start_usec > 0) {
                                 usec_t k;
 
@@ -2144,7 +2145,6 @@ static void service_kill_control_processes(Service *s) {
                 return;
 
         p = strappenda(UNIT(s)->cgroup_path, "/control");
-
         cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, p, SIGKILL, true, true, true, NULL);
 }
 
@@ -3322,8 +3322,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 
         assert(u);
 
-        log_debug_unit(u->id,
-                       "%s: cgroup is empty", u->id);
+        log_debug_unit(u->id, "%s: cgroup is empty", u->id);
 
         switch (s->state) {
 
