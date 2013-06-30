@@ -435,8 +435,12 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         }
 }
 
-static int get_unit_list(DBusConnection *bus, DBusMessage **reply,
-                         struct unit_info **unit_infos, unsigned *c) {
+static int get_unit_list(
+                DBusConnection *bus,
+                DBusMessage **reply,
+                struct unit_info **unit_infos,
+                unsigned *c) {
+
         DBusMessageIter iter, sub;
         size_t size = 0;
         int r;
@@ -498,9 +502,11 @@ static int list_units(DBusConnection *bus, char **args) {
         return 0;
 }
 
-static int get_triggered_units(DBusConnection *bus, const char* unit_path,
-                               char*** triggered)
-{
+static int get_triggered_units(
+                DBusConnection *bus,
+                const char* unit_path,
+                char*** triggered) {
+
         const char *interface = "org.freedesktop.systemd1.Unit",
                    *triggers_property = "Triggers";
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
@@ -2779,7 +2785,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("   Status: \"%s\"\n", i->status_text);
 
         if (i->control_group &&
-            (i->main_pid > 0 || i->control_pid > 0 || cg_is_empty_by_spec(i->control_group, false) == 0)) {
+            (i->main_pid > 0 || i->control_pid > 0 || cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, i->control_group, false) == 0)) {
                 unsigned c;
 
                 printf("   CGroup: %s\n", i->control_group);
@@ -2801,7 +2807,7 @@ static void print_status_info(UnitStatusInfo *i) {
                         if (i->control_pid > 0)
                                 extra[k++] = i->control_pid;
 
-                        show_cgroup_and_extra_by_spec(i->control_group, prefix,
+                        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix,
                                                       c, false, extra, k, flags);
                 }
         }
@@ -2911,8 +2917,12 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         else if (streq(name, "SourcePath"))
                                 i->source_path = s;
 #ifndef LEGACY
-                        else if (streq(name, "DefaultControlGroup"))
-                                i->control_group = s;
+                        else if (streq(name, "DefaultControlGroup")) {
+                                const char *e;
+                                e = startswith(s, SYSTEMD_CGROUP_CONTROLLER ":");
+                                if (e)
+                                        i->control_group = e;
+                        }
 #endif
                         else if (streq(name, "ControlGroup"))
                                 i->control_group = s;
@@ -3252,30 +3262,6 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                                base,
                                                format_timespan(timespan1, sizeof(timespan1), value, 0),
                                                format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
-                                }
-
-                                dbus_message_iter_next(&sub);
-                        }
-
-                        return 0;
-
-                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "ControlGroupAttributes")) {
-                        DBusMessageIter sub, sub2;
-
-                        dbus_message_iter_recurse(iter, &sub);
-                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
-                                const char *controller, *attr, *value;
-
-                                dbus_message_iter_recurse(&sub, &sub2);
-
-                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &controller, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &attr, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &value, false) >= 0) {
-
-                                        printf("ControlGroupAttributes={ controller=%s ; attribute=%s ; value=\"%s\" }\n",
-                                               controller,
-                                               attr,
-                                               value);
                                 }
 
                                 dbus_message_iter_next(&sub);
