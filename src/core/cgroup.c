@@ -389,6 +389,10 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         if (!path)
                 return -ENOMEM;
 
+        r = hashmap_put(u->manager->cgroup_unit, path, u);
+        if (r < 0)
+                return r;
+
         /* First, create our own group */
         r = cg_create_with_mask(mask, path);
         if (r < 0)
@@ -410,7 +414,7 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         return 0;
 }
 
-static void unit_realize_cgroup_now(Unit *u) {
+static int unit_realize_cgroup_now(Unit *u) {
         CGroupControllerMask mask;
 
         assert(u);
@@ -425,14 +429,14 @@ static void unit_realize_cgroup_now(Unit *u) {
 
         if (u->cgroup_realized &&
             u->cgroup_mask == mask)
-                return;
+                return 0;
 
         /* First, realize parents */
         if (UNIT_ISSET(u->slice))
                 unit_realize_cgroup_now(UNIT_DEREF(u->slice));
 
         /* And then do the real work */
-        unit_create_cgroups(u, mask);
+        return unit_create_cgroups(u, mask);
 }
 
 static void unit_add_to_cgroup_queue(Unit *u) {
@@ -451,8 +455,9 @@ unsigned manager_dispatch_cgroup_queue(Manager *m) {
         while ((i = m->cgroup_queue)) {
                 assert(i->in_cgroup_queue);
 
-                unit_realize_cgroup_now(i);
-                cgroup_context_apply(unit_get_cgroup_context(i), i->cgroup_mask, i->cgroup_path);
+                if (unit_realize_cgroup_now(i) >= 0)
+                        cgroup_context_apply(unit_get_cgroup_context(i), i->cgroup_mask, i->cgroup_path);
+
                 n++;
         }
 
@@ -484,14 +489,15 @@ static void unit_queue_siblings(Unit *u) {
         }
 }
 
-void unit_realize_cgroup(Unit *u) {
+int unit_realize_cgroup(Unit *u) {
         CGroupContext *c;
+        int r;
 
         assert(u);
 
         c = unit_get_cgroup_context(u);
         if (!c)
-                return;
+                return 0;
 
         /* So, here's the deal: when realizing the cgroups for this
          * unit, we need to first create all parents, but there's more
@@ -508,10 +514,13 @@ void unit_realize_cgroup(Unit *u) {
         unit_queue_siblings(u);
 
         /* And realize this one now */
-        unit_realize_cgroup_now(u);
+        r = unit_realize_cgroup_now(u);
 
         /* And apply the values */
-        cgroup_context_apply(c, u->cgroup_mask, u->cgroup_path);
+        if (r >= 0)
+                cgroup_context_apply(c, u->cgroup_mask, u->cgroup_path);
+
+        return r;
 }
 
 void unit_destroy_cgroup(Unit *u) {
@@ -526,10 +535,13 @@ void unit_destroy_cgroup(Unit *u) {
         if (r < 0)
                 log_error("Failed to destroy cgroup %s: %s", u->cgroup_path, strerror(-r));
 
+        hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
+
         free(u->cgroup_path);
         u->cgroup_path = NULL;
         u->cgroup_realized = false;
         u->cgroup_mask = 0;
+
 }
 
 pid_t unit_search_main_pid(Unit *u) {

@@ -97,7 +97,7 @@ void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
 
-void unit_realize_cgroup(Unit *u);
+int unit_realize_cgroup(Unit *u);
 void unit_destroy_cgroup(Unit *u);
 
 int manager_setup_cgroup(Manager *m);
