@@ -165,7 +165,7 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
         return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
 }
 
-static int bus_service_set_transient_properties(
+static int bus_service_set_transient_property(
                 Service *s,
                 const char *name,
                 DBusMessageIter *i,
@@ -304,7 +304,7 @@ int bus_service_set_property(
         if (u->transient && u->load_state == UNIT_STUB) {
                 /* This is a transient unit, let's load a little more */
 
-                r = bus_service_set_transient_properties(s, name, i, mode, error);
+                r = bus_service_set_transient_property(s, name, i, mode, error);
                 if (r != 0)
                         return r;
         }

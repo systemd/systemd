@@ -76,7 +76,7 @@ DBusHandlerResult bus_scope_message_handler(Unit *u, DBusConnection *c, DBusMess
         return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
 }
 
-static int bus_scope_set_transient_properties(
+static int bus_scope_set_transient_property(
                 Scope *s,
                 const char *name,
                 DBusMessageIter *i,
@@ -146,7 +146,7 @@ int bus_scope_set_property(
         if (u->load_state == UNIT_STUB) {
                 /* While we are created we still accept PIDs */
 
-                r = bus_scope_set_transient_properties(s, name, i, mode, error);
+                r = bus_scope_set_transient_property(s, name, i, mode, error);
                 if (r != 0)
                         return r;
         }

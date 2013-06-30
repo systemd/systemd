@@ -764,6 +764,37 @@ oom:
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
+static int bus_unit_set_transient_property(
+                Unit *u,
+                const char *name,
+                DBusMessageIter *i,
+                UnitSetPropertiesMode mode,
+                DBusError *error) {
+
+        int r;
+
+        assert(u);
+        assert(name);
+        assert(i);
+
+        if (streq(name, "Description")) {
+                const char *description;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_STRING)
+                        return -EINVAL;
+
+                dbus_message_iter_get_basic(i, &description);
+
+                r = unit_set_description(u, description);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        return 0;
+}
+
 int bus_unit_set_properties(
                 Unit *u,
                 DBusMessageIter *iter,
@@ -823,6 +854,8 @@ int bus_unit_set_properties(
 
                 dbus_message_iter_recurse(&sub2, &sub3);
                 r = UNIT_VTABLE(u)->bus_set_property(u, name, &sub3, for_real ? mode : UNIT_CHECK, error);
+                if (r == 0 && u->transient && u->load_state == UNIT_STUB)
+                        r = bus_unit_set_transient_property(u, name, &sub3, for_real ? mode : UNIT_CHECK, error);
                 if (r < 0)
                         return r;
                 if (r == 0) {

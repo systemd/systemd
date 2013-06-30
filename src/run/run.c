@@ -32,6 +32,7 @@
 static bool arg_scope = false;
 static bool arg_user = false;
 static const char *arg_unit = NULL;
+static const char *arg_description = NULL;
 
 static int help(void) {
 
@@ -41,7 +42,8 @@ static int help(void) {
                "     --version          Show package version\n"
                "     --user             Run as user unit\n"
                "     --scope            Run this as scope rather than service\n"
-               "     --unit=UNIT        Run under the specified unit name\n",
+               "     --unit=UNIT        Run under the specified unit name\n"
+               "     --description=TEXT Description for unit\n",
                program_invocation_short_name);
 
         return 0;
@@ -53,16 +55,18 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_USER,
                 ARG_SCOPE,
-                ARG_UNIT
+                ARG_UNIT,
+                ARG_DESCRIPTION
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "user",      no_argument,       NULL, ARG_USER      },
-                { "scope",     no_argument,       NULL, ARG_SCOPE     },
-                { "unit",      required_argument, NULL, ARG_UNIT      },
-                { NULL,        0,                 NULL, 0             }
+                { "help",        no_argument,       NULL, 'h'             },
+                { "version",     no_argument,       NULL, ARG_VERSION     },
+                { "user",        no_argument,       NULL, ARG_USER        },
+                { "scope",       no_argument,       NULL, ARG_SCOPE       },
+                { "unit",        required_argument, NULL, ARG_UNIT        },
+                { "description", required_argument, NULL, ARG_DESCRIPTION },
+                { NULL,          0,                 NULL, 0               },
         };
 
         int c;
@@ -93,6 +97,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_UNIT:
                         arg_unit = optarg;
+                        break;
+
+                case ARG_DESCRIPTION:
+                        arg_description = optarg;
                         break;
 
                 case '?':
@@ -135,7 +143,7 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_open_container(m, 'r', "sv");
+        r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
         if (r < 0)
                 return r;
 
@@ -147,10 +155,6 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
 
 static int message_start_transient_unit_send(sd_bus *bus, sd_bus_message *m, sd_bus_error *error, sd_bus_message **reply) {
         int r;
-
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return r;
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
@@ -177,6 +181,10 @@ static int start_transient_service(
                 return -ENOMEM;
 
         r = message_start_transient_unit_new(bus, name, &m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(m, 'r', "sv");
         if (r < 0)
                 return r;
 
@@ -230,6 +238,10 @@ static int start_transient_service(
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
         return  message_start_transient_unit_send(bus, m, error, &reply);
 }
 
@@ -253,7 +265,7 @@ static int start_transient_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "sv", "PIDs", "au", 1, (uint32_t) getpid());
+        r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, (uint32_t) getpid());
         if (r < 0)
                 return r;
 
@@ -269,6 +281,7 @@ static int start_transient_scope(
 int main(int argc, char* argv[]) {
         sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_free_ char *description = NULL;
         int r;
 
         log_parse_environment();
@@ -277,6 +290,16 @@ int main(int argc, char* argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto fail;
+
+        if (!arg_description) {
+                description = strv_join(argv + optind, " ");
+                if (!description) {
+                        r = log_oom();
+                        goto fail;
+                }
+
+                arg_description = description;
+        }
 
         if (arg_user)
                 r = sd_bus_open_user(&bus);
@@ -292,7 +315,7 @@ int main(int argc, char* argv[]) {
         else
                 r = start_transient_service(bus, argv + optind, &error);
         if (r < 0) {
-                log_error("Failed start transient unit: %s", error.message);
+                log_error("Failed start transient unit: %s", error.message ? error.message : strerror(-r));
                 sd_bus_error_free(&error);
                 goto fail;
         }
