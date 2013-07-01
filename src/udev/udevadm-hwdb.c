@@ -406,14 +406,12 @@ static int import_file(struct trie *trie, const char *filename) {
         FILE *f;
         char line[LINE_MAX];
         char match[LINE_MAX];
-        char cond[LINE_MAX];
 
         f = fopen(filename, "re");
         if (f == NULL)
                 return -errno;
 
         match[0] = '\0';
-        cond[0] = '\0';
         while (fgets(line, sizeof(line), f)) {
                 size_t len;
 
@@ -423,7 +421,6 @@ static int import_file(struct trie *trie, const char *filename) {
                 /* new line, new record */
                 if (line[0] == '\n') {
                         match[0] = '\0';
-                        cond[0] = '\0';
                         continue;
                 }
 
@@ -436,20 +433,10 @@ static int import_file(struct trie *trie, const char *filename) {
                 /* start of new record */
                 if (match[0] == '\0') {
                         strcpy(match, line);
-                        cond[0] = '\0';
                         continue;
                 }
 
-                if (line[0] == '+') {
-                        strcpy(cond, line);
-                        continue;
-                }
-
-                /* TODO: support +; skip the entire record until we support it */
-                if (cond[0] != '\0')
-                        continue;
-
-                /* value lines */
+                /* value line */
                 if (line[0] == ' ') {
                         char *value;
 
@@ -459,7 +446,10 @@ static int import_file(struct trie *trie, const char *filename) {
                         value[0] = '\0';
                         value++;
                         trie_insert(trie, trie->root, match, line, value);
+                        continue;
                 }
+
+                log_error("Error parsing line '%s' in '%s\n", line, filename);
         }
         fclose(f);
         return 0;

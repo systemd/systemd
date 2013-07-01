@@ -140,9 +140,13 @@ static const struct trie_node_f *node_lookup_f(struct udev_hwdb *hwdb, const str
 }
 
 static int hwdb_add_property(struct udev_hwdb *hwdb, const char *key, const char *value) {
-        /* TODO: add sub-matches (+) against DMI data */
+        /*
+         * Silently ignore all properties which do not start with a
+         * space; future extensions might use additional prefixes.
+         */
         if (key[0] != ' ')
                 return 0;
+
         if (udev_list_entry_add(&hwdb->properties_list, key+1, value) == NULL)
                 return -ENOMEM;
         return 0;
