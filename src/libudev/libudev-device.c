@@ -780,7 +780,7 @@ _public_ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char
  *
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
-_public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, char *id)
+_public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, const char *id)
 {
         char type;
         int maj, min;

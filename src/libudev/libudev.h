@@ -81,7 +81,7 @@ struct udev *udev_device_get_udev(struct udev_device *udev_device);
 struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath);
 struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum);
 struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname);
-struct udev_device *udev_device_new_from_device_id(struct udev *udev, char *id);
+struct udev_device *udev_device_new_from_device_id(struct udev *udev, const char *id);
 struct udev_device *udev_device_new_from_environment(struct udev *udev);
 /* udev_device_get_parent_*() does not take a reference on the returned device, it is automatically unref'd with the parent */
 struct udev_device *udev_device_get_parent(struct udev_device *udev_device);
