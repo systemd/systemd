@@ -790,6 +790,25 @@ static int bus_unit_set_transient_property(
                         return r;
 
                 return 1;
+
+        } else if (streq(name, "Slice") && unit_get_cgroup_context(u)) {
+                const char *s;
+                Unit *slice;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_STRING)
+                        return -EINVAL;
+
+                dbus_message_iter_get_basic(i, &s);
+
+                r = manager_load_unit(u->manager, s, NULL, error, &slice);
+                if (r < 0)
+                        return r;
+
+                if (slice->type != UNIT_SLICE)
+                        return -EINVAL;
+
+                unit_ref_set(&u->slice, slice);
+                return 1;
         }
 
         return 0;

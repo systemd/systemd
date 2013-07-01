@@ -33,6 +33,7 @@ static bool arg_scope = false;
 static bool arg_user = false;
 static const char *arg_unit = NULL;
 static const char *arg_description = NULL;
+static const char *arg_slice = NULL;
 
 static int help(void) {
 
@@ -43,7 +44,8 @@ static int help(void) {
                "     --user             Run as user unit\n"
                "     --scope            Run this as scope rather than service\n"
                "     --unit=UNIT        Run under the specified unit name\n"
-               "     --description=TEXT Description for unit\n",
+               "     --description=TEXT Description for unit\n"
+               "     --slice=SLICE      Run in the specified slice\n",
                program_invocation_short_name);
 
         return 0;
@@ -56,7 +58,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_SCOPE,
                 ARG_UNIT,
-                ARG_DESCRIPTION
+                ARG_DESCRIPTION,
+                ARG_SLICE
         };
 
         static const struct option options[] = {
@@ -66,6 +69,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "scope",       no_argument,       NULL, ARG_SCOPE       },
                 { "unit",        required_argument, NULL, ARG_UNIT        },
                 { "description", required_argument, NULL, ARG_DESCRIPTION },
+                { "slice",       required_argument, NULL, ARG_SLICE       },
                 { NULL,          0,                 NULL, 0               },
         };
 
@@ -101,6 +105,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DESCRIPTION:
                         arg_description = optarg;
+                        break;
+
+                case ARG_SLICE:
+                        arg_slice = optarg;
                         break;
 
                 case '?':
@@ -146,6 +154,18 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
         r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
         if (r < 0)
                 return r;
+
+        if (!isempty(arg_slice)) {
+                _cleanup_free_ char *slice;
+
+                slice = unit_name_mangle_with_suffix(arg_slice, ".slice");
+                if (!slice)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
+                if (r < 0)
+                        return r;
+        }
 
         *ret = m;
         m = NULL;
