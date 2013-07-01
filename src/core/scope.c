@@ -414,7 +414,7 @@ _pure_ static const char *scope_sub_state_to_string(Unit *u) {
 
 static const char* const scope_state_table[_SCOPE_STATE_MAX] = {
         [SCOPE_DEAD] = "dead",
-        [SCOPE_RUNNING] = "active",
+        [SCOPE_RUNNING] = "running",
         [SCOPE_STOP_SIGTERM] = "stop-sigterm",
         [SCOPE_STOP_SIGKILL] = "stop-sigkill",
         [SCOPE_FAILED] = "failed",
