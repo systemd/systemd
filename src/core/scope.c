@@ -283,6 +283,17 @@ static int scope_stop(Unit *u) {
         return 0;
 }
 
+static void scope_reset_failed(Unit *u) {
+        Scope *s = SCOPE(u);
+
+        assert(s);
+
+        if (s->state == SCOPE_FAILED)
+                scope_set_state(s, SCOPE_DEAD);
+
+        s->result = SCOPE_SUCCESS;
+}
+
 static int scope_kill(Unit *u, KillWho who, int signo, DBusError *error) {
         return unit_kill_common(u, who, signo, -1, -1, error);
 }
@@ -454,6 +465,8 @@ const UnitVTable scope_vtable = {
         .check_gc = scope_check_gc,
 
         .timer_event = scope_timer_event,
+
+        .reset_failed = scope_reset_failed,
 
         .notify_cgroup_empty = scope_notify_cgroup_empty_event,
 
