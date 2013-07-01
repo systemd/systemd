@@ -68,7 +68,6 @@
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"Names\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"Following\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"Slice\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Requires\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequiresOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Requisite\" type=\"as\" access=\"read\"/>\n" \
@@ -127,15 +126,19 @@
         "  <property name=\"ConditionTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionResult\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"LoadError\" type=\"(ss)\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Transient\" type=\"b\" access=\"read\"/>\n" \
         " </interface>\n"
+
+#define BUS_UNIT_CGROUP_INTERFACE                                       \
+        "  <property name=\"Slice\" type=\"s\" access=\"read\"/>\n"     \
+        "  <property name=\"ControlGroup\" type=\"s\" access=\"read\"/>\n"
 
 #define BUS_UNIT_INTERFACES_LIST                \
         BUS_GENERIC_INTERFACES_LIST             \
         "org.freedesktop.systemd1.Unit\0"
 
 extern const BusProperty bus_unit_properties[];
+extern const BusProperty bus_unit_cgroup_properties[];
 
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);

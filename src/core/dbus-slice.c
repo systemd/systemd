@@ -29,6 +29,7 @@
 
 #define BUS_SLICE_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Slice\">\n"        \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         BUS_CGROUP_CONTEXT_INTERFACE                                    \
         " </interface>\n"
 
@@ -53,6 +54,7 @@ DBusHandlerResult bus_slice_message_handler(Unit *u, DBusConnection *c, DBusMess
 
         const BusBoundProperties bps[] = {
                 { "org.freedesktop.systemd1.Unit",  bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Slice", bus_unit_cgroup_properties,    u },
                 { "org.freedesktop.systemd1.Slice", bus_cgroup_context_properties, &s->cgroup_context },
                 {}
         };

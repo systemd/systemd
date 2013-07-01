@@ -30,6 +30,7 @@
 
 #define BUS_SCOPE_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Scope\">\n"        \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         "  <property name=\"TimeoutStopUSec\" type=\"t\" access=\"read\"/>\n" \
         BUS_KILL_CONTEXT_INTERFACE                                      \
         BUS_CGROUP_CONTEXT_INTERFACE                                    \
@@ -65,6 +66,7 @@ DBusHandlerResult bus_scope_message_handler(Unit *u, DBusConnection *c, DBusMess
 
         const BusBoundProperties bps[] = {
                 { "org.freedesktop.systemd1.Unit",  bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Scope", bus_unit_cgroup_properties,    u },
                 { "org.freedesktop.systemd1.Scope", bus_scope_properties,          s },
                 { "org.freedesktop.systemd1.Scope", bus_cgroup_context_properties, &s->cgroup_context },
                 { "org.freedesktop.systemd1.Scope", bus_kill_context_properties,   &s->kill_context   },

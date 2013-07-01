@@ -878,7 +878,6 @@ const BusProperty bus_unit_properties[] = {
         { "Id",                   bus_property_append_string,         "s", offsetof(Unit, id),                                         true },
         { "Names",                bus_unit_append_names,             "as", 0 },
         { "Following",            bus_unit_append_following,          "s", 0 },
-        { "Slice",                bus_unit_append_slice,              "s", 0 },
         { "Requires",             bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRES]),                true },
         { "RequiresOverridable",  bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRES_OVERRIDABLE]),    true },
         { "Requisite",            bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUISITE]),               true },
@@ -937,7 +936,11 @@ const BusProperty bus_unit_properties[] = {
         { "ConditionTimestampMonotonic", bus_property_append_usec,    "t", offsetof(Unit, condition_timestamp.monotonic)      },
         { "ConditionResult",      bus_property_append_bool,           "b", offsetof(Unit, condition_result)                   },
         { "LoadError",            bus_unit_append_load_error,      "(ss)", 0 },
-        { "ControlGroup",         bus_property_append_string,         "s", offsetof(Unit, cgroup_path),                                true },
         { "Transient",            bus_property_append_bool,           "b", offsetof(Unit, transient)                          },
         { NULL, }
+};
+
+const BusProperty bus_unit_cgroup_properties[] = {
+        { "Slice",                bus_unit_append_slice,              "s", 0 },
+        { "ControlGroup",         bus_property_append_string,         "s", offsetof(Unit, cgroup_path),                                true },
 };

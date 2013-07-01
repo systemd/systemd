@@ -34,6 +34,7 @@
         "  <property name=\"BindIPv6Only\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Backlog\" type=\"u\" access=\"read\"/>\n"   \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPre")                       \
@@ -196,18 +197,19 @@ static const BusProperty bus_socket_properties[] = {
         { "SmackLabel",     bus_property_append_string,        "s", offsetof(Socket, smack),          true },
         { "SmackLabelIPIn", bus_property_append_string,        "s", offsetof(Socket, smack_ip_in),    true },
         { "SmackLabelIPOut",bus_property_append_string,        "s", offsetof(Socket, smack_ip_out),   true },
-        { NULL, }
+        {}
 };
 
 DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Socket *s = SOCKET(u);
         const BusBoundProperties bps[] = {
                 { "org.freedesktop.systemd1.Unit",   bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Socket", bus_unit_cgroup_properties,    u },
                 { "org.freedesktop.systemd1.Socket", bus_socket_properties,         s },
                 { "org.freedesktop.systemd1.Socket", bus_exec_context_properties,   &s->exec_context },
                 { "org.freedesktop.systemd1.Socket", bus_kill_context_properties,   &s->kill_context },
                 { "org.freedesktop.systemd1.Socket", bus_cgroup_context_properties, &s->cgroup_context },
-                { NULL, }
+                {}
         };
 
         SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");

@@ -46,6 +46,7 @@
         "  <property name=\"StartLimitInterval\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"StartLimitBurst\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"StartLimitAction\" type=\"s\" access=\"readwrite\"/>\n" \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
         BUS_EXEC_COMMAND_INTERFACE("ExecStart")                         \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
@@ -152,6 +153,7 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
 
         const BusBoundProperties bps[] = {
                 { "org.freedesktop.systemd1.Unit",    bus_unit_properties,             u },
+                { "org.freedesktop.systemd1.Service", bus_unit_cgroup_properties,      u },
                 { "org.freedesktop.systemd1.Service", bus_service_properties,          s },
                 { "org.freedesktop.systemd1.Service", bus_exec_context_properties,     &s->exec_context },
                 { "org.freedesktop.systemd1.Service", bus_kill_context_properties,     &s->kill_context },

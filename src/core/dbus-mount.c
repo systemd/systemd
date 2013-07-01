@@ -36,6 +36,7 @@
         "  <property name=\"Options\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecMount")                         \
         BUS_EXEC_COMMAND_INTERFACE("ExecUnmount")                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecRemount")                       \
@@ -158,6 +159,7 @@ DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMess
 
         const BusBoundProperties bps[] = {
                 { "org.freedesktop.systemd1.Unit",  bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Mount", bus_unit_cgroup_properties,    u },
                 { "org.freedesktop.systemd1.Mount", bus_mount_properties,          m },
                 { "org.freedesktop.systemd1.Mount", bus_exec_context_properties,   &m->exec_context },
                 { "org.freedesktop.systemd1.Mount", bus_kill_context_properties,   &m->kill_context },

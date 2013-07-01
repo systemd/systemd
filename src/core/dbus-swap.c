@@ -35,6 +35,7 @@
         "  <property name=\"What\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Priority\" type=\"i\" access=\"read\"/>\n"  \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecActivate")                      \
         BUS_EXEC_COMMAND_INTERFACE("ExecDeactivate")                    \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
@@ -105,6 +106,7 @@ DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessa
         Swap *s = SWAP(u);
         const BusBoundProperties bps[] = {
                 { "org.freedesktop.systemd1.Unit", bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Swap", bus_unit_cgroup_properties,    u },
                 { "org.freedesktop.systemd1.Swap", bus_swap_properties,           s },
                 { "org.freedesktop.systemd1.Swap", bus_exec_context_properties,   &s->exec_context },
                 { "org.freedesktop.systemd1.Swap", bus_kill_context_properties,   &s->kill_context },
