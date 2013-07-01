@@ -36,6 +36,8 @@ Features:
 
 * split up BlockIOWeight= and BlockIODeviceWeight=
 
+* introduce high-level settings for RT budget, swapiness
+
 * how to reset dynamically changed attributes sanely?
 
 * when reloading configuration, apply new cgroup configuration
@@ -48,10 +50,8 @@ Features:
 
 * split out CreateMachine into systemd-machined
 
-* introduce new Scope unit type then make logind's session and machine
-  registration use this to set up cgroups
-
-* should Slice= be part of [Unit] or of [Service]?
+* make logind's session and machine
+  registration use Slices to set up cgroups
 
 * journald: make sure ratelimit is actually really per-service with the new cgroup changes
 

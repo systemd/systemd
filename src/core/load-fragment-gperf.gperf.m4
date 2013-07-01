@@ -83,7 +83,8 @@ $1.KillMode,                     config_parse_kill_mode,             0,         
 $1.KillSignal,                   config_parse_kill_signal,           0,                             offsetof($1, kill_context.kill_signal)'
 )m4_dnl
 m4_define(`CGROUP_CONTEXT_CONFIG_ITEMS',
-`$1.CPUAccounting,               config_parse_bool,                  0,                             offsetof($1, cgroup_context.cpu_accounting)
+`$1.Slice,                       config_parse_unit_slice,            0,                             0
+$1.CPUAccounting,                config_parse_bool,                  0,                             offsetof($1, cgroup_context.cpu_accounting)
 $1.CPUShares,                    config_parse_cpu_shares,            0,                             offsetof($1, cgroup_context)
 $1.MemoryAccounting,             config_parse_bool,                  0,                             offsetof($1, cgroup_context.memory_accounting)
 $1.MemoryLimit,                  config_parse_memory_limit,          0,                             offsetof($1, cgroup_context)
@@ -124,7 +125,6 @@ Unit.OnFailureIsolate,           config_parse_bool,                  0,         
 Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Unit, ignore_on_isolate)
 Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,                             offsetof(Unit, ignore_on_snapshot)
 Unit.JobTimeoutSec,              config_parse_sec,                   0,                             offsetof(Unit, job_timeout)
-Unit.Slice,                      config_parse_unit_slice,            0,                             0
 Unit.ConditionPathExists,        config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         0
 Unit.ConditionPathExistsGlob,    config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    0
 Unit.ConditionPathIsDirectory,   config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   0
