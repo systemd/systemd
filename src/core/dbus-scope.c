@@ -93,6 +93,7 @@ static int bus_scope_set_transient_property(
 
         if (streq(name, "PIDs")) {
                 DBusMessageIter sub;
+                unsigned n;
 
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_ARRAY ||
                     dbus_message_iter_get_element_type(i) != DBUS_TYPE_UINT32)
@@ -111,14 +112,17 @@ static int bus_scope_set_transient_property(
                         if (pid <= 1)
                                 return -EINVAL;
 
-                        r = set_put(s->pids, LONG_TO_PTR(pid));
-                        if (r < 0 && r != -EEXIST)
-                                return r;
+                        if (mode != UNIT_CHECK) {
+                                r = set_put(s->pids, LONG_TO_PTR(pid));
+                                if (r < 0 && r != -EEXIST)
+                                        return r;
+                        }
 
                         dbus_message_iter_next(&sub);
+                        n++;
                 }
 
-                if (set_size(s->pids) <= 0)
+                if (n <= 0)
                         return -EINVAL;
 
                 return 1;
