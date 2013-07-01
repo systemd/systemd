@@ -2591,7 +2591,6 @@ dist_udevkeymap_DATA = \
 	keymaps/medion-fid2060 \
 	keymaps/medionnb-a555 \
 	keymaps/micro-star \
-	keymaps/module-asus-w3j \
 	keymaps/module-ibm \
 	keymaps/module-lenovo \
 	keymaps/module-sony \
