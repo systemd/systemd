@@ -126,6 +126,21 @@ static int bus_scope_set_transient_property(
                         return -EINVAL;
 
                 return 1;
+
+        } else if (streq(name, "TimeoutStopUSec")) {
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_UINT64)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        uint64_t t;
+
+                        dbus_message_iter_get_basic(i, &t);
+
+                        s->timeout_stop_usec = t;
+                }
+
+                return 1;
         }
 
         return 0;
