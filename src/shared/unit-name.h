@@ -99,3 +99,5 @@ int unit_name_from_dbus_path(const char *path, char **name);
 
 char *unit_name_mangle(const char *name);
 char *unit_name_mangle_with_suffix(const char *name, const char *suffix);
+
+int build_subslice(const char *slice, const char*name, char **subslice);

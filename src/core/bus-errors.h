@@ -40,3 +40,4 @@
 #define BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC "org.freedesktop.systemd1.TransactionOrderIsCyclic"
 #define BUS_ERROR_SHUTTING_DOWN "org.freedesktop.systemd1.ShuttingDown"
 #define BUS_ERROR_NO_SUCH_PROCESS "org.freedesktop.systemd1.NoSuchProcess"
+#define BUS_ERROR_JOB_FAILED "org.freedesktop.systemd1.JobFailed"

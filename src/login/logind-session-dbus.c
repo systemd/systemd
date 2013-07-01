@@ -47,7 +47,6 @@
         "  <property name=\"Name\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Timestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"TimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"VTNr\" type=\"u\" access=\"read\"/>\n"      \
         "  <property name=\"Seat\" type=\"(so)\" access=\"read\"/>\n"   \
         "  <property name=\"TTY\" type=\"s\" access=\"read\"/>\n"       \
@@ -56,15 +55,13 @@
         "  <property name=\"RemoteHost\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RemoteUser\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Service\" type=\"s\" access=\"read\"/>\n"   \
-        "  <property name=\"Slice\" type=\"s\" access=\"read\"/>\n"     \
+        "  <property name=\"Scope\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Leader\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"Audit\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Class\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Active\" type=\"b\" access=\"read\"/>\n"    \
         "  <property name=\"State\" type=\"s\" access=\"read\"/>\n"     \
-        "  <property name=\"Controllers\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"ResetControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"KillProcesses\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
@@ -196,24 +193,6 @@ static int bus_session_append_idle_hint_since(DBusMessageIter *i, const char *pr
         return 0;
 }
 
-static int bus_session_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
-        Session *s = data;
-        _cleanup_free_ char *t = NULL;
-        int r;
-        bool success;
-
-        assert(i);
-        assert(property);
-        assert(s);
-
-        r = cg_join_spec(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, &t);
-        if (r < 0)
-                return r;
-
-        success = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t);
-        return success ? 0 : -ENOMEM;
-}
-
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_session_append_type, session_type, SessionType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_session_append_class, session_class, SessionClass);
 
@@ -260,7 +239,6 @@ static const BusProperty bus_login_session_properties[] = {
         { "Id",                     bus_property_append_string,         "s", offsetof(Session, id),                 true },
         { "Timestamp",              bus_property_append_usec,           "t", offsetof(Session, timestamp.realtime)  },
         { "TimestampMonotonic",     bus_property_append_usec,           "t", offsetof(Session, timestamp.monotonic) },
-        { "DefaultControlGroup",    bus_session_append_default_cgroup,  "s", 0,                                     },
         { "VTNr",                   bus_property_append_uint32,         "u", offsetof(Session, vtnr)                },
         { "Seat",                   bus_session_append_seat,         "(so)", 0 },
         { "TTY",                    bus_property_append_string,         "s", offsetof(Session, tty),                true },
@@ -269,16 +247,13 @@ static const BusProperty bus_login_session_properties[] = {
         { "RemoteUser",             bus_property_append_string,         "s", offsetof(Session, remote_user),        true },
         { "RemoteHost",             bus_property_append_string,         "s", offsetof(Session, remote_host),        true },
         { "Service",                bus_property_append_string,         "s", offsetof(Session, service),            true },
-        { "Slice",                  bus_property_append_string,         "s", offsetof(Session, slice),              true },
+        { "Scope",                  bus_property_append_string,         "s", offsetof(Session, scope),              true },
         { "Leader",                 bus_property_append_pid,            "u", offsetof(Session, leader)              },
         { "Audit",                  bus_property_append_uint32,         "u", offsetof(Session, audit_id)            },
         { "Type",                   bus_session_append_type,            "s", offsetof(Session, type)                },
         { "Class",                  bus_session_append_class,           "s", offsetof(Session, class)               },
         { "Active",                 bus_session_append_active,          "b", 0 },
         { "State",                  bus_session_append_state,           "s", 0 },
-        { "Controllers",            bus_property_append_strv,          "as", offsetof(Session, controllers),        true },
-        { "ResetControllers",       bus_property_append_strv,          "as", offsetof(Session, reset_controllers),  true },
-        { "KillProcesses",          bus_property_append_bool,           "b", offsetof(Session, kill_processes)      },
         { "IdleHint",               bus_session_append_idle_hint,       "b", 0 },
         { "IdleSinceHint",          bus_session_append_idle_hint_since, "t", 0 },
         { "IdleSinceHintMonotonic", bus_session_append_idle_hint_since, "t", 0 },
@@ -551,4 +526,74 @@ int session_send_lock_all(Manager *m, bool lock) {
         }
 
         return r;
+}
+
+int session_send_create_reply(Session *s, DBusError *error) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+
+        assert(s);
+
+        if (!s->create_message)
+                return 0;
+
+        if (error) {
+                DBusError buffer;
+
+                dbus_error_init(&buffer);
+
+                if (!dbus_error_is_set(error)) {
+                        dbus_set_error_const(&buffer, DBUS_ERROR_INVALID_ARGS, "Invalid Arguments");
+                        error = &buffer;
+                }
+
+                reply = dbus_message_new_error(s->create_message, error->name, error->message);
+                dbus_error_free(&buffer);
+
+                if (!reply)
+                        return log_oom();
+        } else {
+                _cleanup_close_ int fifo_fd = -1;
+                _cleanup_free_ char *path = NULL;
+                const char *cseat;
+                uint32_t vtnr;
+                dbus_bool_t exists;
+
+                fifo_fd = session_create_fifo(s);
+                if (fifo_fd < 0) {
+                        log_error("Failed to create fifo: %s", strerror(-fifo_fd));
+                        return fifo_fd;
+                }
+
+                path = session_bus_path(s);
+                if (!path)
+                        return log_oom();
+
+                reply = dbus_message_new_method_return(s->create_message);
+                if (!reply)
+                        return log_oom();
+
+                cseat = s->seat ? s->seat->id : "";
+                vtnr = s->vtnr;
+                exists = false;
+
+                if (!dbus_message_append_args(
+                                    reply,
+                                    DBUS_TYPE_STRING, &s->id,
+                                    DBUS_TYPE_OBJECT_PATH, &path,
+                                    DBUS_TYPE_STRING, &s->user->runtime_path,
+                                    DBUS_TYPE_UNIX_FD, &fifo_fd,
+                                    DBUS_TYPE_STRING, &cseat,
+                                    DBUS_TYPE_UINT32, &vtnr,
+                                    DBUS_TYPE_BOOLEAN, &exists,
+                                    DBUS_TYPE_INVALID))
+                        return log_oom();
+        }
+
+        if (!dbus_connection_send(s->manager->bus, reply, NULL))
+                return log_oom();
+
+        dbus_message_unref(s->create_message);
+        s->create_message = NULL;
+
+        return 0;
 }

@@ -28,6 +28,22 @@ Fedora 19:
 
 Features:
 
+* libsystemd-logind: recognize new session/user/machine units
+
+* logind: implement session kill exceptions
+
+* fix machine regstration to forward property array
+
+* fix loginctl cgroup enumeration
+
+* move "systemctl dump" to systemd-analyze
+
+* introduce "mainpid" for scopes
+
+* add a fixed dbus path for "my own unit", "my own session", ... to PID1, logind, ...
+
+* add implicit slice for instantiated services
+
 * service_coldplug() appears to reinstall the wrong stop timeout watch?
 
 * transient units: allow creating auxiliary units with the same call

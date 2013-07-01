@@ -23,7 +23,8 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "logind-machine.h"
+#include <systemd/sd-messages.h>
+
 #include "util.h"
 #include "mkdir.h"
 #include "cgroup-util.h"
@@ -31,7 +32,9 @@
 #include "strv.h"
 #include "fileio.h"
 #include "special.h"
-#include <systemd/sd-messages.h>
+#include "unit-name.h"
+#include "dbus-common.h"
+#include "logind-machine.h"
 
 Machine* machine_new(Manager *manager, const char *name) {
         Machine *m;
@@ -73,17 +76,21 @@ void machine_free(Machine *m) {
         if (m->in_gc_queue)
                 LIST_REMOVE(Machine, gc_queue, m->manager->machine_gc_queue, m);
 
-        if (m->cgroup_path) {
-                hashmap_remove(m->manager->machine_cgroups, m->cgroup_path);
-                free(m->cgroup_path);
+        if (m->scope) {
+                hashmap_remove(m->manager->machine_units, m->scope);
+                free(m->scope);
         }
 
+        free(m->scope_job);
+
         hashmap_remove(m->manager->machines, m->name);
+
+        if (m->create_message)
+                dbus_message_unref(m->create_message);
 
         free(m->name);
         free(m->state_file);
         free(m->service);
-        free(m->slice);
         free(m->root_directory);
         free(m);
 }
@@ -114,14 +121,14 @@ int machine_save(Machine *m) {
                 "NAME=%s\n",
                 m->name);
 
-        if (m->cgroup_path)
-                fprintf(f, "CGROUP=%s\n", m->cgroup_path);
+        if (m->scope)
+                fprintf(f, "SCOPE=%s\n", m->scope);
+
+        if (m->scope_job)
+                fprintf(f, "SCOPE_JOB=%s\n", m->scope_job);
 
         if (m->service)
                 fprintf(f, "SERVICE=%s\n", m->service);
-
-        if (m->slice)
-                fprintf(f, "SLICE=%s\n", m->slice);
 
         if (m->root_directory)
                 fprintf(f, "ROOT=%s\n", m->root_directory);
@@ -164,9 +171,9 @@ int machine_load(Machine *m) {
         assert(m);
 
         r = parse_env_file(m->state_file, NEWLINE,
-                           "CGROUP",    &m->cgroup_path,
+                           "SCOPE",     &m->scope,
+                           "SCOPE_JOB", &m->scope_job,
                            "SERVICE",   &m->service,
-                           "SLICE",     &m->slice,
                            "ROOT",      &m->root_directory,
                            "ID",        &id,
                            "LEADER",    &leader,
@@ -211,86 +218,44 @@ int machine_load(Machine *m) {
         return r;
 }
 
-static int machine_create_one_group(Machine *m, const char *controller, const char *path) {
-        int r;
-
-        assert(m);
-        assert(path);
-
-        if (m->leader > 0)
-                r = cg_create_and_attach(controller, path, m->leader);
-        else
-                r = -EINVAL;
-
-        if (r < 0) {
-                r = cg_create(controller, path);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int machine_create_cgroup(Machine *m) {
-        char **k;
+static int machine_start_scope(Machine *m) {
+        _cleanup_free_ char *description = NULL;
+        DBusError error;
+        char *job;
         int r;
 
         assert(m);
 
-        if (!m->slice) {
-                m->slice = strdup(SPECIAL_MACHINE_SLICE);
-                if (!m->slice)
-                        return log_oom();
-        }
+        dbus_error_init(&error);
 
-        if (!m->cgroup_path) {
-                _cleanup_free_ char *escaped = NULL, *slice = NULL;
-                char *name;
+        if (!m->scope) {
+                _cleanup_free_ char *escaped = NULL;
 
-                name = strappenda(m->name, ".machine");
-
-                escaped = cg_escape(name);
+                escaped = unit_name_escape(m->name);
                 if (!escaped)
                         return log_oom();
 
-                r = cg_slice_to_path(m->slice, &slice);
-                if (r < 0)
-                        return r;
-
-                m->cgroup_path = strjoin(m->manager->cgroup_root, "/", slice, "/", escaped, NULL);
-                if (!m->cgroup_path)
+                m->scope = strjoin("machine.", m->name, ".scope", NULL);
+                if (!m->scope)
                         return log_oom();
-        }
 
-        r = machine_create_one_group(m, SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path);
-        if (r < 0) {
-                log_error("Failed to create cgroup "SYSTEMD_CGROUP_CONTROLLER":%s: %s", m->cgroup_path, strerror(-r));
-                return r;
-        }
-
-        STRV_FOREACH(k, m->manager->controllers) {
-
-                if (strv_contains(m->manager->reset_controllers, *k))
-                        continue;
-
-                r = machine_create_one_group(m, *k, m->cgroup_path);
+                r = hashmap_put(m->manager->machine_units, m->scope, m);
                 if (r < 0)
-                        log_warning("Failed to create cgroup %s:%s: %s", *k, m->cgroup_path, strerror(-r));
+                        log_warning("Failed to create mapping between unit and machine");
         }
 
-        if (m->leader > 0) {
-                STRV_FOREACH(k, m->manager->reset_controllers) {
-                        r = cg_attach(*k, "/", m->leader);
-                        if (r < 0)
-                                log_warning("Failed to reset controller %s: %s", *k, strerror(-r));
-                }
+        description = strappend(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
+
+        r = manager_start_scope(m->manager, m->scope, m->leader, SPECIAL_MACHINE_SLICE, description, &error, &job);
+        if (r < 0) {
+                log_error("Failed to start machine scope: %s", bus_error(&error, r));
+                dbus_error_free(&error);
         }
 
-        r = hashmap_put(m->manager->machine_cgroups, m->cgroup_path, m);
-        if (r < 0)
-                log_warning("Failed to create mapping between cgroup and machine");
+        free(m->scope_job);
+        m->scope_job = job;
 
-        return 0;
+        return r;
 }
 
 int machine_start(Machine *m) {
@@ -301,17 +266,17 @@ int machine_start(Machine *m) {
         if (m->started)
                 return 0;
 
+        /* Create cgroup */
+        r = machine_start_scope(m);
+        if (r < 0)
+                return r;
+
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_MACHINE_START),
                    "NAME=%s", m->name,
                    "LEADER=%lu", (unsigned long) m->leader,
                    "MESSAGE=New machine %s.", m->name,
                    NULL);
-
-        /* Create cgroup */
-        r = machine_create_cgroup(m);
-        if (r < 0)
-                return r;
 
         if (!dual_timestamp_is_set(&m->timestamp))
                 dual_timestamp_get(&m->timestamp);
@@ -326,28 +291,27 @@ int machine_start(Machine *m) {
         return 0;
 }
 
-static int machine_terminate_cgroup(Machine *m) {
+static int machine_stop_scope(Machine *m) {
+        DBusError error;
+        char *job;
         int r;
-        char **k;
 
         assert(m);
 
-        if (!m->cgroup_path)
+        dbus_error_init(&error);
+
+        if (!m->scope)
                 return 0;
 
-        cg_trim(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, false);
+        r = manager_stop_unit(m->manager, m->scope, &error, &job);
+        if (r < 0) {
+                log_error("Failed to stop machine scope: %s", bus_error(&error, r));
+                dbus_error_free(&error);
+                return r;
+        }
 
-        r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, true);
-        if (r < 0)
-                log_error("Failed to kill machine cgroup: %s", strerror(-r));
-
-        STRV_FOREACH(k, m->manager->controllers)
-                cg_trim(*k, m->cgroup_path, true);
-
-        hashmap_remove(m->manager->machine_cgroups, m->cgroup_path);
-
-        free(m->cgroup_path);
-        m->cgroup_path = NULL;
+        free(m->scope_job);
+        m->scope_job = job;
 
         return r;
 }
@@ -365,7 +329,7 @@ int machine_stop(Machine *m) {
                            NULL);
 
         /* Kill cgroup */
-        k = machine_terminate_cgroup(m);
+        k = machine_stop_scope(m);
         if (k < 0)
                 r = k;
 
@@ -381,21 +345,16 @@ int machine_stop(Machine *m) {
 }
 
 int machine_check_gc(Machine *m, bool drop_not_started) {
-        int r;
-
         assert(m);
 
         if (drop_not_started && !m->started)
                 return 0;
 
-        if (m->cgroup_path) {
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, false);
-                if (r < 0)
-                        return r;
+        if (m->scope_job)
+                return 1;
 
-                if (r <= 0)
-                        return 1;
-        }
+        if (m->scope)
+                return manager_unit_is_active(m->manager, m->scope) != 0;
 
         return 0;
 }
@@ -410,41 +369,22 @@ void machine_add_to_gc_queue(Machine *m) {
         m->in_gc_queue = true;
 }
 
-int machine_kill(Machine *m, KillWho who, int signo) {
-        _cleanup_set_free_ Set *pid_set = NULL;
-        int r = 0;
+MachineState machine_get_state(Machine *s) {
+        assert(s);
 
+        if (s->scope_job)
+                return s->started ? MACHINE_OPENING : MACHINE_CLOSING;
+
+        return MACHINE_RUNNING;
+}
+
+int machine_kill(Machine *m, KillWho who, int signo) {
         assert(m);
 
-        if (!m->cgroup_path)
+        if (!m->scope)
                 return -ESRCH;
 
-        if (m->leader <= 0 && who == KILL_LEADER)
-                return -ESRCH;
-
-        if (m->leader > 0)
-                if (kill(m->leader, signo) < 0)
-                        r = -errno;
-
-        if (who == KILL_ALL) {
-                int q;
-
-                pid_set = set_new(trivial_hash_func, trivial_compare_func);
-                if (!pid_set)
-                        return log_oom();
-
-                if (m->leader > 0) {
-                        q = set_put(pid_set, LONG_TO_PTR(m->leader));
-                        if (q < 0)
-                                r = q;
-                }
-
-                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, signo, false, true, false, pid_set);
-                if (q < 0 && (q != -EAGAIN && q != -ESRCH && q != -ENOENT))
-                        r = q;
-        }
-
-        return r;
+        return manager_kill_unit(m->manager, m->scope, who, signo, NULL);
 }
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
@@ -453,3 +393,11 @@ static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(machine_class, MachineClass);
+
+static const char* const machine_state_table[_MACHINE_STATE_MAX] = {
+        [MACHINE_OPENING] = "opening",
+        [MACHINE_RUNNING] = "running",
+        [MACHINE_CLOSING] = "closing"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(machine_state, MachineState);

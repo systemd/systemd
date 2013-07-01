@@ -30,6 +30,7 @@ typedef struct User User;
 
 typedef enum UserState {
         USER_OFFLINE,    /* Not logged in at all */
+        USER_OPENING,    /* Is logging in */
         USER_LINGERING,  /* Lingering has been enabled by the admin for this user */
         USER_ONLINE,     /* User logged in */
         USER_ACTIVE,     /* User logged in and has a session in the fg */
@@ -47,9 +48,12 @@ struct User {
 
         char *state_file;
         char *runtime_path;
+
         char *service;
-        char *cgroup_path;
         char *slice;
+
+        char *service_job;
+        char *slice_job;
 
         Session *display;
 
@@ -57,6 +61,8 @@ struct User {
 
         bool in_gc_queue:1;
         bool started:1;
+        bool slice_created:1;
+        bool service_created:1;
 
         LIST_HEAD(Session, sessions);
         LIST_FIELDS(User, gc_queue);

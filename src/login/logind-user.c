@@ -23,7 +23,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "logind-user.h"
 #include "util.h"
 #include "mkdir.h"
 #include "cgroup-util.h"
@@ -31,6 +30,9 @@
 #include "strv.h"
 #include "fileio.h"
 #include "special.h"
+#include "unit-name.h"
+#include "dbus-common.h"
+#include "logind-user.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         User *u;
@@ -75,19 +77,25 @@ void user_free(User *u) {
         while (u->sessions)
                 session_free(u->sessions);
 
-        if (u->cgroup_path) {
-                hashmap_remove(u->manager->user_cgroups, u->cgroup_path);
-                free(u->cgroup_path);
+        if (u->slice) {
+                hashmap_remove(u->manager->user_units, u->slice);
+                free(u->slice);
         }
 
-        free(u->service);
+        if (u->service) {
+                hashmap_remove(u->manager->user_units, u->service);
+                free(u->service);
+        }
+
+        free(u->slice_job);
+        free(u->service_job);
+
         free(u->runtime_path);
 
         hashmap_remove(u->manager->users, ULONG_TO_PTR((unsigned long) u->uid));
 
         free(u->name);
         free(u->state_file);
-        free(u->slice);
         free(u);
 }
 
@@ -119,17 +127,18 @@ int user_save(User *u) {
                 u->name,
                 user_state_to_string(user_get_state(u)));
 
-        if (u->cgroup_path)
-                fprintf(f, "CGROUP=%s\n", u->cgroup_path);
-
         if (u->runtime_path)
                 fprintf(f, "RUNTIME=%s\n", u->runtime_path);
 
         if (u->service)
                 fprintf(f, "SERVICE=%s\n", u->service);
+        if (u->service_job)
+                fprintf(f, "SERVICE_JOB=%s\n", u->service_job);
 
         if (u->slice)
                 fprintf(f, "SLICE=%s\n", u->slice);
+        if (u->slice_job)
+                fprintf(f, "SLICE_JOB=%s\n", u->slice_job);
 
         if (u->display)
                 fprintf(f, "DISPLAY=%s\n", u->display->id);
@@ -251,13 +260,14 @@ int user_load(User *u) {
         assert(u);
 
         r = parse_env_file(u->state_file, NEWLINE,
-                           "CGROUP",    &u->cgroup_path,
-                           "RUNTIME",   &u->runtime_path,
-                           "SERVICE",   &u->service,
-                           "DISPLAY",   &display,
-                           "SLICE",     &u->slice,
-                           "REALTIME",  &realtime,
-                           "MONOTONIC", &monotonic,
+                           "RUNTIME",     &u->runtime_path,
+                           "SERVICE",     &u->service,
+                           "SERVICE_JOB", &u->service_job,
+                           "SLICE",       &u->slice,
+                           "SLICE_JOB",   &u->slice_job,
+                           "DISPLAY",     &display,
+                           "REALTIME",    &realtime,
+                           "MONOTONIC",   &monotonic,
                            NULL);
         if (r < 0) {
                 if (r == -ENOENT)
@@ -318,64 +328,70 @@ static int user_mkdir_runtime_path(User *u) {
         return 0;
 }
 
-static int user_create_cgroup(User *u) {
-        char **k;
+static int user_start_slice(User *u) {
+        DBusError error;
+        char *job;
         int r;
 
         assert(u);
 
+        dbus_error_init(&error);
+
         if (!u->slice) {
-                u->slice = strdup(SPECIAL_USER_SLICE);
-                if (!u->slice)
-                        return log_oom();
-        }
+                char lu[DECIMAL_STR_MAX(unsigned long) + 1];
+                sprintf(lu, "%lu", (unsigned long) u->uid);
 
-        if (!u->cgroup_path) {
-                _cleanup_free_ char *name = NULL, *escaped = NULL, *slice = NULL;
-
-                if (asprintf(&name, "%lu.user", (unsigned long) u->uid) < 0)
-                        return log_oom();
-
-                escaped = cg_escape(name);
-                if (!escaped)
-                        return log_oom();
-
-                r = cg_slice_to_path(u->slice, &slice);
+                r = build_subslice(SPECIAL_USER_SLICE, lu, &u->slice);
                 if (r < 0)
                         return r;
 
-                u->cgroup_path = strjoin(u->manager->cgroup_root, "/", slice, "/", escaped, NULL);
-                if (!u->cgroup_path)
-                        return log_oom();
-        }
-
-        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
-        if (r < 0) {
-                log_error("Failed to create cgroup "SYSTEMD_CGROUP_CONTROLLER":%s: %s", u->cgroup_path, strerror(-r));
-                return r;
-        }
-
-        STRV_FOREACH(k, u->manager->controllers) {
-
-                if (strv_contains(u->manager->reset_controllers, *k))
-                        continue;
-
-                r = cg_create(*k, u->cgroup_path);
+                r = hashmap_put(u->manager->user_units, u->slice, u);
                 if (r < 0)
-                        log_warning("Failed to create cgroup %s:%s: %s", *k, u->cgroup_path, strerror(-r));
+                        log_warning("Failed to create mapping between unit and user");
         }
 
-        r = hashmap_put(u->manager->user_cgroups, u->cgroup_path, u);
-        if (r < 0)
-                log_warning("Failed to create mapping between cgroup and user");
+        r = manager_start_unit(u->manager, u->slice, &error, &job);
+        if (r < 0) {
+                log_error("Failed to start user slice: %s", bus_error(&error, r));
+                dbus_error_free(&error);
+        }
+
+        free(u->slice_job);
+        u->slice_job = job;
 
         return 0;
 }
 
 static int user_start_service(User *u) {
+        DBusError error;
+        char *job;
+        int r;
+
         assert(u);
 
-        /* FIXME: Fill me in later ... */
+        dbus_error_init(&error);
+
+        if (!u->service) {
+                char lu[DECIMAL_STR_MAX(unsigned long) + 1];
+                sprintf(lu, "%lu", (unsigned long) u->uid);
+
+                u->service = unit_name_build("user", lu, ".service");
+                if (!u->service)
+                        return log_oom();
+
+                r = hashmap_put(u->manager->user_units, u->service, u);
+                if (r < 0)
+                        log_warning("Failed to create mapping between service and user");
+        }
+
+        r = manager_start_unit(u->manager, u->service, &error, &job);
+        if (r < 0) {
+                log_error("Failed to start user service: %s", bus_error(&error, r));
+                dbus_error_free(&error);
+        }
+
+        free(u->service_job);
+        u->service_job = job;
 
         return 0;
 }
@@ -396,7 +412,7 @@ int user_start(User *u) {
                 return r;
 
         /* Create cgroup */
-        r = user_create_cgroup(u);
+        r = user_start_slice(u);
         if (r < 0)
                 return r;
 
@@ -418,69 +434,70 @@ int user_start(User *u) {
         return 0;
 }
 
-static int user_stop_service(User *u) {
+static int user_stop_slice(User *u) {
+        DBusError error;
+        char *job;
+        int r;
+
         assert(u);
+
+        dbus_error_init(&error);
+
+        if (!u->slice)
+                return 0;
+
+        r = manager_stop_unit(u->manager, u->slice, &error, &job);
+        if (r < 0) {
+                log_error("Failed to stop user slice: %s", bus_error(&error, r));
+                dbus_error_free(&error);
+                return r;
+        }
+
+        free(u->slice_job);
+        u->slice_job = job;
+
+        return r;
+}
+
+static int user_stop_service(User *u) {
+        DBusError error;
+        char *job;
+        int r;
+
+        assert(u);
+
+        dbus_error_init(&error);
 
         if (!u->service)
                 return 0;
 
-        return 0;
-}
-
-static int user_shall_kill(User *u) {
-        assert(u);
-
-        if (!u->manager->kill_user_processes)
-                return false;
-
-        if (strv_contains(u->manager->kill_exclude_users, u->name))
-                return false;
-
-        if (strv_isempty(u->manager->kill_only_users))
-                return true;
-
-        return strv_contains(u->manager->kill_only_users, u->name);
-}
-
-static int user_terminate_cgroup(User *u) {
-        int r;
-        char **k;
-
-        assert(u);
-
-        if (!u->cgroup_path)
-                return 0;
-
-        cg_trim(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, false);
-
-        if (user_shall_kill(u)) {
-
-                r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, true);
-                if (r < 0)
-                        log_error("Failed to kill user cgroup: %s", strerror(-r));
-        } else {
-
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, true);
-                if (r < 0)
-                        log_error("Failed to check user cgroup: %s", strerror(-r));
-                else if (r > 0) {
-                        r = cg_delete(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
-                        if (r < 0)
-                                log_error("Failed to delete user cgroup: %s", strerror(-r));
-                } else
-                        r = -EBUSY;
+        r = manager_stop_unit(u->manager, u->service, &error, &job);
+        if (r < 0) {
+                log_error("Failed to stop user service: %s", bus_error(&error, r));
+                dbus_error_free(&error);
+                return r;
         }
 
-        STRV_FOREACH(k, u->manager->controllers)
-                cg_trim(*k, u->cgroup_path, true);
-
-        hashmap_remove(u->manager->user_cgroups, u->cgroup_path);
-
-        free(u->cgroup_path);
-        u->cgroup_path = NULL;
+        free(u->service_job);
+        u->service_job = job;
 
         return r;
 }
+
+/* static int user_shall_kill(User *u) { */
+/*         assert(u); */
+
+/*         if (!u->manager->kill_user_processes) */
+/*                 return false; */
+
+/*         if (strv_contains(u->manager->kill_exclude_users, u->name)) */
+/*                 return false; */
+
+/*         if (strv_isempty(u->manager->kill_only_users)) */
+/*                 return true; */
+
+/*         return strv_contains(u->manager->kill_only_users, u->name); */
+/* } */
 
 static int user_remove_runtime_path(User *u) {
         int r;
@@ -520,7 +537,7 @@ int user_stop(User *u) {
                 r = k;
 
         /* Kill cgroup */
-        k = user_terminate_cgroup(u);
+        k = user_stop_slice(u);
         if (k < 0)
                 r = k;
 
@@ -590,8 +607,6 @@ static int user_check_linger_file(User *u) {
 }
 
 int user_check_gc(User *u, bool drop_not_started) {
-        int r;
-
         assert(u);
 
         if (drop_not_started && !u->started)
@@ -602,15 +617,6 @@ int user_check_gc(User *u, bool drop_not_started) {
 
         if (user_check_linger_file(u) > 0)
                 return 1;
-
-        if (u->cgroup_path) {
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, false);
-                if (r < 0)
-                        return r;
-
-                if (r <= 0)
-                        return 1;
-        }
 
         return 0;
 }
@@ -631,6 +637,8 @@ UserState user_get_state(User *u) {
 
         assert(u);
 
+        if (u->slice_job || u->service_job)
+                return u->started ? USER_OPENING : USER_CLOSING;
 
         LIST_FOREACH(sessions_by_user, i, u->sessions) {
                 if (session_is_active(i))
@@ -649,27 +657,17 @@ UserState user_get_state(User *u) {
 }
 
 int user_kill(User *u, int signo) {
-        _cleanup_set_free_ Set *pid_set = NULL;
-        int r;
-
         assert(u);
 
-        if (!u->cgroup_path)
+        if (!u->slice)
                 return -ESRCH;
 
-        pid_set = set_new(trivial_hash_func, trivial_compare_func);
-        if (!pid_set)
-                return -ENOMEM;
-
-        r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, true, false, pid_set);
-        if (r < 0 && (r != -EAGAIN && r != -ESRCH && r != -ENOENT))
-                return r;
-
-        return 0;
+        return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {
         [USER_OFFLINE] = "offline",
+        [USER_OPENING] = "opening",
         [USER_LINGERING] = "lingering",
         [USER_ONLINE] = "online",
         [USER_ACTIVE] = "active",

@@ -43,11 +43,6 @@
 
 static int parse_argv(pam_handle_t *handle,
                       int argc, const char **argv,
-                      char ***controllers,
-                      char ***reset_controllers,
-                      bool *kill_processes,
-                      char ***kill_only_users,
-                      char ***kill_exclude_users,
                       const char **class,
                       bool *debug) {
 
@@ -59,89 +54,15 @@ static int parse_argv(pam_handle_t *handle,
         for (i = 0; i < (unsigned) argc; i++) {
                 int k;
 
-                if (startswith(argv[i], "kill-session-processes=")) {
-                        if ((k = parse_boolean(argv[i] + 23)) < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to parse kill-session-processes= argument.");
-                                return k;
-                        }
-
-                        if (kill_processes)
-                                *kill_processes = k;
-
-                } else if (startswith(argv[i], "kill-session=")) {
-                        /* As compatibility for old versions */
-
-                        if ((k = parse_boolean(argv[i] + 13)) < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to parse kill-session= argument.");
-                                return k;
-                        }
-
-                        if (kill_processes)
-                                *kill_processes = k;
-
-                } else if (startswith(argv[i], "controllers=")) {
-
-                        if (controllers) {
-                                char **l;
-
-                                if (!(l = strv_split(argv[i] + 12, ","))) {
-                                        pam_syslog(handle, LOG_ERR, "Out of memory.");
-                                        return -ENOMEM;
-                                }
-
-                                strv_free(*controllers);
-                                *controllers = l;
-                        }
-
-                } else if (startswith(argv[i], "reset-controllers=")) {
-
-                        if (reset_controllers) {
-                                char **l;
-
-                                if (!(l = strv_split(argv[i] + 18, ","))) {
-                                        pam_syslog(handle, LOG_ERR, "Out of memory.");
-                                        return -ENOMEM;
-                                }
-
-                                strv_free(*reset_controllers);
-                                *reset_controllers = l;
-                        }
-
-                } else if (startswith(argv[i], "kill-only-users=")) {
-
-                        if (kill_only_users) {
-                                char **l;
-
-                                if (!(l = strv_split(argv[i] + 16, ","))) {
-                                        pam_syslog(handle, LOG_ERR, "Out of memory.");
-                                        return -ENOMEM;
-                                }
-
-                                strv_free(*kill_only_users);
-                                *kill_only_users = l;
-                        }
-
-                } else if (startswith(argv[i], "kill-exclude-users=")) {
-
-                        if (kill_exclude_users) {
-                                char **l;
-
-                                if (!(l = strv_split(argv[i] + 19, ","))) {
-                                        pam_syslog(handle, LOG_ERR, "Out of memory.");
-                                        return -ENOMEM;
-                                }
-
-                                strv_free(*kill_exclude_users);
-                                *kill_exclude_users = l;
-                        }
-
-                } else if (startswith(argv[i], "class=")) {
+                if (startswith(argv[i], "class=")) {
 
                         if (class)
                                 *class = argv[i] + 6;
 
                 } else if (startswith(argv[i], "debug=")) {
-                        if ((k = parse_boolean(argv[i] + 6)) < 0) {
+                        k = parse_boolean(argv[i] + 6);
+
+                        if (k < 0) {
                                 pam_syslog(handle, LOG_ERR, "Failed to parse debug= argument.");
                                 return k;
                         }
@@ -149,14 +70,9 @@ static int parse_argv(pam_handle_t *handle,
                         if (debug)
                                 *debug = k;
 
-                } else if (startswith(argv[i], "create-session=") ||
-                           startswith(argv[i], "kill-user=")) {
-
-                        pam_syslog(handle, LOG_WARNING, "Option %s not supported anymore, ignoring.", argv[i]);
-
                 } else {
-                        pam_syslog(handle, LOG_ERR, "Unknown parameter '%s'.", argv[i]);
-                        return -EINVAL;
+                        pam_syslog(handle, LOG_WARNING, "Unknown parameter '%s', ignoring", argv[i]);
+                        return 0;
                 }
         }
 
@@ -204,55 +120,6 @@ static int get_user_data(
         *ret_username = username ? username : pw->pw_name;
 
         return PAM_SUCCESS;
-}
-
-static bool check_user_lists(
-                pam_handle_t *handle,
-                uid_t uid,
-                char **kill_only_users,
-                char **kill_exclude_users) {
-
-        const char *name = NULL;
-        char **l;
-
-        assert(handle);
-
-        if (uid == 0)
-                name = "root"; /* Avoid obvious NSS requests, to suppress network traffic */
-        else {
-                struct passwd *pw;
-
-                pw = pam_modutil_getpwuid(handle, uid);
-                if (pw)
-                        name = pw->pw_name;
-        }
-
-        STRV_FOREACH(l, kill_exclude_users) {
-                uid_t u;
-
-                if (parse_uid(*l, &u) >= 0)
-                        if (u == uid)
-                                return false;
-
-                if (name && streq(name, *l))
-                        return false;
-        }
-
-        if (strv_isempty(kill_only_users))
-                return true;
-
-        STRV_FOREACH(l, kill_only_users) {
-                uid_t u;
-
-                if (parse_uid(*l, &u) >= 0)
-                        if (u == uid)
-                                return true;
-
-                if (name && streq(name, *l))
-                        return true;
-        }
-
-        return false;
 }
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
@@ -316,13 +183,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 int argc, const char **argv) {
 
         struct passwd *pw;
-        bool kill_processes = false, debug = false;
+        bool debug = false;
         const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type = NULL, *class = NULL, *class_pam = NULL, *cvtnr = NULL;
-        char **controllers = NULL, **reset_controllers = NULL, **kill_only_users = NULL, **kill_exclude_users = NULL;
         DBusError error;
         uint32_t uid, pid;
         DBusMessageIter iter;
-        dbus_bool_t kp;
         int session_fd = -1;
         DBusConnection *bus = NULL;
         DBusMessage *m = NULL, *reply = NULL;
@@ -342,9 +207,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         if (parse_argv(handle,
                        argc, argv,
-                       &controllers, &reset_controllers,
-                       &kill_processes, &kill_only_users, &kill_exclude_users,
-                       &class_pam, &debug) < 0) {
+                       &class_pam,
+                       &debug) < 0) {
                 r = PAM_SESSION_ERR;
                 goto finish;
         }
@@ -392,9 +256,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 r = PAM_SUCCESS;
                 goto finish;
         }
-
-        if (kill_processes)
-                kill_processes = check_user_lists(handle, pw->pw_uid, kill_only_users, kill_exclude_users);
 
         dbus_connection_set_change_sigpipe(FALSE);
 
@@ -510,27 +371,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         dbus_message_iter_init_append(m, &iter);
 
-        r = bus_append_strv_iter(&iter, controllers);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Could not attach parameter to message.");
-                r = PAM_BUF_ERR;
-                goto finish;
-        }
-
-        r = bus_append_strv_iter(&iter, reset_controllers);
-        if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Could not attach parameter to message.");
-                r = PAM_BUF_ERR;
-                goto finish;
-        }
-
-        kp = kill_processes;
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &kp)) {
-                pam_syslog(handle, LOG_ERR, "Could not attach parameter to message.");
-                r = PAM_BUF_ERR;
-                goto finish;
-        }
-
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "Asking logind to create session: "
                            "uid=%u pid=%u service=%s type=%s class=%s seat=%s vtnr=%u tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
@@ -613,11 +453,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         r = PAM_SUCCESS;
 
 finish:
-        strv_free(controllers);
-        strv_free(reset_controllers);
-        strv_free(kill_only_users);
-        strv_free(kill_exclude_users);
-
         dbus_error_free(&error);
 
         if (bus) {

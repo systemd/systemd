@@ -3806,7 +3806,7 @@ static int snapshot(DBusConnection *bus, char **args) {
         if (!n)
                 return log_oom();
 
-        r = bus_method_call_with_reply (
+        r = bus_method_call_with_reply(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",

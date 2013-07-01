@@ -25,15 +25,17 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 
-#include "systemd/sd-id128.h"
-#include "systemd/sd-messages.h"
+#include <systemd/sd-id128.h>
+#include <systemd/sd-messages.h>
+
 #include "strv.h"
 #include "util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "cgroup-util.h"
-#include "logind-session.h"
 #include "fileio.h"
+#include "dbus-common.h"
+#include "logind-session.h"
 
 Session* session_new(Manager *m, const char *id) {
         Session *s;
@@ -85,18 +87,21 @@ void session_free(Session *s) {
                 LIST_REMOVE(Session, sessions_by_seat, s->seat->sessions, s);
         }
 
-        if (s->cgroup_path)
-                hashmap_remove(s->manager->session_cgroups, s->cgroup_path);
+        if (s->scope) {
+                hashmap_remove(s->manager->session_units, s->scope);
+                free(s->scope);
+        }
 
-        free(s->cgroup_path);
-        strv_free(s->controllers);
+        free(s->scope_job);
+
+        if (s->create_message)
+                dbus_message_unref(s->create_message);
 
         free(s->tty);
         free(s->display);
         free(s->remote_host);
         free(s->remote_user);
         free(s->service);
-        free(s->slice);
 
         hashmap_remove(s->manager->sessions, s->id);
         session_remove_fifo(s);
@@ -144,14 +149,12 @@ int session_save(Session *s) {
                 "USER=%s\n"
                 "ACTIVE=%i\n"
                 "STATE=%s\n"
-                "REMOTE=%i\n"
-                "KILL_PROCESSES=%i\n",
+                "REMOTE=%i\n",
                 (unsigned long) s->user->uid,
                 s->user->name,
                 session_is_active(s),
                 session_state_to_string(session_get_state(s)),
-                s->remote,
-                s->kill_processes);
+                s->remote);
 
         if (s->type >= 0)
                 fprintf(f, "TYPE=%s\n", session_type_to_string(s->type));
@@ -159,8 +162,11 @@ int session_save(Session *s) {
         if (s->class >= 0)
                 fprintf(f, "CLASS=%s\n", session_class_to_string(s->class));
 
-        if (s->cgroup_path)
-                fprintf(f, "CGROUP=%s\n", s->cgroup_path);
+        if (s->scope)
+                fprintf(f, "SCOPE=%s\n", s->scope);
+
+        if (s->scope_job)
+                fprintf(f, "SCOPE_JOB=%s\n", s->scope_job);
 
         if (s->fifo_path)
                 fprintf(f, "FIFO=%s\n", s->fifo_path);
@@ -182,9 +188,6 @@ int session_save(Session *s) {
 
         if (s->service)
                 fprintf(f, "SERVICE=%s\n", s->service);
-
-        if (s->seat)
-                fprintf(f, "SLICE=%s\n", s->slice);
 
         if (s->seat && seat_can_multi_session(s->seat))
                 fprintf(f, "VTNR=%i\n", s->vtnr);
@@ -219,7 +222,6 @@ finish:
 
 int session_load(Session *s) {
         _cleanup_free_ char *remote = NULL,
-                *kill_processes = NULL,
                 *seat = NULL,
                 *vtnr = NULL,
                 *leader = NULL,
@@ -236,8 +238,8 @@ int session_load(Session *s) {
 
         r = parse_env_file(s->state_file, NEWLINE,
                            "REMOTE",         &remote,
-                           "KILL_PROCESSES", &kill_processes,
-                           "CGROUP",         &s->cgroup_path,
+                           "SCOPE",          &s->scope,
+                           "SCOPE_JOB",      &s->scope_job,
                            "FIFO",           &s->fifo_path,
                            "SEAT",           &seat,
                            "TTY",            &s->tty,
@@ -245,7 +247,6 @@ int session_load(Session *s) {
                            "REMOTE_HOST",    &s->remote_host,
                            "REMOTE_USER",    &s->remote_user,
                            "SERVICE",        &s->service,
-                           "SLICE",          &s->slice,
                            "VTNR",           &vtnr,
                            "LEADER",         &leader,
                            "TYPE",           &type,
@@ -288,12 +289,6 @@ int session_load(Session *s) {
                 k = parse_boolean(remote);
                 if (k >= 0)
                         s->remote = k;
-        }
-
-        if (kill_processes) {
-                k = parse_boolean(kill_processes);
-                if (k >= 0)
-                        s->kill_processes = k;
         }
 
         if (seat && !s->seat) {
@@ -459,123 +454,38 @@ done:
         return 0;
 }
 
-static int session_create_one_group(Session *s, const char *controller, const char *path) {
+static int session_start_scope(Session *s) {
+        _cleanup_free_ char *description = NULL;
+        DBusError error;
+        char *job;
         int r;
 
         assert(s);
         assert(s->user);
-        assert(path);
+        assert(s->user->slice);
 
-        if (s->leader > 0)
-                r = cg_create_and_attach(controller, path, s->leader);
-        else
-                r = -EINVAL;
+        dbus_error_init(&error);
 
+        if (!s->scope) {
+                s->scope = strjoin("session.", s->id, ".scope", NULL);
+                if (!s->scope)
+                        return log_oom();
+
+                r = hashmap_put(s->manager->session_units, s->scope, s);
+                if (r < 0)
+                        log_warning("Failed to create mapping between unit and session");
+        }
+
+        description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
+
+        r = manager_start_scope(s->manager, s->scope, s->leader, s->user->slice, description, &error, &job);
         if (r < 0) {
-                r = cg_create(controller, path);
-                if (r < 0)
-                        return r;
+                log_error("Failed to start session scope: %s %s", bus_error(&error, r), error.name);
+                dbus_error_free(&error);
+        } else {
+                free(s->scope_job);
+                s->scope_job = job;
         }
-
-        r = cg_set_task_access(controller, path, 0644, s->user->uid, s->user->gid);
-        if (r >= 0)
-                r = cg_set_group_access(controller, path, 0755, s->user->uid, s->user->gid);
-
-        return r;
-}
-
-static int session_create_cgroup(Session *s) {
-        char **k;
-        int r;
-
-        assert(s);
-        assert(s->user);
-        assert(s->user->cgroup_path);
-
-        if (!s->cgroup_path) {
-                _cleanup_free_ char *name = NULL, *escaped = NULL;
-
-                name = strappend(s->id, ".session");
-                if (!name)
-                        return log_oom();
-
-                escaped = cg_escape(name);
-                if (!escaped)
-                        return log_oom();
-
-                if (s->slice) {
-                        _cleanup_free_ char *slice = NULL;
-
-                        r = cg_slice_to_path(s->slice, &slice);
-                        if (r < 0)
-                                return r;
-
-                        s->cgroup_path = strjoin(s->manager->cgroup_root, "/", slice, "/", escaped, NULL);
-                } else
-                        s->cgroup_path = strjoin(s->user->cgroup_path, "/", escaped, NULL);
-
-                if (!s->cgroup_path)
-                        return log_oom();
-        }
-
-        if (!s->slice) {
-                s->slice = strdup(s->user->slice);
-                if (!s->slice)
-                        return log_oom();
-        }
-
-        r = session_create_one_group(s, SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path);
-        if (r < 0) {
-                log_error("Failed to create "SYSTEMD_CGROUP_CONTROLLER":%s: %s", s->cgroup_path, strerror(-r));
-                return r;
-        }
-
-        STRV_FOREACH(k, s->controllers) {
-
-                if (strv_contains(s->reset_controllers, *k))
-                        continue;
-
-                r = session_create_one_group(s, *k, s->cgroup_path);
-                if (r < 0)
-                        log_warning("Failed to create %s:%s: %s", *k, s->cgroup_path, strerror(-r));
-        }
-
-        STRV_FOREACH(k, s->manager->controllers) {
-
-                if (strv_contains(s->reset_controllers, *k) ||
-                    strv_contains(s->manager->reset_controllers, *k) ||
-                    strv_contains(s->controllers, *k))
-                        continue;
-
-                r = session_create_one_group(s, *k, s->cgroup_path);
-                if (r < 0)
-                        log_warning("Failed to create %s:%s: %s", *k, s->cgroup_path, strerror(-r));
-        }
-
-        if (s->leader > 0) {
-
-                STRV_FOREACH(k, s->reset_controllers) {
-                        r = cg_attach(*k, "/", s->leader);
-                        if (r < 0)
-                                log_warning("Failed to reset controller %s: %s", *k, strerror(-r));
-
-                }
-
-                STRV_FOREACH(k, s->manager->reset_controllers) {
-
-                        if (strv_contains(s->reset_controllers, *k) ||
-                            strv_contains(s->controllers, *k))
-                                continue;
-
-                        r = cg_attach(*k, "/", s->leader);
-                        if (r < 0)
-                                log_warning("Failed to reset controller %s: %s", *k, strerror(-r));
-                }
-        }
-
-        r = hashmap_put(s->manager->session_cgroups, s->cgroup_path, s);
-        if (r < 0)
-                log_warning("Failed to create mapping between cgroup and session");
 
         return 0;
 }
@@ -595,6 +505,11 @@ int session_start(Session *s) {
         if (r < 0)
                 return r;
 
+        /* Create cgroup */
+        r = session_start_scope(s);
+        if (r < 0)
+                return r;
+
         log_struct(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
                    MESSAGE_ID(SD_MESSAGE_SESSION_START),
                    "SESSION_ID=%s", s->id,
@@ -602,11 +517,6 @@ int session_start(Session *s) {
                    "LEADER=%lu", (unsigned long) s->leader,
                    "MESSAGE=New session %s of user %s.", s->id, s->user->name,
                    NULL);
-
-        /* Create cgroup */
-        r = session_create_cgroup(s);
-        if (r < 0)
-                return r;
 
         /* Create X11 symlink */
         session_link_x11_socket(s);
@@ -639,73 +549,42 @@ int session_start(Session *s) {
         return 0;
 }
 
-static bool session_shall_kill(Session *s) {
-        assert(s);
+/* static bool session_shall_kill(Session *s) { */
+/*         assert(s); */
 
-        if (!s->kill_processes)
-                return false;
+/*         if (!s->kill_processes) */
+/*                 return false; */
 
-        if (strv_contains(s->manager->kill_exclude_users, s->user->name))
-                return false;
+/*         if (strv_contains(s->manager->kill_exclude_users, s->user->name)) */
+/*                 return false; */
 
-        if (strv_isempty(s->manager->kill_only_users))
-                return true;
+/*         if (strv_isempty(s->manager->kill_only_users)) */
+/*                 return true; */
 
-        return strv_contains(s->manager->kill_only_users, s->user->name);
-}
+/*         return strv_contains(s->manager->kill_only_users, s->user->name); */
+/* } */
 
-static int session_terminate_cgroup(Session *s) {
+static int session_stop_scope(Session *s) {
+        DBusError error;
+        char *job;
         int r;
-        char **k;
 
         assert(s);
 
-        if (!s->cgroup_path)
+        dbus_error_init(&error);
+
+        if (!s->scope)
                 return 0;
 
-        cg_trim(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, false);
-
-        if (session_shall_kill(s)) {
-
-                r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, true);
-                if (r < 0)
-                        log_error("Failed to kill session cgroup: %s", strerror(-r));
-
-        } else {
-                if (s->leader > 0) {
-                        Session *t;
-
-                        /* We still send a HUP to the leader process,
-                         * even if we are not supposed to kill the
-                         * whole cgroup. But let's first check the
-                         * leader still exists and belongs to our
-                         * session... */
-
-                        r = manager_get_session_by_pid(s->manager, s->leader, &t);
-                        if (r > 0 && t == s) {
-                                kill(s->leader, SIGTERM); /* for normal processes */
-                                kill(s->leader, SIGHUP);  /* for shells */
-                                kill(s->leader, SIGCONT); /* in case they are stopped */
-                        }
-                }
-
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, true);
-                if (r < 0)
-                        log_error("Failed to check session cgroup: %s", strerror(-r));
-                else if (r > 0) {
-                        r = cg_delete(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path);
-                        if (r < 0)
-                                log_error("Failed to delete session cgroup: %s", strerror(-r));
-                }
+        r = manager_stop_unit(s->manager, s->scope, &error, &job);
+        if (r < 0) {
+                log_error("Failed to stop session scope: %s", bus_error(&error, r));
+                dbus_error_free(&error);
+                return r;
         }
 
-        STRV_FOREACH(k, s->user->manager->controllers)
-                cg_trim(*k, s->cgroup_path, true);
-
-        hashmap_remove(s->manager->session_cgroups, s->cgroup_path);
-
-        free(s->cgroup_path);
-        s->cgroup_path = NULL;
+        free(s->scope_job);
+        s->scope_job = job;
 
         return 0;
 }
@@ -750,7 +629,7 @@ int session_stop(Session *s) {
                            NULL);
 
         /* Kill cgroup */
-        k = session_terminate_cgroup(s);
+        k = session_stop_scope(s);
         if (k < 0)
                 r = k;
 
@@ -859,28 +738,6 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
                 r = get_process_ctty_atime(s->leader, &atime);
                 if (r >= 0)
                         goto found_atime;
-        }
-
-        /* For other TTY sessions, let's find the most recent atime of
-         * the ttys of any of the processes of the session */
-        if (s->cgroup_path) {
-                _cleanup_fclose_ FILE *f = NULL;
-
-                if (cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, &f) >= 0) {
-                        pid_t pid;
-
-                        atime = 0;
-                        while (cg_read_pid(f, &pid) > 0) {
-                                usec_t a;
-
-                                if (get_process_ctty_atime(pid, &a) >= 0)
-                                        if (atime == 0 || atime < a)
-                                                atime = a;
-                        }
-
-                        if (atime != 0)
-                                goto found_atime;
-                }
         }
 
 dont_know:
@@ -1018,15 +875,11 @@ int session_check_gc(Session *s, bool drop_not_started) {
                         return 1;
         }
 
-        if (s->cgroup_path) {
+        if (s->scope_job)
+                return 1;
 
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, false);
-                if (r < 0)
-                        return r;
-
-                if (r <= 0)
-                        return 1;
-        }
+        if (s->scope)
+                return manager_unit_is_active(s->manager, s->scope) != 0;
 
         return 0;
 }
@@ -1044,6 +897,9 @@ void session_add_to_gc_queue(Session *s) {
 SessionState session_get_state(Session *s) {
         assert(s);
 
+        if (s->scope_job)
+                return s->started ? SESSION_OPENING : SESSION_CLOSING;
+
         if (s->fifo_fd < 0)
                 return SESSION_CLOSING;
 
@@ -1054,44 +910,16 @@ SessionState session_get_state(Session *s) {
 }
 
 int session_kill(Session *s, KillWho who, int signo) {
-        _cleanup_set_free_ Set *pid_set = NULL;
-        int r = 0;
-
         assert(s);
 
-        if (!s->cgroup_path)
+        if (!s->scope)
                 return -ESRCH;
 
-        if (s->leader <= 0 && who == KILL_LEADER)
-                return -ESRCH;
-
-        if (s->leader > 0)
-                if (kill(s->leader, signo) < 0)
-                        r = -errno;
-
-        if (who == KILL_ALL) {
-                int q;
-
-                pid_set = set_new(trivial_hash_func, trivial_compare_func);
-                if (!pid_set)
-                        return log_oom();
-
-                if (s->leader > 0) {
-                        q = set_put(pid_set, LONG_TO_PTR(s->leader));
-                        if (q < 0)
-                                r = q;
-                }
-
-                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, signo, false, true, false, pid_set);
-                if (q < 0)
-                        if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
-                                r = q;
-        }
-
-        return r;
+        return manager_kill_unit(s->manager, s->scope, who, signo, NULL);
 }
 
-static const char* const session_state_table[_SESSION_TYPE_MAX] = {
+static const char* const session_state_table[_SESSION_STATE_MAX] = {
+        [SESSION_OPENING] = "opening",
         [SESSION_ONLINE] = "online",
         [SESSION_ACTIVE] = "active",
         [SESSION_CLOSING] = "closing"

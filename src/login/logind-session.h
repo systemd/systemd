@@ -31,9 +31,10 @@ typedef enum KillWho KillWho;
 #include "logind-user.h"
 
 typedef enum SessionState {
+        SESSION_OPENING,  /* Session scope is being created */
         SESSION_ONLINE,   /* Logged in */
         SESSION_ACTIVE,   /* Logged in and in the fg */
-        SESSION_CLOSING,  /* Logged out, but processes still remain */
+        SESSION_CLOSING,  /* Logged out, but scope is still there */
         _SESSION_STATE_MAX,
         _SESSION_STATE_INVALID = -1
 } SessionState;
@@ -81,9 +82,10 @@ struct Session {
         bool remote;
         char *remote_user;
         char *remote_host;
-
         char *service;
-        char *slice;
+
+        char *scope;
+        char *scope_job;
 
         int vtnr;
         Seat *seat;
@@ -94,15 +96,13 @@ struct Session {
         int fifo_fd;
         char *fifo_path;
 
-        char *cgroup_path;
-        char **controllers, **reset_controllers;
-
         bool idle_hint;
         dual_timestamp idle_hint_timestamp;
 
-        bool kill_processes;
         bool in_gc_queue:1;
         bool started:1;
+
+        DBusMessage *create_message;
 
         LIST_FIELDS(Session, sessions_by_user);
         LIST_FIELDS(Session, sessions_by_seat);
@@ -137,6 +137,8 @@ int session_send_signal(Session *s, bool new_session);
 int session_send_changed(Session *s, const char *properties);
 int session_send_lock(Session *s, bool lock);
 int session_send_lock_all(Manager *m, bool lock);
+
+int session_send_create_reply(Session *s, DBusError *error);
 
 const char* session_state_to_string(SessionState t) _const_;
 SessionState session_state_from_string(const char *s) _pure_;

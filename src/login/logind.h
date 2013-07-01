@@ -77,19 +77,15 @@ struct Manager {
 
         Seat *vtconsole;
 
-        char *cgroup_root;
-        char **controllers, **reset_controllers;
-
         char **kill_only_users, **kill_exclude_users;
-
         bool kill_user_processes;
 
         unsigned long session_counter;
         unsigned long inhibit_counter;
 
-        Hashmap *session_cgroups;
-        Hashmap *user_cgroups;
-        Hashmap *machine_cgroups;
+        Hashmap *session_units;
+        Hashmap *user_units;
+        Hashmap *machine_units;
 
         Hashmap *session_fds;
         Hashmap *inhibitor_fds;
@@ -171,17 +167,12 @@ int manager_startup(Manager *m);
 int manager_run(Manager *m);
 int manager_spawn_autovt(Manager *m, int vtnr);
 
-void manager_cgroup_notify_empty(Manager *m, const char *cgroup);
-
 void manager_gc(Manager *m, bool drop_not_started);
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 
-int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user);
 int manager_get_user_by_pid(Manager *m, pid_t pid, User **user);
-int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **session);
 int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
-int manager_get_machine_by_cgroup(Manager *m, const char *cgroup, Machine **machine);
 int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine);
 
 extern const DBusObjectPathVTable bus_manager_vtable;
@@ -193,6 +184,12 @@ int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name
 int manager_send_changed(Manager *manager, const char *properties);
 
 int manager_dispatch_delayed(Manager *manager);
+
+int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, DBusError *error, char **job);
+int manager_start_unit(Manager *manager, const char *unit, DBusError *error, char **job);
+int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char **job);
+int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error);
+int manager_unit_is_active(Manager *manager, const char *unit);
 
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, unsigned length);

@@ -76,24 +76,23 @@ Manager *manager_new(void) {
         m->buttons = hashmap_new(string_hash_func, string_compare_func);
         m->machines = hashmap_new(string_hash_func, string_compare_func);
 
-        m->user_cgroups = hashmap_new(string_hash_func, string_compare_func);
-        m->session_cgroups = hashmap_new(string_hash_func, string_compare_func);
-        m->machine_cgroups = hashmap_new(string_hash_func, string_compare_func);
+        m->user_units = hashmap_new(string_hash_func, string_compare_func);
+        m->session_units = hashmap_new(string_hash_func, string_compare_func);
+        m->machine_units = hashmap_new(string_hash_func, string_compare_func);
 
         m->session_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitor_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->button_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
 
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->machines ||
-            !m->user_cgroups || !m->session_cgroups || !m->machine_cgroups ||
+            !m->user_units || !m->session_units || !m->machine_units ||
             !m->session_fds || !m->inhibitor_fds || !m->button_fds) {
                 manager_free(m);
                 return NULL;
         }
 
-        m->reset_controllers = strv_new("cpu", NULL);
         m->kill_exclude_users = strv_new("root", NULL);
-        if (!m->reset_controllers || !m->kill_exclude_users) {
+        if (!m->kill_exclude_users) {
                 manager_free(m);
                 return NULL;
         }
@@ -103,14 +102,6 @@ Manager *manager_new(void) {
                 manager_free(m);
                 return NULL;
         }
-
-        if (cg_get_root_path(&m->cgroup_root) < 0) {
-                manager_free(m);
-                return NULL;
-        }
-
-        if (streq(m->cgroup_root, "/"))
-                m->cgroup_root[0] = 0;
 
         return m;
 }
@@ -155,9 +146,9 @@ void manager_free(Manager *m) {
         hashmap_free(m->buttons);
         hashmap_free(m->machines);
 
-        hashmap_free(m->user_cgroups);
-        hashmap_free(m->session_cgroups);
-        hashmap_free(m->machine_cgroups);
+        hashmap_free(m->user_units);
+        hashmap_free(m->session_units);
+        hashmap_free(m->machine_units);
 
         hashmap_free(m->session_fds);
         hashmap_free(m->inhibitor_fds);
@@ -194,14 +185,10 @@ void manager_free(Manager *m) {
         if (m->idle_action_fd >= 0)
                 close_nointr_nofail(m->idle_action_fd);
 
-        strv_free(m->controllers);
-        strv_free(m->reset_controllers);
         strv_free(m->kill_only_users);
         strv_free(m->kill_exclude_users);
 
         free(m->action_job);
-
-        free(m->cgroup_root);
         free(m);
 }
 
@@ -989,177 +976,67 @@ static int manager_reserve_vt(Manager *m) {
         return 0;
 }
 
-int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **session) {
-        Session *s;
-        char *p;
-
-        assert(m);
-        assert(cgroup);
-        assert(session);
-
-        s = hashmap_get(m->session_cgroups, cgroup);
-        if (s) {
-                *session = s;
-                return 1;
-        }
-
-        p = strdupa(cgroup);
-
-        for (;;) {
-                char *e;
-
-                e = strrchr(p, '/');
-                if (!e || e == p) {
-                        *session = NULL;
-                        return 0;
-                }
-
-                *e = 0;
-
-                s = hashmap_get(m->session_cgroups, p);
-                if (s) {
-                        *session = s;
-                        return 1;
-                }
-        }
-}
-
-int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user) {
-        User *u;
-        char *p;
-
-        assert(m);
-        assert(cgroup);
-        assert(user);
-
-        u = hashmap_get(m->user_cgroups, cgroup);
-        if (u) {
-                *user = u;
-                return 1;
-        }
-
-        p = strdupa(cgroup);
-        if (!p)
-                return log_oom();
-
-        for (;;) {
-                char *e;
-
-                e = strrchr(p, '/');
-                if (!e || e == p) {
-                        *user = NULL;
-                        return 0;
-                }
-
-                *e = 0;
-
-                u = hashmap_get(m->user_cgroups, p);
-                if (u) {
-                        *user = u;
-                        return 1;
-                }
-        }
-}
-
-int manager_get_machine_by_cgroup(Manager *m, const char *cgroup, Machine **machine) {
-        Machine *u;
-        char *p;
-
-        assert(m);
-        assert(cgroup);
-        assert(machine);
-
-        u = hashmap_get(m->machine_cgroups, cgroup);
-        if (u) {
-                *machine = u;
-                return 1;
-        }
-
-        p = strdupa(cgroup);
-        if (!p)
-                return log_oom();
-
-        for (;;) {
-                char *e;
-
-                e = strrchr(p, '/');
-                if (!e || e == p) {
-                        *machine = NULL;
-                        return 0;
-                }
-
-                *e = 0;
-
-                u = hashmap_get(m->machine_cgroups, p);
-                if (u) {
-                        *machine = u;
-                        return 1;
-                }
-        }
-}
-
 int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *unit = NULL;
+        Session *s;
         int r;
 
         assert(m);
         assert(pid >= 1);
         assert(session);
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &p);
+        r = cg_pid_get_unit(pid, &unit);
         if (r < 0)
                 return r;
 
-        return manager_get_session_by_cgroup(m, p, session);
+        s = hashmap_get(m->session_units, unit);
+        if (!s)
+                return 0;
+
+        *session = s;
+        return 1;
 }
 
 int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *unit = NULL;
+        User *u;
         int r;
 
         assert(m);
         assert(pid >= 1);
         assert(user);
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &p);
+        r = cg_pid_get_slice(pid, &unit);
         if (r < 0)
                 return r;
 
-        return manager_get_user_by_cgroup(m, p, user);
+        u = hashmap_get(m->user_units, unit);
+        if (!u)
+                return 0;
+
+        *user = u;
+        return 1;
 }
 
 int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *unit = NULL;
+        Machine *mm;
         int r;
 
         assert(m);
         assert(pid >= 1);
         assert(machine);
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &p);
+        r = cg_pid_get_unit(pid, &unit);
         if (r < 0)
                 return r;
 
-        return manager_get_machine_by_cgroup(m, p, machine);
-}
+        mm = hashmap_get(m->machine_units, unit);
+        if (!mm)
+                return 0;
 
-void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
-        Machine *machine;
-        Session *s;
-        User *u;
-        int r;
-
-        r = manager_get_session_by_cgroup(m, cgroup, &s);
-        if (r > 0)
-                session_add_to_gc_queue(s);
-
-        r = manager_get_user_by_cgroup(m, cgroup, &u);
-        if (r > 0)
-                user_add_to_gc_queue(u);
-
-        r = manager_get_machine_by_cgroup(m, cgroup, &machine);
-        if (r > 0)
-                machine_add_to_gc_queue(machine);
+        *machine = mm;
+        return 1;
 }
 
 static void manager_dispatch_other(Manager *m, int fd) {
@@ -1229,15 +1106,40 @@ static int manager_connect_bus(Manager *m) {
 
         dbus_bus_add_match(m->bus,
                            "type='signal',"
-                           "interface='org.freedesktop.systemd1.Agent',"
-                           "member='Released',"
-                           "path='/org/freedesktop/systemd1/agent'",
+                           "sender='org.freedesktop.systemd1',"
+                           "interface='org.freedesktop.systemd1.Manager',"
+                           "member='JobRemoved',"
+                           "path='/org/freedesktop/systemd1'",
+                           &error);
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to add match for JobRemoved: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+        }
+
+        dbus_bus_add_match(m->bus,
+                           "type='signal',"
+                           "sender='org.freedesktop.systemd1',"
+                           "interface='org.freedesktop.DBus.Properties',"
+                           "member='PropertiesChanged'",
                            &error);
 
         if (dbus_error_is_set(&error)) {
-                log_error("Failed to register match: %s", bus_error_message(&error));
-                r = -EIO;
-                goto fail;
+                log_error("Failed to add match for PropertiesChanged: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+        }
+
+        r = bus_method_call_with_reply(
+                        m->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Subscribe",
+                        NULL,
+                        &error,
+                        DBUS_TYPE_INVALID);
+        if (r < 0) {
+                log_error("Failed to enable subscription: %s", bus_error(&error, r));
+                dbus_error_free(&error);
         }
 
         r = dbus_bus_request_name(m->bus, "org.freedesktop.login1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error);
@@ -1562,9 +1464,6 @@ int manager_startup(Manager *m) {
 
         assert(m);
         assert(m->epoll_fd <= 0);
-
-        cg_shorten_controllers(m->reset_controllers);
-        cg_shorten_controllers(m->controllers);
 
         m->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (m->epoll_fd < 0)

@@ -28,6 +28,14 @@ typedef struct Machine Machine;
 #include "logind.h"
 #include "logind-session.h"
 
+typedef enum MachineState {
+        MACHINE_OPENING,    /* Machine is being registered */
+        MACHINE_RUNNING,    /* Machine is running */
+        MACHINE_CLOSING,    /* Machine is terminating */
+        _MACHINE_STATE_MAX,
+        _MACHINE_STATE_INVALID = -1
+} MachineState;
+
 typedef enum MachineClass {
         MACHINE_CONTAINER,
         MACHINE_VM,
@@ -41,13 +49,15 @@ struct Machine {
         char *name;
         sd_id128_t id;
 
+        MachineState state;
         MachineClass class;
 
         char *state_file;
         char *service;
-        char *cgroup_path;
-        char *slice;
         char *root_directory;
+
+        char *scope;
+        char *scope_job;
 
         pid_t leader;
 
@@ -55,6 +65,8 @@ struct Machine {
 
         bool in_gc_queue:1;
         bool started:1;
+
+        DBusMessage *create_message;
 
         LIST_FIELDS(Machine, gc_queue);
 };
@@ -71,10 +83,17 @@ int machine_kill(Machine *m, KillWho who, int signo);
 
 char *machine_bus_path(Machine *s);
 
+MachineState machine_get_state(Machine *u);
+
 extern const DBusObjectPathVTable bus_machine_vtable;
 
 int machine_send_signal(Machine *m, bool new_machine);
 int machine_send_changed(Machine *m, const char *properties);
 
+int machine_send_create_reply(Machine *m, DBusError *error);
+
 const char* machine_class_to_string(MachineClass t) _const_;
 MachineClass machine_class_from_string(const char *s) _pure_;
+
+const char* machine_state_to_string(MachineState t) _const_;
+MachineState machine_state_from_string(const char *s) _pure_;

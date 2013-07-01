@@ -37,11 +37,11 @@
         "  <property name=\"Id\" type=\"ay\" access=\"read\"/>\n"        \
         "  <property name=\"Timestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"TimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Service\" type=\"s\" access=\"read\"/>\n"   \
-        "  <property name=\"Slice\" type=\"s\" access=\"read\"/>\n"     \
+        "  <property name=\"Scope\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Leader\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"Class\" type=\"s\" access=\"read\"/>\n"     \
+        "  <property name=\"State\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"RootDirectory\" type=\"s\" access=\"read\"/>\n" \
         " </interface>\n"
 
@@ -57,24 +57,6 @@
 #define INTERFACES_LIST                              \
         BUS_GENERIC_INTERFACES_LIST                  \
         "org.freedesktop.login1.Machine\0"
-
-static int bus_machine_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
-        _cleanup_free_ char *t = NULL;
-        Machine *m = data;
-        int r;
-        bool success;
-
-        assert(i);
-        assert(property);
-        assert(m);
-
-        r = cg_join_spec(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, &t);
-        if (r < 0)
-                return r;
-
-        success = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t);
-        return success ? 0 : -ENOMEM;
-}
 
 static int bus_machine_append_id(DBusMessageIter *i, const char *property, void *data) {
         DBusMessageIter sub;
@@ -95,6 +77,22 @@ static int bus_machine_append_id(DBusMessageIter *i, const char *property, void 
                 return -ENOMEM;
 
         if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_machine_append_state(DBusMessageIter *i, const char *property, void *data) {
+        Machine *m = data;
+        const char *state;
+
+        assert(i);
+        assert(property);
+        assert(m);
+
+        state = machine_state_to_string(machine_get_state(m));
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &state))
                 return -ENOMEM;
 
         return 0;
@@ -130,11 +128,11 @@ static const BusProperty bus_login_machine_properties[] = {
         { "Id",                     bus_machine_append_id,            "ay", 0 },
         { "Timestamp",              bus_property_append_usec,          "t", offsetof(Machine, timestamp.realtime)  },
         { "TimestampMonotonic",     bus_property_append_usec,          "t", offsetof(Machine, timestamp.monotonic) },
-        { "DefaultControlGroup",    bus_machine_append_default_cgroup, "s", 0 },
         { "Service",                bus_property_append_string,        "s", offsetof(Machine, service),            true },
-        { "Slice",                  bus_property_append_string,        "s", offsetof(Machine, slice),              true },
+        { "Scope",                  bus_property_append_string,        "s", offsetof(Machine, scope),              true },
         { "Leader",                 bus_property_append_pid,           "u", offsetof(Session, leader)              },
         { "Class",                  bus_machine_append_class,          "s", offsetof(Machine, class)               },
+        { "State",                  bus_machine_append_state,          "s", 0                                      },
         { "RootDirectory",          bus_property_append_string,        "s", offsetof(Machine, root_directory),     true },
         { NULL, }
 };
@@ -310,6 +308,53 @@ int machine_send_changed(Machine *m, const char *properties) {
 
         if (!dbus_connection_send(m->manager->bus, msg, NULL))
                 return -ENOMEM;
+
+        return 0;
+}
+
+int machine_send_create_reply(Machine *m, DBusError *error) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+
+        assert(m);
+
+        if (!m->create_message)
+                return 0;
+
+        if (error) {
+                DBusError buffer;
+
+                dbus_error_init(&buffer);
+
+                if (!error || !dbus_error_is_set(error)) {
+                        dbus_set_error_const(&buffer, DBUS_ERROR_INVALID_ARGS, "Invalid Arguments");
+                        error = &buffer;
+                }
+
+                reply = dbus_message_new_error(m->create_message, error->name, error->message);
+                dbus_error_free(&buffer);
+
+                if (!reply)
+                        return log_oom();
+        } else {
+                _cleanup_free_ char *p = NULL;
+
+                p = machine_bus_path(m);
+                if (!p)
+                        return log_oom();
+
+                reply = dbus_message_new_method_return(m->create_message);
+                if (!reply)
+                        return log_oom();
+
+                if (!dbus_message_append_args(reply, DBUS_TYPE_OBJECT_PATH, &p, DBUS_TYPE_INVALID))
+                        return log_oom();
+        }
+
+        if (!dbus_connection_send(m->manager->bus, reply, NULL))
+                return log_oom();
+
+        dbus_message_unref(m->create_message);
+        m->create_message = NULL;
 
         return 0;
 }

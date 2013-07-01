@@ -38,6 +38,8 @@
 #include "label.h"
 #include "utf8.h"
 #include "unit-name.h"
+#include "bus-errors.h"
+#include "virt.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
         " <interface name=\"org.freedesktop.login1.Manager\">\n"        \
@@ -94,9 +96,7 @@
         "   <arg name=\"remote\" type=\"b\" direction=\"in\"/>\n"       \
         "   <arg name=\"remote_user\" type=\"s\" direction=\"in\"/>\n"  \
         "   <arg name=\"remote_host\" type=\"s\" direction=\"in\"/>\n"  \
-        "   <arg name=\"controllers\" type=\"as\" direction=\"in\"/>\n" \
-        "   <arg name=\"reset_controllers\" type=\"as\" direction=\"in\"/>\n" \
-        "   <arg name=\"kill_processes\" type=\"b\" direction=\"in\"/>\n" \
+        "   <arg name=\"scope_properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
         "   <arg name=\"id\" type=\"s\" direction=\"out\"/>\n"          \
         "   <arg name=\"path\" type=\"o\" direction=\"out\"/>\n"        \
         "   <arg name=\"runtime_path\" type=\"o\" direction=\"out\"/>\n" \
@@ -114,8 +114,8 @@
         "   <arg name=\"service\" type=\"s\" direction=\"in\"/>\n"      \
         "   <arg name=\"class\" type=\"s\" direction=\"in\"/>\n"        \
         "   <arg name=\"leader\" type=\"u\" direction=\"in\"/>\n"       \
-        "   <arg name=\"slice\" type=\"s\" direction=\"in\"/>\n"        \
         "   <arg name=\"root_directory\" type=\"s\" direction=\"in\"/>\n" \
+        "   <arg name=\"scope_properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
         "   <arg name=\"path\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"ActivateSession\">\n"                         \
@@ -345,27 +345,24 @@ static int bus_manager_append_preparing(DBusMessageIter *i, const char *property
         return 0;
 }
 
-static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMessage **_reply) {
+static int bus_manager_create_session(Manager *m, DBusMessage *message) {
+
         const char *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *service;
         uint32_t uid, leader, audit_id = 0;
-        dbus_bool_t remote, kill_processes, exists;
-        _cleanup_strv_free_ char **controllers = NULL, **reset_controllers = NULL;
-        _cleanup_free_ char *cgroup = NULL, *id = NULL, *p = NULL;
-        SessionType t;
-        SessionClass c;
-        DBusMessageIter iter;
-        int r;
-        uint32_t vtnr = 0;
-        _cleanup_close_ int fifo_fd = -1;
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_free_ char *id = NULL;
         Session *session = NULL;
         User *user = NULL;
         Seat *seat = NULL;
+        DBusMessageIter iter;
+        dbus_bool_t remote;
+        uint32_t vtnr = 0;
+        SessionType t;
+        SessionClass c;
         bool b;
+        int r;
 
         assert(m);
         assert(message);
-        assert(_reply);
 
         if (!dbus_message_iter_init(message, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT32)
@@ -515,67 +512,37 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
 
         dbus_message_iter_get_basic(&iter, &remote_host);
 
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
-
-        r = bus_parse_strv_iter(&iter, &controllers);
-        if (r < 0)
-                return -EINVAL;
-
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRING) {
-                r = -EINVAL;
-                goto fail;
-        }
-
-        r = bus_parse_strv_iter(&iter, &reset_controllers);
-        if (r < 0)
-                goto fail;
-
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BOOLEAN) {
-                r = -EINVAL;
-                goto fail;
-        }
-
-        dbus_message_iter_get_basic(&iter, &kill_processes);
-
         if (leader <= 0) {
                 leader = bus_get_unix_process_id(m->bus, dbus_message_get_sender(message), NULL);
                 if (leader == 0)
                         return -EINVAL;
         }
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, leader, &cgroup);
-        if (r < 0)
-                goto fail;
-
-        r = manager_get_session_by_cgroup(m, cgroup, &session);
-        if (r < 0)
-                goto fail;
-
+        r = manager_get_session_by_pid(m, leader, &session);
         if (session) {
+                _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+                _cleanup_free_ char *path = NULL;
+                _cleanup_close_ int fifo_fd = -1;
+                bool exists;
+
+                /* Session already exists, client is probably
+                 * something like "su" which changes uid but is still
+                 * the same session */
+
                 fifo_fd = session_create_fifo(session);
                 if (fifo_fd < 0) {
                         r = fifo_fd;
                         goto fail;
                 }
 
-                /* Session already exists, client is probably
-                 * something like "su" which changes uid but
-                 * is still the same audit session */
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply) {
+                path = session_bus_path(session);
+                if (!path) {
                         r = -ENOMEM;
                         goto fail;
                 }
 
-                p = session_bus_path(session);
-                if (!p) {
+                reply = dbus_message_new_method_return(message);
+                if (!reply) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -587,7 +554,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 b = dbus_message_append_args(
                                 reply,
                                 DBUS_TYPE_STRING, &session->id,
-                                DBUS_TYPE_OBJECT_PATH, &p,
+                                DBUS_TYPE_OBJECT_PATH, &path,
                                 DBUS_TYPE_STRING, &session->user->runtime_path,
                                 DBUS_TYPE_UNIX_FD, &fifo_fd,
                                 DBUS_TYPE_STRING, &cseat,
@@ -599,8 +566,10 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                         goto fail;
                 }
 
-                *_reply = reply;
-                reply = NULL;
+                if (!dbus_connection_send(m->bus, reply, NULL)) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
 
                 return 0;
         }
@@ -654,12 +623,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         session->type = t;
         session->class = c;
         session->remote = remote;
-        session->kill_processes = kill_processes;
         session->vtnr = vtnr;
-
-        session->controllers = cg_shorten_controllers(controllers);
-        session->reset_controllers = cg_shorten_controllers(reset_controllers);
-        controllers = reset_controllers = NULL;
 
         if (!isempty(tty)) {
                 session->tty = strdup(tty);
@@ -701,12 +665,6 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 }
         }
 
-        fifo_fd = session_create_fifo(session);
-        if (fifo_fd < 0) {
-                r = fifo_fd;
-                goto fail;
-        }
-
         if (seat) {
                 r = seat_attach_session(seat, session);
                 if (r < 0)
@@ -717,38 +675,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         if (r < 0)
                 goto fail;
 
-        reply = dbus_message_new_method_return(message);
-        if (!reply) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        p = session_bus_path(session);
-        if (!p) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        cseat = seat ? seat->id : "";
-        exists = false;
-        b = dbus_message_append_args(
-                        reply,
-                        DBUS_TYPE_STRING, &session->id,
-                        DBUS_TYPE_OBJECT_PATH, &p,
-                        DBUS_TYPE_STRING, &session->user->runtime_path,
-                        DBUS_TYPE_UNIX_FD, &fifo_fd,
-                        DBUS_TYPE_STRING, &cseat,
-                        DBUS_TYPE_UINT32, &vtnr,
-                        DBUS_TYPE_BOOLEAN, &exists,
-                        DBUS_TYPE_INVALID);
-
-        if (!b) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        *_reply = reply;
-        reply = NULL;
+        session->create_message = dbus_message_ref(message);
 
         return 0;
 
@@ -779,26 +706,20 @@ static bool valid_machine_name(const char *p) {
         return true;
 }
 
-static int bus_manager_create_machine(
-                Manager *manager,
-                DBusMessage *message,
-                DBusMessage **_reply) {
+static int bus_manager_create_machine(Manager *manager, DBusMessage *message) {
 
         const char *name, *service, *class, *slice, *root_directory;
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         _cleanup_free_ char *p = NULL;
         DBusMessageIter iter, sub;
         MachineClass c;
         uint32_t leader;
         sd_id128_t id;
-        dbus_bool_t b;
         Machine *m;
         int n, r;
         void *v;
 
         assert(manager);
         assert(message);
-        assert(_reply);
 
         if (!dbus_message_iter_init(message, &iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
@@ -887,14 +808,6 @@ static int bus_manager_create_machine(
                 }
         }
 
-        if (!isempty(slice)) {
-                m->slice = strdup(slice);
-                if (!m->slice) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        }
-
         if (!isempty(root_directory)) {
                 m->root_directory = strdup(root_directory);
                 if (!m->root_directory) {
@@ -907,29 +820,8 @@ static int bus_manager_create_machine(
         if (r < 0)
                 goto fail;
 
-        reply = dbus_message_new_method_return(message);
-        if (!reply) {
-                r = -ENOMEM;
-                goto fail;
-        }
+        m->create_message = dbus_message_ref(message);
 
-        p = machine_bus_path(m);
-        if (!p) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        b = dbus_message_append_args(
-                        reply,
-                        DBUS_TYPE_OBJECT_PATH, &p,
-                        DBUS_TYPE_INVALID);
-        if (!b) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        *_reply = reply;
-        reply = NULL;
         return 0;
 
 fail:
@@ -1608,8 +1500,6 @@ static int bus_manager_do_shutdown_or_sleep(
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_handle_action, handle_action, HandleAction);
 
 static const BusProperty bus_login_manager_properties[] = {
-        { "Controllers",            bus_property_append_strv,           "as", offsetof(Manager, controllers),        true },
-        { "ResetControllers",       bus_property_append_strv,           "as", offsetof(Manager, reset_controllers),  true },
         { "NAutoVTs",               bus_property_append_unsigned,       "u",  offsetof(Manager, n_autovts)           },
         { "KillOnlyUsers",          bus_property_append_strv,           "as", offsetof(Manager, kill_only_users),    true },
         { "KillExcludeUsers",       bus_property_append_strv,           "as", offsetof(Manager, kill_exclude_users), true },
@@ -2109,7 +1999,7 @@ static DBusHandlerResult manager_message_handler(
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CreateSession")) {
 
-                r = bus_manager_create_session(m, message, &reply);
+                r = bus_manager_create_session(m, message);
 
                 /* Don't delay the work on OOM here, since it might be
                  * triggered by a low RLIMIT_NOFILE here (since we
@@ -2118,9 +2008,10 @@ static DBusHandlerResult manager_message_handler(
 
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CreateMachine")) {
 
-                r = bus_manager_create_machine(m, message, &reply);
+                r = bus_manager_create_machine(m, message);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
 
@@ -2753,7 +2644,7 @@ static DBusHandlerResult manager_message_handler(
 
         if (reply) {
                 if (!bus_maybe_send_reply(connection, message, reply))
-                                goto oom;
+                        goto oom;
         }
 
         return DBUS_HANDLER_RESULT_HANDLED;
@@ -2782,29 +2673,23 @@ DBusHandlerResult bus_message_filter(
 
         dbus_error_init(&error);
 
-        if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
-                const char *cgroup;
+        log_debug("Got message: %s %s %s", strna(dbus_message_get_sender(message)), strna(dbus_message_get_interface(message)), strna(dbus_message_get_member(message)));
 
-                if (!dbus_message_get_args(message, &error,
-                                           DBUS_TYPE_STRING, &cgroup,
-                                           DBUS_TYPE_INVALID))
-                        log_error("Failed to parse Released message: %s", bus_error_message(&error));
-                else
-                        manager_cgroup_notify_empty(m, cgroup);
-
-        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
-                uint32_t id;
+        if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
                 const char *path, *result, *unit;
+                uint32_t id;
 
                 if (!dbus_message_get_args(message, &error,
                                            DBUS_TYPE_UINT32, &id,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_STRING, &unit,
                                            DBUS_TYPE_STRING, &result,
-                                           DBUS_TYPE_INVALID))
+                                           DBUS_TYPE_INVALID)) {
                         log_error("Failed to parse JobRemoved message: %s", bus_error_message(&error));
+                        goto finish;
+                }
 
-                else if (m->action_job && streq(m->action_job, path)) {
+                if (m->action_job && streq(m->action_job, path)) {
                         log_info("Operation finished.");
 
                         /* Tell people that they now may take a lock again */
@@ -2814,9 +2699,97 @@ DBusHandlerResult bus_message_filter(
                         m->action_job = NULL;
                         m->action_unit = NULL;
                         m->action_what = 0;
+
+                } else {
+                        Machine *mm;
+                        Session *s;
+                        User *u;
+
+                        s = hashmap_get(m->session_units, unit);
+                        if (s) {
+                                if (streq_ptr(path, s->scope_job)) {
+                                        free(s->scope_job);
+                                        s->scope_job = NULL;
+
+                                        if (s->started) {
+                                                if (streq(result, "done"))
+                                                        session_send_create_reply(s, NULL);
+                                                else {
+                                                        dbus_set_error(&error, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
+                                                        session_send_create_reply(s, &error);
+                                                }
+                                        }
+                                }
+
+                                session_add_to_gc_queue(s);
+                        }
+
+                        u = hashmap_get(m->user_units, unit);
+                        if (u) {
+                                if (streq_ptr(path, u->service_job)) {
+                                        free(u->service_job);
+                                        u->service_job = NULL;
+                                }
+
+                                if (streq_ptr(path, u->slice_job)) {
+                                        free(u->slice_job);
+                                        u->slice_job = NULL;
+                                }
+
+                                user_add_to_gc_queue(u);
+                        }
+
+                        mm = hashmap_get(m->machine_units, unit);
+                        if (mm) {
+                                if (streq_ptr(path, mm->scope_job)) {
+                                        free(mm->scope_job);
+                                        mm->scope_job = NULL;
+
+                                        if (mm->started) {
+                                                if (streq(result, "done"))
+                                                        machine_send_create_reply(mm, NULL);
+                                                else {
+                                                        dbus_set_error(&error, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
+                                                        machine_send_create_reply(mm, &error);
+                                                }
+                                        }
+                                }
+
+                                machine_add_to_gc_queue(mm);
+                        }
+                }
+
+        } else if (dbus_message_is_signal(message, "org.freedesktop.DBus.Properties", "PropertiesChanged")) {
+
+                _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+                _cleanup_free_ char *unit = NULL;
+                const char *path;
+
+                path = dbus_message_get_path(message);
+                if (!path)
+                        goto finish;
+
+                unit_name_from_dbus_path(path, &unit);
+                if (unit) {
+                        Machine *mm;
+                        Session *s;
+                        User *u;
+
+                        s = hashmap_get(m->session_units, unit);
+                        if (s)
+                                session_add_to_gc_queue(s);
+
+                        u = hashmap_get(m->user_units, unit);
+                        if (u)
+                                user_add_to_gc_queue(u);
+
+                        mm = hashmap_get(m->machine_units, unit);
+                        if (mm)
+                                machine_add_to_gc_queue(mm);
                 }
         }
 
+finish:
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -2870,4 +2843,289 @@ int manager_dispatch_delayed(Manager *manager) {
         }
 
         return 1;
+}
+
+int manager_start_scope(
+                Manager *manager,
+                const char *scope,
+                pid_t pid,
+                const char *slice,
+                const char *description,
+                DBusError *error,
+                char **job) {
+
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        DBusMessageIter iter, sub, sub2, sub3, sub4;
+        const char *timeout_stop_property = "TimeoutStopUSec";
+        const char *pids_property = "PIDs";
+        uint64_t timeout = 500 * USEC_PER_MSEC;
+        const char *fail = "fail";
+        uint32_t u;
+
+        assert(manager);
+        assert(scope);
+        assert(pid > 1);
+
+        if (!slice)
+                slice = "";
+
+        m = dbus_message_new_method_call(
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartTransientUnit");
+        if (!m)
+                return log_oom();
+
+        dbus_message_iter_init_append(m, &iter);
+
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &scope) ||
+            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &fail) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sv)", &sub))
+                return log_oom();
+
+        if (!isempty(slice)) {
+                const char *slice_property = "Slice";
+
+                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &slice_property) ||
+                    !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "s", &sub3) ||
+                    !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, &slice) ||
+                    !dbus_message_iter_close_container(&sub2, &sub3) ||
+                    !dbus_message_iter_close_container(&sub, &sub2))
+                        return log_oom();
+        }
+
+        if (!isempty(description)) {
+                const char *description_property = "Description";
+
+                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &description_property) ||
+                    !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "s", &sub3) ||
+                    !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, &description) ||
+                    !dbus_message_iter_close_container(&sub2, &sub3) ||
+                    !dbus_message_iter_close_container(&sub, &sub2))
+                        return log_oom();
+        }
+
+        /* cgroup empty notification is not available in containers
+         * currently. To make this less problematic, let's shorten the
+         * stop timeout for sessions, so that we don't wait
+         * forever. */
+
+        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &timeout_stop_property) ||
+            !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "t", &sub3) ||
+            !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_UINT64, &timeout) ||
+            !dbus_message_iter_close_container(&sub2, &sub3) ||
+            !dbus_message_iter_close_container(&sub, &sub2))
+                return log_oom();
+
+        u = pid;
+        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &pids_property) ||
+            !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "au", &sub3) ||
+            !dbus_message_iter_open_container(&sub3, DBUS_TYPE_ARRAY, "u", &sub4) ||
+            !dbus_message_iter_append_basic(&sub4, DBUS_TYPE_UINT32, &u) ||
+            !dbus_message_iter_close_container(&sub3, &sub4) ||
+            !dbus_message_iter_close_container(&sub2, &sub3) ||
+            !dbus_message_iter_close_container(&sub, &sub2) ||
+            !dbus_message_iter_close_container(&iter, &sub))
+                return log_oom();
+
+        reply = dbus_connection_send_with_reply_and_block(manager->bus, m, -1, error);
+        if (!reply)
+                return -EIO;
+
+        if (job) {
+                const char *j;
+                char *copy;
+
+                if (!dbus_message_get_args(reply, error, DBUS_TYPE_OBJECT_PATH, &j, DBUS_TYPE_INVALID))
+                        return -EIO;
+
+                copy = strdup(j);
+                if (!copy)
+                        return -ENOMEM;
+
+                *job = copy;
+        }
+
+        return 0;
+}
+
+int manager_start_unit(Manager *manager, const char *unit, DBusError *error, char **job) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        const char *fail = "fail";
+        int r;
+
+        assert(manager);
+        assert(unit);
+
+        r = bus_method_call_with_reply(
+                        manager->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit",
+                        &reply,
+                        error,
+                        DBUS_TYPE_STRING, &unit,
+                        DBUS_TYPE_STRING, &fail,
+                        DBUS_TYPE_INVALID);
+        if (r < 0) {
+                log_error("Failed to start unit %s: %s", unit, bus_error(error, r));
+                return r;
+        }
+
+        if (job) {
+                const char *j;
+                char *copy;
+
+                if (!dbus_message_get_args(reply, error,
+                                           DBUS_TYPE_OBJECT_PATH, &j,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse reply.");
+                        return -EIO;
+                }
+
+                copy = strdup(j);
+                if (!copy)
+                        return -ENOMEM;
+
+                *job = copy;
+        }
+
+        return 0;
+}
+
+int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char **job) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        const char *fail = "fail";
+        int r;
+
+        assert(manager);
+        assert(unit);
+
+        r = bus_method_call_with_reply(
+                        manager->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StopUnit",
+                        &reply,
+                        error,
+                        DBUS_TYPE_STRING, &unit,
+                        DBUS_TYPE_STRING, &fail,
+                        DBUS_TYPE_INVALID);
+        if (r < 0) {
+                log_error("Failed to stop unit %s: %s", unit, bus_error(error, r));
+                return r;
+        }
+
+        if (job) {
+                const char *j;
+                char *copy;
+
+                if (!dbus_message_get_args(reply, error,
+                                           DBUS_TYPE_OBJECT_PATH, &j,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse reply.");
+                        return -EIO;
+                }
+
+                copy = strdup(j);
+                if (!copy)
+                        return -ENOMEM;
+
+                *job = copy;
+        }
+
+        return 0;
+}
+
+int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        const char *w;
+        int r;
+
+        assert(manager);
+        assert(unit);
+
+        w = who == KILL_LEADER ? "process" : "cgroup";
+        assert_cc(sizeof(signo) == sizeof(int32_t));
+
+        r = bus_method_call_with_reply(
+                        manager->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "KillUnit",
+                        &reply,
+                        error,
+                        DBUS_TYPE_STRING, &unit,
+                        DBUS_TYPE_STRING, &w,
+                        DBUS_TYPE_INT32, &signo,
+                        DBUS_TYPE_INVALID);
+        if (r < 0) {
+                log_error("Failed to stop unit %s: %s", unit, bus_error(error, r));
+                return r;
+        }
+
+        return 0;
+}
+
+int manager_unit_is_active(Manager *manager, const char *unit) {
+
+        const char *interface = "org.freedesktop.systemd1.Unit";
+        const char *property = "ActiveState";
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_free_ char *path = NULL;
+        DBusMessageIter iter, sub;
+        const char *state;
+        DBusError error;
+        int r;
+
+        assert(manager);
+        assert(unit);
+
+        dbus_error_init(&error);
+
+        path = unit_dbus_path_from_name(unit);
+        if (!path)
+                return -ENOMEM;
+
+        r = bus_method_call_with_reply(
+                        manager->bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        &error,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &property,
+                        DBUS_TYPE_INVALID);
+
+        if (r < 0) {
+                log_error("Failed to query ActiveState: %s", bus_error(&error, r));
+                dbus_error_free(&error);
+                return r;
+        }
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+                log_error("Failed to parse reply.");
+                return -EINVAL;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
+                log_error("Failed to parse reply.");
+                return -EINVAL;
+        }
+
+        dbus_message_iter_get_basic(&sub, &state);
+
+        return !streq(state, "inactive") && !streq(state, "failed");
 }

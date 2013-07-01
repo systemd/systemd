@@ -565,3 +565,30 @@ UnitType unit_name_to_type(const char *n) {
 
         return unit_type_from_string(e + 1);
 }
+
+int build_subslice(const char *slice, const char*name, char **subslice) {
+        char *ret;
+
+        assert(slice);
+        assert(name);
+        assert(subslice);
+
+        if (streq(slice, "-.slice"))
+                ret = strappend(name, ".slice");
+        else {
+                char *e;
+
+                e = endswith(slice, ".slice");
+                if (!e)
+                        return -EINVAL;
+
+                ret = new(char, (e - slice) + 1 + strlen(name) + 6 + 1);
+                if (!ret)
+                        return -ENOMEM;
+
+                stpcpy(stpcpy(stpcpy(mempcpy(ret, slice, e - slice), "-"), name), ".slice");
+        }
+
+        *subslice = ret;
+        return 0;
+}
