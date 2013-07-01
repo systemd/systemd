@@ -95,6 +95,7 @@ char *unit_name_from_path_instance(const char *prefix, const char *path, const c
 char *unit_name_to_path(const char *name);
 
 char *unit_dbus_path_from_name(const char *name);
+int unit_name_from_dbus_path(const char *path, char **name);
 
 char *unit_name_mangle(const char *name);
 char *unit_name_mangle_with_suffix(const char *name, const char *suffix);

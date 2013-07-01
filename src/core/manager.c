@@ -1783,7 +1783,7 @@ int manager_loop(Manager *m) {
 }
 
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, DBusError *e, Unit **_u) {
-        char *n;
+        _cleanup_free_ char *n = NULL;
         Unit *u;
         int r;
 
@@ -1791,16 +1791,11 @@ int manager_load_unit_from_dbus_path(Manager *m, const char *s, DBusError *e, Un
         assert(s);
         assert(_u);
 
-        if (!startswith(s, "/org/freedesktop/systemd1/unit/"))
-                return -EINVAL;
-
-        n = bus_path_unescape(s+31);
-        if (!n)
-                return -ENOMEM;
+        r = unit_name_from_dbus_path(s, &n);
+        if (r < 0)
+                return r;
 
         r = manager_load_unit(m, n, NULL, e, &u);
-        free(n);
-
         if (r < 0)
                 return r;
 

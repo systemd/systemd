@@ -467,6 +467,22 @@ char *unit_dbus_path_from_name(const char *name) {
         return strappend("/org/freedesktop/systemd1/unit/", e);
 }
 
+int unit_name_from_dbus_path(const char *path, char **name) {
+        const char *e;
+        char *n;
+
+        e = startswith(path, "/org/freedesktop/systemd1/unit/");
+        if (!e)
+                return -EINVAL;
+
+        n = bus_path_unescape(e);
+        if (!n)
+                return -ENOMEM;
+
+        *name = n;
+        return 0;
+}
+
 char *unit_name_mangle(const char *name) {
         char *r, *t;
         const char *f;
