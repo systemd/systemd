@@ -221,7 +221,7 @@ static int machine_start_scope(Machine *m) {
         _cleanup_free_ char *description = NULL;
         DBusError error;
         char *job;
-        int r;
+        int r = 0;
 
         assert(m);
 
