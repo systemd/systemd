@@ -3569,6 +3569,70 @@ lib_LTLIBRARIES += \
 endif
 
 # ------------------------------------------------------------------------------
+if ENABLE_MACHINED
+systemd_machined_SOURCES = \
+	src/machine/machined.c \
+	src/machine/machined.h \
+	src/machine/machined-dbus.c \
+	src/machine/machine.c \
+	src/machine/machine.h \
+	src/machine/machine-dbus.c
+
+systemd_machined_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_machined_LDADD = \
+	libsystemd-label.la \
+	libsystemd-audit.la \
+	libsystemd-shared.la \
+	libsystemd-daemon.la \
+	libsystemd-dbus.la \
+	libsystemd-id128-internal.la \
+	libudev.la
+
+rootlibexec_PROGRAMS += \
+	systemd-machined
+
+machinectl_SOURCES = \
+	src/machine/machinectl.c
+
+machinectl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+machinectl_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-dbus.la \
+	libudev.la
+
+rootbin_PROGRAMS += \
+	machinectl
+
+nodist_systemunit_DATA += \
+	units/systemd-machined.service
+
+dist_systemunit_DATA += \
+	units/machine.slice
+
+dist_dbussystemservice_DATA += \
+	src/machine/org.freedesktop.machine1.service
+
+dist_dbuspolicy_DATA += \
+	src/machine/org.freedesktop.machine1.conf
+
+SYSTEM_UNIT_ALIASES += \
+	systemd-machined.service dbus-org.freedesktop.machine1.service
+
+polkitpolicy_in_files += \
+	src/machine/org.freedesktop.machine1.policy.in
+
+EXTRA_DIST += \
+	units/systemd-machine.service.in
+
+endif
+
+# ------------------------------------------------------------------------------
 if ENABLE_LOGIND
 systemd_logind_SOURCES = \
 	src/login/logind.c \
@@ -3584,8 +3648,6 @@ systemd_logind_SOURCES = \
 	src/login/logind-seat.h \
 	src/login/logind-session.c \
 	src/login/logind-session.h \
-	src/login/logind-machine.c \
-	src/login/logind-machine.h \
 	src/login/logind-user.c \
 	src/login/logind-user.h \
 	src/login/logind-inhibit.c \
@@ -3593,7 +3655,6 @@ systemd_logind_SOURCES = \
 	src/login/logind-session-dbus.c \
 	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \
-	src/login/logind-machine-dbus.c \
 	src/login/logind-acl.h
 
 nodist_systemd_logind_SOURCES = \
@@ -3748,8 +3809,7 @@ nodist_systemunit_DATA += \
 	units/systemd-user-sessions.service
 
 dist_systemunit_DATA += \
-	units/user.slice \
-	units/machine.slice
+	units/user.slice
 
 dist_dbussystemservice_DATA += \
 	src/login/org.freedesktop.login1.service

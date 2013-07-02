@@ -261,69 +261,6 @@ static int list_seats(DBusConnection *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int list_machines(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        DBusMessageIter iter, sub, sub2;
-        unsigned k = 0;
-        int r;
-
-        pager_open_if_enabled();
-
-        r = bus_method_call_with_reply (
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "ListMachines",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_INVALID);
-        if (r)
-                return r;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
-        }
-
-        dbus_message_iter_recurse(&iter, &sub);
-
-        if (on_tty())
-                printf("%-32s %-9s %-16s\n", "MACHINE", "CONTAINER", "SERVICE");
-
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *name, *class, *service, *object;
-
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &name, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &class, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &service, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &object, false) < 0) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                printf("%-32s %-9s %-16s\n", name, class, service);
-
-                k++;
-
-                dbus_message_iter_next(&sub);
-        }
-
-        if (on_tty())
-                printf("\n%u machines listed.\n", k);
-
-        return 0;
-}
-
 typedef struct SessionStatusInfo {
         const char *id;
         uid_t uid;
@@ -361,18 +298,6 @@ typedef struct SeatStatusInfo {
         const char *active_session;
         char **sessions;
 } SeatStatusInfo;
-
-typedef struct MachineStatusInfo {
-        const char *name;
-        sd_id128_t id;
-        const char *default_control_group;
-        const char *class;
-        const char *service;
-        const char *slice;
-        const char *root_directory;
-        pid_t leader;
-        usec_t timestamp;
-} MachineStatusInfo;
 
 static void print_session_status_info(SessionStatusInfo *i) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
@@ -566,76 +491,6 @@ static void print_seat_status_info(SeatStatusInfo *i) {
                 printf("\t Devices:\n");
 
                 show_sysfs(i->id, "\t\t  ", c);
-        }
-}
-
-static void print_machine_status_info(MachineStatusInfo *i) {
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
-        char since2[FORMAT_TIMESTAMP_MAX], *s2;
-        assert(i);
-
-        fputs(strna(i->name), stdout);
-
-        if (!sd_id128_equal(i->id, SD_ID128_NULL))
-                printf("(" SD_ID128_FORMAT_STR ")\n", SD_ID128_FORMAT_VAL(i->id));
-        else
-                putchar('\n');
-
-        s1 = format_timestamp_relative(since1, sizeof(since1), i->timestamp);
-        s2 = format_timestamp(since2, sizeof(since2), i->timestamp);
-
-        if (s1)
-                printf("\t   Since: %s; %s\n", s2, s1);
-        else if (s2)
-                printf("\t   Since: %s\n", s2);
-
-        if (i->leader > 0) {
-                _cleanup_free_ char *t = NULL;
-
-                printf("\t  Leader: %u", (unsigned) i->leader);
-
-                get_process_comm(i->leader, &t);
-                if (t)
-                        printf(" (%s)", t);
-
-                putchar('\n');
-        }
-
-        if (i->service) {
-                printf("\t Service: %s", i->service);
-
-                if (i->class)
-                        printf("; class %s", i->class);
-
-                putchar('\n');
-        } else if (i->class)
-                printf("\t   Class: %s\n", i->class);
-
-        if (i->slice)
-                printf("\t   Slice: %s\n", i->slice);
-        if (i->root_directory)
-                printf("\t    Root: %s\n", i->root_directory);
-
-        if (i->default_control_group) {
-                unsigned c;
-                int output_flags =
-                        arg_all * OUTPUT_SHOW_ALL |
-                        arg_full * OUTPUT_FULL_WIDTH;
-
-                printf("\t  CGroup: %s\n", i->default_control_group);
-
-                if (arg_transport != TRANSPORT_SSH) {
-                        c = columns();
-                        if (c > 18)
-                                c -= 18;
-                        else
-                                c = 0;
-
-                        show_cgroup_and_extra_by_spec(i->default_control_group,
-                                                      "\t\t  ", c, false, &i->leader,
-                                                      i->leader > 0 ? 1 : 0,
-                                                      output_flags);
-                }
         }
 }
 
@@ -912,80 +767,6 @@ static int status_property_seat(const char *name, DBusMessageIter *iter, SeatSta
         return 0;
 }
 
-static int status_property_machine(const char *name, DBusMessageIter *iter, MachineStatusInfo *i) {
-        assert(name);
-        assert(iter);
-        assert(i);
-
-        switch (dbus_message_iter_get_arg_type(iter)) {
-
-        case DBUS_TYPE_STRING: {
-                const char *s;
-
-                dbus_message_iter_get_basic(iter, &s);
-
-                if (!isempty(s)) {
-                        if (streq(name, "Name"))
-                                i->name = s;
-                        else if (streq(name, "DefaultControlGroup"))
-                                i->default_control_group = s;
-                        else if (streq(name, "Class"))
-                                i->class = s;
-                        else if (streq(name, "Service"))
-                                i->service = s;
-                        else if (streq(name, "Slice"))
-                                i->slice = s;
-                        else if (streq(name, "RootDirectory"))
-                                i->root_directory = s;
-                }
-                break;
-        }
-
-        case DBUS_TYPE_UINT32: {
-                uint32_t u;
-
-                dbus_message_iter_get_basic(iter, &u);
-
-                if (streq(name, "Leader"))
-                        i->leader = (pid_t) u;
-
-                break;
-        }
-
-        case DBUS_TYPE_UINT64: {
-                uint64_t u;
-
-                dbus_message_iter_get_basic(iter, &u);
-
-                if (streq(name, "Timestamp"))
-                        i->timestamp = (usec_t) u;
-
-                break;
-        }
-
-        case DBUS_TYPE_ARRAY: {
-                DBusMessageIter sub;
-
-                dbus_message_iter_recurse(iter, &sub);
-
-                if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_BYTE && streq(name, "Id")) {
-                        void *v;
-                        int n;
-
-                        dbus_message_iter_get_fixed_array(&sub, &v, &n);
-                        if (n == 0)
-                                i->id = SD_ID128_NULL;
-                        else if (n == 16)
-                                memcpy(&i->id, v, n);
-                }
-
-                break;
-        }
-        }
-
-        return 0;
-}
-
 static int print_property(const char *name, DBusMessageIter *iter) {
         assert(name);
         assert(iter);
@@ -1067,7 +848,6 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         SessionStatusInfo session_info = {};
         UserStatusInfo user_info = {};
         SeatStatusInfo seat_info = {};
-        MachineStatusInfo machine_info = {};
 
         assert(path);
         assert(new_line);
@@ -1131,10 +911,8 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
                         r = status_property_session(name, &sub3, &session_info);
                 else if (strstr(verb, "user"))
                         r = status_property_user(name, &sub3, &user_info);
-                else if (strstr(verb, "seat"))
-                        r = status_property_seat(name, &sub3, &seat_info);
                 else
-                        r = status_property_machine(name, &sub3, &machine_info);
+                        r = status_property_seat(name, &sub3, &seat_info);
 
                 if (r < 0) {
                         log_error("Failed to parse reply.");
@@ -1149,10 +927,8 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
                         print_session_status_info(&session_info);
                 else if (strstr(verb, "user"))
                         print_user_status_info(&user_info);
-                else if (strstr(verb, "seat"))
-                        print_seat_status_info(&seat_info);
                 else
-                        print_machine_status_info(&machine_info);
+                        print_seat_status_info(&seat_info);
         }
 
         r = 0;
@@ -1226,7 +1002,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                         DBUS_TYPE_UINT32, &u,
                                         DBUS_TYPE_INVALID);
 
-                } else if (strstr(args[0], "seat")) {
+                } else {
 
                         ret = bus_method_call_with_reply(
                                         bus,
@@ -1239,18 +1015,6 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                         DBUS_TYPE_STRING, &args[i],
                                         DBUS_TYPE_INVALID);
 
-                } else  {
-
-                        ret = bus_method_call_with_reply(
-                                        bus,
-                                        "org.freedesktop.login1",
-                                        "/org/freedesktop/login1",
-                                        "org.freedesktop.login1.Manager",
-                                        "GetMachine",
-                                        &reply,
-                                        NULL,
-                                        DBUS_TYPE_STRING, &args[i],
-                                        DBUS_TYPE_INVALID);
                 }
 
                 if (ret < 0)
@@ -1321,36 +1085,6 @@ static int kill_session(DBusConnection *bus, char **args, unsigned n) {
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "KillSession",
-                        NULL,
-                        NULL,
-                        DBUS_TYPE_STRING, &args[i],
-                        DBUS_TYPE_STRING, &arg_kill_who,
-                        DBUS_TYPE_INT32, &arg_signal,
-                        DBUS_TYPE_INVALID);
-                if (r)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int kill_machine(DBusConnection *bus, char **args, unsigned n) {
-        unsigned i;
-
-        assert(args);
-
-        if (!arg_kill_who)
-                arg_kill_who = "all";
-
-        for (i = 1; i < n; i++) {
-                int r;
-
-                r = bus_method_call_with_reply (
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "KillMachine",
                         NULL,
                         NULL,
                         DBUS_TYPE_STRING, &args[i],
@@ -1567,31 +1301,6 @@ static int terminate_seat(DBusConnection *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int terminate_machine(DBusConnection *bus, char **args, unsigned n) {
-        unsigned i;
-
-        assert(args);
-
-        for (i = 1; i < n; i++) {
-                int r;
-
-                r = bus_method_call_with_reply (
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "TerminateMachine",
-                        NULL,
-                        NULL,
-                        DBUS_TYPE_STRING, &args[i],
-                        DBUS_TYPE_INVALID);
-                if (r)
-                        return r;
-        }
-
-        return 0;
-}
-
 static int help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -1630,12 +1339,7 @@ static int help(void) {
                "  show-seat [NAME...]             Show properties of one or more seats\n"
                "  attach [NAME] [DEVICE...]       Attach one or more devices to a seat\n"
                "  flush-devices                   Flush all device associations\n"
-               "  terminate-seat [NAME...]        Terminate all sessions on one or more seats\n"
-               "  list-machines                   List running VMs and containers\n"
-               "  machine-status [NAME...]        Show VM/container status\n"
-               "  show-machine [NAME...]          Show properties of one or more VMs/containers\n"
-               "  terminate-machine [NAME...]     Terminate one or more VMs/containers\n"
-               "  kill-machine [NAME...]          Send signal to processes of a VM/container\n",
+               "  terminate-seat [NAME...]        Terminate all sessions on one or more seats\n",
                program_invocation_short_name);
 
         return 0;
@@ -1784,11 +1488,6 @@ static int loginctl_main(DBusConnection *bus, int argc, char *argv[], DBusError 
                 { "attach",                MORE,   3, attach            },
                 { "flush-devices",         EQUAL,  1, flush_devices     },
                 { "terminate-seat",        MORE,   2, terminate_seat    },
-                { "list-machines",         EQUAL,  1, list_machines     },
-                { "machine-status",        MORE,   2, show              },
-                { "show-machine",          MORE,   1, show              },
-                { "terminate-machine",     MORE,   2, terminate_machine },
-                { "kill-machine",          MORE,   2, kill_machine      },
         };
 
         int left;

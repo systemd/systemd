@@ -22,12 +22,12 @@
 #include <errno.h>
 #include <string.h>
 
-#include "logind.h"
-#include "logind-machine.h"
+#include "machined.h"
+#include "machine.h"
 #include "dbus-common.h"
 
 #define BUS_MACHINE_INTERFACE \
-        " <interface name=\"org.freedesktop.login1.Machine\">\n"        \
+        " <interface name=\"org.freedesktop.machine1.Machine\">\n"        \
         "  <method name=\"Terminate\"/>\n"                              \
         "  <method name=\"Kill\">\n"                                    \
         "   <arg name=\"who\" type=\"s\"/>\n"                           \
@@ -56,7 +56,7 @@
 
 #define INTERFACES_LIST                              \
         BUS_GENERIC_INTERFACES_LIST                  \
-        "org.freedesktop.login1.Machine\0"
+        "org.freedesktop.machine1.Machine\0"
 
 static int bus_machine_append_id(DBusMessageIter *i, const char *property, void *data) {
         DBusMessageIter sub;
@@ -106,7 +106,7 @@ static int get_machine_for_path(Manager *m, const char *path, Machine **_machine
         assert(path);
         assert(_machine);
 
-        if (!startswith(path, "/org/freedesktop/login1/machine/"))
+        if (!startswith(path, "/org/freedesktop/machine1/machine/"))
                 return -EINVAL;
 
         e = bus_path_unescape(path + 32);
@@ -123,14 +123,13 @@ static int get_machine_for_path(Manager *m, const char *path, Machine **_machine
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_machine_append_class, machine_class, MachineClass);
 
-static const BusProperty bus_login_machine_properties[] = {
+static const BusProperty bus_machine_machine_properties[] = {
         { "Name",                   bus_property_append_string,        "s", offsetof(Machine, name),               true },
         { "Id",                     bus_machine_append_id,            "ay", 0 },
         { "Timestamp",              bus_property_append_usec,          "t", offsetof(Machine, timestamp.realtime)  },
         { "TimestampMonotonic",     bus_property_append_usec,          "t", offsetof(Machine, timestamp.monotonic) },
         { "Service",                bus_property_append_string,        "s", offsetof(Machine, service),            true },
         { "Scope",                  bus_property_append_string,        "s", offsetof(Machine, scope),              true },
-        { "Leader",                 bus_property_append_pid,           "u", offsetof(Session, leader)              },
         { "Class",                  bus_machine_append_class,          "s", offsetof(Machine, class)               },
         { "State",                  bus_machine_append_state,          "s", 0                                      },
         { "RootDirectory",          bus_property_append_string,        "s", offsetof(Machine, root_directory),     true },
@@ -150,7 +149,7 @@ static DBusHandlerResult machine_message_dispatch(
         assert(connection);
         assert(message);
 
-        if (dbus_message_is_method_call(message, "org.freedesktop.login1.Machine", "Terminate")) {
+        if (dbus_message_is_method_call(message, "org.freedesktop.machine1.Machine", "Terminate")) {
 
                 r = machine_stop(m);
                 if (r < 0)
@@ -160,7 +159,7 @@ static DBusHandlerResult machine_message_dispatch(
                 if (!reply)
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Machine", "Kill")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.machine1.Machine", "Kill")) {
                 const char *swho;
                 int32_t signo;
                 KillWho who;
@@ -194,7 +193,7 @@ static DBusHandlerResult machine_message_dispatch(
 
         } else {
                 const BusBoundProperties bps[] = {
-                        { "org.freedesktop.login1.Machine", bus_login_machine_properties, m },
+                        { "org.freedesktop.machine1.Machine", bus_machine_machine_properties, m },
                         { NULL, }
                 };
 
@@ -256,7 +255,7 @@ char *machine_bus_path(Machine *m) {
         if (!e)
                 return NULL;
 
-        return strappend("/org/freedesktop/login1/machine/", e);
+        return strappend("/org/freedesktop/machine1/machine/", e);
 }
 
 int machine_send_signal(Machine *m, bool new_machine) {
@@ -265,8 +264,8 @@ int machine_send_signal(Machine *m, bool new_machine) {
 
         assert(m);
 
-        msg = dbus_message_new_signal("/org/freedesktop/login1",
-                                    "org.freedesktop.login1.Manager",
+        msg = dbus_message_new_signal("/org/freedesktop/machine1",
+                                    "org.freedesktop.machine1.Manager",
                                     new_machine ? "MachineNew" : "MachineRemoved");
 
         if (!m)
@@ -302,7 +301,7 @@ int machine_send_changed(Machine *m, const char *properties) {
         if (!p)
                 return -ENOMEM;
 
-        msg = bus_properties_changed_new(p, "org.freedesktop.login1.Machine", properties);
+        msg = bus_properties_changed_new(p, "org.freedesktop.machine1.Machine", properties);
         if (!msg)
                 return -ENOMEM;
 

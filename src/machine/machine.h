@@ -22,11 +22,11 @@
 ***/
 
 typedef struct Machine Machine;
+typedef enum KillWho KillWho;
 
 #include "list.h"
 #include "util.h"
-#include "logind.h"
-#include "logind-session.h"
+#include "machined.h"
 
 typedef enum MachineState {
         MACHINE_OPENING,    /* Machine is being registered */
@@ -42,6 +42,13 @@ typedef enum MachineClass {
         _MACHINE_CLASS_MAX,
         _MACHINE_CLASS_INVALID = -1
 } MachineClass;
+
+enum KillWho {
+        KILL_LEADER,
+        KILL_ALL,
+        _KILL_WHO_MAX,
+        _KILL_WHO_INVALID = -1
+};
 
 struct Machine {
         Manager *manager;
@@ -97,3 +104,6 @@ MachineClass machine_class_from_string(const char *s) _pure_;
 
 const char* machine_state_to_string(MachineState t) _const_;
 MachineState machine_state_from_string(const char *s) _pure_;
+
+const char *kill_who_to_string(KillWho k) _const_;
+KillWho kill_who_from_string(const char *s) _pure_;

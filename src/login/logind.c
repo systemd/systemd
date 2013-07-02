@@ -74,18 +74,16 @@ Manager *manager_new(void) {
         m->users = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitors = hashmap_new(string_hash_func, string_compare_func);
         m->buttons = hashmap_new(string_hash_func, string_compare_func);
-        m->machines = hashmap_new(string_hash_func, string_compare_func);
 
         m->user_units = hashmap_new(string_hash_func, string_compare_func);
         m->session_units = hashmap_new(string_hash_func, string_compare_func);
-        m->machine_units = hashmap_new(string_hash_func, string_compare_func);
 
         m->session_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitor_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->button_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
 
-        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->machines ||
-            !m->user_units || !m->session_units || !m->machine_units ||
+        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons ||
+            !m->user_units || !m->session_units ||
             !m->session_fds || !m->inhibitor_fds || !m->button_fds) {
                 manager_free(m);
                 return NULL;
@@ -113,7 +111,6 @@ void manager_free(Manager *m) {
         Seat *s;
         Inhibitor *i;
         Button *b;
-        Machine *machine;
 
         assert(m);
 
@@ -135,20 +132,15 @@ void manager_free(Manager *m) {
         while ((b = hashmap_first(m->buttons)))
                 button_free(b);
 
-        while ((machine = hashmap_first(m->machines)))
-                machine_free(machine);
-
         hashmap_free(m->devices);
         hashmap_free(m->seats);
         hashmap_free(m->sessions);
         hashmap_free(m->users);
         hashmap_free(m->inhibitors);
         hashmap_free(m->buttons);
-        hashmap_free(m->machines);
 
         hashmap_free(m->user_units);
         hashmap_free(m->session_units);
-        hashmap_free(m->machine_units);
 
         hashmap_free(m->session_fds);
         hashmap_free(m->inhibitor_fds);
@@ -360,30 +352,6 @@ int manager_add_button(Manager *m, const char *name, Button **_button) {
 
         if (_button)
                 *_button = b;
-
-        return 0;
-}
-
-int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
-        Machine *machine;
-
-        assert(m);
-        assert(name);
-
-        machine = hashmap_get(m->machines, name);
-        if (machine) {
-                if (_machine)
-                        *_machine = machine;
-
-                return 0;
-        }
-
-        machine = machine_new(m, name);
-        if (!m)
-                return -ENOMEM;
-
-        if (_machine)
-                *_machine = machine;
 
         return 0;
 }
@@ -772,48 +740,6 @@ int manager_enumerate_inhibitors(Manager *m) {
         return r;
 }
 
-int manager_enumerate_machines(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
-        struct dirent *de;
-        int r = 0;
-
-        assert(m);
-
-        /* Read in machine data stored on disk */
-        d = opendir("/run/systemd/machines");
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_error("Failed to open /run/systemd/machines: %m");
-                return -errno;
-        }
-
-        FOREACH_DIRENT(de, d, return -errno) {
-                struct Machine *machine;
-                int k;
-
-                if (!dirent_is_file(de))
-                        continue;
-
-                k = manager_add_machine(m, de->d_name, &machine);
-                if (k < 0) {
-                        log_error("Failed to add machine by file name %s: %s", de->d_name, strerror(-k));
-
-                        r = k;
-                        continue;
-                }
-
-                machine_add_to_gc_queue(machine);
-
-                k = machine_load(machine);
-                if (k < 0)
-                        r = k;
-        }
-
-        return r;
-}
-
 int manager_dispatch_seat_udev(Manager *m) {
         struct udev_device *d;
         int r;
@@ -1018,27 +944,6 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
         return 1;
 }
 
-int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
-        _cleanup_free_ char *unit = NULL;
-        Machine *mm;
-        int r;
-
-        assert(m);
-        assert(pid >= 1);
-        assert(machine);
-
-        r = cg_pid_get_unit(pid, &unit);
-        if (r < 0)
-                return r;
-
-        mm = hashmap_get(m->machine_units, unit);
-        if (!mm)
-                return 0;
-
-        *machine = mm;
-        return 1;
-}
-
 static void manager_dispatch_other(Manager *m, int fd) {
         Session *s;
         Inhibitor *i;
@@ -1098,7 +1003,6 @@ static int manager_connect_bus(Manager *m) {
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/seat", &bus_seat_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/session", &bus_session_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/user", &bus_user_vtable, m) ||
-            !dbus_connection_register_fallback(m->bus, "/org/freedesktop/login1/machine", &bus_machine_vtable, m) ||
             !dbus_connection_add_filter(m->bus, bus_message_filter, m, NULL)) {
                 r = log_oom();
                 goto fail;
@@ -1298,7 +1202,6 @@ void manager_gc(Manager *m, bool drop_not_started) {
         Seat *seat;
         Session *session;
         User *user;
-        Machine *machine;
 
         assert(m);
 
@@ -1329,16 +1232,6 @@ void manager_gc(Manager *m, bool drop_not_started) {
                 if (user_check_gc(user, drop_not_started) == 0) {
                         user_stop(user);
                         user_free(user);
-                }
-        }
-
-        while ((machine = m->machine_gc_queue)) {
-                LIST_REMOVE(Machine, gc_queue, m->machine_gc_queue, machine);
-                machine->in_gc_queue = false;
-
-                if (machine_check_gc(machine, drop_not_started) == 0) {
-                        machine_stop(machine);
-                        machine_free(machine);
                 }
         }
 }
@@ -1459,7 +1352,6 @@ int manager_startup(Manager *m) {
         Session *session;
         User *user;
         Inhibitor *inhibitor;
-        Machine *machine;
         Iterator i;
 
         assert(m);
@@ -1496,7 +1388,6 @@ int manager_startup(Manager *m) {
         manager_enumerate_sessions(m);
         manager_enumerate_inhibitors(m);
         manager_enumerate_buttons(m);
-        manager_enumerate_machines(m);
 
         /* Remove stale objects before we start them */
         manager_gc(m, false);
@@ -1516,9 +1407,6 @@ int manager_startup(Manager *m) {
 
         HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
                 inhibitor_start(inhibitor);
-
-        HASHMAP_FOREACH(machine, m->machines, i)
-                machine_start(machine);
 
         manager_dispatch_idle_action(m);
 
@@ -1671,7 +1559,6 @@ int main(int argc, char *argv[]) {
         mkdir_label("/run/systemd/seats", 0755);
         mkdir_label("/run/systemd/users", 0755);
         mkdir_label("/run/systemd/sessions", 0755);
-        mkdir_label("/run/systemd/machines", 0755);
 
         m = manager_new();
         if (!m) {

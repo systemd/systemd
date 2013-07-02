@@ -1162,9 +1162,9 @@ static int register_machine(void) {
 
         r = sd_bus_call_method(
                         bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
                         "CreateMachine",
                         &error,
                         NULL,

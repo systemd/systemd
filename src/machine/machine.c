@@ -27,14 +27,13 @@
 
 #include "util.h"
 #include "mkdir.h"
-#include "cgroup-util.h"
 #include "hashmap.h"
 #include "strv.h"
 #include "fileio.h"
 #include "special.h"
 #include "unit-name.h"
 #include "dbus-common.h"
-#include "logind-machine.h"
+#include "machine.h"
 
 Machine* machine_new(Manager *manager, const char *name) {
         Machine *m;
@@ -229,13 +228,15 @@ static int machine_start_scope(Machine *m) {
         dbus_error_init(&error);
 
         if (!m->scope) {
-                _cleanup_free_ char *escaped = NULL;
+                char *escaped = NULL;
 
                 escaped = unit_name_escape(m->name);
                 if (!escaped)
                         return log_oom();
 
-                m->scope = strjoin("machine-", m->name, ".scope", NULL);
+                m->scope = strjoin("machine-", escaped, ".scope", NULL);
+                free(escaped);
+
                 if (!m->scope)
                         return log_oom();
 
@@ -250,10 +251,10 @@ static int machine_start_scope(Machine *m) {
         if (r < 0) {
                 log_error("Failed to start machine scope: %s", bus_error(&error, r));
                 dbus_error_free(&error);
+        } else {
+                free(m->scope_job);
+                m->scope_job = job;
         }
-
-        free(m->scope_job);
-        m->scope_job = job;
 
         return r;
 }
@@ -401,3 +402,10 @@ static const char* const machine_state_table[_MACHINE_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(machine_state, MachineState);
+
+static const char* const kill_who_table[_KILL_WHO_MAX] = {
+        [KILL_LEADER] = "leader",
+        [KILL_ALL] = "all"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);

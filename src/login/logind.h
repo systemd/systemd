@@ -41,7 +41,6 @@ typedef struct Manager Manager;
 #include "logind-inhibit.h"
 #include "logind-button.h"
 #include "logind-action.h"
-#include "logind-machine.h"
 
 struct Manager {
         DBusConnection *bus;
@@ -52,12 +51,10 @@ struct Manager {
         Hashmap *users;
         Hashmap *inhibitors;
         Hashmap *buttons;
-        Hashmap *machines;
 
         LIST_HEAD(Seat, seat_gc_queue);
         LIST_HEAD(Session, session_gc_queue);
         LIST_HEAD(User, user_gc_queue);
-        LIST_HEAD(Machine, machine_gc_queue);
 
         struct udev *udev;
         struct udev_monitor *udev_seat_monitor, *udev_vcsa_monitor, *udev_button_monitor;
@@ -85,7 +82,6 @@ struct Manager {
 
         Hashmap *session_units;
         Hashmap *user_units;
-        Hashmap *machine_units;
 
         Hashmap *session_fds;
         Hashmap *inhibitor_fds;
@@ -144,7 +140,6 @@ int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **
 int manager_add_user_by_name(Manager *m, const char *name, User **_user);
 int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
 int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor);
-int manager_add_machine(Manager *m, const char *name, Machine **_machine);
 
 int manager_process_seat_device(Manager *m, struct udev_device *d);
 int manager_process_button_device(Manager *m, struct udev_device *d);
@@ -161,7 +156,6 @@ int manager_enumerate_seats(Manager *m);
 int manager_enumerate_sessions(Manager *m);
 int manager_enumerate_users(Manager *m);
 int manager_enumerate_inhibitors(Manager *m);
-int manager_enumerate_machines(Manager *m);
 
 int manager_startup(Manager *m);
 int manager_run(Manager *m);
@@ -173,7 +167,6 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 
 int manager_get_user_by_pid(Manager *m, pid_t pid, User **user);
 int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
-int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine);
 
 extern const DBusObjectPathVTable bus_manager_vtable;
 

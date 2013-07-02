@@ -354,10 +354,10 @@ static int user_start_slice(User *u) {
         if (r < 0) {
                 log_error("Failed to start user slice: %s", bus_error(&error, r));
                 dbus_error_free(&error);
+        } else {
+                free(u->slice_job);
+                u->slice_job = job;
         }
-
-        free(u->slice_job);
-        u->slice_job = job;
 
         return 0;
 }
@@ -388,10 +388,10 @@ static int user_start_service(User *u) {
         if (r < 0) {
                 log_error("Failed to start user service: %s", bus_error(&error, r));
                 dbus_error_free(&error);
+        } else {
+                free(u->service_job);
+                u->service_job = job;
         }
-
-        free(u->service_job);
-        u->service_job = job;
 
         return 0;
 }

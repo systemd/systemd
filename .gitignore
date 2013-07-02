@@ -15,6 +15,7 @@
 /libtool
 /localectl
 /loginctl
+/machinectl
 /mtd_probe
 /org.freedesktop.hostname1.xml
 /org.freedesktop.locale1.xml
@@ -54,6 +55,7 @@
 /systemd-localed
 /systemd-logind
 /systemd-machine-id-setup
+/systemd-machined
 /systemd-modules-load
 /systemd-multi-seat-x
 /systemd-notify
