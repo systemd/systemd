@@ -338,26 +338,29 @@ static int user_start_slice(User *u) {
         dbus_error_init(&error);
 
         if (!u->slice) {
-                char lu[DECIMAL_STR_MAX(unsigned long) + 1];
+                char lu[DECIMAL_STR_MAX(unsigned long) + 1], *slice;
                 sprintf(lu, "%lu", (unsigned long) u->uid);
 
-                r = build_subslice(SPECIAL_USER_SLICE, lu, &u->slice);
+                r = build_subslice(SPECIAL_USER_SLICE, lu, &slice);
                 if (r < 0)
                         return r;
 
-                r = hashmap_put(u->manager->user_units, u->slice, u);
-                if (r < 0)
-                        log_warning("Failed to create mapping between unit and user");
+                r = manager_start_unit(u->manager, slice, &error, &job);
+                if (r < 0) {
+                        log_error("Failed to start user slice: %s", bus_error(&error, r));
+                        dbus_error_free(&error);
+
+                        free(slice);
+                } else {
+                        u->slice = slice;
+
+                        free(u->slice_job);
+                        u->slice_job = job;
+                }
         }
 
-        r = manager_start_unit(u->manager, u->slice, &error, &job);
-        if (r < 0) {
-                log_error("Failed to start user slice: %s", bus_error(&error, r));
-                dbus_error_free(&error);
-        } else {
-                free(u->slice_job);
-                u->slice_job = job;
-        }
+        if (u->slice)
+                hashmap_put(u->manager->user_units, u->slice, u);
 
         return 0;
 }
@@ -372,26 +375,29 @@ static int user_start_service(User *u) {
         dbus_error_init(&error);
 
         if (!u->service) {
-                char lu[DECIMAL_STR_MAX(unsigned long) + 1];
+                char lu[DECIMAL_STR_MAX(unsigned long) + 1], *service;
                 sprintf(lu, "%lu", (unsigned long) u->uid);
 
-                u->service = unit_name_build("user", lu, ".service");
-                if (!u->service)
+                service = unit_name_build("user", lu, ".service");
+                if (!service)
                         return log_oom();
 
-                r = hashmap_put(u->manager->user_units, u->service, u);
-                if (r < 0)
-                        log_warning("Failed to create mapping between service and user");
+                r = manager_start_unit(u->manager, service, &error, &job);
+                if (r < 0) {
+                        log_error("Failed to start user service: %s", bus_error(&error, r));
+                        dbus_error_free(&error);
+
+                        free(service);
+                } else {
+                        u->service = service;
+
+                        free(u->service_job);
+                        u->service_job = job;
+                }
         }
 
-        r = manager_start_unit(u->manager, u->service, &error, &job);
-        if (r < 0) {
-                log_error("Failed to start user service: %s", bus_error(&error, r));
-                dbus_error_free(&error);
-        } else {
-                free(u->service_job);
-                u->service_job = job;
-        }
+        if (u->service)
+                hashmap_put(u->manager->user_units, u->service, u);
 
         return 0;
 }

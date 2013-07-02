@@ -455,9 +455,7 @@ done:
 }
 
 static int session_start_scope(Session *s) {
-        _cleanup_free_ char *description = NULL;
         DBusError error;
-        char *job;
         int r;
 
         assert(s);
@@ -467,25 +465,31 @@ static int session_start_scope(Session *s) {
         dbus_error_init(&error);
 
         if (!s->scope) {
-                s->scope = strjoin("session-", s->id, ".scope", NULL);
-                if (!s->scope)
+                _cleanup_free_ char *description = NULL;
+                char *scope, *job;
+
+                scope = strjoin("session-", s->id, ".scope", NULL);
+                if (!scope)
                         return log_oom();
 
-                r = hashmap_put(s->manager->session_units, s->scope, s);
-                if (r < 0)
-                        log_warning("Failed to create mapping between unit and session");
+                description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
+
+                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, &error, &job);
+                if (r < 0) {
+                        log_error("Failed to start session scope: %s %s", bus_error(&error, r), error.name);
+                        dbus_error_free(&error);
+
+                        free(scope);
+                } else {
+                        s->scope = scope;
+
+                        free(s->scope_job);
+                        s->scope_job = job;
+                }
         }
 
-        description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
-
-        r = manager_start_scope(s->manager, s->scope, s->leader, s->user->slice, description, &error, &job);
-        if (r < 0) {
-                log_error("Failed to start session scope: %s %s", bus_error(&error, r), error.name);
-                dbus_error_free(&error);
-        } else {
-                free(s->scope_job);
-                s->scope_job = job;
-        }
+        if (s->scope)
+                hashmap_put(s->manager->session_units, s->scope, s);
 
         return 0;
 }

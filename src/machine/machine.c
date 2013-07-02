@@ -228,33 +228,35 @@ static int machine_start_scope(Machine *m) {
         dbus_error_init(&error);
 
         if (!m->scope) {
-                char *escaped = NULL;
+                _cleanup_free_ char *escaped = NULL;
+                char *scope;
 
                 escaped = unit_name_escape(m->name);
                 if (!escaped)
                         return log_oom();
 
-                m->scope = strjoin("machine-", escaped, ".scope", NULL);
-                free(escaped);
-
-                if (!m->scope)
+                scope = strjoin("machine-", escaped, ".scope", NULL);
+                if (scope)
                         return log_oom();
 
-                r = hashmap_put(m->manager->machine_units, m->scope, m);
-                if (r < 0)
-                        log_warning("Failed to create mapping between unit and machine");
+                description = strappend(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
+
+                r = manager_start_scope(m->manager, m->scope, m->leader, SPECIAL_MACHINE_SLICE, description, &error, &job);
+                if (r < 0) {
+                        log_error("Failed to start machine scope: %s", bus_error(&error, r));
+                        dbus_error_free(&error);
+
+                        free(scope);
+                } else {
+                        m->scope = scope;
+
+                        free(m->scope_job);
+                        m->scope_job = job;
+                }
         }
 
-        description = strappend(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
-
-        r = manager_start_scope(m->manager, m->scope, m->leader, SPECIAL_MACHINE_SLICE, description, &error, &job);
-        if (r < 0) {
-                log_error("Failed to start machine scope: %s", bus_error(&error, r));
-                dbus_error_free(&error);
-        } else {
-                free(m->scope_job);
-                m->scope_job = job;
-        }
+        if (m->scope)
+                hashmap_put(m->manager->machine_units, m->scope, m);
 
         return r;
 }
