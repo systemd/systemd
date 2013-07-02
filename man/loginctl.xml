@@ -91,11 +91,11 @@
                                 session/user properties, limit
                                 display to certain properties as
                                 specified as argument. If not
-                                specified all set properties are
+                                specified, all set properties are
                                 shown. The argument should be a
                                 property name, such as
                                 <literal>Sessions</literal>. If
-                                specified more than once all
+                                specified more than once, all
                                 properties with the specified names
                                 are shown.</para></listitem>
                         </varlistentry>
@@ -129,7 +129,7 @@
                         <varlistentry>
                                 <term><option>--no-ask-password</option></term>
 
-                                <listitem><para>Don't query the user
+                                <listitem><para>Do not query the user
                                 for authentication for privileged
                                 operations.</para></listitem>
                         </varlistentry>
@@ -161,7 +161,7 @@
                                 <constant>SIGTERM</constant>,
                                 <constant>SIGINT</constant> or
                                 <constant>SIGSTOP</constant>. If
-                                omitted defaults to
+                                omitted, defaults to
                                 <constant>SIGTERM</constant>.</para></listitem>
                         </varlistentry>
 
@@ -214,14 +214,14 @@
 
                                 <listitem><para>Show properties of one
                                 or more sessions or the manager
-                                itself. If no argument is specified
+                                itself. If no argument is specified,
                                 properties of the manager will be
-                                shown. If a session ID is specified
+                                shown. If a session ID is specified,
                                 properties of the session is shown. By
                                 default, empty properties are
                                 suppressed. Use <option>--all</option>
                                 to show those too. To select specific
-                                properties to show use
+                                properties to show, use
                                 <option>--property=</option>. This
                                 command is intended to be used
                                 whenever computer-parsable output is
@@ -317,7 +317,7 @@
                                 default, empty properties are
                                 suppressed. Use <option>--all</option>
                                 to show those too. To select specific
-                                properties to show use
+                                properties to show, use
                                 <option>--property=</option>. This
                                 command is intended to be used
                                 whenever computer-parsable output is
@@ -337,7 +337,7 @@
                                 enabled for a specific user, a user
                                 manager is spawned for him/her at
                                 boot and kept around after
-                                logouts. This allows users who aren't
+                                logouts. This allows users who are not
                                 logged in to run long-running
                                 services.</para></listitem>
                         </varlistentry>
@@ -455,7 +455,7 @@
         <refsect1>
                 <title>Exit status</title>
 
-                <para>On success 0 is returned, a non-zero failure
+                <para>On success, 0 is returned, a non-zero failure
                 code otherwise.</para>
         </refsect1>
 

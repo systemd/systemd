@@ -797,7 +797,7 @@
                                 highly recommended to leave this
                                 option enabled for the majority of
                                 common units. If set to
-                                <option>false</option> this option
+                                <option>false</option>, this option
                                 does not disable all implicit
                                 dependencies, just non-essential
                                 ones.</para></listitem>

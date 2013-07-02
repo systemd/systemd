@@ -64,7 +64,7 @@
                 newline-separated list of environment-like
                 shell-compatible variable assignments. It is possible
                 to source the configuration from shell scripts,
-                however, beyond mere variable assignments no shell
+                however, beyond mere variable assignments, no shell
                 features are supported, allowing applications to read
                 the file without implementing a shell compatible
                 execution engine.</para>
@@ -92,7 +92,7 @@
                 overridden or unset by individual programs or
                 individual users.</para>
 
-                <para>Depending on the operating system other
+                <para>Depending on the operating system, other
                 configuration files might be checked for locale
                 configuration as well, however only as
                 fallback.</para>
@@ -132,7 +132,7 @@
                         <para><filename>/etc/locale.conf</filename>:</para>
 
                         <programlisting>LANG=de_DE.UTF-8
-LC_MESSAGES=C</programlisting>
+LC_MESSAGES=en_US.UTF-8</programlisting>
                 </example>
 
         </refsect1>

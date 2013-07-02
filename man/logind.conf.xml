@@ -54,7 +54,7 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>This file configures various parameters of the systemd login manager <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+                <para>This file configures various parameters of the systemd login manager, <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         </refsect1>
 
@@ -81,7 +81,7 @@
                                 <filename>autovt@.service</filename>
                                 for the respective VT TTY name,
                                 e.g. <filename>autovt@tty4.service</filename>. By
-                                default
+                                default,
                                 <filename>autovt@.service</filename>
                                 is linked to
                                 <filename>getty@.service</filename>,
@@ -92,7 +92,7 @@
                                 <literal>gettys</literal> are
                                 available on the VTs. If a VT is
                                 already used by some other subsystem
-                                (for example a graphical login) this
+                                (for example a graphical login), this
                                 kind of activation will not be
                                 attempted. Note that the VT configured
                                 in <varname>ReserveVT=</varname> is
@@ -103,7 +103,7 @@
                                 directive. Defaults to 6. When set to
                                 0, automatic spawning of
                                 <literal>autovt</literal> services is
-                                disabled. </para></listitem>
+                                disabled.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -120,10 +120,10 @@
                                 other subsystem will allocate it. This
                                 functionality is useful to ensure that
                                 regardless how many VTs are allocated
-                                by other subsystems one login
+                                by other subsystems, one login
                                 <literal>getty</literal> is always
                                 available. Defaults to 6 (with other
-                                words: there'll always be a
+                                words: there will always be a
                                 <literal>getty</literal> available on
                                 Alt-F6.). When set to 0, VT
                                 reservation is
@@ -304,7 +304,7 @@
                                 <literal>off</literal>, the inhibitor
                                 locks taken by applications in order
                                 to block the requested operation are
-                                respected, if <literal>on</literal>,
+                                respected. If <literal>on</literal>,
                                 the requested operation is executed in
                                 any
                                 case. <varname>PowerKeyIgnoreInhibited=</varname>,
@@ -330,7 +330,7 @@
 
                 <para>Note that <varname>KillUserProcesses=1</varname>
                 is a weaker version of
-                <varname>kill-session-processes=1</varname> which may
+                <varname>kill-session-processes=1</varname>, which may
                 be configured per-service for
                 <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>. The
                 latter kills processes of a session as soon as it

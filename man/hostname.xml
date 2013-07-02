@@ -56,7 +56,7 @@
 
                 <para>The <filename>/etc/hostname</filename> file
                 configures the name of the local system that is set
-                during boot, with the
+                during boot using the
                 <citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                 system call. It should contain a single
                 newline-terminated hostname string. The

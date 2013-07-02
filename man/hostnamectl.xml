@@ -75,7 +75,7 @@
                 <para>Note that the pretty hostname has little
                 restrictions on the characters used, while the static
                 and transient hostnames are limited to the usually
-                accepted characters of internet domain names.</para>
+                accepted characters of Internet domain names.</para>
 
                 <para>The static hostname is stored in
                 <filename>/etc/hostname</filename>, see
@@ -110,7 +110,7 @@
                         <varlistentry>
                                 <term><option>--no-ask-password</option></term>
 
-                                <listitem><para>Don't query the user
+                                <listitem><para>Do not query the user
                                 for authentication for privileged
                                 operations.</para></listitem>
                         </varlistentry>

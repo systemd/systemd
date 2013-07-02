@@ -114,7 +114,7 @@
                                 <term><option>--force</option></term>
 
                                 <listitem><para>Force immediate halt,
-                                power-off, reboot. Don't contact the
+                                power-off, reboot. Do not contact the
                                 init system.</para></listitem>
                         </varlistentry>
 
@@ -123,7 +123,7 @@
                                 <term><option>--wtmp-only</option></term>
 
                                 <listitem><para>Only write wtmp
-                                shutdown entry, don't actually halt,
+                                shutdown entry, do not actually halt,
                                 power-off, reboot.</para></listitem>
                         </varlistentry>
 
@@ -131,14 +131,14 @@
                                 <term><option>-d</option></term>
                                 <term><option>--no-wtmp</option></term>
 
-                                <listitem><para>Don't write wtmp
+                                <listitem><para>Do not write wtmp
                                 shutdown entry.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><option>--no-wall</option></term>
 
-                                <listitem><para>Don't send wall
+                                <listitem><para>Do not send wall
                                 message before
                                 halt, power-off, reboot.</para></listitem>
                         </varlistentry>

@@ -65,7 +65,7 @@
                 <para>The machine ID is usually generated from a
                 random source during system installation and stays
                 constant for all subsequent boots. Optionally, for
-                stateless systems it is generated during runtime at
+                stateless systems, it is generated during runtime at
                 boot if it is found to be empty.</para>
 
                 <para>The machine ID does not change based on user
@@ -113,7 +113,7 @@ id[8] = (id[8] &amp; 0x3F) | 0x80;</programlisting>
                 <para>(This code is inspired by
                 <literal>generate_random_uuid()</literal> of
                 <filename>drivers/char/random.c</filename> from the
-                kernel sources.)</para>
+                Linux kernel sources.)</para>
 
         </refsect1>
 
@@ -123,7 +123,7 @@ id[8] = (id[8] &amp; 0x3F) | 0x80;</programlisting>
                 <para>The simple configuration file format of
                 <filename>/etc/machine-id</filename> originates in the
                 <filename>/var/lib/dbus/machine-id</filename> file
-                introduced by D-Bus. In fact this latter file might be a
+                introduced by D-Bus. In fact, this latter file might be a
                 symlink to
                 <varname>/etc/machine-id</varname>.</para>
         </refsect1>

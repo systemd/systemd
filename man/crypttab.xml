@@ -83,15 +83,15 @@
                 underlying block device, or a specification of a block
                 device via <literal>UUID=</literal> followed by the
                 UUID.  If the block device contains a LUKS signature,
-                it is opened as a LUKS encrypted partition; otherwise
+                it is opened as a LUKS encrypted partition; otherwise,
                 it is assumed to be a raw dm-crypt partition.</para>
 
                 <para>The third field specifies the encryption
                 password.  If the field is not present or the password
                 is set to none, the password has to be manually
-                entered during system boot.  Otherwise the field is
+                entered during system boot.  Otherwise, the field is
                 interpreted as a path to a file containing the
-                encryption password.  For swap encryption
+                encryption password.  For swap encryption,
                 <filename>/dev/urandom</filename> or the hardware
                 device <filename>/dev/hw_random</filename> can be used
                 as the password file; using
@@ -239,7 +239,7 @@
                                 <listitem><para>The system will not
                                 wait for the device to show up and be
                                 unlocked at boot, and not fail the
-                                boot if it doesn't show
+                                boot if it does not show
                                 up.</para></listitem>
                         </varlistentry>
 
@@ -282,7 +282,7 @@
                 </variablelist>
 
                 <para>At early boot and when the system manager
-                configuration is reloaded this file is translated into
+                configuration is reloaded, this file is translated into
                 native systemd units
                 by <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </refsect1>

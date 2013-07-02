@@ -73,7 +73,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     executables with a local file if needed; a symbolic link in <filename>/etc/kernel/install.d/</filename>
     with the same name as an executable in <filename>/usr/lib/kernel/install.d/</filename>,
     pointing to /dev/null, disables the executable entirely. Executables must have the
-    extension .install; other extensions are ignored.</para>
+    extension <literal>.install</literal>; other extensions are ignored.</para>
 
   </refsect1>
 
@@ -112,7 +112,7 @@ add <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHI
       <varlistentry>
         <term><command>remove <replaceable>KERNEL-VERSION</replaceable></command></term>
         <listitem>
-          <para>calls every executable <filename>/usr/lib/kernel/install.d/*.install</filename>
+          <para>Calls every executable <filename>/usr/lib/kernel/install.d/*.install</filename>
           and <filename>/etc/kernel/install.d/*.install</filename> with the arguments
           <programlisting>
 remove <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
@@ -145,7 +145,7 @@ remove <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MA
           <filename>/etc/kernel/install.d/*.install</filename>
         </term>
           <listitem>
-            <para>Drop-in files, which are executed by kernel-install.</para>
+            <para>Drop-in files which are executed by kernel-install.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
