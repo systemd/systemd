@@ -98,7 +98,7 @@ int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
         }
 
         machine = machine_new(m, name);
-        if (!m)
+        if (!machine)
                 return -ENOMEM;
 
         if (_machine)
