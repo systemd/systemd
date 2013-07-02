@@ -64,11 +64,6 @@ Features:
 
 * handle jointly mounted controllers correctly
 
-* split out CreateMachine into systemd-machined
-
-* make logind's session and machine
-  registration use Slices to set up cgroups
-
 * journald: make sure ratelimit is actually really per-service with the new cgroup changes
 
 * move systemctl dump to systemd-analyze

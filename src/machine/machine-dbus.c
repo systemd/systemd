@@ -109,7 +109,7 @@ static int get_machine_for_path(Manager *m, const char *path, Machine **_machine
         if (!startswith(path, "/org/freedesktop/machine1/machine/"))
                 return -EINVAL;
 
-        e = bus_path_unescape(path + 32);
+        e = bus_path_unescape(path + 34);
         if (!e)
                 return -ENOMEM;
 
