@@ -93,7 +93,7 @@ static int bus_scope_set_transient_property(
 
         if (streq(name, "PIDs")) {
                 DBusMessageIter sub;
-                unsigned n;
+                unsigned n = 0;
 
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_ARRAY ||
                     dbus_message_iter_get_element_type(i) != DBUS_TYPE_UINT32)
