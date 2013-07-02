@@ -489,7 +489,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
                 _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
                 _cleanup_free_ char *path = NULL;
                 _cleanup_close_ int fifo_fd = -1;
-                bool exists;
+                dbus_bool_t exists;
 
                 /* Session already exists, client is probably
                  * something like "su" which changes uid but is still
