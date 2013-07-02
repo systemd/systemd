@@ -144,6 +144,13 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
                 }
         }
 
+        /* query a specific key given as argument */
+        if (argv[optind]) {
+                if (udev_builtin_hwdb_lookup(dev, argv[optind], filter, test) > 0)
+                        return EXIT_SUCCESS;
+                return EXIT_FAILURE;
+        }
+
         /* read data from another device than the device we will store the data */
         if (device) {
                 srcdev = udev_device_new_from_device_id(udev_device_get_udev(dev), device);
