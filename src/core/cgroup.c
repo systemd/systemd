@@ -728,16 +728,15 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
         assert(m);
         assert(cgroup);
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup, true);
-        if (r == 0)
-                return 0;
-
         u = manager_get_unit_by_cgroup(m, cgroup);
         if (u) {
-                if (UNIT_VTABLE(u)->notify_cgroup_empty)
-                        UNIT_VTABLE(u)->notify_cgroup_empty(u);
+                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, true);
+                if (r > 0) {
+                        if (UNIT_VTABLE(u)->notify_cgroup_empty)
+                                UNIT_VTABLE(u)->notify_cgroup_empty(u);
 
-                unit_add_to_gc_queue(u);
+                        unit_add_to_gc_queue(u);
+                }
         }
 
         return 0;
