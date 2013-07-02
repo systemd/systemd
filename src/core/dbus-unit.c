@@ -778,16 +778,18 @@ static int bus_unit_set_transient_property(
         assert(i);
 
         if (streq(name, "Description")) {
-                const char *description;
-
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_STRING)
                         return -EINVAL;
 
-                dbus_message_iter_get_basic(i, &description);
+                if (mode != UNIT_CHECK) {
+                        const char *description;
 
-                r = unit_set_description(u, description);
-                if (r < 0)
-                        return r;
+                        dbus_message_iter_get_basic(i, &description);
+
+                        r = unit_set_description(u, description);
+                        if (r < 0)
+                                return r;
+                }
 
                 return 1;
 
@@ -800,14 +802,20 @@ static int bus_unit_set_transient_property(
 
                 dbus_message_iter_get_basic(i, &s);
 
-                r = manager_load_unit(u->manager, s, NULL, error, &slice);
-                if (r < 0)
-                        return r;
+                if (isempty(s)) {
+                        if (mode != UNIT_CHECK)
+                                unit_ref_unset(&u->slice);
+                } else {
+                        r = manager_load_unit(u->manager, s, NULL, error, &slice);
+                        if (r < 0)
+                                return r;
 
-                if (slice->type != UNIT_SLICE)
-                        return -EINVAL;
+                        if (slice->type != UNIT_SLICE)
+                                return -EINVAL;
 
-                unit_ref_set(&u->slice, slice);
+                        if (mode != UNIT_CHECK)
+                                unit_ref_set(&u->slice, slice);
+                }
                 return 1;
         }
 

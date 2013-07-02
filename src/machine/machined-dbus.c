@@ -116,7 +116,7 @@ static bool valid_machine_name(const char *p) {
 
 static int bus_manager_create_machine(Manager *manager, DBusMessage *message) {
 
-        const char *name, *service, *class, *slice, *root_directory;
+        const char *name, *service, *class, *root_directory;
         _cleanup_free_ char *p = NULL;
         DBusMessageIter iter, sub;
         MachineClass c;
@@ -537,6 +537,7 @@ DBusHandlerResult bus_message_filter(
                         if (streq_ptr(path, mm->scope_job)) {
                                 free(mm->scope_job);
                                 mm->scope_job = NULL;
+                                machine_save(mm);
 
                                 if (mm->started) {
                                         if (streq(result, "done"))

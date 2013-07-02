@@ -2356,6 +2356,7 @@ DBusHandlerResult bus_message_filter(
                                 if (streq_ptr(path, s->scope_job)) {
                                         free(s->scope_job);
                                         s->scope_job = NULL;
+                                        session_save(s);
 
                                         if (s->started) {
                                                 if (streq(result, "done"))
@@ -2382,6 +2383,7 @@ DBusHandlerResult bus_message_filter(
                                         u->slice_job = NULL;
                                 }
 
+                                user_save(u);
                                 user_add_to_gc_queue(u);
                         }
                 }

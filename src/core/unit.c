@@ -231,8 +231,13 @@ int unit_set_description(Unit *u, const char *description) {
 
         assert(u);
 
-        if (!(s = strdup(description)))
-                return -ENOMEM;
+        if (isempty(description))
+                s = NULL;
+        else {
+                s = strdup(description);
+                if (!s)
+                        return -ENOMEM;
+        }
 
         free(u->description);
         u->description = s;
