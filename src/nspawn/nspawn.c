@@ -1168,16 +1168,16 @@ static int register_machine(void) {
                         "CreateMachine",
                         &error,
                         NULL,
-                        "sayssuss",
+                        "sayssusa(sv)",
                         arg_machine,
                         SD_BUS_APPEND_ID128(arg_uuid),
                         "nspawn",
                         "container",
                         (uint32_t) 0,
-                        strempty(arg_slice),
-                        strempty(arg_directory));
+                        strempty(arg_directory),
+                        1, "Slice", "s", strempty(arg_slice));
         if (r < 0) {
-                log_error("Failed to register machine: %s", error.message);
+                log_error("Failed to register machine: %s", error.message ? error.message : strerror(-r));
                 return r;
         }
 

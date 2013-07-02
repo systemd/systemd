@@ -42,7 +42,7 @@
 #include "virt.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
-        " <interface name=\"org.freedesktop.machine1.Manager\">\n"        \
+        " <interface name=\"org.freedesktop.machine1.Manager\">\n"      \
         "  <method name=\"GetMachine\">\n"                              \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"machine\" type=\"o\" direction=\"out\"/>\n"     \
@@ -177,12 +177,6 @@ static int bus_manager_create_machine(Manager *manager, DBusMessage *message) {
 
         dbus_message_iter_get_basic(&iter, &leader);
         if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &slice);
-        if (!(isempty(slice) || (unit_name_is_valid(slice, false) && endswith(slice, ".slice"))) ||
-            !dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
                 return -EINVAL;
 
