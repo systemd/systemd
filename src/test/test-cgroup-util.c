@@ -66,14 +66,14 @@ static void check_p_g_u_u(const char *path, int code, const char *result) {
 }
 
 static void test_path_get_user_unit(void) {
-        check_p_g_u_u("/user.slice/1000.user/2.session/systemd-21548/foobar.service", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/1002.user/2.session/systemd-21548/foobar.service/waldo", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/1000.user/2.session/systemd-21548/foobar.service/waldo/uuuux", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/1000.user/2.session/systemd-21548/waldo/waldo/uuuux", -EINVAL, NULL);
-        check_p_g_u_u("/user.slice/1000.user/2.session/foobar.service", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/1000.user/2.session/systemd-21548/foobar@.service/foobar@pie.service/pa/po", 0, "foobar@pie.service");
-        check_p_g_u_u("/2.session/systemd-21548/foobar@.service/foobar@pie.service/pa/po", 0, "foobar@pie.service");
-        check_p_g_u_u("/xyz.slice/xyz-waldo.slice/77.session/systemd-21548/foobar@.service/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo.slice/foobar.service", 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1002.slice/session-2.scope/foobar.service/waldo", 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service/waldo/uuuux", 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo/waldo/uuuux", -EINVAL, NULL);
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar@.service/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/session-2.scope/foobar@.service/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/xyz.slice/xyz-waldo.slice/session-77.scope/foobar@.service/foobar@pie.service/pa/po", 0, "foobar@pie.service");
         check_p_g_u_u("/meh.service", -ENOENT, NULL);
 }
 
@@ -85,8 +85,8 @@ static void check_p_g_s(const char *path, int code, const char *result) {
 }
 
 static void test_path_get_session(void) {
-        check_p_g_s("/user.slice/1000.user/2.session/systemd-21548/foobar.service", 0, "2");
-        check_p_g_s("/3.session", 0, "3");
+        check_p_g_s("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "2");
+        check_p_g_s("/session-3.scope", 0, "3");
         check_p_g_s("", -ENOENT, 0);
 }
 
@@ -98,8 +98,8 @@ static void check_p_g_o_u(const char *path, int code, uid_t result) {
 }
 
 static void test_path_get_owner_uid(void) {
-        check_p_g_o_u("/user.slice/1000.user/2.session/systemd-21548/foobar.service", 0, 1000);
-        check_p_g_o_u("/1006.user", 0, 1006);
+        check_p_g_o_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, 1000);
+        check_p_g_o_u("/user.slice/user-1006.slice", 0, 1006);
         check_p_g_o_u("", -ENOENT, 0);
 }
 
@@ -111,10 +111,10 @@ static void check_p_g_m_n(const char *path, int code, const char *result) {
 }
 
 static void test_path_get_machine_name(void) {
-        check_p_g_m_n("/user.slice/foobar.machine", 0, "foobar");
-        check_p_g_m_n("/foobar.machine", 0, "foobar");
-        check_p_g_m_n("/user.slice/user-kuux.slice/foobar.machine", 0, "foobar");
-        check_p_g_m_n("/user.slice/user-kuux.slice/foobar.machine/asjhdkj", 0, "foobar");
+        check_p_g_m_n("/user.slice/machine-foobar.scope", 0, "foobar");
+        check_p_g_m_n("/machine-foobar.scope", 0, "foobar");
+        check_p_g_m_n("/user.slice/user-kuux.slice/machine-foobar.scope", 0, "foobar");
+        check_p_g_m_n("/user.slice/user-kuux.slice/machine-foobar.scope/asjhdkj", 0, "foobar");
         check_p_g_m_n("", -ENOENT, NULL);
 }
 

@@ -28,7 +28,7 @@ Fedora 19:
 
 Features:
 
-* libsystemd-logind: recognize new session/user/machine units
+* fix killing spree logic in systemd-user-sessions
 
 * logind: implement session kill exceptions
 

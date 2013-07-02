@@ -467,7 +467,7 @@ static int session_start_scope(Session *s) {
         dbus_error_init(&error);
 
         if (!s->scope) {
-                s->scope = strjoin("session.", s->id, ".scope", NULL);
+                s->scope = strjoin("session-", s->id, ".scope", NULL);
                 if (!s->scope)
                         return log_oom();
 

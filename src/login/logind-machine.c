@@ -235,7 +235,7 @@ static int machine_start_scope(Machine *m) {
                 if (!escaped)
                         return log_oom();
 
-                m->scope = strjoin("machine.", m->name, ".scope", NULL);
+                m->scope = strjoin("machine-", m->name, ".scope", NULL);
                 if (!m->scope)
                         return log_oom();
 

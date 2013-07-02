@@ -1178,23 +1178,6 @@ int cg_pid_get_unit(pid_t pid, char **unit) {
         return cg_path_get_unit(cgroup, unit);
 }
 
-static const char *skip_user(const char *p) {
-        size_t n;
-
-        assert(p);
-
-        p += strspn(p, "/");
-
-        n = strcspn(p, "/");
-        if (n <= 5 || memcmp(p + n - 5, ".user", 5) != 0)
-                return p;
-
-        p += n;
-        p += strspn(p, "/");
-
-        return p;
-}
-
 static const char *skip_session(const char *p) {
         size_t n;
 
@@ -1203,25 +1186,8 @@ static const char *skip_session(const char *p) {
         p += strspn(p, "/");
 
         n = strcspn(p, "/");
-        if (n <= 8 || memcmp(p + n - 8, ".session", 8) != 0)
+        if (n <= 12 || memcmp(p, "session-", 8) != 0 || memcmp(p + n - 6, ".scope", 6) != 0)
                 return NULL;
-
-        p += n;
-        p += strspn(p, "/");
-
-        return p;
-}
-
-static const char *skip_systemd_label(const char *p) {
-        size_t n;
-
-        assert(p);
-
-        p += strspn(p, "/");
-
-        n = strcspn(p, "/");
-        if (n < 8 || memcmp(p, "systemd-", 8) != 0)
-                return p;
 
         p += n;
         p += strspn(p, "/");
@@ -1242,16 +1208,13 @@ int cg_path_get_user_unit(const char *path, char **unit) {
         /* Skip slices, if there are any */
         e = skip_slices(path);
 
-        /* Skip the user name, if there is one */
-        e = skip_user(e);
-
-        /* Skip the session ID, require that there is one */
+        /* Skip the session scope, require that there is one */
         e = skip_session(e);
         if (!e)
                 return -ENOENT;
 
-        /* Skip the systemd cgroup, if there is one */
-        e = skip_systemd_label(e);
+        /* And skip more slices */
+        e = skip_slices(e);
 
         return cg_path_decode_unit(e, unit);
 }
@@ -1272,6 +1235,7 @@ int cg_pid_get_user_unit(pid_t pid, char **unit) {
 int cg_path_get_machine_name(const char *path, char **machine) {
         const char *e, *n, *x;
         char *s, *r;
+        size_t l;
 
         assert(path);
         assert(machine);
@@ -1286,11 +1250,17 @@ int cg_path_get_machine_name(const char *path, char **machine) {
         s = strndupa(e, n - e);
         s = cg_unescape(s);
 
-        x = endswith(s, ".machine");
+        x = startswith(s, "machine-");
         if (!x)
                 return -ENOENT;
+        if (!endswith(x, ".scope"))
+                return -ENOENT;
 
-        r = strndup(s, x - s);
+        l = strlen(x);
+        if (l <= 6)
+                return -ENOENT;
+
+        r = strndup(x, l - 6);
         if (!r)
                 return -ENOMEM;
 
@@ -1312,8 +1282,9 @@ int cg_pid_get_machine_name(pid_t pid, char **machine) {
 }
 
 int cg_path_get_session(const char *path, char **session) {
-        const char *e, *n;
-        char *s;
+        const char *e, *n, *x;
+        char *s, *r;
+        size_t l;
 
         assert(path);
         assert(session);
@@ -1321,20 +1292,28 @@ int cg_path_get_session(const char *path, char **session) {
         /* Skip slices, if there are any */
         e = skip_slices(path);
 
-        /* Skip the user name, if there is one */
-        e = skip_user(e);
-
         n = strchrnul(e, '/');
-        if (n - e < 8)
-                return -ENOENT;
-        if (memcmp(n - 8, ".session", 8) != 0)
+        if (e == n)
                 return -ENOENT;
 
-        s = strndup(e, n - e - 8);
-        if (!s)
+        s = strndupa(e, n - e);
+        s = cg_unescape(s);
+
+        x = startswith(s, "session-");
+        if (!x)
+                return -ENOENT;
+        if (!endswith(x, ".scope"))
+                return -ENOENT;
+
+        l = strlen(x);
+        if (l <= 6)
+                return -ENOENT;
+
+        r = strndup(x, l - 6);
+        if (!r)
                 return -ENOMEM;
 
-        *session = s;
+        *session = r;
         return 0;
 }
 
@@ -1352,22 +1331,25 @@ int cg_pid_get_session(pid_t pid, char **session) {
 }
 
 int cg_path_get_owner_uid(const char *path, uid_t *uid) {
-        const char *e, *n;
+        _cleanup_free_ char *slice = NULL;
+        const char *e;
         char *s;
+        int r;
 
         assert(path);
         assert(uid);
 
-        /* Skip slices, if there are any */
-        e = skip_slices(path);
+        r = cg_path_get_slice(path, &slice);
+        if (r < 0)
+                return r;
 
-        n = strchrnul(e, '/');
-        if (n - e < 5)
+        e = startswith(slice, "user-");
+        if (!e)
                 return -ENOENT;
-        if (memcmp(n - 5, ".user", 5) != 0)
+        if (!endswith(slice, ".slice"))
                 return -ENOENT;
 
-        s = strndupa(e, n - e - 5);
+        s = strndupa(e, strlen(e) - 6);
         if (!s)
                 return -ENOMEM;
 
