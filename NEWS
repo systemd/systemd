@@ -1798,7 +1798,7 @@ CHANGES WITH 41:
           understood to set system wide environment variables
           dynamically at boot.
 
-	* We now limit the set of capabilities of systemd-journald.
+        * We now limit the set of capabilities of systemd-journald.
 
         * We now set SIGPIPE to ignore by default, since it only is
           useful in shell pipelines, and has little use in general

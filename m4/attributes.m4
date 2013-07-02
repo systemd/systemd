@@ -40,12 +40,12 @@ dnl CC_CHECK_FLAG_APPEND([WHERE-TO-APPEND], [ENV-VAR], [FLAG])
 AC_DEFUN([CC_CHECK_FLAG_APPEND], [
   AC_CACHE_CHECK([if $CC supports flag $3 in envvar $2],
                  AS_TR_SH([cc_cv_$2_$3]),
-		 [eval "AS_TR_SH([cc_save_$2])='${$2}'"
-		  eval "AS_TR_SH([$2])='-Werror $3'"
-		  AC_COMPILE_IFELSE([AC_LANG_SOURCE([int a = 0; int main(void) { return a; } ])],
+          [eval "AS_TR_SH([cc_save_$2])='${$2}'"
+           eval "AS_TR_SH([$2])='-Werror $3'"
+           AC_COMPILE_IFELSE([AC_LANG_SOURCE([int a = 0; int main(void) { return a; } ])],
                                     [eval "AS_TR_SH([cc_cv_$2_$3])='yes'"],
                                     [eval "AS_TR_SH([cc_cv_$2_$3])='no'"])
-		  eval "AS_TR_SH([$2])='$cc_save_$2'"])
+           eval "AS_TR_SH([$2])='$cc_save_$2'"])
 
   AS_IF([eval test x$]AS_TR_SH([cc_cv_$2_$3])[ = xyes],
         [eval "$1='${$1} $3'"])
@@ -92,10 +92,10 @@ AC_DEFUN([CC_NOUNDEFINED], [
         dnl for a much more readable commandline, so that people can understand what
         dnl it does without going to look for what the heck -z defs does.
         for possible_flags in "-Wl,--no-undefined" "-Wl,-z,defs"; do
-          CC_CHECK_LDFLAGS([$possible_flags], [LDFLAGS_NOUNDEFINED="$possible_flags"])
-	  break
+           CC_CHECK_LDFLAGS([$possible_flags], [LDFLAGS_NOUNDEFINED="$possible_flags"])
+           break
         done
-	;;
+     ;;
   esac
 
   AC_SUBST([LDFLAGS_NOUNDEFINED])
@@ -231,8 +231,8 @@ AC_DEFUN([CC_FLAG_VISIBILITY], [
     [cc_flag_visibility_save_CFLAGS="$CFLAGS"
      CFLAGS="$CFLAGS $cc_cv_werror"
      CC_CHECK_CFLAGS_SILENT([-fvisibility=hidden],
-	cc_cv_flag_visibility='yes',
-	cc_cv_flag_visibility='no')
+     cc_cv_flag_visibility='yes',
+     cc_cv_flag_visibility='no')
      CFLAGS="$cc_flag_visibility_save_CFLAGS"])
 
   AS_IF([test "x$cc_cv_flag_visibility" = "xyes"],
@@ -252,7 +252,7 @@ AC_DEFUN([CC_FUNC_EXPECT], [
        [int some_function() {
         int a = 3;
         return (int)__builtin_expect(a, 3);
-	}])],
+     }])],
        [cc_cv_func_expect=yes],
        [cc_cv_func_expect=no])
      CFLAGS="$ac_save_CFLAGS"

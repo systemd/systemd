@@ -290,16 +290,15 @@ static int do_accept(const char* name, char **argv, char **envp, int fd) {
 }
 
 /* SIGCHLD handler. */
-static void sigchld_hdl(int sig, siginfo_t *t, void *data)
-{
+static void sigchld_hdl(int sig, siginfo_t *t, void *data) {
         log_info("Child %d died with code %d", t->si_pid, t->si_status);
-	/* Wait for a dead child. */
-	waitpid(t->si_pid, NULL, 0);
+        /* Wait for a dead child. */
+        waitpid(t->si_pid, NULL, 0);
 }
 
 static int install_chld_handler(void) {
         int r;
-	struct sigaction act;
+        struct sigaction act;
         zero(act);
         act.sa_flags = SA_SIGINFO;
         act.sa_sigaction = sigchld_hdl;

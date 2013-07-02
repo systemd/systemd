@@ -139,7 +139,7 @@ static inline int fanotify_init(unsigned int flags, unsigned int event_f_flags) 
 static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t mask,
                                 int dfd, const char *pathname) {
 #if defined _MIPS_SIM && _MIPS_SIM == _MIPS_SIM_ABI32 || defined __powerpc__ && !defined __powerpc64__ \
-	|| defined __arm__ && !defined __aarch64__
+    || defined __arm__ && !defined __aarch64__
         union {
                 uint64_t _64;
                 uint32_t _32[2];

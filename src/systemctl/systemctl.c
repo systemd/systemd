@@ -3444,7 +3444,7 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
                         r = 1;
                 else
                         r = 3;
-	}
+        }
 
         while ((p = info.exec)) {
                 LIST_REMOVE(ExecStatusInfo, exec, info.exec, p);

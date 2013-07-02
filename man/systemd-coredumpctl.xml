@@ -202,8 +202,8 @@
                 <title>Exit status</title>
                 <para>On success 0 is returned, a non-zero failure
                 code otherwise. Not finding any matching coredumps is treated
-		as failure.
-		</para>
+                as failure.
+                </para>
         </refsect1>
 
         <refsect1>
