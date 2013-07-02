@@ -311,9 +311,6 @@ void unit_add_to_gc_queue(Unit *u) {
         u->in_gc_queue = true;
 
         u->manager->n_in_gc_queue ++;
-
-        if (u->manager->gc_queue_timestamp <= 0)
-                u->manager->gc_queue_timestamp = now(CLOCK_MONOTONIC);
 }
 
 void unit_add_to_dbus_queue(Unit *u) {

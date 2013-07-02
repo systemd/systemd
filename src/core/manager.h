@@ -206,7 +206,6 @@ struct Manager {
         CGroupControllerMask cgroup_supported;
         char *cgroup_root;
 
-        usec_t gc_queue_timestamp;
         int gc_marker;
         unsigned n_in_gc_queue;
 

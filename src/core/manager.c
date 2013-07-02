@@ -72,9 +72,6 @@
 #include "efivars.h"
 #include "env-util.h"
 
-/* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
-#define GC_QUEUE_ENTRIES_MAX 16
-
 /* As soon as 5s passed since a unit was added to our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
 
@@ -604,12 +601,7 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
 
         assert(m);
 
-        if ((m->n_in_gc_queue < GC_QUEUE_ENTRIES_MAX) &&
-            (m->gc_queue_timestamp <= 0 ||
-             (m->gc_queue_timestamp + GC_QUEUE_USEC_MAX) > now(CLOCK_MONOTONIC)))
-                return 0;
-
-        log_debug("Running GC...");
+        /* log_debug("Running GC..."); */
 
         m->gc_marker += _GC_OFFSET_MAX;
         if (m->gc_marker + _GC_OFFSET_MAX <= _GC_OFFSET_MAX)
@@ -636,7 +628,6 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
         }
 
         m->n_in_gc_queue = 0;
-        m->gc_queue_timestamp = 0;
 
         return n;
 }
@@ -1733,19 +1724,19 @@ int manager_loop(Manager *m) {
                 if (manager_dispatch_load_queue(m) > 0)
                         continue;
 
-                if (manager_dispatch_run_queue(m) > 0)
-                        continue;
-
-                if (bus_dispatch(m) > 0)
+                if (manager_dispatch_gc_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_cleanup_queue(m) > 0)
                         continue;
 
-                if (manager_dispatch_gc_queue(m) > 0)
+                if (manager_dispatch_cgroup_queue(m) > 0)
                         continue;
 
-                if (manager_dispatch_cgroup_queue(m) > 0)
+                if (manager_dispatch_run_queue(m) > 0)
+                        continue;
+
+                if (bus_dispatch(m) > 0)
                         continue;
 
                 if (manager_dispatch_dbus_queue(m) > 0)
