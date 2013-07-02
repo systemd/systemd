@@ -236,12 +236,12 @@ static int machine_start_scope(Machine *m) {
                         return log_oom();
 
                 scope = strjoin("machine-", escaped, ".scope", NULL);
-                if (scope)
+                if (!scope)
                         return log_oom();
 
                 description = strappend(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
 
-                r = manager_start_scope(m->manager, m->scope, m->leader, SPECIAL_MACHINE_SLICE, description, &error, &job);
+                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, &error, &job);
                 if (r < 0) {
                         log_error("Failed to start machine scope: %s", bus_error(&error, r));
                         dbus_error_free(&error);
