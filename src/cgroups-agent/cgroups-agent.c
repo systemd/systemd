@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
          * are called when the dbus service is shut down. */
 
         if (!(bus = dbus_connection_open_private("unix:path=/run/systemd/private", &error))) {
-#ifndef LEGACY
+#ifndef NOLEGACY
                 dbus_error_free(&error);
 
                 /* Retry with the pre v21 socket name, to ease upgrades */
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
                         log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
                         goto finish;
                 }
-#ifndef LEGACY
+#ifndef NOLEGACY
         }
 #endif
 

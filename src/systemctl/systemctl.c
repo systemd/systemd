@@ -1565,7 +1565,7 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
 
                         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
                 }
-#ifndef LEGACY
+#ifndef NOLEGACY
                 dbus_error_free(&error);
                 if (dbus_message_get_args(message, &error,
                                           DBUS_TYPE_UINT32, &id,
@@ -2916,7 +2916,7 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 i->fragment_path = s;
                         else if (streq(name, "SourcePath"))
                                 i->source_path = s;
-#ifndef LEGACY
+#ifndef NOLEGACY
                         else if (streq(name, "DefaultControlGroup")) {
                                 const char *e;
                                 e = startswith(s, SYSTEMD_CGROUP_CONTROLLER ":");
