@@ -424,10 +424,15 @@
         </refsect1>
 
         <refsect1>
-                <title>Special Journal Fields</title>
+                <title>Fields to log on behalf of a different program</title>
+
+                <para>Fields in this section are used by programs
+                to specify that they are logging on behalf of another
+                program or unit.
+                </para>
 
                 <para>Fields used by the <command>systemd-coredump</command>
-                coredump kernel helper.
+                coredump kernel helper:
                 </para>
 
                 <variablelist class='journal-directives'>
@@ -444,6 +449,61 @@
                                 </listitem>
                         </varlistentry>
                 </variablelist>
+
+                <para>Priviledged programs (currently UID 0) may
+                attach <varname>OBJECT_PID=</varname> to a
+                message. This will instruct
+                <command>systemd-journald</command> to attach
+                additional fields on behalf of caller:</para>
+
+                <variablelist class='journal-directives'>
+                        <varlistentry>
+                                <term><varname>OBJECT_PID=<replaceable>PID</replaceable></varname></term>
+                                <listitem>
+                                        <para>PID of the program that this
+                                        message pertains to.
+                                        </para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>OBJECT_UID=</varname></term>
+                                <term><varname>OBJECT_GID=</varname></term>
+                                <term><varname>OBJECT_COMM=</varname></term>
+                                <term><varname>OBJECT_EXE=</varname></term>
+                                <term><varname>OBJECT_CMDLINE=</varname></term>
+                                <term><varname>OBJECT_AUDIT_SESSION=</varname></term>
+                                <term><varname>OBJECT_AUDIT_LOGINUID=</varname></term>
+                                <term><varname>OBJECT_SYSTEMD_CGROUP=</varname></term>
+                                <term><varname>OBJECT_SYSTEMD_SESSION=</varname></term>
+                                <term><varname>OBJECT_SYSTEMD_OWNER_UID=</varname></term>
+                                <term><varname>OBJECT_SYSTEMD_UNIT=</varname></term>
+                                <term><varname>OBJECT_SYSTEMD_USER_UNIT=</varname></term>
+                                <listitem>
+                                        <para>Additional fields added automatically
+                                        by <command>systemd-journald</command>.
+                                        Their meaning is the same as
+                                        <varname>_UID=</varname>,
+                                        <varname>_GID=</varname>,
+                                        <varname>_COMM=</varname>,
+                                        <varname>_EXE=</varname>,
+                                        <varname>_CMDLINE=</varname>,
+                                        <varname>_AUDIT_SESSION=</varname>,
+                                        <varname>_AUDIT_LOGINUID=</varname>,
+                                        <varname>_SYSTEMD_CGROUP=</varname>,
+                                        <varname>_SYSTEMD_SESSION=</varname>,
+                                        <varname>_SYSTEMD_UNIT=</varname>,
+                                        <varname>_SYSTEMD_USER_UNIT=</varname>, and
+                                        <varname>_SYSTEMD_OWNER_UID=</varname>
+                                        described above, except that
+                                        process <replaceable>PID</replaceable>
+                                        is described, instead of the process
+                                        which logged the message.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+
+
         </refsect1>
 
         <refsect1>
