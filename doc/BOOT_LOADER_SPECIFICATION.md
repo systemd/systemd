@@ -108,4 +108,4 @@ There are a couple of items that are out of focus for this specifications:
 
 [[http://www.freedesktop.org/wiki/Software/gummiboot/]]
 
-[[http://pkgs.fedoraproject.org/cgit/grub2.git/tree/0362-blscfg-add-blscfg-module-to-parse-Boot-Loader-Specif.patch]]
+[[http://pkgs.fedoraproject.org/cgit/grub2.git/tree/0460-blscfg-add-blscfg-module-to-parse-Boot-Loader-Specif.patch]]
