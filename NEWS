@@ -1,5 +1,144 @@
 systemd System and Service Manager
 
+CHANGES WITH 205:
+
+        * Two new unit types have been introduced:
+
+          Scope units are very similar to service units, however, are
+          created out of pre-existing processes -- instead of PID 1
+          forking off the processes. By using scope units it is
+          possible for system services and applications to group their
+          own child processes (worker processes) in a powerful way
+          which then maybe used to organize them, or kill them
+          together, or apply resource limits on them.
+
+          Slice units may be used to partition system resources in an
+          hierarchial fashion and then assign other units to them. By
+          default there are now three slices: system.slice (for all
+          system services), user.slice (for all user sessions),
+          machine.slice (for VMs and containers).
+
+          Slices and scopes have been introduced primarily in
+          context of the work to move cgroup handling to a
+          single-writer scheme, where only PID 1
+          creates/removes/manages cgroups.
+
+        * There's a new concept of "transient" units. In contrast to
+          normal units these units are created via an API at runtime,
+          not from configuration from disk. More specifically this
+          means it is now possible to run arbitrary programs as
+          independent services, with all execution parameters passed
+          in via bus APIs rather than read from disk. Transient units
+          make systemd substantially more dynamic then it ever was,
+          and useful as a general batch manager.
+
+        * logind has been updated to make use of scope and slice units
+          for managing user sessions. As a user logs in he will get
+          his own private slice unit, to which all sessions are added
+          as scope units. We also added support for automatically
+          adding an instance of user@.service for the user into the
+          slice. Effectively logind will no longer create cgroup
+          hierarchies on its own now, it will defer entirely to PID 1
+          for this by means of scope, service and slice units. Since
+          user sessions this way become entities managed by PID 1
+          the output of "systemctl" is now a lot more comprehensive.
+
+        * A new mini-daemon "systemd-machined" has been added which
+          may be used by virtualization managers to register local
+          VMs/containers. nspawn has been updated accordingly, and
+          libvirt will be updated shortly. machined will collect a bit
+          of meta information about the VMs/containers, and assign
+          them their own scope unit (see above). The collected
+          meta-data is then made available via the "machinectl" tool,
+          and exposed in "ps" and similar tools. machined/machinectl
+          is compile-time optional.
+
+        * As discussed earlier, the low-level cgroup configuration
+          options ControlGroup=, ControlGroupModify=,
+          ControlGroupPersistent=, ControlGroupAttribute= have been
+          removed. Please use high-level attribute settings instead as
+          well as slice units.
+
+        * A new bus call SetUnitProperties() has been added to alter
+          various runtime parameters of a unit. This is primarily
+          useful to alter cgroup parameters dynamically in a nice way,
+          but will be extended later on to make more properties
+          modifiable at runtime. systemctl gained a new set-properties
+          command that wraps this call.
+
+        * A new tool "systemd-run" has been added which can be used to
+          run arbitrary command lines as transient services or scopes,
+          while configuring a number of settings via the command
+          line. This tool is currently very basic, however already
+          very useful. We plan to extend this tool to even allow
+          queuing of execution jobs with time triggers from the
+          command line, similar in fashion to "at".
+
+        * nspawn will now inform the user explicitly that kernels with
+          audit enabled break containers, and suggest the user to turn
+          off audit.
+
+        * Support for detecting the IMA and AppArmor security
+          frameworks with ConditionSecurity= has been added.
+
+        * journalctl gained a new "-k" switch for showing only kernel
+          messages.
+
+        * systemd-delta can now show information about drop-in
+          snippets extending unit files.
+
+        * libsystemd-bus has been substantially updated but is still
+          not available as public API.
+
+        * systemd will now look for the "debug" argument on the kernel
+          command line and enable debug logging, similar to
+          "systemd.log_level=debug" already did before.
+
+        * "systemctl set-default", "systemctl get-default" has been
+          added to configure the default.target symlink, which
+          controls what to boot into by default.
+
+        * "systemd-analyze plot" will now show the time the various
+          generators needed for execution, as well as information
+          about the unit file loading.
+
+        * journalctl gained new "--user" and "--system" switches to
+          only show user/system logs.
+
+        * libsystemd-journal gained a new sd_journal_open_files() call
+          for opening specific journal files. journactl also gained a
+          new switch to expose this new functionality. Previously we
+          only supported opening all files from a directory, or all
+          files from the system, as opening individual files only is
+          racy due to journal file rotation.
+
+        * systemd gained the new DefaultEnvironment= setting in
+          /etc/systemd/system.conf to set environment variables for
+          all services.
+
+        * If a privileged process logs a journal message with the
+          OBJECT_PID= field set, then journald will automatically
+          augment this with additional OBJECT_UID=, OBJECT_GID=,
+          OBJECT_COMM=, OBJECT_EXE=, ... fields. This is useful if
+          system services want to log events about specific client
+          processes. journactl/systemctl has been updated to make use
+          of this information if all log messages regarding a specific
+          unit is requested.
+
+        Contributions from: Auke Kok, Chengwei Yang, Colin Walters,
+        Cristian Rodríguez, Daniel Albers, Daniel Wallace, Dave
+        Reisner, David Coppa, David King, David Strauss, Eelco
+        Dolstra, Gabriel de Perthuis, Harald Hoyer, Jan Alexander
+        Steffens, Jan Engelhardt, Jan Janssen, Jason St. John, Johan
+        Heikkilä, Karel Zak, Karol Lewandowski, Kay Sievers, Lennart
+        Poettering, Lukas Nykryn, Mantas Mikulėnas, Marius Vollmer,
+        Martin Pitt, Michael Biebl, Michael Olbrich, Michael Tremer,
+        Michal Schmidt, Michał Bartoszkiewicz, Nirbheek Chauhan,
+        Pierre Neidhardt, Ross Burton, Ross Lagerwall, Sean McGovern,
+        Thomas Hindoe Paaboel Andersen, Tom Gundersen, Umut Tezduyar,
+        Václav Pavlín, Zachary Cook, Zbigniew Jędrzejewski-Szmek,
+        Łukasz Stelmach, 장동준
+
 CHANGES WITH 204:
 
         * The Python bindings gained some minimal support for the APIs
