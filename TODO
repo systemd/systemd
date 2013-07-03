@@ -28,6 +28,8 @@ Fedora 19:
 
 Features:
 
+* move systemctl set-log-level to systemd-analyze?
+
 * fix killing spree logic in systemd-user-sessions
 
 * logind: implement session kill exceptions
