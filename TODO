@@ -28,6 +28,8 @@ Fedora 19:
 
 Features:
 
+* when a kernel driver logs in a tight loop we should ratelimit that too.
+
 * move systemctl set-log-level to systemd-analyze?
 
 * fix killing spree logic in systemd-user-sessions
