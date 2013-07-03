@@ -531,7 +531,6 @@ DBusHandlerResult bus_message_filter(
                         goto finish;
                 }
 
-
                 mm = hashmap_get(m->machine_units, unit);
                 if (mm) {
                         if (streq_ptr(path, mm->scope_job)) {
@@ -569,6 +568,27 @@ DBusHandlerResult bus_message_filter(
                         mm = hashmap_get(m->machine_units, unit);
                         if (mm)
                                 machine_add_to_gc_queue(mm);
+                }
+
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "UnitRemoved")) {
+                const char *path, *unit;
+                Machine *mm;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_STRING, &unit,
+                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse UnitRemoved message: %s", bus_error_message(&error));
+                        goto finish;
+                }
+
+                mm = hashmap_get(m->machine_units, unit);
+                if (mm) {
+                        hashmap_remove(m->machine_units, mm->scope);
+                        free(mm->scope);
+                        mm->scope = NULL;
+
+                        machine_add_to_gc_queue(mm);
                 }
         }
 

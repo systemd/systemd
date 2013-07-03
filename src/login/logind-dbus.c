@@ -2411,6 +2411,44 @@ DBusHandlerResult bus_message_filter(
                         if (u)
                                 user_add_to_gc_queue(u);
                 }
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "UnitRemoved")) {
+
+                const char *path, *unit;
+                Session *session;
+                User *user;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_STRING, &unit,
+                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse UnitRemoved message: %s", bus_error_message(&error));
+                        goto finish;
+                }
+
+                session = hashmap_get(m->session_units, unit);
+                if (session) {
+                        hashmap_remove(m->session_units, session->scope);
+                        free(session->scope);
+                        session->scope = NULL;
+
+                        session_add_to_gc_queue(session);
+                }
+
+                user = hashmap_get(m->user_units, unit);
+                if (user) {
+
+                        if (streq_ptr(unit, user->service)) {
+                                hashmap_remove(m->user_units, user->service);
+                                free(user->service);
+                                user->service = NULL;
+                        } else if (streq_ptr(unit, user->slice)) {
+                                hashmap_remove(m->user_units, user->slice);
+                                free(user->slice);
+                                user->slice = NULL;
+                        }
+
+                        user_add_to_gc_queue(user);
+                }
         }
 
 finish:

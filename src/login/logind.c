@@ -1023,6 +1023,18 @@ static int manager_connect_bus(Manager *m) {
         dbus_bus_add_match(m->bus,
                            "type='signal',"
                            "sender='org.freedesktop.systemd1',"
+                           "interface='org.freedesktop.systemd1.Manager',"
+                           "member='UnitRemoved',"
+                           "path='/org/freedesktop/systemd1'",
+                           &error);
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to add match for UnitRemoved: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+        }
+
+        dbus_bus_add_match(m->bus,
+                           "type='signal',"
+                           "sender='org.freedesktop.systemd1',"
                            "interface='org.freedesktop.DBus.Properties',"
                            "member='PropertiesChanged'",
                            &error);
