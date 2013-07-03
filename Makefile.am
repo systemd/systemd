@@ -3635,11 +3635,8 @@ dist_dbuspolicy_DATA += \
 SYSTEM_UNIT_ALIASES += \
 	systemd-machined.service dbus-org.freedesktop.machine1.service
 
-polkitpolicy_in_files += \
-	src/machine/org.freedesktop.machine1.policy.in
-
 EXTRA_DIST += \
-	units/systemd-machine.service.in
+	units/systemd-machined.service.in
 
 endif
 
