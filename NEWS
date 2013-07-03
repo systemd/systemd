@@ -82,7 +82,9 @@ CHANGES WITH 205:
           frameworks with ConditionSecurity= has been added.
 
         * journalctl gained a new "-k" switch for showing only kernel
-          messages.
+          messages, mimicking dmesg output; in addition to "--user"
+          and "--system" switches for showing only user's own logs
+          and system logs.
 
         * systemd-delta can now show information about drop-in
           snippets extending unit files.
@@ -97,6 +99,9 @@ CHANGES WITH 205:
         * "systemctl set-default", "systemctl get-default" has been
           added to configure the default.target symlink, which
           controls what to boot into by default.
+
+        * "systemctl set-log-level" has been added as a convenient
+          way to raise and lower systemd logging threshold.
 
         * "systemd-analyze plot" will now show the time the various
           generators needed for execution, as well as information
