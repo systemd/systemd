@@ -41,9 +41,9 @@
 0xEF f21
 
 0xEE chat
-0xE4 chat # Just mapping Fn+Chat to Chat for now
-0xDD menu # Frame
-0xDA prog1 # Fn+Frame
+0xE4 chat   # Just mapping Fn+Chat to Chat for now
+0xDD menu   # Frame
+0xDA prog1  # Fn+Frame
 
 # The Fn of some keys is other keys
 0xD3 delete
@@ -57,11 +57,11 @@
 0x73 hp
 0x7E hp
 
-0xDB leftmeta # left grab
-0xDC rightmeta # right grab
-0x85 rightmeta # Right grab releases on a different scancode
-0xD6 kbdillumtoggle # Fn+space
-0x69 switchvideomode # Brightness key
+0xDB leftmeta         # left grab
+0xDC rightmeta        # right grab
+0x85 rightmeta        # Right grab releases on a different scancode
+0xD6 kbdillumtoggle   # Fn+Space
+0x69 switchvideomode  # Brightness key
 
 # Game keys
 0x65 kp8 # up

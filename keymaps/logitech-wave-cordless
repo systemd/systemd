@@ -7,9 +7,9 @@
 0xC1041 wordprocessor
 0xC1042 spreadsheet
 0xC1043 calendar
-0xC1044 prog2 #Fn+F4 (program a)
-0xC1045 prog3 #Fn+F5 (program b)
-0xC1046 prog4 #Fn+F6 (program c)
+0xC1044 prog2   # Fn+F4 (program a)
+0xC1045 prog3   # Fn+F5 (program b)
+0xC1046 prog4   # Fn+F6 (program c)
 0xC1048 messenger
-0xC104A find #Fn+F10 (search www)
+0xC104A find    # Fn+F10 (search www)
 0xC104C ejectclosecd
