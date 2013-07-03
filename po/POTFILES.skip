@@ -12,6 +12,7 @@ src/core/dbus-swap.c
 src/core/dbus-target.c
 src/core/dbus-timer.c
 src/core/dbus-unit.c
+src/core/dbus-scope.c
 src/hostname/hostnamed.c
 src/locale/localed.c
 src/core/org.freedesktop.systemd1.policy.in
