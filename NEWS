@@ -107,9 +107,6 @@ CHANGES WITH 205:
           generators needed for execution, as well as information
           about the unit file loading.
 
-        * journalctl gained new "--user" and "--system" switches to
-          only show user/system logs.
-
         * libsystemd-journal gained a new sd_journal_open_files() call
           for opening specific journal files. journactl also gained a
           new switch to expose this new functionality. Previously we
