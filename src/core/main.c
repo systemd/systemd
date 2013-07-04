@@ -1942,6 +1942,10 @@ finish:
                         watchdog_close(true);
                 }
 
+		/* avoid the creation of new processes forked by the kernel; at this
+                 * point, we will not listen to the signals anyway */
+		cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
+
                 execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
                 free(env_block);
                 log_error("Failed to execute shutdown binary, freezing: %m");

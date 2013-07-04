@@ -790,6 +790,21 @@ int cg_install_release_agent(const char *controller, const char *agent) {
         return 0;
 }
 
+int cg_uninstall_release_agent(const char *controller) {
+        _cleanup_free_ char *fs = NULL;
+        int r;
+
+        r = cg_get_path(controller, NULL, "release_agent", &fs);
+        if (r < 0)
+                return r;
+
+        r = write_string_file(fs, "");
+        if (r < 0)
+                return r;
+
+	return 0;
+}
+
 int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
         _cleanup_fclose_ FILE *f = NULL;
         pid_t pid = 0, self_pid;

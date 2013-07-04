@@ -89,6 +89,7 @@ int cg_set_group_access(const char *controller, const char *path, mode_t mode, u
 int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid);
 
 int cg_install_release_agent(const char *controller, const char *agent);
+int cg_uninstall_release_agent(const char *controller);
 
 int cg_is_empty(const char *controller, const char *path, bool ignore_self);
 int cg_is_empty_by_spec(const char *spec, bool ignore_self);
