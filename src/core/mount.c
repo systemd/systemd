@@ -822,9 +822,9 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
                 prefix, m->where,
-                prefix, strna(p->what),
-                prefix, strna(p->fstype),
-                prefix, strna(p->options),
+                prefix, p ? strna(p->what) : "n/a",
+                prefix, p ? strna(p->fstype) : "n/a",
+                prefix, p ? strna(p->options) : "n/a",
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
                 prefix, m->directory_mode);
