@@ -1,0 +1,46 @@
+/***
+  This file is part of systemd
+
+  Copyright 2013 Zbigniew Jędrzejewski-Szmek
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef const char* (*lookup_t)(int);
+typedef int (*reverse_t)(const char*);
+
+static inline void _test_table(const char *name,
+                               lookup_t lookup,
+                               reverse_t reverse,
+                               int size) {
+        int i;
+
+        for (i = 0; i < size; i++) {
+                const char* val = lookup(i);
+                int rev = -1;
+
+                if (val)
+                        rev = reverse(val);
+
+                printf("%s: %d → %s → %d\n", name, i, val, rev);
+                if (!val || rev != i)
+                        exit(EXIT_FAILURE);
+        }
+}
+
+#define test_table(lower, upper) \
+        _test_table(STRINGIFY(lower), lower##_to_string, lower##_from_string, _##upper##_MAX)

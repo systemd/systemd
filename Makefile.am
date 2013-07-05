@@ -1115,7 +1115,8 @@ tests += \
 	test-fileio \
 	test-time \
 	test-hashmap \
-	test-list
+	test-list \
+	test-tables
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1227,6 +1228,18 @@ test_list_CFLAGS = \
 
 test_list_LDADD = \
 	libsystemd-core.la
+
+test_tables_SOURCES = \
+	src/test/test-tables.c \
+	src/shared/test-tables.h
+
+test_tables_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+test_tables_LDADD = \
+	libsystemd-core.la \
+	libsystemd-logs.la
 
 test_prioq_SOURCES = \
 	src/test/test-prioq.c
@@ -3583,17 +3596,29 @@ endif
 if ENABLE_MACHINED
 systemd_machined_SOURCES = \
 	src/machine/machined.c \
-	src/machine/machined.h \
+	src/machine/machined.h
+
+systemd_machined_CFLAGS = \
+	$(libsystemd_machine_core_la_CFLAGS)
+
+systemd_machined_LDADD = \
+	libsystemd-machine-core.la \
+	$(libsystemd_machine_core_la_LIBADD)
+
+rootlibexec_PROGRAMS += \
+	systemd-machined
+
+libsystemd_machine_core_la_SOURCES = \
 	src/machine/machined-dbus.c \
 	src/machine/machine.c \
 	src/machine/machine.h \
 	src/machine/machine-dbus.c
 
-systemd_machined_CFLAGS = \
+libsystemd_machine_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)
 
-systemd_machined_LDADD = \
+libsystemd_machine_core_la_LIBADD = \
 	libsystemd-label.la \
 	libsystemd-audit.la \
 	libsystemd-shared.la \
@@ -3602,8 +3627,8 @@ systemd_machined_LDADD = \
 	libsystemd-id128-internal.la \
 	libudev.la
 
-rootlibexec_PROGRAMS += \
-	systemd-machined
+noinst_LTLIBRARIES += \
+	libsystemd-machine-core.la
 
 machinectl_SOURCES = \
 	src/machine/machinectl.c
@@ -3619,6 +3644,19 @@ machinectl_LDADD = \
 
 rootbin_PROGRAMS += \
 	machinectl
+
+test_machine_tables_SOURCES = \
+	src/machine/test-machine-tables.c
+
+test_machine_tables_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+test_machine_tables_LDADD = \
+	libsystemd-machine-core.la
+
+tests += \
+	test-machine-tables
 
 nodist_systemunit_DATA += \
 	units/systemd-machined.service
@@ -3644,7 +3682,27 @@ endif
 if ENABLE_LOGIND
 systemd_logind_SOURCES = \
 	src/login/logind.c \
-	src/login/logind.h \
+	src/login/logind.h
+
+nodist_systemd_logind_SOURCES = \
+	src/login/logind-gperf.c
+
+systemd_logind_CFLAGS = \
+	$(libsystemd_logind_core_la_CFLAGS)
+
+systemd_logind_LDADD = \
+	libsystemd-logind-core.la \
+	$(libsystemd_logind_core_la_LIBADD)
+
+if HAVE_ACL
+systemd_logind_SOURCES += \
+	src/login/logind-acl.c
+
+systemd_logind_LDADD += \
+	libsystemd-acl.la
+endif
+
+libsystemd_logind_core_la_SOURCES = \
 	src/login/logind-dbus.c \
 	src/login/logind-device.c \
 	src/login/logind-device.h \
@@ -3665,14 +3723,11 @@ systemd_logind_SOURCES = \
 	src/login/logind-user-dbus.c \
 	src/login/logind-acl.h
 
-nodist_systemd_logind_SOURCES = \
-	src/login/logind-gperf.c
-
-systemd_logind_CFLAGS = \
+libsystemd_logind_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
+        $(DBUS_CFLAGS)
 
-systemd_logind_LDADD = \
+libsystemd_logind_core_la_LIBADD = \
 	libsystemd-label.la \
 	libsystemd-audit.la \
 	libsystemd-shared.la \
@@ -3681,13 +3736,8 @@ systemd_logind_LDADD = \
 	libsystemd-id128-internal.la \
 	libudev.la
 
-if HAVE_ACL
-systemd_logind_SOURCES += \
-	src/login/logind-acl.c
-
-systemd_logind_LDADD += \
-	libsystemd-acl.la
-endif
+noinst_LTLIBRARIES += \
+	libsystemd-logind-core.la
 
 systemd_user_sessions_SOURCES = \
 	src/login/user-sessions.c
@@ -3750,9 +3800,22 @@ test_inhibit_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)
 
+test_login_tables_SOURCES = \
+	src/login/test-login-tables.c
+
+test_login_tables_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+test_login_tables_LDADD = \
+	libsystemd-logind-core.la
+
 manual_tests += \
 	test-login \
 	test-inhibit
+
+tests += \
+	test-login-tables
 
 libsystemd_login_la_SOURCES = \
 	src/login/sd-login.c

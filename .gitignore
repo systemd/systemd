@@ -134,6 +134,9 @@
 /test-strbuf
 /test-strv
 /test-strxcpyx
+/test-tables
+/test-login-tables
+/test-machine-tables
 /test-time
 /test-udev
 /test-unit-file
