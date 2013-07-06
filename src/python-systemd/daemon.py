@@ -1,5 +1,6 @@
 from ._daemon import (__version__,
                       booted,
+                      notify,
                       _listen_fds,
                       _is_fifo,
                       _is_socket,

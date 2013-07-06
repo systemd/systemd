@@ -79,6 +79,43 @@ static PyObject* booted(PyObject *self, PyObject *args) {
         return PyBool_FromLong(r);
 }
 
+PyDoc_STRVAR(notify__doc__,
+             "notify(status, unset_environment=False) -> bool\n\n"
+             "Send a message to the init system about a status change.\n"
+             "Wraps sd_notify(3).");
+
+static PyObject* notify(PyObject *self, PyObject *args, PyObject *keywds) {
+        int r;
+        const char* msg;
+        int unset = false;
+
+        static const char* const kwlist[] = {
+                "status",
+                "unset_environment",
+                NULL,
+        };
+#if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 3
+        if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|p:notify",
+                                         (char**) kwlist, &msg, &unset))
+                return NULL;
+#else
+        PyObject *obj = NULL;
+        if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|O:notify",
+                                         (char**) kwlist, &msg, &obj))
+                return NULL;
+        if (obj != NULL)
+                unset = PyObject_IsTrue(obj);
+        if (unset < 0)
+                return NULL;
+#endif
+
+        r = sd_notify(unset, msg);
+        if (set_error(r, NULL, NULL))
+                return NULL;
+
+        return PyBool_FromLong(r);
+}
+
 
 PyDoc_STRVAR(listen_fds__doc__,
              "_listen_fds(unset_environment=True) -> int\n\n"
@@ -87,16 +124,19 @@ PyDoc_STRVAR(listen_fds__doc__,
              "Wraps sd_listen_fds(3)."
 );
 
-static PyObject* listen_fds(PyObject *self, PyObject *args) {
+static PyObject* listen_fds(PyObject *self, PyObject *args, PyObject *keywds) {
         int r;
         int unset = true;
 
+        static const char* const kwlist[] = {"unset_environment", NULL};
 #if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 3
-        if (!PyArg_ParseTuple(args, "|p:_listen_fds", &unset))
+        if (!PyArg_ParseTupleAndKeywords(args, keywds, "|p:_listen_fds",
+                                         (char**) kwlist, &unset))
                 return NULL;
 #else
         PyObject *obj = NULL;
-        if (!PyArg_ParseTuple(args, "|O:_listen_fds", &obj))
+        if (!PyArg_ParseTupleAndKeywords(args, keywds, "|O:_listen_fds",
+                                         (char**) kwlist, &unset, &obj))
                 return NULL;
         if (obj != NULL)
                 unset = PyObject_IsTrue(obj);
@@ -256,7 +296,8 @@ static PyObject* is_socket_unix(PyObject *self, PyObject *args) {
 
 static PyMethodDef methods[] = {
         { "booted", booted, METH_NOARGS, booted__doc__},
-        { "_listen_fds", listen_fds, METH_VARARGS, listen_fds__doc__},
+        { "notify", (PyCFunction) notify, METH_VARARGS | METH_KEYWORDS, notify__doc__},
+        { "_listen_fds", (PyCFunction) listen_fds, METH_VARARGS | METH_KEYWORDS, listen_fds__doc__},
         { "_is_fifo", is_fifo, METH_VARARGS, is_fifo__doc__},
         { "_is_mq", is_mq, METH_VARARGS, is_mq__doc__},
         { "_is_socket", is_socket, METH_VARARGS, is_socket__doc__},
