@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="loginctl" conditional='HAVE_PAM'>
+<refentry id="loginctl" conditional='ENABLE_LOGIND'>
 
         <refentryinfo>
                 <title>loginctl</title>
@@ -49,7 +49,10 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>loginctl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg> <arg choice="opt" rep="repeat">NAME</arg></command>
+                        <command>loginctl</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="req">COMMAND</arg>
+                        <arg choice="opt" rep="repeat">NAME</arg>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -217,7 +220,7 @@
                                 itself. If no argument is specified,
                                 properties of the manager will be
                                 shown. If a session ID is specified,
-                                properties of the session is shown. By
+                                properties of the session are shown. By
                                 default, empty properties are
                                 suppressed. Use <option>--all</option>
                                 to show those too. To select specific

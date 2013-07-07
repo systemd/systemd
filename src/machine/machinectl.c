@@ -514,7 +514,7 @@ static int help(void) {
                "Commands:\n"
                "  list                   List running VMs and containers\n"
                "  status [NAME...]       Show VM/container status\n"
-               "  show[NAME...]          Show properties of one or more VMs/containers\n"
+               "  show [NAME...]         Show properties of one or more VMs/containers\n"
                "  terminate [NAME...]    Terminate one or more VMs/containers\n"
                "  kill [NAME...]         Send signal to processes of a VM/container\n",
                program_invocation_short_name);

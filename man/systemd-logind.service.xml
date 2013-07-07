@@ -56,16 +56,14 @@
         <refsect1>
                 <title>Description</title>
 
-                <para><filename>systemd-logind</filename> is a system
+                <para><command>systemd-logind</command> is a system
                 service that manages user logins. It is responsible
                 for:</para>
 
                 <itemizedlist>
-                        <listitem><para>Keeping track of users and sessions, their
-                        processes and their idle state</para></listitem>
-
-                        <listitem><para>Creating control groups for
-                        user processes</para></listitem>
+                        <listitem><para>Keeping track of users and
+                        sessions, their processes and their idle
+                        state</para></listitem>
 
                         <listitem><para>Providing PolicyKit-based access
                         for users to operations such as system

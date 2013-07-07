@@ -654,12 +654,25 @@ endif
 
 if ENABLE_LOGIND
 MANPAGES += \
+	man/loginctl.1 \
 	man/logind.conf.5 \
 	man/systemd-logind.service.8
 MANPAGES_ALIAS += \
 	man/systemd-logind.8
 man/systemd-logind.8: man/systemd-logind.service.8
 man/systemd-logind.html: man/systemd-logind.service.html
+	$(html-alias)
+
+endif
+
+if ENABLE_MACHINED
+MANPAGES += \
+	man/machinectl.1 \
+	man/systemd-machined.service.8
+MANPAGES_ALIAS += \
+	man/systemd-machined.8
+man/systemd-machined.8: man/systemd-machined.service.8
+man/systemd-machined.html: man/systemd-machined.service.html
 	$(html-alias)
 
 endif
@@ -790,7 +803,6 @@ endif
 
 if HAVE_PAM
 MANPAGES += \
-	man/loginctl.1 \
 	man/pam_systemd.8 \
 	man/sd-login.3 \
 	man/sd_get_seats.3 \

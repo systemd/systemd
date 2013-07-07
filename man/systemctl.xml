@@ -819,9 +819,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Show manual pages for one or more units, if
-          available. If a PID is passed the manual pages for the unit
-          the process of the PID belongs to is
-          shown.</para>
+          available. If a PID is given the manual pages for the unit
+          the process belongs to are shown.</para>
         </listitem>
       </varlistentry>
 
@@ -859,13 +858,13 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           created the systemd configuration is reloaded (in a way that
           is equivalent to <command>daemon-reload</command>) to ensure
           the changes are taken into account immediately. Note that
-          this does not have the effect that any of the units enabled
-          are also started at the same time. If this is desired a
-          separate <command>start</command> command must be invoked
-          for the unit. Also note that in case of instance enablement,
-          symlinks named same as instances are created in install
-          location, however they all point to the same template unit
-          file.</para>
+          this does <emphasis>not</emphasis> have the effect of also
+          starting starting any of the units beeing enabled. If this
+          is desired a separate <command>start</command> command must
+          be invoked for the unit. Also note that in case of instance
+          enablement, symlinks named same as instances are created in
+          install location, however they all point to the same
+          template unit file.</para>
 
           <para>This command will print the actions executed. This
           output may be suppressed by passing <option>--quiet</option>.
