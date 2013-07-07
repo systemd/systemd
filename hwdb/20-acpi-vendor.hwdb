@@ -4546,9 +4546,6 @@ acpi:PNG*:
 acpi:PNL*:
  ID_VENDOR_FROM_DATABASE=Panelview, Inc.
 
-acpi:PNP*:
- ID_VENDOR_FROM_DATABASE=Microsoft
-
 acpi:PNR*:
  ID_VENDOR_FROM_DATABASE=Planar Systems, Inc.
 
