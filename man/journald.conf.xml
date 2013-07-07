@@ -256,15 +256,14 @@
                                 system. <varname>SystemKeepFree=</varname>
                                 and
                                 <varname>RuntimeKeepFree=</varname>
-                                control how much disk space the
-                                journal shall always leave free for
-                                other uses if less than the disk space
-                                configured in
-                                <varname>SystemMaxUse=</varname> and
-                                <varname>RuntimeMaxUse=</varname> is
-                                available. Defaults to 15% of the size
-                                of the respective file
-                                system. <varname>SystemMaxFileSize=</varname>
+                                control how much disk space
+                                systemd-journald shall always leave
+                                free for other uses. Defaults to 15%
+                                of the size of the respective file
+                                system. systemd-journald will respect
+                                both limits, i.e. use the smaller of
+                                the two values.
+                                <varname>SystemMaxFileSize=</varname>
                                 and
                                 <varname>RuntimeMaxFileSize=</varname>
                                 control how large individual journal
@@ -282,10 +281,10 @@
                                 E as units for the specified sizes
                                 (equal to 1024, 1024²,... bytes).
                                 Note that size limits are enforced
-                                synchronously when journal files
-                                are extended, and no explicit
-                                rotation step triggered by
-                                time is needed.</para></listitem>
+                                synchronously when journal files are
+                                extended, and no explicit rotation
+                                step triggered by time is
+                                needed.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
