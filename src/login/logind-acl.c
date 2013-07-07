@@ -28,6 +28,7 @@
 #include "logind-acl.h"
 #include "util.h"
 #include "acl-util.h"
+#include "set.h"
 
 static int flush_acl(acl_t acl) {
         acl_entry_t i;
@@ -179,23 +180,34 @@ int devnode_acl_all(struct udev *udev,
 
         struct udev_list_entry *item = NULL, *first = NULL;
         struct udev_enumerate *e;
+        Set *nodes;
+        Iterator i;
+        char *n;
+        DIR *dir;
+        struct dirent *dent;
         int r;
 
         assert(udev);
 
-        if (isempty(seat))
-                seat = "seat0";
+        nodes = set_new(string_hash_func, string_compare_func);
+        if (!nodes) {
+                return -ENOMEM;
+        }
 
         e = udev_enumerate_new(udev);
-        if (!e)
-                return -ENOMEM;
+        if (!e) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (isempty(seat))
+                seat = "seat0";
 
         /* We can only match by one tag in libudev. We choose
          * "uaccess" for that. If we could match for two tags here we
          * could add the seat name as second match tag, but this would
          * be hardly optimizable in libudev, and hence checking the
          * second tag manually in our loop is a good solution. */
-
         r = udev_enumerate_add_match_tag(e, "uaccess");
         if (r < 0)
                 goto finish;
@@ -231,18 +243,59 @@ int devnode_acl_all(struct udev *udev,
                         continue;
                 }
 
-                log_debug("Fixing up %s for seat %s...", node, sn);
-
-                r = devnode_acl(node, flush, del, old_uid, add, new_uid);
+                n = strdup(node);
                 udev_device_unref(d);
+                if (!n)
+                        goto finish;
 
+                log_debug("Found udev node %s for seat %s", n, seat);
+                r = set_put(nodes, n);
                 if (r < 0)
                         goto finish;
         }
 
-finish:
-        if (e)
-                udev_enumerate_unref(e);
+        /* udev exports "dead" device nodes to allow module on-demand loading,
+         * these devices are not known to the kernel at this moment */
+        dir = opendir("/run/udev/static_node-tags/uaccess");
+        if (dir) {
+                for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+                        _cleanup_free_ char *unescaped_devname = NULL;
 
+                        if (dent->d_name[0] == '.')
+                                continue;
+
+                        unescaped_devname = cunescape(dent->d_name);
+                        if (unescaped_devname == NULL) {
+                                r = -ENOMEM;
+                                closedir(dir);
+                                goto finish;
+                        }
+
+                        n = strappend("/dev/", unescaped_devname);
+                        if (!n) {
+                                r = -ENOMEM;
+                                closedir(dir);
+                                goto finish;
+                        }
+
+                        log_debug("Found static node %s for seat %s", n, seat);
+                        r = set_put(nodes, n);
+                        if (0 && r < 0 && r != -EEXIST) {
+                                closedir(dir);
+                                goto finish;
+                        } else
+                                r = 0;
+                }
+                closedir(dir);
+        }
+
+        SET_FOREACH(n, nodes, i) {
+                log_debug("Fixing up ACLs at %s for seat %s", n, seat);
+                r = devnode_acl(n, flush, del, old_uid, add, new_uid);
+        }
+
+finish:
+        udev_enumerate_unref(e);
+        set_free_free(nodes);
         return r;
 }
