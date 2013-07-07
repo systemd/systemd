@@ -1197,7 +1197,9 @@ int main(int argc, char *argv[])
         }
         log_debug("set children_max to %u\n", children_max);
 
-        udev_rules_apply_static_dev_perms(rules);
+        rc = udev_rules_apply_static_dev_perms(rules);
+        if (rc < 0)
+                log_error("failed to apply permissions on static device nodes - %s\n", strerror(-rc));
 
         udev_list_node_init(&event_list);
         udev_list_node_init(&worker_list);

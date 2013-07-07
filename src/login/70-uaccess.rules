@@ -25,7 +25,8 @@ SUBSYSTEM=="block", ENV{ID_CDROM}=="1", TAG+="uaccess"
 SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", TAG+="uaccess"
 
 # Sound devices
-SUBSYSTEM=="sound", TAG+="uaccess"
+SUBSYSTEM=="sound", TAG+="uaccess" \
+  OPTIONS+="static_node=snd/timer", OPTIONS+="static_node=snd/seq"
 
 # ffado is an userspace driver for firewire sound cards
 SUBSYSTEM=="firewire", ENV{ID_FFADO}=="1", TAG+="uaccess"

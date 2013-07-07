@@ -521,9 +521,13 @@
                 <term><option>static_node=</option></term>
                 <listitem>
                   <para>Apply the permissions specified in this rule to the static device node with
-                  the specified name. Static device node creation can be requested by kernel modules.
-                  These nodes might not have a corresponding kernel device at the time systemd-udevd is
-                  started; they can trigger automatic kernel module loading.</para>
+                  the specified name. Also, for every tag specified in this rule, create a symlink
+                  in the directory
+                  <filename>/run/udev/static_node-tags/<replaceable>tag</replaceable></filename>
+                  pointing at the static device node with the specified name. Static device node
+                  creation is performed by systemd-tmpfiles before systemd-udevd is started. The
+                  static nodes might not have a corresponding kernel device; they are used to
+                  trigger automatic kernel module loading when they are accessed.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>

@@ -251,6 +251,12 @@ static void cleanup_db(struct udev *udev)
                 closedir(dir);
         }
 
+        dir = opendir("/run/udev/static_node-tags");
+        if (dir != NULL) {
+                cleanup_dir(dir, 0, 2);
+                closedir(dir);
+        }
+
         dir = opendir("/run/udev/watch");
         if (dir != NULL) {
                 cleanup_dir(dir, 0, 1);

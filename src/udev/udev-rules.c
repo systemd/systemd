@@ -33,6 +33,7 @@
 #include "path-util.h"
 #include "conf-files.h"
 #include "strbuf.h"
+#include "strv.h"
 
 #define PREALLOC_TOKEN          2048
 
@@ -152,9 +153,9 @@ enum token_type {
         TK_A_OWNER_ID,                  /* uid_t */
         TK_A_GROUP_ID,                  /* gid_t */
         TK_A_MODE_ID,                   /* mode_t */
+        TK_A_TAG,                       /* val */
         TK_A_STATIC_NODE,               /* val */
         TK_A_ENV,                       /* val, attr */
-        TK_A_TAG,                       /* val */
         TK_A_NAME,                      /* val */
         TK_A_DEVLINK,                   /* val */
         TK_A_ATTR,                      /* val, attr */
@@ -2496,16 +2497,21 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
         }
 }
 
-void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
+int udev_rules_apply_static_dev_perms(struct udev_rules *rules)
 {
         struct token *cur;
         struct token *rule;
         uid_t uid = 0;
         gid_t gid = 0;
         mode_t mode = 0;
+        _cleanup_strv_free_ char **tags = NULL;
+        char **t;
+        FILE *f = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r = 0;
 
         if (rules->tokens == NULL)
-                return;
+                return 0;
 
         cur = &rules->tokens[0];
         rule = cur;
@@ -2522,6 +2528,8 @@ void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                         uid = 0;
                         gid = 0;
                         mode = 0;
+                        strv_free(tags);
+                        tags = NULL;
                         break;
                 case TK_A_OWNER_ID:
                         uid = cur->key.uid;
@@ -2532,18 +2540,52 @@ void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                 case TK_A_MODE_ID:
                         mode = cur->key.mode;
                         break;
+                case TK_A_TAG:
+                        r = strv_extend(&tags, rules_str(rules, cur->key.value_off));
+                        if (r < 0)
+                                goto finish;
+
+                        break;
                 case TK_A_STATIC_NODE: {
-                        char filename[UTIL_PATH_SIZE];
+                        char device_node[UTIL_PATH_SIZE];
+                        char tags_dir[UTIL_PATH_SIZE];
+                        char tag_symlink[UTIL_PATH_SIZE];
                         struct stat stats;
 
                         /* we assure, that the permissions tokens are sorted before the static token */
-                        if (mode == 0 && uid == 0 && gid == 0)
+                        if (mode == 0 && uid == 0 && gid == 0 && tags == NULL)
                                 goto next;
-                        strscpyl(filename, sizeof(filename), "/dev/", rules_str(rules, cur->key.value_off), NULL);
-                        if (stat(filename, &stats) != 0)
+                        strscpyl(device_node, sizeof(device_node), "/dev/", rules_str(rules, cur->key.value_off), NULL);
+                        if (stat(device_node, &stats) != 0)
                                 goto next;
                         if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode))
                                 goto next;
+
+                        if (tags) {
+                                /* Export the tags to a directory as symlinks, allowing otherwise dead nodes to be tagged */
+
+                                STRV_FOREACH(t, tags) {
+                                        _cleanup_free_ char *unescaped_filename = NULL;
+
+                                        strscpyl(tags_dir, sizeof(tags_dir), "/run/udev/static_node-tags/", *t, "/", NULL);
+                                        r = mkdir_p(tags_dir, 0755);
+                                        if (r < 0) {
+                                                log_error("failed to create %s: %s\n", tags_dir, strerror(-r));
+                                                return r;
+                                        }
+
+                                        unescaped_filename = xescape(rules_str(rules, cur->key.value_off), "/.");
+
+                                        strscpyl(tag_symlink, sizeof(tag_symlink), tags_dir, unescaped_filename, NULL);
+                                        r = symlink(device_node, tag_symlink);
+                                        if (r < 0 && errno != EEXIST) {
+                                                log_error("failed to create symlink %s -> %s: %s\n", tag_symlink, device_node, strerror(errno));
+                                                return -errno;
+                                        } else
+                                                r = 0;
+                                }
+                        }
+
                         if (mode == 0) {
                                 if (gid > 0)
                                         mode = 0660;
@@ -2551,20 +2593,20 @@ void udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                                         mode = 0600;
                         }
                         if (mode != (stats.st_mode & 01777)) {
-                                chmod(filename, mode);
-                                log_debug("chmod '%s' %#o\n", filename, mode);
+                                chmod(device_node, mode);
+                                log_debug("chmod '%s' %#o\n", device_node, mode);
                         }
 
                         if ((uid != 0 && uid != stats.st_uid) || (gid != 0 && gid != stats.st_gid)) {
-                                chown(filename, uid, gid);
-                                log_debug("chown '%s' %u %u\n", filename, uid, gid);
+                                chown(device_node, uid, gid);
+                                log_debug("chown '%s' %u %u\n", device_node, uid, gid);
                         }
 
-                        utimensat(AT_FDCWD, filename, NULL, 0);
+                        utimensat(AT_FDCWD, device_node, NULL, 0);
                         break;
                 }
                 case TK_END:
-                        return;
+                        goto finish;
                 }
 
                 cur++;
@@ -2574,4 +2616,18 @@ next:
                 cur = rule + rule->rule.token_count;
                 continue;
         }
+
+finish:
+        if (f) {
+                fflush(f);
+                fchmod(fileno(f), 0644);
+                if (ferror(f) || rename(path, "/run/udev/static_node-tags") < 0) {
+                        r = -errno;
+                        unlink("/run/udev/static_node-tags");
+                        unlink(path);
+                }
+                fclose(f);
+        }
+
+        return r;
 }
