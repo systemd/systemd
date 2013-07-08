@@ -31,14 +31,26 @@
 static struct udev_hwdb *hwdb;
 
 int udev_builtin_hwdb_lookup(struct udev_device *dev,
-                             const char *modalias, const char *filter, bool test) {
+                             const char *prefix, const char *modalias,
+                             const char *filter, bool test) {
+        struct udev_list_entry *list;
         struct udev_list_entry *entry;
         int n = 0;
 
         if (!hwdb)
                 return -ENOENT;
 
-        udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0)) {
+        if (prefix) {
+                _cleanup_free_ const char *lookup;
+
+                lookup = strjoin(prefix, modalias, NULL);
+                if (!lookup)
+                        return -ENOMEM;
+                list = udev_hwdb_get_properties_list_entry(hwdb, lookup, 0);
+        } else
+                list = udev_hwdb_get_properties_list_entry(hwdb, modalias, 0);
+
+        udev_list_entry_foreach(entry, list) {
                 if (filter && fnmatch(filter, udev_list_entry_get_name(entry), FNM_NOESCAPE) != 0)
                         continue;
 
@@ -72,7 +84,8 @@ static const char *modalias_usb(struct udev_device *dev, char *s, size_t size) {
 }
 
 static int udev_builtin_hwdb_search(struct udev_device *dev, struct udev_device *srcdev,
-                                    const char *subsystem, const char *filter, bool test) {
+                                    const char *subsystem, const char *prefix,
+                                    const char *filter, bool test) {
         struct udev_device *d;
         char s[16];
         int n = 0;
@@ -99,7 +112,7 @@ static int udev_builtin_hwdb_search(struct udev_device *dev, struct udev_device 
                 if (!modalias)
                         continue;
 
-                n = udev_builtin_hwdb_lookup(dev, modalias, filter, test);
+                n = udev_builtin_hwdb_lookup(dev, prefix, modalias, filter, test);
                 if (n > 0)
                         break;
         }
@@ -112,11 +125,13 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
                 { "filter", required_argument, NULL, 'f' },
                 { "device", required_argument, NULL, 'd' },
                 { "subsystem", required_argument, NULL, 's' },
+                { "lookup-prefix", required_argument, NULL, 'p' },
                 {}
         };
         const char *filter = NULL;
         const char *device = NULL;
         const char *subsystem = NULL;
+        const char *prefix = NULL;
         struct udev_device *srcdev;
 
         if (!hwdb)
@@ -125,7 +140,7 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
         for (;;) {
                 int option;
 
-                option = getopt_long(argc, argv, "s", options, NULL);
+                option = getopt_long(argc, argv, "f:d:s:p:", options, NULL);
                 if (option == -1)
                         break;
 
@@ -141,12 +156,16 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
                 case 's':
                         subsystem = optarg;
                         break;
+
+                case 'p':
+                        prefix = optarg;
+                        break;
                 }
         }
 
         /* query a specific key given as argument */
         if (argv[optind]) {
-                if (udev_builtin_hwdb_lookup(dev, argv[optind], filter, test) > 0)
+                if (udev_builtin_hwdb_lookup(dev, prefix, argv[optind], filter, test) > 0)
                         return EXIT_SUCCESS;
                 return EXIT_FAILURE;
         }
@@ -159,7 +178,7 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
         } else
                 srcdev = dev;
 
-        if (udev_builtin_hwdb_search(dev, srcdev, subsystem, filter, test) < 0)
+        if (udev_builtin_hwdb_search(dev, srcdev, subsystem, prefix, filter, test) < 0)
                 return EXIT_FAILURE;
         return EXIT_SUCCESS;
 }
