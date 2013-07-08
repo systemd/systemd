@@ -144,6 +144,7 @@ struct Socket {
         size_t pipe_size;
         char *bind_to_device;
         char *tcp_congestion;
+        bool reuseport;
         long mq_maxmsg;
         long mq_msgsize;
 

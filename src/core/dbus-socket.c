@@ -67,6 +67,7 @@
         "  <property name=\"MessageQueueMessageSize\" type=\"x\" access=\"read\"/>\n" \
         "  <property name=\"Listen\" type=\"a(ss)\" access=\"read\"/>\n"    \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
+        "  <property name=\"ReusePort\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"SmackLabel\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SmackLabelIPIn\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SmackLabelIPOut\" type=\"s\" access=\"read\"/>\n" \
@@ -194,6 +195,7 @@ static const BusProperty bus_socket_properties[] = {
         { "MessageQueueMaxMessages", bus_property_append_long, "x", offsetof(Socket, mq_maxmsg)       },
         { "MessageQueueMessageSize", bus_property_append_long, "x", offsetof(Socket, mq_msgsize)      },
         { "Result",         bus_socket_append_socket_result,   "s", offsetof(Socket, result)          },
+        { "ReusePort",      bus_property_append_bool,          "b", offsetof(Socket, reuseport)       },
         { "SmackLabel",     bus_property_append_string,        "s", offsetof(Socket, smack),          true },
         { "SmackLabelIPIn", bus_property_append_string,        "s", offsetof(Socket, smack_ip_in),    true },
         { "SmackLabelIPOut",bus_property_append_string,        "s", offsetof(Socket, smack_ip_out),   true },

@@ -266,3 +266,7 @@ static inline int name_to_handle_at(int fd, const char *name, struct file_handle
 #ifndef TFD_TIMER_CANCEL_ON_SET
 #define TFD_TIMER_CANCEL_ON_SET (1 << 1)
 #endif
+
+#ifndef SO_REUSEPORT
+#define SO_REUSEPORT 15
+#endif

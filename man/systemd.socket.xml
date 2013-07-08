@@ -505,6 +505,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>ReusePort=</varname></term>
+                                <listitem><para>Takes a boolean
+                                value. If true allows multiple bind()s
+                                to this TCP or UDP port.  This
+                                controls the SO_REUSEPORT socket
+                                option.  See
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>SmackLabel=</varname></term>
                                 <term><varname>SmackLabelIPIn=</varname></term>
                                 <term><varname>SmackLabelIPOut=</varname></term>

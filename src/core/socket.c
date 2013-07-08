@@ -536,6 +536,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sMessageQueueMessageSize: %li\n",
                         prefix, s->mq_msgsize);
 
+        if (s->reuseport)
+                fprintf(f,
+                        "%sReusePort: %s\n",
+                         prefix, yes_no(s->reuseport));
+
         if (s->smack)
                 fprintf(f,
                         "%sSmackLabel: %s\n",
@@ -791,6 +796,12 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         if (s->tcp_congestion)
                 if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
                         log_warning_unit(UNIT(s)->id, "TCP_CONGESTION failed: %m");
+
+        if (s->reuseport) {
+                int b = s->reuseport;
+                if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &b, sizeof(b)))
+                        log_warning_unit(UNIT(s)->id, "SO_REUSEPORT failed: %m");
+        }
 
 #ifdef HAVE_SMACK
         if (s->smack_ip_in)
