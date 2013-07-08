@@ -99,12 +99,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           (types and states can be mixed).</para>
 
           <para>If one of the arguments is a unit type, when listing
-          units, limit display to certain unit types. Otherwise units
+          units, limit display to certain unit types. Otherwise, units
           of all types will be shown.</para>
 
           <para>If one of the arguments is a unit load state, when
           listing units, limit display to certain unit
-          types. Otherwise units of in all load states will be
+          types. Otherwise, units of in all load states will be
           shown.</para>
 
           <para>As a special case, if one of the arguments is
@@ -120,10 +120,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem>
           <para>When showing unit/job/manager properties with the
           <command>show</command> command, limit display to certain
-          properties as specified as argument. If not specified all
+          properties as specified as argument. If not specified, all
           set properties are shown. The argument should be a
           comma-separated list of property names, such as
-          <literal>MainPID</literal>. If specified more than once all
+          <literal>MainPID</literal>. If specified more than once, all
           properties with the specified names are shown.</para>
         </listitem>
       </varlistentry>
@@ -159,8 +159,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--before</option></term>
 
         <listitem>
-          <para>Show which units are started after, resp. before
-          with <command>list-dependencies</command>.
+          <para>Show which units are started after or before
+          with <command>list-dependencies</command>, respectively.
           </para>
         </listitem>
       </varlistentry>
@@ -191,7 +191,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>If the requested operation conflicts with a pending
-          unfinished job, fail the command. If this is not specified
+          unfinished job, fail the command. If this is not specified,
           the requested operation will replace the pending job, if
           necessary. Do not confuse with
           <option>--failed</option>.</para>
@@ -221,8 +221,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--ignore-dependencies</option></term>
 
         <listitem>
-          <para>When enqueuing a new job ignore all its dependencies
-          and execute it immediately. If passed no required units of
+          <para>When enqueuing a new job, ignore all its dependencies
+          and execute it immediately. If passed, no required units of
           the unit passed will be pulled in, and no ordering
           dependencies will be honored. This is mostly a debugging and
           rescue tool for the administrator and should not be used by
@@ -243,8 +243,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           users may override these locks. If any locks are taken,
           shutdown and sleep state requests will normally fail
           (regardless if privileged or not) and a list of active locks
-          is printed. However if <option>--ignore-inhibitors</option>
-          is specified the locks are ignored and not printed, and the
+          is printed. However, if <option>--ignore-inhibitors</option>
+          is specified, the locks are ignored and not printed, and the
           operation attempted anyway, possibly requiring additional
           privileges.</para>
         </listitem>
@@ -269,9 +269,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>Do not synchronously wait for the requested operation
-          to finish. If this is not specified the job will be
+          to finish. If this is not specified, the job will be
           verified, enqueued and <command>systemctl</command> will
-          wait until it is completed. By passing this argument it is
+          wait until it is completed. By passing this argument, it is
           only verified and enqueued.</para>
         </listitem>
       </varlistentry>
@@ -314,7 +314,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--no-wall</option></term>
 
         <listitem>
-          <para>Don't send wall message before halt, power-off,
+          <para>Do not send wall message before halt, power-off,
           reboot.</para>
         </listitem>
       </varlistentry>
@@ -349,10 +349,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           may require input of a password or passphrase string, for
           example to unlock system hard disks or cryptographic
           certificates. Unless this option is specified and the
-          command is invoked from a terminal
+          command is invoked from a terminal,
           <command>systemctl</command> will query the user on the
           terminal for the necessary secrets. Use this option to
-          switch this behavior off. In this case the password must be
+          switch this behavior off. In this case, the password must be
           supplied by some other means (for example graphical password
           agents) or the service might fail. This also disables
           querying the user for authentication for privileged
@@ -369,7 +369,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           processes to kill. Must be one of <option>main</option>,
           <option>control</option> or <option>all</option> to select
           whether to kill only the main process of the unit, the
-          control process or all processes of the unit. If omitted
+          control process or all processes of the unit. If omitted,
           defaults to <option>all</option>.</para>
         </listitem>
 
@@ -383,7 +383,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>When used with <command>kill</command>, choose which
           signal to send to selected processes. Must be one of the
           well known signal specifiers such as <constant>SIGTERM</constant>, <constant>SIGINT</constant> or
-          <constant>SIGSTOP</constant>. If omitted defaults to
+          <constant>SIGSTOP</constant>. If omitted, defaults to
           <option>SIGTERM</option>.</para>
         </listitem>
       </varlistentry>
@@ -398,7 +398,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
           <para>When used with <command>halt</command>,
           <command>poweroff</command>, <command>reboot</command> or
-          <command>kexec</command> execute the selected operation
+          <command>kexec</command>, execute the selected operation
           without shutting down all units. However, all processes will
           be killed forcibly and all file systems are unmounted or
           remounted read-only. This is hence a drastic but relatively
@@ -474,7 +474,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--lines=</option></term>
 
         <listitem>
-          <para>When used with <command>status</command> controls the
+          <para>When used with <command>status</command>, controls the
           number of journal lines to show, counting from the most
           recent ones. Takes a positive integer argument. Defaults to
           10.</para>
@@ -486,9 +486,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--output=</option></term>
 
         <listitem>
-          <para>When used with <command>status</command> controls the
+          <para>When used with <command>status</command>, controls the
           formatting of the journal entries that are shown. For the
-          available choices see
+          available choices, see
           <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
           Defaults to <literal>short</literal>.</para>
         </listitem>
@@ -498,7 +498,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--plain</option></term>
 
         <listitem>
-          <para>When used with <command>list-dependencies</command>
+          <para>When used with <command>list-dependencies</command>,
           the output is printed as a list instead of a tree.</para>
         </listitem>
       </varlistentry>
@@ -539,7 +539,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 5 sockets listed.
           </programlisting>
           Note: because the addresses might contains spaces, this output
-          is not suitable for programatic consumption.
+          is not suitable for programmatic consumption.
           </para>
 
           <para>See also the options <option>--show-types</option>,
@@ -589,7 +589,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           for the example case of Apache, this will reload Apache's
           <filename>httpd.conf</filename> in the web server, not the
           <filename>apache.service</filename> systemd unit
-          file. </para>
+          file.</para>
 
           <para>This command should not be confused with the
           <command>daemon-reload</command> or <command>load</command>
@@ -602,7 +602,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Restart one or more units specified on the command
-          line. If the units are not running yet they will be
+          line. If the units are not running yet, they will be
           started.</para>
         </listitem>
       </varlistentry>
@@ -611,9 +611,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Restart one or more units specified on the command
-          line if the units are running. Do nothing if units are not
-          running.  Note that for compatibility with Red Hat init
-          scripts <command>condrestart</command> is equivalent to this
+          line if the units are running. This does nothing if units are not
+          running.  Note that, for compatibility with Red Hat init
+          scripts, <command>condrestart</command> is equivalent to this
           command.</para>
         </listitem>
       </varlistentry>
@@ -622,7 +622,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Reload one or more units if they support it. If not,
-          restart them instead. If the units are not running yet they
+          restart them instead. If the units are not running yet, they
           will be started.</para>
         </listitem>
       </varlistentry>
@@ -631,8 +631,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Reload one or more units if they support it. If not,
-          restart them instead. Do nothing if the units are not
-          running. Note that for compatibility with SysV init scripts
+          restart them instead. This does nothing if the units are not
+          running. Note that, for compatibility with SysV init scripts,
           <command>force-reload</command> is equivalent to this
           command.</para>
         </listitem>
@@ -674,7 +674,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <para>Check whether any of the specified units are active
           (i.e. running). Returns an exit code 0 if at least one is
           active, non-zero otherwise. Unless <option>--quiet</option>
-          is specified this will also print the current unit state to
+          is specified, this will also print the current unit state to
           STDOUT.</para>
         </listitem>
       </varlistentry>
@@ -682,9 +682,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         <term><command>is-failed <replaceable>NAME</replaceable>...</command></term>
 
         <listitem>
-          <para>Check whether any of the specified units are failed.
-          Returns an exit code 0 if at least one is failed, non-zero
-          otherwise. Unless <option>--quiet</option> is specified this
+          <para>Check whether any of the specified units are in a "failed" state.
+          Returns an exit code 0 if at least one has failed, non-zero
+          otherwise. Unless <option>--quiet</option> is specified, this
           will also print the current unit state to
           STDOUT.</para>
         </listitem>
@@ -697,7 +697,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           more units, followed by most recent log data from the
           journal. If no units are specified, show all units (subject
           to limitations specified with <option>-t</option>). If a PID
-          is passed show information about the unit the process
+          is passed, show information about the unit the process
           belongs to.</para>
 
           <para>This function is intended to generate human-readable
@@ -731,12 +731,12 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           specified unit. Takes a unit name and one or more attribute
           names such as <literal>cpu.shares</literal>. This will
           output the current values of the specified attributes,
-          separated by new-lines. For attributes that take list of
-          items the output will be new-line-separated, too. This
+          separated by new-lines. For attributes that take a list of
+          items, the output will be newline-separated, too. This
           operation will always try to retrieve the data in question
-          from the kernel first, and if that is not available use the
+          from the kernel first, and if that is not available, use the
           configured values instead. Instead of low-level control
-          group attribute names high-level pretty names may be used,
+          group attribute names, high-level pretty names may be used,
           as used for unit execution environment configuration, see
           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. For example, passing
@@ -759,7 +759,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           setting for later reboots (unless <option>--runtime</option>
           is passed, in which case the setting is not saved
           persistently and only valid until the next reboot.) Instead
-          of low-level control group attribute names high-level pretty
+          of low-level control group attribute names, high-level pretty
           names may be used, as used for unit execution environment
           configuration, see
           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -772,7 +772,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           append the specified values to the previously set values
           list (use <command>unset-cgroup-attr</command> to reset the
           list explicitly). For attributes that take a single value
-          only the list will be reset implicitly.</para>
+          only, the list will be reset implicitly.</para>
         </listitem>
       </varlistentry>
 
@@ -803,10 +803,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         unit name, plus a control group specification in the syntax
         <replaceable>CONTROLLER</replaceable>:<replaceable>PATH</replaceable>
         or <replaceable>CONTROLLER</replaceable>. In the latter syntax
-        (where the path is omitted) the default unit control group
+        (where the path is omitted), the default unit control group
         path is implied. Examples: <literal>cpu</literal> or
         <literal>cpu:/foo/bar</literal>. If a unit is removed from a
-        control group hierarchy all its processes will be moved to the
+        control group hierarchy, all its processes will be moved to the
         root group of the hierarchy and all control group attributes
         will be reset. These operations are immediately reflected in
         the kernel hierarchy, and stored persistently to disk (unless
@@ -819,7 +819,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Show manual pages for one or more units, if
-          available. If a PID is given the manual pages for the unit
+          available. If a PID is given, the manual pages for the unit
           the process belongs to are shown.</para>
         </listitem>
       </varlistentry>
@@ -829,10 +829,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Reset the <literal>failed</literal> state of the
-          specified units, or if no unit name is passed of all
+          specified units, or if no unit name is passed, reset the state of all
           units. When a unit fails in some way (i.e. process exiting
           with non-zero error code, terminating abnormally or timing
-          out) it will automatically enter the
+          out), it will automatically enter the
           <literal>failed</literal> state and its exit code and status
           is recorded for introspection by the administrator until the
           service is restarted or reset with this command.</para>
@@ -855,15 +855,15 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           as specified on the command line. This will create a number
           of symlinks as encoded in the <literal>[Install]</literal>
           sections of the unit files. After the symlinks have been
-          created the systemd configuration is reloaded (in a way that
+          created, the systemd configuration is reloaded (in a way that
           is equivalent to <command>daemon-reload</command>) to ensure
           the changes are taken into account immediately. Note that
           this does <emphasis>not</emphasis> have the effect of also
-          starting starting any of the units beeing enabled. If this
-          is desired a separate <command>start</command> command must
+          starting any of the units being enabled. If this
+          is desired, a separate <command>start</command> command must
           be invoked for the unit. Also note that in case of instance
-          enablement, symlinks named same as instances are created in
-          install location, however they all point to the same
+          enablement, symlinks named the same as instances are created in
+          the install location, however they all point to the same
           template unit file.</para>
 
           <para>This command will print the actions executed. This
@@ -874,12 +874,12 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           symlinks for the units. While this command is the
           recommended way to manipulate the unit configuration
           directory, the administrator is free to make additional
-          changes manually, by placing or removing symlinks in the
+          changes manually by placing or removing symlinks in the
           directory. This is particularly useful to create
           configurations that deviate from the suggested default
-          installation. In this case the administrator must make sure
+          installation. In this case, the administrator must make sure
           to invoke <command>daemon-reload</command> manually as
-          necessary, to ensure his changes are taken into account.
+          necessary to ensure the changes are taken into account.
           </para>
 
           <para>Enabling units should not be confused with starting
@@ -895,9 +895,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <para>Depending on whether <option>--system</option>,
           <option>--user</option> or <option>--global</option> is
-          specified this enables the unit for the system, for the
+          specified, this enables the unit for the system, for the
           calling user only or for all future logins of all
-          users. Note that in the last case no systemd daemon
+          users. Note that in the last case, no systemd daemon
           configuration is reloaded.</para>
         </listitem>
       </varlistentry>
@@ -915,7 +915,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <command>enable</command>. This call implicitly reloads the
           systemd daemon configuration after completing the disabling
           of the units. Note that this command does not implicitly
-          stop the units that are being disabled. If this is desired
+          stop the units that are being disabled. If this is desired,
           an additional <command>stop</command> command should be
           executed afterwards.</para>
 
@@ -937,7 +937,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           enabled (as with <command>enable</command>). Returns an exit
           code of 0 if at least one is enabled, non-zero
           otherwise. Prints the current enable status. To suppress
-          this output use <option>--quiet</option>.</para>
+          this output, use <option>--quiet</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -963,9 +963,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           policy files. This has the same effect as
           <command>disable</command> or <command>enable</command>,
           depending how the unit is listed in the preset files. For
-          more information on preset policy format see
+          more information on the preset policy format, see
           <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          For more information on the concept of presets please
+          For more information on the concept of presets, please
           consult the
           <ulink url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
           document.</para>
@@ -1006,7 +1006,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           undone with <command>disable</command>. The effect of this
           command is that a unit file is available for
           <command>start</command> and other commands although it
-          isn't installed directly in the unit search path.</para>
+          is not installed directly in the unit search path.</para>
         </listitem>
       </varlistentry>
 
@@ -1034,7 +1034,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         <listitem>
           <para>Load one or more units specified on the command
           line. This will simply load their configuration from disk,
-          but not start them. To start them you need to use the
+          but not start them. To start them, you need to use the
           <command>start</command> command which will implicitly load
           a unit that has not been loaded yet. Note that systemd
           garbage collects loaded units that are not active or
@@ -1062,7 +1062,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Cancel one or more jobs specified on the command line
-          by their numeric job IDs. If no job id is specified, cancel
+          by their numeric job IDs. If no job ID is specified, cancel
           all pending jobs.</para>
         </listitem>
       </varlistentry>
@@ -1081,10 +1081,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Shows required and wanted units of the specified
-          unit. If no unit is specified
+          unit. If no unit is specified,
           <filename>default.target</filename> is implied. Target units
           are recursively expanded.  When <option>--all</option> is
-          passed all other units are recursively expanded as
+          passed, all other units are recursively expanded as
           well.</para>
         </listitem>
       </varlistentry>
@@ -1094,14 +1094,14 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         <listitem>
           <para>Create a snapshot. If a snapshot name is specified,
           the new snapshot will be named after it. If none is
-          specified an automatic snapshot name is generated. In either
+          specified, an automatic snapshot name is generated. In either
           case, the snapshot name used is printed to STDOUT, unless
           <option>--quiet</option> is specified.</para>
 
           <para>A snapshot refers to a saved state of the systemd
           manager. It is implemented itself as a unit that is
           generated dynamically with this command and has dependencies
-          on all units active at the time. At a later time the user
+          on all units active at the time. At a later time, the user
           may return to this state by using the
           <command>isolate</command> command on the snapshot unit.
           </para>
@@ -1142,8 +1142,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           state again. This command is of little use except for
           debugging and package upgrades. Sometimes it might be
           helpful as a heavy-weight <command>daemon-reload</command>.
-          While the daemon is reexecuted all sockets systemd listens
-          on on behalf of user configuration will stay accessible.
+          While the daemon is reexecuted, all sockets systemd listening
+          on behalf of user configuration will stay accessible.
           </para>
         </listitem>
       </varlistentry>
@@ -1171,9 +1171,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Unset one or more systemd manager environment
-          variables. If only a variable name is specified it will be
+          variables. If only a variable name is specified, it will be
           removed regardless of its value. If a variable and a value
-          are specified the variable is only removed if it has the
+          are specified, the variable is only removed if it has the
           specified value.</para>
         </listitem>
       </varlistentry>
@@ -1190,7 +1190,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Enter rescue mode. This is mostly equivalent to
-          <command>isolate rescue.target</command> but also prints a
+          <command>isolate rescue.target</command>, but also prints a
           wall message to all users.</para>
         </listitem>
       </varlistentry>
@@ -1199,7 +1199,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Enter emergency mode. This is mostly equivalent to
-          <command>isolate emergency.target</command> but also prints
+          <command>isolate emergency.target</command>, but also prints
           a wall message to all users.</para>
         </listitem>
       </varlistentry>
@@ -1208,13 +1208,13 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Shut down and halt the system. This is mostly equivalent to
-          <command>start halt.target --irreversible</command> but also
+          <command>start halt.target --irreversible</command>, but also
           prints a wall message to all users.  If combined with
-          <option>--force</option> shutdown of all running services is
+          <option>--force</option>, shutdown of all running services is
           skipped, however all processes are killed and all file
           systems are unmounted or mounted read-only, immediately
           followed by the system halt.  If <option>--force</option> is
-          specified twice the operation is immediately executed
+          specified twice, the operation is immediately executed
           without terminating any processes or unmounting any file
           systems. This may result in data loss.</para>
         </listitem>
@@ -1224,13 +1224,13 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Shut down and power-off the system. This is mostly
-          equivalent to <command>start poweroff.target --irreversible</command>
+          equivalent to <command>start poweroff.target --irreversible</command>,
           but also prints a wall message to all users. If combined with
-          <option>--force</option> shutdown of all running services is
+          <option>--force</option>, shutdown of all running services is
           skipped, however all processes are killed and all file
           systems are unmounted or mounted read-only, immediately
           followed by the powering off. If <option>--force</option> is
-          specified twice the operation is immediately executed
+          specified twice, the operation is immediately executed
           without terminating any processes or unmounting any file
           systems. This may result in data loss.</para>
         </listitem>
@@ -1240,13 +1240,13 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Shut down and reboot the system. This is mostly
-          equivalent to <command>start reboot.target --irreversible</command>
+          equivalent to <command>start reboot.target --irreversible</command>,
           but also prints a wall message to all users. If combined with
-          <option>--force</option> shutdown of all running services is
+          <option>--force</option>, shutdown of all running services is
           skipped, however all processes are killed and all file
           systems are unmounted or mounted read-only, immediately
           followed by the reboot. If <option>--force</option> is
-          specified twice the operation is immediately executed
+          specified twice, the operation is immediately executed
           without terminating any processes or unmounting any file
           systems. This may result in data loss.</para>
         </listitem>
@@ -1256,9 +1256,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
         <listitem>
           <para>Shut down and reboot the system via kexec. This is
-          mostly equivalent to <command>start kexec.target --irreversible</command>
+          mostly equivalent to <command>start kexec.target --irreversible</command>,
           but also prints a wall message to all users. If combined
-          with <option>--force</option> shutdown of all running
+          with <option>--force</option>, shutdown of all running
           services is skipped, however all processes are killed and
           all file systems are unmounted or mounted read-only,
           immediately followed by the reboot.</para>
@@ -1310,13 +1310,13 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           new system manager process below it. This is intended for
           usage in initial RAM disks ("initrd"), and will transition
           from the initrd's system manager process (a.k.a "init"
-          process) to the main system manager process. Takes two
-          arguments: the directory to make the new root directory, and
+          process) to the main system manager process. This call takes two
+          arguments: the directory that is to become the new root directory, and
           the path to the new system manager binary below it to
           execute as PID 1. If the latter is omitted or the empty
           string, a systemd binary will automatically be searched for
           and used as init. If the system manager path is omitted or
-          equal to the empty string the state of the initrd's system
+          equal to the empty string, the state of the initrd's system
           manager process is passed to the main system manager, which
           allows later introspection of the state of the services
           involved in the initrd boot.</para>
@@ -1329,7 +1329,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success 0 is returned, a non-zero failure
+    <para>On success, 0 is returned, a non-zero failure
     code otherwise.</para>
   </refsect1>
 

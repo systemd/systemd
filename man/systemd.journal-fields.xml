@@ -454,7 +454,7 @@
                 attach <varname>OBJECT_PID=</varname> to a
                 message. This will instruct
                 <command>systemd-journald</command> to attach
-                additional fields on behalf of caller:</para>
+                additional fields on behalf of the caller:</para>
 
                 <variablelist class='journal-directives'>
                         <varlistentry>
@@ -480,7 +480,7 @@
                                 <term><varname>OBJECT_SYSTEMD_UNIT=</varname></term>
                                 <term><varname>OBJECT_SYSTEMD_USER_UNIT=</varname></term>
                                 <listitem>
-                                        <para>Additional fields added automatically
+                                        <para>These are additional fields added automatically
                                         by <command>systemd-journald</command>.
                                         Their meaning is the same as
                                         <varname>_UID=</varname>,
@@ -495,8 +495,8 @@
                                         <varname>_SYSTEMD_UNIT=</varname>,
                                         <varname>_SYSTEMD_USER_UNIT=</varname>, and
                                         <varname>_SYSTEMD_OWNER_UID=</varname>
-                                        described above, except that
-                                        process <replaceable>PID</replaceable>
+                                        as described above, except that the
+                                        process identified by <replaceable>PID</replaceable>
                                         is described, instead of the process
                                         which logged the message.</para>
                                 </listitem>
