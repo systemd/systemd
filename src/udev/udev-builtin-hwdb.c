@@ -178,9 +178,9 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
         } else
                 srcdev = dev;
 
-        if (udev_builtin_hwdb_search(dev, srcdev, subsystem, prefix, filter, test) < 0)
-                return EXIT_FAILURE;
-        return EXIT_SUCCESS;
+        if (udev_builtin_hwdb_search(dev, srcdev, subsystem, prefix, filter, test) > 0)
+                return EXIT_SUCCESS;
+        return EXIT_FAILURE;
 }
 
 /* called at udev startup and reload */
