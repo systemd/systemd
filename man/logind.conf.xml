@@ -72,8 +72,8 @@
                                 <listitem><para>Takes a positive
                                 integer. Configures how many virtual
                                 terminals (VTs) to allocate by default
-                                that -- when switched to and
-                                previously unused --
+                                that, when switched to and are
+                                previously unused,
                                 <literal>autovt</literal> services are
                                 automatically spawned on. These
                                 services are instantiated from the
@@ -116,14 +116,14 @@
                                 <filename>autovt@.service</filename>
                                 activation (see above). The VT
                                 selected with this option will be
-                                marked busy unconditionally so that no
+                                marked busy unconditionally, so that no
                                 other subsystem will allocate it. This
                                 functionality is useful to ensure that
-                                regardless how many VTs are allocated
+                                regardless of how many VTs are allocated
                                 by other subsystems, one login
                                 <literal>getty</literal> is always
-                                available. Defaults to 6 (with other
-                                words: there will always be a
+                                available. Defaults to 6 (in other
+                                words, there will always be a
                                 <literal>getty</literal> available on
                                 Alt-F6.). When set to 0, VT
                                 reservation is
@@ -161,11 +161,11 @@
                                 user sessions correctly report the
                                 idle status to the system. The system
                                 will execute the action after all
-                                sessions reported that they are idle,
-                                and no idle inhibitor lock is active,
-                                and subsequently the time configured
+                                sessions report that they are idle,
+                                no idle inhibitor lock is active,
+                                and subsequently, the time configured
                                 with <varname>IdleActionSec=</varname>
-                                (see below) has passed.</para>
+                                (see below) has expired.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -197,7 +197,7 @@
                                 killed. <varname>KillExcludeUsers=</varname>
                                 defaults to <literal>root</literal>
                                 and takes precedence over
-                                <varname>KillOnlyUsers=</varname>
+                                <varname>KillOnlyUsers=</varname>,
                                 which defaults to the empty list.</para></listitem>
                         </varlistentry>
 
@@ -221,8 +221,9 @@
                                 <varname>Controllers=</varname> and be
                                 reset to the root control group in all
                                 hierarchies listed in
-                                <varname>ResetControllers=</varname>. <varname>Controllers=</varname>
-                                defaults to the empty list,
+                                <varname>ResetControllers=</varname>.
+                                <varname>Controllers=</varname>
+                                defaults to the empty list.
                                 <varname>ResetControllers=</varname>
                                 defaults to
                                 <literal>cpu</literal>. Note that for
@@ -243,8 +244,8 @@
                                 time a system shutdown or sleep
                                 request is delayed due to an inhibitor
                                 lock of type <literal>delay</literal>
-                                being active -- before it is ignored
-                                and the operation executed
+                                being active before the inhibitor is
+                                ignored and the operation executes
                                 anyway. Defaults to
                                 5s.</para></listitem>
                         </varlistentry>
@@ -311,7 +312,7 @@
                                 <varname>SuspendKeyIgnoreInhibited=</varname>
                                 and
                                 <varname>HibernateKeyIgnoreInhibited=</varname>
-                                defaults to <literal>off</literal>,
+                                default to <literal>off</literal>.
                                 <varname>LidSwitchIgnoreInhibited=</varname>
                                 defaults to
                                 <literal>yes</literal>. This means
