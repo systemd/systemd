@@ -1186,7 +1186,7 @@ static int list_dependencies(DBusConnection *bus, char **args) {
 
 static int get_default(DBusConnection *bus, char **args) {
         char *path = NULL;
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
         _cleanup_dbus_error_free_ DBusError error;
 
