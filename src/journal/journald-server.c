@@ -910,11 +910,12 @@ static int system_journal_open(Server *s) {
 
                 if (r >= 0)
                         server_fix_perms(s, s->system_journal, 0);
-        } else if (r < 0) {
-                if (r != -ENOENT && r != -EROFS)
-                        log_warning("Failed to open system journal: %s", strerror(-r));
+                else if (r < 0) {
+                        if (r != -ENOENT && r != -EROFS)
+                                log_warning("Failed to open system journal: %s", strerror(-r));
 
-                r = 0;
+                        r = 0;
+                }
         }
 
         if (!s->runtime_journal &&
