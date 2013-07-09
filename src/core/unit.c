@@ -2326,7 +2326,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         char *s;
 
                         s = strdup(v);
-                        if (!v)
+                        if (!s)
                                 return -ENOMEM;
 
                         free(u->cgroup_path);
