@@ -3938,9 +3938,9 @@ static int daemon_reload(DBusConnection *bus, char **args) {
                 /* There's always a fallback possible for
                  * legacy actions. */
                 r = -EADDRNOTAVAIL;
-        else if (r == -ETIMEDOUT && streq(method, "Reexecute"))
-                /* On reexecution, we expect a disconnect, not
-                 * a reply */
+        else if ((r == -ETIMEDOUT || r == -ECONNRESET) && streq(method, "Reexecute"))
+                /* On reexecution, we expect a disconnect, not a
+                 * reply */
                 r = 0;
         else if (r < 0)
                 log_error("Failed to issue method call: %s", bus_error_message(&error));

@@ -1383,6 +1383,8 @@ int bus_method_call_with_reply(
                         r = -EACCES;
                 else if (dbus_error_has_name(&error, DBUS_ERROR_NO_REPLY))
                         r = -ETIMEDOUT;
+                else if (dbus_error_has_name(&error, DBUS_ERROR_DISCONNECTED))
+                        r = -ECONNRESET;
                 else
                         r = -EIO;
                 goto finish;
