@@ -34,6 +34,7 @@
 #include "dbus-common.h"
 #include "build.h"
 #include "strv.h"
+#include "unit-name.h"
 #include "cgroup-show.h"
 #include "spawn-polkit-agent.h"
 
@@ -124,19 +125,84 @@ static int list_machines(DBusConnection *bus, char **args, unsigned n) {
         return 0;
 }
 
+static int show_scope_cgroup(DBusConnection *bus, const char *unit) {
+        const char *interface = "org.freedesktop.systemd1.Scope";
+        const char *property = "ControlGroup";
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_free_ char *path = NULL;
+        DBusMessageIter iter, sub;
+        const char *cgroup;
+        DBusError error;
+        int r, output_flags;
+        unsigned c;
+
+        assert(bus);
+        assert(unit);
+
+        if (arg_transport == TRANSPORT_SSH)
+                return 0;
+
+        path = unit_dbus_path_from_name(unit);
+        if (!path)
+                return log_oom();
+
+        r = bus_method_call_with_reply(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        &error,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &property,
+                        DBUS_TYPE_INVALID);
+        if (r < 0) {
+                log_error("Failed to query ControlGroup: %s", bus_error(&error, r));
+                dbus_error_free(&error);
+                return r;
+        }
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+                log_error("Failed to parse reply.");
+                return -EINVAL;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
+                log_error("Failed to parse reply.");
+                return -EINVAL;
+        }
+
+        dbus_message_iter_get_basic(&sub, &cgroup);
+
+        output_flags =
+                arg_all * OUTPUT_SHOW_ALL |
+                arg_full * OUTPUT_FULL_WIDTH;
+
+        c = columns();
+        if (c > 18)
+                c -= 18;
+        else
+                c = 0;
+
+        show_cgroup_by_path(cgroup, "\t\t  ", c, false, output_flags);
+        return 0;
+}
+
 typedef struct MachineStatusInfo {
         const char *name;
         sd_id128_t id;
-        const char *default_control_group;
         const char *class;
         const char *service;
-        const char *slice;
+        const char *scope;
         const char *root_directory;
         pid_t leader;
         usec_t timestamp;
 } MachineStatusInfo;
 
-static void print_machine_status_info(MachineStatusInfo *i) {
+static void print_machine_status_info(DBusConnection *bus, MachineStatusInfo *i) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         assert(i);
@@ -178,31 +244,12 @@ static void print_machine_status_info(MachineStatusInfo *i) {
         } else if (i->class)
                 printf("\t   Class: %s\n", i->class);
 
-        if (i->slice)
-                printf("\t   Slice: %s\n", i->slice);
         if (i->root_directory)
                 printf("\t    Root: %s\n", i->root_directory);
 
-        if (i->default_control_group) {
-                unsigned c;
-                int output_flags =
-                        arg_all * OUTPUT_SHOW_ALL |
-                        arg_full * OUTPUT_FULL_WIDTH;
-
-                printf("\t  CGroup: %s\n", i->default_control_group);
-
-                if (arg_transport != TRANSPORT_SSH) {
-                        c = columns();
-                        if (c > 18)
-                                c -= 18;
-                        else
-                                c = 0;
-
-                        show_cgroup_and_extra_by_spec(i->default_control_group,
-                                                      "\t\t  ", c, false, &i->leader,
-                                                      i->leader > 0 ? 1 : 0,
-                                                      output_flags);
-                }
+        if (i->scope) {
+                printf("\t    Unit: %s\n", i->scope);
+                show_scope_cgroup(bus, i->scope);
         }
 }
 
@@ -221,14 +268,12 @@ static int status_property_machine(const char *name, DBusMessageIter *iter, Mach
                 if (!isempty(s)) {
                         if (streq(name, "Name"))
                                 i->name = s;
-                        else if (streq(name, "DefaultControlGroup"))
-                                i->default_control_group = s;
                         else if (streq(name, "Class"))
                                 i->class = s;
                         else if (streq(name, "Service"))
                                 i->service = s;
-                        else if (streq(name, "Slice"))
-                                i->slice = s;
+                        else if (streq(name, "Scope"))
+                                i->scope = s;
                         else if (streq(name, "RootDirectory"))
                                 i->root_directory = s;
                 }
@@ -373,7 +418,7 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         }
 
         if (!show_properties)
-                print_machine_status_info(&machine_info);
+                print_machine_status_info(bus, &machine_info);
 
         r = 0;
 

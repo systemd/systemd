@@ -34,6 +34,7 @@
 #include "dbus-common.h"
 #include "build.h"
 #include "strv.h"
+#include "unit-name.h"
 #include "cgroup-show.h"
 #include "sysfs-show.h"
 #include "spawn-polkit-agent.h"
@@ -261,12 +262,76 @@ static int list_seats(DBusConnection *bus, char **args, unsigned n) {
         return 0;
 }
 
+static int show_unit_cgroup(DBusConnection *bus, const char *interface, const char *unit) {
+        const char *property = "ControlGroup";
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_free_ char *path = NULL;
+        DBusMessageIter iter, sub;
+        const char *cgroup;
+        DBusError error;
+        int r, output_flags;
+        unsigned c;
+
+        assert(bus);
+        assert(unit);
+
+        if (arg_transport == TRANSPORT_SSH)
+                return 0;
+
+        path = unit_dbus_path_from_name(unit);
+        if (!path)
+                return log_oom();
+
+        r = bus_method_call_with_reply(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        &error,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &property,
+                        DBUS_TYPE_INVALID);
+        if (r < 0) {
+                log_error("Failed to query ControlGroup: %s", bus_error(&error, r));
+                dbus_error_free(&error);
+                return r;
+        }
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+                log_error("Failed to parse reply.");
+                return -EINVAL;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
+                log_error("Failed to parse reply.");
+                return -EINVAL;
+        }
+
+        dbus_message_iter_get_basic(&sub, &cgroup);
+
+        output_flags =
+                arg_all * OUTPUT_SHOW_ALL |
+                arg_full * OUTPUT_FULL_WIDTH;
+
+        c = columns();
+        if (c > 18)
+                c -= 18;
+        else
+                c = 0;
+
+        show_cgroup_by_path(cgroup, "\t\t  ", c, false, output_flags);
+        return 0;
+}
+
 typedef struct SessionStatusInfo {
         const char *id;
         uid_t uid;
         const char *name;
         usec_t timestamp;
-        const char *default_control_group;
         int vtnr;
         const char *seat;
         const char *tty;
@@ -279,14 +344,13 @@ typedef struct SessionStatusInfo {
         const char *type;
         const char *class;
         const char *state;
-        const char *slice;
+        const char *scope;
 } SessionStatusInfo;
 
 typedef struct UserStatusInfo {
         uid_t uid;
         const char *name;
         usec_t timestamp;
-        const char *default_control_group;
         const char *state;
         char **sessions;
         const char *display;
@@ -299,7 +363,7 @@ typedef struct SeatStatusInfo {
         char **sessions;
 } SeatStatusInfo;
 
-static void print_session_status_info(SessionStatusInfo *i) {
+static void print_session_status_info(DBusConnection *bus, SessionStatusInfo *i) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         assert(i);
@@ -375,33 +439,13 @@ static void print_session_status_info(SessionStatusInfo *i) {
         if (i->state)
                 printf("\t   State: %s\n", i->state);
 
-        if (i->slice)
-                printf("\t   Slice: %s\n", i->slice);
-
-        if (i->default_control_group) {
-                unsigned c;
-                int output_flags =
-                        arg_all * OUTPUT_SHOW_ALL |
-                        arg_full * OUTPUT_FULL_WIDTH;
-
-                printf("\t  CGroup: %s\n", i->default_control_group);
-
-                if (arg_transport != TRANSPORT_SSH) {
-                        c = columns();
-                        if (c > 18)
-                                c -= 18;
-                        else
-                                c = 0;
-
-                        show_cgroup_and_extra_by_spec(i->default_control_group,
-                                                      "\t\t  ", c, false, &i->leader,
-                                                      i->leader > 0 ? 1 : 0,
-                                                      output_flags);
-                }
+        if (i->scope) {
+                printf("\t    Unit: %s\n", i->scope);
+                show_unit_cgroup(bus, "org.freedesktop.systemd1.Scope", i->scope);
         }
 }
 
-static void print_user_status_info(UserStatusInfo *i) {
+static void print_user_status_info(DBusConnection *bus, UserStatusInfo *i) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         assert(i);
@@ -422,8 +466,6 @@ static void print_user_status_info(UserStatusInfo *i) {
         if (!isempty(i->state))
                 printf("\t   State: %s\n", i->state);
 
-        if (i->slice)
-                printf("\t   Slice: %s\n", i->slice);
 
         if (!strv_isempty(i->sessions)) {
                 char **l;
@@ -439,24 +481,9 @@ static void print_user_status_info(UserStatusInfo *i) {
                 printf("\n");
         }
 
-        if (i->default_control_group) {
-                unsigned c;
-                int output_flags =
-                        arg_all * OUTPUT_SHOW_ALL |
-                        arg_full * OUTPUT_FULL_WIDTH;
-
-                printf("\t  CGroup: %s\n", i->default_control_group);
-
-                if (arg_transport != TRANSPORT_SSH) {
-                        c = columns();
-                        if (c > 18)
-                                c -= 18;
-                        else
-                                c = 0;
-
-                        show_cgroup_by_path(i->default_control_group, "\t\t  ",
-                                            c, false, output_flags);
-                }
+        if (i->slice) {
+                printf("\t    Unit: %s\n", i->slice);
+                show_unit_cgroup(bus, "org.freedesktop.systemd1.Slice", i->slice);
         }
 }
 
@@ -511,8 +538,6 @@ static int status_property_session(const char *name, DBusMessageIter *iter, Sess
                                 i->id = s;
                         else if (streq(name, "Name"))
                                 i->name = s;
-                        else if (streq(name, "DefaultControlGroup"))
-                                i->default_control_group = s;
                         else if (streq(name, "TTY"))
                                 i->tty = s;
                         else if (streq(name, "Display"))
@@ -527,8 +552,8 @@ static int status_property_session(const char *name, DBusMessageIter *iter, Sess
                                 i->type = s;
                         else if (streq(name, "Class"))
                                 i->class = s;
-                        else if (streq(name, "Slice"))
-                                i->slice = s;
+                        else if (streq(name, "Scope"))
+                                i->scope = s;
                         else if (streq(name, "State"))
                                 i->state = s;
                 }
@@ -612,8 +637,6 @@ static int status_property_user(const char *name, DBusMessageIter *iter, UserSta
                 if (!isempty(s)) {
                         if (streq(name, "Name"))
                                 i->name = s;
-                        else if (streq(name, "DefaultControlGroup"))
-                                i->default_control_group = s;
                         else if (streq(name, "Slice"))
                                 i->slice = s;
                         else if (streq(name, "State"))
@@ -924,9 +947,9 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
 
         if (!show_properties) {
                 if (strstr(verb, "session"))
-                        print_session_status_info(&session_info);
+                        print_session_status_info(bus, &session_info);
                 else if (strstr(verb, "user"))
-                        print_user_status_info(&user_info);
+                        print_user_status_info(bus, &user_info);
                 else
                         print_seat_status_info(&seat_info);
         }
