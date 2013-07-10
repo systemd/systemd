@@ -2518,6 +2518,7 @@ int manager_start_scope(
                 pid_t pid,
                 const char *slice,
                 const char *description,
+                const char *after,
                 DBusError *error,
                 char **job) {
 
@@ -2570,6 +2571,20 @@ int manager_start_scope(
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &description_property) ||
                     !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "s", &sub3) ||
                     !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, &description) ||
+                    !dbus_message_iter_close_container(&sub2, &sub3) ||
+                    !dbus_message_iter_close_container(&sub, &sub2))
+                        return log_oom();
+        }
+
+        if (!isempty(after)) {
+                const char *after_property = "After";
+
+                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &after_property) ||
+                    !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "as", &sub3) ||
+                    !dbus_message_iter_open_container(&sub3, DBUS_TYPE_ARRAY, "s", &sub4) ||
+                    !dbus_message_iter_append_basic(&sub4, DBUS_TYPE_STRING, &after) ||
+                    !dbus_message_iter_close_container(&sub3, &sub4) ||
                     !dbus_message_iter_close_container(&sub2, &sub3) ||
                     !dbus_message_iter_close_container(&sub, &sub2))
                         return log_oom();

@@ -474,7 +474,7 @@ static int session_start_scope(Session *s) {
 
                 description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
 
-                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, &error, &job);
+                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-user-sessions.service", &error, &job);
                 if (r < 0) {
                         log_error("Failed to start session scope: %s %s", bus_error(&error, r), error.name);
                         dbus_error_free(&error);

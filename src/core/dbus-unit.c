@@ -844,6 +844,63 @@ static int bus_unit_set_transient_property(
                         unit_write_drop_in(u, mode, "Slice", contents);
                 }
                 return 1;
+
+        } else if (streq(name, "Requires") ||
+                   streq(name, "RequiresOverridable") ||
+                   streq(name, "Requisite") ||
+                   streq(name, "RequisiteOverridable") ||
+                   streq(name, "Wants") ||
+                   streq(name, "BindsTo") ||
+                   streq(name, "Conflicts") ||
+                   streq(name, "Before") ||
+                   streq(name, "After") ||
+                   streq(name, "OnFailure") ||
+                   streq(name, "PropagatesReloadTo") ||
+                   streq(name, "ReloadPropagatedFrom") ||
+                   streq(name, "PartOf")) {
+
+                UnitDependency d;
+                DBusMessageIter sub;
+
+                d = unit_dependency_from_string(name);
+                if (d < 0)
+                        return -EINVAL;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_ARRAY ||
+                    dbus_message_iter_get_element_type(i) != DBUS_TYPE_STRING)
+                        return -EINVAL;
+
+                dbus_message_iter_recurse(i, &sub);
+                while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING) {
+                        const char *other;
+
+                        dbus_message_iter_get_basic(&sub, &other);
+
+                        if (!unit_name_is_valid(other, false))
+                                return -EINVAL;
+
+                        if (mode != UNIT_CHECK) {
+                                _cleanup_free_ char *label = NULL, *contents = NULL;
+
+                                r = unit_add_dependency_by_name(u, d, other, NULL, true);
+                                if (r < 0)
+                                        return r;
+
+                                label = strjoin(name, "-", other, NULL);
+                                if (!label)
+                                        return -ENOMEM;
+
+                                contents = strjoin("[Unit]\n", name, "=", other, "\n", NULL);
+                                if (!contents)
+                                        return -ENOMEM;
+
+                                unit_write_drop_in(u, mode, label, contents);
+                        }
+
+                        dbus_message_iter_next(&sub);
+                }
+
+                return 1;
         }
 
         return 0;
