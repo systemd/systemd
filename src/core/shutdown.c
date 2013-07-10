@@ -144,11 +144,18 @@ int main(int argc, char *argv[]) {
                 char *w, *state;
                 size_t l;
 
-                FOREACH_WORD_QUOTED(w, l, line, state)
-                        if (streq(w, "quiet")) {
+                FOREACH_WORD_QUOTED(w, l, line, state) {
+                        _cleanup_free_ char *word;
+
+                        word = strndup(w, l);
+                        if (!word)
+                                break;
+
+                        if (streq(word, "quiet")) {
                                 log_set_max_level(LOG_WARNING);
                                 break;
                         }
+                }
         }
 
         log_parse_environment();
