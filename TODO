@@ -38,6 +38,18 @@ Features:
 
 * when a kernel driver logs in a tight loop we should ratelimit that too.
 
+* journald: when we drop syslog messages because the syslog socket is
+  full, make sure to write how many messages are lost as first thing
+  to syslog when it works again.
+
+* prohibit Restart= set with Type=oneshot
+
+* man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
+
+* load .d/*.conf dropins for device units
+
+* user@.service and session-*.scope should get posession of their own cgroups
+
 * move systemctl set-log-level to systemd-analyze?
 
 * fix killing spree logic in systemd-user-sessions
