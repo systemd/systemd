@@ -1454,8 +1454,9 @@ static int cancel_job(DBusConnection *bus, char **args) {
         return 0;
 }
 
-static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
+static int need_daemon_reload(DBusConnection *bus, const char *unit) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_dbus_error_free_ DBusError error;
         dbus_bool_t b = FALSE;
         DBusMessageIter iter, sub;
         const char
@@ -1464,6 +1465,8 @@ static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
                 *path;
         _cleanup_free_ char *n = NULL;
         int r;
+
+        dbus_error_init(&error);
 
         /* We ignore all errors here, since this is used to show a warning only */
 
@@ -1478,7 +1481,7 @@ static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
                         "org.freedesktop.systemd1.Manager",
                         "GetUnit",
                         &reply,
-                        NULL,
+                        &error,
                         DBUS_TYPE_STRING, &n,
                         DBUS_TYPE_INVALID);
         if (r < 0)
@@ -1499,7 +1502,7 @@ static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
                         "org.freedesktop.DBus.Properties",
                         "Get",
                         &reply,
-                        NULL,
+                        &error,
                         DBUS_TYPE_STRING, &interface,
                         DBUS_TYPE_STRING, &property,
                         DBUS_TYPE_INVALID);
@@ -1919,7 +1922,7 @@ static int start_unit_one(
                 return -EIO;
         }
 
-        if (need_daemon_reload(bus, n))
+        if (need_daemon_reload(bus, n) > 0)
                 log_warning("Warning: Unit file of %s changed on disk, 'systemctl %sdaemon-reload' recommended.",
                             n, arg_scope == UNIT_FILE_SYSTEM ? "" : "--user ");
 
