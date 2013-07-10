@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "util.h"
 #include "strbuf.h"
@@ -402,56 +403,122 @@ out:
         return err;
 }
 
-static int import_file(struct trie *trie, const char *filename) {
+static int insert_data(struct trie *trie, struct udev_list *match_list,
+                       char *line, const char *filename) {
+        char *value;
+        struct udev_list_entry *entry;
+
+        value = strchr(line, '=');
+        if (!value) {
+                log_error("Error, key/value pair expected but got '%s' in '%s':\n", line, filename);
+                return -EINVAL;
+        }
+
+        value[0] = '\0';
+        value++;
+
+        if (line[0] == '\0' || value[0] == '\0') {
+                log_error("Error, empty key or value '%s' in '%s':\n", line, filename);
+                return -EINVAL;
+        }
+
+        udev_list_entry_foreach(entry, udev_list_get_entry(match_list))
+                trie_insert(trie, trie->root, udev_list_entry_get_name(entry), line, value);
+
+        return 0;
+}
+
+static int import_file(struct udev *udev, struct trie *trie, const char *filename) {
+        enum {
+                HW_MATCH,
+                HW_DATA,
+                HW_NONE,
+        } state = HW_NONE;
         FILE *f;
         char line[LINE_MAX];
-        char match[LINE_MAX];
+        struct udev_list match_list;
+
+        udev_list_init(udev, &match_list, false);
 
         f = fopen(filename, "re");
         if (f == NULL)
                 return -errno;
 
-        match[0] = '\0';
         while (fgets(line, sizeof(line), f)) {
                 size_t len;
+                char *pos;
 
+                /* comment line */
                 if (line[0] == '#')
                         continue;
 
-                /* new line, new record */
-                if (line[0] == '\n') {
-                        match[0] = '\0';
-                        continue;
-                }
+                /* strip trailing comment */
+                pos = strchr(line, '#');
+                if (pos)
+                        pos[0] = '\0';
 
-                /* remove newline */
+                /* strip trailing whitespace */
                 len = strlen(line);
-                if (len < 2)
-                        continue;
-                line[len-1] = '\0';
+                while (len > 0 && isspace(line[len-1]))
+                        len--;
+                line[len] = '\0';
 
-                /* start of new record */
-                if (match[0] == '\0') {
-                        strcpy(match, line);
-                        continue;
-                }
+                switch (state) {
+                case HW_NONE:
+                        if (len == 0)
+                                break;
 
-                /* value line */
-                if (line[0] == ' ') {
-                        char *value;
+                        if (line[0] == ' ') {
+                                log_error("Error, MATCH expected but got '%s' in '%s':\n", line, filename);
+                                break;
+                        }
 
-                        value = strchr(line, '=');
-                        if (!value)
-                                continue;
-                        value[0] = '\0';
-                        value++;
-                        trie_insert(trie, trie->root, match, line, value);
-                        continue;
-                }
+                        /* start of record, first match */
+                        state = HW_MATCH;
+                        udev_list_entry_add(&match_list, line, NULL);
+                        break;
 
-                log_error("Error parsing line '%s' in '%s\n", line, filename);
+                case HW_MATCH:
+                        if (len == 0) {
+                                log_error("Error, DATA expected but got empty line in '%s':\n", filename);
+                                state = HW_NONE;
+                                udev_list_cleanup(&match_list);
+                                break;
+                        }
+
+                        /* another match */
+                        if (line[0] != ' ') {
+                                udev_list_entry_add(&match_list, line, NULL);
+                                break;
+                        }
+
+                        /* first data */
+                        state = HW_DATA;
+                        insert_data(trie, &match_list, line, filename);
+                        break;
+
+                case HW_DATA:
+                        /* end of record */
+                        if (len == 0) {
+                                state = HW_NONE;
+                                udev_list_cleanup(&match_list);
+                                break;
+                        }
+
+                        if (line[0] != ' ') {
+                                log_error("Error, DATA expected but got '%s' in '%s':\n", line, filename);
+                                state = HW_NONE;
+                                udev_list_cleanup(&match_list);
+                                break;
+                        }
+
+                        insert_data(trie, &match_list, line, filename);
+                        break;
+                };
         }
+
         fclose(f);
+        udev_list_cleanup(&match_list);
         return 0;
 }
 
@@ -539,7 +606,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 }
                 STRV_FOREACH(f, files) {
                         log_debug("reading file '%s'", *f);
-                        import_file(trie, *f);
+                        import_file(udev, trie, *f);
                 }
                 strv_free(files);
 
