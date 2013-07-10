@@ -100,7 +100,11 @@
                 <filename>system-update.target</filename>,
                 <filename>time-sync.target</filename>,
                 <filename>timers.target</filename>,
-                <filename>umount.target</filename></para>
+                <filename>umount.target</filename>,
+                <filename>-.slice</filename>,
+                <filename>system.slice</filename>,
+                <filename>user.slice</filename>,
+                <filename>machine.slice</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -1023,6 +1027,59 @@
         </refsect1>
 
         <refsect1>
+                <title>Special Slice Units</title>
+
+                <para>There are four <literal>.slice</literal> units
+                which form the basis of the hierarchy for assignment
+                of resources for services, users, and virtual machines
+                or containers.</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>-.slice</filename></term>
+                                <listitem>
+                                        <para>The root slice is the
+                                        root of the hierarchy. It does
+                                        not contain services directly,
+                                        but is used to set defaults
+                                        for the whole tree.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>system.slice</filename></term>
+                                <listitem>
+                                        <para>This slice contains
+                                        services started by
+                                        <command>systemd</command>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>user.slice</filename></term>
+                                <listitem>
+                                        <para>This slice contains user
+                                        processes and services started
+                                        on behalf of the user,
+                                        including the per-user systemd
+                                        instance.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>machine.slice</filename></term>
+                                <listitem>
+                                        <para>This slice contains
+                                        virtual machines and
+                                        containers registered with
+                                        <command>systemd-machined</command>.
+                                        </para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
@@ -1030,6 +1087,7 @@
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
