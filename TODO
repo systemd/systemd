@@ -36,8 +36,6 @@ Fedora 19:
 
 CGroup Rework Completion:
 
-* user@.service and session-*.scope should get posession of their own cgroups
-
 * introduce "mainpid" for scopes
 
 * implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
@@ -56,11 +54,13 @@ CGroup Rework Completion:
 
 * split up BlockIOWeight= and BlockIODeviceWeight=
 
-* introduce high-level settings for RT budget, swapiness
+* introduce high-level settings for RT budget, swappiness
 
 * man: document new bus apis
 
 Features:
+
+* do we really need both hasprefix() and startswith()?
 
 * when a kernel driver logs in a tight loop we should ratelimit that too.
 
