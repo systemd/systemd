@@ -1258,6 +1258,23 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 
+#ifdef HAVE_PAM
+                if (cgroup_path && context->user && context->pam_name) {
+                        err = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, 0644, uid, gid);
+                        if (err < 0) {
+                                r = EXIT_CGROUP;
+                                goto fail_child;
+                        }
+
+
+                        err = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, 0755, uid, gid);
+                        if (err < 0) {
+                                r = EXIT_CGROUP;
+                                goto fail_child;
+                        }
+                }
+#endif
+
                 if (apply_permissions) {
                         err = enforce_groups(context, username, gid);
                         if (err < 0) {
