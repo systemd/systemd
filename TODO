@@ -34,6 +34,32 @@ Fedora 19:
 
 * when installing fedora with yum --installroot /var/run is a directory, not a symlink
 
+CGroup Rework Completion:
+
+* user@.service and session-*.scope should get posession of their own cgroups
+
+* introduce "mainpid" for scopes
+
+* implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
+
+* implement per-slice CPUFairScheduling=1 switch
+
+* handle jointly mounted controllers correctly
+
+* logind: implement session kill exceptions
+
+* fix machine regstration to forward property array
+
+* add implicit slice for instantiated services
+
+* make BlockIODeviceWeight=, BlockIODeviceBandwidth= runtime settable
+
+* split up BlockIOWeight= and BlockIODeviceWeight=
+
+* introduce high-level settings for RT budget, swapiness
+
+* man: document new bus apis
+
 Features:
 
 * when a kernel driver logs in a tight loop we should ratelimit that too.
@@ -48,45 +74,19 @@ Features:
 
 * load .d/*.conf dropins for device units
 
-* user@.service and session-*.scope should get posession of their own cgroups
-
 * move systemctl set-log-level to systemd-analyze?
-
-* fix killing spree logic in systemd-user-sessions
-
-* logind: implement session kill exceptions
-
-* fix machine regstration to forward property array
-
-* fix loginctl cgroup enumeration
 
 * move "systemctl dump" to systemd-analyze
 
-* introduce "mainpid" for scopes
-
 * add a fixed dbus path for "my own unit", "my own session", ... to PID1, logind, ...
-
-* add implicit slice for instantiated services
 
 * service_coldplug() appears to reinstall the wrong stop timeout watch?
 
 * transient units: allow creating auxiliary units with the same call
 
-* make BlockIODeviceWeight=, BlockIODeviceBandwidth= runtime settable
-
-* split up BlockIOWeight= and BlockIODeviceWeight=
-
-* introduce high-level settings for RT budget, swapiness
-
 * how to reset dynamically changed attributes sanely?
 
 * when reloading configuration, apply new cgroup configuration
-
-* implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
-
-* implement per-slice CPUFairScheduling=1 switch
-
-* handle jointly mounted controllers correctly
 
 * journald: make sure ratelimit is actually really per-service with the new cgroup changes
 
