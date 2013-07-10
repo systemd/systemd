@@ -864,6 +864,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (serialization) {
                 assert(m->n_reloading > 0);
                 m->n_reloading --;
+
+                /* Let's wait for the UnitNew/JobNew messages being
+                 * sent, before we notify that the reload is
+                 * finished */
+                m->send_reloading_done = true;
         }
 
         return r;
@@ -1163,6 +1168,13 @@ unsigned manager_dispatch_dbus_queue(Manager *m) {
         }
 
         m->dispatching_dbus_queue = false;
+
+        if (m->send_reloading_done) {
+                m->send_reloading_done = false;
+
+                bus_broadcast_reloading(m, false);
+        }
+
         return n;
 }
 
@@ -2238,6 +2250,7 @@ int manager_reload(Manager *m) {
                 return r;
 
         m->n_reloading ++;
+        bus_broadcast_reloading(m, true);
 
         fds = fdset_new();
         if (!fds) {
@@ -2296,6 +2309,8 @@ int manager_reload(Manager *m) {
 
         assert(m->n_reloading > 0);
         m->n_reloading--;
+
+        m->send_reloading_done = true;
 
 finish:
         if (f)

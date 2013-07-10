@@ -1451,7 +1451,7 @@ void bus_broadcast_finished(
                 usec_t userspace_usec,
                 usec_t total_usec) {
 
-        DBusMessage *message;
+        _cleanup_dbus_message_unref_ DBusMessage *message = NULL;
 
         assert(m);
 
@@ -1471,18 +1471,42 @@ void bus_broadcast_finished(
                                       DBUS_TYPE_UINT64, &total_usec,
                                       DBUS_TYPE_INVALID)) {
                 log_oom();
-                goto finish;
+                return;
         }
 
 
         if (bus_broadcast(m, message) < 0) {
                 log_oom();
-                goto finish;
+                return;
+        }
+}
+
+void bus_broadcast_reloading(Manager *m, bool active) {
+
+        _cleanup_dbus_message_unref_ DBusMessage *message = NULL;
+        dbus_bool_t b = active;
+
+        assert(m);
+
+        message = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reloading");
+        if (!message) {
+                log_oom();
+                return;
         }
 
-finish:
-        if (message)
-                dbus_message_unref(message);
+        assert_cc(sizeof(usec_t) == sizeof(uint64_t));
+        if (!dbus_message_append_args(message,
+                                      DBUS_TYPE_BOOLEAN, &b,
+                                      DBUS_TYPE_INVALID)) {
+                log_oom();
+                return;
+        }
+
+
+        if (bus_broadcast(m, message) < 0) {
+                log_oom();
+                return;
+        }
 }
 
 Set *bus_acquire_subscribed(Manager *m, DBusConnection *c) {

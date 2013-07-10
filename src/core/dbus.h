@@ -43,6 +43,7 @@ bool bus_connection_has_subscriber(Manager *m, DBusConnection *c);
 int bus_fdset_add_all(Manager *m, FDSet *fds);
 
 void bus_broadcast_finished(Manager *m, usec_t firmware_usec, usec_t loader_usec, usec_t kernel_usec, usec_t initrd_usec, usec_t userspace_usec, usec_t total_usec);
+void bus_broadcast_reloading(Manager *m, bool active);
 
 Set *bus_acquire_subscribed(Manager *m, DBusConnection *c);
 

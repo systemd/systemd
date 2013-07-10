@@ -1055,14 +1055,15 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
         assert(_f);
         assert(_fds);
 
-        /* Make sure nothing is really destructed when we shut down */
-        m->n_reloading ++;
-
         r = manager_open_serialization(m, &f);
         if (r < 0) {
                 log_error("Failed to create serialization file: %s", strerror(-r));
                 goto fail;
         }
+
+        /* Make sure nothing is really destructed when we shut down */
+        m->n_reloading ++;
+        bus_broadcast_reloading(m, true);
 
         fds = fdset_new();
         if (!fds) {

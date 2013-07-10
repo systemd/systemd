@@ -276,7 +276,10 @@
         "   <arg name=\"userspace\" type=\"t\"/>\n"                     \
         "   <arg name=\"total\" type=\"t\"/>\n"                         \
         "  </signal>"                                                   \
-        "  <signal name=\"UnitFilesChanged\"/>\n"
+        "  <signal name=\"UnitFilesChanged\"/>\n"                       \
+        "  <signal name=\"Reloading\">\n"                               \
+        "   <arg name=\"active\" type=\"b\"/>\n"                        \
+        "  </signal>"
 
 #define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \

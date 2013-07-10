@@ -195,6 +195,8 @@ struct Manager {
         int32_t conn_data_slot;
         int32_t subscribed_data_slot;
 
+        bool send_reloading_done;
+
         uint32_t current_job_id;
         uint32_t default_unit_job_id;
 
