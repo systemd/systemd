@@ -568,8 +568,9 @@ const DBusObjectPathVTable bus_unit_vtable = {
 };
 
 void bus_unit_send_change_signal(Unit *u) {
-        _cleanup_free_ char *p = NULL;
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
 
         assert(u);
 
@@ -587,8 +588,10 @@ void bus_unit_send_change_signal(Unit *u) {
         }
 
         p = unit_dbus_path(u);
-        if (!p)
-                goto oom;
+        if (!p) {
+                log_oom();
+                return;
+        }
 
         if (u->sent_dbus_new_signal) {
                 /* Send a properties changed signal. First for the
@@ -601,19 +604,26 @@ void bus_unit_send_change_signal(Unit *u) {
                         m = bus_properties_changed_new(p,
                                                        UNIT_VTABLE(u)->bus_interface,
                                                        UNIT_VTABLE(u)->bus_invalidating_properties);
-                        if (!m)
-                                goto oom;
+                        if (!m) {
+                                log_oom();
+                                return;
+                        }
 
-                        if (bus_broadcast(u->manager, m) < 0)
-                                goto oom;
+                        r = bus_broadcast(u->manager, m);
+                        if (r < 0) {
+                                log_error("Failed to broadcast change message: %s", strerror(-r));
+                                return;
+                        }
 
                         dbus_message_unref(m);
                 }
 
                 m = bus_properties_changed_new(p, "org.freedesktop.systemd1.Unit",
                                                INVALIDATING_PROPERTIES);
-                if (!m)
-                        goto oom;
+                if (!m) {
+                        log_oom();
+                        return;
+                }
 
         } else {
                 /* Send a new signal */
@@ -621,25 +631,27 @@ void bus_unit_send_change_signal(Unit *u) {
                 m = dbus_message_new_signal("/org/freedesktop/systemd1",
                                             "org.freedesktop.systemd1.Manager",
                                             "UnitNew");
-                if (!m)
-                        goto oom;
+                if (!m) {
+                        log_oom();
+                        return;
+                }
 
                 if (!dbus_message_append_args(m,
                                               DBUS_TYPE_STRING, &u->id,
                                               DBUS_TYPE_OBJECT_PATH, &p,
-                                              DBUS_TYPE_INVALID))
-                        goto oom;
+                                              DBUS_TYPE_INVALID)) {
+                        log_oom();
+                        return;
+                }
         }
 
-        if (bus_broadcast(u->manager, m) < 0)
-                goto oom;
+        r = bus_broadcast(u->manager, m);
+        if (r < 0) {
+                log_error("Failed to broadcast UnitNew/PropertiesChanged message.");
+                return;
+        }
 
         u->sent_dbus_new_signal = true;
-
-        return;
-
-oom:
-        log_oom();
 }
 
 void bus_unit_send_removed_signal(Unit *u) {

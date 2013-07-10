@@ -1379,6 +1379,12 @@ bool bus_has_subscriber(Manager *m) {
 
         assert(m);
 
+        /* If we are reloading then we might not have deserialized the
+           subscribers yet, hence let's assume that there are some */
+
+        if (m->n_reloading > 0)
+                return true;
+
         SET_FOREACH(c, m->bus_connections_for_dispatch, i)
                 if (bus_connection_has_subscriber(m, c))
                         return true;
