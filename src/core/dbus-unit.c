@@ -794,6 +794,7 @@ static int bus_unit_set_transient_property(
                         return -EINVAL;
 
                 if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *contents = NULL;
                         const char *description;
 
                         dbus_message_iter_get_basic(i, &description);
@@ -801,6 +802,12 @@ static int bus_unit_set_transient_property(
                         r = unit_set_description(u, description);
                         if (r < 0)
                                 return r;
+
+                        contents = strjoin("[Unit]\nDescription=", description, "\n", NULL);
+                        if (!contents)
+                                return -ENOMEM;
+
+                        unit_write_drop_in(u, mode, "Description", contents);
                 }
 
                 return 1;
@@ -818,6 +825,8 @@ static int bus_unit_set_transient_property(
                         if (mode != UNIT_CHECK)
                                 unit_ref_unset(&u->slice);
                 } else {
+                        _cleanup_free_ char *contents = NULL;
+
                         r = manager_load_unit(u->manager, s, NULL, error, &slice);
                         if (r < 0)
                                 return r;
@@ -827,6 +836,12 @@ static int bus_unit_set_transient_property(
 
                         if (mode != UNIT_CHECK)
                                 unit_ref_set(&u->slice, slice);
+
+                        contents = strjoin("[", UNIT_VTABLE(u)->private_section, "]\nSlice=", s, NULL);
+                        if (!contents)
+                                return -ENOMEM;
+
+                        unit_write_drop_in(u, mode, "Slice", contents);
                 }
                 return 1;
         }
