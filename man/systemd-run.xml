@@ -1,0 +1,160 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+This file is part of systemd.
+
+Copyright 2013 Zbigniew Jędrzejewski-Szmek
+
+systemd is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or
+(at your option) any later version.
+
+systemd is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd-run">
+
+  <refentryinfo>
+    <title>systemd-run</title>
+    <productname>systemd</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lennart</firstname>
+        <surname>Poettering</surname>
+        <email>lennart@poettering.net</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-run</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-run</refname>
+    <refpurpose>Run programs as volatile systemd units</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-run</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain"><replaceable>COMMAND</replaceable>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+      </arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-run</command> may be used
+    create a transient <filename>.service</filename> unit
+    or a <filename>.scope</filename> unit and launch the
+    specified <replaceable>COMMAND</replaceable> as part
+    of this unit.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-h</option></term>
+        <term><option>--help</option></term>
+
+        <listitem><para>Prints a short help
+        text and exits.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--version</option></term>
+
+        <listitem><para>Prints a short version
+        string and exits.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user</option></term>
+
+        <listitem>
+          <para>Talk to the systemd manager of the calling
+          user.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--scope</option></term>
+
+        <listitem>
+          <para>Create a <filename>.scope</filename> unit instead of
+          the default transient <filename>.service</filename> unit.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--unit=</option></term>
+
+        <listitem><para>Use this unit name instead of an automatically
+        generated one.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--description=</option></term>
+
+        <listitem><para>Provide description for the unit. If not
+        specified, the command itself will be used as a description.
+        See <varname>Description=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--slice=</option></term>
+
+        <listitem><para>Make the new <filename>.service</filename> or
+        <filename>.scope</filename> unit part of the specified slice,
+        instead of the <filename>system.slice</filename>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>All command-line arguments after the first non-option
+    argument become part of the commandline of the launched
+    process.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure
+    code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+</refentry>
