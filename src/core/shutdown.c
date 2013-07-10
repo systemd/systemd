@@ -145,13 +145,7 @@ int main(int argc, char *argv[]) {
                 size_t l;
 
                 FOREACH_WORD_QUOTED(w, l, line, state) {
-                        _cleanup_free_ char *word;
-
-                        word = strndup(w, l);
-                        if (!word)
-                                break;
-
-                        if (streq(word, "quiet")) {
+                        if (l == 5 && memcmp(w, "quiet", 5) == 0) {
                                 log_set_max_level(LOG_WARNING);
                                 break;
                         }
