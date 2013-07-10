@@ -58,7 +58,7 @@
                 <title>Description</title>
 
                 <para>Unit configuration files for services, sockets,
-                mount points and swap devices share a subset of
+                mount points, and swap devices share a subset of
                 configuration options which define the execution
                 environment of spawned processes.</para>
 
@@ -69,7 +69,7 @@
                 files, and
                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 and
                 <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for more information on the specific unit
@@ -943,124 +943,6 @@
                                 <varname>BlockIOReadBandwidth=</varname>,
                                 <varname>BlockIOWriteBandwidth=</varname>.
                                 </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>CPUShares=</varname></term>
-
-                                <listitem><para>Assign the specified
-                                overall CPU time shares to the
-                                processes executed. Takes an integer
-                                value. This controls the
-                                <literal>cpu.shares</literal> control
-                                group attribute, which defaults to
-                                1024. For details about this control
-                                group attribute see <ulink
-                                url="http://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>MemoryLimit=</varname></term>
-                                <term><varname>MemorySoftLimit=</varname></term>
-
-                                <listitem><para>Limit the overall memory usage
-                                of the executed processes to a certain
-                                size. Takes a memory size in bytes. If
-                                the value is suffixed with K, M, G or
-                                T the specified memory size is parsed
-                                as Kilobytes, Megabytes, Gigabytes,
-                                or Terabytes (to the base
-                                1024), respectively. This controls the
-                                <literal>memory.limit_in_bytes</literal>
-                                and
-                                <literal>memory.soft_limit_in_bytes</literal>
-                                control group attributes. For details
-                                about these control group attributes
-                                see <ulink
-                                url="http://www.kernel.org/doc/Documentation/cgroups/memory.txt">memory.txt</ulink>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>DeviceAllow=</varname></term>
-                                <term><varname>DeviceDeny=</varname></term>
-
-                                <listitem><para>Control access to
-                                specific device nodes by the executed processes. Takes two
-                                space-separated strings: a device node
-                                path (such as
-                                <filename>/dev/null</filename>)
-                                followed by a combination of r, w, m
-                                to control reading, writing, or
-                                creating of the specific device node
-                                by the unit, respectively. This controls the
-                                <literal>devices.allow</literal>
-                                and
-                                <literal>devices.deny</literal>
-                                control group attributes. For details
-                                about these control group attributes
-                                see <ulink
-                                url="http://www.kernel.org/doc/Documentation/cgroups/devices.txt">devices.txt</ulink>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>BlockIOWeight=</varname></term>
-
-                                <listitem><para>Set the default or
-                                per-device overall block IO weight
-                                value for the executed
-                                processes. Takes either a single
-                                weight value (between 10 and 1000) to
-                                set the default block IO weight, or a
-                                space-separated pair of a file path
-                                and a weight value to specify the
-                                device specific weight value (Example:
-                                "/dev/sda 500"). The file path may be
-                                specified as path to a block device
-                                node or as any other file in which
-                                case the backing block device of the
-                                file system of the file is
-                                determined. This controls the
-                                <literal>blkio.weight</literal> and
-                                <literal>blkio.weight_device</literal>
-                                control group attributes, which
-                                default to 1000. Use this option
-                                multiple times to set weights for
-                                multiple devices. For details about
-                                these control group attributes see
-                                <ulink
-                                url="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>BlockIOReadBandwidth=</varname></term>
-                                <term><varname>BlockIOWriteBandwidth=</varname></term>
-
-                                <listitem><para>Set the per-device
-                                overall block IO bandwidth limit for
-                                the executed processes. Takes a
-                                space-separated pair of a file path and a
-                                bandwidth value (in bytes per second)
-                                to specify the device specific
-                                bandwidth. The file path may be
-                                specified as path to a block device
-                                node or as any other file in which
-                                case the backing block device of the
-                                file system of the file is determined.
-                                If the bandwidth is suffixed with K, M,
-                                G, or T the specified bandwidth is
-                                parsed as Kilobytes, Megabytes,
-                                Gigabytes, or Terabytes, respectively (Example:
-                                "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0
-                                5M"). This controls the
-                                <literal>blkio.read_bps_device</literal>
-                                and
-                                <literal>blkio.write_bps_device</literal>
-                                control group attributes. Use this
-                                option multiple times to set bandwidth
-                                limits for multiple devices. For
-                                details about these control group
-                                attributes see <ulink
-                                url="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
