@@ -433,7 +433,11 @@ void unit_free(Unit *u) {
         if (u->in_cgroup_queue)
                 LIST_REMOVE(Unit, cgroup_queue, u->manager->cgroup_queue, u);
 
-        free(u->cgroup_path);
+        if (u->cgroup_path) {
+                hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
+                free(u->cgroup_path);
+        }
+
         free(u->description);
         strv_free(u->documentation);
         free(u->fragment_path);
@@ -2308,6 +2312,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         free(u->cgroup_path);
                         u->cgroup_path = s;
+
+                        hashmap_put(u->manager->cgroup_unit, s, u);
                         continue;
                 }
 
