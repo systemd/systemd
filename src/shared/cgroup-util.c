@@ -794,6 +794,17 @@ int cg_uninstall_release_agent(const char *controller) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
+        r = cg_get_path(controller, NULL, "notify_on_release", &fs);
+        if (r < 0)
+                return r;
+
+        r = write_string_file(fs, "0");
+        if (r < 0)
+                return r;
+
+        free(fs);
+        fs = NULL;
+
         r = cg_get_path(controller, NULL, "release_agent", &fs);
         if (r < 0)
                 return r;
@@ -802,7 +813,7 @@ int cg_uninstall_release_agent(const char *controller) {
         if (r < 0)
                 return r;
 
-	return 0;
+        return 0;
 }
 
 int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
