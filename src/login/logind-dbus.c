@@ -2427,28 +2427,32 @@ DBusHandlerResult bus_message_filter(
                 }
 
                 session = hashmap_get(m->session_units, unit);
-                if (session) {
-                        hashmap_remove(m->session_units, session->scope);
-                        free(session->scope);
-                        session->scope = NULL;
-
-                        session_add_to_gc_queue(session);
-                }
+                if (session)
+                         session_add_to_gc_queue(session);
 
                 user = hashmap_get(m->user_units, unit);
-                if (user) {
-
-                        if (streq_ptr(unit, user->service)) {
-                                hashmap_remove(m->user_units, user->service);
-                                free(user->service);
-                                user->service = NULL;
-                        } else if (streq_ptr(unit, user->slice)) {
-                                hashmap_remove(m->user_units, user->slice);
-                                free(user->slice);
-                                user->slice = NULL;
-                        }
-
+                if (user)
                         user_add_to_gc_queue(user);
+
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "Reloading")) {
+                dbus_bool_t b;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_BOOLEAN, &b,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse Reloading message: %s", bus_error_message(&error));
+                        goto finish;
+                }
+
+                /* systemd finished reloading, let's recheck all our sessions */
+                if (!b) {
+                        Session *session;
+                        Iterator i;
+
+                        log_debug("System manager has been reloaded, rechecking sessions...");
+
+                        HASHMAP_FOREACH(session, m->sessions, i)
+                                session_add_to_gc_queue(session);
                 }
         }
 
@@ -2682,6 +2686,16 @@ int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char
                         DBUS_TYPE_STRING, &fail,
                         DBUS_TYPE_INVALID);
         if (r < 0) {
+                if (dbus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
+                    dbus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
+
+                        if (job)
+                                *job = NULL;
+
+                        dbus_error_free(error);
+                        return 0;
+                }
+
                 log_error("Failed to stop unit %s: %s", unit, bus_error(error, r));
                 return r;
         }
@@ -2704,7 +2718,7 @@ int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char
                 *job = copy;
         }
 
-        return 0;
+        return 1;
 }
 
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error) {
@@ -2769,8 +2783,26 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
                         DBUS_TYPE_STRING, &interface,
                         DBUS_TYPE_STRING, &property,
                         DBUS_TYPE_INVALID);
-
         if (r < 0) {
+                if (dbus_error_has_name(&error, DBUS_ERROR_NO_REPLY) ||
+                    dbus_error_has_name(&error, DBUS_ERROR_DISCONNECTED)) {
+                        /* systemd might have droppped off
+                         * momentarily, let's not make this an
+                         * error */
+
+                        dbus_error_free(&error);
+                        return true;
+                }
+
+                if (dbus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ||
+                    dbus_error_has_name(&error, BUS_ERROR_LOAD_FAILED)) {
+                        /* If the unit is already unloaded then it's
+                         * not active */
+
+                        dbus_error_free(&error);
+                        return false;
+                }
+
                 log_error("Failed to query ActiveState: %s", bus_error(&error, r));
                 dbus_error_free(&error);
                 return r;

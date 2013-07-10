@@ -233,6 +233,18 @@ static int manager_connect_bus(Manager *m) {
                 dbus_error_free(&error);
         }
 
+        dbus_bus_add_match(m->bus,
+                           "type='signal',"
+                           "sender='org.freedesktop.systemd1',"
+                           "interface='org.freedesktop.systemd1.Manager',"
+                           "member='Reloading',"
+                           "path='/org/freedesktop/systemd1'",
+                           &error);
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to add match for Reloading: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+        }
+
         r = bus_method_call_with_reply(
                         m->bus,
                         "org.freedesktop.systemd1",

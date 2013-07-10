@@ -583,12 +583,28 @@ DBusHandlerResult bus_message_filter(
                 }
 
                 mm = hashmap_get(m->machine_units, unit);
-                if (mm) {
-                        hashmap_remove(m->machine_units, mm->scope);
-                        free(mm->scope);
-                        mm->scope = NULL;
-
+                if (mm)
                         machine_add_to_gc_queue(mm);
+
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "Reloading")) {
+                dbus_bool_t b;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_BOOLEAN, &b,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse Reloading message: %s", bus_error_message(&error));
+                        goto finish;
+                }
+
+                /* systemd finished reloading, let's recheck all our machines */
+                if (!b) {
+                        Machine *mm;
+                        Iterator i;
+
+                        log_debug("System manager has been reloaded, rechecking machines...");
+
+                        HASHMAP_FOREACH(mm, m->machines, i)
+                                machine_add_to_gc_queue(mm);
                 }
         }
 
@@ -727,6 +743,16 @@ int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char
                         DBUS_TYPE_STRING, &fail,
                         DBUS_TYPE_INVALID);
         if (r < 0) {
+                if (dbus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
+                    dbus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
+
+                        if (job)
+                                *job = NULL;
+
+                        dbus_error_free(error);
+                        return 0;
+                }
+
                 log_error("Failed to stop unit %s: %s", unit, bus_error(error, r));
                 return r;
         }
@@ -749,7 +775,7 @@ int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char
                 *job = copy;
         }
 
-        return 0;
+        return 1;
 }
 
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error) {
@@ -814,8 +840,19 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
                         DBUS_TYPE_STRING, &interface,
                         DBUS_TYPE_STRING, &property,
                         DBUS_TYPE_INVALID);
-
         if (r < 0) {
+                if (dbus_error_has_name(&error, DBUS_ERROR_NO_REPLY) ||
+                    dbus_error_has_name(&error, DBUS_ERROR_DISCONNECTED)) {
+                        dbus_error_free(&error);
+                        return true;
+                }
+
+                if (dbus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ||
+                    dbus_error_has_name(&error, BUS_ERROR_LOAD_FAILED)) {
+                        dbus_error_free(&error);
+                        return false;
+                }
+
                 log_error("Failed to query ActiveState: %s", bus_error(&error, r));
                 dbus_error_free(&error);
                 return r;
