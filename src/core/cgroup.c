@@ -533,7 +533,7 @@ void unit_destroy_cgroup(Unit *u) {
 
         r = cg_trim_with_mask(u->cgroup_mask, u->cgroup_path, true);
         if (r < 0)
-                log_error("Failed to destroy cgroup %s: %s", u->cgroup_path, strerror(-r));
+                log_debug("Failed to destroy cgroup %s: %s", u->cgroup_path, strerror(-r));
 
         hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
 
