@@ -1515,18 +1515,16 @@ int main(int argc, char *argv[]) {
 
                 /* All other variables are left as is, so that clients
                  * can still read them via /proc/1/environ */
-        }
 
-        /* Move out of the way, so that we won't block unmounts */
-        assert_se(chdir("/")  == 0);
-
-        if (arg_running_as == SYSTEMD_SYSTEM) {
                 /* Become a session leader if we aren't one yet. */
                 setsid();
 
                 /* Disable the umask logic */
                 umask(0);
         }
+
+        /* Move out of the way, so that we won't block unmounts */
+        assert_se(chdir("/")  == 0);
 
         /* Make sure D-Bus doesn't fiddle with the SIGPIPE handlers */
         dbus_connection_set_change_sigpipe(FALSE);
