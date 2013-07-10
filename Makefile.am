@@ -174,6 +174,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/core \
 	-I $(top_srcdir)/src/libudev \
 	-I $(top_srcdir)/src/udev \
+	-I $(top_builddir)/src/udev \
 	-I $(top_srcdir)/src/libsystemd-bus \
 	$(OUR_CPPFLAGS)
 
@@ -2094,6 +2095,7 @@ dist_udevrules_DATA += \
 	rules/99-systemd.rules \
 	rules/42-usb-hid-pm.rules \
 	rules/50-udev-default.rules \
+	rules/60-keyboard.rules \
 	rules/60-persistent-storage-tape.rules \
 	rules/60-persistent-serial.rules \
 	rules/60-persistent-input.rules \
@@ -2157,6 +2159,19 @@ rootlibexec_PROGRAMS += \
 noinst_LTLIBRARIES += \
 	libudev-core.la
 
+src/udev/keyboard-keys.txt: Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h - < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
+
+src/udev/keyboard-keys-from-name.gperf: src/udev/keyboard-keys.txt Makefile
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print tolower(substr($$1 ,5)) ", " $$1 }' < $< > $@
+
+src/udev/keyboard-keys-from-name.h: src/udev/keyboard-keys-from-name.gperf Makefile
+	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t -N keyboard_lookup_key -H hash_key_name -p -C < $< > $@
+
+src/udev/keyboard-keys-to-name.h: src/udev/keyboard-keys.txt Makefile
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
+
 libudev_core_la_SOURCES = \
 	src/udev/udev.h \
 	src/udev/udev-event.c \
@@ -2168,9 +2183,21 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-builtin-btrfs.c \
 	src/udev/udev-builtin-hwdb.c \
 	src/udev/udev-builtin-input_id.c \
+	src/udev/udev-builtin-keyboard.c \
 	src/udev/udev-builtin-net_id.c \
 	src/udev/udev-builtin-path_id.c \
 	src/udev/udev-builtin-usb_id.c
+
+nodist_libudev_core_la_SOURCES = \
+	src/udev/keyboard-keys-from-name.h \
+	src/udev/keyboard-keys-to-name.h
+
+BUILT_SOURCES += \
+	$(nodist_libudev_core_la_SOURCES)
+
+CLEANFILES += \
+	src/udev/keyboard-keys-from-name.gperf \
+	src/udev/keyboard-keys.txt
 
 libudev_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
