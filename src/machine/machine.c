@@ -247,6 +247,7 @@ static int machine_start_scope(Machine *m) {
                         dbus_error_free(&error);
 
                         free(scope);
+                        return r;
                 } else {
                         m->scope = scope;
 

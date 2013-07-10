@@ -480,6 +480,7 @@ static int session_start_scope(Session *s) {
                         dbus_error_free(&error);
 
                         free(scope);
+                        return r;
                 } else {
                         s->scope = scope;
 
