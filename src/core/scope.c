@@ -112,7 +112,7 @@ static int scope_verify(Scope *s) {
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
-        if (set_size(s->pids) <= 0) {
+        if (set_size(s->pids) <= 0 && UNIT(s)->manager->n_reloading <= 0) {
                 log_error_unit(UNIT(s)->id, "Scope %s has no PIDs. Refusing.", UNIT(s)->id);
                 return -EINVAL;
         }
