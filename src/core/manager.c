@@ -424,7 +424,7 @@ static void manager_strip_environment(Manager *m) {
         strv_env_clean(m->environment);
 }
 
-int manager_new(SystemdRunningAs running_as, Manager **_m) {
+int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
 
@@ -476,7 +476,8 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         if (!m->cgroup_unit)
                 goto fail;
 
-        if (!(m->watch_bus = hashmap_new(string_hash_func, string_compare_func)))
+        m->watch_bus = hashmap_new(string_hash_func, string_compare_func);
+        if (!m->watch_bus)
                 goto fail;
 
         m->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
@@ -502,7 +503,7 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         /* Try to connect to the busses, if possible. */
         if ((running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS")) ||
             running_as == SYSTEMD_SYSTEM) {
-                r = bus_init(m, running_as != SYSTEMD_SYSTEM);
+                r = bus_init(m, reexecuting || running_as != SYSTEMD_SYSTEM);
                 if (r < 0)
                         goto fail;
         } else
@@ -2041,6 +2042,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 }
         }
 
+        bus_serialize(m, f);
+
         fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
@@ -2054,7 +2057,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 fputs(u->id, f);
                 fputc('\n', f);
 
-                if ((r = unit_serialize(u, f, fds, !switching_root)) < 0) {
+                r = unit_serialize(u, f, fds, !switching_root);
+                if (r < 0) {
                         m->n_reloading --;
                         return r;
                 }
@@ -2159,7 +2163,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         strv_free(m->environment);
                         m->environment = e;
-                } else
+                } else if (bus_deserialize_item(m, l) == 0)
                         log_debug("Unknown serialization item '%s'", l);
         }
 

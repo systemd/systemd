@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(set_unit_path("test") >= 0);
 
-        assert_se(manager_new(SYSTEMD_SYSTEM, &m) >= 0);
+        assert_se(manager_new(SYSTEMD_SYSTEM, false, &m) >= 0);
 
         printf("Load1:\n");
         assert_se(manager_load_unit(m, "a.service", NULL, NULL, &a) >= 0);

@@ -50,9 +50,12 @@ int set_put(Set *s, void *value) {
 }
 
 int set_consume(Set *s, void *value) {
-        int r = set_put(s, value);
+        int r;
+
+        r = set_put(s, value);
         if (r < 0)
                 free(value);
+
         return r;
 }
 

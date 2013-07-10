@@ -248,7 +248,7 @@ struct Manager {
         char *switch_root_init;
 };
 
-int manager_new(SystemdRunningAs running_as, Manager **m);
+int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **m);
 void manager_free(Manager *m);
 
 int manager_enumerate(Manager *m);

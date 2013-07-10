@@ -1135,19 +1135,19 @@ int bus_init(Manager *m, bool try_bus_connect) {
 
         if (set_ensure_allocated(&m->bus_connections, trivial_hash_func, trivial_compare_func) < 0 ||
             set_ensure_allocated(&m->bus_connections_for_dispatch, trivial_hash_func, trivial_compare_func) < 0)
-                goto oom;
+                return log_oom();
 
         if (m->name_data_slot < 0)
                 if (!dbus_pending_call_allocate_data_slot(&m->name_data_slot))
-                        goto oom;
+                        return log_oom();
 
         if (m->conn_data_slot < 0)
                 if (!dbus_pending_call_allocate_data_slot(&m->conn_data_slot))
-                        goto oom;
+                        return log_oom();
 
         if (m->subscribed_data_slot < 0)
                 if (!dbus_connection_allocate_data_slot(&m->subscribed_data_slot))
-                        goto oom;
+                        return log_oom();
 
         if (try_bus_connect) {
                 if ((r = bus_init_system(m)) < 0 ||
@@ -1155,16 +1155,14 @@ int bus_init(Manager *m, bool try_bus_connect) {
                         return r;
         }
 
-        if ((r = bus_init_private(m)) < 0)
+        r = bus_init_private(m);
+        if (r < 0)
                 return r;
 
         return 0;
-oom:
-        return log_oom();
 }
 
 static void shutdown_connection(Manager *m, DBusConnection *c) {
-        Set *s;
         Job *j;
         Iterator i;
 
@@ -1180,15 +1178,7 @@ static void shutdown_connection(Manager *m, DBusConnection *c) {
 
         set_remove(m->bus_connections, c);
         set_remove(m->bus_connections_for_dispatch, c);
-
-        if ((s = BUS_CONNECTION_SUBSCRIBED(m, c))) {
-                char *t;
-
-                while ((t = set_steal_first(s)))
-                        free(t);
-
-                set_free(s);
-        }
+        set_free_free(BUS_CONNECTION_SUBSCRIBED(m, c));
 
         if (m->queued_message_connection == c) {
                 m->queued_message_connection = NULL;
@@ -1259,10 +1249,10 @@ void bus_done(Manager *m) {
         set_free(m->bus_connections_for_dispatch);
 
         if (m->name_data_slot >= 0)
-               dbus_pending_call_free_data_slot(&m->name_data_slot);
+                dbus_pending_call_free_data_slot(&m->name_data_slot);
 
         if (m->conn_data_slot >= 0)
-               dbus_pending_call_free_data_slot(&m->conn_data_slot);
+                dbus_pending_call_free_data_slot(&m->conn_data_slot);
 
         if (m->subscribed_data_slot >= 0)
                 dbus_connection_free_data_slot(&m->subscribed_data_slot);
@@ -1487,4 +1477,70 @@ void bus_broadcast_finished(
 finish:
         if (message)
                 dbus_message_unref(message);
+}
+
+Set *bus_acquire_subscribed(Manager *m, DBusConnection *c) {
+        Set *s;
+
+        assert(m);
+        assert(c);
+
+        s = BUS_CONNECTION_SUBSCRIBED(m, c);
+        if (s)
+                return s;
+
+        s = set_new(string_hash_func, string_compare_func);
+        if (!s)
+                return NULL;
+
+        if (!dbus_connection_set_data(c, m->subscribed_data_slot, s, NULL)) {
+                set_free(s);
+                return NULL;
+        }
+
+        return s;
+}
+
+void bus_serialize(Manager *m, FILE *f) {
+        char *client;
+        Iterator i;
+        Set *s;
+
+        assert(m);
+        assert(f);
+
+        if (!m->api_bus)
+                return;
+
+        s = BUS_CONNECTION_SUBSCRIBED(m, m->api_bus);
+        SET_FOREACH(client, s, i)
+                fprintf(f, "subscribed=%s\n", client);
+}
+
+int bus_deserialize_item(Manager *m, const char *line) {
+        const char *e;
+        char *b;
+        Set *s;
+
+        assert(m);
+        assert(line);
+
+        if (!m->api_bus)
+                return 0;
+
+        e = startswith(line, "subscribed=");
+        if (!e)
+                return 0;
+
+        s = bus_acquire_subscribed(m, m->api_bus);
+        if (!s)
+                return -ENOMEM;
+
+        b = strdup(e);
+        if (!b)
+                return -ENOMEM;
+
+        set_consume(s, b);
+
+        return 1;
 }

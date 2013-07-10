@@ -2411,6 +2411,7 @@ DBusHandlerResult bus_message_filter(
                         if (u)
                                 user_add_to_gc_queue(u);
                 }
+
         } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "UnitRemoved")) {
 
                 const char *path, *unit;

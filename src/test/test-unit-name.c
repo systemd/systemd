@@ -123,7 +123,7 @@ static int test_unit_printf(void) {
         assert_se((root = getpwnam("root")));
         assert_se(asprintf(&root_uid, "%d", (int) root->pw_uid) > 0);
 
-        r = manager_new(SYSTEMD_USER, &m);
+        r = manager_new(SYSTEMD_USER, false, &m);
         if (r == -EPERM) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;

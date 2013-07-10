@@ -2128,7 +2128,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (!unit_can_serialize(u))
                 return 0;
 
-        if ((r = UNIT_VTABLE(u)->serialize(u, f, fds)) < 0)
+        r = UNIT_VTABLE(u)->serialize(u, f, fds);
+        if (r < 0)
                 return r;
 
 

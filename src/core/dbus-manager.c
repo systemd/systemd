@@ -1057,17 +1057,9 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 SELINUX_ACCESS_CHECK(connection, message, "status");
 
-                s = BUS_CONNECTION_SUBSCRIBED(m, connection);
-                if (!s) {
-                        s = set_new(string_hash_func, string_compare_func);
-                        if (!s)
-                                goto oom;
-
-                        if (!dbus_connection_set_data(connection, m->subscribed_data_slot, s, NULL)) {
-                                set_free(s);
-                                goto oom;
-                        }
-                }
+                s = bus_acquire_subscribed(m, connection);
+                if (!s)
+                        goto oom;
 
                 client = strdup(bus_message_get_sender_with_fallback(message));
                 if (!client)
