@@ -77,6 +77,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "linux      $BOOT_DIR/linux"
     [[ -f $BOOT_DIR_ABS/initrd ]] && \
         echo "initrd     $BOOT_DIR/initrd"
+    :
 } > "$LOADER_ENTRY" || {
     echo "Could not create loader entry '$LOADER_ENTRY'." >&2
     exit 1
