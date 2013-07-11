@@ -162,7 +162,7 @@ int bus_cgroup_set_property(
                         dbus_message_iter_get_basic(i, &b);
 
                         c->cpu_accounting = b;
-                        unit_write_drop_in_private_section(u, mode, name, b ? "CPUAccounting=yes" : "CPUAccounting=no");
+                        unit_write_drop_in_private(u, mode, name, b ? "CPUAccounting=yes" : "CPUAccounting=no");
                 }
 
                 return 1;
@@ -181,11 +181,8 @@ int bus_cgroup_set_property(
                         return -EINVAL;
 
                 if (mode != UNIT_CHECK) {
-                        char buf[sizeof("CPUShares=") + DECIMAL_STR_MAX(ul)];
                         c->cpu_shares = ul;
-
-                        sprintf(buf, "CPUShares=%lu", ul);
-                        unit_write_drop_in_private_section(u, mode, name, buf);
+                        unit_write_drop_in_private_format(u, mode, name, "CPUShares=%lu", ul);
                 }
 
                 return 1;
@@ -200,7 +197,7 @@ int bus_cgroup_set_property(
                         dbus_message_iter_get_basic(i, &b);
 
                         c->blockio_accounting = b;
-                        unit_write_drop_in_private_section(u, mode, name, b ? "BlockIOAccounting=yes" : "BlockIOAccounting=no");
+                        unit_write_drop_in_private(u, mode, name, b ? "BlockIOAccounting=yes" : "BlockIOAccounting=no");
                 }
 
                 return 1;
@@ -219,11 +216,8 @@ int bus_cgroup_set_property(
                         return -EINVAL;
 
                 if (mode != UNIT_CHECK) {
-                        char buf[sizeof("BlockIOWeight=") + DECIMAL_STR_MAX(ul)];
                         c->cpu_shares = ul;
-
-                        sprintf(buf, "BlockIOWeight=%lu", ul);
-                        unit_write_drop_in_private_section(u, mode, name, buf);
+                        unit_write_drop_in_private_format(u, mode, name, "BlockIOWeight=%lu", ul);
                 }
 
                 return 1;
@@ -238,7 +232,7 @@ int bus_cgroup_set_property(
                         dbus_message_iter_get_basic(i, &b);
 
                         c->memory_accounting = b;
-                        unit_write_drop_in_private_section(u, mode, name, b ? "MemoryAccounting=yes" : "MemoryAccounting=no");
+                        unit_write_drop_in_private(u, mode, name, b ? "MemoryAccounting=yes" : "MemoryAccounting=no");
                 }
 
                 return 1;
@@ -250,19 +244,15 @@ int bus_cgroup_set_property(
 
                 if (mode != UNIT_CHECK) {
                         uint64_t limit;
-                        char buf[sizeof("MemorySoftLimit=") + DECIMAL_STR_MAX(limit)];
 
                         dbus_message_iter_get_basic(i, &limit);
 
-                        if (streq(name, "MemoryLimit")) {
+                        if (streq(name, "MemoryLimit"))
                                 c->memory_limit = limit;
-                                sprintf(buf, "MemoryLimit=%" PRIu64, limit);
-                                unit_write_drop_in_private_section(u, mode, name, buf);
-                        } else {
+                        else
                                 c->memory_soft_limit = limit;
-                                sprintf(buf, "MemorySoftLimit=%" PRIu64, limit);
-                                unit_write_drop_in_private_section(u, mode, name, buf);
-                        }
+
+                        unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64, name, limit);
                 }
 
                 return 1;
@@ -285,7 +275,7 @@ int bus_cgroup_set_property(
                         c->device_policy = p;
 
                         buf = strappenda("DevicePolicy=", policy);
-                        unit_write_drop_in_private_section(u, mode, name, buf);
+                        unit_write_drop_in_private(u, mode, name, buf);
                 }
 
                 return 1;
@@ -365,7 +355,7 @@ int bus_cgroup_set_property(
                                 fprintf(f, "DeviceAllow=%s %s%s%s\n", a->path, a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
 
                         fflush(f);
-                        unit_write_drop_in_private_section(u, mode, name, buf);
+                        unit_write_drop_in_private(u, mode, name, buf);
                 }
 
                 return 1;

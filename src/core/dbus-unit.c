@@ -794,7 +794,6 @@ static int bus_unit_set_transient_property(
                         return -EINVAL;
 
                 if (mode != UNIT_CHECK) {
-                        _cleanup_free_ char *contents = NULL;
                         const char *description;
 
                         dbus_message_iter_get_basic(i, &description);
@@ -803,18 +802,13 @@ static int bus_unit_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        contents = strjoin("[Unit]\nDescription=", description, "\n", NULL);
-                        if (!contents)
-                                return -ENOMEM;
-
-                        unit_write_drop_in(u, mode, name, contents);
+                        unit_write_drop_in_format(u, mode, name, "[Unit]\nDescription=%s\n", description);
                 }
 
                 return 1;
 
         } else if (streq(name, "Slice") && unit_get_cgroup_context(u)) {
                 const char *s;
-                Unit *slice;
 
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_STRING)
                         return -EINVAL;
@@ -822,10 +816,12 @@ static int bus_unit_set_transient_property(
                 dbus_message_iter_get_basic(i, &s);
 
                 if (isempty(s)) {
-                        if (mode != UNIT_CHECK)
+                        if (mode != UNIT_CHECK) {
                                 unit_ref_unset(&u->slice);
+                                unit_remove_drop_in(u, mode, name);
+                        }
                 } else {
-                        _cleanup_free_ char *contents = NULL;
+                        Unit *slice;
 
                         r = manager_load_unit(u->manager, s, NULL, error, &slice);
                         if (r < 0)
@@ -834,15 +830,12 @@ static int bus_unit_set_transient_property(
                         if (slice->type != UNIT_SLICE)
                                 return -EINVAL;
 
-                        if (mode != UNIT_CHECK)
+                        if (mode != UNIT_CHECK) {
                                 unit_ref_set(&u->slice, slice);
-
-                        contents = strjoin("[", UNIT_VTABLE(u)->private_section, "]\nSlice=", s, NULL);
-                        if (!contents)
-                                return -ENOMEM;
-
-                        unit_write_drop_in(u, mode, name, contents);
+                                unit_write_drop_in_private_format(u, mode, name, "Slice=%s\n", s);
+                        }
                 }
+
                 return 1;
 
         } else if (streq(name, "Requires") ||
@@ -880,7 +873,7 @@ static int bus_unit_set_transient_property(
                                 return -EINVAL;
 
                         if (mode != UNIT_CHECK) {
-                                _cleanup_free_ char *label = NULL, *contents = NULL;
+                                _cleanup_free_ char *label = NULL;
 
                                 r = unit_add_dependency_by_name(u, d, other, NULL, true);
                                 if (r < 0)
@@ -890,11 +883,7 @@ static int bus_unit_set_transient_property(
                                 if (!label)
                                         return -ENOMEM;
 
-                                contents = strjoin("[Unit]\n", name, "=", other, "\n", NULL);
-                                if (!contents)
-                                        return -ENOMEM;
-
-                                unit_write_drop_in(u, mode, label, contents);
+                                unit_write_drop_in_format(u, mode, label, "[Unit]\n%s=%s\n", name, other);
                         }
 
                         dbus_message_iter_next(&sub);
@@ -1048,10 +1037,11 @@ const BusProperty bus_unit_properties[] = {
         { "ConditionResult",      bus_property_append_bool,           "b", offsetof(Unit, condition_result)                   },
         { "LoadError",            bus_unit_append_load_error,      "(ss)", 0 },
         { "Transient",            bus_property_append_bool,           "b", offsetof(Unit, transient)                          },
-        { NULL, }
+        {}
 };
 
 const BusProperty bus_unit_cgroup_properties[] = {
         { "Slice",                bus_unit_append_slice,              "s", 0 },
         { "ControlGroup",         bus_property_append_string,         "s", offsetof(Unit, cgroup_path),                                true },
+        {}
 };

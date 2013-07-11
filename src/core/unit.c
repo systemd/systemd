@@ -2733,6 +2733,7 @@ CGroupContext *unit_get_cgroup_context(Unit *u) {
 }
 
 static int drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, char **_p, char **_q) {
+        _cleanup_free_ char *b = NULL;
         char *p, *q;
         int r;
 
@@ -2742,7 +2743,11 @@ static int drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, c
         assert(_q);
         assert(mode & (UNIT_PERSISTENT|UNIT_RUNTIME));
 
-        if (!filename_is_safe(name))
+        b = xescape(name, "/.");
+        if (!b)
+                return -ENOMEM;
+
+        if (!filename_is_safe(b))
                 return -EINVAL;
 
         if (u->manager->running_as == SYSTEMD_USER) {
@@ -2762,7 +2767,7 @@ static int drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, c
         if (!p)
                 return -ENOMEM;
 
-        q = strjoin(p, "/90-", name, ".conf", NULL);
+        q = strjoin(p, "/90-", b, ".conf", NULL);
         if (!q) {
                 free(p);
                 return -ENOMEM;
@@ -2792,7 +2797,29 @@ int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, co
         return write_string_file_atomic_label(q, data);
 }
 
-int unit_write_drop_in_private_section(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
+int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) {
+        _cleanup_free_ char *p = NULL;
+        va_list ap;
+        int r;
+
+        assert(u);
+        assert(name);
+        assert(format);
+
+        if (!(mode & (UNIT_PERSISTENT|UNIT_RUNTIME)))
+                return 0;
+
+        va_start(ap, format);
+        r = vasprintf(&p, format, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        return unit_write_drop_in(u, mode, name, p);
+}
+
+int unit_write_drop_in_private(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data) {
         _cleanup_free_ char *ndata = NULL;
 
         assert(u);
@@ -2802,11 +2829,36 @@ int unit_write_drop_in_private_section(Unit *u, UnitSetPropertiesMode mode, cons
         if (!UNIT_VTABLE(u)->private_section)
                 return -EINVAL;
 
+        if (!(mode & (UNIT_PERSISTENT|UNIT_RUNTIME)))
+                return 0;
+
         ndata = strjoin("[", UNIT_VTABLE(u)->private_section, "]\n", data, NULL);
         if (!ndata)
                 return -ENOMEM;
 
         return unit_write_drop_in(u, mode, name, ndata);
+}
+
+int unit_write_drop_in_private_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) {
+        _cleanup_free_ char *p = NULL;
+        va_list ap;
+        int r;
+
+        assert(u);
+        assert(name);
+        assert(format);
+
+        if (!(mode & (UNIT_PERSISTENT|UNIT_RUNTIME)))
+                return 0;
+
+        va_start(ap, format);
+        r = vasprintf(&p, format, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        return unit_write_drop_in_private(u, mode, name, p);
 }
 
 int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
