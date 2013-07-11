@@ -531,7 +531,7 @@ void unit_destroy_cgroup(Unit *u) {
         if (!u->cgroup_path)
                 return;
 
-        r = cg_trim_with_mask(u->cgroup_mask, u->cgroup_path, true);
+        r = cg_trim_with_mask(u->cgroup_mask, u->cgroup_path, !unit_has_name(u, SPECIAL_ROOT_SLICE));
         if (r < 0)
                 log_debug("Failed to destroy cgroup %s: %s", u->cgroup_path, strerror(-r));
 
