@@ -36,8 +36,6 @@ Fedora 19:
 
 CGroup Rework Completion:
 
-* systemctl user.slice doesn't show the full tree?
-
 * introduce "mainpid" for scopes
 
 * implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
