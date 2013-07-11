@@ -46,11 +46,7 @@ CGroup Rework Completion:
 
 * logind: implement session kill exceptions
 
-* fix machine regstration to forward property array
-
 * make BlockIODeviceWeight=, BlockIODeviceBandwidth= runtime settable
-
-* split up BlockIOWeight= and BlockIODeviceWeight=
 
 * introduce high-level settings for RT budget, swappiness
 
