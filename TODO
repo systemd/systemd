@@ -54,6 +54,9 @@ CGroup Rework Completion:
 
 Features:
 
+* Get rid of systemd-sysv:
+  https://fedoraproject.org/wiki/User:Toshio/Systemd_Convert_draft
+
 * do we really need both hasprefix() and startswith()?
 
 * when a kernel driver logs in a tight loop we should ratelimit that too.
