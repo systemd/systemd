@@ -330,7 +330,7 @@ int manager_startup(Manager *m) {
 
         /* And start everything */
         HASHMAP_FOREACH(machine, m->machines, i)
-                machine_start(machine);
+                machine_start(machine, NULL);
 
         return 0;
 }

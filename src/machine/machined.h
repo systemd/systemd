@@ -67,7 +67,7 @@ extern const DBusObjectPathVTable bus_manager_vtable;
 
 DBusHandlerResult bus_message_filter(DBusConnection *c, DBusMessage *message, void *userdata);
 
-int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, DBusError *error, char **job);
+int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, DBusMessageIter *more_properties, DBusError *error, char **job);
 int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char **job);
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error);
 int manager_unit_is_active(Manager *manager, const char *unit);

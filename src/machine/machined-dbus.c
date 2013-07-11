@@ -185,6 +185,13 @@ static int bus_manager_create_machine(Manager *manager, DBusMessage *message) {
         if (!(isempty(root_directory) || path_is_absolute(root_directory)))
                 return -EINVAL;
 
+        if (!dbus_message_iter_next(&iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)
+                return -EINVAL;
+
+        dbus_message_iter_recurse(&iter, &sub);
+
         if (hashmap_get(manager->machines, name))
                 return -EEXIST;
 
@@ -218,7 +225,7 @@ static int bus_manager_create_machine(Manager *manager, DBusMessage *message) {
                 }
         }
 
-        r = machine_start(m);
+        r = machine_start(m, &sub);
         if (r < 0)
                 goto fail;
 
@@ -614,12 +621,118 @@ finish:
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
+static int copy_many_fields(DBusMessageIter *dest, DBusMessageIter *src);
+
+static int copy_one_field(DBusMessageIter *dest, DBusMessageIter *src) {
+        int type, r;
+
+        type = dbus_message_iter_get_arg_type(src);
+
+        switch (type) {
+
+        case DBUS_TYPE_STRUCT: {
+                DBusMessageIter dest_sub, src_sub;
+
+                dbus_message_iter_recurse(src, &src_sub);
+
+                if (!dbus_message_iter_open_container(dest, DBUS_TYPE_STRUCT, NULL, &dest_sub))
+                        return log_oom();
+
+                r = copy_many_fields(&dest_sub, &src_sub);
+                if (r < 0)
+                        return r;
+
+                if (!dbus_message_iter_close_container(dest, &dest_sub))
+                        return log_oom();
+
+                return 0;
+        }
+
+        case DBUS_TYPE_ARRAY: {
+                DBusMessageIter dest_sub, src_sub;
+
+                dbus_message_iter_recurse(src, &src_sub);
+
+                if (!dbus_message_iter_open_container(dest, DBUS_TYPE_ARRAY, dbus_message_iter_get_signature(&src_sub), &dest_sub))
+                        return log_oom();
+
+                r = copy_many_fields(&dest_sub, &src_sub);
+                if (r < 0)
+                        return r;
+
+                if (!dbus_message_iter_close_container(dest, &dest_sub))
+                        return log_oom();
+
+                return 0;
+        }
+
+        case DBUS_TYPE_VARIANT: {
+                DBusMessageIter dest_sub, src_sub;
+
+                dbus_message_iter_recurse(src, &src_sub);
+
+                if (!dbus_message_iter_open_container(dest, DBUS_TYPE_VARIANT, dbus_message_iter_get_signature(&src_sub), &dest_sub))
+                        return log_oom();
+
+                r = copy_one_field(&dest_sub, &src_sub);
+                if (r < 0)
+                        return r;
+
+                if (!dbus_message_iter_close_container(dest, &dest_sub))
+                        return log_oom();
+
+                return 0;
+        }
+
+        case DBUS_TYPE_STRING:
+        case DBUS_TYPE_OBJECT_PATH:
+        case DBUS_TYPE_BYTE:
+        case DBUS_TYPE_BOOLEAN:
+        case DBUS_TYPE_UINT16:
+        case DBUS_TYPE_INT16:
+        case DBUS_TYPE_UINT32:
+        case DBUS_TYPE_INT32:
+        case DBUS_TYPE_UINT64:
+        case DBUS_TYPE_INT64:
+        case DBUS_TYPE_DOUBLE:
+        case DBUS_TYPE_SIGNATURE: {
+                const void *p;
+
+                dbus_message_iter_get_basic(src, &p);
+                dbus_message_iter_append_basic(dest, type, &p);
+                return 0;
+        }
+
+        default:
+                return -EINVAL;
+        }
+}
+
+static int copy_many_fields(DBusMessageIter *dest, DBusMessageIter *src) {
+        int r;
+
+        assert(dest);
+        assert(src);
+
+        while (dbus_message_iter_get_arg_type(src) != DBUS_TYPE_INVALID) {
+
+                r = copy_one_field(dest, src);
+                if (r < 0)
+                        return r;
+
+                dbus_message_iter_next(src);
+        }
+
+        return 0;
+}
+
 int manager_start_scope(
                 Manager *manager,
                 const char *scope,
                 pid_t pid,
                 const char *slice,
                 const char *description,
+                DBusMessageIter *more_properties,
                 DBusError *error,
                 char **job) {
 
@@ -630,6 +743,7 @@ int manager_start_scope(
         uint64_t timeout = 500 * USEC_PER_MSEC;
         const char *fail = "fail";
         uint32_t u;
+        int r;
 
         assert(manager);
         assert(scope);
@@ -698,8 +812,16 @@ int manager_start_scope(
             !dbus_message_iter_append_basic(&sub4, DBUS_TYPE_UINT32, &u) ||
             !dbus_message_iter_close_container(&sub3, &sub4) ||
             !dbus_message_iter_close_container(&sub2, &sub3) ||
-            !dbus_message_iter_close_container(&sub, &sub2) ||
-            !dbus_message_iter_close_container(&iter, &sub))
+            !dbus_message_iter_close_container(&sub, &sub2))
+                return log_oom();
+
+        if (more_properties) {
+                r = copy_many_fields(&sub, more_properties);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!dbus_message_iter_close_container(&iter, &sub))
                 return log_oom();
 
         reply = dbus_connection_send_with_reply_and_block(manager->bus, m, -1, error);

@@ -217,7 +217,7 @@ int machine_load(Machine *m) {
         return r;
 }
 
-static int machine_start_scope(Machine *m) {
+static int machine_start_scope(Machine *m, DBusMessageIter *iter) {
         _cleanup_free_ char *description = NULL;
         DBusError error;
         char *job;
@@ -241,7 +241,7 @@ static int machine_start_scope(Machine *m) {
 
                 description = strappend(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
 
-                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, &error, &job);
+                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, iter, &error, &job);
                 if (r < 0) {
                         log_error("Failed to start machine scope: %s", bus_error(&error, r));
                         dbus_error_free(&error);
@@ -262,7 +262,7 @@ static int machine_start_scope(Machine *m) {
         return r;
 }
 
-int machine_start(Machine *m) {
+int machine_start(Machine *m, DBusMessageIter *iter) {
         int r;
 
         assert(m);
@@ -271,7 +271,7 @@ int machine_start(Machine *m) {
                 return 0;
 
         /* Create cgroup */
-        r = machine_start_scope(m);
+        r = machine_start_scope(m, iter);
         if (r < 0)
                 return r;
 
