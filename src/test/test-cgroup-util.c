@@ -32,12 +32,15 @@ static void check_p_d_u(const char *path, int code, const char *result) {
 }
 
 static void test_path_decode_unit(void) {
-        check_p_d_u("getty@.service/getty@tty2.service", 0, "getty@tty2.service");
-        check_p_d_u("getty@.service/getty@tty2.service/xxx", 0, "getty@tty2.service");
+        check_p_d_u("getty@tty2.service", 0, "getty@tty2.service");
+        check_p_d_u("getty@tty2.service/", 0, "getty@tty2.service");
+        check_p_d_u("getty@tty2.service/xxx", 0, "getty@tty2.service");
         check_p_d_u("getty@.service/", -EINVAL, NULL);
         check_p_d_u("getty@.service", -EINVAL, NULL);
         check_p_d_u("getty.service", 0, "getty.service");
         check_p_d_u("getty", -EINVAL, NULL);
+        check_p_d_u("getty/waldo", -EINVAL, NULL);
+        check_p_d_u("_cpu.service", 0, "cpu.service");
 }
 
 static void check_p_g_u(const char *path, int code, const char *result) {
@@ -49,13 +52,14 @@ static void check_p_g_u(const char *path, int code, const char *result) {
 
 static void test_path_get_unit(void) {
         check_p_g_u("/system.slice/foobar.service/sdfdsaf", 0, "foobar.service");
-        check_p_g_u("/system.slice/getty@.service/getty@tty5.service", 0, "getty@tty5.service");
-        check_p_g_u("/system.slice/getty@.service/getty@tty5.service/aaa/bbb", 0, "getty@tty5.service");
-        check_p_g_u("/system.slice/getty@.service/getty@tty5.service/", 0, "getty@tty5.service");
+        check_p_g_u("/system.slice/getty@tty5.service", 0, "getty@tty5.service");
+        check_p_g_u("/system.slice/getty@tty5.service/aaa/bbb", 0, "getty@tty5.service");
+        check_p_g_u("/system.slice/getty@tty5.service/", 0, "getty@tty5.service");
         check_p_g_u("/system.slice/getty@tty6.service/tty5", 0, "getty@tty6.service");
         check_p_g_u("sadfdsafsda", -EINVAL, NULL);
-        check_p_g_u("/system.slice/getty####@tty6.service/tty5", -EINVAL, NULL);
+        check_p_g_u("/system.slice/getty####@tty6.service/xxx", -EINVAL, NULL);
         check_p_g_u("/system.slice/system-waldo.slice/foobar.service/sdfdsaf", 0, "foobar.service");
+        check_p_g_u("/system.slice/system-waldo.slice/_cpu.service/sdfdsaf", 0, "cpu.service");
 }
 
 static void check_p_g_u_u(const char *path, int code, const char *result) {
@@ -71,10 +75,11 @@ static void test_path_get_user_unit(void) {
         check_p_g_u_u("/user.slice/user-1002.slice/session-2.scope/foobar.service/waldo", 0, "foobar.service");
         check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service/waldo/uuuux", 0, "foobar.service");
         check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo/waldo/uuuux", -EINVAL, NULL);
-        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar@.service/foobar@pie.service/pa/po", 0, "foobar@pie.service");
-        check_p_g_u_u("/session-2.scope/foobar@.service/foobar@pie.service/pa/po", 0, "foobar@pie.service");
-        check_p_g_u_u("/xyz.slice/xyz-waldo.slice/session-77.scope/foobar@.service/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/session-2.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/xyz.slice/xyz-waldo.slice/session-77.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
         check_p_g_u_u("/meh.service", -ENOENT, NULL);
+        check_p_g_u_u("/session-3.scope/_cpu.service", 0, "cpu.service");
 }
 
 static void check_p_g_s(const char *path, int code, const char *result) {

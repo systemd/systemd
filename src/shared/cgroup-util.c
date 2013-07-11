@@ -1126,7 +1126,7 @@ int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup) {
 }
 
 int cg_path_decode_unit(const char *cgroup, char **unit){
-        char *p, *e, *c, *s, *k;
+        char *e, *c, *s;
 
         assert(cgroup);
         assert(unit);
@@ -1135,28 +1135,10 @@ int cg_path_decode_unit(const char *cgroup, char **unit){
         c = strndupa(cgroup, e - cgroup);
         c = cg_unescape(c);
 
-        /* Could this be a valid unit name? */
-        if (!unit_name_is_valid(c, true))
+        if (!unit_name_is_valid(c, false))
                 return -EINVAL;
 
-        if (!unit_name_is_template(c))
-                s = strdup(c);
-        else {
-                if (*e != '/')
-                        return -EINVAL;
-
-                e += strspn(e, "/");
-
-                p = strchrnul(e, '/');
-                k = strndupa(e, p - e);
-                k = cg_unescape(k);
-
-                if (!unit_name_is_valid(k, false))
-                        return -EINVAL;
-
-                s = strdup(k);
-        }
-
+        s = strdup(c);
         if (!s)
                 return -ENOMEM;
 

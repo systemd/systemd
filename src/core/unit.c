@@ -1991,7 +1991,7 @@ char *unit_dbus_path(Unit *u) {
 }
 
 char *unit_default_cgroup_path(Unit *u) {
-        _cleanup_free_ char *escaped_instance = NULL, *slice = NULL;
+        _cleanup_free_ char *escaped = NULL, *slice = NULL;
         int r;
 
         assert(u);
@@ -2005,28 +2005,14 @@ char *unit_default_cgroup_path(Unit *u) {
                         return NULL;
         }
 
-        escaped_instance = cg_escape(u->id);
-        if (!escaped_instance)
+        escaped = cg_escape(u->id);
+        if (!escaped)
                 return NULL;
 
-        if (u->instance) {
-                _cleanup_free_ char *t = NULL, *escaped_template = NULL;
-
-                t = unit_name_template(u->id);
-                if (!t)
-                        return NULL;
-
-                escaped_template = cg_escape(t);
-                if (!escaped_template)
-                        return NULL;
-
-                return strjoin(u->manager->cgroup_root, "/",
-                               slice ? slice : "", slice ? "/" : "",
-                               escaped_template, "/", escaped_instance, NULL);
-        } else
-                return strjoin(u->manager->cgroup_root, "/",
-                               slice ? slice : "", slice ? "/" : "",
-                               escaped_instance, NULL);
+        if (slice)
+                return strjoin(u->manager->cgroup_root, "/", slice, "/", escaped, NULL);
+        else
+                return strjoin(u->manager->cgroup_root, "/", escaped, NULL);
 }
 
 int unit_add_default_slice(Unit *u) {
