@@ -36,6 +36,8 @@ Fedora 19:
 
 CGroup Rework Completion:
 
+* systemctl user.slice doesn't show the full tree?
+
 * introduce "mainpid" for scopes
 
 * implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
@@ -47,8 +49,6 @@ CGroup Rework Completion:
 * logind: implement session kill exceptions
 
 * fix machine regstration to forward property array
-
-* add implicit slice for instantiated services
 
 * make BlockIODeviceWeight=, BlockIODeviceBandwidth= runtime settable
 
