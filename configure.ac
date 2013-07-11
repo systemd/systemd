@@ -218,12 +218,12 @@ PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2])
 have_kmod=no
 AC_ARG_ENABLE(kmod, AS_HELP_STRING([--disable-kmod], [disable loadable modules support]))
 if test "x$enable_kmod" != "xno"; then
-        PKG_CHECK_MODULES(KMOD, [ libkmod ],
-                [PKG_CHECK_MODULES(KMOD, [ libkmod >= 14 ],
-                        [AC_DEFINE(HAVE_KMOD, 1, [Define if kmod is available]) have_kmod=yes],
-                        AC_MSG_ERROR([*** kmod out-of-date, try --disable-kmod]))
-                ],
-                have_kmod=no)
+        PKG_CHECK_EXISTS([ libkmod ], have_kmod=yes, have_kmod=no)
+        if test "x$have_kmod" = "xyes"; then
+                PKG_CHECK_MODULES(KMOD, [ libkmod >= 14 ],
+                        [AC_DEFINE(HAVE_KMOD, 1, [Define if kmod is available])],
+                        AC_MSG_ERROR([*** kmod version >= 14 not found]))
+        fi
         if test "x$have_kmod" = xno -a "x$enable_kmod" = xyes; then
                 AC_MSG_ERROR([*** kmod support requested, but libraries not found])
         fi
