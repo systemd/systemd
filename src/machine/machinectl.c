@@ -36,6 +36,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "cgroup-show.h"
+#include "cgroup-util.h"
 #include "spawn-polkit-agent.h"
 
 static char **arg_property = NULL;
@@ -125,7 +126,7 @@ static int list_machines(DBusConnection *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int show_scope_cgroup(DBusConnection *bus, const char *unit) {
+static int show_scope_cgroup(DBusConnection *bus, const char *unit, pid_t leader) {
         const char *interface = "org.freedesktop.systemd1.Scope";
         const char *property = "ControlGroup";
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
@@ -177,6 +178,12 @@ static int show_scope_cgroup(DBusConnection *bus, const char *unit) {
 
         dbus_message_iter_get_basic(&sub, &cgroup);
 
+        if (isempty(cgroup))
+                return 0;
+
+        if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup, false) != 0 && leader <= 0)
+                return 0;
+
         output_flags =
                 arg_all * OUTPUT_SHOW_ALL |
                 arg_full * OUTPUT_FULL_WIDTH;
@@ -187,7 +194,7 @@ static int show_scope_cgroup(DBusConnection *bus, const char *unit) {
         else
                 c = 0;
 
-        show_cgroup_by_path(cgroup, "\t\t  ", c, false, output_flags);
+        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, false, &leader, leader > 0, output_flags);
         return 0;
 }
 
@@ -249,7 +256,7 @@ static void print_machine_status_info(DBusConnection *bus, MachineStatusInfo *i)
 
         if (i->scope) {
                 printf("\t    Unit: %s\n", i->scope);
-                show_scope_cgroup(bus, i->scope);
+                show_scope_cgroup(bus, i->scope, i->leader);
         }
 }
 
