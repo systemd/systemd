@@ -114,7 +114,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
         LIST_FOREACH(device_weights, w, c->blockio_device_weights)
                 fprintf(f,
-                        "%sBlockIOWeight=%s %lu",
+                        "%sBlockIODeviceWeight=%s %lu",
                         prefix,
                         w->path,
                         w->weight);

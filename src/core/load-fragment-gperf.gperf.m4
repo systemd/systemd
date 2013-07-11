@@ -93,6 +93,7 @@ $1.DeviceAllow,                  config_parse_device_allow,          0,         
 $1.DevicePolicy,                 config_parse_device_policy,         0,                             offsetof($1, cgroup_context.device_policy)
 $1.BlockIOAccounting,            config_parse_bool,                  0,                             offsetof($1, cgroup_context.blockio_accounting)
 $1.BlockIOWeight,                config_parse_blockio_weight,        0,                             offsetof($1, cgroup_context)
+$1.BlockIODeviceWeight,          config_parse_blockio_device_weight, 0,                             offsetof($1, cgroup_context)
 $1.BlockIOReadBandwidth,         config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)
 $1.BlockIOWriteBandwidth,        config_parse_blockio_bandwidth,     0,                             offsetof($1, cgroup_context)'
 )m4_dnl

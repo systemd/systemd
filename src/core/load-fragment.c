@@ -2094,7 +2094,44 @@ int config_parse_blockio_weight(
                 void *data,
                 void *userdata) {
 
+        CGroupContext *c = data;
+        unsigned long lu;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                c->blockio_weight = 1000;
+                return 0;
+        }
+
+        r = safe_atolu(rvalue, &lu);
+        if (r < 0 || lu < 10 || lu > 1000) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Block IO weight '%s' invalid. Ignoring.", rvalue);
+                return 0;
+        }
+
+        c->blockio_weight = lu;
+
+        return 0;
+}
+
+int config_parse_blockio_device_weight(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         _cleanup_free_ char *path = NULL;
+        CGroupBlockIODeviceWeight *w;
         CGroupContext *c = data;
         unsigned long lu;
         const char *weight;
@@ -2106,8 +2143,6 @@ int config_parse_blockio_weight(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                c->blockio_weight = 1000;
-
                 while (c->blockio_device_weights)
                         cgroup_context_free_blockio_device_weight(c, c->blockio_device_weights);
 
@@ -2116,23 +2151,23 @@ int config_parse_blockio_weight(
 
         n = strcspn(rvalue, WHITESPACE);
         weight = rvalue + n;
-        if (*weight) {
-                /* Two params, first device name, then weight */
-                path = strndup(rvalue, n);
-                if (!path)
-                        return log_oom();
+        if (!*weight) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Expected block device and device weight. Ignoring.");
+                return 0;
+        }
 
-                if (!path_startswith(path, "/dev")) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Invalid device node path '%s'. Ignoring.", path);
-                        return 0;
-                }
+        path = strndup(rvalue, n);
+        if (!path)
+                return log_oom();
 
-                weight += strspn(weight, WHITESPACE);
-        } else
-                /* One param, only weight */
-                weight = rvalue;
+        if (!path_startswith(path, "/dev")) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Invalid device node path '%s'. Ignoring.", path);
+                return 0;
+        }
 
+        weight += strspn(weight, WHITESPACE);
         r = safe_atolu(weight, &lu);
         if (r < 0 || lu < 10 || lu > 1000) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
@@ -2140,23 +2175,17 @@ int config_parse_blockio_weight(
                 return 0;
         }
 
-        if (!path)
-                c->blockio_weight = lu;
-        else {
-                CGroupBlockIODeviceWeight *w;
 
-                w = new0(CGroupBlockIODeviceWeight, 1);
-                if (!w)
-                        return log_oom();
+        w = new0(CGroupBlockIODeviceWeight, 1);
+        if (!w)
+                return log_oom();
 
-                w->path = path;
-                path = NULL;
+        w->path = path;
+        path = NULL;
 
-                w->weight = lu;
+        w->weight = lu;
 
-                LIST_PREPEND(CGroupBlockIODeviceWeight, device_weights, c->blockio_device_weights, w);
-        }
-
+        LIST_PREPEND(CGroupBlockIODeviceWeight, device_weights, c->blockio_device_weights, w);
         return 0;
 }
 
