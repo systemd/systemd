@@ -169,13 +169,6 @@
         </refsect1>
 
         <refsect1>
-                <title>Notes</title>
-
-                <para>This is a legacy command available for
-                compatibility only.</para>
-        </refsect1>
-
-        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
