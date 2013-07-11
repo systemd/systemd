@@ -2788,7 +2788,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("   Status: \"%s\"\n", i->status_text);
 
         if (i->control_group &&
-            (i->main_pid > 0 || i->control_pid > 0 || cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, i->control_group, false) == 0)) {
+            (i->main_pid > 0 || i->control_pid > 0 || cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, i->control_group, false) == 0)) {
                 unsigned c;
 
                 printf("   CGroup: %s\n", i->control_group);
