@@ -638,8 +638,11 @@ int manager_setup_cgroup(Manager *m) {
         }
 
         /* 4. Realize the system slice and put us in there */
-        a = strappenda(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, a, 0);
+        if (m->running_as == SYSTEMD_SYSTEM) {
+                a = strappenda(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
+                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, a, 0);
+        } else
+                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, 0);
         if (r < 0) {
                 log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
                 return r;
