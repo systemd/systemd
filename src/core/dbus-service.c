@@ -276,7 +276,7 @@ static int bus_service_set_transient_property(
                         }
 
                         fflush(f);
-                        unit_write_drop_in_private_section(UNIT(s), mode, "exec-start", buf);
+                        unit_write_drop_in_private_section(UNIT(s), mode, name, buf);
                 }
 
                 return 1;

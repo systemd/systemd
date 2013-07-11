@@ -807,7 +807,7 @@ static int bus_unit_set_transient_property(
                         if (!contents)
                                 return -ENOMEM;
 
-                        unit_write_drop_in(u, mode, "Description", contents);
+                        unit_write_drop_in(u, mode, name, contents);
                 }
 
                 return 1;
@@ -841,7 +841,7 @@ static int bus_unit_set_transient_property(
                         if (!contents)
                                 return -ENOMEM;
 
-                        unit_write_drop_in(u, mode, "Slice", contents);
+                        unit_write_drop_in(u, mode, name, contents);
                 }
                 return 1;
 
