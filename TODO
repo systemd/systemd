@@ -52,6 +52,8 @@ CGroup Rework Completion:
 
 * man: document new bus apis
 
+* Send SIGHUP and SIGTERM in session scopes
+
 Features:
 
 * Get rid of systemd-sysv:
