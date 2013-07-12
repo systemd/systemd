@@ -55,7 +55,7 @@
                 <title>Description</title>
 
                 <para>A unit configuration file whose name ends in
-                <filename>.path</filename> encodes information about
+                <literal>.path</literal> encodes information about
                 a path monitored by systemd, for
                 path-based activation.</para>
 
@@ -185,7 +185,7 @@
                                 when any of the configured paths
                                 changes. The argument is a unit name,
                                 whose suffix is not
-                                <filename>.path</filename>. If not
+                                <literal>.path</literal>. If not
                                 specified, this value defaults to a
                                 service that has the same name as the
                                 path unit, except for the suffix. (See

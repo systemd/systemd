@@ -55,7 +55,7 @@
                 <title>Description</title>
 
                 <para>A unit configuration file whose name ends in
-                <filename>.socket</filename> encodes information about
+                <literal>.socket</literal> encodes information about
                 an IPC or network socket or a file system FIFO
                 controlled and supervised by systemd, for socket-based
                 activation.</para>

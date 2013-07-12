@@ -55,7 +55,7 @@
                 <title>Description</title>
 
                 <para>A unit configuration file whose name ends in
-                <filename>.timer</filename> encodes information about
+                <literal>.timer</literal> encodes information about
                 a timer controlled and supervised by systemd, for
                 timer-based activation.</para>
 
@@ -187,7 +187,7 @@
                                 <listitem><para>The unit to activate
                                 when this timer elapses. The argument is a
                                 unit name, whose suffix is not
-                                <filename>.timer</filename>. If not
+                                <literal>.timer</literal>. If not
                                 specified, this value defaults to a
                                 service that has the same name as the
                                 timer unit, except for the

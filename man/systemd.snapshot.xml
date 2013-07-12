@@ -57,7 +57,7 @@
                 <para>Snapshot units are not configured via unit
                 configuration files. Nonetheless they are named
                 similar to filenames. A unit name whose name ends in
-                <filename>.snapshot</filename> refers to a dynamic
+                <literal>.snapshot</literal> refers to a dynamic
                 snapshot of the systemd runtime state.</para>
 
                 <para>Snapshots are not configured on disk but created

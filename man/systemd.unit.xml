@@ -173,7 +173,7 @@
                 <para>Along with a unit file
                 <filename>foo.service</filename> a directory
                 <filename>foo.service.d/</filename> may exist. All
-                files with the suffix <filename>.conf</filename> from
+                files with the suffix <literal>.conf</literal> from
                 this directory will be parsed after the file itself is
                 parsed. This is useful to alter or add configuration
                 settings to a unit, without having to modify their

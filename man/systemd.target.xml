@@ -55,7 +55,7 @@
                 <title>Description</title>
 
                 <para>A unit configuration file whose name ends in
-                <filename>.target</filename> encodes information about
+                <literal>.target</literal> encodes information about
                 a target unit of systemd, which is used for grouping
                 units and as well-known synchronization points during
                 start-up.</para>
