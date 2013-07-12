@@ -88,5 +88,7 @@ int main(int argc, char *argv[]) {
         assert_se(ser->exec_context.cpu_sched_policy == SCHED_RR);
         assert_se(ser->exec_context.cpu_sched_priority == 99);
 
+        manager_free(m);
+
         return EXIT_SUCCESS;
 }

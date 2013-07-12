@@ -190,6 +190,8 @@ static int test_unit_printf(void) {
         expect(u2, "%H", host);
         expect(u2, "%t", "/run/user/*");
 
+        manager_free(m);
+
         return 0;
 }
 
