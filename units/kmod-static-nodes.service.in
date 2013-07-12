@@ -12,5 +12,5 @@ Before=sysinit.target systemd-tmpfiles-setup-dev.service
 
 [Service]
 Type=oneshot
-ExecStartPre=/usr/bin/mkdir -p /run/tmpfiles.d
+ExecStartPre=@MKDIR_P@ /run/tmpfiles.d
 ExecStart=@KMOD@ static-nodes --format=tmpfiles --output=/run/tmpfiles.d/kmod.conf

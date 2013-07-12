@@ -4173,6 +4173,7 @@ substitutions = \
        '|DEBUGTTY=$(DEBUGTTY)|' \
        '|KILL=$(KILL)|' \
        '|KMOD=$(KMOD)|' \
+       '|MKDIR_P=$(MKDIR_P)|' \
        '|QUOTAON=$(QUOTAON)|' \
        '|QUOTACHECK=$(QUOTACHECK)|' \
        '|SYSTEM_SYSVINIT_PATH=$(sysvinitdir)|' \
