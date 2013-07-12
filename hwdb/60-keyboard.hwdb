@@ -465,13 +465,6 @@ keyboard:usb:v045Ep00DB*
  KEYBOARD_KEY_c022e=zoomout
 
 ###########################################################
-# Acer
-###########################################################
-
-keyboard:name:Acer WMI hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnAcer*:pvr*
- KEYBOARD_KEY_82=f21
-
-###########################################################
 # MSI
 ###########################################################
 
@@ -482,6 +475,10 @@ keyboard:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT
 ##########################################
 # Acer
 ##########################################
+
+# Acer platform kernel driver
+keyboard:name:Acer WMI hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnAcer*:pvr*
+ KEYBOARD_KEY_82=f21
 
 # Aspire 5720
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire 5720*:pvr*
@@ -702,11 +699,28 @@ keyboard:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pn*N033:*
 #
 keyboard:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
  KEYBOARD_KEY_e4=reserved
+
 ###########################################################
-# Other
+# Medion
 ###########################################################
 
-# Genius Slimstar 320
+# FID2060
+keyboard:dmi:bvn*:bvr*:bd*:svnMEDION*:pn*FID2060*:pvr*
+ KEYBOARD_KEY_6b=channeldown                            # Thottle Down
+ KEYBOARD_KEY_6d=channelup                              # Thottle Up
+
+# NB-A555
+keyboard:dmi:bvn*:bvr*:bd*:svnMEDIONNB:pnA555*:pvr*
+ KEYBOARD_KEY_63=www                                    # N button
+ KEYBOARD_KEY_66=prog1                                  # link 1 button
+ KEYBOARD_KEY_67=email                                  # envelope button
+ KEYBOARD_KEY_69=prog2                                  # link 2 button
+
+###########################################################
+# Genius
+###########################################################
+
+# Slimstar 320
 keyboard:usb:v0458p0708d*dc*dsc*dp*ic*isc*ip*in01*
  KEYBOARD_KEY_0900f0=scrollup
  KEYBOARD_KEY_0900f1=scrolldown
@@ -723,17 +737,26 @@ keyboard:usb:v0458p0708d*dc*dsc*dp*ic*isc*ip*in01*
  KEYBOARD_KEY_0900fd=scale
  KEYBOARD_KEY_0900fc=screenlock
 
+###########################################################
 # Asus
+###########################################################
+
 keyboard:dmi:bvn*:bvr*:bd*:svnASUS:*
  KEYBOARD_KEY_ed=volumeup
  KEYBOARD_KEY_ee=volumedown
  KEYBOARD_KEY_ef=mute
 
+###########################################################
 # VIA
+###########################################################
+
 keyboard:dmi:bvn*:bvr*:bd*:svnVIA:pnK8N800:pvr*
  KEYBOARD_KEY_81=prog1
 
+###########################################################
 # Everex
+###########################################################
+
 keyboard:dmi:bvn*:bvr*:bd*:svnEverex:pnXT5000*:pvr*
  KEYBOARD_KEY_5c=media
  KEYBOARD_KEY_65=f21                                    # Fn+F5 Touchpad toggle
@@ -743,11 +766,18 @@ keyboard:dmi:bvn*:bvr*:bd*:svnEverex:pnXT5000*:pvr*
  KEYBOARD_KEY_b2=www
  KEYBOARD_KEY_ec=mail
 
+###########################################################
 # Compal
+###########################################################
+
 keyboard:dmi:bvn*:bvr*:bd*:svnCOMPAL:pnHEL80I:*
  KEYBOARD_KEY_84=wlan
 
-# OLPC XO
+###########################################################
+# OLPC
+###########################################################
+
+# XO
 keyboard:dmi:bvn*:bvr*:bd*:svnOLPC:pnXO:*
  KEYBOARD_KEY_59=fn
  KEYBOARD_KEY_81=fn_esc
@@ -804,11 +834,18 @@ keyboard:dmi:bvn*:bvr*:bd*:svnOLPC:pnXO:*
  KEYBOARD_KEY_e7=kp7                                    # home
  KEYBOARD_KEY_e8=kp1                                    # end
 
+###########################################################
 # Alienware
+###########################################################
+
 keyboard:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*
  KEYBOARD_KEY_8a=ejectcd
 
-# Zepto Znote
+###########################################################
+# Zepto
+###########################################################
+
+# Znote
 keyboard:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote:*
  KEYBOARD_KEY_93=switchvideomode                        # Fn+F3 Toggle Video Output
  KEYBOARD_KEY_95=brightnessdown                         # Fn+F4 Brightness Down
@@ -825,12 +862,16 @@ keyboard:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote:*
  KEYBOARD_KEY_ae=!                                      # volume down
  KEYBOARD_KEY_b0=!                                      # volume up
 
+# Znote 6615WD
 keyboard:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote 6615WD:*
  KEYBOARD_KEY_a0=!                                      # mute
  KEYBOARD_KEY_ae=!                                      # volume down
  KEYBOARD_KEY_b0=!                                      # volume up
 
+###########################################################
 # Onkyo
+###########################################################
+
 keyboard:dmi:bvn*:bvr*:bd*:svnONKYO CORPORATION:pnONKYOPC:*
  KEYBOARD_KEY_a0=mute                                   # Fn+D
  KEYBOARD_KEY_ae=volumedown                             # Fn+F
@@ -847,13 +888,60 @@ keyboard:dmi:bvn*:bvr*:bd*:svnONKYO CORPORATION:pnONKYOPC:*
  KEYBOARD_KEY_f9=brightnessdown                         # Fn+A
  KEYBOARD_KEY_fb=wlan                                   # Fn+J
 
+###########################################################
 # Quanta
+###########################################################
+
 keyboard:dmi:bvn*:bvr*:bd*:svn*:pn*:pvr*:rvnQuanta:rn30B7:rvr65.2B:*
  KEYBOARD_KEY_88=media                                  # "quick play
 
+###########################################################
 # BenQ
+###########################################################
+
 keyboard:dmi:bvn*:bvr*:bd*:svn*BenQ*:pn*Joybook R22*:pvr*
  KEYBOARD_KEY_6e=wlan
+
+###########################################################
+# Maxdata
+###########################################################
+
+# Pro 7000
+keyboard:dmi:bvn*:bvr*:bd*:svnMAXDATA:pnPro 7000*:pvr*
+ KEYBOARD_KEY_97=prog2
+ KEYBOARD_KEY_9f=prog1
+ KEYBOARD_KEY_a0=mute                                   # Fn+F5
+ KEYBOARD_KEY_82=www
+ KEYBOARD_KEY_ec=email
+ KEYBOARD_KEY_ae=volumedown                             # Fn+Down
+ KEYBOARD_KEY_b0=volumeup                               # Fn+Up
+ KEYBOARD_KEY_df=suspend                                # Fn+F2
+ KEYBOARD_KEY_f5=help
+
+###########################################################
+# OQO
+###########################################################
+
+# Model 2
+keyboard:dmi:bvn*:bvr*:bd*:svnOQO Inc.*:pnOQO Model 2*:pvr*
+ KEYBOARD_KEY_8e=wlan
+ KEYBOARD_KEY_f0=switchvideomode
+ KEYBOARD_KEY_f1=mute
+ KEYBOARD_KEY_f2=volumedown
+ KEYBOARD_KEY_f3=volumeup
+
+###########################################################
+# Inventec
+###########################################################
+
+# Symphony
+keyboard:dmi:bvn*:bvr*:bd*:svnINVENTEC:pnSYMPHONY 6.0/7.0:pvr*
+ KEYBOARD_KEY_f3=prog2
+ KEYBOARD_KEY_f4=prog1
+
+###########################################################
+# Other
+###########################################################
 
 # Common Volume Keys
 keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU SIEMENS:pnAMILO*:pvr*
@@ -873,40 +961,3 @@ keyboard:dmi:bvn*:bvr*:bd*:svnDIXONSP:pnDIXON*:pvr*
  KEYBOARD_KEY_a0=!                                      # mute
  KEYBOARD_KEY_ae=!                                      # volume down
  KEYBOARD_KEY_b0=!                                      # volume up
-
-# Maxdata Pro 7000
-keyboard:dmi:bvn*:bvr*:bd*:svnMAXDATA:pnPro 7000*:pvr*
- KEYBOARD_KEY_97=prog2
- KEYBOARD_KEY_9f=prog1
- KEYBOARD_KEY_a0=mute                                   # Fn+F5
- KEYBOARD_KEY_82=www
- KEYBOARD_KEY_ec=email
- KEYBOARD_KEY_ae=volumedown                             # Fn+Down
- KEYBOARD_KEY_b0=volumeup                               # Fn+Up
- KEYBOARD_KEY_df=suspend                                # Fn+F2
- KEYBOARD_KEY_f5=help
-
-# Oqo Model 2
-keyboard:dmi:bvn*:bvr*:bd*:svnOQO Inc.*:pnOQO Model 2*:pvr*
- KEYBOARD_KEY_8e=wlan
- KEYBOARD_KEY_f0=switchvideomode
- KEYBOARD_KEY_f1=mute
- KEYBOARD_KEY_f2=volumedown
- KEYBOARD_KEY_f3=volumeup
-
-# Inventec Symphony
-keyboard:dmi:bvn*:bvr*:bd*:svnINVENTEC:pnSYMPHONY 6.0/7.0:pvr*
- KEYBOARD_KEY_f3=prog2
- KEYBOARD_KEY_f4=prog1
-
-# Medion FID2060
-keyboard:dmi:bvn*:bvr*:bd*:svnMEDION*:pn*FID2060*:pvr*
- KEYBOARD_KEY_6b=channeldown                            # Thottle Down
- KEYBOARD_KEY_6d=channelup                              # Thottle Up
-
-# Medion NB-A555
-keyboard:dmi:bvn*:bvr*:bd*:svnMEDIONNB:pnA555*:pvr*
- KEYBOARD_KEY_63=www                                    # N button
- KEYBOARD_KEY_66=prog1                                  # link 1 button
- KEYBOARD_KEY_67=email                                  # envelope button
- KEYBOARD_KEY_69=prog2                                  # link 2 button
