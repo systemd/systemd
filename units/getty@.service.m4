@@ -20,9 +20,9 @@ After=rc-local.service
 Before=getty.target
 IgnoreOnIsolate=yes
 
-# On systems without virtual consoles, don't start any getty. (Note
+# On systems without virtual consoles, don't start any getty. Note
 # that serial gettys are covered by serial-getty@.service, not this
-# unit
+# unit.
 ConditionPathExists=/dev/tty0
 
 [Service]
@@ -48,4 +48,4 @@ Environment=LANG= LANGUAGE= LC_CTYPE= LC_NUMERIC= LC_TIME= LC_COLLATE= LC_MONETA
 KillSignal=SIGHUP
 
 [Install]
-Alias=getty.target.wants/getty@tty1.service
+WantedBy=getty.target
