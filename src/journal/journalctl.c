@@ -725,6 +725,19 @@ static int setup_keys(void) {
         char *p = NULL, *k = NULL;
         struct FSSHeader h;
         uint64_t n;
+        struct stat st;
+
+        r = stat("/var/log/journal", &st);
+        if (r < 0 && errno != ENOENT && errno != ENOTDIR) {
+                log_error("stat(\"%s\") failed: %m", "/var/log/journal");
+                return -errno;
+        }
+
+        if (r < 0 || !S_ISDIR(st.st_mode)) {
+                log_error("%s is not a directory, must be using persistent logging for FSS.",
+                          "/var/log/journal");
+                return r < 0 ? -errno : -ENOTDIR;
+        }
 
         r = sd_id128_get_machine(&machine);
         if (r < 0) {
