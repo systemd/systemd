@@ -215,7 +215,8 @@ finish:
 }
 
 static char *disk_mount_point(const char *label) {
-        char *mp = NULL, *device = NULL;
+        char *mp = NULL;
+        _cleanup_free_ char *device = NULL;
         FILE *f = NULL;
         struct mntent *m;
 
@@ -238,9 +239,66 @@ finish:
         if (f)
                 endmntent(f);
 
-        free(device);
-
         return mp;
+}
+
+static int get_password(const char *name, usec_t until, bool accept_cached, char ***passwords) {
+        int r;
+        char **p;
+        _cleanup_free_ char *text = NULL;
+
+        assert(name);
+        assert(passwords);
+
+        if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0)
+                return log_oom();
+
+        r = ask_password_auto(text, "drive-harddisk", until, accept_cached, passwords);
+        if (r < 0) {
+                log_error("Failed to query password: %s", strerror(-r));
+                return r;
+        }
+
+        if (opt_verify) {
+                _cleanup_strv_free_ char **passwords2 = NULL;
+
+                assert(strv_length(*passwords) == 1);
+
+                if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0)
+                        return log_oom();
+
+                r = ask_password_auto(text, "drive-harddisk", until, false, &passwords2);
+                if (r < 0) {
+                        log_error("Failed to query verification password: %s", strerror(-r));
+                        return r;
+                }
+
+                assert(strv_length(passwords2) == 1);
+
+                if (!streq(*passwords[0], passwords2[0])) {
+                        log_warning("Passwords did not match, retrying.");
+                        return -EAGAIN;
+                }
+        }
+
+        strv_uniq(*passwords);
+
+        STRV_FOREACH(p, *passwords) {
+                char *c;
+
+                if (strlen(*p)+1 >= opt_key_size)
+                        continue;
+
+                /* Pad password if necessary */
+                if (!(c = new(char, opt_key_size)))
+                        return log_oom();
+
+                strncpy(c, *p, opt_key_size);
+                free(*p);
+                *p = c;
+        }
+
+        return 0;
 }
 
 static int help(void) {
@@ -257,9 +315,6 @@ static int help(void) {
 int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE;
         struct crypt_device *cd = NULL;
-        char **passwords = NULL, *truncated_cipher = NULL;
-        const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL, *name = NULL;
-        char *description = NULL, *name_buffer = NULL, *mount_point = NULL;
 
         if (argc <= 1) {
                 help();
@@ -281,9 +336,12 @@ int main(int argc, char *argv[]) {
                 uint32_t flags = 0;
                 int k;
                 unsigned try;
-                const char *key_file = NULL;
                 usec_t until;
                 crypt_status_info status;
+                const char *key_file = NULL, *cipher = NULL, *cipher_mode = NULL,
+                           *hash = NULL, *name = NULL;
+                _cleanup_free_ char *description = NULL, *name_buffer = NULL,
+                                    *mount_point = NULL, *truncated_cipher = NULL;
 
                 /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [PASSWORD] [OPTIONS] */
 
@@ -386,73 +444,14 @@ int main(int argc, char *argv[]) {
 
                 for (try = 0; try < opt_tries; try++) {
                         bool pass_volume_key = false;
-
-                        strv_free(passwords);
-                        passwords = NULL;
+                        _cleanup_strv_free_ char **passwords = NULL;
 
                         if (!key_file) {
-                                char *text, **p;
-
-                                if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0) {
-                                        log_oom();
+                                k = get_password(name, until, try == 0 && !opt_verify, &passwords);
+                                if (k == -EAGAIN)
+                                        continue;
+                                else if (k < 0)
                                         goto finish;
-                                }
-
-                                k = ask_password_auto(text, "drive-harddisk", until, try == 0 && !opt_verify, &passwords);
-                                free(text);
-
-                                if (k < 0) {
-                                        log_error("Failed to query password: %s", strerror(-k));
-                                        goto finish;
-                                }
-
-                                if (opt_verify) {
-                                        char **passwords2 = NULL;
-
-                                        assert(strv_length(passwords) == 1);
-
-                                        if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0) {
-                                                log_oom();
-                                                goto finish;
-                                        }
-
-                                        k = ask_password_auto(text, "drive-harddisk", until, false, &passwords2);
-                                        free(text);
-
-                                        if (k < 0) {
-                                                log_error("Failed to query verification password: %s", strerror(-k));
-                                                goto finish;
-                                        }
-
-                                        assert(strv_length(passwords2) == 1);
-
-                                        if (!streq(passwords[0], passwords2[0])) {
-                                                log_warning("Passwords did not match, retrying.");
-                                                strv_free(passwords2);
-                                                continue;
-                                        }
-
-                                        strv_free(passwords2);
-                                }
-
-                                strv_uniq(passwords);
-
-                                STRV_FOREACH(p, passwords) {
-                                        char *c;
-
-                                        if (strlen(*p)+1 >= opt_key_size)
-                                                continue;
-
-                                        /* Pad password if necessary */
-                                        if (!(c = new(char, opt_key_size))) {
-                                                log_oom();
-                                                goto finish;
-                                        }
-
-                                        strncpy(c, *p, opt_key_size);
-                                        free(*p);
-                                        *p = c;
-                                }
                         }
 
                         k = 0;
@@ -464,8 +463,8 @@ int main(int argc, char *argv[]) {
                                 struct crypt_params_plain params = { .hash = hash };
 
                                 /* for CRYPT_PLAIN limit reads
-                                * from keyfile to key length, and
-                                * ignore keyfile-size */
+                                 * from keyfile to key length, and
+                                 * ignore keyfile-size */
                                 opt_keyfile_size = opt_key_size / 8;
 
                                 /* In contrast to what the name
@@ -578,14 +577,6 @@ finish:
 
         free(opt_cipher);
         free(opt_hash);
-
-        free(truncated_cipher);
-
-        strv_free(passwords);
-
-        free(description);
-        free(mount_point);
-        free(name_buffer);
 
         return r;
 }
