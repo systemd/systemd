@@ -301,6 +301,102 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
         return 0;
 }
 
+static int attach_luks_or_plain(struct crypt_device *cd,
+                                const char *name,
+                                const char *key_file,
+                                char **passwords,
+                                uint32_t flags) {
+        int r = 0;
+        bool pass_volume_key = false;
+
+        assert(cd);
+        assert(name);
+        assert(key_file || passwords);
+
+        if (!opt_type || streq(opt_type, CRYPT_LUKS1))
+                r = crypt_load(cd, CRYPT_LUKS1, NULL);
+
+        if ((!opt_type && r < 0) || streq_ptr(opt_type, CRYPT_PLAIN)) {
+                struct crypt_params_plain params = {};
+                const char *cipher, *cipher_mode;
+                _cleanup_free_ char *truncated_cipher = NULL;
+
+                if (opt_hash) {
+                        /* plain isn't a real hash type. it just means "use no hash" */
+                        if (!streq(opt_hash, "plain"))
+                                params.hash = opt_hash;
+                } else
+                        params.hash = "ripemd160";
+
+                if (opt_cipher) {
+                        size_t l;
+
+                        l = strcspn(opt_cipher, "-");
+                        truncated_cipher = strndup(opt_cipher, l);
+                        if (!truncated_cipher)
+                                return log_oom();
+
+                        cipher = truncated_cipher;
+                        cipher_mode = opt_cipher[l] ? opt_cipher+l+1 : "plain";
+                } else {
+                        cipher = "aes";
+                        cipher_mode = "cbc-essiv:sha256";
+                }
+
+                /* for CRYPT_PLAIN limit reads
+                 * from keyfile to key length, and
+                 * ignore keyfile-size */
+                opt_keyfile_size = opt_key_size / 8;
+
+                /* In contrast to what the name
+                 * crypt_setup() might suggest this
+                 * doesn't actually format anything,
+                 * it just configures encryption
+                 * parameters when used for plain
+                 * mode. */
+                r = crypt_format(cd, CRYPT_PLAIN, cipher, cipher_mode,
+                                 NULL, NULL, opt_keyfile_size, &params);
+
+                /* hash == NULL implies the user passed "plain" */
+                pass_volume_key = (params.hash == NULL);
+        }
+
+        if (r < 0) {
+                log_error("Loading of cryptographic parameters failed: %s", strerror(-r));
+                return r;
+        }
+
+        log_info("Set cipher %s, mode %s, key size %i bits for device %s.",
+                 crypt_get_cipher(cd),
+                 crypt_get_cipher_mode(cd),
+                 crypt_get_volume_key_size(cd)*8,
+                 crypt_get_device_name(cd));
+
+        if (key_file) {
+                r = crypt_activate_by_keyfile_offset(cd, name, CRYPT_ANY_SLOT,
+                                                     key_file, opt_keyfile_size,
+                                                     opt_keyfile_offset, flags);
+                if (r < 0) {
+                        log_error("Failed to activate with key file '%s': %s", key_file, strerror(-r));
+                        return -EAGAIN;
+                }
+        } else {
+                char **p;
+
+                STRV_FOREACH(p, passwords) {
+                        if (pass_volume_key)
+                                r = crypt_activate_by_volume_key(cd, name, *p, opt_key_size, flags);
+                        else
+                                r = crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, *p, strlen(*p), flags);
+
+                        if (r >= 0)
+                                break;
+                }
+        }
+
+        return r;
+}
+
 static int help(void) {
 
         printf("%s attach VOLUME SOURCEDEVICE [PASSWORD] [OPTIONS]\n"
@@ -335,13 +431,11 @@ int main(int argc, char *argv[]) {
         if (streq(argv[1], "attach")) {
                 uint32_t flags = 0;
                 int k;
-                unsigned try;
+                unsigned tries;
                 usec_t until;
                 crypt_status_info status;
-                const char *key_file = NULL, *cipher = NULL, *cipher_mode = NULL,
-                           *hash = NULL, *name = NULL;
-                _cleanup_free_ char *description = NULL, *name_buffer = NULL,
-                                    *mount_point = NULL, *truncated_cipher = NULL;
+                const char *key_file = NULL, *name = NULL;
+                _cleanup_free_ char *description = NULL, *name_buffer = NULL, *mount_point = NULL;
 
                 /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [PASSWORD] [OPTIONS] */
 
@@ -417,122 +511,34 @@ int main(int argc, char *argv[]) {
 
                 opt_tries = opt_tries > 0 ? opt_tries : 3;
                 opt_key_size = (opt_key_size > 0 ? opt_key_size : 256);
-                if (opt_hash) {
-                        /* plain isn't a real hash type. it just means "use no hash" */
-                        if (!streq(opt_hash, "plain"))
-                                hash = opt_hash;
-                } else
-                        hash = "ripemd160";
 
-                if (opt_cipher) {
-                        size_t l;
+                if (key_file) {
+                        struct stat st;
 
-                        l = strcspn(opt_cipher, "-");
-                        truncated_cipher = strndup(opt_cipher, l);
-
-                        if (!truncated_cipher) {
-                                log_oom();
-                                goto finish;
-                        }
-
-                        cipher = truncated_cipher;
-                        cipher_mode = opt_cipher[l] ? opt_cipher+l+1 : "plain";
-                } else {
-                        cipher = "aes";
-                        cipher_mode = "cbc-essiv:sha256";
+                        /* Ideally we'd do this on the open fd, but since this is just a
+                         * warning it's OK to do this in two steps. */
+                        if (stat(key_file, &st) >= 0 && (st.st_mode & 0005))
+                                log_warning("Key file %s is world-readable. This is not a good idea!", key_file);
                 }
 
-                for (try = 0; try < opt_tries; try++) {
-                        bool pass_volume_key = false;
+                for (tries = 0; tries < opt_tries; tries++) {
                         _cleanup_strv_free_ char **passwords = NULL;
 
                         if (!key_file) {
-                                k = get_password(name, until, try == 0 && !opt_verify, &passwords);
+                                k = get_password(name, until, tries == 0 && !opt_verify, &passwords);
                                 if (k == -EAGAIN)
                                         continue;
                                 else if (k < 0)
                                         goto finish;
                         }
 
-                        k = 0;
-
-                        if (!opt_type || streq(opt_type, CRYPT_LUKS1))
-                                k = crypt_load(cd, CRYPT_LUKS1, NULL);
-
-                        if ((!opt_type && k < 0) || streq_ptr(opt_type, CRYPT_PLAIN)) {
-                                struct crypt_params_plain params = { .hash = hash };
-
-                                /* for CRYPT_PLAIN limit reads
-                                 * from keyfile to key length, and
-                                 * ignore keyfile-size */
-                                opt_keyfile_size = opt_key_size / 8;
-
-                                /* In contrast to what the name
-                                 * crypt_setup() might suggest this
-                                 * doesn't actually format anything,
-                                 * it just configures encryption
-                                 * parameters when used for plain
-                                 * mode. */
-                                k = crypt_format(cd, CRYPT_PLAIN,
-                                                 cipher,
-                                                 cipher_mode,
-                                                 NULL,
-                                                 NULL,
-                                                 opt_keyfile_size,
-                                                 &params);
-
-                                /* hash == NULL implies the user passed "plain" */
-                                pass_volume_key = (hash == NULL);
-                        }
-
-                        if (k < 0) {
-                                log_error("Loading of cryptographic parameters failed: %s", strerror(-k));
-                                goto finish;
-                        }
-
-                        log_info("Set cipher %s, mode %s, key size %i bits for device %s.",
-                                 crypt_get_cipher(cd),
-                                 crypt_get_cipher_mode(cd),
-                                 crypt_get_volume_key_size(cd)*8,
-                                 argv[3]);
-
-                        if (key_file) {
-                                struct stat st;
-
-                                /* Ideally we'd do this on the open
-                                 * fd, but since this is just a
-                                 * warning it's OK to do this in two
-                                 * steps */
-                                if (stat(key_file, &st) >= 0 && (st.st_mode & 0005))
-                                        log_warning("Key file %s is world-readable. That's certainly not a good idea.", key_file);
-
-                                k = crypt_activate_by_keyfile_offset(
-                                                cd, argv[2], CRYPT_ANY_SLOT, key_file, opt_keyfile_size,
-                                                opt_keyfile_offset, flags);
-                                if (k < 0) {
-                                        log_error("Failed to activate with key file '%s': %s", key_file, strerror(-k));
-                                        key_file = NULL;
-                                        continue;
-                                }
-                        } else {
-                                char **p;
-
-                                STRV_FOREACH(p, passwords) {
-
-                                        if (pass_volume_key)
-                                                k = crypt_activate_by_volume_key(cd, argv[2], *p, opt_key_size, flags);
-                                        else
-                                                k = crypt_activate_by_passphrase(cd, argv[2], CRYPT_ANY_SLOT, *p, strlen(*p), flags);
-
-                                        if (k >= 0)
-                                                break;
-                                }
-                        }
-
+                        k = attach_luks_or_plain(cd, argv[2], key_file, passwords, flags);
                         if (k >= 0)
                                 break;
-
-                        if (k != -EPERM) {
+                        else if (k == -EAGAIN) {
+                                key_file = NULL;
+                                continue;
+                        } else if (k != -EPERM) {
                                 log_error("Failed to activate: %s", strerror(-k));
                                 goto finish;
                         }
@@ -540,8 +546,8 @@ int main(int argc, char *argv[]) {
                         log_warning("Invalid passphrase.");
                 }
 
-                if (try >= opt_tries) {
-                        log_error("Too many attempts.");
+                if (tries >= opt_tries) {
+                        log_error("Too many attempts; giving up.");
                         r = EXIT_FAILURE;
                         goto finish;
                 }
