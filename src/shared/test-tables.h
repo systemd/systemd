@@ -29,15 +29,17 @@ static inline void _test_table(const char *name,
                                int size) {
         int i;
 
-        for (i = 0; i < size; i++) {
+        for (i = 0; i < size + 1; i++) {
                 const char* val = lookup(i);
-                int rev = -1;
+                int rev;
 
                 if (val)
                         rev = reverse(val);
+                else
+                        rev = reverse("--no-such--value----");
 
                 printf("%s: %d → %s → %d\n", name, i, val, rev);
-                if (!val || rev != i)
+                if (i < size ? val == NULL || rev != i : val != NULL || rev != -1)
                         exit(EXIT_FAILURE);
         }
 }
