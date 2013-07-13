@@ -27,6 +27,7 @@
 #include <libcryptsetup.h>
 #include <libudev.h>
 
+#include "fileio.h"
 #include "log.h"
 #include "util.h"
 #include "path-util.h"
@@ -34,7 +35,7 @@
 #include "ask-password-api.h"
 #include "def.h"
 
-static const char *opt_type = NULL; /* LUKS1 or PLAIN */
+static const char *opt_type = NULL; /* CRYPT_LUKS1, CRYPT_TCRYPT or CRYPT_PLAIN */
 static char *opt_cipher = NULL;
 static unsigned opt_key_size = 0;
 static unsigned opt_keyfile_size = 0;
@@ -44,6 +45,9 @@ static unsigned opt_tries = 0;
 static bool opt_readonly = false;
 static bool opt_verify = false;
 static bool opt_discards = false;
+static bool opt_tcrypt_hidden = false;
+static bool opt_tcrypt_system = false;
+static char **opt_tcrypt_keyfiles = NULL;
 static usec_t opt_timeout = 0;
 
 /* Options Debian's crypttab knows we don't:
@@ -81,6 +85,14 @@ static int parse_one_option(const char *option) {
                         log_error("size= parse failure, ignoring.");
                         return 0;
                 }
+
+        } else if (startswith(option, "tcrypt-keyfile=")) {
+
+                opt_type = CRYPT_TCRYPT;
+                if (path_is_absolute(option+15))
+                        opt_tcrypt_keyfiles = strv_append(opt_tcrypt_keyfiles, strdup(option+15));
+                else
+                        log_error("Key file path '%s' is not absolute. Ignoring.", option+15);
 
         } else if (startswith(option, "keyfile-size=")) {
 
@@ -121,7 +133,15 @@ static int parse_one_option(const char *option) {
                 opt_discards = true;
         else if (streq(option, "luks"))
                 opt_type = CRYPT_LUKS1;
-        else if (streq(option, "plain") ||
+        else if (streq(option, "tcrypt"))
+                opt_type = CRYPT_TCRYPT;
+        else if (streq(option, "tcrypt-hidden")) {
+                opt_type = CRYPT_TCRYPT;
+                opt_tcrypt_hidden = true;
+        } else if (streq(option, "tcrypt-system")) {
+                opt_type = CRYPT_TCRYPT;
+                opt_tcrypt_system = true;
+        } else if (streq(option, "plain") ||
                  streq(option, "swap") ||
                  streq(option, "tmp"))
                 opt_type = CRYPT_PLAIN;
@@ -301,6 +321,53 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
         return 0;
 }
 
+static int attach_tcrypt(struct crypt_device *cd,
+                                const char *name,
+                                const char *key_file,
+                                char **passwords,
+                                uint32_t flags) {
+        int r = 0;
+        _cleanup_free_ char *passphrase = NULL;
+        struct crypt_params_tcrypt params = {
+                .flags = CRYPT_TCRYPT_LEGACY_MODES,
+                .keyfiles = (const char **)opt_tcrypt_keyfiles,
+                .keyfiles_count = strv_length(opt_tcrypt_keyfiles)
+        };
+
+        assert(cd);
+        assert(name);
+        assert(key_file || passwords);
+
+        if (opt_tcrypt_hidden)
+                params.flags |= CRYPT_TCRYPT_HIDDEN_HEADER;
+
+        if (opt_tcrypt_system)
+                params.flags |= CRYPT_TCRYPT_SYSTEM_HEADER;
+
+        if (key_file) {
+                r = read_one_line_file(key_file, &passphrase);
+                if (r < 0) {
+                        log_error("Failed to read password file '%s': %s", key_file, strerror(-r));
+                        return -EAGAIN;
+                }
+
+                params.passphrase = passphrase;
+        } else
+                params.passphrase = passwords[0];
+        params.passphrase_size = strlen(params.passphrase);
+
+        r = crypt_load(cd, CRYPT_TCRYPT, &params);
+        if (r < 0) {
+                if (key_file && r == -EPERM) {
+                        log_error("Failed to activate using password file '%s'.", key_file);
+                        return -EAGAIN;
+                }
+                return r;
+        }
+
+        return crypt_activate_by_volume_key(cd, name, NULL, 0, flags);;
+}
+
 static int attach_luks_or_plain(struct crypt_device *cd,
                                 const char *name,
                                 const char *key_file,
@@ -450,7 +517,7 @@ int main(int argc, char *argv[]) {
                     !streq(argv[4], "none")) {
 
                         if (!path_is_absolute(argv[4]))
-                                log_error("Password file path %s is not absolute. Ignoring.", argv[4]);
+                                log_error("Password file path '%s' is not absolute. Ignoring.", argv[4]);
                         else
                                 key_file = argv[4];
                 }
@@ -532,7 +599,10 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                         }
 
-                        k = attach_luks_or_plain(cd, argv[2], key_file, passwords, flags);
+                        if (streq_ptr(opt_type, CRYPT_TCRYPT))
+                                k = attach_tcrypt(cd, argv[2], key_file, passwords, flags);
+                        else
+                                k = attach_luks_or_plain(cd, argv[2], key_file, passwords, flags);
                         if (k >= 0)
                                 break;
                         else if (k == -EAGAIN) {
@@ -583,6 +653,7 @@ finish:
 
         free(opt_cipher);
         free(opt_hash);
+        strv_free(opt_tcrypt_keyfiles);
 
         return r;
 }

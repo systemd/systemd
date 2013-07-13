@@ -576,7 +576,7 @@ AC_SUBST(AUDIT_LIBS)
 have_libcryptsetup=no
 AC_ARG_ENABLE(libcryptsetup, AS_HELP_STRING([--disable-libcryptsetup], [disable libcryptsetup tools]))
 if test "x$enable_libcryptsetup" != "xno"; then
-        PKG_CHECK_MODULES(LIBCRYPTSETUP, [ libcryptsetup >= 1.4.2 ],
+        PKG_CHECK_MODULES(LIBCRYPTSETUP, [ libcryptsetup >= 1.6.0 ],
                 [AC_DEFINE(HAVE_LIBCRYPTSETUP, 1, [Define if libcryptsetup is available]) have_libcryptsetup=yes], have_libcryptsetup=no)
         if test "x$have_libcryptsetup" = xno -a "x$enable_libcryptsetup" = xyes; then
                 AC_MSG_ERROR([*** libcryptsetup support requested but libraries not found])
