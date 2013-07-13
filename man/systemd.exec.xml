@@ -58,7 +58,7 @@
                 <title>Description</title>
 
                 <para>Unit configuration files for services, sockets,
-                mount points, and swap devices share a subset of
+                mount points and swap devices share a subset of
                 configuration options which define the execution
                 environment of spawned processes.</para>
 

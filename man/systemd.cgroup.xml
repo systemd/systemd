@@ -78,7 +78,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     and
     <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for more information on the specific unit configuration files. The
-    execution specific configuration options are configured in the
+    execution-specific configuration options are configured in the
     [Slice], [Scope], [Service], [Socket], [Mount], or [Swap]
     sections, depending on the unit type.</para>
   </refsect1>
@@ -94,7 +94,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><varname>CPUAccounting=</varname></term>
 
         <listitem>
-          <para>Turn on the CPU usage accounting for this
+          <para>Turn on CPU usage accounting for this
           unit.</para>
         </listitem>
       </varlistentry>
@@ -103,7 +103,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><varname>BlockIOAccounting=</varname></term>
 
         <listitem>
-          <para>Turn on the Block IO bandwidth accounting
+          <para>Turn on Block IO bandwidth accounting
           for this unit.</para>
         </listitem>
       </varlistentry>
@@ -112,7 +112,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><varname>MemoryAccounting=</varname></term>
 
         <listitem>
-          <para>Turn on the process and kernel memory
+          <para>Turn on process and kernel memory
           accounting for this unit.</para>
         </listitem>
       </varlistentry>
@@ -126,7 +126,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           the processes executed. Takes an integer value. This
           controls the <literal>cpu.shares</literal> control group
           attribute, which defaults to 1024. For details about this
-          control group attribute see <ulink
+          control group attribute, see <ulink
           url="http://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
 
           <para>Implies <literal>CPUAccounting=true</literal>.</para>
@@ -145,12 +145,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           detects memory contention, memory reclaim will be performed
           until the memory usage is within the "soft" limit. Takes a
           memory size in bytes. If the value is suffixed with K, M, G
-          or T the specified memory size is parsed as Kilobytes,
+          or T, the specified memory size is parsed as Kilobytes,
           Megabytes, Gigabytes, or Terabytes (with the base 1024),
           respectively. This controls the
           <literal>memory.limit_in_bytes</literal> and
           <literal>memory.soft_limit_in_bytes</literal> control group
-          attributes. For details about these control group attributes
+          attributes. For details about these control group attributes,
           see <ulink
           url="http://www.kernel.org/doc/Documentation/cgroups/memory.txt">memory.txt</ulink>.</para>
 
@@ -170,7 +170,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <literal>blkio.weight</literal>
         control group attribute, which
         defaults to 1000. For details about
-        this control group attribute see
+        this control group attribute, see
         <ulink
             url="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para></listitem>
       </varlistentry>
@@ -190,7 +190,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <literal>blkio.weight_device</literal> control group
           attribute, which defaults to 1000. Use this option multiple
           times to set weights for multiple devices. For details about
-          this control group attribute see <ulink
+          this control group attribute, see <ulink
           url="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para>
         </listitem>
       </varlistentry>
@@ -206,7 +206,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           specify the device specific bandwidth. The file path may be
           a path to a block device node, or as any other file in which
           case the backing block device of the file system of the file
-          is used.  If the bandwidth is suffixed with K, M, G, or T
+          is used. If the bandwidth is suffixed with K, M, G, or T,
           the specified bandwidth is parsed as Kilobytes, Megabytes,
           Gigabytes, or Terabytes, respectively (Example:
           "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 5M"). This
@@ -214,7 +214,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <literal>blkio.write_bps_device</literal> control group
           attributes. Use this option multiple times to set bandwidth
           limits for multiple devices. For details about these control
-          group attributes see
+          group attributes, see
           <ulink url="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
           </para>
         </listitem>
@@ -230,11 +230,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           followed by a combination of <constant>r</constant>,
           <constant>w</constant>, <constant>m</constant> to control
           <emphasis>r</emphasis>eading, <emphasis>w</emphasis>riting,
-          or creating of the specific device node by the unit
+          or creation of the specific device node by the unit
           (<emphasis>m</emphasis>knod), respectively. This controls
           the <literal>devices.allow</literal> and
           <literal>devices.deny</literal> control group
-          attributes. For details about these control group attributes
+          attributes. For details about these control group attributes,
           see <ulink
           url="http://www.kernel.org/doc/Documentation/cgroups/devices.txt">devices.txt</ulink>.</para>
         </listitem>
@@ -259,7 +259,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
             <varlistentry>
               <term><option>closed</option></term>
               <listitem>
-                <para>in addition allows access to standard pseudo
+                <para>in addition, allows access to standard pseudo
                 devices including
                 <filename>/dev/null</filename>,
                 <filename>/dev/zero</filename>,
@@ -274,7 +274,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
               <term><option>auto</option></term>
               <listitem>
                 <para>
-                  in addition allows access to all devices if no
+                  in addition, allows access to all devices if no
                   explicit <varname>DeviceAllow=</varname> is present.
                   This is the default.
                 </para>
