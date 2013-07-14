@@ -1115,19 +1115,46 @@
                                 <term><varname>WantedBy=</varname></term>
                                 <term><varname>RequiredBy=</varname></term>
 
-                                <listitem><para>Installs a symlink in
-                                the <filename>.wants/</filename>
-                                or <filename>.requires/</filename>
-                                subdirectory for a unit, respectively. This has the
-                                effect that when the listed unit name
-                                is activated the unit listing it is
-                                activated
-                                too. <command>WantedBy=foo.service</command>
+                                <listitem><para>A symbolic link is
+                                created in the
+                                <filename>.wants/</filename> or
+                                <filename>.requires/</filename> folder
+                                of the listed unit when this unit is
+                                activated by <command>systemctl
+                                enable</command>.  This has the effect
+                                that a dependency of type
+                                <varname>Wants=</varname> or
+                                <varname>Requires=</varname> is added
+                                from the listed unit to the current
+                                unit. The primary result is that the
+                                current unit will be started when the
+                                listed unit is started. See the
+                                description of
+                                <varname>Wants=</varname> and
+                                <varname>Requires=</varname> in the
+                                [Unit] section for details.</para>
+
+                                <para><command>WantedBy=foo.service</command>
                                 in a service
                                 <filename>bar.service</filename> is
                                 mostly equivalent to
                                 <command>Alias=foo.service.wants/bar.service</command>
-                                in the same file.</para></listitem>
+                                in the same file. In case of template
+                                units, <command>systemctl enable</command>
+                                must be called with an instance name, and
+                                this instance will be added to the
+                                <filename>.wants/</filename> or
+                                <filename>.requires/</filename> list
+                                of the listed unit.
+                                E.g. <command>WantedBy=getty.target</command>
+                                in a service
+                                <filename>getty@.service</filename>
+                                will result in <command>systemctl
+                                enable getty@tty2.service</command>
+                                creating a
+                                <filename>getty.target.wants/getty@tty2.service</filename>
+                                link to <filename>getty@.service</filename>.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
