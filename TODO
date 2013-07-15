@@ -56,6 +56,12 @@ CGroup Rework Completion:
 
 Features:
 
+* journald: optionally, when messages with a high log prioerity are logged, sync() immeidately.
+
+* introduce %v resolving to the string returned by "uname -r"
+
+* systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
+
 * Get rid of systemd-sysv:
   https://fedoraproject.org/wiki/User:Toshio/Systemd_Convert_draft
 
