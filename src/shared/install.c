@@ -1062,8 +1062,8 @@ static int unit_file_search(
                         info->path = path;
                 else {
                         if (r == -ENOENT && unit_name_is_instance(info->name)) {
-                                /* unit file doesn't exist, however instance enablement was request */
-                                /* we will check if it is possible to load template unit file */
+                                /* Unit file doesn't exist, however instance enablement was requested.
+                                 * We will check if it is possible to load template unit file. */
                                 char *template = NULL,
                                      *template_path = NULL,
                                      *template_dir = NULL;
@@ -1074,7 +1074,7 @@ static int unit_file_search(
                                         return -ENOMEM;
                                 }
 
-                                /* we will reuse path variable since we don't need it anymore */
+                                /* We will reuse path variable since we don't need it anymore. */
                                 template_dir = path;
                                 *(strrchr(path, '/') + 1) = '\0';
 
@@ -1085,7 +1085,7 @@ static int unit_file_search(
                                         return -ENOMEM;
                                 }
 
-                                /* let's try to load template unit */
+                                /* Let's try to load template unit. */
                                 r = unit_file_load(c, info, template_path, allow_symlink);
                                 if (r >= 0) {
                                         info->path = strdup(template_path);
@@ -1425,16 +1425,30 @@ static int install_context_mark_for_removal(
                         r += q;
 
                 if (unit_name_is_instance(i->name)) {
-                        char *unit_file = NULL;
+                        char *unit_file;
 
-                        unit_file = path_get_file_name(i->path);
+                        if (i->path) {
+                                unit_file = path_get_file_name(i->path);
 
-                        if (unit_name_is_instance(unit_file))
-                                /* unit file named as instance exists, thus all symlinks pointing to it, will be removed */
-                                q = mark_symlink_for_removal(remove_symlinks_to, i->name);
-                        else
-                                /* does not exist, thus we will mark for removal symlinks to template unit file */
+                                if (unit_name_is_instance(unit_file))
+                                        /* unit file named as instance exists, thus all symlinks
+                                         * pointing to it will be removed */
+                                        q = mark_symlink_for_removal(remove_symlinks_to, i->name);
+                                else
+                                        /* does not exist, thus we will mark for removal symlinks
+                                         * to template unit file */
+                                        q = mark_symlink_for_removal(remove_symlinks_to, unit_file);
+                        } else {
+                                /* If i->path is not set, it means that we didn't actually find
+                                 * the unit file. But we can still remove symlinks to the
+                                 * nonexistent template. */
+                                unit_file = unit_name_template(i->name);
+                                if (!unit_file)
+                                        return log_oom();
+
                                 q = mark_symlink_for_removal(remove_symlinks_to, unit_file);
+                                free(unit_file);
+                        }
                 } else
                         q = mark_symlink_for_removal(remove_symlinks_to, i->name);
 
