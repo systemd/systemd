@@ -260,6 +260,18 @@ static void test_undecchar(void) {
         assert_se(undecchar('9') == 9);
 }
 
+static void test_cescape(void) {
+        _cleanup_free_ char *escaped;
+        escaped = cescape("abc\\\"\b\f\n\r\t\v\003\177\234\313");
+        assert_se(streq(escaped, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\003\\177\\234\\313"));
+}
+
+static void test_cunescape(void) {
+        _cleanup_free_ char *unescaped;
+        unescaped = cunescape("abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\003\\177\\234\\313");
+        assert_se(streq(unescaped, "abc\\\"\b\f\n\r\t\v\003\177\234\313"));
+}
+
 static void test_foreach_word(void) {
         char *w, *state;
         size_t l;
@@ -477,6 +489,38 @@ static void test_parse_bytes(void) {
         assert_se(parse_bytes("-10B 20K", &bytes) == -ERANGE);
 }
 
+static void test_strextend(void) {
+        _cleanup_free_ char *str = strdup("0123");
+        strextend(&str, "456", "78", "9", NULL);
+        assert_se(streq(str, "0123456789"));
+}
+
+static void test_strrep(void) {
+        _cleanup_free_ char *one, *three, *zero;
+        one = strrep("waldo", 1);
+        three = strrep("waldo", 3);
+        zero = strrep("waldo", 0);
+
+        assert_se(streq(one, "waldo"));
+        assert_se(streq(three, "waldowaldowaldo"));
+        assert_se(streq(zero, ""));
+}
+
+static void test_parse_user_at_host(void) {
+        _cleanup_free_ char *both = strdup("waldo@waldoscomputer");
+        _cleanup_free_ char *onlyhost = strdup("mikescomputer");
+        char *user = NULL, *host = NULL;
+
+        parse_user_at_host(both, &user, &host);
+        assert_se(streq(user, "waldo"));
+        assert_se(streq(host, "waldoscomputer"));
+
+        user = host = NULL;
+        parse_user_at_host(onlyhost, &user, &host);
+        assert_se(user == NULL);
+        assert_se(streq(host, "mikescomputer"));
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -496,6 +540,8 @@ int main(int argc, char *argv[]) {
         test_unoctchar();
         test_decchar();
         test_undecchar();
+        test_cescape();
+        test_cunescape();
         test_foreach_word();
         test_foreach_word_quoted();
         test_default_term_for_tty();
@@ -506,6 +552,9 @@ int main(int argc, char *argv[]) {
         test_get_process_comm();
         test_protect_errno();
         test_parse_bytes();
+        test_strextend();
+        test_strrep();
+        test_parse_user_at_host();
 
         return 0;
 }
