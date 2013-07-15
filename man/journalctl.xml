@@ -601,6 +601,14 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--force</option></term>
+
+                                <listitem><para>When --setup-keys is passed and
+                                Forward Secure Sealing has already been set up,
+                                recreate FSS keys.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--interval=</option></term>
 
                                 <listitem><para>Specifies the change

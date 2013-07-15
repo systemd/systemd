@@ -79,6 +79,7 @@ static int arg_priorities = 0xFF;
 static const char *arg_verify_key = NULL;
 #ifdef HAVE_GCRYPT
 static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
+static bool arg_force = false;
 #endif
 static usec_t arg_since, arg_until;
 static bool arg_since_set = false, arg_until_set = false;
@@ -149,6 +150,7 @@ static int help(void) {
                "     --update-catalog    Update the message catalog database\n"
 #ifdef HAVE_GCRYPT
                "     --setup-keys        Generate new FSS key pair\n"
+               "     --force             Force overriding new FSS key pair with --setup-keys\n"
                "     --verify            Verify journal file consistency\n"
 #endif
                , program_invocation_short_name);
@@ -179,6 +181,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LIST_CATALOG,
                 ARG_DUMP_CATALOG,
                 ARG_UPDATE_CATALOG,
+                ARG_FORCE,
         };
 
         static const struct option options[] = {
@@ -187,6 +190,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
                 { "pager-end",    no_argument,       NULL, 'e'              },
                 { "follow",       no_argument,       NULL, 'f'              },
+                { "force",        no_argument,       NULL, ARG_FORCE        },
                 { "output",       required_argument, NULL, 'o'              },
                 { "all",          no_argument,       NULL, 'a'              },
                 { "full",         no_argument,       NULL, 'l'              },
@@ -375,6 +379,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
 #ifdef HAVE_GCRYPT
+                case ARG_FORCE:
+                        arg_force = true;
+                        break;
+
                 case ARG_SETUP_KEYS:
                         arg_action = ACTION_SETUP_KEYS;
                         break;
@@ -397,6 +405,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SETUP_KEYS:
                 case ARG_VERIFY_KEY:
                 case ARG_INTERVAL:
+                case ARG_FORCE:
                         log_error("Forward-secure sealing not available.");
                         return -ENOTSUP;
 #endif
@@ -756,9 +765,18 @@ static int setup_keys(void) {
                 return log_oom();
 
         if (access(p, F_OK) >= 0) {
-                log_error("Sealing key file %s exists already.", p);
-                r = -EEXIST;
-                goto finish;
+                if (arg_force) {
+                        r = unlink(p);
+                        if (r < 0) {
+                                log_error("unlink(\"%s\") failed: %m", p);
+                                r = -errno;
+                                goto finish;
+                        }
+                } else {
+                        log_error("Sealing key file %s exists already. (--force to recreate)", p);
+                        r = -EEXIST;
+                        goto finish;
+                }
         }
 
         if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss.tmp.XXXXXX",
