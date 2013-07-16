@@ -602,19 +602,19 @@ keyboard:usb:v046DpC317*
 
 # Wave cordless
 keyboard:usb:v046DpC517*
- KEYBOARD_KEY_c101f zoomout
- KEYBOARD_KEY_c1020 zoomin
- KEYBOARD_KEY_c1005 camera
- KEYBOARD_KEY_c0183 media
- KEYBOARD_KEY_c1041 wordprocessor
- KEYBOARD_KEY_c1042 spreadsheet
- KEYBOARD_KEY_c1043 calendar
- KEYBOARD_KEY_c1044 prog2               #fn+f4 (program a)
- KEYBOARD_KEY_c1045 prog3               #fn+f5 (program b)
- KEYBOARD_KEY_c1046 prog4               #fn+f6 (program c)
- KEYBOARD_KEY_c1048 messenger           #fn+f8 (msn messenger)
- KEYBOARD_KEY_c104a find                #fn+f10 (search www)
- KEYBOARD_KEY_c104c ejectclosecd
+ KEYBOARD_KEY_c101f=zoomout
+ KEYBOARD_KEY_c1020=zoomin
+ KEYBOARD_KEY_c1005=camera
+ KEYBOARD_KEY_c0183=media
+ KEYBOARD_KEY_c1041=wordprocessor
+ KEYBOARD_KEY_c1042=spreadsheet
+ KEYBOARD_KEY_c1043=calendar
+ KEYBOARD_KEY_c1044=prog2               #fn+f4 (program a)
+ KEYBOARD_KEY_c1045=prog3               #fn+f5 (program b)
+ KEYBOARD_KEY_c1046=prog4               #fn+f6 (program c)
+ KEYBOARD_KEY_c1048=messenger           #fn+f8 (msn messenger)
+ KEYBOARD_KEY_c104a=find                #fn+f10 (search www)
+ KEYBOARD_KEY_c104c=ejectclosecd
 
 # Cordless Wave Pro
 keyboard:usb:v046DpC52[9B]*
