@@ -797,7 +797,6 @@ keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*200E[45]*:pvr*
 # Series 9
 keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*90X3A*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*900X[34]*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*900XC3*:pvr*
  KEYBOARD_KEY_ce=!                                      # Fn+F8 keyboard backlight up
  KEYBOARD_KEY_8d=!                                      # Fn+F7 keyboard backlight down
  KEYBOARD_KEY_96=!                                      # Fn+F1 performance mode (?)
