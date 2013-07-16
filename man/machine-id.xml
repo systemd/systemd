@@ -93,7 +93,7 @@
 
                 <para>Note that the machine ID historically is not an
                 OSF UUID as defined by <ulink
-                url="http://tools.ietf.org/html/rfc4122">RFC
+                url="https://tools.ietf.org/html/rfc4122">RFC
                 4122</ulink>, nor a Microsoft GUID; however, starting with
                 systemd v30, newly generated machine IDs do
                 qualify as v4 UUIDs.</para>

@@ -167,7 +167,7 @@
                                 for this process) and 1000 (to make
                                 killing of this process under memory
                                 pressure very likely). See <ulink
-                                url="http://www.kernel.org/doc/Documentation/filesystems/proc.txt">proc.txt</ulink>
+                                url="https://www.kernel.org/doc/Documentation/filesystems/proc.txt">proc.txt</ulink>
                                 for details.</para></listitem>
                         </varlistentry>
 
@@ -832,7 +832,7 @@
                                 and doing this might result in
                                 undefined behaviour. For details about
                                 control groups see <ulink
-                                url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.</para>
+                                url="https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.</para>
 
                                 <para>This option may appear more than
                                 once, in which case the list of
@@ -923,7 +923,7 @@
                                 service is not desirable. For details
                                 about control group attributes see
                                 <ulink
-                                url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>. This
+                                url="https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>. This
                                 option may appear more than once, in
                                 order to set multiple control group
                                 attributes. If this option is used

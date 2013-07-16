@@ -241,7 +241,7 @@
 
                                 <listitem><para>A CPE name for the
                                 operating system, following the <ulink
-                                url="http://cpe.mitre.org/specification/">Common
+                                url="https://cpe.mitre.org/specification/">Common
                                 Platform Enumeration
                                 Specification</ulink> as proposed by
                                 the MITRE Corporation. This field

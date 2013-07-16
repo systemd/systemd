@@ -133,7 +133,7 @@
                                 command), forward secure sealing (FSS)
                                 for all persistent journal files is
                                 enabled. FSS is based on <ulink
-                                url="http://eprint.iacr.org/2013/397">Seekable
+                                url="https://eprint.iacr.org/2013/397">Seekable
                                 Sequential Key Generators</ulink> by
                                 G. A. Marson and B. Poettering and
                                 may be used to protect journal files
