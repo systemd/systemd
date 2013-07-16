@@ -81,7 +81,7 @@ int manager_handle_action(
         else if (handle == HANDLE_HYBRID_SLEEP)
                 supported = can_sleep("hybrid-sleep") > 0;
         else if (handle == HANDLE_KEXEC)
-                supported = access("/sbin/kexec", X_OK) >= 0;
+                supported = access(KEXEC, X_OK) >= 0;
         else
                 supported = true;
 

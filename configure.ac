@@ -76,6 +76,8 @@ AC_PATH_PROG([KILL], [kill], [/usr/bin/kill])
 
 AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod])
 
+AC_PATH_PROG([KEXEC], [kexec], [/usr/sbin/kexec])
+
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
 GTK_DOC_CHECK([1.18],[--flavour no-tmpl])],

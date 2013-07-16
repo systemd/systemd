@@ -318,7 +318,7 @@ int main(int argc, char *argv[]) {
                                 log_warning("kexec failed. Falling back to normal reboot.");
                         } else {
                                 /* Child */
-                                const char *args[3] = { "/sbin/kexec", "-e", NULL };
+                                const char *args[3] = { KEXEC, "-e", NULL };
                                 execv(args[0], (char * const *) args);
                                 return EXIT_FAILURE;
                         }
