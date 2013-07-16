@@ -969,6 +969,7 @@
                                 <varname>xen</varname>,
                                 <varname>bochs</varname>,
                                 <varname>chroot</varname>,
+                                <varname>uml</varname>,
                                 <varname>openvz</varname>,
                                 <varname>lxc</varname>,
                                 <varname>lxc-libvirt</varname>,
