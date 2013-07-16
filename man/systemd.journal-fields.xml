@@ -197,6 +197,15 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>_CAP_EFFECTIVE=</varname></term>
+                                <listitem>
+                                        <para>The effective <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> of
+                                        the process the journal entry
+                                        originates from.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>_AUDIT_SESSION=</varname></term>
                                 <term><varname>_AUDIT_LOGINUID=</varname></term>
                                 <listitem>

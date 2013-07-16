@@ -578,6 +578,13 @@ static void dispatch_message_real(
                         IOVEC_SET_STRING(iovec[n++], x);
                 }
 
+                r = get_process_capeff(ucred->pid, &t);
+                if (r >= 0) {
+                        x = strappenda("_CAP_EFFECTIVE=", t);
+                        free(t);
+                        IOVEC_SET_STRING(iovec[n++], x);
+                }
+
 #ifdef HAVE_AUDIT
                 r = audit_session_from_pid(ucred->pid, &audit);
                 if (r >= 0) {

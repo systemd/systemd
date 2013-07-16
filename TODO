@@ -220,8 +220,6 @@ Features:
 
 * teach ConditionKernelCommandLine= globs or regexes (in order to match foobar={no,0,off})
 
-* we should log capabilities too
-
 * Support SO_REUSEPORT with socket activation:
   - Let systemd maintain a pool of servers.
   - Use for seamless upgrades, by running the new server before stopping the

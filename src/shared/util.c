@@ -726,6 +726,40 @@ int is_kernel_thread(pid_t pid) {
         return 0;
 }
 
+int get_process_capeff(pid_t pid, char **capeff) {
+        const char *p;
+        _cleanup_free_ char *status = NULL;
+        char *t = NULL;
+        int r;
+
+        assert(capeff);
+        assert(pid >= 0);
+
+        if (pid == 0)
+                p = "/proc/self/status";
+        else
+                p = procfs_file_alloca(pid, "status");
+
+        r = read_full_file(p, &status, NULL);
+        if (r < 0)
+                return r;
+
+        t = strstr(status, "\nCapEff:\t");
+        if (!t)
+                return -ENOENT;
+
+        for (t += strlen("\nCapEff:\t"); t[0] == '0'; t++)
+                continue;
+
+        if (t[0] == '\n')
+                t--;
+
+        *capeff = strndup(t, strchr(t, '\n') - t);
+        if (!*capeff)
+                return -ENOMEM;
+
+        return 0;
+}
 
 int get_process_exe(pid_t pid, char **name) {
         const char *p;

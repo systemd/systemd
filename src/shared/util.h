@@ -210,6 +210,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 int get_process_exe(pid_t pid, char **name);
 int get_process_uid(pid_t pid, uid_t *uid);
 int get_process_gid(pid_t pid, gid_t *gid);
+int get_process_capeff(pid_t pid, char **capeff);
 
 char hexchar(int x) _const_;
 int unhexchar(char c) _const_;
