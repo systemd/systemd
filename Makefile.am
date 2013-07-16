@@ -607,7 +607,7 @@ EXTRA_DIST += \
 	$(XML_FILES) \
 	$(HTML_FILES) \
 	$(HTML_ALIAS) \
-	$(dist_MANS) \
+	$(man_MANS) \
 	make-man-index.py \
 	make-directive-index.py \
 	xml_helper.py
