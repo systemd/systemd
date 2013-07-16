@@ -56,7 +56,9 @@ CGroup Rework Completion:
 
 Features:
 
-* when parsing calendar timestamps support the UTC timezone (even if we won't support arbitrary timezone specs, support UTC itself certainly makes sense)
+* when parsing calendar timestamps support the UTC timezone (even if we won't support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
+
+* journalctl: add an output mode that looks like classic /var/log/messages, but also outputs the cursor of the last entry so that people can write scripts that can run iteratively and always process data that has been added since the last time.
 
 * when a kernel driver logs in a tight loop we should ratelimit that too.
 
