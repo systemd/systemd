@@ -1425,10 +1425,14 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         if (UNIT_IS_INACTIVE_OR_FAILED(os) != UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                 ExecContext *ec = unit_get_exec_context(u);
                 if (ec && exec_context_may_touch_console(ec)) {
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                m->n_on_console--;
-                        else
-                                m->n_on_console++;
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                                m->n_on_console --;
+
+                                if (m->n_on_console == 0)
+                                        /* unset no_console_output flag, since the console is free */
+                                        m->no_console_output = 0;
+                        } else
+                                m->n_on_console ++;
                 }
         }
 

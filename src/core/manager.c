@@ -273,6 +273,58 @@ static void manager_print_jobs_in_progress(Manager *m) {
         m->jobs_in_progress_iteration++;
 }
 
+static int manager_watch_idle_pipe(Manager *m) {
+        struct epoll_event ev = {
+                .events = EPOLLIN,
+                .data.ptr = &m->idle_pipe_watch,
+        };
+        int r;
+
+        if (m->idle_pipe_watch.type != WATCH_INVALID)
+                return 0;
+
+        if (m->idle_pipe[2] < 0)
+                return 0;
+
+        m->idle_pipe_watch.type = WATCH_IDLE_PIPE;
+        m->idle_pipe_watch.fd = m->idle_pipe[2];
+        if (m->idle_pipe_watch.fd < 0) {
+                log_error("Failed to create timerfd: %m");
+                r = -errno;
+                goto err;
+        }
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->idle_pipe_watch.fd, &ev) < 0) {
+                log_error("Failed to add idle_pipe fd to epoll: %m");
+                r = -errno;
+                goto err;
+        }
+
+        log_debug("Set up idle_pipe watch.");
+        log_debug("m->epoll_fd=%d m->idle_pipe_watch.fd=%d",
+                  m->epoll_fd, m->idle_pipe_watch.fd);
+
+        return 0;
+
+err:
+        if (m->idle_pipe_watch.fd >= 0)
+                close_nointr_nofail(m->idle_pipe_watch.fd);
+        watch_init(&m->idle_pipe_watch);
+        return r;
+}
+
+static void manager_unwatch_idle_pipe(Manager *m) {
+        if (m->idle_pipe_watch.type != WATCH_IDLE_PIPE)
+                return;
+
+        log_debug("m->epoll_fd=%d m->idle_pipe_watch.fd=%d",
+                  m->epoll_fd, m->idle_pipe_watch.fd);
+        assert_se(epoll_ctl(m->epoll_fd, EPOLL_CTL_DEL, m->idle_pipe_watch.fd, NULL) >= 0);
+        watch_init(&m->idle_pipe_watch);
+
+        log_debug("Closed idle_pipe watch.");
+}
+
 static int manager_setup_time_change(Manager *m) {
         struct epoll_event ev = {
                 .events = EPOLLIN,
@@ -445,7 +497,7 @@ int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
         m->name_data_slot = m->conn_data_slot = m->subscribed_data_slot = -1;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->pin_cgroupfs_fd = -1;
-        m->idle_pipe[0] = m->idle_pipe[1] = -1;
+        m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
         watch_init(&m->signal_watch);
         watch_init(&m->mount_watch);
@@ -657,6 +709,11 @@ static void manager_clear_jobs_and_units(Manager *m) {
         m->n_running_jobs = 0;
 }
 
+static void close_idle_pipe(Manager *m) {
+        close_pipe(m->idle_pipe);
+        close_pipe(m->idle_pipe + 2);
+}
+
 void manager_free(Manager *m) {
         UnitType c;
         int i;
@@ -701,7 +758,7 @@ void manager_free(Manager *m) {
         hashmap_free(m->cgroup_unit);
         set_free_free(m->unit_path_cache);
 
-        close_pipe(m->idle_pipe);
+        close_idle_pipe(m);
 
         free(m->switch_root);
         free(m->switch_root_init);
@@ -1137,6 +1194,9 @@ unsigned manager_dispatch_run_queue(Manager *m) {
 
         if (m->n_running_jobs > 0)
                 manager_watch_jobs_in_progress(m);
+
+        if (m->n_on_console > 0)
+                manager_watch_idle_pipe(m);
 
         return n;
 }
@@ -1688,6 +1748,14 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                 read(w->fd, &v, sizeof(v));
 
                 manager_print_jobs_in_progress(m);
+                break;
+        }
+
+        case WATCH_IDLE_PIPE: {
+                m->no_console_output = true;
+
+                manager_unwatch_idle_pipe(m);
+                close_idle_pipe(m);
                 break;
         }
 
@@ -2384,7 +2452,8 @@ void manager_check_finished(Manager *m) {
         }
 
         /* Notify Type=idle units that we are done now */
-        close_pipe(m->idle_pipe);
+        manager_unwatch_idle_pipe(m);
+        close_idle_pipe(m);
 
         /* Turn off confirm spawn now */
         m->confirm_spawn = false;
@@ -2658,6 +2727,9 @@ static bool manager_get_show_status(Manager *m) {
         assert(m);
 
         if (m->running_as != SYSTEMD_SYSTEM)
+                return false;
+
+        if (m->no_console_output)
                 return false;
 
         if (m->show_status)

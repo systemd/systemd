@@ -63,7 +63,8 @@ enum WatchType {
         WATCH_DBUS_WATCH,
         WATCH_DBUS_TIMEOUT,
         WATCH_TIME_CHANGE,
-        WATCH_JOBS_IN_PROGRESS
+        WATCH_JOBS_IN_PROGRESS,
+        WATCH_IDLE_PIPE,
 };
 
 struct Watch {
@@ -135,6 +136,7 @@ struct Manager {
         Watch signal_watch;
         Watch time_change_watch;
         Watch jobs_in_progress_watch;
+        Watch idle_pipe_watch;
 
         int epoll_fd;
 
@@ -227,6 +229,7 @@ struct Manager {
 
         bool show_status;
         bool confirm_spawn;
+        bool no_console_output;
 
         ExecOutput default_std_output, default_std_error;
 
@@ -244,7 +247,7 @@ struct Manager {
         unsigned jobs_in_progress_iteration;
 
         /* Type=idle pipes */
-        int idle_pipe[2];
+        int idle_pipe[4];
 
         char *switch_root;
         char *switch_root_init;

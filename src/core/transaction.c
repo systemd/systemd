@@ -733,8 +733,11 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e
                  * feature for cosmetics, not actually useful for
                  * anything beyond that. */
 
-                if (m->idle_pipe[0] < 0 && m->idle_pipe[1] < 0)
+                if (m->idle_pipe[0] < 0 && m->idle_pipe[1] < 0 &&
+                    m->idle_pipe[2] < 0 && m->idle_pipe[3] < 0) {
                         pipe2(m->idle_pipe, O_NONBLOCK|O_CLOEXEC);
+                        pipe2(m->idle_pipe + 2, O_NONBLOCK|O_CLOEXEC);
+                }
         }
 
         return 0;

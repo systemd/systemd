@@ -69,6 +69,7 @@
 #include "unit.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
+#define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -977,6 +978,35 @@ static int apply_seccomp(uint32_t *syscall_filter) {
         return 0;
 }
 
+static void do_idle_pipe_dance(int idle_pipe[4]) {
+        assert(idle_pipe);
+
+        if (idle_pipe[1] >= 0)
+                close_nointr_nofail(idle_pipe[1]);
+        if (idle_pipe[2] >= 0)
+                close_nointr_nofail(idle_pipe[2]);
+
+        if (idle_pipe[0] >= 0) {
+                int r;
+
+                r = fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT_USEC);
+
+                if (idle_pipe[3] >= 0 && r == 0 /* timeout */) {
+                        /* Signal systemd that we are bored and want to continue. */
+                        write(idle_pipe[3], "x", 1);
+
+                        /* Wait for systemd to react to the signal above. */
+                        fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
+                }
+
+                close_nointr_nofail(idle_pipe[0]);
+
+        }
+
+        if (idle_pipe[3] >= 0)
+                close_nointr_nofail(idle_pipe[3]);
+}
+
 int exec_spawn(ExecCommand *command,
                char **argv,
                ExecContext *context,
@@ -989,7 +1019,7 @@ int exec_spawn(ExecCommand *command,
                CGroupControllerMask cgroup_mask,
                const char *cgroup_path,
                const char *unit_id,
-               int idle_pipe[2],
+               int idle_pipe[4],
                pid_t *ret) {
 
         _cleanup_strv_free_ char **files_env = NULL;
@@ -1083,14 +1113,8 @@ int exec_spawn(ExecCommand *command,
                         goto fail_child;
                 }
 
-                if (idle_pipe) {
-                        if (idle_pipe[1] >= 0)
-                                close_nointr_nofail(idle_pipe[1]);
-                        if (idle_pipe[0] >= 0) {
-                                fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT_USEC);
-                                close_nointr_nofail(idle_pipe[0]);
-                        }
-                }
+                if (idle_pipe)
+                        do_idle_pipe_dance(idle_pipe);
 
                 /* Close sockets very early to make sure we don't
                  * block init reexecution because it cannot bind its
