@@ -448,7 +448,7 @@ keyboard:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnIBM*:pn*:pvr*
  KEYBOARD_KEY_17=prog1                                  # ThinkPad/ThinkVantage button (high keycode: "vendor")
 
 # IBM Thinkpad USB Keyboard Trackpoint
-usb:v04B3p301[89]*
+keyboard:usb:v04B3p301[89]*
  KEYBOARD_KEY_900f0=screenlock
  KEYBOARD_KEY_900f1=wlan
  KEYBOARD_KEY_900f2=switchvideomode

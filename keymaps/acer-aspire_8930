@@ -1,5 +1,0 @@
-0xCA prog3        # key 'HOLD' on CineDash Media Console
-0x83 rewind
-0x89 fastforward
-0x92 media        # key 'ARCADE' on CineDash Media Console
-0x9E back

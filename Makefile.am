@@ -2154,7 +2154,8 @@ dist_udevhwdb_DATA = \
 	hwdb/20-usb-classes.hwdb \
 	hwdb/20-bluetooth-vendor-product.hwdb \
 	hwdb/20-acpi-vendor.hwdb \
-	hwdb/20-OUI.hwdb
+	hwdb/20-OUI.hwdb \
+	hwdb/60-keyboard.hwdb
 
 udevconfdir = $(sysconfdir)/udev
 dist_udevconf_DATA = \
@@ -2601,140 +2602,6 @@ EXTRA_DIST += \
 	src/gudev/gjs-example.js \
 	src/gudev/seed-example-enum.js \
 	src/gudev/seed-example.js
-
-# ------------------------------------------------------------------------------
-if ENABLE_KEYMAP
-keymap_SOURCES = \
-	src/udev/keymap/keymap.c
-
-keymap_CPPFLAGS = \
-	$(AM_CPPFLAGS) -I src/udev/keymap
-
-keymap_LDADD = \
-	libsystemd-shared.la
-
-nodist_keymap_SOURCES = \
-	src/udev/keymap/keys-from-name.h \
-	src/udev/keymap/keys-to-name.h
-
-BUILT_SOURCES += \
-	$(nodist_keymap_SOURCES)
-
-udevlibexec_PROGRAMS += \
-	keymap
-
-dist_doc_DATA += \
-	src/udev/keymap/README.keymap.txt
-
-dist_udevrules_DATA += \
-	src/udev/keymap/95-keymap.rules \
-	src/udev/keymap/95-keyboard-force-release.rules
-
-dist_udevhome_SCRIPTS = \
-	src/udev/keymap/findkeyboards \
-	src/udev/keymap/keyboard-force-release.sh
-
-TESTS += \
-	src/udev/keymap/check-keymaps.sh
-
-CLEANFILES += \
-	src/udev/keymap/keys.txt \
-	src/udev/keymap/keys-from-name.gperf \
-	src/udev/keymap/keyboard-force-release.sh
-
-udevkeymapdir = $(udevlibexecdir)/keymaps
-dist_udevkeymap_DATA = \
-	keymaps/acer \
-	keymaps/acer-aspire_5720 \
-	keymaps/acer-aspire_8930 \
-	keymaps/acer-aspire_5920g \
-	keymaps/acer-aspire_6920 \
-	keymaps/acer-travelmate_c300 \
-	keymaps/asus \
-	keymaps/compaq-e_evo \
-	keymaps/dell \
-	keymaps/dell-latitude-xt2 \
-	keymaps/everex-xt5000 \
-	keymaps/fujitsu-amilo_li_2732 \
-	keymaps/fujitsu-amilo_pa_2548 \
-	keymaps/fujitsu-amilo_pro_edition_v3505 \
-	keymaps/fujitsu-amilo_pro_v3205 \
-	keymaps/fujitsu-amilo_si_1520 \
-	keymaps/fujitsu-esprimo_mobile_v5 \
-	keymaps/fujitsu-esprimo_mobile_v6 \
-	keymaps/genius-slimstar-320 \
-	keymaps/hewlett-packard \
-	keymaps/hewlett-packard-2510p_2530p \
-	keymaps/hewlett-packard-compaq_elitebook \
-	keymaps/hewlett-packard-pavilion \
-	keymaps/hewlett-packard-presario-2100 \
-	keymaps/hewlett-packard-tablet \
-	keymaps/hewlett-packard-tx2 \
-	keymaps/hewlett-packard_elitebook-8440p \
-	keymaps/hewlett-packard_elitebook-8460p \
-	keymaps/hewlett-packard-hdx9494nr \
-	keymaps/ibm-thinkpad-usb-keyboard-trackpoint \
-	keymaps/inventec-symphony_6.0_7.0 \
-	keymaps/lenovo-3000 \
-	keymaps/lenovo-ideapad \
-	keymaps/lenovo-thinkpad-usb-keyboard-trackpoint \
-	keymaps/lenovo-thinkpad_x6_tablet \
-	keymaps/lenovo-thinkpad_x200_tablet \
-	keymaps/lg-x110 \
-	keymaps/logitech-usb \
-	keymaps/logitech-wave \
-	keymaps/logitech-wave-cordless \
-	keymaps/logitech-wave-pro-cordless \
-	keymaps/maxdata-pro_7000 \
-	keymaps/medion-fid2060 \
-	keymaps/medionnb-a555 \
-	keymaps/micro-star \
-	keymaps/module-ibm \
-	keymaps/module-lenovo \
-	keymaps/module-sony \
-	keymaps/module-sony-old \
-	keymaps/module-sony-vgn \
-	keymaps/module-sony-vpc \
-	keymaps/olpc-xo \
-	keymaps/onkyo \
-	keymaps/oqo-model2 \
-	keymaps/samsung-other \
-	keymaps/samsung-series-9 \
-	keymaps/samsung-series-3 \
-	keymaps/samsung-sq1us \
-	keymaps/samsung-sx20s \
-	keymaps/toshiba-satellite_a100 \
-	keymaps/toshiba-satellite_a110 \
-	keymaps/toshiba-satellite_m30x \
-	keymaps/zepto-znote
-
-udevkeymapforcereldir = $(udevlibexecdir)/keymaps/force-release
-dist_udevkeymapforcerel_DATA = \
-	keymaps-force-release/dell-touchpad \
-	keymaps-force-release/dell-xps \
-	keymaps-force-release/hp-other \
-	keymaps-force-release/samsung-other \
-	keymaps-force-release/samsung-series-9 \
-	keymaps-force-release/samsung-series-3 \
-	keymaps-force-release/common-volume-keys
-
-src/udev/keymap/keys.txt: Makefile
-	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h - < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
-
-src/udev/keymap/keys-from-name.gperf: src/udev/keymap/keys.txt Makefile
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
-
-src/udev/keymap/keys-from-name.h: src/udev/keymap/keys-from-name.gperf Makefile
-	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
-
-src/udev/keymap/keys-to-name.h: src/udev/keymap/keys.txt Makefile
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
-endif
-
-EXTRA_DIST += \
-	src/udev/keymap/check-keymaps.sh \
-	src/udev/keymap/keyboard-force-release.sh.in
 
 # ------------------------------------------------------------------------------
 mtd_probe_SOURCES =  \

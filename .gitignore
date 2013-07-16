@@ -12,7 +12,6 @@
 /hostnamectl
 /install-tree
 /journalctl
-/keymap
 /libtool
 /localectl
 /loginctl
