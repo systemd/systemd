@@ -56,6 +56,10 @@ CGroup Rework Completion:
 
 Features:
 
+* when parsing calendar timestamps support the UTC timezone (even if we won't support arbitrary timezone specs, support UTC itself certainly makes sense)
+
+* when a kernel driver logs in a tight loop we should ratelimit that too.
+
 * journald: optionally, when messages with a high log prioerity are logged, sync() immeidately.
 
 * introduce %v resolving to the string returned by "uname -r"
