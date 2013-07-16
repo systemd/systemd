@@ -1,3 +1,0 @@
-# list of scancodes (hex or decimal), optional comment
-0xd8 # Touchpad off
-0xd9 # Touchpad on
