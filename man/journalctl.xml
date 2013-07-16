@@ -399,42 +399,50 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-b <optional><replaceable>ID</replaceable></optional></option></term>
-                                <term><option>--boot=<optional><replaceable>ID</replaceable></optional></option></term>
+                                <term><option>-b <optional><replaceable>ID</replaceable></optional><optional><replaceable>±offset</replaceable></optional></option></term>
+                                <term><option>--boot=<optional><replaceable>ID</replaceable></optional><optional><replaceable>±offset</replaceable></optional></option></term>
 
-                                <listitem><para>Show messages from the specified
-                                boot <replaceable>ID</replaceable> or from
-                                current boot if no <replaceable>ID</replaceable>
-                                is given. This will add a match for
+                                <listitem><para>Show messages from a specific
+                                boot. This will add a match for
                                 <literal>_BOOT_ID=</literal>.</para>
 
-                                <para>The argument is a 128 bit ID given in
-                                short or UUID form and optionally followed by
-                                <literal>:n</literal> which identifies the nth
-                                boot relative to the boot ID given to the left
-                                of <literal>:</literal>. Supplying a negative
-                                value for n will look for a past boot and a
-                                positive value for a future boot. The boot IDs
-                                are searched for in chronological order. If no
-                                number is provided after <literal>:</literal>,
-                                <literal>-1</literal> is assumed. A value of 0
-                                is valid and equivalent to omitting
-                                <literal>:0</literal>.</para>
+                                <para>The argument may be empty, in which case
+                                logs for the current boot will be shown.</para>
 
-                                <para>Alternatively, the argument may constist
-                                only of <literal>:n</literal>. In this case, a
-                                positive value will look up the nth boot
-                                starting from the beginning of the jouranl, a
-                                negative value will look up a previous boot
-                                relative to the current boot. <literal>:0</literal>
-                                will look for the current boot ID. Thus,
-                                <literal>:1</literal> is the first boot found in
-                                the journal, <literal>:2</literal> the second
-                                and so on; while <literal>:-1</literal> is the
-                                previous boot, <literal>:-2</literal> the boot
-                                before that and so on. Omitting a value after
-                                <literal>:</literal> will look for the previous
-                                boot.</para></listitem>
+                                <para>If the boot ID is omitted, a positive
+                                <replaceable>offset</replaceable> will look up
+                                the boots starting from the beginning of the
+                                journal, and a equal-or-less-than zero
+                                <replaceable>offset</replaceable> will look up
+                                boots starting from the end of the
+                                journal. Thus, <constant>1</constant> means the
+                                first boot found in the journal in the
+                                chronological order, <constant>2</constant> the
+                                second and so on; while <constant>-0</constant>
+                                is the last boot, <constant>-1</constant> the
+                                boot before that, and so on. An empty
+                                <replaceable>offset</replaceable> is equivalent
+                                to specifying <constant>-0</constant>, except
+                                when the current boot is not the last boot
+                                (e.g. because <option>--directory</option> was
+                                specified to look at logs from a different
+                                machine).</para>
+
+                                <para>If the 32 character
+                                <replaceable>ID</replaceable> is specified, it
+                                may optionally be followed by
+                                <replaceable>offset</replaceable> which
+                                identifies the boot relative to the one given by
+                                boot <replaceable>ID</replaceable>. Negative
+                                values mean earlier boots and a positive values
+                                mean later boots. If
+                                <replaceable>offset</replaceable> is not
+                                specified, a value of zero is assumed and the
+                                logs for the boot given by
+                                <replaceable>ID</replaceable> are shown.
+                                </para>
+
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
