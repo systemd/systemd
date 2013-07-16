@@ -523,6 +523,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--after-cursor=</option></term>
+
+                                <listitem><para>Start showing entries from the
+                                location in the journal
+                                <emphasis>after</emphasis> the location
+                                specified by the this cursor.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--since=</option></term>
                                 <term><option>--until=</option></term>
 

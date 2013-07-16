@@ -74,6 +74,8 @@ static bool arg_boot_id = false;
 static char *arg_boot_id_descriptor = NULL;
 static bool arg_dmesg = false;
 static const char *arg_cursor = NULL;
+static const char *arg_after_cursor = NULL;
+static bool arg_show_cursor = false;
 static const char *arg_directory = NULL;
 static char **arg_file = NULL;
 static int arg_priorities = 0xFF;
@@ -114,50 +116,52 @@ static int help(void) {
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
                "Flags:\n"
-               "     --system            Show only the system journal\n"
-               "     --user              Show only the user journal for current user\n"
-               "     --since=DATE        Start showing entries newer or of the specified date\n"
-               "     --until=DATE        Stop showing entries older or of the specified date\n"
-               "  -c --cursor=CURSOR     Start showing entries from specified cursor\n"
-               "  -b --boot[=ID]         Show data only from ID or current boot if unspecified\n"
-               "  -k --dmesg             Show kernel message log from current boot\n"
-               "  -u --unit=UNIT         Show data only from the specified unit\n"
-               "     --user-unit=UNIT    Show data only from the specified user session unit\n"
-               "  -p --priority=RANGE    Show only messages within the specified priority range\n"
-               "  -e --pager-end         Immediately jump to end of the journal in the pager\n"
-               "  -f --follow            Follow journal\n"
-               "  -n --lines[=INTEGER]   Number of journal entries to show\n"
-               "     --no-tail           Show all lines, even in follow mode\n"
-               "  -r --reverse           Show the newest entries first\n"
-               "  -o --output=STRING     Change journal output mode (short, short-monotonic,\n"
-               "                         verbose, export, json, json-pretty, json-sse, cat)\n"
-               "  -x --catalog           Add message explanations where available\n"
-               "  -l --full              Do not ellipsize fields\n"
-               "  -a --all               Show all fields, including long and unprintable\n"
-               "  -q --quiet             Don't show privilege warning\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "  -m --merge             Show entries from all available journals\n"
-               "  -D --directory=PATH    Show journal files from directory\n"
-               "     --file=PATH         Show journal file\n"
-               "     --root=ROOT         Operate on catalog files underneath the root ROOT\n"
+               "     --system              Show only the system journal\n"
+               "     --user                Show only the user journal for current user\n"
+               "     --since=DATE          Start showing entries newer or of the specified date\n"
+               "     --until=DATE          Stop showing entries older or of the specified date\n"
+               "  -c --cursor=CURSOR       Start showing entries from specified cursor\n"
+               "     --after-cursor=CURSOR Start showing entries from specified cursor\n"
+               "     --show-cursor         Print the cursor after all the entries\n"
+               "  -b --boot[=ID]           Show data only from ID or current boot if unspecified\n"
+               "  -k --dmesg               Show kernel message log from current boot\n"
+               "  -u --unit=UNIT           Show data only from the specified unit\n"
+               "     --user-unit=UNIT      Show data only from the specified user session unit\n"
+               "  -p --priority=RANGE      Show only messages within the specified priority range\n"
+               "  -e --pager-end           Immediately jump to end of the journal in the pager\n"
+               "  -f --follow              Follow journal\n"
+               "  -n --lines[=INTEGER]     Number of journal entries to show\n"
+               "     --no-tail             Show all lines, even in follow mode\n"
+               "  -r --reverse             Show the newest entries first\n"
+               "  -o --output=STRING       Change journal output mode (short, short-monotonic,\n"
+               "                           verbose, export, json, json-pretty, json-sse, cat)\n"
+               "  -x --catalog             Add message explanations where available\n"
+               "  -l --full                Do not ellipsize fields\n"
+               "  -a --all                 Show all fields, including long and unprintable\n"
+               "  -q --quiet               Don't show privilege warning\n"
+               "     --no-pager            Do not pipe output into a pager\n"
+               "  -m --merge               Show entries from all available journals\n"
+               "  -D --directory=PATH      Show journal files from directory\n"
+               "     --file=PATH           Show journal file\n"
+               "     --root=ROOT           Operate on catalog files underneath the root ROOT\n"
 #ifdef HAVE_GCRYPT
-               "     --interval=TIME     Time interval for changing the FSS sealing key\n"
-               "     --verify-key=KEY    Specify FSS verification key\n"
+               "     --interval=TIME       Time interval for changing the FSS sealing key\n"
+               "     --verify-key=KEY      Specify FSS verification key\n"
+               "     --force               Force overriding new FSS key pair with --setup-keys\n"
 #endif
                "\nCommands:\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --new-id128         Generate a new 128 Bit ID\n"
-               "     --header            Show journal header information\n"
-               "     --disk-usage        Show total disk usage\n"
-               "  -F --field=FIELD       List all values a certain field takes\n"
-               "     --list-catalog      Show message IDs of all entries in the message catalog\n"
-               "     --dump-catalog      Show entries in the message catalog\n"
-               "     --update-catalog    Update the message catalog database\n"
+               "  -h --help                Show this help\n"
+               "     --version             Show package version\n"
+               "     --new-id128           Generate a new 128 Bit ID\n"
+               "     --header              Show journal header information\n"
+               "     --disk-usage          Show total disk usage\n"
+               "  -F --field=FIELD         List all values a certain field takes\n"
+               "     --list-catalog        Show message IDs of all entries in the message catalog\n"
+               "     --dump-catalog        Show entries in the message catalog\n"
+               "     --update-catalog      Update the message catalog database\n"
 #ifdef HAVE_GCRYPT
-               "     --setup-keys        Generate new FSS key pair\n"
-               "     --force             Force overriding new FSS key pair with --setup-keys\n"
-               "     --verify            Verify journal file consistency\n"
+               "     --setup-keys          Generate new FSS key pair\n"
+               "     --verify              Verify journal file consistency\n"
 #endif
                , program_invocation_short_name);
 
@@ -183,6 +187,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DISK_USAGE,
                 ARG_SINCE,
                 ARG_UNTIL,
+                ARG_AFTER_CURSOR,
+                ARG_SHOW_CURSOR,
                 ARG_USER_UNIT,
                 ARG_LIST_CATALOG,
                 ARG_DUMP_CATALOG,
@@ -191,47 +197,49 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version" ,     no_argument,       NULL, ARG_VERSION      },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                { "pager-end",    no_argument,       NULL, 'e'              },
-                { "follow",       no_argument,       NULL, 'f'              },
-                { "force",        no_argument,       NULL, ARG_FORCE        },
-                { "output",       required_argument, NULL, 'o'              },
-                { "all",          no_argument,       NULL, 'a'              },
-                { "full",         no_argument,       NULL, 'l'              },
-                { "lines",        optional_argument, NULL, 'n'              },
-                { "no-tail",      no_argument,       NULL, ARG_NO_TAIL      },
-                { "new-id128",    no_argument,       NULL, ARG_NEW_ID128    },
-                { "quiet",        no_argument,       NULL, 'q'              },
-                { "merge",        no_argument,       NULL, 'm'              },
-                { "boot",         optional_argument, NULL, 'b'              },
-                { "this-boot",    optional_argument, NULL, 'b'              }, /* deprecated */
-                { "dmesg",        no_argument,       NULL, 'k'              },
-                { "system",       no_argument,       NULL, ARG_SYSTEM       },
-                { "user",         no_argument,       NULL, ARG_USER         },
-                { "directory",    required_argument, NULL, 'D'              },
-                { "file",         required_argument, NULL, ARG_FILE         },
-                { "root",         required_argument, NULL, ARG_ROOT         },
-                { "header",       no_argument,       NULL, ARG_HEADER       },
-                { "priority",     required_argument, NULL, 'p'              },
-                { "setup-keys",   no_argument,       NULL, ARG_SETUP_KEYS   },
-                { "interval",     required_argument, NULL, ARG_INTERVAL     },
-                { "verify",       no_argument,       NULL, ARG_VERIFY       },
-                { "verify-key",   required_argument, NULL, ARG_VERIFY_KEY   },
-                { "disk-usage",   no_argument,       NULL, ARG_DISK_USAGE   },
-                { "cursor",       required_argument, NULL, 'c'              },
-                { "since",        required_argument, NULL, ARG_SINCE        },
-                { "until",        required_argument, NULL, ARG_UNTIL        },
-                { "unit",         required_argument, NULL, 'u'              },
-                { "user-unit",    required_argument, NULL, ARG_USER_UNIT    },
-                { "field",        required_argument, NULL, 'F'              },
-                { "catalog",      no_argument,       NULL, 'x'              },
-                { "list-catalog", no_argument,       NULL, ARG_LIST_CATALOG },
-                { "dump-catalog", no_argument,       NULL, ARG_DUMP_CATALOG },
-                { "update-catalog",no_argument,      NULL, ARG_UPDATE_CATALOG },
-                { "reverse",      no_argument,       NULL, 'r'              },
-                { NULL,           0,                 NULL, 0                }
+                { "help",           no_argument,       NULL, 'h'                },
+                { "version" ,       no_argument,       NULL, ARG_VERSION        },
+                { "no-pager",       no_argument,       NULL, ARG_NO_PAGER       },
+                { "pager-end",      no_argument,       NULL, 'e'                },
+                { "follow",         no_argument,       NULL, 'f'                },
+                { "force",          no_argument,       NULL, ARG_FORCE          },
+                { "output",         required_argument, NULL, 'o'                },
+                { "all",            no_argument,       NULL, 'a'                },
+                { "full",           no_argument,       NULL, 'l'                },
+                { "lines",          optional_argument, NULL, 'n'                },
+                { "no-tail",        no_argument,       NULL, ARG_NO_TAIL        },
+                { "new-id128",      no_argument,       NULL, ARG_NEW_ID128      },
+                { "quiet",          no_argument,       NULL, 'q'                },
+                { "merge",          no_argument,       NULL, 'm'                },
+                { "boot",           optional_argument, NULL, 'b'                },
+                { "this-boot",      optional_argument, NULL, 'b'                }, /* deprecated */
+                { "dmesg",          no_argument,       NULL, 'k'                },
+                { "system",         no_argument,       NULL, ARG_SYSTEM         },
+                { "user",           no_argument,       NULL, ARG_USER           },
+                { "directory",      required_argument, NULL, 'D'                },
+                { "file",           required_argument, NULL, ARG_FILE           },
+                { "root",           required_argument, NULL, ARG_ROOT           },
+                { "header",         no_argument,       NULL, ARG_HEADER         },
+                { "priority",       required_argument, NULL, 'p'                },
+                { "setup-keys",     no_argument,       NULL, ARG_SETUP_KEYS     },
+                { "interval",       required_argument, NULL, ARG_INTERVAL       },
+                { "verify",         no_argument,       NULL, ARG_VERIFY         },
+                { "verify-key",     required_argument, NULL, ARG_VERIFY_KEY     },
+                { "disk-usage",     no_argument,       NULL, ARG_DISK_USAGE     },
+                { "cursor",         required_argument, NULL, 'c'                },
+                { "after-cursor",   required_argument, NULL, ARG_AFTER_CURSOR   },
+                { "show-cursor",    no_argument,       NULL, ARG_SHOW_CURSOR    },
+                { "since",          required_argument, NULL, ARG_SINCE          },
+                { "until",          required_argument, NULL, ARG_UNTIL          },
+                { "unit",           required_argument, NULL, 'u'                },
+                { "user-unit",      required_argument, NULL, ARG_USER_UNIT      },
+                { "field",          required_argument, NULL, 'F'                },
+                { "catalog",        no_argument,       NULL, 'x'                },
+                { "list-catalog",   no_argument,       NULL, ARG_LIST_CATALOG   },
+                { "dump-catalog",   no_argument,       NULL, ARG_DUMP_CATALOG   },
+                { "update-catalog", no_argument,       NULL, ARG_UPDATE_CATALOG },
+                { "reverse",        no_argument,       NULL, 'r'                },
+                { NULL,             0,                 NULL, 0                  }
         };
 
         int c, r;
@@ -377,6 +385,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'c':
                         arg_cursor = optarg;
+                        break;
+
+                case ARG_AFTER_CURSOR:
+                        arg_after_cursor = optarg;
+                        break;
+
+                case ARG_SHOW_CURSOR:
+                        arg_show_cursor = true;
                         break;
 
                 case ARG_HEADER:
@@ -549,8 +565,8 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_cursor && arg_since_set) {
-                log_error("Please specify either --since= or --cursor=, not both.");
+        if (!!arg_cursor + !!arg_after_cursor + !!arg_since_set > 1) {
+                log_error("Please specify only one of --since=, --cursor=, and --after-cursor.");
                 return -EINVAL;
         }
 
@@ -1435,16 +1451,20 @@ int main(int argc, char *argv[]) {
                         return EXIT_FAILURE;
         }
 
-        if (arg_cursor) {
-                r = sd_journal_seek_cursor(j, arg_cursor);
+        if (arg_cursor || arg_after_cursor) {
+                r = sd_journal_seek_cursor(j, arg_cursor ? arg_cursor : arg_after_cursor);
                 if (r < 0) {
                         log_error("Failed to seek to cursor: %s", strerror(-r));
                         return EXIT_FAILURE;
                 }
                 if (!arg_reverse)
-                        r = sd_journal_next(j);
+                        r = sd_journal_next_skip(j, 1 + !!arg_after_cursor);
                 else
-                        r = sd_journal_previous(j);
+                        r = sd_journal_previous_skip(j, 1 + !!arg_after_cursor);
+
+                if (arg_after_cursor && r < 2 && !arg_follow)
+                        /* We couldn't find the next entry after the cursor. */
+                        arg_lines = 0;
 
         } else if (arg_since_set && !arg_reverse) {
                 r = sd_journal_seek_realtime_usec(j, arg_since);
@@ -1592,8 +1612,19 @@ int main(int argc, char *argv[]) {
                         n_shown++;
                 }
 
-                if (!arg_follow)
+                if (!arg_follow) {
+                        if (arg_show_cursor) {
+                                _cleanup_free_ char *cursor = NULL;
+
+                                r = sd_journal_get_cursor(j, &cursor);
+                                if (r < 0 && r != -EADDRNOTAVAIL)
+                                        log_error("Failed to get cursor: %s", strerror(-r));
+                                else if (r >= 0)
+                                        printf("-- cursor: %s\n", cursor);
+                        }
+
                         break;
+                }
 
                 r = sd_journal_wait(j, (uint64_t) -1);
                 if (r < 0) {
