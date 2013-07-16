@@ -107,6 +107,20 @@
                 users who are members of the <literal>adm</literal>
                 group get access to the system journal and the
                 journals of other users.</para>
+
+                <para>The output is paged through
+                <command>less</command> by default, and long lines are
+                "truncated" to screen width. The hidden part can be
+                viewed by using the left-arrow and right-arrow
+                keys. Paging can be disabled, see
+                <option>--no-pager</option> and section Environment
+                below.</para>
+
+                <para>When outputing to a tty, lines are colored
+                according to priority: lines of level ERROR and higher
+                are colored red, lines of level NOTICE and higher are
+                highlighted, and other lines are displayed normally.
+                </para>
         </refsect1>
 
         <refsect1>

@@ -357,7 +357,7 @@ Features:
   - refuse taking lower-case variable names in sd_journal_send() and friends.
   - journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
   - journal: deal nicely with byte-by-byte copied files, especially regards header
-  - journalctl: show multiline log messages sanely, expand tabs, and show all valid utf8 messages
+  - journalctl: expand tabs
   - journal: store euid in journal if it differs from uid
   - journal: sanely deal with entries which are larger than the individual file size, but where the components would fit
   - Replace utmp, wtmp, btmp, and lastlog completely with journal
