@@ -301,8 +301,6 @@ static int manager_watch_idle_pipe(Manager *m) {
         }
 
         log_debug("Set up idle_pipe watch.");
-        log_debug("m->epoll_fd=%d m->idle_pipe_watch.fd=%d",
-                  m->epoll_fd, m->idle_pipe_watch.fd);
 
         return 0;
 
@@ -317,8 +315,6 @@ static void manager_unwatch_idle_pipe(Manager *m) {
         if (m->idle_pipe_watch.type != WATCH_IDLE_PIPE)
                 return;
 
-        log_debug("m->epoll_fd=%d m->idle_pipe_watch.fd=%d",
-                  m->epoll_fd, m->idle_pipe_watch.fd);
         assert_se(epoll_ctl(m->epoll_fd, EPOLL_CTL_DEL, m->idle_pipe_watch.fd, NULL) >= 0);
         watch_init(&m->idle_pipe_watch);
 

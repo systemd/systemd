@@ -192,6 +192,40 @@
         </refsect1>
 
         <refsect1>
+                <title>Files</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>/etc/systemd/journald.conf</filename></term>
+
+                                <listitem><para>Configure
+                                <command>systemd-journald</command>
+                                behaviour. See
+                                <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/var/log/journal/<replaceable>machine-id</replaceable>/*.journal</filename></term>
+                                <term><filename>/var/log/journal/<replaceable>machine-id</replaceable>/*.journal~</filename></term>
+
+                                <listitem><para><command>systemd-journald</command>
+                                writes entries to files in
+                                <filename>/var/log/journal/<replaceable>machine-id</replaceable>/</filename>
+                                with the <literal>.journal</literal>
+                                suffix. If the daemon is stopped
+                                uncleanly, or if the files are found
+                                to be corrupted, they are renamed
+                                using the <literal>.journal~</literal>
+                                suffix, and
+                                <command>systemd-journald</command>
+                                starts writing to a new file.
+                                </para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
@@ -199,7 +233,8 @@
                         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <command>pydoc systemd.journal</command>.
                 </para>
         </refsect1>
 
