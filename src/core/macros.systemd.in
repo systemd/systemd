@@ -72,3 +72,7 @@ fi \
 %journal_catalog_update() \
 @rootbindir@/journalctl --update-catalog >/dev/null 2>&1 || : \
 %{nil}
+
+%tmpfiles_create() \
+@rootbindir@/systemd-tmpfiles --create %{?*} >/dev/null 2>&1 || : \
+%{nil}
