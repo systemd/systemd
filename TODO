@@ -56,6 +56,8 @@ CGroup Rework Completion:
 
 Features:
 
+* Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
+
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
 
 * add rpm macros for applying tmpfiles --create after package installation
