@@ -362,7 +362,7 @@ static char *match_make_string(Match *m) {
         bool enclose = false;
 
         if (!m)
-                return strdup("");
+                return strdup("none");
 
         if (m->type == MATCH_DISCRETE)
                 return strndup(m->data, m->size);

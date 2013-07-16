@@ -1059,7 +1059,12 @@ int show_journal_by_unit(
         if (r < 0)
                 return r;
 
-        log_debug("Journal filter: %s", journal_make_match_string(j));
+        if (_unlikely_(log_get_max_level() >= LOG_PRI(LOG_DEBUG))) {
+                _cleanup_free_ char *filter;
+
+                filter = journal_make_match_string(j);
+                log_debug("Journal filter: %s", filter);
+        }
 
         r = show_journal(f, j, mode, n_columns, not_before, how_many, flags);
         if (r < 0)

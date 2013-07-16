@@ -1408,7 +1408,12 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return EXIT_FAILURE;
 
-        log_debug("Journal filter: %s", j->level0 ? journal_make_match_string(j) : "none");
+        if (_unlikely_(log_get_max_level() >= LOG_PRI(LOG_DEBUG))) {
+                _cleanup_free_ char *filter;
+
+                filter = journal_make_match_string(j);
+                log_debug("Journal filter: %s", filter);
+        }
 
         if (arg_field) {
                 const void *data;
