@@ -233,53 +233,125 @@
 
                                 <listitem><para>Controls the
                                 formatting of the journal entries that
-                                are shown. Takes one of
-                                <literal>short</literal>,
-                                <literal>short-monotonic</literal>,
-                                <literal>verbose</literal>,
-                                <literal>export</literal>,
-                                <literal>json</literal>,
-                                <literal>json-pretty</literal>,
-                                <literal>json-sse</literal>,
-                                <literal>cat</literal>. <literal>short</literal>
-                                is the default and generates an output
-                                that is mostly identical to the
-                                formatting of classic syslog
-                                files, showing one line per journal
-                                entry. <literal>short-monotonic</literal>
-                                is very similar but shows monotonic
-                                timestamps instead of wallclock
-                                timestamps. <literal>verbose</literal>
-                                shows the full structured entry items
-                                with all
-                                fields. <literal>export</literal>
-                                serializes the journal into a binary
-                                (but mostly text-based) stream
-                                suitable for backups and network
-                                transfer (see <ulink
-                                url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal
-                                Export Format</ulink> for more
-                                information). <literal>json</literal>
-                                formats entries as JSON data
-                                structures, one per
-                                line (see <ulink
-                                url="http://www.freedesktop.org/wiki/Software/systemd/json">Journal
-                                JSON Format</ulink> for more
-                                information). <literal>json-pretty</literal>
-                                also formats entries as JSON data
-                                structures, but formats them in
-                                multiple lines in order to make them
-                                more readable for
-                                humans. <literal>json-sse</literal>
-                                also formats entries as JSON data
-                                structures, but wraps them in a format
-                                suitable for <ulink
-                                url="https://developer.mozilla.org/en-US/docs/Server-sent_events/Using_server-sent_events">Server-Sent
-                                Events</ulink>. <literal>cat</literal>
-                                generates a very terse output only
-                                showing the actual message of each
-                                journal entry with no meta data, not
-                                even a timestamp.</para></listitem>
+                                are shown. Takes one of the following options:
+                                </para>
+                                <variablelist>
+                                        <varlistentry>
+                                                <term>
+                                                        <option>short</option>
+                                                </term>
+                                                <listitem>
+                                                        <para>is the default
+                                                        and generates an output
+                                                        that is mostly identical
+                                                        to the formatting of
+                                                        classic syslog files,
+                                                        showing one line per
+                                                        journal entry.</para>
+                                                </listitem>
+                                        </varlistentry>
+
+                                        <varlistentry>
+                                                <term>
+                                                        <option>short-monotonic</option>
+                                                </term>
+                                                <listitem>
+                                                        <para>is very similar
+                                                        but shows monotonic
+                                                        timestamps instead of
+                                                        wallclock timestamps.
+                                                        </para>
+                                                </listitem>
+                                        </varlistentry>
+
+                                        <varlistentry>
+                                                <term>
+                                                        <option>verbose</option>
+                                                </term>
+                                                <listitem>
+                                                        <para>shows the
+                                                        full-structured entry
+                                                        items with all fields.
+                                                        </para>
+                                                </listitem>
+                                        </varlistentry>
+
+                                        <varlistentry>
+                                                <term>
+                                                        <option>export</option>
+                                                </term>
+                                                <listitem>
+                                                        <para>serializes the
+                                                        journal into a binary
+                                                        (but mostly text-based)
+                                                        stream suitable for
+                                                        backups and network
+                                                        transfer (see <ulink
+                                                        url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal
+                                                        Export Format</ulink>
+                                                        for more
+                                                        information).</para>
+                                                </listitem>
+                                        </varlistentry>
+
+                                        <varlistentry>
+                                                <term>
+                                                        <option>json</option>
+                                                </term>
+                                                <listitem>
+                                                        <para>formats entries
+                                                        as JSON data structures,
+                                                        one per line (see <ulink
+                                                        url="http://www.freedesktop.org/wiki/Software/systemd/json">Journal
+                                                        JSON Format</ulink> for
+                                                        more information).</para>
+                                                </listitem>
+                                        </varlistentry>
+
+                                        <varlistentry>
+                                                <term>
+                                                        <option>json-pretty</option>
+                                                </term>
+                                                <listitem>
+                                                        <para>formats entries as
+                                                        JSON data structures,
+                                                        but formats them in
+                                                        multiple lines in order
+                                                        to make them more
+                                                        readable for humans.</para>
+                                                </listitem>
+                                        </varlistentry>
+
+                                        <varlistentry>
+                                                <term>
+                                                        <option>json-sse</option>
+                                                </term>
+                                                <listitem>
+                                                        <para>formats entries as
+                                                        JSON data structures,
+                                                        but wraps them in a
+                                                        format suitable for <ulink
+                                                        url="https://developer.mozilla.org/en-US/docs/Server-sent_events/Using_server-sent_events">Server-Sent
+                                                        Events</ulink>.</para>
+                                                </listitem>
+                                        </varlistentry>
+
+                                        <varlistentry>
+                                                <term>
+                                                        <option>cat</option>
+                                                </term>
+                                                <listitem>
+                                                        <para>generates a very
+                                                        terse output only
+                                                        showing the actual
+                                                        message of each journal
+                                                        entry with no meta data,
+                                                        not even a timestamp.
+                                                        </para>
+                                                </listitem>
+                                        </varlistentry>
+                                </variablelist>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>

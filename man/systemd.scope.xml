@@ -59,7 +59,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     by systemd to encapsulate processes not launched by systemd
     itself. This management is performed by creating a node in the
     control group tree. Processes are moved into the scope by means
-    of the DBus API.
+    of the D-Bus API.
     <command>systemd-run <option>--scope</option></command> can be
     used to easily launch a command in a new scope unit.</para>
 
