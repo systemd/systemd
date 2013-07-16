@@ -275,9 +275,9 @@ int devnode_acl_all(struct udev *udev,
 
                         log_debug("Found static node %s for seat %s", n, seat);
                         r = set_put(nodes, n);
-                        if (0 && r < 0 && r != -EEXIST) {
+                        if (r < 0 && r != -EEXIST)
                                 goto finish;
-                        } else
+                        else
                                 r = 0;
                 }
         }
