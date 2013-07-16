@@ -183,7 +183,7 @@ int devnode_acl_all(struct udev *udev,
         Set *nodes;
         Iterator i;
         char *n;
-        DIR *dir;
+        _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
         int r;
 
@@ -258,35 +258,28 @@ int devnode_acl_all(struct udev *udev,
          * these devices are not known to the kernel at this moment */
         dir = opendir("/run/udev/static_node-tags/uaccess");
         if (dir) {
-                for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+                FOREACH_DIRENT(dent, dir, r = -errno; goto finish) {
                         _cleanup_free_ char *unescaped_devname = NULL;
-
-                        if (dent->d_name[0] == '.')
-                                continue;
 
                         unescaped_devname = cunescape(dent->d_name);
                         if (unescaped_devname == NULL) {
                                 r = -ENOMEM;
-                                closedir(dir);
                                 goto finish;
                         }
 
                         n = strappend("/dev/", unescaped_devname);
                         if (!n) {
                                 r = -ENOMEM;
-                                closedir(dir);
                                 goto finish;
                         }
 
                         log_debug("Found static node %s for seat %s", n, seat);
                         r = set_put(nodes, n);
                         if (0 && r < 0 && r != -EEXIST) {
-                                closedir(dir);
                                 goto finish;
                         } else
                                 r = 0;
                 }
-                closedir(dir);
         }
 
         SET_FOREACH(n, nodes, i) {
