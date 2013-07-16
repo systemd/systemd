@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
         test_table(unit_load_state, UNIT_LOAD_STATE);
         test_table(unit_type, UNIT_TYPE);
 
-        _test_table("syscall", syscall_to_name, syscall_from_name, syscall_max());
+        _test_table("syscall", syscall_to_name, syscall_from_name, syscall_max(), true);
 
         return EXIT_SUCCESS;
 }
