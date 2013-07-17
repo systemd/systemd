@@ -31,6 +31,9 @@ SUBDIRS = . po
 # keep intermediate files
 .SECONDARY:
 
+# Keep the test-suite.log
+.PRECIOUS: $(TEST_SUITE_LOG)
+
 LIBUDEV_CURRENT=4
 LIBUDEV_REVISION=6
 LIBUDEV_AGE=3
