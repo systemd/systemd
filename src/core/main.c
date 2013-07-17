@@ -1145,25 +1145,6 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         return 0;
 }
 
-static struct dual_timestamp* parse_initrd_timestamp(struct dual_timestamp *t) {
-        const char *e;
-        unsigned long long a, b;
-
-        assert(t);
-
-        e = getenv("RD_TIMESTAMP");
-        if (!e)
-                return NULL;
-
-        if (sscanf(e, "%llu %llu", &a, &b) != 2)
-                return NULL;
-
-        t->realtime = (usec_t) a;
-        t->monotonic = (usec_t) b;
-
-        return t;
-}
-
 static void test_mtab(void) {
         char *p;
 
@@ -1484,12 +1465,6 @@ int main(int argc, char *argv[]) {
                arg_running_as == SYSTEMD_SYSTEM);
 
         if (arg_running_as == SYSTEMD_SYSTEM) {
-                /* Parse the data passed to us. We leave this
-                 * variables set, but the manager later on will not
-                 * pass them on to our children. */
-                if (!in_initrd())
-                        parse_initrd_timestamp(&initrd_timestamp);
-
                 /* Unset some environment variables passed in from the
                  * kernel that don't really make sense for us. */
                 unsetenv("HOME");
