@@ -68,6 +68,14 @@ Features:
 
 * when a kernel driver logs in a tight loop we should ratelimit that too.
 
+* man: document in the journalctl man page what the colors mean
+
+* "systemctl disable" of a unit instance removes all symlinks, should
+  only remove the instance symlink (systemct disable of a template
+  unit however should remove them all).
+
+* journald: optionally, log debug messages to /run but everything else to /var
+
 * journald: optionally, when messages with a high log prioerity are logged, sync() immeidately.
 
 * introduce %v resolving to the string returned by "uname -r"
