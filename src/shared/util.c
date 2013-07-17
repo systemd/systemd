@@ -1875,8 +1875,10 @@ int open_terminal(const char *name, int mode) {
          * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
          */
 
+        assert(!(mode & O_CREAT));
+
         for (;;) {
-                fd = open(name, mode);
+                fd = open(name, mode, 0);
                 if (fd >= 0)
                         break;
 
@@ -3520,7 +3522,9 @@ DIR *xopendirat(int fd, const char *name, int flags) {
         int nfd;
         DIR *d;
 
-        nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
+        assert(!(flags & O_CREAT));
+
+        nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags, 0);
         if (nfd < 0)
                 return NULL;
 
