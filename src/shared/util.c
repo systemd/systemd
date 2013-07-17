@@ -367,7 +367,7 @@ int safe_atolli(const char *s, long long int *ret_lli) {
 
 int safe_atod(const char *s, double *ret_d) {
         char *x = NULL;
-        double d;
+        double d = 0;
 
         assert(s);
         assert(ret_d);
@@ -5752,7 +5752,7 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *sear
 
 int create_tmp_dir(char template[], char** dir_name) {
         int r = 0;
-        char *d, *dt;
+        char *d = NULL, *dt;
 
         assert(dir_name);
 
