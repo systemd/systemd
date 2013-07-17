@@ -350,14 +350,8 @@ static int nftw_cb(
 };
 
 int mount_setup(bool loaded_policy) {
-
-        static const char relabel[] =
-                "/run/initramfs/root-fsck\0"
-                "/run/initramfs/shutdown\0";
-
         int r;
         unsigned i;
-        const char *j;
 
         for (i = 0; i < ELEMENTSOF(mount_table); i ++) {
                 r = mount_one(mount_table + i, true);
@@ -378,10 +372,6 @@ int mount_setup(bool loaded_policy) {
 
                 nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
                 nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
-
-                /* Explicitly relabel these */
-                NULSTR_FOREACH(j, relabel)
-                        label_fix(j, true, false);
 
                 after_relabel = now(CLOCK_MONOTONIC);
 
