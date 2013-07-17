@@ -66,15 +66,13 @@ Features:
 
 * when a kernel driver logs in a tight loop we should ratelimit that too.
 
-* man: document in the journalctl man page what the colors mean
-
 * "systemctl disable" of a unit instance removes all symlinks, should
-  only remove the instance symlink (systemct disable of a template
+  only remove the instance symlink (systemctl disable of a template
   unit however should remove them all).
 
 * journald: optionally, log debug messages to /run but everything else to /var
 
-* journald: optionally, when messages with a high log prioerity are logged, sync() immeidately.
+* journald: optionally, when messages with a high log priority are logged, sync() immediately.
 
 * introduce %v resolving to the string returned by "uname -r"
 
@@ -117,7 +115,7 @@ Features:
   validity of session name before appending it to a path
 
 * gparted needs to disable auto-activation of mount units somehow, or
-  maybe we should stop doing auto-activiation of this after boot
+  maybe we should stop doing auto-activation of this after boot
   entirely. https://bugzilla.gnome.org/show_bug.cgi?id=701676
 
 * when a service changes state make reflect that in the
@@ -174,9 +172,9 @@ Features:
 * Introduce a way how we can kill the main process of a service with KillSignal, but all processes with SIGKILL later on
   https://bugzilla.redhat.com/show_bug.cgi?id=952634
 
-* maybe add a warning to the unit file parses whern the acces mode of unit files is non-sensical.
+* maybe add a warning to the unit file parses where the access mode of unit files is nonsensical.
 
-* investigate endianess issues of UUID vs. GUID
+* investigate endianness issues of UUID vs. GUID
 
 * dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
   should be able to safely try another attempt when the bus call LoadUnit() is invoked.
@@ -251,7 +249,7 @@ Features:
   and we might want to requeue the mounts local-fs acquired through
   that automatically.
 
-* rework specifier logic so that we can distuingish OOM errors from other errors
+* rework specifier logic so that we can distinguish OOM errors from other errors
 
 * systemd-inhibit: make taking delay locks useful: support sending SIGINT or SIGTERM on PrepareForSleep()
 
@@ -261,13 +259,13 @@ Features:
 
 * documentation: recommend to connect the timer units of a service to the service via Also= in [Install]
 
-* add a tool that lists active timer units plus their next elapstion and the time the units ran last
+* add a tool that lists active timer units plus their next elapse and the time the units ran last
 
 * man: document the very specific env the shutdown drop-in tools live in
 
 * shutdown logging: store to EFI var, and store to USB stick?
 
-* man: extend runlevel(8) to mention that runlevels suck, and are dead. Maybe  add runlevel(7) with a note about that too
+* man: extend runlevel(8) to mention that runlevels suck, and are dead. Maybe add runlevel(7) with a note about that too
 
 * systemctl: maybe add "systemctl add-wants" or so...
 
