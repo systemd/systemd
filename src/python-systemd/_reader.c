@@ -30,6 +30,7 @@
 #include "pyutil.h"
 #include "macro.h"
 #include "util.h"
+#include "strv.h"
 #include "build.h"
 
 typedef struct {
@@ -63,6 +64,57 @@ static PyStructSequence_Desc Monotonic_desc = {
 };
 #endif
 
+static int strv_converter(PyObject* obj, void *_result) {
+        char ***result = _result;
+        Py_ssize_t i, len;
+
+        assert(result);
+
+        if (!obj)
+            goto cleanup;
+
+        if (!PySequence_Check(obj))
+            return 0;
+
+        len = PySequence_Length(obj);
+        *result = new0(char*, len + 1);
+
+        for (i = 0; i < len; i++) {
+            PyObject *item;
+#if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 1
+            int r;
+            PyObject *bytes;
+#endif
+            char *s, *s2;
+
+            item = PySequence_ITEM(obj, i);
+#if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 1
+            r = PyUnicode_FSConverter(item, &bytes);
+            if (r == 0)
+                goto cleanup;
+
+            s = PyBytes_AsString(bytes);
+#else
+            s = PyString_AsString(item);
+#endif
+            if (!s)
+                goto cleanup;
+
+            s2 = strdup(s);
+            if (!s2)
+                log_oom();
+
+            (*result)[i] = s2;
+        }
+
+        return 1;
+
+cleanup:
+        strv_free(*result);
+        *result = NULL;
+
+        return 0;
+}
 
 static void Reader_dealloc(Reader* self)
 {
@@ -71,40 +123,45 @@ static void Reader_dealloc(Reader* self)
 }
 
 PyDoc_STRVAR(Reader__doc__,
-             "_Reader([flags | path]) -> ...\n\n"
+             "_Reader([flags | path | files]) -> ...\n\n"
              "_Reader allows filtering and retrieval of Journal entries.\n"
              "Note: this is a low-level interface, and probably not what you\n"
              "want, use systemd.journal.Reader instead.\n\n"
              "Argument `flags` sets open flags of the journal, which can be one\n"
              "of, or ORed combination of constants: LOCAL_ONLY (default) opens\n"
              "journal on local machine only; RUNTIME_ONLY opens only\n"
-             "volatile journal files; and SYSTEM_ONLY opens only\n"
-             "journal files of system services and the kernel.\n\n"
-             "Argument `path` is the directory of journal files. Note that\n"
-             "`flags` and `path` are exclusive.\n\n"
+             "volatile journal files; and SYSTEM opens journal files of\n"
+             "system services and the kernel, and CURRENT_USER opens files\n"
+             "of the current user.\n\n"
+             "Argument `path` is the directory of journal files.\n"
+             "Argument `files` is a list of files. Note that\n"
+             "`flags`, `path`, and `files` are exclusive.\n\n"
              "_Reader implements the context manager protocol: the journal\n"
              "will be closed when exiting the block.");
 static int Reader_init(Reader *self, PyObject *args, PyObject *keywds)
 {
     int flags = 0, r;
     char *path = NULL;
+    char **files = NULL;
 
-    static const char* const kwlist[] = {"flags", "path", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "|iz", (char**) kwlist,
-                                     &flags, &path))
+    static const char* const kwlist[] = {"flags", "path", "files", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "|izO&", (char**) kwlist,
+                                     &flags, &path, strv_converter, &files))
         return -1;
+
+    if (!!flags + !!path + !!files > 1) {
+        PyErr_SetString(PyExc_ValueError, "cannot use more than one of flags, path, and files");
+        return -1;
+    }
 
     if (!flags)
         flags = SD_JOURNAL_LOCAL_ONLY;
-    else
-        if (path) {
-            PyErr_SetString(PyExc_ValueError, "cannot use both flags and path");
-            return -1;
-        }
 
     Py_BEGIN_ALLOW_THREADS
     if (path)
         r = sd_journal_open_directory(&self->j, path, 0);
+    else if (files)
+        r = sd_journal_open_files(&self->j, (const char**) files, 0);
     else
         r = sd_journal_open(&self->j, flags);
     Py_END_ALLOW_THREADS
@@ -1099,6 +1156,7 @@ init_reader(void)
         PyModule_AddIntConstant(m, "RUNTIME_ONLY", SD_JOURNAL_RUNTIME_ONLY) ||
         PyModule_AddIntConstant(m, "SYSTEM", SD_JOURNAL_SYSTEM) ||
         PyModule_AddIntConstant(m, "SYSTEM_ONLY", SD_JOURNAL_SYSTEM_ONLY) ||
+        PyModule_AddIntConstant(m, "CURRENT_USER", SD_JOURNAL_CURRENT_USER) ||
         PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION)) {
 #if PY_MAJOR_VERSION >= 3
         Py_DECREF(m);

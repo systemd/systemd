@@ -30,6 +30,10 @@ void cleanup_Py_DECREFp(PyObject **p);
 PyObject* absolute_timeout(uint64_t t);
 int set_error(int r, const char* path, const char* invalid_message);
 
+#if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 1
+int Unicode_FSConverter(PyObject* obj, void *_result);
+#endif
+
 #define _cleanup_Py_DECREF_ __attribute__((cleanup(cleanup_Py_DECREFp)))
 
 #if PY_MAJOR_VERSION >=3

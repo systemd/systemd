@@ -33,7 +33,8 @@ from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
                     LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG)
 from ._journal import __version__, sendv, stream_fd
 from ._reader import (_Reader, NOP, APPEND, INVALIDATE,
-                      LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY,
+                      LOCAL_ONLY, RUNTIME_ONLY,
+                      SYSTEM, SYSTEM_ONLY, CURRENT_USER,
                       _get_catalog)
 from . import id128 as _id128
 
@@ -123,7 +124,7 @@ class Reader(_Reader):
     See systemd.journal-fields(7) for more info on typical fields
     found in the journal.
     """
-    def __init__(self, flags=0, path=None, converters=None):
+    def __init__(self, flags=0, path=None, files=None, converters=None):
         """Create an instance of Reader, which allows filtering and
         return of journal entries.
 
@@ -149,7 +150,7 @@ class Reader(_Reader):
         Reader implements the context manager protocol: the journal
         will be closed when exiting the block.
         """
-        super(Reader, self).__init__(flags, path)
+        super(Reader, self).__init__(flags, path, files)
         if _sys.version_info >= (3,3):
             self.converters = _ChainMap()
             if converters is not None:
