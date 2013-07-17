@@ -1005,7 +1005,6 @@ AC_MSG_RESULT([
         nss-myhostname:          ${have_myhostname}
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
-        keymap:                  ${enable_keymap}
         Python:                  ${have_python}
         Python Headers:          ${have_python_devel}
         man pages:               ${have_manpages}

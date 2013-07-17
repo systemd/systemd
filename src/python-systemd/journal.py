@@ -191,18 +191,18 @@ class Reader(_Reader):
         """
         return self
 
-    if _sys.version_info >= (3,):
-        def __next__(self):
-            """Part of iterator protocol.
-            Returns self.get_next().
-            """
-            return self.get_next()
-    else:
-        def next(self):
-            """Part of iterator protocol.
-            Returns self.get_next().
-            """
-            return self.get_next()
+    def __next__(self):
+        """Part of iterator protocol.
+        Returns self.get_next() or raises StopIteration.
+        """
+        ans = self.get_next()
+        if ans:
+            return ans
+        else:
+            raise StopIteration()
+
+    if _sys.version_info < (3,):
+        next = __next__
 
     def add_match(self, *args, **kwargs):
         """Add one or more matches to the filter journal log entries.
