@@ -381,7 +381,8 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
                 n_shown++;
 
-                if (streq(u->load_state, "error")) {
+                if (streq(u->load_state, "error") ||
+                    streq(u->load_state, "not-found")) {
                         on_loaded = on = ansi_highlight_red(true);
                         off_loaded = off = ansi_highlight_red(false);
                 } else
