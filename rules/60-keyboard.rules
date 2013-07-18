@@ -9,14 +9,14 @@ SUBSYSTEMS=="bluetooth", GOTO="keyboard_end"
 
 # import key mapping for USB device
 SUBSYSTEMS=="usb", IMPORT{builtin}="hwdb --subsystem=usb --lookup-prefix=keyboard:", \
-  RUN{program}+="keyboard", GOTO="keyboard_end"
+  RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
 # import key mapping for AT keyboard from DMI data
 DRIVERS=="atkbd", IMPORT{builtin}="hwdb 'keyboard:$attr{[dmi/id]modalias}'", \
-  RUN{program}+="keyboard", GOTO="keyboard_end"
+  RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
 # import key mapping for platform input device
 KERNELS=="input*", IMPORT{builtin}="hwdb 'keyboard:name:$attr{name}:$attr{[dmi/id]modalias}'", \
-  RUN{program}+="keyboard", GOTO="keyboard_end"
+  RUN{builtin}+="keyboard", GOTO="keyboard_end"
 
 LABEL="keyboard_end"
