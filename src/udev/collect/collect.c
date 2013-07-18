@@ -442,19 +442,19 @@ int main(int argc, char **argv)
 
                         if (debug)
                                 fprintf(stderr, "ID %s: not in database\n", argv[i]);
-                        him = malloc(sizeof (struct _mate));
+                        him = new(struct _mate, 1);
                         if (!him) {
                                 ret = ENOMEM;
                                 goto out;
                         }
 
-                        him->name = malloc(strlen(argv[i]) + 1);
+                        him->name = strdup(argv[i]);
                         if (!him->name) {
+                                free(him);
                                 ret = ENOMEM;
                                 goto out;
                         }
 
-                        strcpy(him->name, argv[i]);
                         him->state = STATE_NONE;
                         udev_list_node_append(&him->node, &bunch);
                 } else {
