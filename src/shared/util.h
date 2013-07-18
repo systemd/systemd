@@ -735,3 +735,5 @@ static inline void _reset_locale_(struct _locale_struct_ *s) {
 
 bool id128_is_valid(const char *s) _pure_;
 void parse_user_at_host(char *arg, char **user, char **host);
+
+int split_pair(const char *s, const char *sep, char **l, char **r);

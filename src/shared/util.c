@@ -5946,3 +5946,34 @@ void parse_user_at_host(char *arg, char **user, char **host) {
                 *user = arg;
         }
 }
+
+int split_pair(const char *s, const char *sep, char **l, char **r) {
+        char *x, *a, *b;
+
+        assert(s);
+        assert(sep);
+        assert(l);
+        assert(r);
+
+        if (isempty(sep))
+                return -EINVAL;
+
+        x = strstr(s, sep);
+        if (!x)
+                return -EINVAL;
+
+        a = strndup(s, x - s);
+        if (!a)
+                return -ENOMEM;
+
+        b = strdup(x + strlen(sep));
+        if (!b) {
+                free(a);
+                return -ENOMEM;
+        }
+
+        *l = a;
+        *r = b;
+
+        return 0;
+}

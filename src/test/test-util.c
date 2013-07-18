@@ -521,6 +521,28 @@ static void test_parse_user_at_host(void) {
         assert_se(streq(host, "mikescomputer"));
 }
 
+static void test_split_pair(void) {
+        _cleanup_free_ char *a = NULL, *b = NULL;
+
+        assert_se(split_pair("", "", &a, &b) == -EINVAL);
+        assert_se(split_pair("foo=bar", "", &a, &b) == -EINVAL);
+        assert_se(split_pair("", "=", &a, &b) == -EINVAL);
+        assert_se(split_pair("foo=bar", "=", &a, &b) >= 0);
+        assert_se(streq(a, "foo"));
+        assert_se(streq(b, "bar"));
+        free(a);
+        free(b);
+        assert_se(split_pair("==", "==", &a, &b) >= 0);
+        assert_se(streq(a, ""));
+        assert_se(streq(b, ""));
+        free(a);
+        free(b);
+
+        assert_se(split_pair("===", "==", &a, &b) >= 0);
+        assert_se(streq(a, ""));
+        assert_se(streq(b, "="));
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -555,6 +577,7 @@ int main(int argc, char *argv[]) {
         test_strextend();
         test_strrep();
         test_parse_user_at_host();
+        test_split_pair();
 
         return 0;
 }
