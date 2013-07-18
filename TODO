@@ -56,6 +56,8 @@ CGroup Rework Completion:
 
 Features:
 
+* btfs raid assembly: some .device jobs stay stuck in the queue
+
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
