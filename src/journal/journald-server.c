@@ -845,6 +845,11 @@ void server_dispatch_message(
         if (LOG_PRI(priority) > s->max_level_store)
                 return;
 
+        /* Stop early in case the information will not be stored
+         * in a journal. */
+        if (s->storage == STORAGE_NONE)
+                return;
+
         if (!ucred)
                 goto finish;
 
