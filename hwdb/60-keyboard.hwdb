@@ -569,12 +569,12 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad U300s*:pvr*
 
 # iTouch
 keyboard:usb:v046DpC308*
- KEYBOARD_KEY_90001=shop        # Shopping
- KEYBOARD_KEY_90002=config      # iTouch
- KEYBOARD_KEY_90003=finance     # Finance
- KEYBOARD_KEY_90004=prog1       # My Sites
- KEYBOARD_KEY_90005=prog2       # Community
- KEYBOARD_KEY_C0183=media       # Media
+ KEYBOARD_KEY_90001=shop                                # Shopping
+ KEYBOARD_KEY_90002=config                              # iTouch
+ KEYBOARD_KEY_90003=finance                             # Finance
+ KEYBOARD_KEY_90004=prog1                               # My Sites
+ KEYBOARD_KEY_90005=prog2                               # Community
+ KEYBOARD_KEY_C0183=media                               # Media
 
 # Cordless Desktop S510
 keyboard:usb:v046DpC50C*
@@ -583,21 +583,21 @@ keyboard:usb:v046DpC50C*
 
 # Wave cordless
 keyboard:usb:v046DpC317*
- KEYBOARD_KEY_9001c=scale       #expo
+ KEYBOARD_KEY_9001c=scale                               # expo
  KEYBOARD_KEY_9001f=zoomout
  KEYBOARD_KEY_90020=zoomin
- KEYBOARD_KEY_9003d=prog1       #gadget
+ KEYBOARD_KEY_9003d=prog1                               # gadget
  KEYBOARD_KEY_90005=camera
  KEYBOARD_KEY_90018=media
  KEYBOARD_KEY_90041=wordprocessor
  KEYBOARD_KEY_90042=spreadsheet
  KEYBOARD_KEY_90043=calendar
- KEYBOARD_KEY_90044=prog2       #fn+f4 (program a)
- KEYBOARD_KEY_90045=prog3       #fn+f5 (program b)
- KEYBOARD_KEY_90046=prog4       #fn+f6 (program c)
- KEYBOARD_KEY_90048=messenger   #fn+f8 (msn messenger)
- KEYBOARD_KEY_9002d=search      #fn+f10 (search www)
- KEYBOARD_KEY_9004b=find        #fn+f11 (search pc)
+ KEYBOARD_KEY_90044=prog2                               # fn+f4 (program a)
+ KEYBOARD_KEY_90045=prog3                               # fn+f5 (program b)
+ KEYBOARD_KEY_90046=prog4                               # fn+f6 (program c)
+ KEYBOARD_KEY_90048=messenger                           # fn+f8 (msn messenger)
+ KEYBOARD_KEY_9002d=search                              # fn+f10 (search www)
+ KEYBOARD_KEY_9004b=find                                # fn+f11 (search pc)
  KEYBOARD_KEY_9004c=ejectclosecd
 
 # Wave cordless
@@ -609,11 +609,11 @@ keyboard:usb:v046DpC517*
  KEYBOARD_KEY_c1041=wordprocessor
  KEYBOARD_KEY_c1042=spreadsheet
  KEYBOARD_KEY_c1043=calendar
- KEYBOARD_KEY_c1044=prog2               #fn+f4 (program a)
- KEYBOARD_KEY_c1045=prog3               #fn+f5 (program b)
- KEYBOARD_KEY_c1046=prog4               #fn+f6 (program c)
- KEYBOARD_KEY_c1048=messenger           #fn+f8 (msn messenger)
- KEYBOARD_KEY_c104a=find                #fn+f10 (search www)
+ KEYBOARD_KEY_c1044=prog2                               # fn+f4 (program a)
+ KEYBOARD_KEY_c1045=prog3                               # fn+f5 (program b)
+ KEYBOARD_KEY_c1046=prog4                               # fn+f6 (program c)
+ KEYBOARD_KEY_c1048=messenger                           # fn+f8 (msn messenger)
+ KEYBOARD_KEY_c104a=find                                # fn+f10 (search www)
  KEYBOARD_KEY_c104c=ejectclosecd
 
 # Cordless Wave Pro
