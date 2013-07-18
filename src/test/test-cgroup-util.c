@@ -23,6 +23,7 @@
 
 #include "util.h"
 #include "cgroup-util.h"
+#include "test-helper.h"
 
 static void check_p_d_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;
@@ -239,9 +240,9 @@ int main(void) {
         test_path_get_session();
         test_path_get_owner_uid();
         test_path_get_machine_name();
-        test_get_paths();
+        TEST_REQ_RUNNING_SYSTEMD(test_get_paths());
         test_proc();
-        test_escape();
+        TEST_REQ_RUNNING_SYSTEMD(test_escape());
         test_controller_is_valid();
         test_slice_to_path();
 

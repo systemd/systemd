@@ -31,6 +31,16 @@
 #include "sd-messages.h"
 #include "catalog.h"
 
+static const char *catalog_dirs[] = {
+        CATALOG_DIR,
+        NULL,
+};
+
+static const char *no_catalog_dirs[] = {
+        "/bin/hopefully/with/no/catalog",
+        NULL
+};
+
 static void test_import(Hashmap *h, struct strbuf *sb,
                         const char* contents, ssize_t size, int code) {
         int r;
@@ -100,9 +110,13 @@ static void test_catalog_update(void) {
         r = catalog_update(database, NULL, NULL);
         assert(r >= 0);
 
-        /* Note: this might actually not find anything, if systemd was
-         * not installed before. That should be fine too. */
-        r = catalog_update(database, NULL, catalog_file_dirs);
+        /* Test what happens if there are no files in the directory. */
+        r = catalog_update(database, NULL, no_catalog_dirs);
+        assert(r >= 0);
+
+        /* Make sure that we at least have some files loaded or the
+           catalog_list below will fail. */
+        r = catalog_update(database, NULL, catalog_dirs);
         assert(r >= 0);
 }
 

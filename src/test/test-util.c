@@ -397,6 +397,7 @@ static void test_u64log2(void) {
 }
 
 static void test_get_process_comm(void) {
+        struct stat st;
         _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL;
         unsigned long long b;
         pid_t e;
@@ -405,8 +406,12 @@ static void test_get_process_comm(void) {
         dev_t h;
         int r;
 
-        assert_se(get_process_comm(1, &a) >= 0);
-        log_info("pid1 comm: '%s'", a);
+        if (stat("/proc/1/comm", &st) == 0) {
+                assert_se(get_process_comm(1, &a) >= 0);
+                log_info("pid1 comm: '%s'", a);
+        } else {
+                log_warning("/proc/1/comm does not exist.");
+        }
 
         assert_se(get_starttime_of_pid(1, &b) >= 0);
         log_info("pid1 starttime: '%llu'", b);

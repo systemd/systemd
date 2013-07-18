@@ -25,6 +25,7 @@
 
 #include "util.h"
 #include "macro.h"
+#include "sd-daemon.h"
 
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)
 #define STR_WALDI "0102030405060708090a0b0c0d0e0f10"
@@ -41,11 +42,13 @@ int main(int argc, char *argv[]) {
         assert_se(sd_id128_from_string(t, &id2) == 0);
         assert_se(sd_id128_equal(id, id2));
 
-        assert_se(sd_id128_get_machine(&id) == 0);
-        printf("machine: %s\n", sd_id128_to_string(id, t));
+        if (sd_booted() > 0) {
+                assert_se(sd_id128_get_machine(&id) == 0);
+                printf("machine: %s\n", sd_id128_to_string(id, t));
 
-        assert_se(sd_id128_get_boot(&id) == 0);
-        printf("boot: %s\n", sd_id128_to_string(id, t));
+                assert_se(sd_id128_get_boot(&id) == 0);
+                printf("boot: %s\n", sd_id128_to_string(id, t));
+        }
 
         printf("waldi: %s\n", sd_id128_to_string(ID128_WALDI, t));
         assert_se(streq(t, STR_WALDI));

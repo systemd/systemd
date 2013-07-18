@@ -34,6 +34,7 @@
 #include "specifier.h"
 #include "util.h"
 #include "macro.h"
+#include "test-helper.h"
 
 static void test_replacements(void) {
 #define expect(pattern, repl, expected)                            \
@@ -196,6 +197,8 @@ static int test_unit_printf(void) {
 }
 
 int main(int argc, char* argv[]) {
+        int rc = 0;
         test_replacements();
-        return test_unit_printf();
+        TEST_REQ_RUNNING_SYSTEMD(rc = test_unit_printf());
+        return rc;
 }

@@ -1143,6 +1143,9 @@ EXTRA_DIST += \
 	test/sched_rr_ok.service \
 	test/sched_rr_change.service
 
+EXTRA_DIST += \
+	src/test/test-helper.h
+
 test_engine_SOURCES = \
 	src/test/test-engine.c
 
@@ -1341,7 +1344,8 @@ test_cgroup_util_SOURCES = \
 
 test_cgroup_util_LDADD = \
 	libsystemd-label.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-daemon.la
 
 test_env_replace_SOURCES = \
 	src/test/test-env-replace.c
@@ -2680,7 +2684,8 @@ test_id128_SOURCES = \
 
 test_id128_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-id128-internal.la
+	libsystemd-id128-internal.la \
+	libsystemd-daemon.la
 
 tests += \
 	test-id128
@@ -2851,6 +2856,10 @@ test_mmap_cache_LDADD = \
 
 test_catalog_SOURCES = \
 	src/journal/test-catalog.c
+
+test_catalog_CFLAGS = \
+	$(AM_CFLAGS) \
+	-DCATALOG_DIR=\"$(abs_top_srcdir)/catalog\"
 
 test_catalog_LDADD = \
 	libsystemd-shared.la \

@@ -35,6 +35,7 @@
 #include "load-fragment.h"
 #include "strv.h"
 #include "fileio.h"
+#include "test-helper.h"
 
 static int test_unit_file_get_set(void) {
         int r;
@@ -366,7 +367,7 @@ int main(int argc, char *argv[]) {
         test_load_env_file_2();
         test_load_env_file_3();
         test_load_env_file_4();
-        test_install_printf();
+        TEST_REQ_RUNNING_SYSTEMD(test_install_printf());
 
         return r;
 }
