@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
         /* prepare the test */
         assert_se(set_unit_path(TEST_DIR) >= 0);
         r = manager_new(SYSTEMD_USER, false, &m);
-        if (r == -EPERM) {
+        if (r == -EPERM || r == -EACCES) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;
         }
