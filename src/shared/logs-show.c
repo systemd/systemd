@@ -273,9 +273,14 @@ static int output_short(
                 }
 
                 t = (time_t) (x / USEC_PER_SEC);
-                if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm)) <= 0) {
+                if (mode == OUTPUT_SHORT_ISO)
+                        r = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", localtime_r(&t, &tm));
+                else
+                        r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm));
+
+                if (r <= 0) {
                         log_error("Failed to format time.");
-                        return r;
+                        return -EINVAL;
                 }
 
                 fputs(buf, f);
@@ -798,6 +803,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
 
         [OUTPUT_SHORT] = output_short,
         [OUTPUT_SHORT_MONOTONIC] = output_short,
+        [OUTPUT_SHORT_ISO] = output_short,
         [OUTPUT_VERBOSE] = output_verbose,
         [OUTPUT_EXPORT] = output_export,
         [OUTPUT_JSON] = output_json,
@@ -1076,6 +1082,7 @@ int show_journal_by_unit(
 static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT] = "short",
         [OUTPUT_SHORT_MONOTONIC] = "short-monotonic",
+        [OUTPUT_SHORT_ISO] = "short-iso",
         [OUTPUT_VERBOSE] = "verbose",
         [OUTPUT_EXPORT] = "export",
         [OUTPUT_JSON] = "json",

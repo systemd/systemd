@@ -266,6 +266,18 @@
 
                                         <varlistentry>
                                                 <term>
+                                                        <option>short-iso</option>
+                                                </term>
+                                                <listitem>
+                                                        <para>is very similar
+                                                        but shows ISO 8601
+                                                        wallclock timestamps.
+                                                        </para>
+                                                </listitem>
+                                        </varlistentry>
+
+                                        <varlistentry>
+                                                <term>
                                                         <option>verbose</option>
                                                 </term>
                                                 <listitem>

@@ -133,7 +133,7 @@ static int help(void) {
                "  -n --lines[=INTEGER]     Number of journal entries to show\n"
                "     --no-tail             Show all lines, even in follow mode\n"
                "  -r --reverse             Show the newest entries first\n"
-               "  -o --output=STRING       Change journal output mode (short, short-monotonic,\n"
+               "  -o --output=STRING       Change journal output mode (short, short-monotonic, short-iso\n"
                "                           verbose, export, json, json-pretty, json-sse, cat)\n"
                "  -x --catalog             Add message explanations where available\n"
                "  -l --full                Do not ellipsize fields\n"
