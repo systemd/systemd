@@ -19,7 +19,7 @@ Bugfixes:
     $ cat /proc/252/environ
     initrd=\6a9857a393724b7a981ebb5b8495b9ea\3.10.0-2.fc20.x86_64\initrd
 
-Fedora 19:
+Fedora 20:
 
 * external: maybe it is time to patch procps so that "ps" links to
   libsystemd-logind to print a pretty service name, seat name, session
@@ -33,6 +33,7 @@ Fedora 19:
   - localectl: support new converted x11→console keymaps
 
 * when installing fedora with yum --installroot /var/run is a directory, not a symlink
+   https://bugzilla.redhat.com/show_bug.cgi?id=975864
 
 CGroup Rework Completion:
 
@@ -80,9 +81,6 @@ Features:
 
 * systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
 
-* Get rid of systemd-sysv:
-  https://fedoraproject.org/wiki/User:Toshio/Systemd_Convert_draft
-
 * do we really need both hasprefix() and startswith()?
 
 * when a kernel driver logs in a tight loop we should ratelimit that too.
@@ -119,6 +117,8 @@ Features:
 * gparted needs to disable auto-activation of mount units somehow, or
   maybe we should stop doing auto-activation of this after boot
   entirely. https://bugzilla.gnome.org/show_bug.cgi?id=701676
+  Maybe take a BSD lock at the disk device node and teach udev to
+  check for that and suppress event handling.
 
 * when a service changes state make reflect that in the
   RUNNING/LISTENING states of its socket
@@ -205,8 +205,6 @@ Features:
   - make stuff in test/ work with separate output dir
   - remove all the duplicated code in test/
 
-* suppress log output on shutdown when "quiet" is used
-
 * systemctl delete x.snapshot leaves no trace in logs (at least at default level).
 
 * make the coredump collector tool move itself into the user's cgroup
@@ -222,10 +220,6 @@ Features:
 
 * when isolating, try to figure out a way how we implicitly can order
   all units we stop before the isolating unit...
-
-* teach udev + logind's uaccess to somehow handle the "dead" device nodes from:
-     /lib/modules/$(uname -r)/modules.devname
-  and apply ACLs to them if they have TAG=="uaccess" in udev rules.
 
 * add ConditionArchitecture= or so
 
@@ -305,7 +299,7 @@ Features:
   - write man page for efi boot generator
   - honor language efi variables for default language selection (if there are any?)
   - honor timezone efi variables for default timezone selection (if there are any?)
-  - introduce bootctl (backed by systemd-bootd) to control temporary and persistent default boot goal plus efi variables
+  - change bootctl to be backed by systemd-bootd to control temporary and persistent default boot goal plus efi variables
 
 * maybe do not install getty@tty1.service symlink in /etc but in /usr?
 
@@ -421,10 +415,6 @@ Features:
   This takes care of syncing ntpdate updates to the RTC, and DST updates for localtime
   mode, it will never touch the RTC if the no reliable time source is active or the
   user did not request anything like it.
-
-* hwdb:
-  - implement conditional properties (dmi matches)
-  - hwdb --filter=ID_DRIVE_*
 
 * if booted in "quiet" mode, and an error happens, turn on status
   output again, so that the emergency mode isn't totally
