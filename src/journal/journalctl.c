@@ -744,7 +744,7 @@ static int get_relative_boot_id(sd_journal *j, sd_id128_t *boot_id, int relative
 
                 if (!id ||
                     relative <= 0 ? (id - all_ids) + relative < 0 :
-                                    (id - all_ids) + relative >= count)
+                                    (id - all_ids) + relative >= (int) count)
                         return -EADDRNOTAVAIL;
 
                 *boot_id = (id + relative)->id;
@@ -781,7 +781,7 @@ static int add_boot(sd_journal *j) {
 
                 offset = arg_boot_descriptor + 32;
 
-                if (*offset != '-' && *offset != '+') {
+                if (*offset && *offset != '-' && *offset != '+') {
                         log_error("Relative boot ID offset must start with a '+' or a '-', found '%s' ", offset);
                         return -EINVAL;
                 }
