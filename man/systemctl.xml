@@ -94,22 +94,26 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem>
           <para>The argument should be a comma-separated list of unit
           types such as <option>service</option> and
-          <option>socket</option>, or unit load states such as
-          <option>loaded</option> and <option>masked</option>
-          (types and states can be mixed).</para>
+          <option>socket</option>.
+          </para>
 
           <para>If one of the arguments is a unit type, when listing
           units, limit display to certain unit types. Otherwise, units
           of all types will be shown.</para>
 
-          <para>If one of the arguments is a unit load state, when
-          listing units, limit display to certain unit
-          types. Otherwise, units of in all load states will be
-          shown.</para>
-
           <para>As a special case, if one of the arguments is
           <option>help</option>, a list of allowed values will be
           printed and the program will exit.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--state=</option></term>
+
+        <listitem>
+        <para>Argument should be a comma-separated list of unit LOAD
+        or SUB or ACTIVE states. When listing units show only those
+        with specified LOAD or SUB or ACTIVE state.</para>
         </listitem>
       </varlistentry>
 
@@ -162,15 +166,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>Show which units are started after or before
           with <command>list-dependencies</command>, respectively.
           </para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--failed</option></term>
-
-        <listitem>
-          <para>When listing units, show only failed units. Do not
-          confuse with <option>--fail</option>.</para>
         </listitem>
       </varlistentry>
 

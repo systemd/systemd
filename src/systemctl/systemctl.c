@@ -69,7 +69,7 @@
 #include "fileio.h"
 
 static char **arg_types = NULL;
-static char **arg_load_states = NULL;
+static char **arg_states = NULL;
 static char **arg_properties = NULL;
 static bool arg_all = false;
 static enum dependency {
@@ -93,7 +93,6 @@ static bool arg_quiet = false;
 static bool arg_full = false;
 static int arg_force = 0;
 static bool arg_ask_password = true;
-static bool arg_failed = false;
 static bool arg_runtime = false;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
@@ -301,12 +300,11 @@ static int compare_unit_info(const void *a, const void *b) {
 static bool output_show_unit(const struct unit_info *u) {
         const char *dot;
 
-        if (arg_failed)
-                return streq(u->active_state, "failed");
+        if (!strv_isempty(arg_states))
+                return strv_contains(arg_states, u->load_state) || strv_contains(arg_states, u->sub_state) || strv_contains(arg_states, u->active_state);
 
         return (!arg_types || ((dot = strrchr(u->id, '.')) &&
                                strv_find(arg_types, dot+1))) &&
-                (!arg_load_states || strv_find(arg_load_states, u->load_state)) &&
                 (arg_all || !(streq(u->active_state, "inactive")
                               || u->following[0]) || u->job_id > 0);
 }
@@ -4705,12 +4703,12 @@ static int systemctl_help(void) {
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
                "  -t --type=TYPE      List only units of a particular type\n"
+               "     --state=STATE    Show only units with particular LOAD or SUB or ACTIVE state\n"
                "  -p --property=NAME  Show only properties by this name\n"
                "  -a --all            Show all loaded units/properties, including dead/empty\n"
                "                      ones. To list all units installed on the system, use\n"
                "                      the 'list-unit-files' command instead.\n"
                "     --reverse        Show reverse dependencies with 'list-dependencies'\n"
-               "     --failed         Show only failed units\n"
                "  -l --full           Don't ellipsize unit names on output\n"
                "     --fail           When queueing a new job, fail if conflicting jobs are\n"
                "                      pending\n"
@@ -4896,13 +4894,6 @@ static int help_types(void) {
                         puts(t);
         }
 
-        puts("\nAvailable unit load states: ");
-        for(i = 0; i < _UNIT_LOAD_STATE_MAX; i++) {
-                t = unit_load_state_to_string(i);
-                if (t)
-                        puts(t);
-        }
-
         return 0;
 }
 
@@ -4931,7 +4922,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_FAILED,
                 ARG_RUNTIME,
                 ARG_FORCE,
-                ARG_PLAIN
+                ARG_PLAIN,
+                ARG_STATE
         };
 
         static const struct option options[] = {
@@ -4970,6 +4962,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "lines",     required_argument, NULL, 'n'           },
                 { "output",    required_argument, NULL, 'o'           },
                 { "plain",     no_argument,       NULL, ARG_PLAIN     },
+                { "state",     required_argument, NULL, ARG_STATE     },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -5014,8 +5007,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         continue;
                                 }
 
+                                /* It's much nicer to use --state= for
+                                 * load states, but let's support this
+                                 * in --types= too for compatibility
+                                 * with old versions */
                                 if (unit_load_state_from_string(optarg) >= 0) {
-                                        if (strv_push(&arg_load_states, type))
+                                        if (strv_push(&arg_states, type) < 0)
                                                 return log_oom();
                                         type = NULL;
                                         continue;
@@ -5047,7 +5044,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         if (!prop)
                                                 return log_oom();
 
-                                        if (strv_push(&arg_properties, prop)) {
+                                        if (strv_push(&arg_properties, prop) < 0) {
                                                 free(prop);
                                                 return log_oom();
                                         }
@@ -5131,7 +5128,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FAILED:
-                        arg_failed = true;
+                        if (strv_extend(&arg_states, "failed") < 0)
+                                return log_oom();
+
                         break;
 
                 case 'q':
@@ -5200,6 +5199,25 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 case ARG_PLAIN:
                         arg_plain = true;
                         break;
+
+                case ARG_STATE: {
+                        char *word, *state;
+                        size_t size;
+
+                        FOREACH_WORD_SEPARATOR(word, size, optarg, ",", state) {
+                                char *s;
+
+                                s = strndup(word, size);
+                                if (!s)
+                                        return log_oom();
+
+                                if (strv_push(&arg_states, s) < 0) {
+                                        free(s);
+                                        return log_oom();
+                                }
+                        }
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -6257,7 +6275,7 @@ finish:
         dbus_shutdown();
 
         strv_free(arg_types);
-        strv_free(arg_load_states);
+        strv_free(arg_states);
         strv_free(arg_properties);
 
         pager_close();
