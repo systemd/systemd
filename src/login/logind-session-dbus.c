@@ -62,7 +62,6 @@
         "  <property name=\"Class\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Active\" type=\"b\" access=\"read\"/>\n"    \
         "  <property name=\"State\" type=\"s\" access=\"read\"/>\n"     \
-        "  <property name=\"KillProcesses\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"IdleSinceHintMonotonic\" type=\"t\" access=\"read\"/>\n" \

@@ -130,6 +130,7 @@ static const BusProperty bus_machine_machine_properties[] = {
         { "TimestampMonotonic",     bus_property_append_usec,          "t", offsetof(Machine, timestamp.monotonic) },
         { "Service",                bus_property_append_string,        "s", offsetof(Machine, service),            true },
         { "Scope",                  bus_property_append_string,        "s", offsetof(Machine, scope),              true },
+        { "Leader",                 bus_property_append_pid,           "u", offsetof(Machine, leader)              },
         { "Class",                  bus_machine_append_class,          "s", offsetof(Machine, class)               },
         { "State",                  bus_machine_append_state,          "s", 0                                      },
         { "RootDirectory",          bus_property_append_string,        "s", offsetof(Machine, root_directory),     true },
