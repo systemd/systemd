@@ -57,13 +57,16 @@ CGroup Rework Completion:
 
 Features:
 
+* given that logind/machined now let PID 1 do all nasty work we can
+  probably reduce the capability set they retain substantially.
+
 * btfs raid assembly: some .device jobs stay stuck in the queue
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
 
-* add rpm macros for applying tmpfiles --create after package installation
+* make sure gdm doesn't use multi-user-x but the new default X configuration file, and then remove multi-user-x from systemd
 
 * when parsing calendar timestamps support the UTC timezone (even if we won't support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
 
@@ -82,8 +85,6 @@ Features:
 * systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
 
 * do we really need both hasprefix() and startswith()?
-
-* when a kernel driver logs in a tight loop we should ratelimit that too.
 
 * journald: when we drop syslog messages because the syslog socket is
   full, make sure to write how many messages are lost as first thing
