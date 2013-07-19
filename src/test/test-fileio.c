@@ -139,7 +139,42 @@ static void test_parse_env_file(void) {
         unlink("/tmp/test-fileio");
 }
 
+static void test_executable_is_script(void) {
+        char t[] = "/tmp/test-executable-XXXXXX";
+        int fd, r;
+        FILE *f;
+        char *command;
+
+        fd = mkostemp(t, O_CLOEXEC);
+        assert_se(fd >= 0);
+
+        f = fdopen(fd, "w");
+        assert_se(f);
+
+        fputs("#! /bin/script -a -b \ngoo goo", f);
+        fflush(f);
+
+        r = executable_is_script(t, &command);
+        assert_se(r > 0);
+        assert_se(streq(command, "/bin/script"));
+        free(command);
+
+        r = executable_is_script("/bin/sh", &command);
+        assert_se(r == 0);
+
+        r = executable_is_script("/usr/bin/yum", &command);
+        assert_se(r > 0 || r == -ENOENT);
+        if (r > 0) {
+                assert_se(startswith(command, "/"));
+                free(command);
+        }
+
+        fclose(f);
+        unlink(t);
+}
+
 int main(int argc, char *argv[]) {
         test_parse_env_file();
+        test_executable_is_script();
         return 0;
 }

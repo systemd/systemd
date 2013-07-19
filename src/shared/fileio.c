@@ -593,3 +593,32 @@ int write_env_file(const char *fname, char **l) {
 
         return r;
 }
+
+int executable_is_script(const char *path, char **interpreter) {
+        int r;
+        char _cleanup_free_ *line = NULL;
+        int len;
+        char *ans;
+
+        assert(path);
+
+        r = read_one_line_file(path, &line);
+        if (r < 0)
+                return r;
+
+        if (!startswith(line, "#!"))
+                return 0;
+
+        ans = strstrip(line + 2);
+        len = strcspn(ans, " \t");
+
+        if (len == 0)
+                return 0;
+
+        ans = strndup(ans, len);
+        if (!ans)
+                return -ENOMEM;
+
+        *interpreter = ans;
+        return 1;
+}

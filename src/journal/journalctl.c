@@ -45,6 +45,7 @@
 #include "logs-show.h"
 #include "util.h"
 #include "path-util.h"
+#include "fileio.h"
 #include "build.h"
 #include "pager.h"
 #include "logs-show.h"
@@ -627,8 +628,9 @@ static int add_matches(sd_journal *j, char **args) {
                 if (streq(*i, "+"))
                         r = sd_journal_add_disjunction(j);
                 else if (path_is_absolute(*i)) {
-                        _cleanup_free_ char *p, *t = NULL;
+                        _cleanup_free_ char *p, *t = NULL, *t2 = NULL;
                         const char *path;
+                        _cleanup_free_ char *interpreter = NULL;
                         struct stat st;
 
                         p = canonicalize_file_name(*i);
@@ -639,9 +641,27 @@ static int add_matches(sd_journal *j, char **args) {
                                 return -errno;
                         }
 
-                        if (S_ISREG(st.st_mode) && (0111 & st.st_mode))
-                                t = strappend("_EXE=", path);
-                        else if (S_ISCHR(st.st_mode))
+                        if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
+                                if (executable_is_script(path, &interpreter) > 0) {
+                                        _cleanup_free_ char *comm;
+
+                                        comm = strndup(path_get_file_name(path), 15);
+                                        if (!comm)
+                                                return log_oom();
+
+                                        t = strappend("_COMM=", comm);
+
+                                        /* Append _EXE only if the interpreter is not a link.
+                                           Otherwise it might be outdated often. */
+                                        if (lstat(interpreter, &st) == 0 &&
+                                            !S_ISLNK(st.st_mode)) {
+                                                t2 = strappend("_EXE=", interpreter);
+                                                if (!t2)
+                                                        return log_oom();
+                                        }
+                                } else
+                                        t = strappend("_EXE=", path);
+                        } else if (S_ISCHR(st.st_mode))
                                 asprintf(&t, "_KERNEL_DEVICE=c%u:%u", major(st.st_rdev), minor(st.st_rdev));
                         else if (S_ISBLK(st.st_mode))
                                 asprintf(&t, "_KERNEL_DEVICE=b%u:%u", major(st.st_rdev), minor(st.st_rdev));
@@ -654,6 +674,8 @@ static int add_matches(sd_journal *j, char **args) {
                                 return log_oom();
 
                         r = sd_journal_add_match(j, t, 0);
+                        if (t2)
+                                r = sd_journal_add_match(j, t2, 0);
                 } else
                         r = sd_journal_add_match(j, *i, 0);
 
