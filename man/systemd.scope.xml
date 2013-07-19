@@ -63,7 +63,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     processes on its own.</para>
 
     <para>The main purpose of scope units is grouping worker processes
-    of a system service for organization and resource management.</para>
+    of a system service for organization and for managing resources.</para>
 
     <para><command>systemd-run <option>--scope</option></command> may
     be used to easily launch a command in a new scope unit from the

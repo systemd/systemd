@@ -55,13 +55,33 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Description</title>
 
     <para>A unit configuration file whose name ends in
-    <literal>.slice</literal> encodes information about a slice
-    created by systemd to manage resources used by a certain group of
+    <literal>.slice</literal> encodes information about a slice which
+    is a concept for hierarchially managing resources of a group of
     processes. This management is performed by creating a node in the
-    control group tree. Those processes are part of different units,
-    usually <literal>.service</literal> units (see
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+    control group tree. Units that manage processes (primarilly scope
+    and service units) may be assigned to a specific slice. For each
+    slice certain resource limits may the be set, that apply to all
+    processes of all units contained in that slice. Slices are
+    organized hierarchially in a tree. The name of the slice encodes
+    the location in the tree. The name consists of a "-" separated
+    series of names, which describes the path to the slice from the
+    root slice. The root slice is named,
+    <filename>-.slice</filename>. Example:
+    <filename>foo-bar.slice</filename> is a slice that is located
+    within <filename>foo.slice</filename>, which in turn is located in
+    the root slice <filename>-.slice</filename>.
     </para>
+
+    <para>By default service and scope units are placed in
+    <filename>system.slice</filename>, virtual machines and containers
+    registered with
+    <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    are found in <filename>machine.slice</filename>, and user sessions
+    handled by
+    <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    in <filename>user.slice</filename>. See
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for more information.</para>
 
     <para>See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -92,7 +112,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.cgroup</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+      <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 
