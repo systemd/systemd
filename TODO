@@ -46,7 +46,7 @@ CGroup Rework Completion:
 * introduce high-level settings for RT budget, swappiness
 
 * wiki: document new bus APIs of PID 1 (transient units, Reloading signal)
-* review: scope units, slice units, systemctl commands
+* review: slice units, systemctl commands
 
 * Send SIGHUP and SIGTERM in session scopes
 

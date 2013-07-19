@@ -44,7 +44,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
   <refnamediv>
     <refname>systemd.cgroup</refname>
-    <refpurpose>Cgroup configuration unit settings</refpurpose>
+    <refpurpose>Control Group configuration unit settings</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -65,6 +65,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     sockets, mount points, and swap devices share a subset of
     configuration options which configure the control group settings
     for spawned processes.</para>
+
+    <para>Control Groups is a concept for organizing processes in a
+    hierarch tree of named groups for the purpose of resource
+    management.</para>
 
     <para>This man page lists the configuration options shared by
     those six unit types. See

@@ -54,25 +54,20 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para>A unit configuration file whose name ends in
-    <literal>.scope</literal> encodes information about a unit created
-    by systemd to encapsulate processes not launched by systemd
-    itself. This management is performed by creating a node in the
-    control group tree. Processes are moved into the scope by means
-    of the D-Bus API.
-    <command>systemd-run <option>--scope</option></command> can be
-    used to easily launch a command in a new scope unit.</para>
+    <para>Scope units are not configured via unit configuration files,
+    but are only created programmatically using the bus interfaces of
+    systemd. They are named similar to filenames. A unit whose name
+    ends in <literal>.scope</literal> refers to a scope unit. Scopes
+    units manage a set of system processes. Unlike service units scope
+    units manage externally created processes, and do not fork off
+    processes on its own.</para>
 
-    <para>See
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for the common options of all unit configuration
-    files. The common configuration items are configured
-    in the generic [Unit] and [Install] sections. The
-    scope specific configuration options are configured in
-    the [Scope] section. Currently, only generic cgroup settings
-    as described in
-    <citerefentry><refentrytitle>systemd.cgroup</refentrytitle><manvolnum>7</manvolnum></citerefentry> are allowed.
-    </para>
+    <para>The main purpose of scope units is grouping worker processes
+    of a system service for organization and resource management.</para>
+
+    <para><command>systemd-run <option>--scope</option></command> may
+    be used to easily launch a command in a new scope unit from the
+    command line.</para>
 
     <para>Unless <varname>DefaultDependencies=false</varname>
     is used, scope units will implicitly have dependencies of
