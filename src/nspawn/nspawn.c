@@ -39,9 +39,9 @@
 #include <sys/signalfd.h>
 #include <grp.h>
 #include <linux/fs.h>
-#include <linux/netlink.h>
 #include <sys/un.h>
 #include <sys/socket.h>
+#include <linux/netlink.h>
 
 #include <systemd/sd-daemon.h>
 #include <systemd/sd-bus.h>
