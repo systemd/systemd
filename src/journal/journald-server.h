@@ -125,7 +125,7 @@ typedef struct Server {
         bool sync_scheduled;
 } Server;
 
-#define N_IOVEC_META_FIELDS 17
+#define N_IOVEC_META_FIELDS 19
 #define N_IOVEC_KERNEL_FIELDS 64
 #define N_IOVEC_UDEV_FIELDS 32
 #define N_IOVEC_OBJECT_FIELDS 11
