@@ -91,7 +91,7 @@
                                 <term><option>--property=</option></term>
 
                                 <listitem><para>When showing
-                                session/user properties, limit
+                                session/user/seat properties, limit
                                 display to certain properties as
                                 specified as argument. If not
                                 specified, all set properties are
@@ -108,7 +108,7 @@
                                 <term><option>--all</option></term>
 
                                 <listitem><para>When showing
-                                unit/job/manager properties, show all
+                                session/user/seat properties, show all
                                 properties regardless whether they are
                                 set or not.</para></listitem>
                         </varlistentry>
