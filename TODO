@@ -51,7 +51,7 @@ CGroup Rework Completion:
 
 * introduce high-level settings for RT budget, swappiness
 
-* man: document new bus apis
+* wiki: document new bus APIs of PID 1
 
 * Send SIGHUP and SIGTERM in session scopes
 

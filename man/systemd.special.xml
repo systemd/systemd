@@ -1039,40 +1039,44 @@
                                 <term><filename>-.slice</filename></term>
                                 <listitem>
                                         <para>The root slice is the
-                                        root of the hierarchy. It does
-                                        not contain services directly,
-                                        but is used to set defaults
-                                        for the whole tree.</para>
+                                        root of the hierarchy. It
+                                        usually does not contain units
+                                        directly, but may be used to
+                                        set defaults for the whole
+                                        tree.</para>
                                 </listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><filename>system.slice</filename></term>
                                 <listitem>
-                                        <para>This slice contains
+                                        <para>By default all services
                                         services started by
-                                        <command>systemd</command>.</para>
+                                        <command>systemd</command> are
+                                        found in this slice.</para>
                                 </listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><filename>user.slice</filename></term>
                                 <listitem>
-                                        <para>This slice contains user
+                                        <para>By default all user
                                         processes and services started
                                         on behalf of the user,
                                         including the per-user systemd
-                                        instance.</para>
+                                        instance are found in this
+                                        slice.</para>
                                 </listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><filename>machine.slice</filename></term>
                                 <listitem>
-                                        <para>This slice contains
-                                        virtual machines and
-                                        containers registered with
-                                        <command>systemd-machined</command>.
+                                        <para>By defalt all virtual
+                                        machines and containers
+                                        registered with
+                                        <command>systemd-machined</command>
+                                        are found in this slice.
                                         </para>
                                 </listitem>
                         </varlistentry>

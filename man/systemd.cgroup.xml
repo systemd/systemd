@@ -90,33 +90,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     for cgroup configuration:</para>
 
     <variablelist class='unit-directives'>
+
       <varlistentry>
         <term><varname>CPUAccounting=</varname></term>
 
         <listitem>
-          <para>Turn on CPU usage accounting for this
-          unit.</para>
+          <para>Turn on CPU usage accounting for this unit. Takes a
+          boolean argument. Note that turning on CPU accounting for
+          one unit might also implicitly turn it on for all units
+          contained in the same slice and for all its parent slices and
+          the units contained therein.</para>
         </listitem>
       </varlistentry>
-
-      <varlistentry>
-        <term><varname>BlockIOAccounting=</varname></term>
-
-        <listitem>
-          <para>Turn on Block IO bandwidth accounting
-          for this unit.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>MemoryAccounting=</varname></term>
-
-        <listitem>
-          <para>Turn on process and kernel memory
-          accounting for this unit.</para>
-        </listitem>
-      </varlistentry>
-
 
       <varlistentry>
         <term><varname>CPUShares=<replaceable>weight</replaceable></varname></term>
@@ -130,6 +115,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
 
           <para>Implies <literal>CPUAccounting=true</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MemoryAccounting=</varname></term>
+
+        <listitem>
+          <para>Turn on process and kernel memory accounting for this
+          unit. Takes a boolean argument. Note that turning on memory
+          accounting for one unit might also implicitly turn it on for
+          all units contained in the same slice and for all its parent
+          slices and the units contained therein.</para>
         </listitem>
       </varlistentry>
 
@@ -159,6 +156,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BlockIOAccounting=</varname></term>
+
+        <listitem>
+          <para>Turn on Block IO accounting for this unit. Takes a
+          boolean argument. Note that turning on block IO accounting
+          for one unit might also implicitly turn it on for all units
+          contained in the same slice and all for its parent slices and
+          the units contained therein.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>BlockIOWeight=<replaceable>weight</replaceable></varname></term>
 
         <listitem><para>Set the default
@@ -172,7 +181,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         defaults to 1000. For details about
         this control group attribute, see
         <ulink
-            url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para></listitem>
+            url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para>
+
+        <para>Implies
+        <literal>BlockIOAccounting=true</literal>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -192,6 +205,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           times to set weights for multiple devices. For details about
           this control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para>
+
+          <para>Implies
+          <literal>BlockIOAccounting=true</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -217,6 +233,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           group attributes, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
           </para>
+
+          <para>Implies
+          <literal>BlockIOAccounting=true</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -283,6 +302,24 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           </variablelist>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Slice=</varname></term>
+
+        <listitem>
+          <para>The name of the slice unit to place the unit
+          in. Defaults to <filename>system.slice</filename> for all
+          unit types, except for slice units themselves. This may be
+          used to arrange systemd units in a hierarchy of slices each
+          of which might have resource settings applied.</para>
+
+          <para>For units of type slice the only accepted value for
+          this setting is the parent slice. Since the name of a slice
+          unit implies the parent slice it is hence redundant to ever
+          set this parameter directly for slice units.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
@@ -298,6 +335,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       The documentation for control groups and specific controllers in the Linux kernel:
       <ulink url="https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>,
       <ulink url="https://www.kernel.org/doc/Documentation/cgroups/cpuacct.txt">cpuacct.txt</ulink>,
