@@ -4788,7 +4788,7 @@ static int systemctl_help(void) {
                "  list-jobs                       List jobs\n"
                "  cancel [JOB...]                 Cancel all, one, or more jobs\n\n"
                "Status Commands:\n"
-               "  dump                            Dump server status\n"
+               "  dump                            Dump server status\n\n"
                "Snapshot Commands:\n"
                "  snapshot [NAME]                 Create a snapshot\n"
                "  delete [NAME...]                Remove one or more snapshots\n\n"
