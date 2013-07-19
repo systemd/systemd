@@ -971,6 +971,12 @@ static void item_free(Item *i) {
         free(i);
 }
 
+static inline void item_freep(Item **i) {
+        if (*i)
+                item_free(*i);
+}
+#define _cleanup_item_free_ _cleanup_(item_freep)
+
 static bool item_equal(Item *a, Item *b) {
         assert(a);
         assert(b);
@@ -1013,7 +1019,7 @@ static bool item_equal(Item *a, Item *b) {
 }
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
-        _cleanup_free_ Item *i = NULL;
+        _cleanup_item_free_ Item *i = NULL;
         Item *existing;
         _cleanup_free_ char
                 *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
