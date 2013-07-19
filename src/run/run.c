@@ -38,7 +38,7 @@ static const char *arg_slice = NULL;
 static int help(void) {
 
         printf("%s [OPTIONS...] [COMMAND LINE...]\n\n"
-               "Notify the init system about service status updates.\n\n"
+               "Run the specified command in a transient scope or service unit.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --user             Run as user unit\n"

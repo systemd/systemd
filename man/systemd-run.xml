@@ -44,7 +44,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
   <refnamediv>
     <refname>systemd-run</refname>
-    <refpurpose>Run programs as volatile systemd units</refpurpose>
+    <refpurpose>Run programs in transient scope or service units</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -60,11 +60,26 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-run</command> may be used
-    create a transient <filename>.service</filename> unit
-    or a <filename>.scope</filename> unit and launch the
-    specified <replaceable>COMMAND</replaceable> as part
-    of this unit.</para>
+    <para><command>systemd-run</command> may be used create and start
+    a transient <filename>.service</filename> or a
+    <filename>.scope</filename> unit and run the specified
+    <replaceable>COMMAND</replaceable> in it.</para>
+
+    <para>If a command is run as transient service unit, it will be
+    started and managed by the service manager like any other service,
+    and thus show up in the output of <command>systemctl
+    list-units</command> like any other unit. It will run in a clean
+    and detached execution environment. <command>systemd-run</command>
+    will start the service asynchronously in the background and
+    immediately return.</para>
+
+    <para>If a command is run as transient scope unit, it will be
+    started directly by <command>systemd-run</command> and thus
+    inherit the execution environment of the caller. It is however
+    managed by the service manager similar to normal services, and
+    will also show up in the output of <command>systemctl
+    list-units</command>. Execution in this case is synchronous, and
+    execution will return only when the command finishes.</para>
   </refsect1>
 
   <refsect1>
@@ -92,8 +107,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--user</option></term>
 
         <listitem>
-          <para>Talk to the systemd manager of the calling
-          user.</para>
+          <para>Talk to the service manager of the calling user,
+          rather than the service manager of the system.</para>
         </listitem>
       </varlistentry>
 
@@ -101,7 +116,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--scope</option></term>
 
         <listitem>
-          <para>Create a <filename>.scope</filename> unit instead of
+          <para>Create a transient <filename>.scope</filename> unit instead of
           the default transient <filename>.service</filename> unit.
           </para>
         </listitem>
@@ -136,7 +151,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>All command-line arguments after the first non-option
     argument become part of the commandline of the launched
-    process.</para>
+    process. If a command is run as service unit its first argument
+    needs to be an absolute binary path.</para>
   </refsect1>
 
   <refsect1>
@@ -150,6 +166,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
