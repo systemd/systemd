@@ -851,9 +851,9 @@
 
                 <programlisting>journalctl /dev/sda</programlisting>
 
-                <para>Show all kernel logs from last boot:</para>
+                <para>Show all kernel logs from previous boot:</para>
 
-                <programlisting>journalctl -k -b :</programlisting>
+                <programlisting>journalctl -k -b -1</programlisting>
 
         </refsect1>
 
