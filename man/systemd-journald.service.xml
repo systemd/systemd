@@ -206,11 +206,15 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><filename>/run/log/journal/<replaceable>machine-id</replaceable>/*.journal</filename></term>
+                                <term><filename>/run/log/journal/<replaceable>machine-id</replaceable>/*.journal~</filename></term>
                                 <term><filename>/var/log/journal/<replaceable>machine-id</replaceable>/*.journal</filename></term>
                                 <term><filename>/var/log/journal/<replaceable>machine-id</replaceable>/*.journal~</filename></term>
 
                                 <listitem><para><command>systemd-journald</command>
                                 writes entries to files in
+                                <filename>/run/log/journal/<replaceable>machine-id</replaceable>/</filename>
+                                or
                                 <filename>/var/log/journal/<replaceable>machine-id</replaceable>/</filename>
                                 with the <literal>.journal</literal>
                                 suffix. If the daemon is stopped
@@ -219,7 +223,15 @@
                                 using the <literal>.journal~</literal>
                                 suffix, and
                                 <command>systemd-journald</command>
-                                starts writing to a new file.
+                                starts writing to a new
+                                file. <filename>/run</filename> is
+                                used when
+                                <filename>/var/log/journal</filename>
+                                is not available, or when
+                                <option>Storage=volatile</option> is
+                                set in the
+                                <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                configuration file.
                                 </para></listitem>
                         </varlistentry>
                 </variablelist>
