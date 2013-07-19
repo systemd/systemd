@@ -2647,6 +2647,23 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unit_condition_string, "CONDITION" },
                 { config_parse_unit_condition_null,   "CONDITION" },
                 { config_parse_unit_slice,            "SLICE" },
+                { config_parse_documentation,         "URL" },
+                { config_parse_service_timeout,       "SECONDS" },
+                { config_parse_start_limit_action,    "ACTION" },
+                { config_parse_set_status,            "STATUS" },
+                { config_parse_service_sockets,       "SOCKETS" },
+                { config_parse_fsck_passno,           "PASSNO" },
+                { config_parse_environ,               "ENVIRON" },
+                { config_parse_syscall_filter,        "SYSCALL" },
+                { config_parse_cpu_shares,            "SHARES" },
+                { config_parse_memory_limit,          "LIMIT" },
+                { config_parse_device_allow,          "DEVICE" },
+                { config_parse_device_policy,         "POLICY" },
+                { config_parse_blockio_bandwidth,     "BANDWIDTH" },
+                { config_parse_blockio_weight,        "WEIGHT" },
+                { config_parse_blockio_device_weight, "DEVICEWEIGHT" },
+                { config_parse_long,                  "LONG" },
+                { config_parse_socket_service,        "SERVICE" },
         };
 
         const char *prev = NULL;
