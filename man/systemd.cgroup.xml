@@ -309,9 +309,14 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem>
           <para>The name of the slice unit to place the unit
           in. Defaults to <filename>system.slice</filename> for all
-          unit types, except for slice units themselves. This may be
-          used to arrange systemd units in a hierarchy of slices each
-          of which might have resource settings applied.</para>
+          non-instantiated units of all unit types (except for slice
+          units themselves see below). Instance units are by default
+          placed in a subslice of <filename>system.slice</filename>
+          that is named after the template name.</para>
+
+          <para>This option may be used to arrange systemd units in a
+          hierarchy of slices each of which might have resource
+          settings applied.</para>
 
           <para>For units of type slice the only accepted value for
           this setting is the parent slice. Since the name of a slice

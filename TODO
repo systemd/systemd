@@ -21,13 +21,7 @@ Bugfixes:
 
 Fedora 20:
 
-* external: maybe it is time to patch procps so that "ps" links to
-  libsystemd-logind to print a pretty service name, seat name, session
-  name in its output. Currently it only shows cgroup membership, but
-  that's sometimes kinda hard to parse for a human.
-
-* cgroup attrs:
-  - update dbus interface docs in wiki
+* external: ps should gain colums for slice and machine
 
 * localed:
   - localectl: support new converted x11→console keymaps
@@ -51,7 +45,8 @@ CGroup Rework Completion:
 
 * introduce high-level settings for RT budget, swappiness
 
-* wiki: document new bus APIs of PID 1
+* wiki: document new bus APIs of PID 1 (transient units, Reloading signal), systemctl commands
+* review: scope units, slice units, pid1, machinectl, libsystem-login, pam_systemd, systemd-run, systemd-nspawn
 
 * Send SIGHUP and SIGTERM in session scopes
 
