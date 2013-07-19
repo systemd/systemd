@@ -268,6 +268,7 @@ char *unit_full_printf(Unit *u, const char *format) {
          * %m the machine ID of the running system
          * %H the host name of the running system
          * %b the boot ID of the running system
+         * %v `uname -r` of the running system
          */
 
         const Specifier table[] = {
@@ -291,7 +292,8 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 'm', specifier_machine_id,          NULL },
                 { 'H', specifier_host_name,           NULL },
                 { 'b', specifier_boot_id,             NULL },
-                { 0, NULL, NULL }
+                { 'v', specifier_kernel_release,      NULL },
+                {}
         };
 
         assert(format);

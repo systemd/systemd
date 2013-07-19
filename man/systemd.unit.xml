@@ -1175,7 +1175,7 @@
                 </variablelist>
 
                 <para>The following specifiers are interpreted in the
-                Install section: %n, %N, %p, %i, %U, %u, %m, %H, %b.
+                Install section: %n, %N, %p, %i, %U, %u, %m, %H, %b, %v.
                 For their meaning see the next section.
                 </para>
         </refsect1>
@@ -1294,6 +1294,11 @@
                         <entry>The hostname of the running system.</entry>
                       </row>
                       <row>
+                        <entry><literal>%v</literal></entry>
+                        <entry>Kernel release</entry>
+                        <entry>Identical to <command>uname -r</command> output.</entry>
+                      </row>
+                      <row>
                         <entry><literal>%%</literal></entry>
                         <entry>Escaped %</entry>
                         <entry>Single percent sign.</entry>
@@ -1321,7 +1326,8 @@
                         <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

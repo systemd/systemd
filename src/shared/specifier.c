@@ -20,6 +20,7 @@
 ***/
 
 #include <string.h>
+#include <sys/utsname.h>
 
 #include "macro.h"
 #include "util.h"
@@ -144,4 +145,15 @@ char *specifier_boot_id(char specifier, void *data, void *userdata) {
 
 char *specifier_host_name(char specifier, void *data, void *userdata) {
         return gethostname_malloc();
+}
+
+char *specifier_kernel_release(char specifier, void *data, void *userdata) {
+        struct utsname uts;
+        int r;
+
+        r = uname(&uts);
+        if (r < 0)
+                return NULL;
+
+        return strdup(uts.release);
 }

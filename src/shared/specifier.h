@@ -36,3 +36,4 @@ char *specifier_string(char specifier, void *data, void *userdata);
 char *specifier_machine_id(char specifier, void *data, void *userdata);
 char *specifier_boot_id(char specifier, void *data, void *userdata);
 char *specifier_host_name(char specifier, void *data, void *userdata);
+char *specifier_kernel_release(char specifier, void *data, void *userdata);

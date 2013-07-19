@@ -60,7 +60,7 @@ Features:
 * given that logind/machined now let PID 1 do all nasty work we can
   probably reduce the capability set they retain substantially.
 
-* btfs raid assembly: some .device jobs stay stuck in the queue
+* btrfs raid assembly: some .device jobs stay stuck in the queue
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
@@ -79,8 +79,6 @@ Features:
 * journald: optionally, log debug messages to /run but everything else to /var
 
 * journald: optionally, when messages with a high log priority are logged, sync() immediately.
-
-* introduce %v resolving to the string returned by "uname -r"
 
 * systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
 
