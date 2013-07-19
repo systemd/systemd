@@ -285,25 +285,27 @@
                 <title>Concepts</title>
 
                 <para>systemd provides a dependency system between
-                various entities called "units". Units encapsulate
-                various objects that are relevant for system boot-up
-                and maintenance. The majority of units are configured
-                in unit configuration files, whose syntax and basic
-                set of options is described in
+                various entities called "units" of 12 different
+                types. Units encapsulate various objects that are
+                relevant for system boot-up and maintenance. The
+                majority of units are configured in unit configuration
+                files, whose syntax and basic set of options is
+                described in
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 however some are created automatically from other
-                configuration or dynamically from system state. Units
-                may be 'active' (meaning started, bound, plugged in,
-                ...  depending on the unit type, see below), or
-                'inactive' (meaning stopped, unbound, unplugged, ...),
-                as well as in the process of being activated or
-                deactivated, i.e. between the two states (these states
-                are called 'activating', 'deactivating'). A special
-                'failed' state is available as well which is very
-                similar to 'inactive' and is entered when the service
-                failed in some way (process returned error code on
-                exit, or crashed, or an operation timed out). If this
-                state is entered the cause will be logged, for later
+                configuration, dynamically from system state or
+                programmatically at runtime. Units may be 'active'
+                (meaning started, bound, plugged in, ...  depending on
+                the unit type, see below), or 'inactive' (meaning
+                stopped, unbound, unplugged, ...), as well as in the
+                process of being activated or deactivated,
+                i.e. between the two states (these states are called
+                'activating', 'deactivating'). A special 'failed'
+                state is available as well which is very similar to
+                'inactive' and is entered when the service failed in
+                some way (process returned error code on exit, or
+                crashed, or an operation timed out). If this state is
+                entered the cause will be logged, for later
                 reference. Note that the various unit types may have a
                 number of additional substates, which are mapped to
                 the five generalized unit states described
@@ -312,7 +314,7 @@
                 <para>The following unit types are available:</para>
 
                 <orderedlist>
-                        <listitem><para>Service units, which control
+                        <listitem><para>Service units, which start and control
                         daemons and the processes they consist of. For
                         details see
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
@@ -368,6 +370,18 @@
                         to activate other services when file system
                         objects change or are modified. See
                         <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Slice units may be used to
+                        group units which manage system processes
+                        (such as service and scope units) in a
+                        hierachial tree for resource management
+                        purposes. See
+                        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Scope units are similar to
+                        service units, but manage foreign processes
+                        instead of starting them as well. See
+                        <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
                 </orderedlist>
 
