@@ -240,6 +240,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--slice=</option></term>
+
+                                <listitem><para>Make the container
+                                part of the specified slice, instead
+                                of the
+                                <filename>machine.slice</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--uuid=</option></term>
 
                                 <listitem><para>Set the specified UUID
@@ -247,16 +257,6 @@
                                 will initialize
                                 <filename>/etc/machine-id</filename>
                                 from this if this file is not set yet.
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-C</option></term>
-                                <term><option>--controllers=</option></term>
-
-                                <listitem><para>Makes the container appear in
-                                other hierarchies than the name=systemd:/ one.
-                                Takes a comma-separated list of controllers.
                                 </para></listitem>
                         </varlistentry>
 
@@ -443,7 +443,8 @@
                         <citerefentry><refentrytitle>unshare</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
