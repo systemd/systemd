@@ -61,8 +61,16 @@
                 and containers, and processes belonging to
                 them.</para>
 
-                <para>See <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for some examples how to
-                start a container the systemd way.</para>
+                <para>See
+                <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                for some examples how to start a container the systemd
+                way.</para>
+
+                <para>See the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/machined">
+                machined D-Bus API Documentation</ulink> for information about
+                the APIs <filename>systemd-machined</filename>
+                provides.</para>
         </refsect1>
 
         <refsect1>
