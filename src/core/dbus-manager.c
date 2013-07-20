@@ -236,7 +236,7 @@
         "   <arg name=\"name\" type=\"s\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"SetUnitProperties\">\n"                       \
-        "   <arg name=\"name\" type=\"s\" direction=\"out\"/>\n"        \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
