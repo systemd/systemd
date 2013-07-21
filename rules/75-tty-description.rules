@@ -7,7 +7,6 @@ SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=u
 SUBSYSTEMS=="usb", GOTO="tty_end"
 
 SUBSYSTEMS=="pci", ENV{ID_BUS}="pci", ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_MODEL_ID}="$attr{device}"
-
-IMPORT{builtin}="hwdb"
+SUBSYSTEMS=="pci", IMPORT{builtin}="hwdb --subsystem=pci"
 
 LABEL="tty_end"
