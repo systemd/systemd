@@ -1,5 +1,60 @@
 systemd System and Service Manager
 
+CHANGES WITH 206:
+
+        * The documentation has been updated to cover the various new
+          concepts introduced with 205.
+
+        * Unit files now understand the new %v specifier which
+          resolves to the kernel version string as returned by "uname
+          -r".
+
+        * systemctl now supports filtering the unit list output by
+          load state, active state and sub state, using the new
+          --type= parameter.
+
+        * "systemctl status" will now show the results of the
+          condition checks (like ConditionPathExists= and similar) of
+          the last start attempts of the unit. They are also logged to
+          the journal.
+
+        * "journalctl -b" may now be used to look for boot output of a
+          specific boot. Try "journalctl -b -1" for the previous boot,
+          but the syntax is substantially more powerful.
+
+        * "journalctl --show-cursor" has been added which prints the
+          cursor string the last shown log line. This may then be used
+          with the new "journalctl --after-cursor=" switch to continue
+          browsing logs from that point on.
+
+        * "journalctl --force" may now be used to force regeneration
+          of an FSS key.
+
+        * Device ACLs may now be applied to "dead" devices nodes too,
+          i.e. device nodes that are created based on modalias
+          information of unloaded kernel modules.
+
+        * A new RPM macro has been added that may be used to apply
+          tmpfiles configuration during package installation.
+
+        * systemd-detect-virt and ConditionVirtualization= now can
+          detect User-Mode-Linux machines (UML).
+
+        * journald will now log the effective capabilities set of
+          processes in the message metadata.
+
+        * systemd-cryptsetup has gained support for TrueCrypt volumes.
+
+        * The initrd interface has been simplified (more specifically,
+          support for passing performance data via environment
+          variables and fsck results via files in /run has been
+          removed). These features were non-essential, and are
+          nowadays available in a much nicer way by having systemd in
+          the initrd serialize its state and have the hosts systemd
+          deserialize it again.
+
+          ...
+
 CHANGES WITH 205:
 
         * Two new unit types have been introduced:
