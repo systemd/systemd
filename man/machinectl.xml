@@ -156,7 +156,7 @@
                                 <term><option>--signal=</option></term>
 
                                 <listitem><para>When used with
-                                <command>kill-machine</command> choose
+                                <command>kill-machine</command>, choose
                                 which signal to send to selected
                                 processes. Must be one of the
                                 well-known signal specifiers, such as

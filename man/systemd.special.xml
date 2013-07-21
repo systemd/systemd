@@ -1050,7 +1050,7 @@
                         <varlistentry>
                                 <term><filename>system.slice</filename></term>
                                 <listitem>
-                                        <para>By default all services
+                                        <para>By default, all services
                                         services started by
                                         <command>systemd</command> are
                                         found in this slice.</para>
@@ -1060,7 +1060,7 @@
                         <varlistentry>
                                 <term><filename>user.slice</filename></term>
                                 <listitem>
-                                        <para>By default all user
+                                        <para>By default, all user
                                         processes and services started
                                         on behalf of the user,
                                         including the per-user systemd
@@ -1072,7 +1072,7 @@
                         <varlistentry>
                                 <term><filename>machine.slice</filename></term>
                                 <listitem>
-                                        <para>By defalt all virtual
+                                        <para>By defalt, all virtual
                                         machines and containers
                                         registered with
                                         <command>systemd-machined</command>

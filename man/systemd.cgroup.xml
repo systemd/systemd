@@ -322,9 +322,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           hierarchy of slices each of which might have resource
           settings applied.</para>
 
-          <para>For units of type slice the only accepted value for
+          <para>For units of type slice, the only accepted value for
           this setting is the parent slice. Since the name of a slice
-          unit implies the parent slice it is hence redundant to ever
+          unit implies the parent slice, it is hence redundant to ever
           set this parameter directly for slice units.</para>
         </listitem>
       </varlistentry>

@@ -58,7 +58,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     but are only created programmatically using the bus interfaces of
     systemd. They are named similar to filenames. A unit whose name
     ends in <literal>.scope</literal> refers to a scope unit. Scopes
-    units manage a set of system processes. Unlike service units scope
+    units manage a set of system processes. Unlike service units, scope
     units manage externally created processes, and do not fork off
     processes on its own.</para>
 

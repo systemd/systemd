@@ -167,7 +167,7 @@
                                 <term><varname>luks</varname></term>
 
                                 <listitem><para>Force LUKS mode. When this mode
-                                is used the following options are ignored since
+                                is used, the following options are ignored since
                                 they are provided by the LUKS header on the
                                 device: <varname>cipher=</varname>,
                                 <varname>hash=</varname>,
@@ -232,7 +232,7 @@
                                 <term><varname>tcrypt</varname></term>
 
                                 <listitem><para>Use TrueCrypt encryption mode.
-                                When this mode is used the following options are
+                                When this mode is used, the following options are
                                 ignored since they are provided by the TrueCrypt
                                 header on the device or do not apply:
                                 <varname>cipher=</varname>,

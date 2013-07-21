@@ -111,8 +111,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--state=</option></term>
 
         <listitem>
-        <para>Argument should be a comma-separated list of unit LOAD
-        or SUB or ACTIVE states. When listing units show only those
+        <para>The argument should be a comma-separated list of unit LOAD
+        or SUB or ACTIVE states. When listing units, show only those
         with specified LOAD or SUB or ACTIVE state.</para>
         </listitem>
       </varlistentry>
@@ -433,7 +433,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           is lost on reboot, the changes are lost too.</para>
 
           <para>Similar, when used with
-          <command>set-property</command> make changes only
+          <command>set-property</command>, make changes only
           temporarily, so that they are lost on the next
           reboot.</para>
         </listitem>
@@ -727,7 +727,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <citerefentry><refentrytitle>systemd.cgroup</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
           may. The changes are applied instantly, and stored on disk
           for future boots, unless <option>--runtime</option> is
-          passed in which case the settings only apply until the next
+          passed, in which case the settings only apply until the next
           reboot. The syntax of the property assignment follows
           closely the syntax of assignments in unit files.</para>
 
@@ -736,7 +736,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <para>Note that this command allows changing multiple
           properties at the same time, which is preferable over
           setting them individually. Like unit file configuration
-          settings assigning the empty list to list parameters will
+          settings, assigning the empty list to list parameters will
           reset the list.</para>
         </listitem>
       </varlistentry>

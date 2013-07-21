@@ -60,10 +60,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     processes. This management is performed by creating a node in the
     control group tree. Units that manage processes (primarilly scope
     and service units) may be assigned to a specific slice. For each
-    slice certain resource limits may the be set, that apply to all
+    slice, certain resource limits may the be set that apply to all
     processes of all units contained in that slice. Slices are
     organized hierarchially in a tree. The name of the slice encodes
-    the location in the tree. The name consists of a "-" separated
+    the location in the tree. The name consists of a dash-separated
     series of names, which describes the path to the slice from the
     root slice. The root slice is named,
     <filename>-.slice</filename>. Example:
@@ -72,7 +72,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     the root slice <filename>-.slice</filename>.
     </para>
 
-    <para>By default service and scope units are placed in
+    <para>By default, service and scope units are placed in
     <filename>system.slice</filename>, virtual machines and containers
     registered with
     <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>1</manvolnum></citerefentry>

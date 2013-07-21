@@ -151,7 +151,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>All command-line arguments after the first non-option
     argument become part of the commandline of the launched
-    process. If a command is run as service unit its first argument
+    process. If a command is run as service unit, its first argument
     needs to be an absolute binary path.</para>
   </refsect1>
 

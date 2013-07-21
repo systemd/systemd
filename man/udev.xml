@@ -712,7 +712,7 @@
       used to override a system-supplied hwdb file with a local file if needed;
       a symlink in <filename>/etc</filename> with the same name as a rules file in
       <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
-      disables the rules file entirely. Hwdb files must have the extension
+      disables the rules file entirely. hwdb files must have the extension
       <filename>.hwdb</filename>; other extensions are ignored.</para>
 
       <para>The hwdb file contains data records consisting of matches and

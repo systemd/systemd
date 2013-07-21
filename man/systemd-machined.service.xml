@@ -63,7 +63,7 @@
 
                 <para>See
                 <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                for some examples how to start a container the systemd
+                for some examples on how to start a container the systemd
                 way.</para>
 
                 <para>See the <ulink

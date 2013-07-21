@@ -1119,7 +1119,7 @@
                                 <listitem><para>A symbolic link is
                                 created in the
                                 <filename>.wants/</filename> or
-                                <filename>.requires/</filename> folder
+                                <filename>.requires/</filename> directory
                                 of the listed unit when this unit is
                                 activated by <command>systemctl
                                 enable</command>.  This has the effect

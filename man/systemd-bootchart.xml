@@ -203,7 +203,7 @@
                         <varlistentry>
                                 <term><option>-o</option></term>
                                 <term><option>--output <replaceable>path</replaceable></option></term>
-                                <listitem><para>Specify the output folder for the
+                                <listitem><para>Specify the output directory for the
                                 graphs. By default, bootchart writes the graphs to
                                 <filename>/run/log</filename>.</para></listitem>
                         </varlistentry>
