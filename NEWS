@@ -11,7 +11,7 @@ CHANGES WITH 206:
 
         * systemctl now supports filtering the unit list output by
           load state, active state and sub state, using the new
-          --type= parameter.
+          --state= parameter.
 
         * "systemctl status" will now show the results of the
           condition checks (like ConditionPathExists= and similar) of
