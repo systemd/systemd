@@ -2277,7 +2277,7 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         return 0;
 }
 
-void socket_notify_service_dead(Socket *s, bool failed_permanent) {
+static void socket_notify_service_dead(Socket *s, bool failed_permanent) {
         assert(s);
 
         /* The service is dead. Dang!
@@ -2320,6 +2320,41 @@ static void socket_reset_failed(Unit *u) {
                 socket_set_state(s, SOCKET_DEAD);
 
         s->result = SOCKET_SUCCESS;
+}
+
+static void socket_trigger_notify(Unit *u, Unit *other) {
+        Socket *s = SOCKET(u);
+        Service *se = SERVICE(other);
+
+        assert(u);
+        assert(other);
+
+        /* Don't propagate state changes from the service if we are
+           already down or accepting connections */
+        if ((s->state !=  SOCKET_RUNNING &&
+            s->state != SOCKET_LISTENING) ||
+            s->accept)
+                return;
+
+        if (other->load_state != UNIT_LOADED ||
+            other->type != UNIT_SERVICE)
+                return;
+
+        if (se->state == SERVICE_FAILED)
+                socket_notify_service_dead(s, se->result == SERVICE_FAILURE_START_LIMIT);
+
+        if (se->state == SERVICE_DEAD ||
+            se->state == SERVICE_STOP ||
+            se->state == SERVICE_STOP_SIGTERM ||
+            se->state == SERVICE_STOP_SIGKILL ||
+            se->state == SERVICE_STOP_POST ||
+            se->state == SERVICE_FINAL_SIGTERM ||
+            se->state == SERVICE_FINAL_SIGKILL ||
+            se->state == SERVICE_AUTO_RESTART)
+                socket_notify_service_dead(s, false);
+
+        if (se->state == SERVICE_RUNNING)
+                socket_set_state(s, SOCKET_RUNNING);
 }
 
 static int socket_kill(Unit *u, KillWho who, int signo, DBusError *error) {
@@ -2401,6 +2436,8 @@ const UnitVTable socket_vtable = {
         .fd_event = socket_fd_event,
         .sigchld_event = socket_sigchld_event,
         .timer_event = socket_timer_event,
+
+        .trigger_notify = socket_trigger_notify,
 
         .reset_failed = socket_reset_failed,
 

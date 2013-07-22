@@ -1489,24 +1489,6 @@ static int service_search_main_pid(Service *s) {
         return 0;
 }
 
-static void service_notify_sockets_dead(Service *s, bool failed_permanent) {
-        Iterator i;
-        Unit *u;
-
-        assert(s);
-
-        /* Notifies all our sockets when we die */
-
-        if (s->socket_fd >= 0)
-                return;
-
-        SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i)
-                if (u->type == UNIT_SOCKET)
-                        socket_notify_service_dead(SOCKET(u), failed_permanent);
-
-        return;
-}
-
 static void service_set_state(Service *s, ServiceState state) {
         ServiceState old_state;
         const UnitActiveState *table;
@@ -1557,19 +1539,6 @@ static void service_set_state(Service *s, ServiceState state) {
                 s->control_command = NULL;
                 s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
         }
-
-        if (state == SERVICE_FAILED)
-                service_notify_sockets_dead(s, s->result == SERVICE_FAILURE_START_LIMIT);
-
-        if (state == SERVICE_DEAD ||
-            state == SERVICE_STOP ||
-            state == SERVICE_STOP_SIGTERM ||
-            state == SERVICE_STOP_SIGKILL ||
-            state == SERVICE_STOP_POST ||
-            state == SERVICE_FINAL_SIGTERM ||
-            state == SERVICE_FINAL_SIGKILL ||
-            state == SERVICE_AUTO_RESTART)
-                service_notify_sockets_dead(s, false);
 
         if (state != SERVICE_START_PRE &&
             state != SERVICE_START &&

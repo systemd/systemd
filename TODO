@@ -141,9 +141,6 @@ Features:
   Maybe take a BSD lock at the disk device node and teach udev to
   check for that and suppress event handling.
 
-* when a service changes state make reflect that in the
-  RUNNING/LISTENING states of its socket
-
 * when recursively showing the cgroup hierarchy, optionally also show
   the hierarchies of child processes
 

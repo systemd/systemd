@@ -156,9 +156,6 @@ struct Socket {
 /* Called from the service code when collecting fds */
 int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
 
-/* Called from the service when it shut down */
-void socket_notify_service_dead(Socket *s, bool failed_permanent);
-
 /* Called from the mount code figure out if a mount is a dependency of
  * any of the sockets of this socket */
 int socket_add_one_mount_link(Socket *s, Mount *m);
