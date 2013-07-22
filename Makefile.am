@@ -1835,6 +1835,9 @@ libsystemd_daemon_la_LDFLAGS = \
 	-version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon/libsystemd-daemon.sym
 
+libsystemd_daemon_la_LIBADD =  \
+	$(RT_LIBS)
+
 pkginclude_HEADERS += \
 	src/systemd/sd-daemon.h
 
