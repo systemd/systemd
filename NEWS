@@ -30,9 +30,25 @@ CHANGES WITH 206:
         * "journalctl --force" may now be used to force regeneration
           of an FSS key.
 
-        * Device ACLs may now be applied to "dead" devices nodes too,
-          i.e. device nodes that are created based on kernel module
-          information of not yet loaded kernel modules.
+        * Creation of "dead" device nodes has been moved from udev
+          into kmod and tmpfiles. Previously, udev would read the kmod
+          databases to pre-generate dead device nodes based on meta
+          information contained in kernel modules, so that these would
+          be auto-loaded on access rather then at boot. As this
+          doesn't really have much to do with the exposing actual
+          kernel devices to userspace this has always been slightly
+          alien in the udev codebase. Following the new scheme kmod
+          will now generate a runtime snippet for tmpfiles from the
+          module meta information and it now is tmpfiles' job to the
+          create the nodes. This also allows overriding access and
+          other parameters for the nodes using the usual tmpfiles
+          facilities. As side effect this allows us to remove the
+          CAP_SYS_MKNOD capability bit from udevd entirely.
+
+        * logind's device ACLs may now be applied to these "dead"
+          devices nodes too, thus finally allowing managed access to
+          devices such as /dev/snd/sequencer whithout loading the
+          backing module right-away.
 
         * A new RPM macro has been added that may be used to apply
           tmpfiles configuration during package installation.
@@ -40,8 +56,8 @@ CHANGES WITH 206:
         * systemd-detect-virt and ConditionVirtualization= now can
           detect User-Mode-Linux machines (UML).
 
-        * journald will now log the effective capabilities set of
-          processes in the message metadata.
+        * journald will now implicitly log the effective capabilities
+          set of processes in the message metadata.
 
         * systemd-cryptsetup has gained support for TrueCrypt volumes.
 
@@ -57,6 +73,29 @@ CHANGES WITH 206:
           specific mappings of scan to key codes, and force-release
           scan code lists have been entirely replaced by a udev
           "keyboard" builtin and a hwdb data file.
+
+        * systemd will now honour the kernel's "quiet" command line
+          argument also during late shutdown, resulting in a
+          completely silent shutdown when used.
+
+        * There's now an option to control the SO_REUSEPORT socket
+          option in .socket units.
+
+        * Instance units will now automatically get a per-template
+          subslice of system.slice unless something else is explicitly
+          configured. For example, instances of sshd@.service will now
+          implicitly be placed in system-sshd.slice rather than
+          system.slice as before.
+
+        * Test coverage support may now be enabled at build time.
+
+        Contributions from: Dave Reisner, Frederic Crozat, Harald
+        Hoyer, Holger Hans Peter Freyther, Jan Engelhardt, Jan
+        Janssen, Jason St. John, Jesper Larsen, Kay Sievers, Lennart
+        Poettering, Lukas Nykryn, Maciej Wereski, Martin Pitt, Michael
+        Olbrich, Ramkumar Ramachandra, Ross Lagerwall, Shawn Landden,
+        Thomas H.P. Andersen, Tom Gundersen, Tomasz Torcz, William
+        Giokas, Zbigniew Jędrzejewski-Szmek
 
 CHANGES WITH 205:
 
