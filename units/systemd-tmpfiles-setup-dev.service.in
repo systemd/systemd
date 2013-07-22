@@ -14,5 +14,5 @@ ConditionCapability=CAP_MKNOD
 
 [Service]
 Type=oneshot
-RemainAfterExit=true
+RemainAfterExit=yes
 ExecStart=@rootbindir@/systemd-tmpfiles --prefix=/dev --create
