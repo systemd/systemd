@@ -654,7 +654,7 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
 
 int bus_kernel_create(const char *name, char **s) {
         struct kdbus_cmd_bus_make *make;
-        struct kdbus_item *n, *cg;
+        struct kdbus_item *n;
         size_t l;
         int fd;
         char *p;
@@ -671,17 +671,12 @@ int bus_kernel_create(const char *name, char **s) {
                        KDBUS_ITEM_HEADER_SIZE + sizeof(uint64_t) +
                        KDBUS_ITEM_HEADER_SIZE + DECIMAL_STR_MAX(uid_t) + 1 + l + 1);
 
-        cg = make->items;
-        cg->type = KDBUS_MAKE_CGROUP;
-        cg->data64[0] = 1;
-        cg->size = KDBUS_ITEM_HEADER_SIZE + sizeof(uint64_t);
-
-        n = KDBUS_ITEM_NEXT(cg);
+        n = make->items;
         n->type = KDBUS_MAKE_NAME;
         sprintf(n->str, "%lu-%s", (unsigned long) getuid(), name);
         n->size = KDBUS_ITEM_HEADER_SIZE + strlen(n->str) + 1;
 
-        make->size = offsetof(struct kdbus_cmd_bus_make, items) + cg->size + n->size;
+        make->size = offsetof(struct kdbus_cmd_bus_make, items) + n->size;
         make->flags = KDBUS_MAKE_POLICY_OPEN;
         make->bus_flags = 0;
         make->bloom_size = BLOOM_SIZE;

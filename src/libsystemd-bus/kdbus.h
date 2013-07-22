@@ -283,9 +283,6 @@ enum {
 enum {
 	_KDBUS_MAKE_NULL,
 	KDBUS_MAKE_NAME,
-	KDBUS_MAKE_CGROUP,	/* the cgroup hierarchy ID for which to attach
-				 * cgroup membership paths to messages.
-				 * FIXME: remove, use *the* hierarchy */
 	KDBUS_MAKE_CRED,	/* allow translator services which connect
 				 * to the bus on behalf of somebody else,
 				 * allow specifiying the credentials of the
