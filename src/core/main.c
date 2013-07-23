@@ -1280,18 +1280,8 @@ int main(int argc, char *argv[]) {
                 log_set_target(LOG_TARGET_KMSG);
                 log_open();
 
-                if (in_initrd()) {
-                        char *rd_timestamp = NULL;
-
+                if (in_initrd())
                         initrd_timestamp = userspace_timestamp;
-                        asprintf(&rd_timestamp, "%llu %llu",
-                                 (unsigned long long) initrd_timestamp.realtime,
-                                 (unsigned long long) initrd_timestamp.monotonic);
-                        if (rd_timestamp) {
-                                setenv("RD_TIMESTAMP", rd_timestamp, 1);
-                                free(rd_timestamp);
-                        }
-                }
 
                 if (!skip_setup) {
                         mount_setup_early();
