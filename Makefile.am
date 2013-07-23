@@ -315,7 +315,6 @@ rootlibexec_PROGRAMS = \
 	systemd-remount-fs \
 	systemd-reply-password \
 	systemd-fsck \
-	systemd-timestamp \
 	systemd-ac-power \
 	systemd-sysctl \
 	systemd-sleep
@@ -1605,13 +1604,6 @@ systemd_fsck_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-dbus.la \
 	libudev.la
-
-# ------------------------------------------------------------------------------
-systemd_timestamp_SOURCES = \
-	src/timestamp/timestamp.c
-
-systemd_timestamp_LDADD = \
-	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_ac_power_SOURCES = \

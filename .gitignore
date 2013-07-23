@@ -75,7 +75,6 @@
 /systemd-sysctl
 /systemd-system-update-generator
 /systemd-timedated
-/systemd-timestamp
 /systemd-tmpfiles
 /systemd-tty-ask-password-agent
 /systemd-uaccess
