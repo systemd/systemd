@@ -34,7 +34,7 @@ LICENSE:
         - except src/udev/ which is (currently still) GPLv2+
 
 REQUIREMENTS:
-        Linux kernel >= 2.6.39
+        Linux kernel >= 3.0
           CONFIG_DEVTMPFS
           CONFIG_CGROUPS (it's OK to disable all controllers)
           CONFIG_INOTIFY_USER
