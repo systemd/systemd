@@ -704,15 +704,15 @@
       system hwdb directory <filename>/usr/lib/udev/hwdb.d</filename>,
       the volatile runtime directory <filename>/run/udev/hwdb.d</filename>
       and the local administration directory <filename>/etc/udev/hwdb.d</filename>.
-      All rules files are collectively sorted and processed in lexical order,
+      All hwdb files are collectively sorted and processed in lexical order,
       regardless of the directories in which they live. However, files with
       identical filenames replace each other. Files in <filename>/etc</filename>
       have the highest priority, files in <filename>/run</filename> take precedence
       over files with the same name in <filename>/lib</filename>. This can be
       used to override a system-supplied hwdb file with a local file if needed;
-      a symlink in <filename>/etc</filename> with the same name as a rules file in
+      a symlink in <filename>/etc</filename> with the same name as a hwdb file in
       <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
-      disables the rules file entirely. hwdb files must have the extension
+      disables the hwdb file entirely. hwdb files must have the extension
       <filename>.hwdb</filename>; other extensions are ignored.</para>
 
       <para>The hwdb file contains data records consisting of matches and
