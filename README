@@ -89,7 +89,7 @@ REQUIREMENTS:
         dbus >= 1.4.0
         libcap
         libblkid >= 2.20 (from util-linux) (optional)
-        libkmod >= 5 (optional)
+        libkmod >= 14 (optional)
         PAM >= 1.1.2 (optional)
         libcryptsetup (optional)
         libaudit (optional)
