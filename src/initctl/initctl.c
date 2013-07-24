@@ -122,7 +122,7 @@ static void change_runlevel(Server *s, int runlevel) {
         if (isolate)
                 mode = "isolate";
         else
-                mode = "replace";
+                mode = "replace-irreversibly";
 
         log_debug("Running request %s/start/%s", target, mode);
 
