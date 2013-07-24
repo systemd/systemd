@@ -21,4 +21,4 @@ ConditionDirectoryNotEmpty=|/run/tmpfiles.d
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-tmpfiles --create --remove
+ExecStart=@rootbindir@/systemd-tmpfiles --create --remove --exclude-prefix=/dev
