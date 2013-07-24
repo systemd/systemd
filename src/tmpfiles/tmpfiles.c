@@ -105,7 +105,7 @@ static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
 
-static const char *arg_prefix = NULL;
+static char **include_prefixes = NULL;
 
 static const char conf_file_dirs[] =
         "/etc/tmpfiles.d\0"
@@ -1018,6 +1018,21 @@ static bool item_equal(Item *a, Item *b) {
         return true;
 }
 
+static bool should_include_path(const char *path) {
+        char **prefix;
+
+        /* no explicit paths specified for inclusion, so everything is valid */
+        if (strv_length(include_prefixes) == 0)
+                return true;
+
+        STRV_FOREACH(prefix, include_prefixes) {
+                if (path_startswith(path, *prefix))
+                        return true;
+        }
+
+        return false;
+}
+
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
         _cleanup_item_free_ Item *i = NULL;
         Item *existing;
@@ -1119,7 +1134,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         path_kill_slashes(i->path);
 
-        if (arg_prefix && !path_startswith(i->path, arg_prefix))
+        if (!should_include_path(i->path))
                 return 0;
 
         if (user && !streq(user, "-")) {
@@ -1258,7 +1273,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PREFIX:
-                        arg_prefix = optarg;
+                        if (strv_extend(&include_prefixes, optarg) < 0)
+                                return log_oom();
                         break;
 
                 case '?':
@@ -1422,6 +1438,8 @@ finish:
 
         hashmap_free(items);
         hashmap_free(globs);
+
+        strv_free(include_prefixes);
 
         set_free_free(unix_sockets);
 

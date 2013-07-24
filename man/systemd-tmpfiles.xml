@@ -121,7 +121,8 @@
                                 <term><option>--prefix=PATH</option></term>
                                 <listitem><para>Only apply rules that
                                 apply to paths with the specified
-                                prefix.</para></listitem>
+                                prefix. This option can be specified
+                                multiple times.</para></listitem>
                         </varlistentry>
 
 
