@@ -60,7 +60,9 @@
                 <filename><replaceable>target</replaceable>.target</filename>,
                 <filename><replaceable>path</replaceable>.path</filename>,
                 <filename><replaceable>timer</replaceable>.timer</filename>,
-                <filename><replaceable>snapshot</replaceable>.snapshot</filename></para>
+                <filename><replaceable>snapshot</replaceable>.snapshot</filename>,
+                <filename><replaceable>slice</replaceable>.slice</filename>,
+                <filename><replaceable>scope</replaceable>.scope</filename></para>
 
                 <para><literallayout><filename>/etc/systemd/system/*</filename>
 <filename>/run/systemd/system/*</filename>
@@ -81,12 +83,15 @@
                 <para>A unit configuration file encodes information
                 about a service, a socket, a device, a mount point, an
                 automount point, a swap file or partition, a start-up
-                target, a file system path, or a timer controlled and
-                supervised by
-                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
-                syntax is inspired by <ulink
+                target, a watched file system path, a timer controlled
+                and supervised by
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                a temporary system state snapshot, a resource
+                management slice or a group of externally created
+                processes. The syntax is inspired by <ulink
                 url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
-                Desktop Entry Specification</ulink> <filename>.desktop</filename> files, which are in turn
+                Desktop Entry Specification</ulink>
+                <filename>.desktop</filename> files, which are in turn
                 inspired by Microsoft Windows
                 <filename>.ini</filename> files.</para>
 
@@ -110,6 +115,8 @@
                 <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
                 </para>
 
                 <para>Unit files are loaded from a set of paths
@@ -1324,6 +1331,8 @@
                         <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
