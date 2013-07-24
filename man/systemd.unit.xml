@@ -70,7 +70,8 @@
 <filename>...</filename>
                 </literallayout></para>
 
-                <para><literallayout><filename>/etc/systemd/user/*</filename>
+                <para><literallayout><filename>$HOME/.config/systemd/user/*</filename>
+<filename>/etc/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
 <filename>/usr/lib/systemd/user/*</filename>
 <filename>...</filename>
@@ -256,10 +257,9 @@
 
                 <para>Unit files are loaded from a set of paths
                 determined during compilation, described in the two
-                tables below. Unit files found in directories higher
-                in the hierarchy override files with the same name
-                lower in the hierarchy, thus allowing overrides.
-                </para>
+                tables below. Unit files found in directories listed
+                earlier override files with the same name in
+                directories lower in the list.</para>
 
                 <para>When systemd is running in user mode
                 (<option>--user</option>) and the variable
@@ -284,32 +284,16 @@
                     </thead>
                     <tbody>
                       <row>
-                        <entry><filename>/run/systemd/generator.early</filename></entry>
-                        <entry>Generated units (early)</entry>
-                      </row>
-                      <row>
                         <entry><filename>/etc/systemd/system</filename></entry>
                         <entry>Local configuration</entry>
                       </row>
                       <row>
                         <entry><filename>/run/systemd/system</filename></entry>
-                        <entry>Volatile units</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/run/systemd/generator</filename></entry>
-                        <entry>Generated units (middle)</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/usr/local/lib/systemd/system</filename></entry>
-                        <entry>Units for local packages</entry>
+                        <entry>Runtime units</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/lib/systemd/system</filename></entry>
-                        <entry>Units for installed packages</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/run/systemd/generator.late</filename></entry>
-                        <entry>Generated units (late)</entry>
+                        <entry>Units of installed packages</entry>
                       </row>
                     </tbody>
                   </tgroup>
@@ -331,8 +315,8 @@
                     </thead>
                     <tbody>
                       <row>
-                        <entry><filename>/tmp/systemd-generator.early.<replaceable>XXXXXX</replaceable></filename></entry>
-                        <entry>Generated units (early)</entry>
+                        <entry><filename>$HOME/.config/systemd/user</filename></entry>
+                        <entry>User configuration</entry>
                       </row>
                       <row>
                         <entry><filename>/etc/systemd/user</filename></entry>
@@ -340,23 +324,11 @@
                       </row>
                       <row>
                         <entry><filename>/run/systemd/user</filename></entry>
-                        <entry>Volatile units</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/tmp/systemd-generator.<replaceable>XXXXXX</replaceable></filename></entry>
-                        <entry>Generated units (middle)</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/usr/local/lib/systemd/user</filename></entry>
-                        <entry>Units for local packages</entry>
+                        <entry>Runtime units</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/lib/systemd/user</filename></entry>
-                        <entry>Units for installed packages</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/tmp/systemd-generator.late.<replaceable>XXXXXX</replaceable></filename></entry>
-                        <entry>Generated units (late)</entry>
+                        <entry>Units of installed packages</entry>
                       </row>
                     </tbody>
                   </tgroup>
@@ -365,7 +337,10 @@
                 <para>Additional units might be loaded into systemd
                 ("linked") from directories not on the unit load
                 path. See the <command>link</command> command for
-                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Also,
+                some units are dynamically created via generators
+                <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/Generators/">Generators</ulink>.
                 </para>
         </refsect1>
 
