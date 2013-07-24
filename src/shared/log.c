@@ -115,15 +115,19 @@ void log_close_syslog(void) {
 
 static int create_log_socket(int type) {
         int fd;
+        struct timeval tv;
 
-        /* All output to the syslog/journal fds we do asynchronously,
-         * and if the buffers are full we just drop the messages */
-
-        fd = socket(AF_UNIX, type|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        fd = socket(AF_UNIX, type|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
         fd_inc_sndbuf(fd, SNDBUF_SIZE);
+
+        /* We need a blocking fd here since we'd otherwise lose
+        messages way too early. However, let's not hang forever in the
+        unlikely case of a deadlock. */
+        timeval_store(&tv, 1*USEC_PER_MINUTE);
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
         return fd;
 }
