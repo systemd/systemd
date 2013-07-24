@@ -317,7 +317,7 @@
 
                 <table>
                   <title>
-                    Load path when running in session mode (<option>--user</option>).
+                    Load path when running in user mode (<option>--user</option>).
                   </title>
 
                   <tgroup cols='2'>
