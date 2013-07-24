@@ -153,7 +153,7 @@ void server_done(Server *s);
 void server_sync(Server *s);
 void server_vacuum(Server *s);
 void server_rotate(Server *s);
-int server_schedule_sync(Server *s);
+int server_schedule_sync(Server *s, int priority);
 int server_flush_to_var(Server *s);
 int process_event(Server *s, struct epoll_event *ev);
 void server_maybe_append_tags(Server *s);

@@ -74,8 +74,6 @@ Features:
 
 * journald: optionally, log debug messages to /run but everything else to /var
 
-* journald: optionally, when messages with a high log priority are logged, sync() immediately.
-
 * systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
 
 * do we really need both hasprefix() and startswith()?

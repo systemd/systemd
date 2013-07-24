@@ -352,12 +352,11 @@ void server_rotate(Server *s) {
 }
 
 void server_sync(Server *s) {
+        static const struct itimerspec sync_timer_disable = {};
         JournalFile *f;
         void *k;
         Iterator i;
         int r;
-
-        static const struct itimerspec sync_timer_disable = {};
 
         if (s->system_journal) {
                 r = journal_file_set_offline(s->system_journal);
@@ -443,7 +442,7 @@ bool shall_try_append_again(JournalFile *f, int r) {
         return true;
 }
 
-static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned n) {
+static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned n, int priority) {
         JournalFile *f;
         bool vacuumed = false;
         int r;
@@ -469,7 +468,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 
         r = journal_file_append_entry(f, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r >= 0) {
-                server_schedule_sync(s);
+                server_schedule_sync(s, priority);
                 return;
         }
 
@@ -499,7 +498,8 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
                         size += iovec[i].iov_len;
 
                 log_error("Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %s", n, size, strerror(-r));
-        }
+        } else
+                server_schedule_sync(s, priority);
 }
 
 static void dispatch_message_real(
@@ -509,6 +509,7 @@ static void dispatch_message_real(
                 struct timeval *tv,
                 const char *label, size_t label_len,
                 const char *unit_id,
+                int priority,
                 pid_t object_pid) {
 
         char    pid[sizeof("_PID=") + DECIMAL_STR_MAX(pid_t)],
@@ -523,7 +524,6 @@ static void dispatch_message_real(
                 o_owner_uid[sizeof("OBJECT_SYSTEMD_OWNER_UID=") + DECIMAL_STR_MAX(uid_t)];
         uid_t object_uid;
         gid_t object_gid;
-
         char *x;
         sd_id128_t id;
         int r;
@@ -786,7 +786,7 @@ static void dispatch_message_real(
         else
                 journal_uid = 0;
 
-        write_to_journal(s, journal_uid, iovec, n);
+        write_to_journal(s, journal_uid, iovec, n, priority);
 }
 
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) {
@@ -820,7 +820,7 @@ void server_driver_message(Server *s, sd_id128_t message_id, const char *format,
         ucred.uid = getuid();
         ucred.gid = getgid();
 
-        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, 0);
+        dispatch_message_real(s, iovec, n, ELEMENTSOF(iovec), &ucred, NULL, NULL, 0, NULL, LOG_INFO, 0);
 }
 
 void server_dispatch_message(
@@ -886,7 +886,7 @@ void server_dispatch_message(
                                       "Suppressed %u messages from %s", rl - 1, path);
 
 finish:
-        dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id, object_pid);
+        dispatch_message_real(s, iovec, n, m, ucred, tv, label, label_len, unit_id, priority, object_pid);
 }
 
 
@@ -1423,10 +1423,16 @@ static int server_open_sync_timer(Server *s) {
         return 0;
 }
 
-int server_schedule_sync(Server *s) {
+int server_schedule_sync(Server *s, int priority) {
         int r;
 
         assert(s);
+
+        if (priority <= LOG_CRIT) {
+                /* Immediately sync to disk when this is of priority CRIT, ALERT, EMERG */
+                server_sync(s);
+                return 0;
+        }
 
         if (s->sync_scheduled)
                 return 0;

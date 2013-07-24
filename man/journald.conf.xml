@@ -348,9 +348,17 @@
                         <varlistentry>
                                 <term><varname>SyncIntervalSec=</varname></term>
 
-                                <listitem><para>The timeout before synchronizing journal
-                                data to disk. After syncing, journal files have
-                                the OFFLINE state. Default timeout is 5 minutes.
+                                <listitem><para>The timeout before
+                                synchronizing journal files to
+                                disk. After syncing, journal files are
+                                placed in the OFFLINE state. Note that
+                                syncing is unconditionally done
+                                immediately after a log message of
+                                priority CRIT, ALERT or EMERG has been
+                                logged, this setting hence applies
+                                only to messages of the levels ERR,
+                                WARNING, NOTICE, INFO, DEBUG. The
+                                default timeout is 5 minutes.
                                 </para></listitem>
                         </varlistentry>
 
