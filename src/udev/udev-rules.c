@@ -2586,6 +2586,10 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                                 }
                         }
 
+                        /* don't touch the permissions if only the tags were set */
+                        if (mode == 0 && uid == 0 && gid == 0)
+                                goto next;
+
                         if (mode == 0) {
                                 if (gid > 0)
                                         mode = 0660;
