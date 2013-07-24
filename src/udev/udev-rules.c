@@ -2593,13 +2593,21 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                                         mode = 0600;
                         }
                         if (mode != (stats.st_mode & 01777)) {
-                                chmod(device_node, mode);
-                                log_debug("chmod '%s' %#o\n", device_node, mode);
+                                r = chmod(device_node, mode);
+                                if (r < 0) {
+                                        log_error("failed to chmod '%s' %#o\n", device_node, mode);
+                                        return -errno;
+                                } else
+                                        log_debug("chmod '%s' %#o\n", device_node, mode);
                         }
 
                         if ((uid != 0 && uid != stats.st_uid) || (gid != 0 && gid != stats.st_gid)) {
-                                chown(device_node, uid, gid);
-                                log_debug("chown '%s' %u %u\n", device_node, uid, gid);
+                                r = chown(device_node, uid, gid);
+                                if (r < 0) {
+                                        log_error("failed to chown '%s' %u %u \n", device_node, uid, gid);
+                                        return -errno;
+                                } else
+                                        log_debug("chown '%s' %u %u\n", device_node, uid, gid);
                         }
 
                         utimensat(AT_FDCWD, device_node, NULL, 0);
