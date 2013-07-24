@@ -124,6 +124,13 @@
                                 prefix. This option can be specified
                                 multiple times.</para></listitem>
                         </varlistentry>
+                        <varlistentry>
+                                <term><option>--exclude-prefix=PATH</option></term>
+                                <listitem><para>Ignore rules that
+                                apply to paths with the specified
+                                prefix. This option can be specified
+                                multiple times.</para></listitem>
+                        </varlistentry>
 
 
                         <varlistentry>

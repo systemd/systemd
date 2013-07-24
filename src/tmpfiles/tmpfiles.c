@@ -106,6 +106,7 @@ static bool arg_clean = false;
 static bool arg_remove = false;
 
 static char **include_prefixes = NULL;
+static char **exclude_prefixes = NULL;
 
 static const char conf_file_dirs[] =
         "/etc/tmpfiles.d\0"
@@ -1021,16 +1022,19 @@ static bool item_equal(Item *a, Item *b) {
 static bool should_include_path(const char *path) {
         char **prefix;
 
-        /* no explicit paths specified for inclusion, so everything is valid */
-        if (strv_length(include_prefixes) == 0)
-                return true;
+        STRV_FOREACH(prefix, exclude_prefixes) {
+                if (path_startswith(path, *prefix))
+                        return false;
+        }
 
         STRV_FOREACH(prefix, include_prefixes) {
                 if (path_startswith(path, *prefix))
                         return true;
         }
 
-        return false;
+        /* no matches, so we should include this path only if we
+         * have no whitelist at all */
+        return strv_length(include_prefixes) == 0;
 }
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
@@ -1219,11 +1223,12 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
-               "  -h --help             Show this help\n"
-               "     --create           Create marked files/directories\n"
-               "     --clean            Clean up marked directories\n"
-               "     --remove           Remove marked files/directories\n"
-               "     --prefix=PATH      Only apply rules that apply to paths with the specified prefix\n",
+               "  -h --help                 Show this help\n"
+               "     --create               Create marked files/directories\n"
+               "     --clean                Clean up marked directories\n"
+               "     --remove               Remove marked files/directories\n"
+               "     --prefix=PATH          Only apply rules that apply to paths with the specified prefix\n"
+               "     --exclude-prefix=PATH  Ignore rules that apply to paths with the specified prefix\n",
                program_invocation_short_name);
 
         return 0;
@@ -1235,16 +1240,18 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
-                ARG_PREFIX
+                ARG_PREFIX,
+                ARG_EXCLUDE_PREFIX,
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "create",    no_argument,       NULL, ARG_CREATE    },
-                { "clean",     no_argument,       NULL, ARG_CLEAN     },
-                { "remove",    no_argument,       NULL, ARG_REMOVE    },
-                { "prefix",    required_argument, NULL, ARG_PREFIX    },
-                { NULL,        0,                 NULL, 0             }
+                { "help",           no_argument,         NULL, 'h'                },
+                { "create",         no_argument,         NULL, ARG_CREATE         },
+                { "clean",          no_argument,         NULL, ARG_CLEAN          },
+                { "remove",         no_argument,         NULL, ARG_REMOVE         },
+                { "prefix",         required_argument,   NULL, ARG_PREFIX         },
+                { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
+                { NULL,             0,                   NULL, 0                  }
         };
 
         int c;
@@ -1274,6 +1281,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PREFIX:
                         if (strv_extend(&include_prefixes, optarg) < 0)
+                                return log_oom();
+                        break;
+
+                case ARG_EXCLUDE_PREFIX:
+                        if (strv_extend(&exclude_prefixes, optarg) < 0)
                                 return log_oom();
                         break;
 

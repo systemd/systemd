@@ -249,6 +249,7 @@ _ctls()
                 '--clean[Clean up all files and directories with an age parameter configured.]' \
                 '--remove[All files and directories marked with r, R in the configuration files are removed.]' \
                 '--prefix=[Only apply rules that apply to paths with the specified prefix.]' \
+                '--exclude-prefix=[Ignore rules that apply to paths with the specified prefix.]' \
                 '--help[Prints a short help text and exits.]' \
                 '*::files:_files'
         ;;
