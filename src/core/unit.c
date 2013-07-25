@@ -189,7 +189,8 @@ fail:
 }
 
 int unit_choose_id(Unit *u, const char *name) {
-        char *s, *t = NULL, *i;
+        char *s, *i;
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(u);
@@ -208,7 +209,6 @@ int unit_choose_id(Unit *u, const char *name) {
 
         /* Selects one of the names of this unit as the id */
         s = set_get(u->names, (char*) name);
-        free(t);
 
         if (!s)
                 return -ENOENT;
@@ -598,7 +598,7 @@ int unit_merge(Unit *u, Unit *other) {
 int unit_merge_by_name(Unit *u, const char *name) {
         Unit *other;
         int r;
-        char *s = NULL;
+        _cleanup_free_ char *s = NULL;
 
         assert(u);
         assert(name);
@@ -619,7 +619,6 @@ int unit_merge_by_name(Unit *u, const char *name) {
         else
                 r = unit_merge(u, other);
 
-        free(s);
         return r;
 }
 
@@ -677,7 +676,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *t, **j;
         UnitDependency d;
         Iterator i;
-        char *p2;
+        _cleanup_free_ char *p2 = NULL;
         const char *prefix2;
         char
                 timestamp1[FORMAT_TIMESTAMP_MAX],
@@ -811,7 +810,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         if (u->nop_job)
                 job_dump(u->nop_job, f, prefix2);
 
-        free(p2);
 }
 
 /* Common implementation for multiple backends */
@@ -1914,7 +1912,7 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, con
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
         Unit *other;
         int r;
-        char *s;
+        _cleanup_free_ char *s = NULL;
 
         assert(u);
         assert(name || path);
@@ -1923,19 +1921,17 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
                 return -ENOMEM;
 
         if ((r = manager_load_unit(u->manager, name, path, NULL, &other)) < 0)
-                goto finish;
+                return r;
 
         r = unit_add_two_dependencies(u, d, e, other, add_reference);
 
-finish:
-        free(s);
         return r;
 }
 
 int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference) {
         Unit *other;
         int r;
-        char *s;
+        _cleanup_free_ char *s = NULL;
 
         assert(u);
         assert(name || path);
@@ -1944,19 +1940,17 @@ int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *n
                 return -ENOMEM;
 
         if ((r = manager_load_unit(u->manager, name, path, NULL, &other)) < 0)
-                goto finish;
+                return r;
 
         r = unit_add_dependency(other, d, u, add_reference);
 
-finish:
-        free(s);
         return r;
 }
 
 int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
         Unit *other;
         int r;
-        char *s;
+        _cleanup_free_ char *s = NULL;
 
         assert(u);
         assert(name || path);
@@ -1965,13 +1959,11 @@ int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDep
                 return -ENOMEM;
 
         if ((r = manager_load_unit(u->manager, name, path, NULL, &other)) < 0)
-                goto finish;
+                return r;
 
         if ((r = unit_add_two_dependencies(other, d, e, u, add_reference)) < 0)
-                goto finish;
+                return r;
 
-finish:
-        free(s);
         return r;
 }
 
@@ -2036,7 +2028,7 @@ int unit_add_default_slice(Unit *u) {
 
         if (u->instance) {
                 _cleanup_free_ char *prefix = NULL, *escaped = NULL;
-                        ;
+
                 /* Implicitly place all instantiated units in their
                  * own per-template slice */
 
@@ -2349,7 +2341,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
 int unit_add_node_link(Unit *u, const char *what, bool wants) {
         Unit *device;
-        char *e;
+        _cleanup_free_ char *e = NULL;
         int r;
 
         assert(u);
@@ -2367,7 +2359,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
                 return -ENOMEM;
 
         r = manager_load_unit(u->manager, e, NULL, NULL, &device);
-        free(e);
+
         if (r < 0)
                 return r;
 

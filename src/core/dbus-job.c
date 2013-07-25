@@ -60,7 +60,7 @@ static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_type, job_type, JobType);
 static int bus_job_append_unit(DBusMessageIter *i, const char *property, void *data) {
         Job *j = data;
         DBusMessageIter sub;
-        char *p;
+        _cleanup_free_ char *p = NULL;
 
         assert(i);
         assert(property);
@@ -75,11 +75,8 @@ static int bus_job_append_unit(DBusMessageIter *i, const char *property, void *d
 
         if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &j->unit->id) ||
             !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p)) {
-                free(p);
                 return -ENOMEM;
         }
-
-        free(p);
 
         if (!dbus_message_iter_close_container(i, &sub))
                 return -ENOMEM;
@@ -136,7 +133,7 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
                 /* Be nice to gdbus and return introspection data for our mid-level paths */
 
                 if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
-                        char *introspection = NULL;
+                        _cleanup_free_ char *introspection = NULL;
                         FILE *f;
                         Iterator i;
                         size_t size;
@@ -169,7 +166,6 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
 
                         if (ferror(f)) {
                                 fclose(f);
-                                free(introspection);
                                 goto oom;
                         }
 
@@ -179,11 +175,8 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
                                 goto oom;
 
                         if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &introspection, DBUS_TYPE_INVALID)) {
-                                free(introspection);
                                 goto oom;
                         }
-
-                        free(introspection);
 
                         if (!bus_maybe_send_reply(connection, message, reply))
                                 goto oom;

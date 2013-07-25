@@ -413,7 +413,7 @@ static int bus_manager_set_log_target(DBusMessageIter *i, const char *property, 
 }
 
 static int bus_manager_append_log_level(DBusMessageIter *i, const char *property, void *data) {
-        char *t;
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(i);
@@ -426,7 +426,6 @@ static int bus_manager_append_log_level(DBusMessageIter *i, const char *property
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
                 r = -ENOMEM;
 
-        free(t);
         return r;
 }
 
@@ -1191,7 +1190,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
-                char *introspection = NULL;
+                _cleanup_free_ char *introspection = NULL;
                 FILE *f;
                 Iterator i;
                 Unit *u;
@@ -1217,7 +1216,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 fputs(INTROSPECTION_BEGIN, f);
 
                 HASHMAP_FOREACH_KEY(u, k, m->units, i) {
-                        char *p;
+                        _cleanup_free_ char *p = NULL;
 
                         if (k != u->id)
                                 continue;
@@ -1225,12 +1224,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         p = bus_path_escape(k);
                         if (!p) {
                                 fclose(f);
-                                free(introspection);
                                 goto oom;
                         }
 
                         fprintf(f, "<node name=\"unit/%s\"/>", p);
-                        free(p);
                 }
 
                 HASHMAP_FOREACH(j, m->jobs, i)
@@ -1240,7 +1237,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if (ferror(f)) {
                         fclose(f);
-                        free(introspection);
                         goto oom;
                 }
 
@@ -1250,12 +1246,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
 
                 if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &introspection, DBUS_TYPE_INVALID)) {
-                        free(introspection);
                         goto oom;
                 }
-
-                free(introspection);
-
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reload")) {
 
                 SELINUX_ACCESS_CHECK(connection, message, "reload");

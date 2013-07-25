@@ -77,12 +77,11 @@ static int bus_execute_append_oom_score_adjust(DBusMessageIter *i, const char *p
         if (c->oom_score_adjust_set)
                 n = c->oom_score_adjust;
         else {
-                char *t;
+                _cleanup_free_ char *t = NULL;
 
                 n = 0;
                 if (read_one_line_file("/proc/self/oom_score_adj", &t) >= 0) {
                         safe_atoi(t, &n);
-                        free(t);
                 }
         }
 
