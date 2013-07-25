@@ -68,6 +68,7 @@ pkgconfigdatadir=$(datadir)/pkgconfig
 pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
 bashcompletiondir=@bashcompletiondir@
+zshcompletiondir=@zshcompletiondir@
 rpmmacrosdir=$(prefix)/lib/rpm/macros.d
 sysvinitdir=$(SYSTEM_SYSVINIT_PATH)
 sysvrcnddir=$(SYSTEM_SYSVRCND_PATH)
@@ -341,6 +342,9 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/systemd-analyze \
 	shell-completion/bash/udevadm \
 	shell-completion/bash/kernel-install
+
+dist_zshcompletion_DATA = \
+	shell-completion/zsh/_systemd
 
 dist_sysctl_DATA = \
 	sysctl.d/50-default.conf
@@ -4234,9 +4238,6 @@ EXTRA_DIST += \
 	docs/sysvinit/README.in \
 	docs/var-log/README.in
 
-EXTRA_DIST += \
-	shell-completion/systemd-zsh-completion.zsh
-
 SOCKETS_TARGET_WANTS += \
 	systemd-initctl.socket \
 	systemd-shutdownd.socket
@@ -4351,6 +4352,7 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbussystemservicedir=$$dc_install_base/$(dbussystemservicedir) \
 	--with-dbusinterfacedir=$$dc_install_base/$(dbusinterfacedir) \
 	--with-bashcompletiondir=$$dc_install_base/$(bashcompletiondir) \
+	--with-zshcompletiondir=$$dc_install_base/$(zshcompletiondir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-rootprefix=$$dc_install_base \
 	--disable-split-usr
