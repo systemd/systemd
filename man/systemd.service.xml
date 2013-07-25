@@ -618,6 +618,7 @@
                                 <option>no</option>,
                                 <option>on-success</option>,
                                 <option>on-failure</option>,
+                                <option>on-watchdog</option>,
                                 <option>on-abort</option>, or
                                 <option>always</option>. If set to
                                 <option>no</option> (the default) the
@@ -643,6 +644,10 @@
                                 process exits due to an uncaught
                                 signal not specified as a clean exit
                                 status.
+                                If set to
+                                <option>on-watchdog</option> the service
+                                will be restarted only if the watchdog
+                                timeout for the service expires.
                                 If set to
                                 <option>always</option> the service
                                 will be restarted regardless whether

@@ -1937,6 +1937,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
             (s->restart == SERVICE_RESTART_ALWAYS ||
              (s->restart == SERVICE_RESTART_ON_SUCCESS && s->result == SERVICE_SUCCESS) ||
              (s->restart == SERVICE_RESTART_ON_FAILURE && s->result != SERVICE_SUCCESS) ||
+             (s->restart == SERVICE_RESTART_ON_WATCHDOG && s->result == SERVICE_FAILURE_WATCHDOG) ||
              (s->restart == SERVICE_RESTART_ON_ABORT && (s->result == SERVICE_FAILURE_SIGNAL ||
                                                          s->result == SERVICE_FAILURE_CORE_DUMP))) &&
             (s->result != SERVICE_FAILURE_EXIT_CODE ||
@@ -3791,6 +3792,7 @@ static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",
         [SERVICE_RESTART_ON_SUCCESS] = "on-success",
         [SERVICE_RESTART_ON_FAILURE] = "on-failure",
+        [SERVICE_RESTART_ON_WATCHDOG] = "on-watchdog",
         [SERVICE_RESTART_ON_ABORT] = "on-abort",
         [SERVICE_RESTART_ALWAYS] = "always"
 };
