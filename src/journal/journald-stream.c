@@ -90,7 +90,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         priority = s->priority;
 
         if (s->level_prefix)
-                syslog_parse_priority((char**) &p, &priority);
+                syslog_parse_priority((char**) &p, &priority, false);
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
                 server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);

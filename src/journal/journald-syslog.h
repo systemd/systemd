@@ -25,7 +25,7 @@
 
 int syslog_fixup_facility(int priority) _const_;
 
-void syslog_parse_priority(char **p, int *priority);
+void syslog_parse_priority(char **p, int *priority, bool with_facility);
 size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid);
 
 void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred, struct timeval *tv);

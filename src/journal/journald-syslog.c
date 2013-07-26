@@ -236,7 +236,7 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         return e;
 }
 
-void syslog_parse_priority(char **p, int *priority) {
+void syslog_parse_priority(char **p, int *priority, bool with_facility) {
         int a = 0, b = 0, c = 0;
         int k;
 
@@ -265,10 +265,14 @@ void syslog_parse_priority(char **p, int *priority) {
         } else
                 return;
 
-        if (a < 0 || b < 0 || c < 0)
+        if (a < 0 || b < 0 || c < 0 ||
+            (!with_facility && (a || b || c > 7)))
                 return;
 
-        *priority = (*priority & LOG_FACMASK) | (a*100 + b*10 + c);
+        if (with_facility)
+                *priority = a*100 + b*10 + c;
+        else
+                *priority = (*priority & LOG_FACMASK) | c;
         *p += k;
 }
 
@@ -361,7 +365,7 @@ void server_process_syslog_message(
         assert(buf);
 
         orig = buf;
-        syslog_parse_priority((char**) &buf, &priority);
+        syslog_parse_priority((char**) &buf, &priority, true);
 
         if (s->forward_to_syslog)
                 forward_syslog_raw(s, priority, orig, ucred, tv);
