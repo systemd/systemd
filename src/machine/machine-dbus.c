@@ -350,6 +350,10 @@ int machine_send_create_reply(Machine *m, DBusError *error) {
                         return log_oom();
         }
 
+        /* Update the machine state file before we notify the client
+         * about the result. */
+        machine_save(m);
+
         if (!dbus_connection_send(m->manager->bus, reply, NULL))
                 return log_oom();
 

@@ -551,9 +551,8 @@ DBusHandlerResult bus_message_filter(
                                                 dbus_set_error(&error, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
                                                 machine_send_create_reply(mm, &error);
                                         }
-                                }
-
-                                machine_save(mm);
+                                } else
+                                        machine_save(mm);
                         }
 
                         machine_add_to_gc_queue(mm);

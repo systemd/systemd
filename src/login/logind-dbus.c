@@ -2368,9 +2368,8 @@ DBusHandlerResult bus_message_filter(
                                                         dbus_set_error(&error, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
                                                         session_send_create_reply(s, &error);
                                                 }
-                                        }
-
-                                        session_save(s);
+                                        } else
+                                                session_save(s);
                                 }
 
                                 session_add_to_gc_queue(s);

@@ -592,6 +592,10 @@ int session_send_create_reply(Session *s, DBusError *error) {
                         return log_oom();
         }
 
+        /* Update the state file before we notify the client about the
+         * result */
+        session_save(s);
+
         if (!dbus_connection_send(s->manager->bus, reply, NULL))
                 return log_oom();
 

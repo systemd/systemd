@@ -51,8 +51,6 @@ CGroup Rework Completion:
 
 Features:
 
-* remove systemctl load-unit
-
 * journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
 
 * given that logind/machined now let PID 1 do all nasty work we can
