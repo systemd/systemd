@@ -3905,7 +3905,7 @@ _journal_la_SOURCES = \
 _journal_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-fvisibility=default \
-	$(PYTHON_CFLAGS)
+	$(PYTHON_DEVEL_CFLAGS)
 
 _journal_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -3914,7 +3914,7 @@ _journal_la_LDFLAGS = \
 	-avoid-version
 
 _journal_la_LIBADD = \
-	$(PYTHON_LIBS) \
+	$(PYTHON_DEVEL_LIBS) \
 	libsystemd-journal.la
 
 id128_la_SOURCES = \
@@ -3926,7 +3926,7 @@ id128_la_SOURCES = \
 id128_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-fvisibility=default \
-	$(PYTHON_CFLAGS) \
+	$(PYTHON_DEVEL_CFLAGS) \
 	-I$(top_builddir)/src/python-systemd
 
 id128_la_LDFLAGS = \
@@ -3936,7 +3936,7 @@ id128_la_LDFLAGS = \
 	-avoid-version
 
 id128_la_LIBADD = \
-	$(PYTHON_LIBS) \
+	$(PYTHON_DEVEL_LIBS) \
 	libsystemd-id128.la
 
 _daemon_la_SOURCES = \
@@ -3947,7 +3947,7 @@ _daemon_la_SOURCES = \
 _daemon_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-fvisibility=default \
-	$(PYTHON_CFLAGS) \
+	$(PYTHON_DEVEL_CFLAGS) \
 	-I$(top_builddir)/src/python-systemd
 
 _daemon_la_LDFLAGS = \
@@ -3957,7 +3957,7 @@ _daemon_la_LDFLAGS = \
 	-avoid-version
 
 _daemon_la_LIBADD = \
-	$(PYTHON_LIBS) \
+	$(PYTHON_DEVEL_LIBS) \
 	libsystemd-daemon.la
 
 _reader_la_SOURCES = \
@@ -3968,7 +3968,7 @@ _reader_la_SOURCES = \
 _reader_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-fvisibility=default \
-	$(PYTHON_CFLAGS)
+	$(PYTHON_DEVEL_CFLAGS)
 
 _reader_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -3977,7 +3977,7 @@ _reader_la_LDFLAGS = \
 	-avoid-version
 
 _reader_la_LIBADD = \
-	$(PYTHON_LIBS) \
+	$(PYTHON_DEVEL_LIBS) \
 	libsystemd-journal.la \
 	libsystemd-id128.la \
 	libsystemd-shared.la \
@@ -3991,7 +3991,7 @@ login_la_SOURCES = \
 login_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-fvisibility=default \
-	$(PYTHON_CFLAGS)
+	$(PYTHON_DEVEL_CFLAGS)
 
 login_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -4000,7 +4000,7 @@ login_la_LDFLAGS = \
 	-avoid-version
 
 login_la_LIBADD = \
-	$(PYTHON_LIBS) \
+	$(PYTHON_DEVEL_LIBS) \
 	libsystemd-journal.la \
 	libsystemd-login.la \
 	libsystemd-shared.la \

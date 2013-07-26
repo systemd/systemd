@@ -144,11 +144,10 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         --param=ssp-buffer-size=4])
 AC_SUBST([OUR_CFLAGS], $with_cflags)
 
-AS_CASE([$CFLAGS], [*-O[[12345g\ ]]*], [
-        CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
-               -Wp,-D_FORTIFY_SOURCE=2])], [
-        python_extra_cflags=-Wp,-U_FORTIFY_SOURCE
-        AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
+AS_CASE([$CFLAGS], [*-O[[12345g\ ]]*],
+        [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
+               -Wp,-D_FORTIFY_SOURCE=2])],
+        [AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
 AC_SUBST([OUR_CPPFLAGS], $with_cppflags)
 
 CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
@@ -162,8 +161,6 @@ AC_SUBST([OUR_LDFLAGS], $with_ldflags)
 # ------------------------------------------------------------------------------
 # we use python to build the man page index, and for systemd-python
 have_python=no
-have_python_devel=no
-
 AC_ARG_WITH([python],
         [AS_HELP_STRING([--without-python], [Disable building the man page index and systemd-python (default: test)])])
 
@@ -178,16 +175,16 @@ AS_IF([test "x$PYTHON_BINARY" = "x"],
              [PYTHON_BINARY=/usr/bin/python])])
 AC_ARG_VAR(PYTHON_BINARY, [Python binary used to launch installed scripts])
 
-AS_IF([test "x$with_python" != "xno"], [
-        AC_PATH_PROG(PYTHON_CONFIG, python${PYTHON_VERSION}-config)
-        AS_IF([test -n "$PYTHON_CONFIG"], [
-              have_python_devel=yes
-              PYTHON_CFLAGS="$($PYTHON_CONFIG --cflags) $python_extra_cflags"
-              PYTHON_LIBS="$($PYTHON_CONFIG --ldflags)"
-              AC_SUBST(PYTHON_CFLAGS)
-              AC_SUBST(PYTHON_LIBS)
-              AC_PATH_PROGS(SPHINX_BUILD, sphinx-build-${PYTHON_VERSION} sphinx-build)
-        ])
+have_python_devel=no
+AC_ARG_ENABLE(python_devel, AS_HELP_STRING([--disable-python-devel], [Do not build python modules]))
+AS_IF([test "x$enable_python_devel" != "xno"], [
+      PKG_CHECK_MODULES([PYTHON_DEVEL], [python-${PYTHON_VERSION}],
+            [have_python_devel=yes],
+            [PKG_CHECK_MODULES([PYTHON_DEVEL], [python],
+                  [have_python_devel=yes],
+                  [have_python_devel=no])])
+      AS_IF([test "x$have_python_devel" = xno -a "x$enable_python_devel" = xyes],
+            [AC_MSG_ERROR([*** python-devel support requested but libraries not found])])
 ])
 AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 
@@ -1039,6 +1036,6 @@ AC_MSG_RESULT([
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}
         LDFLAGS:                 ${OUR_LDFLAGS} ${LDFLAGS}
-        PYTHON_CFLAGS:           ${PYTHON_CFLAGS}
-        PYTHON_LIBS:             ${PYTHON_LIBS}
+        PYTHON_CFLAGS:           ${PYTHON_DEVEL_CFLAGS}
+        PYTHON_LIBS:             ${PYTHON_DEVEL_LIBS}
 ])
