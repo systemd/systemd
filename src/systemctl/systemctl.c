@@ -1388,36 +1388,6 @@ static int list_jobs(DBusConnection *bus, char **args) {
         return 0;
 }
 
-static int load_unit(DBusConnection *bus, char **args) {
-        char **name;
-
-        assert(args);
-
-        STRV_FOREACH(name, args+1) {
-                _cleanup_free_ char *n = NULL;
-                int r;
-
-                n = unit_name_mangle(*name);
-                if (!n)
-                        return log_oom();
-
-                r = bus_method_call_with_reply(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "LoadUnit",
-                                NULL,
-                                NULL,
-                                DBUS_TYPE_STRING, &n,
-                                DBUS_TYPE_INVALID);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
 static int cancel_job(DBusConnection *bus, char **args) {
         char **name;
 
@@ -4687,7 +4657,6 @@ static int systemctl_help(void) {
                "  help [NAME...|PID...]           Show manual for one or more units\n"
                "  reset-failed [NAME...]          Reset failed state for all, one, or more\n"
                "                                  units\n"
-               "  load [NAME...]                  Load one or more units\n"
                "  list-dependencies [NAME]        Recursively show units which are required\n"
                "                                  or wanted by this unit or by which this\n"
                "                                  unit is required or wanted\n\n"

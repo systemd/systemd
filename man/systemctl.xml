@@ -943,28 +943,6 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       </varlistentry>
 
       <varlistentry>
-        <term><command>load <replaceable>NAME</replaceable>...</command></term>
-
-        <listitem>
-          <para>Load one or more units specified on the command
-          line. This will simply load their configuration from disk,
-          but not start them. To start them, you need to use the
-          <command>start</command> command which will implicitly load
-          a unit that has not been loaded yet. Note that systemd
-          garbage collects loaded units that are not active or
-          referenced by an active unit. This means that units loaded
-          this way will usually not stay loaded for long. Also note
-          that this command cannot be used to reload unit
-          configuration. Use the <command>daemon-reload</command>
-          command for that. All in all, this command is of little use
-          except for debugging.</para>
-
-          <para>This command should not be confused with the
-          <command>daemon-reload</command> or
-          <command>reload</command>.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><command>list-jobs</command></term>
 
         <listitem>
