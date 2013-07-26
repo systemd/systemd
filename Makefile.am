@@ -752,6 +752,7 @@ libsystemd_label_la_SOURCES = \
 	src/shared/selinux-util.c \
 	src/shared/selinux-util.h \
 	src/shared/mkdir.c \
+	src/shared/mkdir-label.c \
 	src/shared/mkdir.h \
 	src/shared/ask-password-api.c \
 	src/shared/ask-password-api.h \

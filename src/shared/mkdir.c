@@ -31,14 +31,10 @@
 #include "path-util.h"
 #include "mkdir.h"
 
-int mkdir_label(const char *path, mode_t mode) {
-        return label_mkdir(path, mode, true);
-}
-
-static int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, bool apply) {
+int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, mkdir_func_t _mkdir) {
         struct stat st;
 
-        if (label_mkdir(path, mode, apply) >= 0)
+        if (_mkdir(path, mode) >= 0)
                 if (chmod_and_chown(path, mode, uid, gid) < 0)
                         return -errno;
 
@@ -60,10 +56,6 @@ int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         return mkdir_safe_internal(path, mode, uid, gid, false);
 }
 
-int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        return mkdir_safe_internal(path, mode, uid, gid, true);
-}
-
 static int is_dir(const char* path) {
         struct stat st;
 
@@ -73,7 +65,7 @@ static int is_dir(const char* path) {
         return S_ISDIR(st.st_mode);
 }
 
-static int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, bool apply) {
+int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, mkdir_func_t _mkdir) {
         const char *p, *e;
         int r;
 
@@ -116,34 +108,26 @@ static int mkdir_parents_internal(const char *prefix, const char *path, mode_t m
                 if (prefix && path_startswith(prefix, t))
                         continue;
 
-                r = label_mkdir(t, mode, apply);
+                r = _mkdir(t, mode);
                 if (r < 0 && errno != EEXIST)
                         return -errno;
         }
 }
 
 int mkdir_parents(const char *path, mode_t mode) {
-        return mkdir_parents_internal(NULL, path, mode, false);
+        return mkdir_parents_internal(NULL, path, mode, mkdir);
 }
 
-int mkdir_parents_label(const char *path, mode_t mode) {
-        return mkdir_parents_internal(NULL, path, mode, true);
-}
-
-int mkdir_parents_prefix(const char *prefix, const char *path, mode_t mode) {
-        return mkdir_parents_internal(prefix, path, mode, true);
-}
-
-static int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, bool apply) {
+int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, mkdir_func_t _mkdir) {
         int r;
 
         /* Like mkdir -p */
 
-        r = mkdir_parents_internal(prefix, path, mode, apply);
+        r = mkdir_parents_internal(prefix, path, mode, _mkdir);
         if (r < 0)
                 return r;
 
-        r = label_mkdir(path, mode, apply);
+        r = _mkdir(path, mode);
         if (r < 0 && (errno != EEXIST || is_dir(path) <= 0))
                 return -errno;
 
@@ -151,13 +135,9 @@ static int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, b
 }
 
 int mkdir_p(const char *path, mode_t mode) {
-        return mkdir_p_internal(NULL, path, mode, false);
-}
-
-int mkdir_p_label(const char *path, mode_t mode) {
-        return mkdir_p_internal(NULL, path, mode, true);
+        return mkdir_p_internal(NULL, path, mode, mkdir);
 }
 
 int mkdir_p_prefix(const char *prefix, const char *path, mode_t mode) {
-        return mkdir_p_internal(prefix, path, mode, false);
+        return mkdir_p_internal(prefix, path, mode, mkdir);
 }

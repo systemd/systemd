@@ -47,7 +47,7 @@ int cg_create(const char *controller, const char *path) {
         if (r < 0)
                 return r;
 
-        r = mkdir_parents_prefix("/sys/fs/cgroup", fs, 0755);
+        r = mkdir_parents_prefix_label("/sys/fs/cgroup", fs, 0755);
         if (r < 0)
                 return r;
 

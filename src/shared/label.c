@@ -257,14 +257,14 @@ void label_free(const char *label) {
 #endif
 }
 
-int label_mkdir(const char *path, mode_t mode, bool apply) {
+int label_mkdir(const char *path, mode_t mode) {
 
         /* Creates a directory and labels it according to the SELinux policy */
 #ifdef HAVE_SELINUX
         int r;
         security_context_t fcon = NULL;
 
-        if (!apply || !use_selinux() || !label_hnd)
+        if (!use_selinux() || !label_hnd)
                 goto skipped;
 
         if (path_is_absolute(path))
