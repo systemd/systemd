@@ -908,9 +908,9 @@ static PyObject* Reader_get_catalog(Reader *self, PyObject *args)
 
         r = sd_journal_get_data(self->j, "MESSAGE_ID", &mid, &mid_len);
         if (r == 0) {
-            const int l = sizeof("MESSAGE_ID");
+            const size_t l = sizeof("MESSAGE_ID");
             assert(mid_len > l);
-            PyErr_Format(PyExc_KeyError, "%.*s", (int) mid_len - l,
+            PyErr_Format(PyExc_KeyError, "%.*s", (int) (mid_len - l),
                          (const char*) mid + l);
         } else if (r == -ENOENT)
             PyErr_SetString(PyExc_IndexError, "no MESSAGE_ID field");
