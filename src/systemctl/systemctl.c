@@ -3797,40 +3797,6 @@ static int set_property(DBusConnection *bus, char **args) {
         return 0;
 }
 
-static int dump(DBusConnection *bus, char **args) {
-        _cleanup_free_ DBusMessage *reply = NULL;
-        DBusError error;
-        int r;
-        const char *text;
-
-        dbus_error_init(&error);
-
-        pager_open_if_enabled();
-
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Dump",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
-                return r;
-
-        if (!dbus_message_get_args(reply, &error,
-                                   DBUS_TYPE_STRING, &text,
-                                   DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error));
-                dbus_error_free(&error);
-                return  -EIO;
-        }
-
-        fputs(text, stdout);
-        return 0;
-}
-
 static int snapshot(DBusConnection *bus, char **args) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         DBusError error;
@@ -4787,8 +4753,6 @@ static int systemctl_help(void) {
                "Job Commands:\n"
                "  list-jobs                       List jobs\n"
                "  cancel [JOB...]                 Cancel all, one, or more jobs\n\n"
-               "Status Commands:\n"
-               "  dump                            Dump server status\n\n"
                "Snapshot Commands:\n"
                "  snapshot [NAME]                 Create a snapshot\n"
                "  delete [NAME...]                Remove one or more snapshots\n\n"
@@ -4927,43 +4891,43 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "type",      required_argument, NULL, 't'           },
-                { "property",  required_argument, NULL, 'p'           },
-                { "all",       no_argument,       NULL, 'a'           },
-                { "reverse",   no_argument,       NULL, ARG_REVERSE   },
-                { "after",     no_argument,       NULL, ARG_AFTER     },
-                { "before",    no_argument,       NULL, ARG_BEFORE    },
-                { "show-types", no_argument,      NULL, ARG_SHOW_TYPES },
-                { "failed",    no_argument,       NULL, ARG_FAILED    },
-                { "full",      no_argument,       NULL, 'l'           },
-                { "fail",      no_argument,       NULL, ARG_FAIL      },
-                { "irreversible", no_argument,    NULL, ARG_IRREVERSIBLE },
-                { "ignore-dependencies", no_argument, NULL, ARG_IGNORE_DEPENDENCIES },
-                { "ignore-inhibitors", no_argument, NULL, 'i'         },
-                { "user",      no_argument,       NULL, ARG_USER      },
-                { "system",    no_argument,       NULL, ARG_SYSTEM    },
-                { "global",    no_argument,       NULL, ARG_GLOBAL    },
-                { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
-                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                { "no-wall",   no_argument,       NULL, ARG_NO_WALL   },
-                { "quiet",     no_argument,       NULL, 'q'           },
-                { "root",      required_argument, NULL, ARG_ROOT      },
-                { "force",     no_argument,       NULL, ARG_FORCE     },
-                { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
-                { "kill-who",  required_argument, NULL, ARG_KILL_WHO  },
-                { "signal",    required_argument, NULL, 's'           },
-                { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
-                { "host",      required_argument, NULL, 'H'           },
-                { "privileged",no_argument,       NULL, 'P'           },
-                { "runtime",   no_argument,       NULL, ARG_RUNTIME   },
-                { "lines",     required_argument, NULL, 'n'           },
-                { "output",    required_argument, NULL, 'o'           },
-                { "plain",     no_argument,       NULL, ARG_PLAIN     },
-                { "state",     required_argument, NULL, ARG_STATE     },
-                { NULL,        0,                 NULL, 0             }
+                { "help",                no_argument,       NULL, 'h'                     },
+                { "version",             no_argument,       NULL, ARG_VERSION             },
+                { "type",                required_argument, NULL, 't'                     },
+                { "property",            required_argument, NULL, 'p'                     },
+                { "all",                 no_argument,       NULL, 'a'                     },
+                { "reverse",             no_argument,       NULL, ARG_REVERSE             },
+                { "after",               no_argument,       NULL, ARG_AFTER               },
+                { "before",              no_argument,       NULL, ARG_BEFORE              },
+                { "show-types",          no_argument,       NULL, ARG_SHOW_TYPES          },
+                { "failed",              no_argument,       NULL, ARG_FAILED              }, /* compatibility only */
+                { "full",                no_argument,       NULL, 'l'                     },
+                { "fail",                no_argument,       NULL, ARG_FAIL                },
+                { "irreversible",        no_argument,       NULL, ARG_IRREVERSIBLE        },
+                { "ignore-dependencies", no_argument,       NULL, ARG_IGNORE_DEPENDENCIES },
+                { "ignore-inhibitors",   no_argument,       NULL, 'i'                     },
+                { "user",                no_argument,       NULL, ARG_USER                },
+                { "system",              no_argument,       NULL, ARG_SYSTEM              },
+                { "global",              no_argument,       NULL, ARG_GLOBAL              },
+                { "no-block",            no_argument,       NULL, ARG_NO_BLOCK            },
+                { "no-legend",           no_argument,       NULL, ARG_NO_LEGEND           },
+                { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
+                { "no-wall",             no_argument,       NULL, ARG_NO_WALL             },
+                { "quiet",               no_argument,       NULL, 'q'                     },
+                { "root",                required_argument, NULL, ARG_ROOT                },
+                { "force",               no_argument,       NULL, ARG_FORCE               },
+                { "no-reload",           no_argument,       NULL, ARG_NO_RELOAD           },
+                { "kill-who",            required_argument, NULL, ARG_KILL_WHO            },
+                { "signal",              required_argument, NULL, 's'                     },
+                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
+                { "host",                required_argument, NULL, 'H'                     },
+                { "privileged",          no_argument,       NULL, 'P'                     },
+                { "runtime",             no_argument,       NULL, ARG_RUNTIME             },
+                { "lines",               required_argument, NULL, 'n'                     },
+                { "output",              required_argument, NULL, 'o'                     },
+                { "plain",               no_argument,       NULL, ARG_PLAIN               },
+                { "state",               required_argument, NULL, ARG_STATE               },
+                { NULL,                  0,                 NULL, 0                       }
         };
 
         int c;
@@ -5829,7 +5793,6 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "show",                  MORE,  1, show              },
                 { "status",                MORE,  1, show              },
                 { "help",                  MORE,  2, show              },
-                { "dump",                  EQUAL, 1, dump              },
                 { "snapshot",              LESS,  2, snapshot          },
                 { "delete",                MORE,  2, delete_snapshot   },
                 { "daemon-reload",         EQUAL, 1, daemon_reload     },

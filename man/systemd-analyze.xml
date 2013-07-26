@@ -82,6 +82,11 @@
                         <arg choice="plain">dot</arg>
                         <arg choice="opt" rep="repeat"><replaceable>PATTERN</replaceable></arg>
                 </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-analyze</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="plain">dump</arg>
+                </cmdsynopsis>
         </refsynopsisdiv>
 
         <refsect1>
@@ -127,7 +132,7 @@
                 been started at what time, highlighting the time they
                 spent on initialization.</para>
 
-                <para><command>systemd-analyze dot</command> Generate
+                <para><command>systemd-analyze dot</command> generates
                 textual dependency graph description in dot format for
                 further processing with the GraphViz
                 <citerefentry><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -142,6 +147,12 @@
                 the end. A unit dependency is included in the graph if
                 any of these patterns match either the origin or
                 destination node.</para>
+
+                <para><command>systemd-analyze dump</command> outputs
+                a (usually very long) human-readable serialization of
+                the complete server state. Its format is subject to
+                change without notice and should not be parsed by
+                applications.</para>
 
                 <para>If no command is passed, <command>systemd-analyze
                 time</command> is implied.</para>
@@ -228,6 +239,14 @@
                                 unless specified with a different unit,
                                 e.g. "50ms".</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--no-pager</option></term>
+
+                                <listitem>
+                                        <para>Do not pipe output into a pager.</para>
+                                </listitem>
+                        </varlistentry>
                 </variablelist>
 
         </refsect1>
@@ -254,6 +273,24 @@ $ eog avahi.svg</programlisting>
 $ eog targets.svg</programlisting>
 
 
+        </refsect1>
+
+        <refsect1>
+                <title>Environment</title>
+
+                <variablelist class='environment-variables'>
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_PAGER</varname></term>
+
+                                <listitem>
+                                        <para>Pager to use when <option>--no-pager</option> is not
+                                        given; overrides <varname>$PAGER</varname>.  Setting this to
+                                        an empty string or the value <literal>cat</literal> is
+                                        equivalent to passing
+                                        <option>--no-pager</option>.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
         </refsect1>
 
         <refsect1>

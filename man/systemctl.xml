@@ -993,16 +993,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           all pending jobs.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-        <term><command>dump</command></term>
 
-        <listitem>
-          <para>Dump server status. This will output a (usually very
-          long) human readable manager status dump. Its format is
-          subject to change without notice and should not be parsed by
-          applications.</para>
-        </listitem>
-      </varlistentry>
       <varlistentry>
         <term><command>list-dependencies <replaceable>NAME</replaceable></command></term>
 

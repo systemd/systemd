@@ -90,8 +90,6 @@ Features:
 
 * move systemctl set-log-level to systemd-analyze?
 
-* move "systemctl dump" to systemd-analyze
-
 * add a fixed dbus path for "my own unit", "my own session", ... to PID1, logind, ...
 
 * service_coldplug() appears to reinstall the wrong stop timeout watch?
