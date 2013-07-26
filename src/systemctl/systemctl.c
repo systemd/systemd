@@ -4527,51 +4527,6 @@ finish:
         return r;
 }
 
-static int set_log_level(DBusConnection *bus, char **args) {
-        _cleanup_dbus_error_free_ DBusError error;
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
-        DBusMessageIter iter, sub;
-        const char* property = "LogLevel";
-        const char* interface = "org.freedesktop.systemd1.Manager";
-        const char* value;
-
-        assert(bus);
-        assert(args);
-
-        value = args[1];
-        dbus_error_init(&error);
-
-        m = dbus_message_new_method_call("org.freedesktop.systemd1",
-                                         "/org/freedesktop/systemd1",
-                                         "org.freedesktop.DBus.Properties",
-                                         "Set");
-        if (!m)
-                return log_oom();
-
-        dbus_message_iter_init_append(m, &iter);
-
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &interface) ||
-            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &property) ||
-            !dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &sub))
-                return log_oom();
-
-        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &value)) {
-                dbus_message_iter_abandon_container(&iter, &sub);
-                return log_oom();
-        }
-
-        if (!dbus_message_iter_close_container(&iter, &sub))
-                return log_oom();
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                return -EIO;
-        }
-
-        return 0;
-}
-
 static int unit_is_enabled(DBusConnection *bus, char **args) {
         _cleanup_dbus_error_free_ DBusError error;
         int r;
@@ -4759,8 +4714,7 @@ static int systemctl_help(void) {
                "Environment Commands:\n"
                "  show-environment                Dump environment\n"
                "  set-environment [NAME=VALUE...] Set one or more environment variables\n"
-               "  unset-environment [NAME...]     Unset one or more environment variables\n"
-               "  set-log-level LEVEL             Set logging threshold for systemd\n\n"
+               "  unset-environment [NAME...]     Unset one or more environment variables\n\n"
                "Manager Lifecycle Commands:\n"
                "  daemon-reload                   Reload systemd manager configuration\n"
                "  daemon-reexec                   Reexecute systemd manager\n\n"
@@ -5824,7 +5778,6 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "list-dependencies",     LESS,  2, list_dependencies },
                 { "set-default",           EQUAL, 2, enable_unit       },
                 { "get-default",           LESS,  1, get_default       },
-                { "set-log-level",         EQUAL, 2, set_log_level     },
                 { "set-property",          MORE,  3, set_property      },
         };
 

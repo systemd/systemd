@@ -1184,6 +1184,11 @@ static int dump(DBusConnection *bus, char **args) {
 
         dbus_error_init(&error);
 
+        if (!strv_isempty(args)) {
+                log_error("Too many arguments.");
+                return -E2BIG;
+        }
+
         pager_open_if_enabled();
 
         r = bus_method_call_with_reply(
@@ -1207,6 +1212,54 @@ static int dump(DBusConnection *bus, char **args) {
         }
 
         fputs(text, stdout);
+        return 0;
+}
+
+static int set_log_level(DBusConnection *bus, char **args) {
+        _cleanup_dbus_error_free_ DBusError error;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        DBusMessageIter iter, sub;
+        const char* property = "LogLevel";
+        const char* interface = "org.freedesktop.systemd1.Manager";
+        const char* value;
+
+        assert(bus);
+        assert(args);
+
+        if (strv_length(args) != 1) {
+                log_error("This command expects one argument only.");
+                return -E2BIG;
+        }
+
+        value = args[0];
+        dbus_error_init(&error);
+
+        m = dbus_message_new_method_call("org.freedesktop.systemd1",
+                                         "/org/freedesktop/systemd1",
+                                         "org.freedesktop.DBus.Properties",
+                                         "Set");
+        if (!m)
+                return log_oom();
+
+        dbus_message_iter_init_append(m, &iter);
+
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &interface) ||
+            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &property) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &sub))
+                return log_oom();
+
+        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &value))
+                return log_oom();
+
+        if (!dbus_message_iter_close_container(&iter, &sub))
+                return log_oom();
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                return -EIO;
+        }
+
         return 0;
 }
 
@@ -1236,6 +1289,7 @@ static void analyze_help(void) {
                "  critical-chain      Print a tree of the time critical chain of units\n"
                "  plot                Output SVG graphic showing service initialization\n"
                "  dot                 Output dependency graph in dot(1) format\n"
+               "  set-log-level LEVEL Set logging threshold for systemd\n"
                "  dump                Output state serialization of service manager\n",
                program_invocation_short_name);
 
@@ -1368,6 +1422,8 @@ int main(int argc, char *argv[]) {
                 r = dot(bus, argv+optind+1);
         else if (streq(argv[optind], "dump"))
                 r = dump(bus, argv+optind+1);
+        else if (streq(argv[optind], "set-log-level"))
+                r = set_log_level(bus, argv+optind+1);
         else
                 log_error("Unknown operation '%s'.", argv[optind]);
 

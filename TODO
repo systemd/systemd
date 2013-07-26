@@ -51,6 +51,8 @@ CGroup Rework Completion:
 
 Features:
 
+* remove systemctl load-unit
+
 * journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
 
 * given that logind/machined now let PID 1 do all nasty work we can
@@ -88,8 +90,6 @@ Features:
 
 * load .d/*.conf dropins for device units
 
-* move systemctl set-log-level to systemd-analyze?
-
 * add a fixed dbus path for "my own unit", "my own session", ... to PID1, logind, ...
 
 * service_coldplug() appears to reinstall the wrong stop timeout watch?
@@ -122,8 +122,6 @@ Features:
 * we should properly escape ssh hostnames we add into dbus server strings
 
 * something pulls in pcre as so dep into our daemons such as hostnamed.
-
-* cgroup-agent: downgrade error messages
 
 * document systemd-journal-flush.service properly
 

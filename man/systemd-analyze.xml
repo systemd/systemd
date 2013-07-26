@@ -81,11 +81,18 @@
                         <arg choice="opt" rep="repeat">OPTIONS</arg>
                         <arg choice="plain">dot</arg>
                         <arg choice="opt" rep="repeat"><replaceable>PATTERN</replaceable></arg>
+                        <arg choice="opt">&gt; file.dot</arg>
                 </cmdsynopsis>
                 <cmdsynopsis>
                         <command>systemd-analyze</command>
                         <arg choice="opt" rep="repeat">OPTIONS</arg>
                         <arg choice="plain">dump</arg>
+                </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-analyze</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="plain">set-log-level</arg>
+                        <arg choice="opt"><replaceable>LEVEL</replaceable></arg>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -93,8 +100,9 @@
                 <title>Description</title>
 
                 <para><command>systemd-analyze</command> may be used
-                to determine system boot-up performance of the current
-                boot.</para>
+                to determine system boot-up performance statistics and
+                retrieve other state and tracing information from the
+                system and service manager.</para>
 
                 <para><command>systemd-analyze time</command>
                 prints the time spent in the kernel before
@@ -153,6 +161,14 @@
                 the complete server state. Its format is subject to
                 change without notice and should not be parsed by
                 applications.</para>
+
+                <para><command>systemd-analyze set-log-level
+                <replaceable>LEVEL</replaceable></command> changes the
+                current log level of the <command>systemd</command>
+                daemon to <replaceable>LEVEL</replaceable> (accepts
+                the same values as <option>--log-level=</option>
+                described in
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
 
                 <para>If no command is passed, <command>systemd-analyze
                 time</command> is implied.</para>
