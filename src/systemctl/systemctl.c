@@ -4594,7 +4594,7 @@ static int systemctl_help(void) {
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
                "  -t --type=TYPE      List only units of a particular type\n"
-               "     --state=STATE    Show only units with particular LOAD or SUB or ACTIVE state\n"
+               "     --state=STATE    List only units with particular LOAD or SUB or ACTIVE state\n"
                "  -p --property=NAME  Show only properties by this name\n"
                "  -a --all            Show all loaded units/properties, including dead/empty\n"
                "                      ones. To list all units installed on the system, use\n"
@@ -4603,10 +4603,11 @@ static int systemctl_help(void) {
                "  -l --full           Don't ellipsize unit names on output\n"
                "     --fail           When queueing a new job, fail if conflicting jobs are\n"
                "                      pending\n"
-               "     --irreversible   Create jobs which cannot be implicitly cancelled\n"
-               "     --show-types     When showing sockets, explicitly show their type\n"
+               "     --irreversible   When queueing a new job, make sure it cannot be implicitly\n"
+               "                      cancelled\n"
                "     --ignore-dependencies\n"
                "                      When queueing a new job, ignore all its dependencies\n"
+               "     --show-types     When showing sockets, explicitly show their type\n"
                "  -i --ignore-inhibitors\n"
                "                      When shutting down or sleeping, ignore inhibitors\n"
                "     --kill-who=WHO   Who to send signal to\n"
@@ -4626,11 +4627,11 @@ static int systemctl_help(void) {
                "     --system         Connect to system manager\n"
                "     --user           Connect to user service manager\n"
                "     --global         Enable/disable unit files globally\n"
+               "     --runtime        Enable unit files only temporarily until next reboot\n"
                "  -f --force          When enabling unit files, override existing symlinks\n"
                "                      When shutting down, execute action immediately\n"
                "     --root=PATH      Enable unit files in the specified root directory\n"
-               "     --runtime        Enable unit files only temporarily until next reboot\n"
-               "  -n --lines=INTEGER  Journal entries to show\n"
+               "  -n --lines=INTEGER  Numer of journal entries to show\n"
                "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
                "                      verbose, export, json, json-pretty, json-sse, cat)\n\n"
                "Unit Commands:\n"
@@ -4667,13 +4668,13 @@ static int systemctl_help(void) {
                "  reenable [NAME...]              Reenable one or more unit files\n"
                "  preset [NAME...]                Enable/disable one or more unit files\n"
                "                                  based on preset configuration\n"
+               "  is-enabled [NAME...]            Check whether unit files are enabled\n\n"
                "  mask [NAME...]                  Mask one or more units\n"
                "  unmask [NAME...]                Unmask one or more units\n"
                "  link [PATH...]                  Link one or more units files into\n"
                "                                  the search path\n"
                "  get-default                     Get the name of the default target\n"
                "  set-default NAME                Set the default target\n"
-               "  is-enabled [NAME...]            Check whether unit files are enabled\n\n"
                "Job Commands:\n"
                "  list-jobs                       List jobs\n"
                "  cancel [JOB...]                 Cancel all, one, or more jobs\n\n"
@@ -5695,7 +5696,6 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "list-sockets",          LESS,  1, list_sockets      },
                 { "list-jobs",             EQUAL, 1, list_jobs         },
                 { "clear-jobs",            EQUAL, 1, daemon_reload     },
-                { "load",                  MORE,  2, load_unit         },
                 { "cancel",                MORE,  2, cancel_job        },
                 { "start",                 MORE,  2, start_unit        },
                 { "stop",                  MORE,  2, start_unit        },
