@@ -535,6 +535,10 @@ int session_send_create_reply(Session *s, DBusError *error) {
         if (!s->create_message)
                 return 0;
 
+        /* This is called after the session scope was successfully
+         * created, and finishes where bus_manager_create_session()
+         * left off. */
+
         if (error) {
                 DBusError buffer;
 

@@ -643,6 +643,10 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
 
         session->create_message = dbus_message_ref(message);
 
+        /* Now, let's wait until the slice unit and stuff got
+         * created. We send the reply back from
+         * session_send_create_reply().*/
+
         return 0;
 
 fail:
@@ -2356,7 +2360,6 @@ DBusHandlerResult bus_message_filter(
                                 if (streq_ptr(path, s->scope_job)) {
                                         free(s->scope_job);
                                         s->scope_job = NULL;
-                                        session_save(s);
 
                                         if (s->started) {
                                                 if (streq(result, "done"))
@@ -2366,6 +2369,8 @@ DBusHandlerResult bus_message_filter(
                                                         session_send_create_reply(s, &error);
                                                 }
                                         }
+
+                                        session_save(s);
                                 }
 
                                 session_add_to_gc_queue(s);

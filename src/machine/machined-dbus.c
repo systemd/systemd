@@ -543,7 +543,6 @@ DBusHandlerResult bus_message_filter(
                         if (streq_ptr(path, mm->scope_job)) {
                                 free(mm->scope_job);
                                 mm->scope_job = NULL;
-                                machine_save(mm);
 
                                 if (mm->started) {
                                         if (streq(result, "done"))
@@ -553,6 +552,8 @@ DBusHandlerResult bus_message_filter(
                                                 machine_send_create_reply(mm, &error);
                                         }
                                 }
+
+                                machine_save(mm);
                         }
 
                         machine_add_to_gc_queue(mm);
