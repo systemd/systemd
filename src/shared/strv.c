@@ -387,6 +387,21 @@ fail:
         return NULL;
 }
 
+char **strv_appendf(char **l, const char *format, ...) {
+        va_list ap;
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        va_start(ap, format);
+        r = vasprintf(&s, format, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return NULL;
+
+        return strv_append(l, s);
+}
+
 int strv_push(char ***l, char *value) {
         char **c;
         unsigned n;

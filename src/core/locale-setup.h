@@ -21,4 +21,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int locale_setup(void);
+int locale_setup(char ***environment);

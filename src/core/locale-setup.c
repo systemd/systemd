@@ -28,6 +28,7 @@
 #include "macro.h"
 #include "virt.h"
 #include "fileio.h"
+#include "strv.h"
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be
@@ -67,7 +68,8 @@ static const char * const variable_names[_VARIABLE_MAX] = {
         [VARIABLE_LC_IDENTIFICATION] = "LC_IDENTIFICATION"
 };
 
-int locale_setup(void) {
+int locale_setup(char ***environment) {
+        char **env;
         char *variables[_VARIABLE_MAX] = {};
         int r = 0, i;
 
@@ -118,13 +120,16 @@ int locale_setup(void) {
         }
 
         for (i = 0; i < _VARIABLE_MAX; i++) {
-                if (variables[i]) {
-                        if (setenv(variable_names[i], variables[i], 1) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
-                } else
-                        unsetenv(variable_names[i]);
+                if (!variables[i])
+                        continue;
+
+                env = strv_appendf(*environment, "%s=%s", variable_names[i], variables[i]);
+                if (!env) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                *environment = env;
         }
 
         r = 0;

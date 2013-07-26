@@ -55,6 +55,7 @@
 #include "util.h"
 #include "mkdir.h"
 #include "ratelimit.h"
+#include "locale-setup.h"
 #include "mount-setup.h"
 #include "unit-name.h"
 #include "dbus-unit.h"
@@ -454,22 +455,36 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
-static void manager_strip_environment(Manager *m) {
+static int manager_default_environment(Manager *m) {
+#ifdef HAVE_SPLIT_USR
+        const char *path = "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+#else
+        const char *path = "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin";
+#endif
+
         assert(m);
 
-        /* Remove variables from the inherited set that are part of
-         * the container interface:
-         * http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface */
-        strv_remove_prefix(m->environment, "container=");
-        strv_remove_prefix(m->environment, "container_");
+        if (m->running_as == SYSTEMD_SYSTEM) {
+                /* The system manager always starts with a clean
+                 * environment for its children. It does not import
+                 * the kernel or the parents exported variables.
+                 *
+                 * The initial passed environ is untouched to keep
+                 * /proc/self/environ valid; it is used for tagging
+                 * the init process inside containers. */
+                m->environment = strv_new(path, NULL);
 
-        /* Remove variables from the inherited set that are part of
-         * the initrd interface:
-         * http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface */
-        strv_remove_prefix(m->environment, "RD_");
+                /* Import locale variables LC_*= from configuration */
+                locale_setup(&m->environment);
+        } else
+                /* The user manager passes its own environment
+                 * along to its children. */
+                m->environment = strv_copy(environ);
 
-        /* Drop invalid entries */
-        strv_env_clean(m->environment);
+        if (!m->environment)
+                return -ENOMEM;
+
+        return 0;
 }
 
 int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
@@ -505,11 +520,9 @@ int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
         m->epoll_fd = m->dev_autofs_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
-        m->environment = strv_copy(environ);
-        if (!m->environment)
+        r = manager_default_environment(m);
+        if (r < 0)
                 goto fail;
-
-        manager_strip_environment(m);
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
@@ -2651,7 +2664,7 @@ void manager_undo_generators(Manager *m) {
         remove_generator_dir(m, &m->generator_unit_path_late);
 }
 
-int manager_set_default_environment(Manager *m, char **environment) {
+int manager_environment_add(Manager *m, char **environment) {
 
         char **e = NULL;
         assert(m);

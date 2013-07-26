@@ -64,7 +64,6 @@
 #endif
 #include "hostname-setup.h"
 #include "machine-id-setup.h"
-#include "locale-setup.h"
 #include "selinux-setup.h"
 #include "ima-setup.h"
 #include "fileio.h"
@@ -349,32 +348,21 @@ static int parse_proc_cmdline_word(const char *word) {
                         arg_default_std_error = r;
         } else if (startswith(word, "systemd.setenv=")) {
                 _cleanup_free_ char *cenv = NULL;
-                char *eq;
-                int r;
 
                 cenv = strdup(word + 15);
                 if (!cenv)
                         return -ENOMEM;
 
-                eq = strchr(cenv, '=');
-                if (!eq) {
-                        if (!env_name_is_valid(cenv))
-                                log_warning("Environment variable name '%s' is not valid. Ignoring.", cenv);
-                        else  {
-                                r = unsetenv(cenv);
-                                if (r < 0)
-                                        log_warning("Unsetting environment variable '%s' failed, ignoring: %m", cenv);
-                        }
-                } else {
-                        if (!env_assignment_is_valid(cenv))
-                                log_warning("Environment variable assignment '%s' is not valid. Ignoring.", cenv);
-                        else {
-                                *eq = 0;
-                                r = setenv(cenv, eq + 1, 1);
-                                if (r < 0)
-                                        log_warning("Setting environment variable '%s=%s' failed, ignoring: %m", cenv, eq + 1);
-                        }
-                }
+                if (env_assignment_is_valid(cenv)) {
+                        char **env;
+
+                        env = strv_env_set(arg_default_environment, cenv);
+                        if (env)
+                                arg_default_environment = env;
+                        else
+                                log_warning("Setting environment variable '%s' failed, ignoring: %m", cenv);
+                } else
+                        log_warning("Environment variable name '%s' is not valid. Ignoring.", cenv);
 
         } else if (startswith(word, "systemd.") ||
                    (in_initrd() && startswith(word, "rd.systemd."))) {
@@ -1445,42 +1433,7 @@ int main(int argc, char *argv[]) {
         if (serialization)
                 assert_se(fdset_remove(fds, fileno(serialization)) >= 0);
 
-        /* Set up PATH unless it is already set */
-        setenv("PATH",
-#ifdef HAVE_SPLIT_USR
-               "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-#else
-               "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
-#endif
-               arg_running_as == SYSTEMD_SYSTEM);
-
         if (arg_running_as == SYSTEMD_SYSTEM) {
-                /* Unset some environment variables passed in from the
-                 * kernel that don't really make sense for us. */
-                unsetenv("HOME");
-                unsetenv("TERM");
-
-                /* When we are invoked by a shell, these might be set,
-                 * but make little sense to pass on */
-                unsetenv("PWD");
-                unsetenv("SHLVL");
-                unsetenv("_");
-
-                /* When we are invoked by a chroot-like tool such as
-                 * nspawn, these might be set, but make little sense
-                 * to pass on */
-                unsetenv("USER");
-                unsetenv("LOGNAME");
-
-                /* We suppress the socket activation env vars, as
-                 * we'll try to match *any* open fd to units if
-                 * possible. */
-                unsetenv("LISTEN_FDS");
-                unsetenv("LISTEN_PID");
-
-                /* All other variables are left as is, so that clients
-                 * can still read them via /proc/1/environ */
-
                 /* Become a session leader if we aren't one yet. */
                 setsid();
 
@@ -1528,8 +1481,6 @@ int main(int argc, char *argv[]) {
                 log_debug(PACKAGE_STRING " running in user mode. (" SYSTEMD_FEATURES ")");
 
         if (arg_running_as == SYSTEMD_SYSTEM && !skip_setup) {
-                locale_setup();
-
                 if (arg_show_status || plymouth_running())
                         status_welcome();
 
@@ -1595,7 +1546,7 @@ int main(int argc, char *argv[]) {
         manager_set_default_rlimits(m, arg_default_rlimit);
 
         if (arg_default_environment)
-                manager_set_default_environment(m, arg_default_environment);
+                manager_environment_add(m, arg_default_environment);
 
         manager_set_show_status(m, arg_show_status);
 
