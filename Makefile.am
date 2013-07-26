@@ -339,7 +339,8 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/journalctl \
 	shell-completion/bash/systemctl \
 	shell-completion/bash/systemd-analyze \
-	shell-completion/bash/udevadm
+	shell-completion/bash/udevadm \
+	shell-completion/bash/kernel-install
 
 dist_sysctl_DATA = \
 	sysctl.d/50-default.conf
