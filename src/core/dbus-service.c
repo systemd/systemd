@@ -180,7 +180,22 @@ static int bus_service_set_transient_property(
         assert(s);
         assert(i);
 
-        if (streq(name, "ExecStart")) {
+        if (streq(name, "RemainAfterExit")) {
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        dbus_bool_t b;
+
+                        dbus_message_iter_get_basic(i, &b);
+
+                        s->remain_after_exit = b;
+                        unit_write_drop_in_private_format(UNIT(s), mode, name, "RemainAfterExit=%s\n", yes_no(b));
+                }
+
+                return 1;
+
+        } else if (streq(name, "ExecStart")) {
                 DBusMessageIter sub;
                 unsigned n = 0;
 

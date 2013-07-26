@@ -31,6 +31,7 @@
 
 static bool arg_scope = false;
 static bool arg_user = false;
+static bool arg_remain_after_exit = false;
 static const char *arg_unit = NULL;
 static const char *arg_description = NULL;
 static const char *arg_slice = NULL;
@@ -39,13 +40,14 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [COMMAND LINE...]\n\n"
                "Run the specified command in a transient scope or service unit.\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --user             Run as user unit\n"
-               "     --scope            Run this as scope rather than service\n"
-               "     --unit=UNIT        Run under the specified unit name\n"
-               "     --description=TEXT Description for unit\n"
-               "     --slice=SLICE      Run in the specified slice\n",
+               "  -h --help               Show this help\n"
+               "     --version            Show package version\n"
+               "     --user               Run as user unit\n"
+               "     --scope              Run this as scope rather than service\n"
+               "     --unit=UNIT          Run under the specified unit name\n"
+               "     --description=TEXT   Description for unit\n"
+               "     --slice=SLICE        Run in the specified slice\n"
+               "  -r --remain-after-exit  Leave service around until explicitly stopped\n",
                program_invocation_short_name);
 
         return 0;
@@ -63,14 +65,15 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'             },
-                { "version",     no_argument,       NULL, ARG_VERSION     },
-                { "user",        no_argument,       NULL, ARG_USER        },
-                { "scope",       no_argument,       NULL, ARG_SCOPE       },
-                { "unit",        required_argument, NULL, ARG_UNIT        },
-                { "description", required_argument, NULL, ARG_DESCRIPTION },
-                { "slice",       required_argument, NULL, ARG_SLICE       },
-                { NULL,          0,                 NULL, 0               },
+                { "help",              no_argument,       NULL, 'h'             },
+                { "version",           no_argument,       NULL, ARG_VERSION     },
+                { "user",              no_argument,       NULL, ARG_USER        },
+                { "scope",             no_argument,       NULL, ARG_SCOPE       },
+                { "unit",              required_argument, NULL, ARG_UNIT        },
+                { "description",       required_argument, NULL, ARG_DESCRIPTION },
+                { "slice",             required_argument, NULL, ARG_SLICE       },
+                { "remain-after-exit", required_argument, NULL, 'r'             },
+                { NULL,                0,                 NULL, 0               },
         };
 
         int c;
@@ -78,7 +81,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hr", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -109,6 +112,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SLICE:
                         arg_slice = optarg;
+                        break;
+
+                case 'r':
+                        arg_remain_after_exit = true;
                         break;
 
                 case '?':
@@ -201,6 +208,10 @@ static int start_transient_service(
                 return -ENOMEM;
 
         r = message_start_transient_unit_new(bus, name, &m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "(sv)", "RemainAfterExit", "b", arg_remain_after_exit);
         if (r < 0)
                 return r;
 
