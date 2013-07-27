@@ -11,14 +11,6 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-* stop importing kernel exported env variables. The utterly broken logic in
-  the kernel exports every kernel command line option which is not recognized
-  as a built-in module option as an env variable. Systemd should not pass-on
-  that nonsense, a kernel command line option is a command line option not an
-  env variable:
-    $ cat /proc/252/environ
-    initrd=\6a9857a393724b7a981ebb5b8495b9ea\3.10.0-2.fc20.x86_64\initrd
-
 Fedora 20:
 
 * external: ps should gain colums for slice and machine
