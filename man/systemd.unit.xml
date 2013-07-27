@@ -285,7 +285,7 @@
                         <entry>Local configuration</entry>
                       </row>
                       <row>
-                        <entry><filename>/run/systemd/systemd</filename></entry>
+                        <entry><filename>/run/systemd/system</filename></entry>
                         <entry>Volatile units</entry>
                       </row>
                       <row>
