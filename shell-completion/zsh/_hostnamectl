@@ -1,0 +1,38 @@
+#compdef hostnamectl
+
+_hosts_or_user_at_host() {
+  _alternative \
+    'users-hosts:: _user_at_host' \
+    'hosts:: _hosts'
+}
+
+_hostnamectl_command() {
+    local -a _hostnamectl_cmds
+    _hostnamectl_cmds=(
+        "status:Show current hostname settings"
+        "set-hostname:Set system hostname"
+        "set-icon-name:Set icon name for host"
+    )
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'hostnamectl commands' _hostnamectl_cmds || compadd "$@"
+    else
+        local curcontext="$curcontext"
+        cmd="${${_hostnamectl_cmds[(r)$words[1]:*]%%:*}}"
+        if (( $#cmd )); then
+            [[ $cmd == status ]] && msg="no options" || msg="options for $cmd"
+            _message "$msg"
+        else
+            _message "unknown hostnamectl command: $words[1]"
+        fi
+    fi
+}
+
+_arguments -s \
+    {-h,--help}'[Show this help]' \
+    '--version[Show package version]' \
+    '--transient[Only set transient hostname]' \
+    '--static[Only set static hostname]' \
+    '--pretty[Only set pretty hostname]' \
+    '--no-ask-password[Do not prompt for password]' \
+    {-H,--host=}'[Operate on remote host]:userathost:_hosts_or_user_at_host' \
+    '*::hostnamectl commands:_hostnamectl_command'

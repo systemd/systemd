@@ -3363,6 +3363,9 @@ bin_PROGRAMS += \
 dist_bashcompletion_DATA += \
 	shell-completion/bash/hostnamectl
 
+dist_zshcompletion_DATA += \
+	shell-completion/zsh/_hostnamectl
+
 endif
 
 polkitpolicy_in_files += \
