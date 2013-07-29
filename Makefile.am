@@ -3518,6 +3518,9 @@ bin_PROGRAMS += \
 
 dist_bashcompletion_DATA += \
 	shell-completion/bash/timedatectl
+
+dist_zshcompletion_DATA += \
+	shell-completion/zsh/_timedatectl
 endif
 
 polkitpolicy_in_files += \

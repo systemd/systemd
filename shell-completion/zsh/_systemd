@@ -1,19 +1,9 @@
-#compdef timedatectl udevadm systemd-analyze systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-inhibit systemd-machine-id-setup systemd-notify systemd-nspawn systemd-tmpfiles systemd-tty-ask-password-agent machinectl
+#compdef udevadm systemd-analyze systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-inhibit systemd-machine-id-setup systemd-notify systemd-nspawn systemd-tmpfiles systemd-tty-ask-password-agent machinectl
 
 _ctls()
 {
     local curcontext="$curcontext" state lstate line
     case "$service" in
-        timedatectl)
-            _arguments -s \
-                {-h,--help}'[Show this help]' \
-                '--version[Show package version]' \
-                '--adjust-system-clock[Adjust system clock when changing local RTC mode]' \
-                '--no-pager[Do not pipe output into a pager]' \
-                '--no-ask-password[Do not prompt for password]' \
-                {-H,--host=}'[Operate on remote host]:userathost:_hosts_or_user_at_host' \
-                '*::timedatectl commands:_timedatectl_command'
-        ;;
         udevadm)
             _arguments \
                 '--debug[Print debug messages to stderr]' \
@@ -223,61 +213,6 @@ _outputmodes() {
     local -a _output_opts
     _output_opts=(short short-monotonic verbose export json json-pretty json-see cat)
     _describe -t output 'output mode' _output_opts || compadd "$@"
-}
-
-_timedatectl_set-timezone(){
-    local -a _timezones
-    _timezones=( ${(f)"$(_call_program timezones "${service}" list-timezones)"} )
-    compadd "$_timezones[@]"
-}
-
-_timedatectl_set-time(){
-    _message "YYYY-MM-DD HH:MM:SS"
-}
-
-_timedatectl_set-local-rtc(){
-    local -a _options
-    _options=(
-        '0:Maintain RTC in universal time'
-        '1:Maintain RTC in local time'
-    )
-    _describe options _options
-}
-
-_timedatectl_set-ntp(){
-    local -a _options
-    _options=(
-        '0:Disable NTP based network time configuration'
-        '1:Enable NTP based network time configuration'
-    )
-    _describe options _options
-}
-
-_timedatectl_command(){
-    local -a _timedatectl_cmds
-    _timedatectl_cmds=(
-        'status:Show current time settings'
-        'set-time:Set system time'
-        'set-timezone:Set system timezone'
-        'list-timezones:Show known timezones'
-        'set-local-rtc:Control whether RTC is in local time'
-        'set-ntp:Control whether NTP is enabled'
-    )
-    if (( CURRENT == 1 )); then
-        _describe -t commands 'timedatectl command' _timedatectl_cmds
-    else
-        local curcontext="$curcontext"
-        cmd="${${_timedatectl_cmds[(r)$words[1]:*]%%:*}}"
-        if (( $#cmd )); then
-            if (( $+functions[_timedatectl_$cmd] )); then
-                _timedatectl_$cmd
-            else
-                _message "no more options"
-            fi
-        else
-            _message "unknown timedatectl command: $words[1]"
-        fi
-    fi
 }
 
 (( $+functions[_machinectl_command] )) || _machinectl_command()
