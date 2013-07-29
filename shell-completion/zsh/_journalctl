@@ -1,0 +1,83 @@
+#compdef journalctl
+
+_outputmodes() {
+    local -a _output_opts
+    _output_opts=(short short-monotonic verbose export json json-pretty json-see cat)
+    _describe -t output 'output mode' _output_opts || compadd "$@"
+}
+
+_list_fields() {
+    local -a journal_fields
+    journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
+                    ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID}
+                    _{P,U,G}ID _COMM _EXE _CMDLINE
+                    _AUDIT_{SESSION,LOGINUID}
+                    _SYSTEMD_{CGROUP,SESSION,UNIT,OWNER_UID}
+                    _SYSTEMD_USER_UNIT
+                    _SELINUX_CONTEXT _SOURCE_REALTIME_TIMESTAMP
+                    _{BOOT,MACHINE}_ID _HOSTNAME _TRANSPORT
+                    _KERNEL_{DEVICE,SUBSYSTEM}
+                    _UDEV_{SYSNAME,DEVNODE,DEVLINK}
+                    __CURSOR __{REALTIME,MONOTONIC}_TIMESTAMP)
+    _describe 'possible fields' journal_fields
+}
+
+_journal_none() {
+    local -a _commands _files
+    _commands=( ${(f)"$(_call_program commands "$service" -F _EXE 2>/dev/null)"} )
+    _alternative : \
+        'files:/dev files:_files -W /dev -P /dev/' \
+        "commands:commands:($_commands[@])" \
+        'fields:fields:_list_fields'
+}
+
+_journal_fields() {
+    local -a _fields cmd
+    cmd=("journalctl" "-F ${@[-1]}" "2>/dev/null" )
+    _fields=( ${(f)"$(_call_program fields $cmd[@])"} )
+    typeset -U _fields
+    _describe 'possible values' _fields
+}
+
+_arguments -s \
+    {-h,--help}'[Show this help]' \
+    '--version[Show package version]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    {-l,--full}'[Show long fields in full]' \
+    {-a,--all}'[Show all fields, including long and unprintable]' \
+    {-f,--follow}'[Follow journal]' \
+    {-e,--pager-end}'[Jump to the end of the journal in the pager]' \
+    {-n,--lines=}'[Number of journal entries to show]:integer' \
+    '--no-tail[Show all lines, even in follow mode]' \
+    {-r,--reverse}'[Reverse output]' \
+    {-o,--output=}'[Change journal output mode]:output modes:_outputmodes' \
+    {-x,--catalog}'[Show explanatory texts with each log line]' \
+    {-q,--quiet}"[Don't show privilege warning]" \
+    {-m,--merge}'[Show entries from all available journals]' \
+    {-b,--boot}'[Show entries from the specified boot only]' \
+    {-k,--dmesg}'[Show only kernel messages, Implies -b]' \
+    {-u,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
+    '--user-unit[Show data only from the specified user session unit]:units:_journal_fields _SYSTEMD_USER_UNIT' \
+    {-p,--priority=}'[Show only messages within the specified priority range]:priority:_journal_fields PRIORITY' \
+    {-c,--cursor=}'[Start showing entries from specified cursor]:cursors:_journal_fields __CURSORS' \
+    '--after-cursor=[Start showing entries from the location in the journal after the cursor]:cursors:_journal_fields __CURSORS' \
+    '--since=[Start showing entries newer or of the specified date]:YYYY-MM-DD HH\:MM\:SS' \
+    '--until=[Stop showing entries older or of the specified date]:YYYY-MM-DD HH\:MM\:SS' \
+    {-F,--field=}'[List all values a certain field takes]:Fields:_list_fields' \
+    '--system[Show system and kernel messages]' \
+    '--user[Show messages from user services]' \
+    {-D,--directory=}'[Show journal files from directory]:directories:_directories' \
+    '--file=[Operate on specified journal files]:file:_files' \
+    '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
+    '--new-id128[Generate a new 128 Bit ID]' \
+    '--header[Show journal header information]' \
+    '--disk-usage[Show total disk usage]' \
+    '--list-catalog[List messages in catalog]' \
+    '--dump-catalog[Dump messages in catalog]' \
+    '--update-catalog[Update binary catalog database]' \
+    '--setup-keys[Generate new FSS key pair]' \
+    '--force[Force recreation of FSS keys]' \
+    '--interval=[Time interval for changing the FSS sealing key]:time interval' \
+    '--verify[Verify journal file consistency]' \
+    '--verify-key=[Specify FSS verification key]:FSS key' \
+    '*::default: _journal_none'
