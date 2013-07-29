@@ -3632,6 +3632,9 @@ dist_dbussystemservice_DATA += \
 dist_dbuspolicy_DATA += \
 	src/machine/org.freedesktop.machine1.conf
 
+dist_zshcompletion_DATA += \
+	shell-completion/zsh/_machinectl
+
 SYSTEM_UNIT_ALIASES += \
 	systemd-machined.service dbus-org.freedesktop.machine1.service
 

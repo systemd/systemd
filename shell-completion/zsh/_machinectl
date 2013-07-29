@@ -1,0 +1,47 @@
+#compdef machinectl
+
+(( $+functions[_machinectl_command] )) || _machinectl_command()
+{
+  local -a _machinectl_cmds
+  _machinectl_cmds=(
+    "list:List currently running VMs/containers"
+    "status:Show VM/container status"
+    "show:Show properties of one or more VMs/containers"
+    "terminate:Terminate one or more VMs/containers"
+    "kill:Send signal to process or a VM/container"
+  )
+  if (( CURRENT == 1 )); then
+    _describe -t commands 'machinectl command' _machinectl_cmds || compadd "$@"
+  else
+    local curcontext="$curcontext"
+    cmd="${${_machinectl_cmds[(r)$words[1]:*]%%:*}}"
+    if (( $#cmd )); then
+      case $cmd in
+        list) msg="no options" ;;
+        *)
+          _machines=( "${(foa)$(machinectl list | awk '{print $1}')}" )
+          if [[ -n "$_machines" ]]; then
+            _describe 'machines' _machines
+          else
+            _message 'no machines'
+          fi
+      esac
+    else
+      _message "no more options"
+    fi
+  fi
+}
+
+_arguments \
+  {-h,--help}'[Prints a short help text and exits.]' \
+  '--version[Prints a short version string and exits.]' \
+  {-p,--property=}'[Limit output to specified property.]:property:(Name Id Timestamp TimestampMonotonic Service Scope Leader Class State RootDirectory)' \
+  {-a,--all}'[Show all proerties]' \
+  (-l,--full)'[Do not ellipsize cgroup members]' \
+  '--no-pager[Do not pipe output into a pager]' \
+  '--no-ask-password[Do not ask for system passwords]' \
+  '--kill-who=[Who to send signal to]:killwho:(leader all)' \
+  {-s,--signal=}'[Which signal to send]:signal:_signals' \
+  {-H,--host=}'[Show information for remote host]:userathost:_hosts_or_user_at_host' \
+  {-P,--privileged}'[Acquire privileges before execution]' \
+  '*::machinectl command:_machinectl_command'
