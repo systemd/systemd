@@ -1,0 +1,26 @@
+#compdef systemd-analyze
+
+_systemd_analyze_command(){
+    local -a _systemd_analyze_cmds
+    # Descriptions taken from systemd-analyze --help.
+    _systemd_analyze_cmds=(
+        'time:Print time spent in the kernel before reaching userspace'
+        'blame:Print list of running units ordered by time to init'
+        'critical-chain:Print a tree of the time critical chain of units'
+        'plot:Output SVG graphic showing service initialization'
+        'dot:Dump dependency graph (in dot(1) format)'
+    )
+
+    if (( CURRENT == 1 )); then
+        _describe "options" _systemd_analyze_cmds
+    else
+        _message "no more options"
+    fi
+}
+
+_arguments \
+    {-h,--help}'[Show help text.]' \
+    '--user[Shows performance data of user sessions instead of the system manager.]' \
+    '--order[When generating graph for dot, show only order]' \
+    '--require[When generating graph for dot, show only requirement]' \
+    '*::systemd-analyze commands:_systemd_analyze_command'
