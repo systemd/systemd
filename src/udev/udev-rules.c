@@ -1066,8 +1066,15 @@ static int add_rule(struct udev_rules *rules, char *line,
                 char *value;
                 enum operation_type op;
 
-                if (get_key(rules->udev, &linepos, &key, &op, &value) != 0)
+                if (get_key(rules->udev, &linepos, &key, &op, &value) != 0) {
+                        /* If we aren't at the end of the line, this is a parsing error.
+                         * Make a best effort to describe where the problem is. */
+                        if (*linepos != '\n')
+                                log_error("invalid key/value pair in file %s on line %u,"
+                                                "starting at character %lu\n",
+                                                filename, lineno, linepos - line + 1);
                         break;
+                }
 
                 if (streq(key, "ACTION")) {
                         if (op > OP_MATCH_MAX) {
