@@ -3714,6 +3714,9 @@ rootbin_PROGRAMS += \
 dist_bashcompletion_DATA += \
 	shell-completion/bash/loginctl
 
+dist_zshcompletion_DATA += \
+	shell-completion/zsh/_loginctl
+
 systemd_inhibit_SOURCES = \
 	src/login/inhibit.c
 

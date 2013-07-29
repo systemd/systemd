@@ -1,0 +1,112 @@
+#compdef loginctl
+
+_hosts_or_user_at_host() {
+  _alternative \
+    'users-hosts:: _user_at_host' \
+    'hosts:: _hosts'
+}
+
+_loginctl_all_sessions(){_sys_all_sessions=($(loginctl list-sessions | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_users()   {_sys_all_users=(   $(loginctl list-users    | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_seats()   {_sys_all_seats=(   $(loginctl list-seats    | { while read a b; do echo " $a"; done; }) )}
+
+# Completion functions for SESSIONS
+for fun in session-status show-session activate lock-session unlock-session terminate-session kill-session ; do
+  (( $+functions[_loginctl_$fun] )) || _loginctl_$fun()
+  {
+    _loginctl_all_sessions
+    compadd "$@" -a - _sys_all_sessions
+  }
+done
+
+# Completion functions for USERS
+for fun in user-status show-user enable-linger disable-linger terminate-user kill-user ; do
+  (( $+functions[_loginctl_$fun] )) || _loginctl_$fun()
+  {
+    _loginctl_all_users
+    compadd "$@" -a - _sys_all_users
+  }
+done
+
+# Completion functions for SEATS
+(( $+functions[_loginctl_seats] )) || _loginctl_seats()
+{
+  _loginctl_all_seats
+  compadd "$@" -a - _sys_all_seats
+}
+for fun in seat-status show-seat terminate-seat ; do
+  (( $+functions[_loginctl_$fun] )) || _loginctl_$fun()
+  { _loginctl_seats }
+done
+
+# Completion functions for ATTACH
+(( $+functions[_loginctl_attach] )) || _loginctl_attach()
+{
+  _loginctl_all_seats
+
+  _arguments -w -C -S -s \
+    ':seat:_loginctl_seats' \
+    '*:device:_files'
+}
+
+# no loginctl completion for:
+# [STANDALONE]='list-sessions list-users list-seats flush-devices'
+
+(( $+functions[_loginctl_command] )) || _loginctl_command()
+{
+  local -a _loginctl_cmds
+  _loginctl_cmds=(
+    "list-sessions:List sessions"
+    "session-status:Show session status"
+    "show-session:Show properties of one or more sessions"
+    "activate:Activate a session"
+    "lock-session:Screen lock one or more sessions"
+    "unlock-session:Screen unlock one or more sessions"
+    "terminate-session:Terminate one or more sessions"
+    "kill-session:Send signal to processes of a session"
+    "list-users:List users"
+    "user-status:Show user status"
+    "show-user:Show properties of one or more users"
+    "enable-linger:Enable linger state of one or more users"
+    "disable-linger:Disable linger state of one or more users"
+    "terminate-user:Terminate all sessions of one or more users"
+    "kill-user:Send signal to processes of a user"
+    "list-seats:List seats"
+    "seat-status:Show seat status"
+    "show-seat:Show properties of one or more seats"
+    "attach:Attach one or more devices to a seat"
+    "flush-devices:Flush all device associations"
+    "terminate-seat:Terminate all sessions on one or more seats"
+  )
+
+  if (( CURRENT == 1 )); then
+    _describe -t commands 'loginctl command' _loginctl_cmds || compadd "$@"
+  else
+    local curcontext="$curcontext"
+
+    cmd="${${_loginctl_cmds[(r)$words[1]:*]%%:*}}"
+
+    if (( $#cmd )); then
+      curcontext="${curcontext%:*:*}:loginctl-${cmd}:"
+
+      _call_function ret _loginctl_$cmd || _message 'no more arguments'
+    else
+      _message "unknown loginctl command: $words[1]"
+    fi
+    return ret
+  fi
+}
+
+
+_arguments -s \
+    {-h,--help}'[Show help]' \
+    '--version[Show package version]' \
+    \*{-p,--property=}'[Show only properties by this name]:unit property' \
+    {-a,--all}'[Show all properties, including empty ones]' \
+    '--kill-who=[Who to send signal to]:killwho:(main control all)' \
+    {-s,--signal=}'[Which signal to send]:signal:_signals' \
+    '--no-ask-password[Do not ask for system passwords]' \
+    {-H,--host=}'[Show information for remote host]:userathost:_hosts_or_user_at_host' \
+    {-P,--privileged}'[Acquire privileges before execution]' \
+    '--no-pager[Do not pipe output into a pager]' \
+    '*::loginctl command:_loginctl_command'
