@@ -43,6 +43,8 @@ CGroup Rework Completion:
 
 Features:
 
+* session scopes/user unit: add RequiresMountsFor for the home directory of the user
+
 * journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
 
 * given that logind/machined now let PID 1 do all nasty work we can
