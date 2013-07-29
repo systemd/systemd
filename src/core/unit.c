@@ -2542,6 +2542,34 @@ int unit_kill(Unit *u, KillWho w, int signo, DBusError *error) {
         return UNIT_VTABLE(u)->kill(u, w, signo, error);
 }
 
+static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
+        Set *pid_set;
+        int r;
+
+        pid_set = set_new(trivial_hash_func, trivial_compare_func);
+        if (!pid_set)
+                return NULL;
+
+        /* Exclude the main/control pids from being killed via the cgroup */
+        if (main_pid > 0) {
+                r = set_put(pid_set, LONG_TO_PTR(main_pid));
+                if (r < 0)
+                        goto fail;
+        }
+
+        if (control_pid > 0) {
+                r = set_put(pid_set, LONG_TO_PTR(control_pid));
+                if (r < 0)
+                        goto fail;
+        }
+
+        return pid_set;
+
+fail:
+        set_free(pid_set);
+        return NULL;
+}
+
 int unit_kill_common(
                 Unit *u,
                 KillWho who,
@@ -2582,22 +2610,10 @@ int unit_kill_common(
                 _cleanup_set_free_ Set *pid_set = NULL;
                 int q;
 
-                pid_set = set_new(trivial_hash_func, trivial_compare_func);
+                /* Exclude the main/control pids from being killed via the cgroup */
+                pid_set = unit_pid_set(main_pid, control_pid);
                 if (!pid_set)
                         return -ENOMEM;
-
-                /* Exclude the control/main pid from being killed via the cgroup */
-                if (control_pid > 0) {
-                        q = set_put(pid_set, LONG_TO_PTR(control_pid));
-                        if (q < 0)
-                                return q;
-                }
-
-                if (main_pid > 0) {
-                        q = set_put(pid_set, LONG_TO_PTR(main_pid));
-                        if (q < 0)
-                                return q;
-                }
 
                 q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, false, true, false, pid_set);
                 if (q < 0 && q != -EAGAIN && q != -ESRCH && q != -ENOENT)
@@ -2949,8 +2965,12 @@ int unit_kill_context(
 
                         log_warning_unit(u->id, "Failed to kill main process %li (%s): %s",
                                          (long) main_pid, strna(comm), strerror(-r));
-                } else
+                } else {
                         wait_for_exit = !main_pid_alien;
+
+                        if (c->send_sighup)
+                                kill(main_pid, SIGHUP);
+                }
         }
 
         if (control_pid > 0) {
@@ -2963,36 +2983,38 @@ int unit_kill_context(
                         log_warning_unit(u->id,
                                          "Failed to kill control process %li (%s): %s",
                                          (long) control_pid, strna(comm), strerror(-r));
-                } else
+                } else {
                         wait_for_exit = true;
+
+                        if (c->send_sighup)
+                                kill(control_pid, SIGHUP);
+                }
         }
 
         if (c->kill_mode == KILL_CONTROL_GROUP && u->cgroup_path) {
                 _cleanup_set_free_ Set *pid_set = NULL;
 
-                pid_set = set_new(trivial_hash_func, trivial_compare_func);
+                /* Exclude the main/control pids from being killed via the cgroup */
+                pid_set = unit_pid_set(main_pid, control_pid);
                 if (!pid_set)
                         return -ENOMEM;
-
-                /* Exclude the main/control pids from being killed via the cgroup */
-                if (main_pid > 0) {
-                        r = set_put(pid_set, LONG_TO_PTR(main_pid));
-                        if (r < 0)
-                                return r;
-                }
-
-                if (control_pid > 0) {
-                        r = set_put(pid_set, LONG_TO_PTR(control_pid));
-                        if (r < 0)
-                                return r;
-                }
 
                 r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, sig, true, true, false, pid_set);
                 if (r < 0) {
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                 log_warning_unit(u->id, "Failed to kill control group: %s", strerror(-r));
-                } else if (r > 0)
+                } else if (r > 0) {
                         wait_for_exit = true;
+                        if (c->send_sighup) {
+                                set_free(pid_set);
+
+                                pid_set = unit_pid_set(main_pid, control_pid);
+                                if (!pid_set)
+                                        return -ENOMEM;
+
+                                cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, SIGHUP, true, true, false, pid_set);
+                        }
+                }
         }
 
         return wait_for_exit;

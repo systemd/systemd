@@ -25,7 +25,5 @@ StandardInput=tty-force
 StandardOutput=inherit
 StandardError=inherit
 KillMode=process
-
-# Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
-# terminates cleanly.
-KillSignal=SIGHUP
+IgnoreSIGPIPE=no
+SendSIGHUP=yes

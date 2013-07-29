@@ -41,6 +41,7 @@ struct KillContext {
         KillMode kill_mode;
         int kill_signal;
         bool send_sigkill;
+        bool send_sighup;
 };
 
 typedef enum KillWho {

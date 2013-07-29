@@ -115,16 +115,21 @@
                                 <option>control-group</option>.</para>
 
                                 <para>Processes will first be
-                                terminated via <constant>SIGTERM</constant> (unless the
-                                signal to send is changed via
-                                <varname>KillSignal=</varname>). If
+                                terminated via
+                                <constant>SIGTERM</constant> (unless
+                                the signal to send is changed via
+                                <varname>KillSignal=</varname>). Optionally,
+                                this is immediately followed by a
+                                <constant>SIGHUP</constant> (if
+                                enabled with
+                                <varname>SendSIGHUP=</varname>). If
                                 then after a delay (configured via the
-                                <varname>TimeoutSec=</varname> option)
+                                <varname>TimeoutStopSec=</varname> option)
                                 processes still remain, the
                                 termination request is repeated with
-                                the <constant>SIGKILL</constant> signal (unless this is
-                                disabled via the
-                                <varname>SendSIGKILL=</varname>
+                                the <constant>SIGKILL</constant>
+                                signal (unless this is disabled via
+                                the <varname>SendSIGKILL=</varname>
                                 option). See
                                 <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for more
@@ -140,6 +145,20 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>SendSIGHUP=</varname></term>
+                                <listitem><para>Specifies whether to
+                                send <constant>SIGHUP</constant> to
+                                remaining processes immediately after
+                                sending the signal configured with
+                                <varname>KillSignal=</varname>. This
+                                is useful to indicate to shells and
+                                shell-like programs that their
+                                connection has been severed. Takes a
+                                boolean value. Defaults to "no".
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>SendSIGKILL=</varname></term>
                                 <listitem><para>Specifies whether to
                                 send <constant>SIGKILL</constant> to remaining processes
@@ -149,6 +168,7 @@
                                 value. Defaults to "yes".
                                 </para></listitem>
                         </varlistentry>
+
                 </variablelist>
         </refsect1>
 

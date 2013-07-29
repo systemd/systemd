@@ -25,10 +25,7 @@ TTYReset=yes
 TTYVHangup=yes
 KillMode=process
 IgnoreSIGPIPE=no
-
-# Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
-# terminates cleanly.
-KillSignal=SIGHUP
+SendSIGHUP=yes
 
 [Install]
 WantedBy=getty.target

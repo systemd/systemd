@@ -31,5 +31,6 @@ const BusProperty bus_kill_context_properties[] = {
         { "KillMode",    bus_kill_append_mode,     "s", offsetof(KillContext, kill_mode)    },
         { "KillSignal",  bus_property_append_int,  "i", offsetof(KillContext, kill_signal)  },
         { "SendSIGKILL", bus_property_append_bool, "b", offsetof(KillContext, send_sigkill) },
+        { "SendSIGHUP",  bus_property_append_bool, "b", offsetof(KillContext, send_sighup)  },
         { NULL, }
 };
