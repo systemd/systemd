@@ -45,6 +45,8 @@ Features:
 
 * session scopes/user unit: add RequiresMountsFor for the home directory of the user
 
+* add a man page containing packaging guidelines and recommending usage of things like Documentation=, PrivateTmp=, PrivateNetwork= and ReadOnlyDirectories=/etc /usr.
+
 * journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
 
 * given that logind/machined now let PID 1 do all nasty work we can
