@@ -3104,6 +3104,9 @@ bin_PROGRAMS += \
 dist_bashcompletion_DATA += \
 	shell-completion/bash/systemd-coredumpctl
 
+dist_zshcompletion_DATA += \
+	shell-completion/zsh/_systemd-coredumpctl
+
 sysctl_DATA = \
 	sysctl.d/50-coredump.conf
 

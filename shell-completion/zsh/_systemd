@@ -1,18 +1,9 @@
-#compdef timedatectl systemd-coredumpctl udevadm systemd-analyze systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-inhibit systemd-machine-id-setup systemd-notify systemd-nspawn systemd-tmpfiles systemd-tty-ask-password-agent machinectl
+#compdef timedatectl udevadm systemd-analyze systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-inhibit systemd-machine-id-setup systemd-notify systemd-nspawn systemd-tmpfiles systemd-tty-ask-password-agent machinectl
 
 _ctls()
 {
     local curcontext="$curcontext" state lstate line
     case "$service" in
-        systemd-coredumpctl)
-            _arguments \
-                {-o,--output=}'[Write output to FILE]:output file:_files' \
-                '--no-pager[Do not pipe output into a pager]' \
-                {-h,--help}'[Show this help]' \
-                '--version[Show package version]' \
-                '*::systemd-coredumpctl commands:_systemd-coredumpctl_command'
-
-        ;;
         timedatectl)
             _arguments -s \
                 {-h,--help}'[Show this help]' \
@@ -287,33 +278,6 @@ _timedatectl_command(){
             _message "unknown timedatectl command: $words[1]"
         fi
     fi
-}
-_systemd-coredumpctl_command(){
-    local -a _systemd_coredumpctl_cmds
-    _systemd_coredumpctl_cmds=(
-            'list:List available coredumps'
-            'dump:Print coredump to std'
-    )
-    if (( CURRENT == 1 )); then
-        _describe -t commands 'systemd-coredumpctl command' _systemd_coredumpctl_cmds
-    else
-        local curcontext="$curcontext"
-        local -a _dumps
-        cmd="${${_systemd_coredumpctl_cmds[(r)$words[1]:*]%%:*}}"
-        if (( $#cmd  )); then
-			# user can set zstyle ':completion:*:*:systemd-coredumpctl:*' sort no for coredumps to be ordered by date, otherwise they get ordered by pid
-			_dumps=( "${(foa)$(systemd-coredumpctl list | awk 'BEGIN{OFS=":"} /^\s/ {sub(/[[ \t]+/, ""); print $5,$0}' 2>/dev/null)}" )
-            if [[ -n "$_dumps" ]]; then
-                _describe -t pids 'coredumps' _dumps
-            else
-                _message "no coredumps"
-            fi
-        else
-            _message "no more options"
-        fi
-
-    fi
-
 }
 
 (( $+functions[_machinectl_command] )) || _machinectl_command()
