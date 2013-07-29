@@ -1,0 +1,27 @@
+#compdef systemd-inhibit
+
+_systemd_inhibit_command(){
+    if (( CURRENT == 1 )); then
+        compset -q
+        _normal
+    else
+        local n=${words[(b:2:i)[^-]*]}
+        if (( n <= CURRENT )); then
+            compset -n $n
+            _alternative \
+                'files:file:_files' \
+                'commands:command:_normal' && return 0
+        fi
+        _default
+    fi
+}
+
+_arguments \
+    {-h,--help}'[Show this help]' \
+    '--version[Show package version]' \
+    '--what=[Operations to inhibit]:options:(shutdown sleep idle handle-power-key handle-suspend-key handle-hibernate-key handle-lid-switch)' \
+    '--who=[A descriptive string who is inhibiting]' \
+    '--why=[A descriptive string why is being inhibited]' \
+    '--mode=[One of block or delay]' \
+    '--list[List active inhibitors]' \
+    '*:commands:_systemd_inhibit_command'

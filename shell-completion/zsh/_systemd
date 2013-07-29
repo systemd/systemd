@@ -1,4 +1,4 @@
-#compdef systemd-analyze systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-inhibit systemd-machine-id-setup systemd-notify systemd-tmpfiles systemd-tty-ask-password-agent machinectl
+#compdef systemd-analyze systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-machine-id-setup systemd-notify systemd-tmpfiles systemd-tty-ask-password-agent machinectl
 
 _ctls()
 {
@@ -70,17 +70,6 @@ _ctls()
                 {-v,--vm}'[Only detect whether we are run in a VM]' \
                 {-q,--quiet}"[Don't output anything, just set return value]"
         ;;
-        systemd-inhibit)
-            _arguments \
-                {-h,--help}'[Show this help]' \
-                '--version[Show package version]' \
-                '--what=[Operations to inhibit]:options:(shutdown sleep idle handle-power-key handle-suspend-key handle-hibernate-key handle-lid-switch)' \
-                '--who=[A descriptive string who is inhibiting]' \
-                '--why=[A descriptive string why is being inhibited]' \
-                '--mode=[One of block or delay]' \
-                '--list[List active inhibitors]' \
-                '*:commands:_systemd_inhibit_command'
-        ;;
         systemd-machine-id-setup)
             _arguments \
                 {-h,--help}'[Show this help]' \
@@ -134,23 +123,6 @@ _ctls()
         ;;
         *) _message 'eh?' ;;
     esac
-}
-
-_systemd_inhibit_command(){
-    if (( CURRENT == 1 )); then
-        compset -q
-        _normal
-    else
-        local n=${words[(b:2:i)[^-]*]}
-        if (( n <= CURRENT )); then
-            compset -n $n
-            _alternative \
-                'files:file:_files' \
-                'commands:command:_normal' && return 0
-        fi
-        _default
-    fi
-
 }
 
 _systemd_analyze_command(){

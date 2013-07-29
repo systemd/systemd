@@ -3730,7 +3730,8 @@ dist_bashcompletion_DATA += \
 	shell-completion/bash/loginctl
 
 dist_zshcompletion_DATA += \
-	shell-completion/zsh/_loginctl
+	shell-completion/zsh/_loginctl \
+	shell-completion/zsh/_systemd-inhibit
 
 systemd_inhibit_SOURCES = \
 	src/login/inhibit.c
