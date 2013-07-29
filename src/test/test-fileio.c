@@ -29,7 +29,8 @@
 #include "env-util.h"
 
 static void test_parse_env_file(void) {
-        char t[] = "/tmp/test-parse-env-file-XXXXXX";
+        char    t[] = "/tmp/test-fileio-in-XXXXXX",
+                p[] = "/tmp/test-fileio-out-XXXXXX";
         int fd, r;
         FILE *f;
         _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL,
@@ -37,6 +38,8 @@ static void test_parse_env_file(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
         unsigned k;
+
+        assert_se(mktemp(p));
 
         fd = mkostemp(t, O_CLOEXEC);
         assert_se(fd >= 0);
@@ -83,7 +86,7 @@ static void test_parse_env_file(void) {
         assert_se(streq(a[9], "ten="));
         assert_se(a[10] == NULL);
 
-        strv_env_clean_log(a, "/tmp/test-fileio");
+        strv_env_clean_log(a, "test");
 
         k = 0;
         STRV_FOREACH(i, b) {
@@ -129,14 +132,14 @@ static void test_parse_env_file(void) {
         assert_se(streq(nine, "nineval"));
         assert_se(ten == NULL);
 
-        r = write_env_file("/tmp/test-fileio", a);
+        r = write_env_file(p, a);
         assert_se(r >= 0);
 
-        r = load_env_file("/tmp/test-fileio", NULL, &b);
+        r = load_env_file(p, NULL, &b);
         assert_se(r >= 0);
 
         unlink(t);
-        unlink("/tmp/test-fileio");
+        unlink(p);
 }
 
 static void test_executable_is_script(void) {
