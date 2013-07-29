@@ -344,6 +344,7 @@ dist_bashcompletion_DATA = \
 	shell-completion/bash/kernel-install
 
 dist_zshcompletion_DATA = \
+	shell-completion/zsh/_systemctl \
 	shell-completion/zsh/_systemd
 
 dist_sysctl_DATA = \
