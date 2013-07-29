@@ -1,19 +1,9 @@
-#compdef localectl timedatectl systemd-coredumpctl udevadm systemd-analyze systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-inhibit systemd-machine-id-setup systemd-notify systemd-nspawn systemd-tmpfiles systemd-tty-ask-password-agent machinectl
+#compdef timedatectl systemd-coredumpctl udevadm systemd-analyze systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-inhibit systemd-machine-id-setup systemd-notify systemd-nspawn systemd-tmpfiles systemd-tty-ask-password-agent machinectl
 
 _ctls()
 {
     local curcontext="$curcontext" state lstate line
     case "$service" in
-        localectl)
-            _arguments \
-                {-h,--help}'[Show this help]' \
-                '--version[Show package version]' \
-                "--no-convert[Don't convert keyboard mappings]" \
-                '--no-pager[Do not pipe output into a pager]' \
-                '--no-ask-password[Do not prompt for password]' \
-                {-H,--host=}'[Operate on remote host]:userathost:_hosts_or_user_at_host' \
-                '*::localectl commands:_localectl_command'
-        ;;
         systemd-coredumpctl)
             _arguments \
                 {-o,--output=}'[Write output to FILE]:output file:_files' \
@@ -242,80 +232,6 @@ _outputmodes() {
     local -a _output_opts
     _output_opts=(short short-monotonic verbose export json json-pretty json-see cat)
     _describe -t output 'output mode' _output_opts || compadd "$@"
-}
-
-_localectl_set-locale() {
-    local -a _confs _locales
-    local expl suf
-    _locales=( ${(f)"$(_call_program locales "$service" list-locales)"} )
-    _confs=( ${${(f)"$(_call_program confs "locale 2>/dev/null")"}%\=*} )
-    if [[ -prefix 1 *\= ]]; then
-        local conf=${PREFIX%%\=*}
-        compset -P1 '*='
-        _wanted locales expl "locales configs" \
-            _combination localeconfs  confs=$conf locales "$@" -
-    else
-        compadd -S '='  $_confs
-    fi
-}
-
-_localectl_set-keymap() {
-    local -a _keymaps
-    _keymaps=( ${(f)"$(_call_program locales "$service" list-keymaps)"} )
-    if (( CURRENT <= 3 )); then
-        _describe keymaps _keymaps
-    else
-        _message "no more options"
-    fi
-}
-
-_localectl_set-x11-keymap() {
-    if (( $+commands[pkg-config] )); then
-        local -a _file _layout _model _variant _options
-        local _xorg_lst
-        _xorg_lst=${"$($commands[pkg-config] xkeyboard-config --variable=xkb_base)"}
-        _file=( ${(ps:\n\!:)"$(<$_xorg_lst/rules/xorg.lst)"} )
-        _layout=( ${${${(M)${(f)_file[1]}:#  *}#  }%% *} )
-        _model=( ${${${(M)${(f)_file[2]}:#  *}#  }%% *} )
-        _variant=( ${${${(M)${(f)_file[3]}:#  *}#  }%% *} )
-        _options=( ${${${(M)${(f)_file[4]}:#  *}#  }%% *} )
-        #_layout=( ${(f)"$( echo $_file[1] | awk '/^  / {print $1}' )"} )
-        #_model=( ${(f)"$(echo $_file[2] | awk '/^  / {print $1}')"} )
-        #_variant=( ${(f)"$(echo $_file[3] | awk '/^  / {print $1}')"} )
-        #_options=( ${(f)"$(echo ${_file[4]//:/\\:} | awk '/^  / {print $1}')"} )
-
-        case $CURRENT in
-            2) _describe layouts _layout ;;
-            3) _describe models _model;;
-            4) _describe variants _variant;;
-            5) _describe options _options;;
-            *) _message "no more options"
-        esac
-    fi
-}
-
-
-_localectl_command() {
-    local -a _localectl_cmds
-    _localectl_cmds=(
-        'status:Show current locale settings'
-        'set-locale:Set system locale'
-        'list-locales:Show known locales'
-        'set-keymap:Set virtual console keyboard mapping'
-        'list-keymaps:Show known virtual console keyboard mappings'
-        'set-x11-keymap:Set X11 keyboard mapping'
-    )
-    if (( CURRENT == 1 )); then
-        _describe -t commands 'localectl command' _localectl_cmds
-    else
-        local curcontext="$curcontext"
-        cmd="${${_localectl_cmds[(r)$words[1]:*]%%:*}}"
-        if (( $+functions[_localectl_$cmd] )); then
-            _localectl_$cmd
-        else
-            _message "no more options"
-        fi
-    fi
 }
 
 _timedatectl_set-timezone(){

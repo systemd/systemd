@@ -3443,6 +3443,9 @@ bin_PROGRAMS += \
 dist_bashcompletion_DATA += \
 	shell-completion/bash/localectl
 
+dist_zshcompletion_DATA += \
+	shell-completion/zsh/_localectl
+
 endif
 
 polkitpolicy_in_files += \
