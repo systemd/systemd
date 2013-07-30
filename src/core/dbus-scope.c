@@ -138,6 +138,8 @@ static int bus_scope_set_transient_property(
                         dbus_message_iter_get_basic(i, &t);
 
                         s->timeout_stop_usec = t;
+
+                        unit_write_drop_in_format(UNIT(s), mode, name, "[Scope]\nTimeoutStopSec=%lluus\n", (unsigned long long) t);
                 }
 
                 return 1;

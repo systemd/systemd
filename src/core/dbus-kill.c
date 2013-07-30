@@ -55,8 +55,11 @@ int bus_kill_context_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
                         dbus_bool_t b;
+
                         dbus_message_iter_get_basic(i, &b);
                         c->send_sighup = b;
+
+                        unit_write_drop_in_format(u, mode, name, "[Scope]\nSendSIGHUP=%s\n", yes_no(b));
                 }
 
                 return 1;
@@ -68,8 +71,11 @@ int bus_kill_context_set_transient_property(
 
                 if (mode != UNIT_CHECK) {
                         dbus_bool_t b;
+
                         dbus_message_iter_get_basic(i, &b);
                         c->send_sigkill = b;
+
+                        unit_write_drop_in_format(u, mode, name, "[Scope]\nSendSIGKILL4=%s\n", yes_no(b));
                 }
 
                 return 1;
