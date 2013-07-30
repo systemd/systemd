@@ -39,9 +39,9 @@ CGroup Rework Completion:
 
 * wiki: document new bus APIs of PID 1 (transient units, Reloading signal)
 
-* Send SIGHUP and SIGTERM in session scopes
-
 Features:
+
+* for transient units, instead of writing out drop-ins for all properties consider serializing them in the normal serialization stream
 
 * logind: when logging out, remove user-owned sysv and posix IPC objects
 
