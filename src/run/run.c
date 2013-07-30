@@ -35,6 +35,7 @@ static bool arg_remain_after_exit = false;
 static const char *arg_unit = NULL;
 static const char *arg_description = NULL;
 static const char *arg_slice = NULL;
+static bool arg_send_sighup = false;
 
 static int help(void) {
 
@@ -47,7 +48,8 @@ static int help(void) {
                "     --unit=UNIT          Run under the specified unit name\n"
                "     --description=TEXT   Description for unit\n"
                "     --slice=SLICE        Run in the specified slice\n"
-               "  -r --remain-after-exit  Leave service around until explicitly stopped\n",
+               "  -r --remain-after-exit  Leave service around until explicitly stopped\n"
+               "     --send-sighup        Send SIGHUP when terminating\n",
                program_invocation_short_name);
 
         return 0;
@@ -61,7 +63,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SCOPE,
                 ARG_UNIT,
                 ARG_DESCRIPTION,
-                ARG_SLICE
+                ARG_SLICE,
+                ARG_SEND_SIGHUP,
         };
 
         static const struct option options[] = {
@@ -72,7 +75,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unit",              required_argument, NULL, ARG_UNIT        },
                 { "description",       required_argument, NULL, ARG_DESCRIPTION },
                 { "slice",             required_argument, NULL, ARG_SLICE       },
-                { "remain-after-exit", required_argument, NULL, 'r'             },
+                { "remain-after-exit", no_argument,       NULL, 'r'             },
+                { "send-sighup",       no_argument,       NULL, ARG_SEND_SIGHUP },
                 { NULL,                0,                 NULL, 0               },
         };
 
@@ -112,6 +116,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SLICE:
                         arg_slice = optarg;
+                        break;
+
+                case ARG_SEND_SIGHUP:
+                        arg_send_sighup = true;
                         break;
 
                 case 'r':
@@ -173,6 +181,10 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
                 if (r < 0)
                         return r;
         }
+
+        r = sd_bus_message_append(m, "(sv)", "SendSIGHUP", "b", arg_send_sighup);
+        if (r < 0)
+                return r;
 
         *ret = m;
         m = NULL;

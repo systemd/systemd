@@ -160,6 +160,18 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--send-sighup</option></term>
+
+        <listitem><para>When terminating the scope unit send a SIGHUP
+        immediately after SIGTERM. This is useful to indicate to
+        shells and shell-like processes that the connection has been
+        sewered. Also see <varname>SendSIGHUP=</varname> in
+        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>All command-line arguments after the first non-option

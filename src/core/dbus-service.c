@@ -324,6 +324,10 @@ int bus_service_set_property(
                 r = bus_service_set_transient_property(s, name, i, mode, error);
                 if (r != 0)
                         return r;
+
+                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, i, mode, error);
+                if (r != 0)
+                        return r;
         }
 
         return 0;

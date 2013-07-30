@@ -25,12 +25,56 @@
 #include "dbus-kill.h"
 #include "dbus-common.h"
 
-DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_kill_append_mode, kill_mode, KillMode);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_kill_append_mode, kill_mode, KillMode);
 
 const BusProperty bus_kill_context_properties[] = {
         { "KillMode",    bus_kill_append_mode,     "s", offsetof(KillContext, kill_mode)    },
         { "KillSignal",  bus_property_append_int,  "i", offsetof(KillContext, kill_signal)  },
         { "SendSIGKILL", bus_property_append_bool, "b", offsetof(KillContext, send_sigkill) },
         { "SendSIGHUP",  bus_property_append_bool, "b", offsetof(KillContext, send_sighup)  },
-        { NULL, }
+        {}
 };
+
+int bus_kill_context_set_transient_property(
+                Unit *u,
+                KillContext *c,
+                const char *name,
+                DBusMessageIter *i,
+                UnitSetPropertiesMode mode,
+                DBusError *error) {
+
+        assert(u);
+        assert(c);
+        assert(name);
+        assert(i);
+
+        if (streq(name, "SendSIGHUP")) {
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        dbus_bool_t b;
+                        dbus_message_iter_get_basic(i, &b);
+                        c->send_sighup = b;
+                }
+
+                return 1;
+
+        } else if (streq(name, "SendSIGKILL")) {
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        dbus_bool_t b;
+                        dbus_message_iter_get_basic(i, &b);
+                        c->send_sigkill = b;
+                }
+
+                return 1;
+
+        }
+
+        return 0;
+}

@@ -34,4 +34,4 @@
 
 extern const BusProperty bus_kill_context_properties[];
 
-int bus_kill_append_mode(DBusMessageIter *i, const char *property, void *data);
+int bus_kill_context_set_transient_property(Unit *u, KillContext *c, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
