@@ -18,9 +18,10 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local word=$1; shift
-        for w in $*; do [[ $w = $word ]] && return 0; done
-        return 1
+        local w word=$1; shift
+        for w in "$@"; do
+                [[ $w = "$word" ]] && return
+        done
 }
 
 _hostnamectl() {
