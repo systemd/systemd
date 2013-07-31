@@ -1565,6 +1565,9 @@ SYSINIT_TARGET_WANTS += \
 	systemd-tmpfiles-setup-dev.service \
 	systemd-tmpfiles-setup.service
 
+dist_zshcompletion_DATA += \
+	shell-completion/zsh/_systemd-tmpfiles
+
 TIMERS_TARGET_WANTS += \
 	systemd-tmpfiles-clean.timer
 

@@ -1,4 +1,4 @@
-#compdef systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-machine-id-setup systemd-notify systemd-tmpfiles systemd-tty-ask-password-agent
+#compdef systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-machine-id-setup systemd-notify systemd-tty-ask-password-agent
 
 _ctls()
 {
@@ -76,16 +76,6 @@ _ctls()
                 '--status=[Send a free-form status string for the daemon to the init systemd]' \
                 '--booted[Returns 0 if the system was booted up with systemd]' \
                 '--readahead=[Controls disk read-ahead operations]:arguments:(cancel done noreply)'
-        ;;
-        systemd-tmpfiles)
-            _arguments \
-                '--create[Create, set ownership/permissions based on the config files.]' \
-                '--clean[Clean up all files and directories with an age parameter configured.]' \
-                '--remove[All files and directories marked with r, R in the configuration files are removed.]' \
-                '--prefix=[Only apply rules that apply to paths with the specified prefix.]' \
-                '--exclude-prefix=[Ignore rules that apply to paths with the specified prefix.]' \
-                '--help[Prints a short help text and exits.]' \
-                '*::files:_files'
         ;;
         systemd-tty-ask-password-agent)
             _arguments \
