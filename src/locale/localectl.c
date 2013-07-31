@@ -538,6 +538,7 @@ static int list_vconsole_keymaps(DBusConnection *bus, char **args, unsigned n) {
         if (!keymaps)
                 return log_oom();
 
+        nftw("/usr/share/keymaps/", nftw_cb, 20, FTW_MOUNT|FTW_PHYS);
         nftw("/usr/share/kbd/keymaps/", nftw_cb, 20, FTW_MOUNT|FTW_PHYS);
         nftw("/usr/lib/kbd/keymaps/", nftw_cb, 20, FTW_MOUNT|FTW_PHYS);
         nftw("/lib/kbd/keymaps/", nftw_cb, 20, FTW_MOUNT|FTW_PHYS);
