@@ -1,0 +1,24 @@
+#compdef systemd-nspawn
+
+_nspawn-caps(){
+    local -a _caps
+    _caps=( CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
+            CAP_FOWNER CAP_FSETID CAP_IPC_OWNER CAP_KILL CAP_LEASE CAP_LINUX_IMMUTABLE
+            CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW CAP_SETGID CAP_SETFCAP CAP_SETPCAP
+            CAP_SETUID CAP_SYS_ADMIN CAP_SYS_CHROOT CAP_SYS_NICE CAP_SYS_PTRACE CAP_SYS_TTY_CONFIG
+            CAP_SYS_RESOURCE CAP_SYS_BOOT )
+    _values -s , 'capabilities' "$_caps[@]"
+}
+
+_arguments \
+    {-h,--help}'[Show this help]' \
+    {--directory=,-D}'[Directory to use as file system root for the namespace container. If omitted the current directory will be used.]:directories:_directories' \
+    {--boot,-b}'[Automatically search for an init binary and invoke it instead of a shell or a user supplied program.]' \
+    {--user=,-u}'[Run the command under specified user, create home directory and cd into it.]' \
+    '--uuid=[Set the specified uuid for the container.]' \
+    {--controllers=,-C}'[Makes the container appear in other hierarchies than the name=systemd:/ one. Takes a comma-separated list of controllers.]' \
+    '--private-network[Turn off networking in the container. This makes all network interfaces unavailable in the container, with the exception of the loopback device.]' \
+    '--read-only[Mount the root file system read only for the container.]' \
+    '--capability=[List one or more additional capabilities to grant the container.]:capabilities:_nspawn-caps' \
+    "--link-journal=[Control whether the container's journal shall be made visible to the host system.]:options:(no, host, guest, auto)" \
+    '-j[Equivalent to --link-journal=guest.]'

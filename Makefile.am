@@ -347,6 +347,7 @@ dist_zshcompletion_DATA = \
 	shell-completion/zsh/_systemctl \
 	shell-completion/zsh/_journalctl \
 	shell-completion/zsh/_udevadm \
+	shell-completion/zsh/_systemd-nspawn \
 	shell-completion/zsh/_systemd
 
 dist_sysctl_DATA = \
