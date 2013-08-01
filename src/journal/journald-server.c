@@ -1240,12 +1240,7 @@ int process_event(Server *s, struct epoll_event *ev) {
                                 char *e;
 
                                 if (n > 0 && n_fds == 0) {
-                                        e = memchr(s->buffer, '\n', n);
-                                        if (e)
-                                                *e = 0;
-                                        else
-                                                s->buffer[n] = 0;
-
+                                        s->buffer[n] = 0;
                                         server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
                                 } else if (n_fds > 0)
                                         log_warning("Got file descriptors via syslog socket. Ignoring.");
