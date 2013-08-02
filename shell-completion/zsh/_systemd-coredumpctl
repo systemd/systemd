@@ -4,7 +4,8 @@ _systemd-coredumpctl_command(){
     local -a _systemd_coredumpctl_cmds
     _systemd_coredumpctl_cmds=(
             'list:List available coredumps'
-            'dump:Print coredump to std'
+            'dump:Print coredump to stdout'
+            'gdb:Start gdb on a coredump'
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'systemd-coredumpctl command' _systemd_coredumpctl_cmds
@@ -28,6 +29,7 @@ _systemd-coredumpctl_command(){
 
 _arguments \
     {-o,--output=}'[Write output to FILE]:output file:_files' \
+    {-F,--field=}'[Show field in list output]:field' \
     '--no-pager[Do not pipe output into a pager]' \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
