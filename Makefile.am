@@ -3102,7 +3102,9 @@ systemd_coredumpctl_SOURCES = \
 
 systemd_coredumpctl_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-journal.la
+	libsystemd-journal.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la
 
 bin_PROGRAMS += \
 	systemd-coredumpctl

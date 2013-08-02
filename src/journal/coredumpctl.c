@@ -342,7 +342,7 @@ static int dump_list(sd_journal *j) {
         assert(j);
 
         /* The coredumps are likely to compressed, and for just
-         * listing them we don#t need to decompress them, so let's
+         * listing them we don't need to decompress them, so let's
          * pick a fairly low data threshold here */
         sd_journal_set_data_threshold(j, 4096);
 
@@ -555,6 +555,13 @@ int main(int argc, char *argv[]) {
                                   match, strerror(-r));
                         goto end;
                 }
+        }
+
+        if (_unlikely_(log_get_max_level() >= LOG_PRI(LOG_DEBUG))) {
+                _cleanup_free_ char *filter;
+
+                filter = journal_make_match_string(j);
+                log_debug("Journal filter: %s", filter);
         }
 
         switch(arg_action) {
