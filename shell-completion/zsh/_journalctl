@@ -24,7 +24,8 @@ _list_fields() {
 
 _journal_none() {
     local -a _commands _files
-    _commands=( ${(f)"$(_call_program commands "$service" -F _EXE 2>/dev/null)"} )
+    # Setting use-cache will slow this down considerably
+    _commands=( ${"$(_call_program commands "$service" -F _EXE 2>/dev/null)"} )
     _alternative : \
         'files:/dev files:_files -W /dev -P /dev/' \
         "commands:commands:($_commands[@])" \
