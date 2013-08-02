@@ -1605,14 +1605,13 @@ int main(int argc, char *argv[]) {
 
                         if (!arg_merge) {
                                 sd_id128_t boot_id;
-                                const char *color_on = on_tty() ? ANSI_HIGHLIGHT_ON : "",
-                                           *color_off = on_tty() ? ANSI_HIGHLIGHT_OFF : "";
 
                                 r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
                                 if (r >= 0) {
                                         if (previous_boot_id_valid &&
                                             !sd_id128_equal(boot_id, previous_boot_id))
-                                                printf("%s-- Reboot --%s\n", color_on, color_off);
+                                                printf("%s-- Reboot --%s\n",
+                                                       ansi_highlight(), ansi_highlight_off());
 
                                         previous_boot_id = boot_id;
                                         previous_boot_id_valid = true;

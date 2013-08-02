@@ -175,30 +175,6 @@ static void polkit_agent_open_if_enabled(void) {
 }
 #endif
 
-static const char *ansi_highlight(bool b) {
-
-        if (!on_tty())
-                return "";
-
-        return b ? ANSI_HIGHLIGHT_ON : ANSI_HIGHLIGHT_OFF;
-}
-
-static const char *ansi_highlight_red(bool b) {
-
-        if (!on_tty())
-                return "";
-
-        return b ? ANSI_HIGHLIGHT_RED_ON : ANSI_HIGHLIGHT_OFF;
-}
-
-static const char *ansi_highlight_green(bool b) {
-
-        if (!on_tty())
-                return "";
-
-        return b ? ANSI_HIGHLIGHT_GREEN_ON : ANSI_HIGHLIGHT_OFF;
-}
-
 static int translate_bus_error_to_exit_status(int r, const DBusError *error) {
         assert(error);
 
@@ -381,14 +357,14 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
                 if (streq(u->load_state, "error") ||
                     streq(u->load_state, "not-found")) {
-                        on_loaded = on = ansi_highlight_red(true);
-                        off_loaded = off = ansi_highlight_red(false);
+                        on_loaded = on = ansi_highlight_red();
+                        off_loaded = off = ansi_highlight_off();
                 } else
                         on_loaded = off_loaded = "";
 
                 if (streq(u->active_state, "failed")) {
-                        on_active = on = ansi_highlight_red(true);
-                        off_active = off = ansi_highlight_red(false);
+                        on_active = on = ansi_highlight_red();
+                        off_active = off = ansi_highlight_off();
                 } else
                         on_active = off_active = "";
 
@@ -416,11 +392,11 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         if (job_count)
                                 printf("JOB    = Pending job for the unit.\n");
                         puts("");
-                        on = ansi_highlight(true);
-                        off = ansi_highlight(false);
+                        on = ansi_highlight();
+                        off = ansi_highlight_off();
                 } else {
-                        on = ansi_highlight_red(true);
-                        off = ansi_highlight_red(false);
+                        on = ansi_highlight_red();
+                        off = ansi_highlight_off();
                 }
 
                 if (arg_all)
@@ -683,13 +659,13 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                         printf("\n");
                 }
 
-                on = ansi_highlight(true);
-                off = ansi_highlight(false);
+                on = ansi_highlight();
+                off = ansi_highlight_off();
                 if (!arg_no_legend)
                         printf("\n");
         } else {
-                on = ansi_highlight_red(true);
-                off = ansi_highlight_red(false);
+                on = ansi_highlight_red();
+                off = ansi_highlight_off();
         }
 
         if (!arg_no_legend) {
@@ -838,11 +814,11 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                     u->state == UNIT_FILE_MASKED_RUNTIME ||
                     u->state == UNIT_FILE_DISABLED ||
                     u->state == UNIT_FILE_INVALID) {
-                        on  = ansi_highlight_red(true);
-                        off = ansi_highlight_red(false);
+                        on  = ansi_highlight_red();
+                        off = ansi_highlight_off();
                 } else if (u->state == UNIT_FILE_ENABLED) {
-                        on  = ansi_highlight_green(true);
-                        off = ansi_highlight_green(false);
+                        on  = ansi_highlight_green();
+                        off = ansi_highlight_off();
                 } else
                         on = off = "";
 
@@ -1250,8 +1226,8 @@ static void list_jobs_print(struct job_info* jobs, size_t n) {
         assert(n == 0 || jobs);
 
         if (n == 0) {
-                on = ansi_highlight_green(true);
-                off = ansi_highlight_green(false);
+                on = ansi_highlight_green();
+                off = ansi_highlight_off();
 
                 printf("%sNo jobs running.%s\n", on, off);
                 return;
@@ -1287,8 +1263,8 @@ static void list_jobs_print(struct job_info* jobs, size_t n) {
                         _cleanup_free_ char *e = NULL;
 
                         if (streq(j->state, "running")) {
-                                on = ansi_highlight(true);
-                                off = ansi_highlight(false);
+                                on = ansi_highlight();
+                                off = ansi_highlight_off();
                         } else
                                 on = off = "";
 
@@ -1301,8 +1277,8 @@ static void list_jobs_print(struct job_info* jobs, size_t n) {
                 }
         }
 
-        on = ansi_highlight(true);
-        off = ansi_highlight(false);
+        on = ansi_highlight();
+        off = ansi_highlight_off();
 
         if (on_tty())
                 printf("\n%s%zu jobs listed%s.\n", on, n, off);
@@ -2558,8 +2534,8 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("   Follow: unit currently follows state of %s\n", i->following);
 
         if (streq_ptr(i->load_state, "error")) {
-                on = ansi_highlight_red(true);
-                off = ansi_highlight_red(false);
+                on = ansi_highlight_red();
+                off = ansi_highlight_off();
         } else
                 on = off = "";
 
@@ -2609,11 +2585,11 @@ static void print_status_info(UnitStatusInfo *i) {
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
 
         if (streq_ptr(i->active_state, "failed")) {
-                on = ansi_highlight_red(true);
-                off = ansi_highlight_red(false);
+                on = ansi_highlight_red();
+                off = ansi_highlight_off();
         } else if (streq_ptr(i->active_state, "active") || streq_ptr(i->active_state, "reloading")) {
-                on = ansi_highlight_green(true);
-                off = ansi_highlight_green(false);
+                on = ansi_highlight_green();
+                off = ansi_highlight_off();
         } else
                 on = off = "";
 
@@ -2688,8 +2664,8 @@ static void print_status_info(UnitStatusInfo *i) {
 
                 good = is_clean_exit_lsb(p->code, p->status, NULL);
                 if (!good) {
-                        on = ansi_highlight_red(true);
-                        off = ansi_highlight_red(false);
+                        on = ansi_highlight_red();
+                        off = ansi_highlight_off();
                 } else
                         on = off = "";
 
@@ -2808,8 +2784,8 @@ static void print_status_info(UnitStatusInfo *i) {
 
         if (i->need_daemon_reload)
                 printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %sdaemon-reload' recommended.\n",
-                       ansi_highlight_red(true),
-                       ansi_highlight_red(false),
+                       ansi_highlight_red(),
+                       ansi_highlight_off(),
                        arg_scope == UNIT_FILE_SYSTEM ? "" : "--user ");
 }
 

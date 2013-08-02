@@ -66,7 +66,8 @@ static int notify_override_masked(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_MASKED))
                 return 0;
 
-        printf(ANSI_HIGHLIGHT_RED_ON "[MASKED]" ANSI_HIGHLIGHT_OFF "     %s → %s\n", top, bottom);
+        printf("%s%s%s     %s → %s\n",
+               ansi_highlight_red(), "[MASKED]", ansi_highlight_off(), top, bottom);
         return 1;
 }
 
@@ -74,7 +75,8 @@ static int notify_override_equivalent(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_EQUIVALENT))
                 return 0;
 
-        printf(ANSI_HIGHLIGHT_GREEN_ON "[EQUIVALENT]" ANSI_HIGHLIGHT_OFF " %s → %s\n", top, bottom);
+        printf("%s%s%s %s → %s\n",
+               ansi_highlight_green(), "[EQUIVALENT]", ansi_highlight(), top, bottom);
         return 1;
 }
 
@@ -82,7 +84,8 @@ static int notify_override_redirected(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_REDIRECTED))
                 return 0;
 
-        printf(ANSI_HIGHLIGHT_ON "[REDIRECTED]" ANSI_HIGHLIGHT_OFF "   %s → %s\n", top, bottom);
+        printf("%s%s%s   %s → %s\n",
+               ansi_highlight(), "[REDIRECTED]", ansi_highlight_off(), top, bottom);
         return 1;
 }
 
@@ -90,7 +93,8 @@ static int notify_override_overridden(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_OVERRIDDEN))
                 return 0;
 
-        printf(ANSI_HIGHLIGHT_ON "[OVERRIDDEN]" ANSI_HIGHLIGHT_OFF " %s → %s\n", top, bottom);
+        printf("%s%s%s %s → %s\n",
+               ansi_highlight(), "[OVERRIDDEN]", ansi_highlight_off(), top, bottom);
         return 1;
 }
 
@@ -98,7 +102,8 @@ static int notify_override_extended(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_EXTENDED))
                return 0;
 
-        printf(ANSI_HIGHLIGHT_ON "[EXTENDED]" ANSI_HIGHLIGHT_OFF "   %s → %s\n", top, bottom);
+        printf("%s%s%s   %s → %s\n",
+               ansi_highlight(), "[EXTENDED]", ansi_highlight_off(), top, bottom);
         return 1;
 }
 

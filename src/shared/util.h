@@ -374,6 +374,22 @@ void columns_lines_cache_reset(int _unused_ signum);
 
 bool on_tty(void);
 
+static inline const char *ansi_highlight(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_ON : "";
+}
+
+static inline const char *ansi_highlight_red(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_RED_ON : "";
+}
+
+static inline const char *ansi_highlight_green(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_GREEN_ON : "";
+}
+
+static inline const char *ansi_highlight_off(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_OFF : "";
+}
+
 int running_in_chroot(void);
 
 char *ellipsize(const char *s, size_t length, unsigned percent);
