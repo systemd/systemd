@@ -2090,6 +2090,7 @@ libudev_la_LIBADD = \
 	libsystemd-shared.la \
 	libsystemd-label.la \
 	libsystemd-daemon-internal.la \
+	$(RT_LIBS) \
 	libsystemd-id128-internal.la
 
 pkgconfiglib_DATA += \
@@ -2261,6 +2262,7 @@ libudev_core_la_LIBADD = \
 	libudev-private.la \
 	libsystemd-label.la \
 	libsystemd-daemon-internal.la \
+	$(RT_LIBS) \
 	libsystemd-shared.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
@@ -2647,7 +2649,8 @@ libsystemd_id128_la_LDFLAGS = \
 libsystemd_id128_la_LIBADD = \
 	libsystemd-shared.la \
 	libsystemd-label.la \
-	libsystemd-daemon-internal.la
+	libsystemd-daemon-internal.la \
+	$(RT_LIBS)
 
 libsystemd_id128_internal_la_SOURCES = \
 	$(libsystemd_id128_la_SOURCES)
@@ -2800,6 +2803,7 @@ test_journal_init_SOURCES = \
 test_journal_init_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon-internal.la \
+	$(RT_LIBS) \
 	libsystemd-journal.la
 
 test_journal_verify_SOURCES = \
@@ -2866,6 +2870,7 @@ libsystemd_journal_la_LIBADD = \
 	libsystemd-shared.la \
 	libsystemd-label.la \
 	libsystemd-daemon-internal.la \
+	$(RT_LIBS) \
 	libsystemd-id128-internal.la
 
 libsystemd_journal_internal_la_SOURCES = \
@@ -3815,7 +3820,8 @@ libsystemd_login_la_LDFLAGS = \
 
 libsystemd_login_la_LIBADD = \
 	libsystemd-shared.la \
-	libsystemd-daemon-internal.la
+	libsystemd-daemon-internal.la \
+	$(RT_LIBS)
 
 libsystemd_login_internal_la_SOURCES = \
 	$(libsystemd_login_la_SOURCES)
@@ -3843,6 +3849,7 @@ pam_systemd_la_LIBADD = \
 	libsystemd-dbus.la \
 	libsystemd-shared.la \
 	libsystemd-daemon-internal.la \
+	$(RT_LIBS) \
 	$(PAM_LIBS)
 
 pamlib_LTLIBRARIES = \
@@ -4027,7 +4034,8 @@ _reader_la_LIBADD = \
 	libsystemd-journal.la \
 	libsystemd-id128.la \
 	libsystemd-shared.la \
-	libsystemd-daemon-internal.la
+	libsystemd-daemon-internal.la \
+	$(RT_LIBS)
 
 login_la_SOURCES = \
 	src/python-systemd/login.c \
@@ -4050,7 +4058,8 @@ login_la_LIBADD = \
 	libsystemd-journal.la \
 	libsystemd-login.la \
 	libsystemd-shared.la \
-	libsystemd-daemon-internal.la
+	libsystemd-daemon-internal.la \
+	$(RT_LIBS)
 
 dist_pkgpyexec_PYTHON = \
 	src/python-systemd/journal.py \
