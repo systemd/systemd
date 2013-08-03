@@ -248,7 +248,7 @@ static ssize_t request_reader_entries(
                         }
                 }
 
-                r = output_journal(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH);
+                r = output_journal(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH, NULL);
                 if (r < 0) {
                         log_error("Failed to serialize item: %s", strerror(-r));
                         return MHD_CONTENT_READER_END_WITH_ERROR;

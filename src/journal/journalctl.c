@@ -1305,6 +1305,7 @@ int main(int argc, char *argv[]) {
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false, first_line = true;
         int n_shown = 0;
+        bool ellipsized = false;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
@@ -1624,7 +1625,7 @@ int main(int argc, char *argv[]) {
                                 on_tty() * OUTPUT_COLOR |
                                 arg_catalog * OUTPUT_CATALOG;
 
-                        r = output_journal(stdout, j, arg_output, 0, flags);
+                        r = output_journal(stdout, j, arg_output, 0, flags, &ellipsized);
                         need_seek = true;
                         if (r == -EADDRNOTAVAIL)
                                 break;

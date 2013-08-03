@@ -35,7 +35,8 @@ int output_journal(
                 sd_journal *j,
                 OutputMode mode,
                 unsigned n_columns,
-                OutputFlags flags);
+                OutputFlags flags,
+                bool *ellipsized);
 
 int add_match_this_boot(sd_journal *j);
 
@@ -57,7 +58,8 @@ int show_journal_by_unit(
                 unsigned how_many,
                 uid_t uid,
                 OutputFlags flags,
-                bool system);
+                bool system,
+                bool *ellipsized);
 
 void json_escape(
                 FILE *f,

@@ -101,10 +101,11 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
         return true;
 }
 
-static void print_multiline(FILE *f, unsigned prefix, unsigned n_columns, OutputMode flags, int priority, const char* message, size_t message_len) {
+static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, OutputMode flags, int priority, const char* message, size_t message_len) {
         const char *color_on = "", *color_off = "";
         const char *pos, *end;
         bool continuation = false;
+        bool ellipsized = false;
 
         if (flags & OUTPUT_COLOR) {
                 if (priority <= LOG_ERR) {
@@ -130,17 +131,22 @@ static void print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
                 else if (prefix < n_columns && n_columns - prefix >= 3) {
                         _cleanup_free_ char *e;
 
+                        ellipsized = true;
                         e = ellipsize_mem(pos, len, n_columns - prefix, 90);
 
                         if (!e)
                                 fprintf(f, "%s%.*s%s\n", color_on, len, pos, color_off);
                         else
                                 fprintf(f, "%s%s%s\n", color_on, e, color_off);
-                } else
+                } else {
+                        ellipsized = true;
                         fputs("...\n", f);
+                }
 
                 continuation = true;
         }
+
+        return ellipsized;
 }
 
 static int output_short(
@@ -157,6 +163,7 @@ static int output_short(
         _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL;
         size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0;
         int p = LOG_INFO;
+        bool ellipsized = false;
 
         assert(f);
         assert(j);
@@ -314,13 +321,14 @@ static int output_short(
                 fprintf(f, ": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
         } else {
                 fputs(": ", f);
-                print_multiline(f, n + 2, n_columns, flags, p, message, message_len);
+                ellipsized |=
+                        print_multiline(f, n + 2, n_columns, flags, p, message, message_len);
         }
 
         if (flags & OUTPUT_CATALOG)
                 print_catalog(f, j);
 
-        return 0;
+        return ellipsized;
 }
 
 static int output_verbose(
@@ -817,7 +825,8 @@ int output_journal(
                 sd_journal *j,
                 OutputMode mode,
                 unsigned n_columns,
-                OutputFlags flags) {
+                OutputFlags flags,
+                bool *ellipsized) {
 
         int ret;
         assert(mode >= 0);
@@ -828,6 +837,10 @@ int output_journal(
 
         ret = output_funcs[mode](f, j, mode, n_columns, flags);
         fflush(stdout);
+
+        if (ellipsized && ret > 0)
+                *ellipsized = true;
+
         return ret;
 }
 
@@ -837,7 +850,8 @@ static int show_journal(FILE *f,
                         unsigned n_columns,
                         usec_t not_before,
                         unsigned how_many,
-                        OutputFlags flags) {
+                        OutputFlags flags,
+                        bool *ellipsized) {
 
         int r;
         unsigned line = 0;
@@ -888,7 +902,7 @@ static int show_journal(FILE *f,
 
                         line ++;
 
-                        r = output_journal(f, j, mode, n_columns, flags);
+                        r = output_journal(f, j, mode, n_columns, flags, ellipsized);
                         if (r < 0)
                                 goto finish;
                 }
@@ -1037,7 +1051,8 @@ int show_journal_by_unit(
                 unsigned how_many,
                 uid_t uid,
                 OutputFlags flags,
-                bool system) {
+                bool system,
+                bool *ellipsized) {
 
         _cleanup_journal_close_ sd_journal*j = NULL;
         int r;
@@ -1072,11 +1087,7 @@ int show_journal_by_unit(
                 log_debug("Journal filter: %s", filter);
         }
 
-        r = show_journal(f, j, mode, n_columns, not_before, how_many, flags);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return show_journal(f, j, mode, n_columns, not_before, how_many, flags, ellipsized);
 }
 
 static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {

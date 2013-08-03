@@ -2503,7 +2503,8 @@ typedef struct UnitStatusInfo {
         LIST_HEAD(ExecStatusInfo, exec);
 } UnitStatusInfo;
 
-static void print_status_info(UnitStatusInfo *i) {
+static void print_status_info(UnitStatusInfo *i,
+                              bool *ellipsized) {
         ExecStatusInfo *p;
         const char *on, *off, *ss;
         usec_t timestamp;
@@ -2779,7 +2780,8 @@ static void print_status_info(UnitStatusInfo *i) {
                                      arg_lines,
                                      getuid(),
                                      flags,
-                                     arg_scope == UNIT_FILE_SYSTEM);
+                                     arg_scope == UNIT_FILE_SYSTEM,
+                                     ellipsized);
         }
 
         if (i->need_daemon_reload)
@@ -3345,7 +3347,12 @@ static int print_property(const char *name, DBusMessageIter *iter) {
         return 0;
 }
 
-static int show_one(const char *verb, DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
+static int show_one(const char *verb,
+                    DBusConnection *bus,
+                    const char *path,
+                    bool show_properties,
+                    bool *new_line,
+                    bool *ellipsized) {
         _cleanup_free_ DBusMessage *reply = NULL;
         const char *interface = "";
         int r;
@@ -3415,7 +3422,7 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
                 if (streq(verb, "help"))
                         show_unit_help(&info);
                 else
-                        print_status_info(&info);
+                        print_status_info(&info, ellipsized);
         }
 
         strv_free(info.documentation);
@@ -3446,7 +3453,11 @@ static int show_one(const char *verb, DBusConnection *bus, const char *path, boo
         return r;
 }
 
-static int show_one_by_pid(const char *verb, DBusConnection *bus, uint32_t pid, bool *new_line) {
+static int show_one_by_pid(const char *verb,
+                           DBusConnection *bus,
+                           uint32_t pid,
+                           bool *new_line,
+                           bool *ellipsized) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *path = NULL;
         _cleanup_dbus_error_free_ DBusError error;
@@ -3474,11 +3485,15 @@ static int show_one_by_pid(const char *verb, DBusConnection *bus, uint32_t pid, 
                 return -EIO;
         }
 
-        r = show_one(verb, bus, path, false, new_line);
+        r = show_one(verb, bus, path, false, new_line, ellipsized);
         return r;
 }
 
-static int show_all(const char* verb, DBusConnection *bus, bool show_properties, bool *new_line) {
+static int show_all(const char* verb,
+                    DBusConnection *bus,
+                    bool show_properties,
+                    bool *new_line,
+                    bool *ellipsized) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         _cleanup_free_ struct unit_info *unit_infos = NULL;
         unsigned c = 0;
@@ -3503,7 +3518,7 @@ static int show_all(const char* verb, DBusConnection *bus, bool show_properties,
 
                 printf("%s -> '%s'\n", u->id, p);
 
-                r = show_one(verb, bus, p, show_properties, new_line);
+                r = show_one(verb, bus, p, show_properties, new_line, ellipsized);
                 if (r != 0)
                         return r;
         }
@@ -3515,6 +3530,7 @@ static int show(DBusConnection *bus, char **args) {
         int r, ret = 0;
         bool show_properties, show_status, new_line = false;
         char **name;
+        bool ellipsized = false;
 
         assert(bus);
         assert(args);
@@ -3528,48 +3544,51 @@ static int show(DBusConnection *bus, char **args) {
         /* If no argument is specified inspect the manager itself */
 
         if (show_properties && strv_length(args) <= 1)
-                return show_one(args[0], bus, "/org/freedesktop/systemd1", show_properties, &new_line);
+                return show_one(args[0], bus, "/org/freedesktop/systemd1", show_properties, &new_line, &ellipsized);
 
         if (show_status && strv_length(args) <= 1)
-                return show_all(args[0], bus, false, &new_line);
+                ret = show_all(args[0], bus, false, &new_line, &ellipsized);
+        else
+                STRV_FOREACH(name, args+1) {
+                        uint32_t id;
 
-        STRV_FOREACH(name, args+1) {
-                uint32_t id;
+                        if (safe_atou32(*name, &id) < 0) {
+                                _cleanup_free_ char *p = NULL, *n = NULL;
+                                /* Interpret as unit name */
 
-                if (safe_atou32(*name, &id) < 0) {
-                        _cleanup_free_ char *p = NULL, *n = NULL;
-                        /* Interpret as unit name */
+                                n = unit_name_mangle(*name);
+                                if (!n)
+                                        return log_oom();
 
-                        n = unit_name_mangle(*name);
-                        if (!n)
-                                return log_oom();
+                                p = unit_dbus_path_from_name(n);
+                                if (!p)
+                                        return log_oom();
 
-                        p = unit_dbus_path_from_name(n);
-                        if (!p)
-                                return log_oom();
+                                r = show_one(args[0], bus, p, show_properties, &new_line, &ellipsized);
+                                if (r != 0)
+                                        ret = r;
 
-                        r = show_one(args[0], bus, p, show_properties, &new_line);
-                        if (r != 0)
-                                ret = r;
+                        } else if (show_properties) {
+                                _cleanup_free_ char *p = NULL;
 
-                } else if (show_properties) {
-                        _cleanup_free_ char *p = NULL;
+                                /* Interpret as job id */
+                                if (asprintf(&p, "/org/freedesktop/systemd1/job/%u", id) < 0)
+                                        return log_oom();
 
-                        /* Interpret as job id */
-                        if (asprintf(&p, "/org/freedesktop/systemd1/job/%u", id) < 0)
-                                return log_oom();
+                                r = show_one(args[0], bus, p, show_properties, &new_line, &ellipsized);
+                                if (r != 0)
+                                        ret = r;
 
-                        r = show_one(args[0], bus, p, show_properties, &new_line);
-                        if (r != 0)
-                                ret = r;
-
-                } else {
-                        /* Interpret as PID */
-                        r = show_one_by_pid(args[0], bus, id, &new_line);
-                        if (r != 0)
-                                ret = r;
+                        } else {
+                                /* Interpret as PID */
+                                r = show_one_by_pid(args[0], bus, id, &new_line, &ellipsized);
+                                if (r != 0)
+                                        ret = r;
+                        }
                 }
-        }
+
+        if (ellipsized && !arg_quiet)
+                printf("Hint: Some lines were ellipsized, use -l to show in full.\n");
 
         return ret;
 }
