@@ -115,6 +115,7 @@
 /test-journal-match
 /test-journal-send
 /test-journal-stream
+/test-journal-init
 /test-journal-syslog
 /test-journal-verify
 /test-libudev
