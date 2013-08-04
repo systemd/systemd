@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemd-machined.service</refname>
                 <refname>systemd-machined</refname>
-                <refpurpose>Virtual machine and container registartion manager</refpurpose>
+                <refpurpose>Virtual machine and container registration manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
