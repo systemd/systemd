@@ -168,6 +168,28 @@ char *format_timestamp(char *buf, size_t l, usec_t t) {
         return buf;
 }
 
+char *format_timestamp_us(char *buf, size_t l, usec_t t) {
+        struct tm tm;
+        time_t sec;
+
+        assert(buf);
+        assert(l > 0);
+
+        if (t <= 0)
+                return NULL;
+
+        sec = (time_t) (t / USEC_PER_SEC);
+        localtime_r(&sec, &tm);
+
+        if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S", &tm) <= 0)
+                return NULL;
+        snprintf(buf + strlen(buf), l - strlen(buf), ".%06llu", t % USEC_PER_SEC);
+        if (strftime(buf + strlen(buf), l - strlen(buf), " %Z", &tm) <= 0)
+                return NULL;
+
+        return buf;
+}
+
 char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         usec_t n, d;
 

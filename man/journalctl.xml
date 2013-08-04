@@ -253,12 +253,11 @@
 
                                         <varlistentry>
                                                 <term>
-                                                        <option>short-monotonic</option>
+                                                        <option>short-iso</option>
                                                 </term>
                                                 <listitem>
-                                                        <para>is very similar
-                                                        but shows monotonic
-                                                        timestamps instead of
+                                                        <para>is very similar,
+                                                        but shows ISO 8601
                                                         wallclock timestamps.
                                                         </para>
                                                 </listitem>
@@ -266,11 +265,25 @@
 
                                         <varlistentry>
                                                 <term>
-                                                        <option>short-iso</option>
+                                                        <option>short-precise</option>
                                                 </term>
                                                 <listitem>
                                                         <para>is very similar,
-                                                        but shows ISO 8601
+                                                        but shows timestamps
+                                                        with full microsecond
+                                                        precision.
+                                                        </para>
+                                                </listitem>
+                                        </varlistentry>
+
+                                        <varlistentry>
+                                                <term>
+                                                        <option>short-monotonic</option>
+                                                </term>
+                                                <listitem>
+                                                        <para>is very similar
+                                                        but shows monotonic
+                                                        timestamps instead of
                                                         wallclock timestamps.
                                                         </para>
                                                 </listitem>

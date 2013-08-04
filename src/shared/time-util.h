@@ -73,6 +73,7 @@ usec_t timeval_load(const struct timeval *tv) _pure_;
 struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
 char *format_timestamp(char *buf, size_t l, usec_t t);
+char *format_timestamp_us(char *buf, size_t l, usec_t t);
 char *format_timestamp_relative(char *buf, size_t l, usec_t t);
 char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy);
 

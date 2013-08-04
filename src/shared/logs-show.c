@@ -318,10 +318,21 @@ static int output_short(
                 }
 
                 t = (time_t) (x / USEC_PER_SEC);
-                if (mode == OUTPUT_SHORT_ISO)
+
+                switch(mode) {
+                case OUTPUT_SHORT_ISO:
                         r = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", localtime_r(&t, &tm));
-                else
+                        break;
+                case OUTPUT_SHORT_PRECISE:
                         r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm));
+                        if (r > 0) {
+                                snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+                                         ".%06llu", x % USEC_PER_SEC);
+                        }
+                        break;
+                default:
+                        r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm));
+                }
 
                 if (r <= 0) {
                         log_error("Failed to format time.");
@@ -380,7 +391,7 @@ static int output_verbose(
         size_t length;
         _cleanup_free_ char *cursor = NULL;
         uint64_t realtime;
-        char ts[FORMAT_TIMESTAMP_MAX];
+        char ts[FORMAT_TIMESTAMP_MAX + 7];
         int r;
 
         assert(f);
@@ -402,7 +413,7 @@ static int output_verbose(
         }
 
         fprintf(f, "%s [%s]\n",
-                format_timestamp(ts, sizeof(ts), realtime),
+                format_timestamp_us(ts, sizeof(ts), realtime),
                 cursor);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
@@ -849,8 +860,9 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 OutputFlags flags) = {
 
         [OUTPUT_SHORT] = output_short,
-        [OUTPUT_SHORT_MONOTONIC] = output_short,
         [OUTPUT_SHORT_ISO] = output_short,
+        [OUTPUT_SHORT_PRECISE] = output_short,
+        [OUTPUT_SHORT_MONOTONIC] = output_short,
         [OUTPUT_VERBOSE] = output_verbose,
         [OUTPUT_EXPORT] = output_export,
         [OUTPUT_JSON] = output_json,
@@ -1131,8 +1143,9 @@ int show_journal_by_unit(
 
 static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT] = "short",
-        [OUTPUT_SHORT_MONOTONIC] = "short-monotonic",
         [OUTPUT_SHORT_ISO] = "short-iso",
+        [OUTPUT_SHORT_PRECISE] = "short-precise",
+        [OUTPUT_SHORT_MONOTONIC] = "short-monotonic",
         [OUTPUT_VERBOSE] = "verbose",
         [OUTPUT_EXPORT] = "export",
         [OUTPUT_JSON] = "json",
