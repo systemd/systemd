@@ -123,8 +123,8 @@
                                 <constant>SIGHUP</constant> (if
                                 enabled with
                                 <varname>SendSIGHUP=</varname>). If
-                                then after a delay (configured via the
-                                <varname>TimeoutStopSec=</varname> option)
+                                then, after a delay (configured via the
+                                <varname>TimeoutStopSec=</varname> option),
                                 processes still remain, the
                                 termination request is repeated with
                                 the <constant>SIGKILL</constant>

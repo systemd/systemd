@@ -355,7 +355,7 @@
                                 syncing is unconditionally done
                                 immediately after a log message of
                                 priority CRIT, ALERT or EMERG has been
-                                logged, this setting hence applies
+                                logged. This setting hence applies
                                 only to messages of the levels ERR,
                                 WARNING, NOTICE, INFO, DEBUG. The
                                 default timeout is 5 minutes.
