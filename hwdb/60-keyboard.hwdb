@@ -320,6 +320,13 @@ keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*ESPRIMO Mobile V6*:pvr*
  KEYBOARD_KEY_ef=brightnessdown
 
 ###########################################################
+# GIGABYTE
+###########################################################
+
+keyboard:dmi:bvn*:bvr*:bd*:svnGIGABYTE:pnU2442:*
+ KEYBOARD_KEY_a0=!                                      # mute
+
+###########################################################
 # Genius
 ###########################################################
 
