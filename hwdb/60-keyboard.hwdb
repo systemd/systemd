@@ -392,6 +392,10 @@ keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP G60 Notebook PC:pvr*
  KEYBOARD_KEY_d8=!f23                                   # touchpad off
  KEYBOARD_KEY_d9=!f22                                   # touchpad on
 
+# 2570p
+keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2570p*:pvr*
+ KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
+
 # TX2
 keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][xX]2*:pvr*
  KEYBOARD_KEY_c2=media
