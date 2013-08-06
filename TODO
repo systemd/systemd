@@ -1,4 +1,9 @@
 Bugfixes:
+* enabling an instance unit creates pointless link, and
+  the unit will be started with getty@getty.service:
+    $ systemctl enable getty@.service
+    ln -s '/usr/lib/systemd/system/getty@.service' '/etc/systemd/system/getty.target.wants/getty@.service'
+
 * check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
