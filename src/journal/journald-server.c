@@ -1237,8 +1237,6 @@ int process_event(Server *s, struct epoll_event *ev) {
                         }
 
                         if (ev->data.fd == s->syslog_fd) {
-                                char *e;
-
                                 if (n > 0 && n_fds == 0) {
                                         s->buffer[n] = 0;
                                         server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
