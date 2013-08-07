@@ -221,8 +221,10 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, DBusError *e, Sn
                         if (asprintf(&n, "snapshot-%u.snapshot", ++ m->n_snapshots) < 0)
                                 return -ENOMEM;
 
-                        if (!manager_get_unit(m, n))
+                        if (!manager_get_unit(m, n)) {
+                                name = n;
                                 break;
+                        }
 
                         free(n);
                         n = NULL;
