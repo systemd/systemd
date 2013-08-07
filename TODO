@@ -31,15 +31,13 @@ Fedora 20:
 
 CGroup Rework Completion:
 
-* introduce "mainpid" for scopes
+* introduce "mainpid" for scopes (or maybe not?)
 
 * implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
 
 * implement per-slice CPUFairScheduling=1 switch
 
 * handle jointly mounted controllers correctly
-
-* logind: implement session kill exceptions
 
 * make BlockIODeviceWeight=, BlockIODeviceBandwidth= runtime settable
 
@@ -48,6 +46,12 @@ CGroup Rework Completion:
 * wiki: document new bus APIs of PID 1 (transient units, Reloading signal)
 
 Features:
+
+* unlink PID files of units after exit
+
+* tiny tool that saves/restores backlight
+
+* systemctl status output should should include list of triggering units and their status
 
 * for transient units, instead of writing out drop-ins for all properties consider serializing them in the normal serialization stream
 
