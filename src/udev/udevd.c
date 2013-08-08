@@ -923,7 +923,10 @@ int main(int argc, char *argv[])
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
         udev_set_log_fn(udev, udev_main_log);
+        log_set_max_level(udev_get_log_priority(udev));
+
         log_debug("version %s\n", VERSION);
         label_init("/dev");
 
