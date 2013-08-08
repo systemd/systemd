@@ -642,6 +642,12 @@ keyboard:usb:v046DpC52[9B]*
  KEYBOARD_KEY_0c022d=zoomin
  KEYBOARD_KEY_0c022e=zoomout
 
+# Logitech Presenter R400
+keyboard:usb:v046DpC52Dd*dc*dsc*dp*ic*isc*ip*in00*
+ KEYBOARD_KEY_070029=presentation
+ KEYBOARD_KEY_07003e=presentation
+ KEYBOARD_KEY_070037=displaytoggle
+
 ###########################################################
 # Maxdata
 ###########################################################
