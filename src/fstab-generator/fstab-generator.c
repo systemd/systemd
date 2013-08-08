@@ -492,6 +492,7 @@ static int parse_new_root_from_proc_cmdline(void) {
         char *w, *state;
         int r;
         size_t l;
+        bool noauto, nofail;
 
         r = read_one_line_file("/proc/cmdline", &line);
         if (r < 0) {
@@ -547,6 +548,9 @@ static int parse_new_root_from_proc_cmdline(void) {
                 }
         }
 
+        noauto = !!strstr(opts, "noauto");
+        nofail = !!strstr(opts, "nofail");
+
         if (!what) {
                 log_debug("Could not find a root= entry on the kernel commandline.");
                 return 0;
@@ -558,7 +562,7 @@ static int parse_new_root_from_proc_cmdline(void) {
         }
 
         log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
-        r = add_mount(what, "/sysroot", type, opts, 0, false, false, false,
+        r = add_mount(what, "/sysroot", type, opts, 0, noauto, nofail, false,
                       false, NULL, NULL, NULL, SPECIAL_INITRD_ROOT_FS_TARGET, "/proc/cmdline");
 
         return (r < 0) ? r : 0;
