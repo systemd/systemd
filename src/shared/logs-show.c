@@ -135,9 +135,13 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
                         e = ellipsize_mem(pos, len, n_columns - prefix, 90);
 
                         if (!e)
-                                fprintf(f, "%s%.*s%s\n", color_on, len, pos, color_off);
+                                fprintf(f, "%*s%s%.*s%s\n",
+                                        continuation * prefix, "",
+                                        color_on, len, pos, color_off);
                         else
-                                fprintf(f, "%s%s%s\n", color_on, e, color_off);
+                                fprintf(f, "%*s%s%s%s\n",
+                                        continuation * prefix, "",
+                                        color_on, e, color_off);
                 } else {
                         ellipsized = true;
                         fputs("...\n", f);
@@ -168,7 +172,7 @@ static int output_short(
         assert(f);
         assert(j);
 
-        sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : PRINT_THRESHOLD);
+        sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL|OUTPUT_FULL_WIDTH) ? 0 : PRINT_THRESHOLD);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
 
