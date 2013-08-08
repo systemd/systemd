@@ -4650,7 +4650,7 @@ static int systemctl_help(void) {
                "  link [PATH...]                  Link one or more units files into\n"
                "                                  the search path\n"
                "  get-default                     Get the name of the default target\n"
-               "  set-default NAME                Set the default target\n"
+               "  set-default NAME                Set the default target\n\n"
                "Job Commands:\n"
                "  list-jobs                       List jobs\n"
                "  cancel [JOB...]                 Cancel all, one, or more jobs\n\n"
