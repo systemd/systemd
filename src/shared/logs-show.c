@@ -399,11 +399,35 @@ static int output_verbose(
 
         sd_journal_set_data_threshold(j, 0);
 
-        r = sd_journal_get_realtime_usec(j, &realtime);
-        if (r < 0) {
+        r = sd_journal_get_data(j, "_SOURCE_REALTIME_TIMESTAMP", &data, &length);
+        if (r == -ENOENT)
+                log_debug("Source realtime timestamp not found");
+        else if (r < 0) {
                 log_full(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_ERR,
-                         "Failed to get realtime timestamp: %s", strerror(-r));
+                         "Failed to get source realtime timestamp: %s", strerror(-r));
                 return r;
+        } else {
+                _cleanup_free_ char *value = NULL;
+                size_t size;
+
+                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", &value, &size);
+                if (r < 0)
+                        log_debug("_SOURCE_REALTIME_TIMESTAMP invalid: %s", strerror(-r));
+                else {
+                        r = safe_atou64(value, &realtime);
+                        if (r < 0)
+                                log_debug("Failed to parse realtime timestamp: %s",
+                                          strerror(-r));
+                }
+        }
+
+        if (r < 0) {
+                r = sd_journal_get_realtime_usec(j, &realtime);
+                if (r < 0) {
+                        log_full(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_ERR,
+                                 "Failed to get realtime timestamp: %s", strerror(-r));
+                        return r;
+                }
         }
 
         r = sd_journal_get_cursor(j, &cursor);
