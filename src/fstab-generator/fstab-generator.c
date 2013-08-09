@@ -600,9 +600,9 @@ static int parse_proc_cmdline(void) {
                 } else if (startswith(word, "rd.fstab=")) {
 
                         if (in_initrd()) {
-                                r = parse_boolean(word + 6);
+                                r = parse_boolean(word + 9);
                                 if (r < 0)
-                                        log_warning("Failed to parse fstab switch %s. Ignoring.", word + 6);
+                                        log_warning("Failed to parse fstab switch %s. Ignoring.", word + 9);
                                 else
                                         arg_enabled = r;
                         }
