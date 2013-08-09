@@ -191,6 +191,8 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         if (pid == getpid())
                 return -EINVAL;
 
+        service_unwatch_main_pid(s);
+
         s->main_pid = pid;
         s->main_pid_known = true;
 
@@ -2158,10 +2160,8 @@ static void service_enter_start(Service *s) {
         assert(s->exec_command[SERVICE_EXEC_START]);
         assert(!s->exec_command[SERVICE_EXEC_START]->command_next || s->type == SERVICE_ONESHOT);
 
-        if (s->type == SERVICE_FORKING)
-                service_unwatch_control_pid(s);
-        else
-                service_unwatch_main_pid(s);
+        service_unwatch_control_pid(s);
+        service_unwatch_main_pid(s);
 
         /* We want to ensure that nobody leaks processes from
          * START_PRE here, so let's go on a killing spree, People
@@ -3751,6 +3751,7 @@ static void service_reset_failed(Unit *u) {
 
 static int service_kill(Unit *u, KillWho who, int signo, DBusError *error) {
         Service *s = SERVICE(u);
+
         return unit_kill_common(u, who, signo, s->main_pid, s->control_pid, error);
 }
 
