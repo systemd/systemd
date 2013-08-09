@@ -88,8 +88,6 @@ Features:
   full, make sure to write how many messages are lost as first thing
   to syslog when it works again.
 
-* prohibit Restart= set with Type=oneshot
-
 * man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
 * load .d/*.conf dropins for device units

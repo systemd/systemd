@@ -1113,6 +1113,12 @@ static int service_verify(Service *s) {
                 return -EINVAL;
         }
 
+        if (s->type == SERVICE_ONESHOT && s->restart != SERVICE_RESTART_NO) {
+                log_error_unit(UNIT(s)->id,
+                                "%s has Restart setting other than no, which isn't allowed for Type=oneshot services. Refusing.", UNIT(s)->id);
+                return -EINVAL;
+        }
+
         if (s->type == SERVICE_DBUS && !s->bus_name) {
                 log_error_unit(UNIT(s)->id,
                                "%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", UNIT(s)->id);
