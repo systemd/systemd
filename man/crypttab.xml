@@ -112,7 +112,7 @@
                 <variablelist class='crypttab-options'>
 
                         <varlistentry>
-                                <term><varname>allow-discards</varname></term>
+                                <term><varname>discard</varname></term>
 
                                 <listitem><para>Allow discard requests to be
                                 passed through the encrypted block device. This

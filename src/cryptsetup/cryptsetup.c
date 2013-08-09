@@ -129,7 +129,7 @@ static int parse_one_option(const char *option) {
                 opt_readonly = true;
         else if (streq(option, "verify"))
                 opt_verify = true;
-        else if (streq(option, "allow-discards"))
+        else if (streq(option, "allow-discards") || streq(option, "discard"))
                 opt_discards = true;
         else if (streq(option, "luks"))
                 opt_type = CRYPT_LUKS1;
