@@ -19,6 +19,10 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
+* ellipsize_mem must take into account multi-byte unicode characters, and
+  - make the resulting line the requested number of *characters*, not *bytes*,
+  - avoid truncuating multi-byte sequences in the middle.
+
 Fedora 20:
 
 * external: ps should gain colums for slice and machine

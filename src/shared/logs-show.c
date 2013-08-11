@@ -32,7 +32,11 @@
 #include "hashmap.h"
 #include "journal-internal.h"
 
-#define PRINT_THRESHOLD 128
+/* up to three lines (each up to 100 characters),
+   or 300 characters, whichever is less */
+#define PRINT_LINE_THRESHOLD 3
+#define PRINT_CHAR_THRESHOLD 300
+
 #define JSON_THRESHOLD 4096
 
 static int print_catalog(FILE *f, sd_journal *j) {
@@ -92,7 +96,7 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
         if (flags & OUTPUT_SHOW_ALL)
                 return true;
 
-        if (l >= PRINT_THRESHOLD)
+        if (l >= PRINT_CHAR_THRESHOLD)
                 return false;
 
         if (!utf8_is_printable(p, l))
@@ -104,8 +108,8 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
 static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, OutputMode flags, int priority, const char* message, size_t message_len) {
         const char *color_on = "", *color_off = "";
         const char *pos, *end;
-        bool continuation = false;
         bool ellipsized = false;
+        int line = 0;
 
         if (flags & OUTPUT_COLOR) {
                 if (priority <= LOG_ERR) {
@@ -117,37 +121,61 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
                 }
         }
 
-        for (pos = message; pos < message + message_len; pos = end + 1) {
+        for (pos = message;
+             pos < message + message_len;
+             pos = end + 1, line++) {
+                bool continuation = line > 0;
+                bool tail_line;
                 int len;
                 for (end = pos; end < message + message_len && *end != '\n'; end++)
                         ;
                 len = end - pos;
                 assert(len >= 0);
 
-                if (flags & (OUTPUT_FULL_WIDTH | OUTPUT_SHOW_ALL) || prefix + len + 1 < n_columns)
+                /* We need to figure out when we are showing the last line, and
+                 * will skip subsequent lines. In that case, we will put the dots
+                 * at the end of the line, instead of putting dots in the middle
+                 * or not at all.
+                 */
+                tail_line =
+                        line + 1 == PRINT_LINE_THRESHOLD ||
+                        end + 1 >= message + message_len;
+
+                if (flags & (OUTPUT_FULL_WIDTH | OUTPUT_SHOW_ALL) ||
+                    (prefix + len + 1 < n_columns && !tail_line)) {
                         fprintf(f, "%*s%s%.*s%s\n",
                                 continuation * prefix, "",
                                 color_on, len, pos, color_off);
-                else if (prefix < n_columns && n_columns - prefix >= 3) {
-                        _cleanup_free_ char *e;
-
-                        ellipsized = true;
-                        e = ellipsize_mem(pos, len, n_columns - prefix, 90);
-
-                        if (!e)
-                                fprintf(f, "%*s%s%.*s%s\n",
-                                        continuation * prefix, "",
-                                        color_on, len, pos, color_off);
-                        else
-                                fprintf(f, "%*s%s%s%s\n",
-                                        continuation * prefix, "",
-                                        color_on, e, color_off);
-                } else {
-                        ellipsized = true;
-                        fputs("...\n", f);
+                        continue;
                 }
 
-                continuation = true;
+                /* Beyond this point, ellipsization will happen. */
+                ellipsized = true;
+
+                if (prefix < n_columns && n_columns - prefix >= 3) {
+                        if (n_columns - prefix > (unsigned) len + 3)
+                                fprintf(f, "%*s%s%.*s...%s\n",
+                                        continuation * prefix, "",
+                                        color_on, len, pos, color_off);
+                        else {
+                                _cleanup_free_ char *e;
+
+                                e = ellipsize_mem(pos, len, n_columns - prefix,
+                                                  tail_line ? 100 : 90);
+                                if (!e)
+                                        fprintf(f, "%*s%s%.*s%s\n",
+                                                continuation * prefix, "",
+                                                color_on, len, pos, color_off);
+                                else
+                                        fprintf(f, "%*s%s%s%s\n",
+                                                continuation * prefix, "",
+                                                color_on, e, color_off);
+                        }
+                } else
+                        fputs("...\n", f);
+
+                if (tail_line)
+                        break;
         }
 
         return ellipsized;
@@ -172,7 +200,13 @@ static int output_short(
         assert(f);
         assert(j);
 
-        sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL|OUTPUT_FULL_WIDTH) ? 0 : PRINT_THRESHOLD);
+        /* Set the threshold to one bigger than the actual print
+         * treshold, so that if the line is actually longer than what
+         * we're willing to print, ellipsization will occur. This way
+         * we won't output a misleading line without any indication of
+         * truncation.
+         */
+        sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL|OUTPUT_FULL_WIDTH) ? 0 : PRINT_CHAR_THRESHOLD + 1);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
 
@@ -389,7 +423,8 @@ static int output_verbose(
                 }
 
                 if (flags & OUTPUT_SHOW_ALL ||
-                    (((length < PRINT_THRESHOLD) || flags & OUTPUT_FULL_WIDTH) && utf8_is_printable(data, length))) {
+                    (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH)
+                     && utf8_is_printable(data, length))) {
                         fprintf(f, "    %s%.*s=", on, fieldlen, (const char*)data);
                         print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, c + 1, length - fieldlen - 1);
                         fputs(off, f);

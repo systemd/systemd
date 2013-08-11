@@ -3332,7 +3332,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 
         r = new0(char, new_length+1);
         if (!r)
-                return r;
+                return NULL;
 
         x = (new_length * percent) / 100;
 
