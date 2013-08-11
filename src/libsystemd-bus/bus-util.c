@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/socket.h>
+
 #include "sd-event.h"
 #include "sd-bus.h"
 
@@ -375,4 +377,76 @@ void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry) {
 
         hashmap_free(registry);
 #endif
+}
+
+static int bus_check_peercred(sd_bus *c) {
+        int fd;
+        struct ucred ucred;
+        socklen_t l;
+
+        assert(c);
+
+        fd = sd_bus_get_fd(c);
+
+        assert(fd >= 0);
+
+        l = sizeof(struct ucred);
+        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l) < 0) {
+                log_error("SO_PEERCRED failed: %m");
+                return -errno;
+        }
+
+        if (l != sizeof(struct ucred)) {
+                log_error("SO_PEERCRED returned wrong size.");
+                return -E2BIG;
+        }
+
+        if (ucred.uid != 0 && ucred.uid != geteuid())
+                return -EPERM;
+
+        return 1;
+}
+
+int bus_connect_system(sd_bus **_bus) {
+        sd_bus *bus = NULL;
+        int r;
+        bool private = true;
+
+        assert(_bus);
+
+        if (geteuid() == 0) {
+                /* If we are root, then let's talk directly to the
+                 * system instance, instead of going via the bus */
+
+                r = sd_bus_new(&bus);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_set_address(bus, "unix:path=/run/systemd/private");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_start(bus);
+                if (r < 0)
+                        return r;
+
+        } else {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return r;
+
+                private = false;
+        }
+
+        if (private) {
+                r = bus_check_peercred(bus);
+                if (r < 0) {
+                        sd_bus_unref(bus);
+
+                        return -EACCES;
+                }
+        }
+
+        *_bus = bus;
+        return 0;
 }

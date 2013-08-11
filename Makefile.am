@@ -1668,7 +1668,7 @@ systemd_fsck_CFLAGS = \
 
 systemd_fsck_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la \
+	libsystemd-bus.la \
 	libudev.la
 
 # ------------------------------------------------------------------------------

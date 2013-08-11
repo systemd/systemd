@@ -37,6 +37,8 @@ int bus_verify_polkit(sd_bus *bus, sd_bus_message *m, const char *action, bool i
 int bus_verify_polkit_async(sd_bus *bus, Hashmap **registry, sd_bus_message *m, const char *action, bool interactive, sd_bus_error *error, sd_bus_message_handler_t callback, void *userdata);
 void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry);
 
+int bus_connect_system(sd_bus **_bus);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
 

@@ -27,15 +27,16 @@
 #include <fcntl.h>
 #include <sys/file.h>
 
-#include <dbus/dbus.h>
+#include "sd-bus.h"
+#include "libudev.h"
 
 #include "util.h"
-#include "dbus-common.h"
 #include "special.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "bus-errors.h"
 #include "virt.h"
 #include "fileio.h"
-#include "libudev.h"
 #include "udev-util.h"
 
 static bool arg_skip = false;
@@ -43,62 +44,38 @@ static bool arg_force = false;
 static bool arg_show_progress = false;
 
 static void start_target(const char *target) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
-        const char *mode = "replace", *basic_target = "basic.target";
-        DBusConnection *bus = NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
 
         assert(target);
 
-        dbus_error_init(&error);
-
-        if (bus_connect(DBUS_BUS_SYSTEM, &bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
-                goto finish;
+        r = bus_connect_system(&bus);
+        if (r < 0) {
+                log_error("Failed to get D-Bus connection: %s", strerror(-r));
+                return;
         }
 
-        log_info("Running request %s/start/%s", target, mode);
-
-        if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnitReplace"))) {
-                log_error("Could not allocate message.");
-                goto finish;
-        }
+        log_info("Running request %s/start/replace", target);
 
         /* Start these units only if we can replace base.target with it */
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &basic_target,
-                                      DBUS_TYPE_STRING, &target,
-                                      DBUS_TYPE_STRING, &mode,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not attach target and flag information to message.");
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "StartUnitReplace",
+                               &error,
+                               NULL,
+                               "sss", "basic.target", target, "replace");
+        if (r < 0) {
 
                 /* Don't print a warning if we aren't called during
                  * startup */
-                if (!dbus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
-                        log_error("Failed to start unit: %s", bus_error_message(&error));
-
-                goto finish;
+                if (!sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
+                        log_error("Failed to start unit: %s", bus_error_message(&error, -r));
         }
 
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        if (bus) {
-                dbus_connection_flush(bus);
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
-        }
-
-        dbus_error_free(&error);
+        return;
 }
 
 static int parse_proc_cmdline(void) {
