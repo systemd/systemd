@@ -19,24 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
-
 #include <stdlib.h>
 
+#include "sd-bus.h"
+
 #include "log.h"
-#include "dbus-common.h"
+#include "bus-util.h"
 
 int main(int argc, char *argv[]) {
-        DBusError error;
-        DBusConnection *bus = NULL;
-        DBusMessage *m = NULL;
-        int r = EXIT_FAILURE;
-
-        dbus_error_init(&error);
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int r;
 
         if (argc != 2) {
                 log_error("Incorrect number of arguments.");
-                goto finish;
+                return EXIT_FAILURE;
         }
 
         log_set_target(LOG_TARGET_AUTO);
@@ -48,47 +44,23 @@ int main(int argc, char *argv[]) {
          * this to avoid an activation loop when we start dbus when we
          * are called when the dbus service is shut down. */
 
-        bus = dbus_connection_open_private("unix:path=/run/systemd/private", &error);
-        if (!bus) {
-                log_warning("Failed to get D-Bus connection: %s", bus_error_message(&error));
-                goto finish;
+        r = bus_connect_system(&bus);
+        if (r < 0) {
+                log_warning("Failed to get D-Bus connection: %s", strerror(-r));
+                return EXIT_FAILURE;
         }
 
-        if (bus_check_peercred(bus) < 0) {
-                log_error("Bus owner not root.");
-                goto finish;
+        r = sd_bus_emit_signal(bus,
+                               "/org/freedesktop/systemd1/agent",
+                               "org.freedesktop.systemd1.Agent",
+                               "Released",
+                               "s", argv[1]);
+        if (r < 0) {
+                log_error("Failed to send signal message on private connection: %s", strerror(-r));
+                return EXIT_FAILURE;
         }
 
-        m = dbus_message_new_signal("/org/freedesktop/systemd1/agent", "org.freedesktop.systemd1.Agent", "Released");
-        if (!m) {
-                log_error("Could not allocate signal message.");
-                goto finish;
-        }
+        sd_bus_flush(bus);
 
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &argv[1],
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not attach group information to signal message.");
-                goto finish;
-        }
-
-        if (!dbus_connection_send(bus, m, NULL)) {
-                log_error("Failed to send signal message on private connection.");
-                goto finish;
-        }
-
-        r = EXIT_SUCCESS;
-
-finish:
-        if (bus) {
-                dbus_connection_flush(bus);
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
-        }
-
-        if (m)
-                dbus_message_unref(m);
-
-        dbus_error_free(&error);
-        return r;
+        return EXIT_SUCCESS;
 }

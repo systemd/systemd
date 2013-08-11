@@ -1801,7 +1801,7 @@ systemd_cgroups_agent_CFLAGS = \
 
 systemd_cgroups_agent_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la
+	libsystemd-bus.la
 
 # ------------------------------------------------------------------------------
 systemctl_SOURCES = \
