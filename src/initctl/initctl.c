@@ -33,15 +33,16 @@
 #include <fcntl.h>
 #include <ctype.h>
 
-#include <dbus/dbus.h>
-#include <systemd/sd-daemon.h>
+#include "sd-daemon.h"
+#include "sd-bus.h"
 
 #include "util.h"
 #include "log.h"
 #include "list.h"
 #include "initreq.h"
 #include "special.h"
-#include "dbus-common.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "def.h"
 
 #define SERVER_FD_MAX 16
@@ -55,7 +56,7 @@ typedef struct Server {
         LIST_HEAD(Fifo, fifos);
         unsigned n_fifos;
 
-        DBusConnection *bus;
+        sd_bus *bus;
 
         bool quit;
 } Server;
@@ -105,18 +106,17 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
 
 static void change_runlevel(Server *s, int runlevel) {
         const char *target;
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *mode;
         bool isolate = false;
+        int r;
 
         assert(s);
 
-        dbus_error_init(&error);
-
-        if (!(target = translate_runlevel(runlevel, &isolate))) {
+        target = translate_runlevel(runlevel, &isolate);
+        if(!target) {
                 log_warning("Got request for unknown runlevel %c, ignoring.", runlevel);
-                goto finish;
+                return;
         }
 
         if (isolate)
@@ -126,32 +126,19 @@ static void change_runlevel(Server *s, int runlevel) {
 
         log_debug("Running request %s/start/%s", target, mode);
 
-        if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnit"))) {
-                log_error("Could not allocate message.");
-                goto finish;
+        r = sd_bus_call_method(
+                        s->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit",
+                        &error,
+                        NULL,
+                        "ss", target, mode);
+        if (r < 0) {
+                log_error("Failed to change runlevel: %s", bus_error_message(&error, -r));
+                return;
         }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &target,
-                                      DBUS_TYPE_STRING, &mode,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not attach target and flag information to message.");
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(s->bus, m, -1, &error))) {
-                log_error("Failed to start unit: %s", bus_error_message(&error));
-                goto finish;
-        }
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 }
 
 static void request_process(Server *s, const struct init_request *req) {
@@ -274,21 +261,17 @@ static void server_done(Server *s) {
                 close_nointr_nofail(s->epoll_fd);
 
         if (s->bus) {
-                dbus_connection_flush(s->bus);
-                dbus_connection_close(s->bus);
-                dbus_connection_unref(s->bus);
+                sd_bus_flush(s->bus);
+                sd_bus_unref(s->bus);
         }
 }
 
 static int server_init(Server *s, unsigned n_sockets) {
         int r;
         unsigned i;
-        DBusError error;
 
         assert(s);
         assert(n_sockets > 0);
-
-        dbus_error_init(&error);
 
         zero(*s);
 
@@ -346,9 +329,9 @@ static int server_init(Server *s, unsigned n_sockets) {
                 s->n_fifos ++;
         }
 
-        if (bus_connect(DBUS_BUS_SYSTEM, &s->bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s",
-                          bus_error_message(&error));
+        r = bus_connect_system(&s->bus);
+        if (r < 0) {
+                log_error("Failed to get D-Bus connection: %s", strerror(-r));
                 r = -EIO;
                 goto fail;
         }
@@ -358,7 +341,6 @@ static int server_init(Server *s, unsigned n_sockets) {
 fail:
         server_done(s);
 
-        dbus_error_free(&error);
         return r;
 }
 
@@ -454,8 +436,6 @@ fail:
                   "STATUS=Shutting down...");
 
         server_done(&server);
-
-        dbus_shutdown();
 
         return r;
 }

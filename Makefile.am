@@ -1501,7 +1501,7 @@ systemd_initctl_CFLAGS = \
 systemd_initctl_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-dbus.la
+	libsystemd-bus.la
 
 # ------------------------------------------------------------------------------
 systemd_update_utmp_SOURCES = \
