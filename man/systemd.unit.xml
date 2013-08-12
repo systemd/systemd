@@ -359,7 +359,15 @@
                                 describing the unit. This is intended
                                 for use in UIs to show descriptive
                                 information along with the unit
-                                name.</para></listitem>
+                                name. The description should contain a name
+                                that means something to the end user.
+                                <literal>Apache2 Web Server</literal> is a good
+                                example. Bad examples are
+                                <literal>high-performance light-weight HTTP
+                                server</literal> (too generic) or
+                                <literal>Apache2</literal> (too specific and
+                                meaningless for people who do not know
+                                Apache).</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
