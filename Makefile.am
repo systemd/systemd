@@ -3726,8 +3726,7 @@ machinectl_CFLAGS = \
 
 machinectl_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la \
-	libudev.la
+	libsystemd-bus.la
 
 rootbin_PROGRAMS += \
 	machinectl

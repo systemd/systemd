@@ -450,3 +450,193 @@ int bus_connect_system(sd_bus **_bus) {
         *_bus = bus;
         return 0;
 }
+
+int bus_connect_system_ssh(const char *host, sd_bus **_bus) {
+        sd_bus *bus;
+        char *p = NULL;
+        int r;
+
+        assert(_bus);
+        assert(host);
+
+        asprintf(&p, "unixexec:path=ssh,argv1=-xT,argv2=%s,argv3=systemd-stdio-bridge", host);
+        if (!p)
+                return -ENOMEM;
+
+	r = sd_bus_new(&bus);
+	if (r < 0)
+		return r;
+
+	r = sd_bus_set_address(bus, p);
+	if (r < 0)
+		return r;
+
+	r = sd_bus_set_bus_client(bus, true);
+	if (r < 0)
+		return r;
+
+	r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        *_bus = bus;
+        return 0;
+}
+
+int bus_generic_print_property(const char *name, sd_bus_message *property, bool all) {
+        char type;
+        const char *contents;
+
+        assert(name);
+        assert(property);
+
+        sd_bus_message_peek_type(property, &type, &contents);
+
+        switch (type) {
+
+        case SD_BUS_TYPE_STRING: {
+                const char *s;
+                sd_bus_message_read_basic(property, type, &s);
+
+                if (all || !isempty(s))
+                        printf("%s=%s\n", name, s);
+
+                return 1;
+        }
+
+        case SD_BUS_TYPE_BOOLEAN: {
+                bool b;
+
+                sd_bus_message_read_basic(property, type, &b);
+                printf("%s=%s\n", name, yes_no(b));
+
+                return 1;
+        }
+
+        case SD_BUS_TYPE_UINT64: {
+                uint64_t u;
+
+                sd_bus_message_read_basic(property, type, &u);
+
+                /* Yes, heuristics! But we can change this check
+                 * should it turn out to not be sufficient */
+
+                if (endswith(name, "Timestamp")) {
+                        char timestamp[FORMAT_TIMESTAMP_MAX], *t;
+
+                        t = format_timestamp(timestamp, sizeof(timestamp), u);
+                        if (t || all)
+                                printf("%s=%s\n", name, strempty(t));
+
+                } else if (strstr(name, "USec")) {
+                        char timespan[FORMAT_TIMESPAN_MAX];
+
+                        printf("%s=%s\n", name, format_timespan(timespan, sizeof(timespan), u, 0));
+                } else
+                        printf("%s=%llu\n", name, (unsigned long long) u);
+
+                return 1;
+        }
+
+        case SD_BUS_TYPE_UINT32: {
+                uint32_t u;
+
+                sd_bus_message_read_basic(property, type, &u);
+
+                if (strstr(name, "UMask") || strstr(name, "Mode"))
+                        printf("%s=%04o\n", name, u);
+                else
+                        printf("%s=%u\n", name, (unsigned) u);
+
+                return 1;
+        }
+
+        case SD_BUS_TYPE_INT32: {
+                int32_t i;
+
+                sd_bus_message_read_basic(property, type, &i);
+
+                printf("%s=%i\n", name, (int) i);
+                return 1;
+        }
+
+        case SD_BUS_TYPE_DOUBLE: {
+                double d;
+
+                sd_bus_message_read_basic(property, type, &d);
+
+                printf("%s=%g\n", name, d);
+                return 1;
+        }
+
+        case SD_BUS_TYPE_ARRAY:
+
+                if (streq(contents, "s")) {
+                        bool space = false;
+                        char tp;
+                        const char *cnt;
+
+                        sd_bus_message_enter_container(property, SD_BUS_TYPE_ARRAY, contents);
+
+                        sd_bus_message_peek_type(property, &tp, &cnt);
+                        if (all || cnt) {
+				const char *str;
+
+                                printf("%s=", name);
+
+
+                                while(sd_bus_message_read_basic(property, SD_BUS_TYPE_STRING, &str)) {
+                                        printf("%s%s", space ? " " : "", str);
+
+                                        space = true;
+                                }
+
+                                puts("");
+                        }
+
+                        sd_bus_message_exit_container(property);
+
+                        return 1;
+
+                } else if (streq(contents, "y")) {
+                        const uint8_t *u;
+                        size_t n;
+
+                        sd_bus_message_read_array(property, SD_BUS_TYPE_BYTE, (const void**) &u, &n);
+                        if (all || n > 0) {
+                                unsigned int i;
+
+                                printf("%s=", name);
+
+                                for (i = 0; i < n; i++)
+                                        printf("%02x", u[i]);
+
+                                puts("");
+                        }
+
+                        return 1;
+
+                } else if (streq(contents, "u")) {
+                        uint32_t *u;
+                        size_t n;
+
+                        sd_bus_message_read_array(property, SD_BUS_TYPE_UINT32, (const void**) &u, &n);
+                        if (all || n > 0) {
+                                unsigned int i;
+
+                                printf("%s=", name);
+
+                                for (i = 0; i < n; i++)
+                                        printf("%08x", u[i]);
+
+                                puts("");
+                        }
+
+                        return 1;
+                }
+
+                break;
+        }
+
+        return 0;
+}

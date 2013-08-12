@@ -38,6 +38,9 @@ int bus_verify_polkit_async(sd_bus *bus, Hashmap **registry, sd_bus_message *m, 
 void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry);
 
 int bus_connect_system(sd_bus **_bus);
+int bus_connect_system_ssh(const char *host, sd_bus **_bus);
+
+int bus_generic_print_property(const char *name, sd_bus_message *property, bool all);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
