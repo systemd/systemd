@@ -1,4 +1,7 @@
 Bugfixes:
+* update COPYRIGHT in our README:
+   http://ftp-master.metadata.debian.org/changelogs//main/s/systemd/systemd_204-2_copyright
+
 * the running hwdb seems not to pick up updated database files without
   an explicit: udevadm control --reload
 
