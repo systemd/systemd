@@ -73,17 +73,11 @@ _localectl_command() {
     fi
 }
 
-_hosts_or_user_at_host() {
-  _alternative \
-    'users-hosts:: _user_at_host' \
-    'hosts:: _hosts'
-}
-
 _arguments \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
     "--no-convert[Don't convert keyboard mappings]" \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-ask-password[Do not prompt for password]' \
-    {-H,--host=}'[Operate on remote host]:userathost:_hosts_or_user_at_host' \
+    {-H,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     '*::localectl commands:_localectl_command'

@@ -42,6 +42,6 @@ _arguments \
   '--no-ask-password[Do not ask for system passwords]' \
   '--kill-who=[Who to send signal to]:killwho:(leader all)' \
   {-s,--signal=}'[Which signal to send]:signal:_signals' \
-  {-H,--host=}'[Show information for remote host]:userathost:_hosts_or_user_at_host' \
+  {-H,--host=}'[Show information for remote host]:userathost:_sd_hosts_or_user_at_host' \
   {-P,--privileged}'[Acquire privileges before execution]' \
   '*::machinectl command:_machinectl_command'

@@ -350,6 +350,7 @@ dist_zshcompletion_DATA = \
 	shell-completion/zsh/_kernel-install \
 	shell-completion/zsh/_systemd-nspawn \
 	shell-completion/zsh/_systemd-analyze \
+	shell-completion/zsh/_sd_hosts_or_user_at_host \
 	shell-completion/zsh/_systemd
 
 dist_sysctl_DATA = \

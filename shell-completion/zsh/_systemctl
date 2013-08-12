@@ -288,12 +288,6 @@ _systemctl_caching_policy()
   return 1
 }
 
-_hosts_or_user_at_host() {
-  _alternative \
-    'users-hosts:: _user_at_host' \
-    'hosts:: _hosts'
-}
-
 _outputmodes() {
     local -a _output_opts
     _output_opts=(short short-monotonic verbose export json json-pretty json-see cat)
@@ -332,7 +326,7 @@ _arguments -s \
     {-f,--force}'[When enabling unit files, override existing symlinks. When shutting down, execute action immediately]' \
     '--root=[Enable unit files in the specified root directory]:directory:_directories' \
     '--runtime[Enable unit files only temporarily until next reboot]' \
-    {-H,--host=}'[Show information for remote host]:userathost:_hosts_or_user_at_host' \
+    {-H,--host=}'[Show information for remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-P,--privileged}'[Acquire privileges before execution]' \
     {-n,--lines=}'[Journal entries to show]:number of entries' \
     {-o,--output=}'[Change journal output mode]:modes:_outputmodes' \

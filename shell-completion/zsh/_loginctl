@@ -1,11 +1,5 @@
 #compdef loginctl
 
-_hosts_or_user_at_host() {
-  _alternative \
-    'users-hosts:: _user_at_host' \
-    'hosts:: _hosts'
-}
-
 _loginctl_all_sessions(){_sys_all_sessions=($(loginctl list-sessions | { while read a b; do echo " $a"; done; }) )}
 _loginctl_all_users()   {_sys_all_users=(   $(loginctl list-users    | { while read a b; do echo " $a"; done; }) )}
 _loginctl_all_seats()   {_sys_all_seats=(   $(loginctl list-seats    | { while read a b; do echo " $a"; done; }) )}
@@ -106,7 +100,7 @@ _arguments -s \
     '--kill-who=[Who to send signal to]:killwho:(main control all)' \
     {-s,--signal=}'[Which signal to send]:signal:_signals' \
     '--no-ask-password[Do not ask for system passwords]' \
-    {-H,--host=}'[Show information for remote host]:userathost:_hosts_or_user_at_host' \
+    {-H,--host=}'[Show information for remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-P,--privileged}'[Acquire privileges before execution]' \
     '--no-pager[Do not pipe output into a pager]' \
     '*::loginctl command:_loginctl_command'
