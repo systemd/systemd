@@ -1490,7 +1490,7 @@ systemd_update_utmp_CFLAGS = \
 
 systemd_update_utmp_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la \
+	libsystemd-bus.la \
 	$(AUDIT_LIBS)
 
 # ------------------------------------------------------------------------------

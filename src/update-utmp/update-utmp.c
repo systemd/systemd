@@ -25,68 +25,56 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <dbus/dbus.h>
-
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
 #endif
+
+#include "sd-bus.h"
 
 #include "log.h"
 #include "macro.h"
 #include "util.h"
 #include "special.h"
 #include "utmp-wtmp.h"
-#include "dbus-common.h"
+#include "bus-util.h"
+#include "bus-error.h"
 
 typedef struct Context {
-        DBusConnection *bus;
+        sd_bus *bus;
 #ifdef HAVE_AUDIT
         int audit_fd;
 #endif
 } Context;
 
 static usec_t get_startup_time(Context *c) {
-        const char
-                *interface = "org.freedesktop.systemd1.Manager",
-                *property = "UserspaceTimestamp";
-
         usec_t t = 0;
-        DBusMessage *reply = NULL;
-        DBusMessageIter iter, sub;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
 
         assert(c);
 
-        if (bus_method_call_with_reply (
+        r = sd_bus_call_method(
                         c->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.DBus.Properties",
                         "Get",
+                        &error,
                         &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_STRING, &property,
-                        DBUS_TYPE_INVALID))
-                goto finish;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
-                log_error("Failed to parse reply.");
-                goto finish;
+                        "ss",
+                        "org.freedesktop.systemd1.Manager",
+                        "UserspaceTimestamp");
+        if (r < 0) {
+                log_error("Failed to get timestamp: %s", bus_error_message(&error, -r));
+                return t;
         }
 
-        dbus_message_iter_recurse(&iter, &sub);
-
-        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_UINT64)  {
-                log_error("Failed to parse reply.");
-                goto finish;
+        r = sd_bus_message_read(reply, "v", "t", &t);
+        if (r < 0) {
+                log_error("Failed to parse reply: %s", strerror(-r));
         }
 
-        dbus_message_iter_get_basic(&sub, &t);
-
-finish:
-        if (reply)
-                dbus_message_unref(reply);
         return t;
 }
 
@@ -106,95 +94,65 @@ static int get_current_runlevel(Context *c) {
                 { '2', SPECIAL_RUNLEVEL2_TARGET },
                 { '1', SPECIAL_RESCUE_TARGET },
         };
-        const char
-                *interface = "org.freedesktop.systemd1.Unit",
-                *property = "ActiveState";
 
-        DBusMessage *reply = NULL;
-        int r = 0;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
         unsigned i;
-        DBusError error;
 
         assert(c);
 
-        dbus_error_init(&error);
-
         for (i = 0; i < ELEMENTSOF(table); i++) {
+                _cleanup_bus_message_unref_ sd_bus_message *reply1 = NULL, *reply2 = NULL;
                 const char *path = NULL, *state;
-                DBusMessageIter iter, sub;
 
-                r = bus_method_call_with_reply (
+                r = sd_bus_call_method(
                                 c->bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "GetUnit",
-                                &reply,
-                                NULL,
-                                DBUS_TYPE_STRING, &table[i].special,
-                                DBUS_TYPE_INVALID);
-                if (r == -ENOMEM)
-                        goto finish;
-                if (r)
-                        continue;
-
-                if (!dbus_message_get_args(reply, &error,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", bus_error_message(&error));
-                        r = -EIO;
-                        goto finish;
+                                "LoadUnit",
+                                &error,
+                                &reply1,
+                                "s", table[i].special);
+                if (r < 0) {
+                        log_error("Failed to get runlevel: %s", bus_error_message(&error, -r));
+                        if (r == -ENOMEM)
+                                return r;
+                        else
+                                continue;
                 }
 
-                dbus_message_unref(reply);
-                r = bus_method_call_with_reply (
+                r = sd_bus_message_read(reply1, "o", &path);
+                if (r < 0) {
+                        log_error("Failed to parse reply: %s", strerror(-r));
+                        return -EIO;
+                }
+
+                r = sd_bus_call_method(
                                 c->bus,
                                 "org.freedesktop.systemd1",
                                 path,
                                 "org.freedesktop.DBus.Properties",
                                 "Get",
-                                &reply,
-                                NULL,
-                                DBUS_TYPE_STRING, &interface,
-                                DBUS_TYPE_STRING, &property,
-                                DBUS_TYPE_INVALID);
-                if (r)
-                        goto finish;
-
-                if (!dbus_message_iter_init(reply, &iter) ||
-                    dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
+                                &error,
+                                &reply2,
+                                "ss", "org.freedesktop.systemd1.Unit", "ActiveState");
+                if (r < 0) {
+                        log_error("Failed to get state: %s", bus_error_message(&error, -r));
+                        return r;
                 }
 
-                dbus_message_iter_recurse(&iter, &sub);
-
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
+                r = sd_bus_message_read(reply2, "v", "s", &state);
+                if (r < 0) {
+                        log_error("Failed to parse reply: %s", strerror(-r));
+                        return -EIO;
                 }
-
-                dbus_message_iter_get_basic(&sub, &state);
 
                 if (streq(state, "active") || streq(state, "reloading"))
-                        r = table[i].runlevel;
-
-                dbus_message_unref(reply);
-                reply = NULL;
-
-                if (r)
-                        break;
+                        return table[i].runlevel;
         }
 
-finish:
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
-        return r;
+        return 0;
 }
 
 static int on_reboot(Context *c) {
@@ -312,10 +270,7 @@ static int on_runlevel(Context *c) {
 
 int main(int argc, char *argv[]) {
         int r;
-        DBusError error;
         Context c = {};
-
-        dbus_error_init(&error);
 
 #ifdef HAVE_AUDIT
         c.audit_fd = -1;
@@ -344,9 +299,9 @@ int main(int argc, char *argv[]) {
             errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
                 log_error("Failed to connect to audit log: %m");
 #endif
-
-        if (bus_connect(DBUS_BUS_SYSTEM, &c.bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
+        r = bus_connect_system(&c.bus);
+        if (r < 0) {
+                log_error("Failed to get D-Bus connection: %s", strerror(-r));
                 r = -EIO;
                 goto finish;
         }
@@ -372,14 +327,8 @@ finish:
                 audit_close(c.audit_fd);
 #endif
 
-        if (c.bus) {
-                dbus_connection_flush(c.bus);
-                dbus_connection_close(c.bus);
-                dbus_connection_unref(c.bus);
-        }
-
-        dbus_error_free(&error);
-        dbus_shutdown();
+        if (c.bus)
+                sd_bus_unref(c.bus);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
