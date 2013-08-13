@@ -3314,6 +3314,26 @@ EXTRA_DIST += \
 	units/systemd-random-seed.service.in
 
 # ------------------------------------------------------------------------------
+if ENABLE_BACKLIGHT
+rootlibexec_PROGRAMS += \
+	systemd-backlight
+
+nodist_systemunit_DATA += \
+	units/systemd-backlight@.service
+
+systemd_backlight_SOURCES = \
+	src/backlight/backlight.c
+
+systemd_backlight_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la \
+	libudev-private.la
+endif
+
+EXTRA_DIST += \
+	units/systemd-backlight@.service.in
+
+# ------------------------------------------------------------------------------
 if HAVE_LIBCRYPTSETUP
 rootlibexec_PROGRAMS += \
 	systemd-cryptsetup

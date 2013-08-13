@@ -51,6 +51,10 @@ SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:
 
 ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="@rootlibexecdir@/systemd-sysctl --prefix=/proc/sys/net/ipv4/conf/$name --prefix=/proc/sys/net/ipv4/neigh/$name --prefix=/proc/sys/net/ipv6/conf/$name --prefix=/proc/sys/net/ipv6/neigh/$name"
 
+# Pull in backlight save/restore for all firmware backlight devices
+
+ACTION=="add", SUBSYSTEM=="backlight", ATTR{type}=="firmware", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-backlight@sys%p.service"
+
 # Asynchronously mount file systems implemented by these modules as
 # soon as they are loaded.
 

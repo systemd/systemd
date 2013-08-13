@@ -671,6 +671,14 @@ fi
 AM_CONDITIONAL(ENABLE_RANDOMSEED, [test "$have_randomseed" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_backlight=no
+AC_ARG_ENABLE(backlight, AS_HELP_STRING([--disable-backlight], [disable backlight tools]))
+if test "x$enable_backlight" != "xno"; then
+        have_backlight=yes
+fi
+AM_CONDITIONAL(ENABLE_BACKLIGHT, [test "$have_backlight" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_logind=no
 AC_ARG_ENABLE(logind, AS_HELP_STRING([--disable-logind], [disable login daemon]))
 if test "x$enable_logind" != "xno"; then
@@ -1001,6 +1009,7 @@ AC_MSG_RESULT([
         quotacheck:              ${have_quotacheck}
         tmpfiles:                ${have_tmpfiles}
         randomseed:              ${have_randomseed}
+        backlight:               ${have_backlight}
         logind:                  ${have_logind}
         machined:                ${have_machined}
         hostnamed:               ${have_hostnamed}
