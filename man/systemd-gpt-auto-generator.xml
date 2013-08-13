@@ -19,10 +19,10 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="systemd-efi-boot-generator">
+<refentry id="systemd-gpt-auto-generator">
 
         <refentryinfo>
-                <title>systemd-efi-boot-generator</title>
+                <title>systemd-gpt-auto-generator</title>
                 <productname>systemd</productname>
 
                 <authorgroup>
@@ -36,38 +36,50 @@
         </refentryinfo>
 
         <refmeta>
-                <refentrytitle>systemd-efi-boot-generator</refentrytitle>
+                <refentrytitle>systemd-gpt-auto-generator</refentrytitle>
                 <manvolnum>8</manvolnum>
         </refmeta>
 
         <refnamediv>
-                <refname>systemd-efi-boot-generator</refname>
-                <refpurpose>Generator for automatically mounting the
-                EFI System Partition used by the current boot to
-                <filename>/boot</filename></refpurpose>
+                <refname>systemd-gpt-auto-generator</refname>
+                <refpurpose>Generator for automatically discovering
+                and mounting <filename>/home</filename> as well as
+                discovering and enabling swap partitions, based on GPT
+                partition type GUIDs.</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>/usr/lib/systemd/system-generators/systemd-efi-boot-generator</filename></para>
+                <para><filename>/usr/lib/systemd/system-generators/systemd-gpt-auto-generator</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
 
-                <para><filename>systemd-efi-boot-generator</filename>
-                is a generator that automatically creates mount and
-                automount units for the EFI System Partition (ESP)
-                mounting it to <filename>/boot</filename>. Note that
-                this generator will execute no operation on non-EFI
-                systems, on systems where the boot loader does not
-                communicate the used ESP to the OS, on systems where
-                <filename>/boot</filename> is an explicitly configured
-                mount (for example, listed in <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>) or where the <filename>/boot</filename> mount
-                point is non-empty. Since this generator creates an
-                automount unit the mount will only be activated
-                on-demand, when accessed.</para>
+                <para><filename>systemd-gpt-auto-generator</filename>
+                is a generator that automatically discovers
+                <filename>/home</filename> and swap partitions and
+                creates mount and swap units for them, based on the
+                the partition type GUIDs of GUID partition tables
+                (GPT). Note that this generator will execute no
+                operation on non-GPT systems, on systems where the
+                units are explicitly configured (for example, listed
+                in
+                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+                or where the mount point is non-empty.</para>
 
-                <para><filename>systemd-efi-boot-generator</filename>
+                <para>This generator will only look for partitions on
+                the same physical disk the root file system is stored
+                on. This generator has no effect on systems where the
+                root file system is distributed on multiple disks, for
+                example via btrfs RAID.</para>
+
+                <para>This generator is useful for centralizing file
+                system configuration in the partition table and making
+                manual configuration in
+                <filename>/etc/fstab</filename> or suchlike
+                unnecessary.</para>
+
+                <para><filename>systemd-gpt-auto-generator</filename>
                 implements the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
                 specification</ulink>.</para>
@@ -78,9 +90,8 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>gummiboot</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-efi-boot-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
