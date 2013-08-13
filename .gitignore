@@ -46,6 +46,7 @@
 /systemd-fstab-generator
 /systemd-getty-generator
 /systemd-gnome-ask-password-agent
+/systemd-gpt-auto-generator
 /systemd-hostnamed
 /systemd-inhibit
 /systemd-initctl

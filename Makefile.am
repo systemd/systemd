@@ -1703,6 +1703,24 @@ bin_PROGRAMS += \
 endif
 
 # ------------------------------------------------------------------------------
+systemgenerator_PROGRAMS +=  \
+	systemd-gpt-auto-generator
+
+systemd_gpt_auto_generator_SOURCES = \
+	src/gpt-auto-generator/gpt-auto-generator.c
+
+systemd_gpt_auto_generator_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la \
+	libsystemd-id128-internal.la \
+	libudev-private.la \
+	$(BLKID_LIBS)
+
+systemd_gpt_auto_generator_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(BLKID_CFLAGS)
+
+# ------------------------------------------------------------------------------
 systemd_rc_local_generator_SOURCES = \
 	src/rc-local-generator/rc-local-generator.c
 
