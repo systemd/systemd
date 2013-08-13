@@ -79,6 +79,11 @@
                 <filename>/etc/fstab</filename> or suchlike
                 unnecessary.</para>
 
+                <para>This generator looks for swap partitions using
+                GPT type 0657fd6d-a4ab-43c4-84e50933c84b4f4f. It looks
+                for <filename>/home</filename> partitions using GPT
+                type 933ac7e1-2eb4-4f13-b8440e14e2aef915.</para>
+
                 <para><filename>systemd-gpt-auto-generator</filename>
                 implements the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/Generators">generator
