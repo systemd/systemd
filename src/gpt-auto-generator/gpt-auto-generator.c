@@ -40,6 +40,7 @@
  *
  * - Properly handle cryptsetup partitions
  * - Define new partition type for encrypted swap
+ * - Make /home automount rather than mount
  *
  */
 
@@ -200,6 +201,9 @@ static int add_swap(const char *path, const char *fstype) {
 static int add_home(const char *path, const char *fstype) {
         _cleanup_free_ char *unit = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+
+        if (dir_is_empty("/home") <= 0)
+                return 0;
 
         log_debug("Adding home: %s %s", path, fstype);
 
