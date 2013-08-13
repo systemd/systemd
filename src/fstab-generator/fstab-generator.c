@@ -351,7 +351,7 @@ static int add_mount(
 
         if (automount && !path_equal(where, "/")) {
                 automount_name = unit_name_from_path(where, ".automount");
-                if (!name)
+                if (!automount_name)
                         return log_oom();
 
                 automount_unit = strjoin(arg_dest, "/", automount_name, NULL);
