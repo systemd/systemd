@@ -54,6 +54,8 @@ CGroup Rework Completion:
 
 Features:
 
+* better error message if you run systemctl without systemd running
+
 * rename F_TYPE_CMP() to F_TYPE_EQUAL()
 
 * unlink PID files of units after exit
