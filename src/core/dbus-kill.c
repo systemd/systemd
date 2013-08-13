@@ -48,7 +48,28 @@ int bus_kill_context_set_transient_property(
         assert(name);
         assert(i);
 
-        if (streq(name, "SendSIGHUP")) {
+        if (streq(name, "KillMode")) {
+                const char *m;
+                KillMode k;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_STRING)
+                        return -EINVAL;
+
+                dbus_message_iter_get_basic(i, &m);
+
+                k = kill_mode_from_string(m);
+                if (k < 0)
+                        return -EINVAL;
+
+                if (mode != UNIT_CHECK) {
+                        c->kill_mode = k;
+
+                        unit_write_drop_in_private_format(u, mode, name, "KillMode=%s\n", kill_mode_to_string(k));
+                }
+
+                return 1;
+
+        } else if (streq(name, "SendSIGHUP")) {
 
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
                         return -EINVAL;
@@ -59,7 +80,7 @@ int bus_kill_context_set_transient_property(
                         dbus_message_iter_get_basic(i, &b);
                         c->send_sighup = b;
 
-                        unit_write_drop_in_format(u, mode, name, "[Scope]\nSendSIGHUP=%s\n", yes_no(b));
+                        unit_write_drop_in_private_format(u, mode, name, "SendSIGHUP=%s\n", yes_no(b));
                 }
 
                 return 1;
@@ -75,7 +96,7 @@ int bus_kill_context_set_transient_property(
                         dbus_message_iter_get_basic(i, &b);
                         c->send_sigkill = b;
 
-                        unit_write_drop_in_format(u, mode, name, "[Scope]\nSendSIGKILL4=%s\n", yes_no(b));
+                        unit_write_drop_in_private_format(u, mode, name, "SendSIGKILL=%s\n", yes_no(b));
                 }
 
                 return 1;

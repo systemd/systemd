@@ -1244,6 +1244,7 @@ void manager_gc(Manager *m, bool drop_not_started) {
 
                 if (session_check_gc(session, drop_not_started) == 0) {
                         session_stop(session);
+                        session_finalize(session);
                         session_free(session);
                 }
         }
@@ -1254,6 +1255,7 @@ void manager_gc(Manager *m, bool drop_not_started) {
 
                 if (user_check_gc(user, drop_not_started) == 0) {
                         user_stop(user);
+                        user_finalize(user);
                         user_free(user);
                 }
         }
@@ -1296,6 +1298,22 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
                 *t = ts;
 
         return idle_hint;
+}
+
+bool manager_shall_kill(Manager *m, const char *user) {
+        assert(m);
+        assert(user);
+
+        if (!m->kill_user_processes)
+                return false;
+
+        if (strv_contains(m->kill_exclude_users, user))
+                return false;
+
+        if (strv_isempty(m->kill_only_users))
+                return true;
+
+        return strv_contains(m->kill_only_users, user);
 }
 
 int manager_dispatch_idle_action(Manager *m) {

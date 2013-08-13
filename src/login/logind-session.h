@@ -101,6 +101,7 @@ struct Session {
 
         bool in_gc_queue:1;
         bool started:1;
+        bool closing:1;
 
         DBusMessage *create_message;
 
@@ -123,6 +124,7 @@ int session_create_fifo(Session *s);
 void session_remove_fifo(Session *s);
 int session_start(Session *s);
 int session_stop(Session *s);
+int session_finalize(Session *s);
 int session_save(Session *s);
 int session_load(Session *s);
 int session_kill(Session *s, KillWho who, int signo);

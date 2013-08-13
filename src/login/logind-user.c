@@ -490,21 +490,6 @@ static int user_stop_service(User *u) {
         return r;
 }
 
-/* static int user_shall_kill(User *u) { */
-/*         assert(u); */
-
-/*         if (!u->manager->kill_user_processes) */
-/*                 return false; */
-
-/*         if (strv_contains(u->manager->kill_exclude_users, u->name)) */
-/*                 return false; */
-
-/*         if (strv_isempty(u->manager->kill_only_users)) */
-/*                 return true; */
-
-/*         return strv_contains(u->manager->kill_only_users, u->name); */
-/* } */
-
 static int user_remove_runtime_path(User *u) {
         int r;
 
@@ -528,9 +513,6 @@ int user_stop(User *u) {
         int r = 0, k;
         assert(u);
 
-        if (u->started)
-                log_debug("User %s logged out.", u->name);
-
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 k = session_stop(s);
                 if (k < 0)
@@ -547,6 +529,26 @@ int user_stop(User *u) {
         if (k < 0)
                 r = k;
 
+        user_save(u);
+
+        return r;
+}
+
+int user_finalize(User *u) {
+        Session *s;
+        int r = 0, k;
+
+        assert(u);
+
+        if (u->started)
+                log_debug("User %s logged out.", u->name);
+
+        LIST_FOREACH(sessions_by_user, s, u->sessions) {
+                k = session_finalize(s);
+                if (k < 0)
+                        r = k;
+        }
+
         /* Kill XDG_RUNTIME_DIR */
         k = user_remove_runtime_path(u);
         if (k < 0)
@@ -555,10 +557,10 @@ int user_stop(User *u) {
         unlink(u->state_file);
         user_add_to_gc_queue(u);
 
-        if (u->started)
+        if (u->started) {
                 user_send_signal(u, false);
-
-        u->started = false;
+                u->started = false;
+        }
 
         return r;
 }
@@ -624,6 +626,15 @@ int user_check_gc(User *u, bool drop_not_started) {
         if (user_check_linger_file(u) > 0)
                 return 1;
 
+        if (u->slice_job || u->service_job)
+                return 1;
+
+        if (u->slice && manager_unit_is_active(u->manager, u->slice) != 0)
+                return 1;
+
+        if (u->service && manager_unit_is_active(u->manager, u->service) != 0)
+                return 1;
+
         return 0;
 }
 
@@ -643,8 +654,11 @@ UserState user_get_state(User *u) {
 
         assert(u);
 
+        if (u->closing)
+                return USER_CLOSING;
+
         if (u->slice_job || u->service_job)
-                return u->started ? USER_OPENING : USER_CLOSING;
+                return USER_OPENING;
 
         LIST_FOREACH(sessions_by_user, i, u->sessions) {
                 if (session_is_active(i))

@@ -163,6 +163,8 @@ int manager_spawn_autovt(Manager *m, int vtnr);
 
 void manager_gc(Manager *m, bool drop_not_started);
 
+bool manager_shall_kill(Manager *m, const char *user);
+
 int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 
 int manager_get_user_by_pid(Manager *m, pid_t pid, User **user);
@@ -178,7 +180,7 @@ int manager_send_changed(Manager *manager, const char *properties);
 
 int manager_dispatch_delayed(Manager *manager);
 
-int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, DBusError *error, char **job);
+int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *kill_mode, DBusError *error, char **job);
 int manager_start_unit(Manager *manager, const char *unit, DBusError *error, char **job);
 int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char **job);
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error);

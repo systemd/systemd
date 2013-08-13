@@ -138,7 +138,34 @@
                                 processes of a user should be killed
                                 when she or he completely logs out (i.e. after
                                 her/his last session ended). Defaults to
-                                <literal>no</literal>.</para></listitem>
+                                <literal>no</literal>.</para>
+
+                                <para>Note that setting
+                                <varname>KillUserProcesses=1</varname>
+                                will break tools like
+                                <citerefentry><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KillOnlyUsers=</varname></term>
+                                <term><varname>KillExcludeUsers=</varname></term>
+
+                                <listitem><para>These settings take
+                                space-separated lists of usernames
+                                that influence the effect of
+                                <varname>KillUserProcesses=</varname>. If
+                                not empty, only processes of users
+                                listed in
+                                <varname>KillOnlyUsers=</varname> will
+                                be killed when they log out
+                                entirely. Processes of users listed in
+                                <varname>KillExcludeUsers=</varname>
+                                are excluded from being
+                                killed. <varname>KillExcludeUsers=</varname>
+                                defaults to <literal>root</literal>
+                                and takes precedence over
+                                <varname>KillOnlyUsers=</varname>,
+                                which defaults to the empty list.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -177,64 +204,6 @@
                                 <varname>IdleAction=</varname> (see
                                 above) is taken after the system is
                                 idle.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>KillOnlyUsers=</varname></term>
-                                <term><varname>KillExcludeUsers=</varname></term>
-
-                                <listitem><para>These settings take
-                                space-separated lists of usernames
-                                that influence the effect of
-                                <varname>KillUserProcesses=</varname>. If
-                                not empty, only processes of users
-                                listed in
-                                <varname>KillOnlyUsers</varname> will
-                                be killed when they log out
-                                entirely. Processes of users listed in
-                                <varname>KillExcludeUsers=</varname>
-                                are excluded from being
-                                killed. <varname>KillExcludeUsers=</varname>
-                                defaults to <literal>root</literal>
-                                and takes precedence over
-                                <varname>KillOnlyUsers=</varname>,
-                                which defaults to the empty list.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>Controllers=</varname></term>
-                                <term><varname>ResetControllers=</varname></term>
-
-                                <listitem><para>These settings control
-                                the default control group hierarchies
-                                users logging in are added to, in
-                                addition to the
-                                <literal>name=systemd</literal> named
-                                hierarchy. These settings take
-                                space-separated lists of controller
-                                names. Pass the empty string to ensure
-                                that logind does not touch any
-                                hierarchies but systemd's own. When
-                                logging in, user sessions will get
-                                private control groups in all
-                                hierarchies listed in
-                                <varname>Controllers=</varname> and be
-                                reset to the root control group in all
-                                hierarchies listed in
-                                <varname>ResetControllers=</varname>.
-                                <varname>Controllers=</varname>
-                                defaults to the empty list.
-                                <varname>ResetControllers=</varname>
-                                defaults to
-                                <literal>cpu</literal>. Note that for
-                                all controllers that are not listed in
-                                either <varname>Controllers=</varname>
-                                or
-                                <varname>ResetControllers=</varname>,
-                                newly created sessions will be part of
-                                the control groups of the system
-                                service that created the
-                                session.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -323,20 +292,6 @@
                         </varlistentry>
 
                 </variablelist>
-
-                <para>Note that setting
-                <varname>KillUserProcesses=1</varname> will break tools
-                like
-                <citerefentry><refentrytitle>screen</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
-
-                <para>Note that <varname>KillUserProcesses=1</varname>
-                is a weaker version of
-                <varname>kill-session-processes=1</varname>, which may
-                be configured per-service for
-                <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>. The
-                latter kills processes of a session as soon as it
-                ends, the former kills processes as soon as the last
-                session of the user ends.</para>
         </refsect1>
 
         <refsect1>

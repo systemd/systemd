@@ -32,7 +32,6 @@
 #include "util.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "cgroup-util.h"
 #include "fileio.h"
 #include "dbus-common.h"
 #include "logind-session.h"
@@ -466,15 +465,20 @@ static int session_start_scope(Session *s) {
 
         if (!s->scope) {
                 _cleanup_free_ char *description = NULL;
+                const char *kill_mode;
                 char *scope, *job;
+
+                description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
+                if (!description)
+                        return log_oom();
 
                 scope = strjoin("session-", s->id, ".scope", NULL);
                 if (!scope)
                         return log_oom();
 
-                description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
+                kill_mode = manager_shall_kill(s->manager, s->user->name) ? "control-group" : "none";
 
-                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-user-sessions.service", &error, &job);
+                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-user-sessions.service", kill_mode, &error, &job);
                 if (r < 0) {
                         log_error("Failed to start session scope: %s %s", bus_error(&error, r), error.name);
                         dbus_error_free(&error);
@@ -554,21 +558,6 @@ int session_start(Session *s) {
         return 0;
 }
 
-/* static bool session_shall_kill(Session *s) { */
-/*         assert(s); */
-
-/*         if (!s->kill_processes) */
-/*                 return false; */
-
-/*         if (strv_contains(s->manager->kill_exclude_users, s->user->name)) */
-/*                 return false; */
-
-/*         if (strv_isempty(s->manager->kill_only_users)) */
-/*                 return true; */
-
-/*         return strv_contains(s->manager->kill_only_users, s->user->name); */
-/* } */
-
 static int session_stop_scope(Session *s) {
         DBusError error;
         char *job;
@@ -617,7 +606,23 @@ static int session_unlink_x11_socket(Session *s) {
 }
 
 int session_stop(Session *s) {
-        int r = 0, k;
+        int r;
+
+        assert(s);
+
+        if (!s->user)
+                return -ESTALE;
+
+        /* Kill cgroup */
+        r = session_stop_scope(s);
+
+        session_save(s);
+
+        return r;
+}
+
+int session_finalize(Session *s) {
+        int r = 0;
 
         assert(s);
 
@@ -633,11 +638,6 @@ int session_stop(Session *s) {
                            "MESSAGE=Removed session %s.", s->id,
                            NULL);
 
-        /* Kill cgroup */
-        k = session_stop_scope(s);
-        if (k < 0)
-                r = k;
-
         /* Remove X11 symlink */
         session_unlink_x11_socket(s);
 
@@ -645,10 +645,10 @@ int session_stop(Session *s) {
         session_add_to_gc_queue(s);
         user_add_to_gc_queue(s->user);
 
-        if (s->started)
+        if (s->started) {
                 session_send_signal(s, false);
-
-        s->started = false;
+                s->started = false;
+        }
 
         if (s->seat) {
                 if (s->seat->active == s)
@@ -871,7 +871,6 @@ int session_check_gc(Session *s, bool drop_not_started) {
                 return 0;
 
         if (s->fifo_fd >= 0) {
-
                 r = pipe_eof(s->fifo_fd);
                 if (r < 0)
                         return r;
@@ -902,8 +901,11 @@ void session_add_to_gc_queue(Session *s) {
 SessionState session_get_state(Session *s) {
         assert(s);
 
+        if (s->closing)
+                return SESSION_CLOSING;
+
         if (s->scope_job)
-                return s->started ? SESSION_OPENING : SESSION_CLOSING;
+                return SESSION_OPENING;
 
         if (s->fifo_fd < 0)
                 return SESSION_CLOSING;

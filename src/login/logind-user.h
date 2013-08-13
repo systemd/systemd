@@ -61,8 +61,7 @@ struct User {
 
         bool in_gc_queue:1;
         bool started:1;
-        bool slice_created:1;
-        bool service_created:1;
+        bool closing:1;
 
         LIST_HEAD(Session, sessions);
         LIST_FIELDS(User, gc_queue);
@@ -74,6 +73,7 @@ int user_check_gc(User *u, bool drop_not_started);
 void user_add_to_gc_queue(User *u);
 int user_start(User *u);
 int user_stop(User *u);
+int user_finalize(User *u);
 UserState user_get_state(User *u);
 int user_get_idle_hint(User *u, dual_timestamp *t);
 int user_save(User *u);
