@@ -32,11 +32,11 @@
 #define POOL_SIZE_MIN 512
 
 int main(int argc, char *argv[]) {
-        int seed_fd = -1, random_fd = -1;
-        int ret = EXIT_FAILURE;
-        void* buf;
+        _cleanup_close_ int seed_fd = -1, random_fd = -1;
+        _cleanup_free_ void* buf = NULL;
         size_t buf_size = 0;
-        ssize_t r;
+        ssize_t k;
+        int r;
         FILE *f;
 
         if (argc != 2) {
@@ -51,7 +51,8 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
         /* Read pool size, if possible */
-        if ((f = fopen("/proc/sys/kernel/random/poolsize", "re"))) {
+        f = fopen("/proc/sys/kernel/random/poolsize", "re");
+        if (f) {
                 if (fscanf(f, "%zu", &buf_size) > 0) {
                         /* poolsize is in bits on 2.6, but we want bytes */
                         buf_size /= 8;
@@ -63,13 +64,15 @@ int main(int argc, char *argv[]) {
         if (buf_size <= POOL_SIZE_MIN)
                 buf_size = POOL_SIZE_MIN;
 
-        if (!(buf = malloc(buf_size))) {
-                log_error("Failed to allocate buffer.");
+        buf = malloc(buf_size);
+        if (!buf) {
+                r = log_oom();
                 goto finish;
         }
 
-        if (mkdir_parents_label(RANDOM_SEED, 0755) < 0) {
-                log_error("Failed to create directories parents of %s: %m", RANDOM_SEED);
+        r = mkdir_parents_label(RANDOM_SEED, 0755);
+        if (r < 0) {
+                log_error("Failed to create parent directory of " RANDOM_SEED ": %s", strerror(-r));
                 goto finish;
         }
 
@@ -79,45 +82,64 @@ int main(int argc, char *argv[]) {
 
         if (streq(argv[1], "load")) {
 
-                if ((seed_fd = open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600)) < 0) {
-                        if ((seed_fd = open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY)) < 0) {
+                seed_fd = open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
+                if (seed_fd < 0) {
+                        seed_fd = open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        if (seed_fd < 0) {
                                 log_error("Failed to open random seed: %m");
+                                r = -errno;
                                 goto finish;
                         }
                 }
 
-                if ((random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY, 0600)) < 0) {
-                        if ((random_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY, 0600)) < 0) {
+                random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+                if (random_fd < 0) {
+                        random_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY, 0600);
+                        if (random_fd < 0) {
                                 log_error("Failed to open /dev/urandom: %m");
+                                r = -errno;
                                 goto finish;
                         }
                 }
 
-                if ((r = loop_read(seed_fd, buf, buf_size, false)) <= 0) {
+                k = loop_read(seed_fd, buf, buf_size, false);
+                if (k <= 0) {
 
                         if (r != 0)
                                 log_error("Failed to read seed file: %m");
+
+                        r = k == 0 ? -EIO : (int) k;
+
                 } else {
                         lseek(seed_fd, 0, SEEK_SET);
 
-                        if ((r = loop_write(random_fd, buf, (size_t) r, false)) <= 0)
-                                log_error("Failed to write seed to /dev/urandom: %s",
-                                          r < 0 ? strerror(errno) : "short write");
+                        k = loop_write(random_fd, buf, (size_t) k, false);
+                        if (k <= 0) {
+                                log_error("Failed to write seed to /dev/urandom: %s", r < 0 ? strerror(-r) : "short write");
+
+                                r = k == 0 ? -EIO : (int) k;
+                        }
                 }
 
         } else if (streq(argv[1], "save")) {
 
-                if ((seed_fd = open(RANDOM_SEED, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600)) < 0) {
+                seed_fd = open(RANDOM_SEED, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
+                if (seed_fd < 0) {
                         log_error("Failed to open random seed: %m");
+                        r = -errno;
                         goto finish;
                 }
 
-                if ((random_fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY)) < 0) {
+                random_fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (random_fd < 0) {
                         log_error("Failed to open /dev/urandom: %m");
+                        r = -errno;
                         goto finish;
                 }
+
         } else {
                 log_error("Unknown verb %s.", argv[1]);
+                r = -EINVAL;
                 goto finish;
         }
 
@@ -127,23 +149,18 @@ int main(int argc, char *argv[]) {
         fchmod(seed_fd, 0600);
         fchown(seed_fd, 0, 0);
 
-        if ((r = loop_read(random_fd, buf, buf_size, false)) <= 0)
-                log_error("Failed to read new seed from /dev/urandom: %s", r < 0 ? strerror(errno) : "EOF");
-        else {
-                if ((r = loop_write(seed_fd, buf, (size_t) r, false)) <= 0)
-                        log_error("Failed to write new random seed file: %s", r < 0 ? strerror(errno) : "short write");
+        k = loop_read(random_fd, buf, buf_size, false);
+        if (k <= 0) {
+                log_error("Failed to read new seed from /dev/urandom: %s", r < 0 ? strerror(-r) : "EOF");
+                r = k == 0 ? -EIO : (int) k;
+        } else {
+                r = loop_write(seed_fd, buf, (size_t) k, false);
+                if (r <= 0) {
+                        log_error("Failed to write new random seed file: %s", r < 0 ? strerror(-r) : "short write");
+                        r = k == 0 ? -EIO : (int) k;
+                }
         }
 
-        ret = EXIT_SUCCESS;
-
 finish:
-        if (random_fd >= 0)
-                close_nointr_nofail(random_fd);
-
-        if (seed_fd >= 0)
-                close_nointr_nofail(seed_fd);
-
-        free(buf);
-
-        return ret;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
