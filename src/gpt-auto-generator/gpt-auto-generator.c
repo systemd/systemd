@@ -175,7 +175,7 @@ static int add_swap(const char *path, const char *fstype) {
                 "DefaultDependencies=no\n"
                 "Conflicts=" SPECIAL_UMOUNT_TARGET "\n"
                 "Before=" SPECIAL_UMOUNT_TARGET " " SPECIAL_SWAP_TARGET "\n\n"
-                "[Mount]\n"
+                "[Swap]\n"
                 "What=%s\n",
                 path);
 
