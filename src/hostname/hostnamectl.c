@@ -46,9 +46,9 @@ static enum transport {
 static bool arg_ask_password = true;
 static char *arg_host = NULL;
 static char *arg_user = NULL;
-static bool arg_set_transient = false;
-static bool arg_set_pretty = false;
-static bool arg_set_static = false;
+static bool arg_transient = false;
+static bool arg_pretty = false;
+static bool arg_static = false;
 
 static void polkit_agent_open_if_enabled(void) {
 
@@ -152,14 +152,51 @@ static int status_property(const char *name, DBusMessageIter *iter, StatusInfo *
         return 0;
 }
 
-static int show_status(DBusConnection *bus, char **args, unsigned n) {
+static int show_one_name(DBusConnection *bus, const char* attr) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        const char *interface = "org.freedesktop.hostname1", *s;
+        DBusMessageIter iter, sub;
+        int r;
+
+        r = bus_method_call_with_reply(
+                        bus,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.DBus.Properties",
+                        "Get",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_STRING, &interface,
+                        DBUS_TYPE_STRING, &attr,
+                        DBUS_TYPE_INVALID);
+        if (r < 0)
+                return r;
+
+        if (!dbus_message_iter_init(reply, &iter) ||
+            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+                log_error("Failed to parse reply.");
+                return -EIO;
+        }
+
+        dbus_message_iter_recurse(&iter, &sub);
+
+        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
+                log_error("Failed to parse reply.");
+                return -EIO;
+        }
+
+        dbus_message_iter_get_basic(&sub, &s);
+        printf("%s\n", s);
+
+        return 0;
+}
+
+static int show_all_names(DBusConnection *bus) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         const char *interface = "";
         int r;
         DBusMessageIter iter, sub, sub2, sub3;
         StatusInfo info = {};
-
-        assert(args);
 
         r = bus_method_call_with_reply(
                         bus,
@@ -218,6 +255,25 @@ static int show_status(DBusConnection *bus, char **args, unsigned n) {
         return 0;
 }
 
+static int show_status(DBusConnection *bus, char **args, unsigned n) {
+        assert(args);
+
+        if (arg_pretty || arg_static || arg_transient) {
+                const char *attr;
+
+                if (!!arg_static + !!arg_pretty + !!arg_transient > 1) {
+                        log_error("Cannot query more than one name type at a time");
+                        return -EINVAL;
+                }
+
+                attr = arg_pretty ? "PrettyHostname" :
+                        arg_static ? "StaticHostname" : "Hostname";
+
+                return show_one_name(bus, attr);
+        } else
+                return show_all_names(bus);
+}
+
 static int set_hostname(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         dbus_bool_t interactive = arg_ask_password;
@@ -230,7 +286,10 @@ static int set_hostname(DBusConnection *bus, char **args, unsigned n) {
 
         polkit_agent_open_if_enabled();
 
-        if (arg_set_pretty) {
+        if (!arg_pretty && !arg_static && !arg_transient)
+                arg_pretty = arg_static = arg_transient = true;
+
+        if (arg_pretty) {
                 const char *p;
 
                 /* If the passed hostname is already valid, then
@@ -245,7 +304,7 @@ static int set_hostname(DBusConnection *bus, char **args, unsigned n) {
 
                 hostname_cleanup(h, true);
 
-                if (arg_set_static && streq(h, hostname))
+                if (arg_static && streq(h, hostname))
                         p = "";
                 else {
                         p = hostname;
@@ -270,7 +329,7 @@ static int set_hostname(DBusConnection *bus, char **args, unsigned n) {
                 reply = NULL;
         }
 
-        if (arg_set_static) {
+        if (arg_static) {
                 r = bus_method_call_with_reply(
                                 bus,
                                 "org.freedesktop.hostname1",
@@ -290,7 +349,7 @@ static int set_hostname(DBusConnection *bus, char **args, unsigned n) {
                 reply = NULL;
         }
 
-        if (arg_set_transient) {
+        if (arg_transient) {
                 r = bus_method_call_with_reply(
                                 bus,
                                 "org.freedesktop.hostname1",
@@ -381,17 +440,17 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_ASK_PASSWORD,
-                ARG_SET_TRANSIENT,
-                ARG_SET_STATIC,
-                ARG_SET_PRETTY
+                ARG_TRANSIENT,
+                ARG_STATIC,
+                ARG_PRETTY
         };
 
         static const struct option options[] = {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "transient",       no_argument,       NULL, ARG_SET_TRANSIENT   },
-                { "static",          no_argument,       NULL, ARG_SET_STATIC      },
-                { "pretty",          no_argument,       NULL, ARG_SET_PRETTY      },
+                { "transient",       no_argument,       NULL, ARG_TRANSIENT   },
+                { "static",          no_argument,       NULL, ARG_STATIC      },
+                { "pretty",          no_argument,       NULL, ARG_PRETTY      },
                 { "host",            required_argument, NULL, 'H'                 },
                 { "privileged",      no_argument,       NULL, 'P'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
@@ -425,16 +484,16 @@ static int parse_argv(int argc, char *argv[]) {
                         parse_user_at_host(optarg, &arg_user, &arg_host);
                         break;
 
-                case ARG_SET_TRANSIENT:
-                        arg_set_transient = true;
+                case ARG_TRANSIENT:
+                        arg_transient = true;
                         break;
 
-                case ARG_SET_PRETTY:
-                        arg_set_pretty = true;
+                case ARG_PRETTY:
+                        arg_pretty = true;
                         break;
 
-                case ARG_SET_STATIC:
-                        arg_set_static = true;
+                case ARG_STATIC:
+                        arg_static = true;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -449,9 +508,6 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
                 }
         }
-
-        if (!arg_set_transient && !arg_set_pretty && !arg_set_static)
-                arg_set_transient = arg_set_pretty = arg_set_static = true;
 
         return 1;
 }

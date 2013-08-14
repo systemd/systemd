@@ -49,7 +49,9 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>hostnamectl <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg></command>
+                        <command>hostnamectl</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="req">COMMAND</arg>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -81,7 +83,7 @@
                 <filename>/etc/hostname</filename>, see
                 <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for more information. The pretty hostname, chassis
-                type and icon name are stored in
+                type, and icon name are stored in
                 <filename>/etc/machine-info</filename>, see
                 <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </refsect1>
@@ -141,11 +143,20 @@
                                 <term><option>--pretty</option></term>
 
                                 <listitem><para>If
-                                <command>set-hostname</command> is
-                                invoked and one or more of these
-                                options are passed, only the selected
-                                hostname(s) is/are
-                                updated.</para></listitem>
+                                <command>status</command> is used (or
+                                no explicit command is given) and one
+                                of those fields is given,
+                                <command>hostnamectl</command> will
+                                print out just this selected
+                                hostname.</para>
+
+                                <para>If used with
+                                <command>set-hostname</command>, only
+                                the selected hostname(s) will be
+                                updated. When more than one of those
+                                options is used, all the specified
+                                hostnames will be updated.
+                                </para></listitem>
                         </varlistentry>
                 </variablelist>
 

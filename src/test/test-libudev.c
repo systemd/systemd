@@ -430,7 +430,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem)
 }
 
 static int test_hwdb(struct udev *udev, const char *modalias) {
-        struct udev_hwdb * hwdb;
+        struct udev_hwdb *hwdb;
         struct udev_list_entry *entry;
 
         hwdb = udev_hwdb_new(udev);
