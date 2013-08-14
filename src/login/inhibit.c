@@ -23,10 +23,13 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <dbus.h>
 #include <unistd.h>
+#include <fcntl.h>
 
-#include "dbus-common.h"
+#include "sd-bus.h"
+
+#include "bus-util.h"
+#include "bus-error.h"
 #include "util.h"
 #include "build.h"
 #include "strv.h"
@@ -41,76 +44,60 @@ static enum {
         ACTION_LIST
 } arg_action = ACTION_INHIBIT;
 
-static int inhibit(DBusConnection *bus, DBusError *error) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+static int inhibit(sd_bus *bus, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         int r;
+        int fd;
 
-        r = bus_method_call_with_reply(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "Inhibit",
+                        error,
                         &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &arg_what,
-                        DBUS_TYPE_STRING, &arg_who,
-                        DBUS_TYPE_STRING, &arg_why,
-                        DBUS_TYPE_STRING, &arg_mode,
-                        DBUS_TYPE_INVALID);
+                        "ssss", arg_what, arg_who, arg_why, arg_mode);
         if (r < 0)
                 return r;
 
-        if (!dbus_message_get_args(reply, error,
-                                   DBUS_TYPE_UNIX_FD, &r,
-                                   DBUS_TYPE_INVALID))
+        r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_UNIX_FD, &fd);
+        if (r < 0)
                 return -EIO;
+
+        r = dup(fd);
+        if (r < 0)
+                return -errno;
 
         return r;
 }
 
-static int print_inhibitors(DBusConnection *bus, DBusError *error) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        const char *what, *who, *why, *mode;
+        unsigned int uid, pid;
         unsigned n = 0;
-        DBusMessageIter iter, sub, sub2;
         int r;
 
-        r = bus_method_call_with_reply(
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "ListInhibitors",
+                        error,
                         &reply,
-                        NULL,
-                        DBUS_TYPE_INVALID);
+                        "");
         if (r < 0)
                 return r;
 
-        if (!dbus_message_iter_init(reply, &iter))
-                return -ENOMEM;
-
-        if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY)
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
+        if (r < 0)
                 return -EIO;
 
-        dbus_message_iter_recurse(&iter, &sub);
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *what, *who, *why, *mode;
+        while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
-                dbus_uint32_t uid, pid;
 
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT)
-                        return -EIO;
-
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &what, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &who, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &why, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &mode, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &uid, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, false) < 0)
-                        return -EIO;
 
                 get_process_comm(pid, &comm);
                 u = uid_to_name(uid);
@@ -124,10 +111,14 @@ static int print_inhibitors(DBusConnection *bus, DBusError *error) {
                        why,
                        mode);
 
-                dbus_message_iter_next(&sub);
-
                 n++;
         }
+        if (r < 0)
+                return -EIO;
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return -EIO;
 
         printf("%u inhibitors listed.\n", n);
         return 0;
@@ -230,33 +221,30 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        int r, exit_code = 0;
-        DBusConnection *bus = NULL;
-        DBusError error;
-        _cleanup_close_ int fd = -1;
-
-        dbus_error_init(&error);
+        int r;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int fd = -1;
 
         log_parse_environment();
         log_open();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return EXIT_FAILURE;
 
-        bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-        if (!bus) {
-                log_error("Failed to connect to bus: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
+        r = sd_bus_open_system(&bus);
+        if (r < 0) {
+                log_error("Failed to connect to bus: %s", strerror(-r));
+                return EXIT_FAILURE;
         }
 
         if (arg_action == ACTION_LIST) {
 
                 r = print_inhibitors(bus, &error);
                 if (r < 0) {
-                        log_error("Failed to list inhibitors: %s", bus_error(&error, r));
-                        goto finish;
+                        log_error("Failed to list inhibitors: %s", bus_error_message(&error, -r));
+                        return EXIT_FAILURE;
                 }
 
         } else {
@@ -270,22 +258,19 @@ int main(int argc, char *argv[]) {
                 free(w);
 
                 if (fd < 0) {
-                        log_error("Failed to inhibit: %s", bus_error(&error, r));
-                        r = fd;
-                        goto finish;
+                        log_error("Failed to inhibit: %s", bus_error_message(&error, -r));
+                        return EXIT_FAILURE;
                 }
 
                 pid = fork();
                 if (pid < 0) {
                         log_error("Failed to fork: %m");
-                        r = -errno;
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 if (pid == 0) {
                         /* Child */
 
-                        close_nointr_nofail(fd);
                         close_all_fds(NULL, 0);
 
                         execvp(argv[optind], argv + optind);
@@ -294,17 +279,12 @@ int main(int argc, char *argv[]) {
                 }
 
                 r = wait_for_terminate_and_warn(argv[optind], pid);
-                if (r >= 0)
-                        exit_code = r;
+                close(fd);
+                if (r < 0)
+                        return EXIT_FAILURE;
+                else
+                        return r;
         }
 
-finish:
-        if (bus) {
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
-        }
-
-        dbus_error_free(&error);
-
-        return r < 0 ? EXIT_FAILURE : exit_code;
+        return 0;
 }

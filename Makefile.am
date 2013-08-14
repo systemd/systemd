@@ -3836,7 +3836,7 @@ systemd_inhibit_CFLAGS = \
 
 systemd_inhibit_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la
+	libsystemd-bus.la
 
 rootbin_PROGRAMS += \
 	systemd-inhibit
