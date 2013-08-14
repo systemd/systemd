@@ -601,6 +601,17 @@ man/systemd-user.conf.html: man/systemd-system.conf.html
 	$(html-alias)
 
 
+if ENABLE_BACKLIGHT
+MANPAGES += \
+	man/systemd-backlight@.service.8
+MANPAGES_ALIAS += \
+	man/systemd-backlight.8
+man/systemd-backlight.8: man/systemd-backlight@.service.8
+man/systemd-backlight.html: man/systemd-backlight@.service.html
+	$(html-alias)
+
+endif
+
 if ENABLE_BINFMT
 MANPAGES += \
 	man/binfmt.d.5 \
