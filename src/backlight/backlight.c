@@ -54,9 +54,15 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        device = udev_device_new_from_syspath(udev, argv[2]);
+        errno = 0;
+        device = udev_device_new_from_subsystem_sysname(udev, "backlight", argv[2]);
         if (!device) {
-                r = log_oom();
+                if (errno != 0) {
+                        log_error("Failed to get backlight device: %m");
+                        r = -errno;
+                } else
+                        r = log_oom();
+
                 goto finish;
         }
 

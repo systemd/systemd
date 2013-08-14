@@ -53,7 +53,7 @@ ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="@rootlibexecdir@/systemd-sy
 
 # Pull in backlight save/restore for all firmware backlight devices
 
-ACTION=="add", SUBSYSTEM=="backlight", ATTR{type}=="firmware", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-backlight@sys%p.service"
+ACTION=="add", SUBSYSTEM=="backlight", ATTR{type}=="firmware", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-backlight@$name.service"
 
 # Asynchronously mount file systems implemented by these modules as
 # soon as they are loaded.
