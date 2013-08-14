@@ -19,13 +19,18 @@ _list_fields() {
                     _KERNEL_{DEVICE,SUBSYSTEM}
                     _UDEV_{SYSNAME,DEVNODE,DEVLINK}
                     __CURSOR __{REALTIME,MONOTONIC}_TIMESTAMP)
-    _describe 'possible fields' journal_fields
+    case $_jrnl_none in
+        yes) _values -s '=' 'possible fields' \
+                "${journal_fields[@]}:value:_journal_fields ${words[CURRENT]%%=*}" ;;
+        *)  _describe 'possible fields' journal_fields ;;
+    esac
 }
 
 _journal_none() {
-    local -a _commands _files
+    local -a _commands _files _jrnl_none
     # Setting use-cache will slow this down considerably
     _commands=( ${"$(_call_program commands "$service" -F _EXE 2>/dev/null)"} )
+    _jrnl_none='yes'
     _alternative : \
         'files:/dev files:_files -W /dev -P /dev/' \
         "commands:commands:($_commands[@])" \
