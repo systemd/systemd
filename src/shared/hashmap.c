@@ -373,13 +373,10 @@ int hashmap_put(Hashmap *h, const void *key, void *value) {
         assert(h);
 
         hash = h->hash_func(key) % NBUCKETS;
-
         e = hash_scan(h, hash, key);
         if (e) {
-
                 if (e->value == value)
                         return 0;
-
                 return -EEXIST;
         }
 
@@ -534,7 +531,6 @@ int hashmap_remove_and_replace(Hashmap *h, const void *old_key, const void *new_
                 return -ENOENT;
 
         new_hash = h->hash_func(new_key) % NBUCKETS;
-
         if ((k = hash_scan(h, new_hash, new_key)))
                 if (e != k)
                         remove_entry(h, k);
