@@ -75,7 +75,7 @@ static int strv_converter(PyObject* obj, void *_result) {
         assert(result);
 
         if (!obj)
-            goto cleanup;
+            return 0;
 
         if (obj == Py_None) {
             *result = NULL;
@@ -87,6 +87,10 @@ static int strv_converter(PyObject* obj, void *_result) {
 
         len = PySequence_Length(obj);
         *result = new0(char*, len + 1);
+        if (!*result) {
+            set_error(-ENOMEM, NULL, NULL);
+            return 0;
+        }
 
         for (i = 0; i < len; i++) {
             PyObject *item;
@@ -154,7 +158,7 @@ static int Reader_init(Reader *self, PyObject *args, PyObject *keywds)
     char **files = NULL;
 
     static const char* const kwlist[] = {"flags", "path", "files", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "|izO&", (char**) kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "|izO&:__init__", (char**) kwlist,
                                      &flags, &path, strv_converter, &files))
         return -1;
 

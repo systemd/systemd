@@ -159,7 +159,7 @@ static int Monitor_init(Monitor *self, PyObject *args, PyObject *keywds)
         int r;
 
         static const char* const kwlist[] = {"category", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, keywds, "|z", (char**) kwlist,
+        if (!PyArg_ParseTupleAndKeywords(args, keywds, "|z:__init__", (char**) kwlist,
                                          &category))
                 return -1;
 
