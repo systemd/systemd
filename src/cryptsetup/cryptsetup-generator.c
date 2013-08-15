@@ -72,13 +72,20 @@ static int create_disk(
 
         _cleanup_free_ char *p = NULL, *n = NULL, *d = NULL, *u = NULL, *from = NULL, *to = NULL, *e = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        bool noauto, nofail;
+        bool noauto, nofail, tmp, swap;
 
         assert(name);
         assert(device);
 
         noauto = has_option(options, "noauto");
         nofail = has_option(options, "nofail");
+        tmp = has_option(options, "tmp");
+        swap = has_option(options, "swap");
+
+        if (tmp && swap) {
+                log_error("Device '%s' cannot be both 'tmp' and 'swap'. Ignoring.", name);
+                return -EINVAL;
+        }
 
         n = unit_name_from_path_instance("systemd-cryptsetup", name, ".service");
         if (!n)
@@ -151,12 +158,12 @@ static int create_disk(
                 name, u, strempty(password), strempty(options),
                 name);
 
-        if (has_option(options, "tmp"))
+        if (tmp)
                 fprintf(f,
                         "ExecStartPost=/sbin/mke2fs '/dev/mapper/%s'\n",
                         name);
 
-        if (has_option(options, "swap"))
+        if (swap)
                 fprintf(f,
                         "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n",
                         name);
