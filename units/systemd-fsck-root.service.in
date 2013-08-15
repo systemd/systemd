@@ -7,7 +7,7 @@
 
 [Unit]
 Description=File System Check on Root Device
-Documentation=man:systemd-fsck@.service(8)
+Documentation=man:systemd-fsck-root.service(8)
 DefaultDependencies=no
 After=systemd-readahead-collect.service systemd-readahead-replay.service
 Before=local-fs.target shutdown.target
@@ -16,7 +16,7 @@ ConditionPathIsReadWrite=!/
 
 [Service]
 Type=oneshot
-RemainAfterExit=no
+RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-fsck
 StandardOutput=journal+console
 FsckPassNo=1
