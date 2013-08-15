@@ -1,4 +1,4 @@
-#compdef systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-delta systemd-detect-virt systemd-machine-id-setup systemd-notify systemd-tty-ask-password-agent
+#compdef systemd-cat systemd-ask-password systemd-cgls systemd-cgtop systemd-detect-virt systemd-machine-id-setup systemd-notify systemd-tty-ask-password-agent
 
 _ctls()
 {
@@ -44,15 +44,6 @@ _ctls()
                 {-n,--iterations=}'[Run for N iterations before exiting]' \
                 {-b,--batch}'[Run in batch mode, accepting no input]' \
                 '--depth=[Maximum traversal depth]'
-        ;;
-        systemd-delta)
-            _arguments \
-                {-h,--help}'[Show this help]' \
-                '--version[Show package version]' \
-                '--no-pager[Do not pipe output into a pager]' \
-                '--diff=[Show a diff when overridden files differ]:boolean:(1 0)' \
-                {-t,--type=}'[Only display a selected set of override types]:types:(masked equivalent redirected overridden unchanged)' \
-                ':SUFFIX:(tmpfiles.d sysctl.d systemd/system)'
         ;;
         systemd-detect-virt)
             _arguments \

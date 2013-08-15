@@ -294,11 +294,23 @@ _outputmodes() {
     _describe -t output 'output mode' _output_opts || compadd "$@"
 }
 
+_unit_states() {
+    local -a _states
+    _states=(loaded failed active inactive not-found listening running waiting plugged mounted exited dead masked)
+    _values -s , "${_states[@]}"
+}
+
+_unit_types() {
+    local -a _types
+    _types=(automount device mount path service snapshot socket swap target timer)
+    _values -s , "${_types[@]}"
+}
+
 _arguments -s \
     {-h,--help}'[Show help]' \
     '--version[Show package version]' \
-    {-t,--type=}'[List only units of a particular type]:unit type:(automount device mount path service snapshot socket swap target timer)' \
-    '--state=[Display units in the specified state]:unit state:(loaded failed active inactive not-found listening running waiting plugged mounted exited dead masked)' \
+    {-t,--type=}'[List only units of a particular type]:unit type:_unit_types' \
+    '--state=[Display units in the specifyied state]:unit state:_unit_states' \
     \*{-p,--property=}'[Show only properties by specific name]:unit property' \
     {-a,--all}'[Show all units/properties, including dead/empty ones]' \
     '--reverse[Show reverse dependencies]' \
