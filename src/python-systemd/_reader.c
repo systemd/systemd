@@ -64,6 +64,10 @@ static PyStructSequence_Desc Monotonic_desc = {
 };
 #endif
 
+/**
+ * Convert a Python sequence object into a strv (char**), and
+ * None into a NULL pointer.
+ */
 static int strv_converter(PyObject* obj, void *_result) {
         char ***result = _result;
         Py_ssize_t i, len;
@@ -72,6 +76,11 @@ static int strv_converter(PyObject* obj, void *_result) {
 
         if (!obj)
             goto cleanup;
+
+        if (obj == Py_None) {
+            *result = NULL;
+            return 1;
+        }
 
         if (!PySequence_Check(obj))
             return 0;
