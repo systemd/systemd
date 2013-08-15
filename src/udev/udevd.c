@@ -314,12 +314,10 @@ static void worker_new(struct event *event)
                         udev_device_unref(dev);
                         dev = NULL;
 
-                        if (udev_event->sigterm) {
-                                udev_event_unref(udev_event);
-                                goto out;
-                        }
-
                         udev_event_unref(udev_event);
+
+                        if (udev_event->sigterm)
+                                goto out;
 
                         /* wait for more device messages from main udevd, or term signal */
                         while (dev == NULL) {
