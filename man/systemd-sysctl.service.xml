@@ -71,7 +71,6 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>wine</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
