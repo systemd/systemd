@@ -12,7 +12,7 @@ DefaultDependencies=no
 Before=sockets.target
 
 # Mount and swap units need this. If this socket unit is removed by an
-# isolate request the mount and and swap units would be removed too,
+# isolate request the mount and swap units would be removed too,
 # hence let's exclude this from isolate requests.
 IgnoreOnIsolate=yes
 

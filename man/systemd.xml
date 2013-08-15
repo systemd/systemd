@@ -374,7 +374,7 @@
                         <listitem><para>Slice units may be used to
                         group units which manage system processes
                         (such as service and scope units) in a
-                        hierachial tree for resource management
+                        hierarchical tree for resource management
                         purposes. See
                         <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 

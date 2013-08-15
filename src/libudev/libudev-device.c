@@ -42,7 +42,7 @@
  *
  * Representation of kernel sys devices. Devices are uniquely identified
  * by their syspath, every device has exactly one path in the kernel sys
- * filesystem. Devices usually belong to a kernel subsystem, and and have
+ * filesystem. Devices usually belong to a kernel subsystem, and have
  * a unique name inside that subsystem.
  */
 
