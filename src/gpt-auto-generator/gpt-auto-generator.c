@@ -299,7 +299,8 @@ static int enumerate_partitions(dev_t dev) {
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0) {
-                log_error("Failed to enumerate partitions: %s", strerror(-r));
+                log_error("Failed to enumerate partitions on /dev/block/%u:%u: %s",
+                          major(dev), minor(dev), strerror(-r));
                 goto finish;
         }
 
@@ -310,6 +311,7 @@ static int enumerate_partitions(dev_t dev) {
                 struct udev_device *q;
                 sd_id128_t type_id;
                 unsigned nr;
+                dev_t sub;
 
                 q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                 if (!q) {
@@ -329,9 +331,12 @@ static int enumerate_partitions(dev_t dev) {
                         goto finish;
                 }
 
-                r = verify_gpt_partition(udev_device_get_devnum(q), &type_id, &nr, &fstype);
+                sub = udev_device_get_devnum(q);
+
+                r = verify_gpt_partition(sub, &type_id, &nr, &fstype);
                 if (r < 0) {
-                        log_error("Failed to verify GPT partition: %s", strerror(-r));
+                        log_error("Failed to verify GPT partition /dev/block/%u:%u: %s",
+                                  major(sub), minor(sub), strerror(-r));
                         udev_device_unref(q);
                         goto finish;
                 }
@@ -483,11 +488,12 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        log_debug("Root device %u:%u.", major(dev), minor(dev));
+        log_debug("Root device /dev/block/%u:%u.", major(dev), minor(dev));
 
         r = verify_gpt_partition(dev, NULL, NULL, NULL);
         if (r < 0) {
-                log_error("Failed to verify GPT partition: %s", strerror(-r));
+                log_error("Failed to verify GPT partition /dev/block/%u:%u: %s",
+                          major(dev), minor(dev), strerror(-r));
                 return EXIT_FAILURE;
         }
         if (r == 0)
