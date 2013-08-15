@@ -192,6 +192,7 @@ AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 
 AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
 AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
+AC_CHECK_HEADERS([linux/btrfs.h], [], [])
 
 # unconditionally pull-in librt with old glibc versions
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [])
@@ -219,6 +220,7 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at], [], [], [[#include <sys/
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
 PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2])
+
 
 # ------------------------------------------------------------------------------
 have_coverage=no

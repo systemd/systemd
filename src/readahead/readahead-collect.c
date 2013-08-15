@@ -38,12 +38,15 @@
 #include <sys/mman.h>
 #include <linux/fs.h>
 #include <linux/fiemap.h>
-#include <linux/btrfs.h>
 #include <sys/ioctl.h>
 #include <sys/vfs.h>
 #include <getopt.h>
 #include <sys/inotify.h>
 #include <math.h>
+
+#ifdef HAVE_LINUX_BTRFS_H
+#include <linux/btrfs.h>
+#endif
 
 #ifdef HAVE_FANOTIFY_INIT
 #include <sys/fanotify.h>

@@ -22,10 +22,13 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#include <linux/btrfs.h>
 #include <sys/ioctl.h>
 #include <sys/statfs.h>
 #include <blkid.h>
+
+#ifdef HAVE_LINUX_BTRFS_H
+#include <linux/btrfs.h>
+#endif
 
 #include "path-util.h"
 #include "util.h"
