@@ -87,7 +87,8 @@ static int verify_gpt_partition(dev_t dev, sd_id128_t *type, unsigned *nr, char 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
         if (r != 0)
-                return errno ? -errno : -EIO;
+                /* return 0 if we're not on GPT */
+                return errno ? -errno : 0;
 
         if (strcmp(v, "gpt") != 0)
                 return 0;
