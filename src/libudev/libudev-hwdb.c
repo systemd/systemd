@@ -358,7 +358,7 @@ bool udev_hwdb_validate(struct udev_hwdb *hwdb) {
                 return false;
         if (!hwdb->f)
                 return false;
-        if (fstat(fileno(hwdb->f), &st) < 0)
+        if (stat("/etc/udev/hwdb.bin", &st) < 0)
                 return true;
         if (timespec_load(&hwdb->st.st_mtim) != timespec_load(&st.st_mtim))
                 return true;
