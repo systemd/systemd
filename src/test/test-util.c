@@ -192,41 +192,40 @@ static void test_safe_atod(void) {
 }
 
 static void test_strappend(void) {
-       _cleanup_free_ char *t1, *t2, *t3, *t4;
+        _cleanup_free_ char *t1, *t2, *t3, *t4;
 
-       t1 = strappend(NULL, NULL);
-       assert_se(streq(t1, ""));
+        t1 = strappend(NULL, NULL);
+        assert_se(streq(t1, ""));
 
-       t2 = strappend(NULL, "suf");
-       assert_se(streq(t2, "suf"));
+        t2 = strappend(NULL, "suf");
+        assert_se(streq(t2, "suf"));
 
-       t3 = strappend("pre", NULL);
-       assert_se(streq(t3, "pre"));
+        t3 = strappend("pre", NULL);
+        assert_se(streq(t3, "pre"));
 
-       t4 = strappend("pre", "suf");
-       assert_se(streq(t4, "presuf"));
+        t4 = strappend("pre", "suf");
+        assert_se(streq(t4, "presuf"));
 }
 
 static void test_strstrip(void) {
-       char *r;
-       char input[] = "   hello, waldo.   ";
+        char *r;
+        char input[] = "   hello, waldo.   ";
 
-       r = strstrip(input);
-       assert_se(streq(r, "hello, waldo."));
-
+        r = strstrip(input);
+        assert_se(streq(r, "hello, waldo."));
 }
 
 static void test_delete_chars(void) {
-       char *r;
-       char input[] = "   hello, waldo.   abc";
+        char *r;
+        char input[] = "   hello, waldo.   abc";
 
-       r = delete_chars(input, WHITESPACE);
-       assert_se(streq(r, "hello,waldo.abc"));
+        r = delete_chars(input, WHITESPACE);
+        assert_se(streq(r, "hello,waldo.abc"));
 }
 
 static void test_in_charset(void) {
-      assert_se(in_charset("dddaaabbbcccc", "abcd"));
-      assert_se(!in_charset("dddaaabbbcccc", "abc f"));
+        assert_se(in_charset("dddaaabbbcccc", "abcd"));
+        assert_se(!in_charset("dddaaabbbcccc", "abc f"));
 }
 
 static void test_hexchar(void) {
