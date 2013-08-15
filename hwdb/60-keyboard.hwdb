@@ -144,7 +144,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*4720*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate 6593:*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire 1640:*
  KEYBOARD_KEY_b2=www
- KEYBOARD_KEY_ee=screenlock"
+ KEYBOARD_KEY_ee=screenlock
 
 ###########################################################
 # Alienware
