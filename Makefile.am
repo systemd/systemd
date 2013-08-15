@@ -4136,6 +4136,11 @@ CLEAN_LOCAL_HOOKS += clean-sphinx
 clean-sphinx:
 	-rm -rf docs/html/python-systemd/
 
+# Remove Python stuff, e.g. to force rebuilding for a different Python version.
+clean-python:
+	-rm -rf src/python-systemd/.libs src/python-systemd/*.l[ao]
+	-rm -f _daemon.la id128.la _journal.la login.la _reader.la
+
 # ------------------------------------------------------------------------------
 substitutions = \
        '|rootlibexecdir=$(rootlibexecdir)|' \
