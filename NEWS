@@ -2,6 +2,15 @@ systemd System and Service Manager
 
 CHANGES WITH 206:
 
+        * The systemd-sysctl tool does no longer natively read the
+          file /etc/sysctl.conf. If desired, the file should be
+          symlinked from /etc/sysctl.d/99-sysctl.conf. Apart from
+          providing legacy support by a symlink rather than built-in
+          code, it also makes the otherwise hidden order of application
+          of the different files visible.
+
+CHANGES WITH 206:
+
         * The documentation has been updated to cover the various new
           concepts introduced with 205.
 

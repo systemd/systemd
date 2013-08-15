@@ -135,6 +135,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
         log_debug("parse: %s\n", path);
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *value, *new_value, *property, *existing;
+                void *v;
                 int k;
 
                 if (!fgets(l, sizeof(l), f)) {
@@ -167,13 +168,14 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 p = normalize_sysctl(strstrip(p));
                 value = strstrip(value);
 
-                existing = hashmap_get(sysctl_options, p);
+                existing = hashmap_get2(sysctl_options, p, &v);
                 if (existing) {
-                        if (!streq(value, existing))
-                                log_warning("Duplicate assignment of %s in file '%s', ignoring.",
-                                            p, path);
+                        if (streq(value, existing))
+                                continue;
 
-                        continue;
+                        log_info("Overwriting earlier assignment of %s in file '%s'.", p, path);
+                        free(hashmap_remove(sysctl_options, p));
+                        free(v);
                 }
 
                 property = strdup(p);
@@ -188,7 +190,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
 
                 k = hashmap_put(sysctl_options, property, new_value);
                 if (k < 0) {
-                        log_error("Failed to add sysctl variable %s to hashmap: %s", property, strerror(-r));
+                        log_error("Failed to add sysctl variable %s to hashmap: %s", property, strerror(-k));
                         free(property);
                         free(new_value);
                         return k;
@@ -303,8 +305,6 @@ int main(int argc, char *argv[]) {
                         log_error("Failed to enumerate sysctl.d files: %s", strerror(-r));
                         goto finish;
                 }
-
-                r = parse_file(sysctl_options, "/etc/sysctl.conf", true);
 
                 STRV_FOREACH(f, files) {
                         k = parse_file(sysctl_options, *f, true);
