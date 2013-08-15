@@ -49,9 +49,15 @@
 
 static const char *arg_dest = "/tmp";
 
+static inline void blkid_free_probep(blkid_probe *b) {
+        if (*b)
+                blkid_free_probe(*b);
+}
+#define _cleanup_blkid_freep_probe_ _cleanup_(blkid_free_probep)
+
 static int verify_gpt_partition(dev_t dev, sd_id128_t *type, unsigned *nr, char **fstype) {
         _cleanup_free_ char *t = NULL;
-        blkid_probe b = NULL;
+        _cleanup_blkid_freep_probe_ blkid_probe b = NULL;
         const char *v;
         int r;
 
@@ -61,12 +67,8 @@ static int verify_gpt_partition(dev_t dev, sd_id128_t *type, unsigned *nr, char 
 
         errno = 0;
         b = blkid_new_probe_from_filename(t);
-        if (!b) {
-                if (errno != 0)
-                        return -errno;
-
-                return -ENOMEM;
-        }
+        if (!b)
+                return errno != 0 ? -errno : -ENOMEM;
 
         blkid_probe_enable_superblocks(b, 1);
         blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
@@ -75,36 +77,26 @@ static int verify_gpt_partition(dev_t dev, sd_id128_t *type, unsigned *nr, char 
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (r == -2) {
-                r = -ENODEV;
-                goto finish;
-        } else if (r == 1) {
-                r = -ENODEV;
-                goto finish;
-        } else if (r != 0) {
-                r = errno ? -errno : -EIO;
-                goto finish;
-        }
+        if (r == -2)
+                return -ENODEV;
+        else if (r == 1)
+                return -ENODEV;
+        else if (r != 0)
+                return errno ? -errno : -EIO;
 
         errno = 0;
         r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
-        if (r != 0) {
-                r = errno ? -errno : -EIO;
-                goto finish;
-        }
+        if (r != 0)
+                return errno ? -errno : -EIO;
 
-        if (strcmp(v, "gpt") != 0) {
-                r = 0;
-                goto finish;
-        }
+        if (strcmp(v, "gpt") != 0)
+                return 0;
 
         if (type) {
                 errno = 0;
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
-                if (r != 0) {
-                        r = errno ? -errno : -EIO;
-                        goto finish;
-                }
+                if (r != 0)
+                        return errno ? -errno : -EIO;
 
                 r = sd_id128_from_string(v, type);
                 if (r < 0)
@@ -114,10 +106,8 @@ static int verify_gpt_partition(dev_t dev, sd_id128_t *type, unsigned *nr, char 
         if (nr) {
                 errno = 0;
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
-                if (r != 0) {
-                        r = errno ? -errno : -EIO;
-                        goto finish;
-                }
+                if (r != 0)
+                        return errno ? -errno : -EIO;
 
                 r = safe_atou(v, nr);
                 if (r < 0)
@@ -134,22 +124,14 @@ static int verify_gpt_partition(dev_t dev, sd_id128_t *type, unsigned *nr, char 
                         *fstype = NULL;
                 else {
                         fst = strdup(v);
-                        if (!fst) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!fst)
+                                return -ENOMEM;
 
                         *fstype = fst;
                 }
         }
 
         return 1;
-
-finish:
-        if (b)
-                blkid_free_probe(b);
-
-        return r;
 }
 
 static int add_swap(const char *path, const char *fstype) {
