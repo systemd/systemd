@@ -434,7 +434,7 @@ static int get_block_device(const char *path, dev_t *dev) {
         if (statfs("/", &sfs) < 0)
                 return -errno;
 
-        if (F_TYPE_CMP(sfs.f_type, BTRFS_SUPER_MAGIC))
+        if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC))
                 return get_btrfs_block_device(path, dev);
 
         return 0;

@@ -273,7 +273,7 @@ do {                                                                    \
   * the const magic to the type, otherwise the compiler warns about
   * signed/unsigned comparison, because the magic can be 32 bit unsigned.
  */
-#define F_TYPE_CMP(a, b) (a == (typeof(a)) b)
+#define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
 
 
 /* Returns the number of chars needed to format variables of the

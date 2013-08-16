@@ -1266,11 +1266,11 @@ static void check_network(sd_journal *j, int fd) {
                 return;
 
         j->on_network =
-                F_TYPE_CMP(sfs.f_type, CIFS_MAGIC_NUMBER) ||
-                F_TYPE_CMP(sfs.f_type, CODA_SUPER_MAGIC) ||
-                F_TYPE_CMP(sfs.f_type, NCP_SUPER_MAGIC) ||
-                F_TYPE_CMP(sfs.f_type, NFS_SUPER_MAGIC) ||
-                F_TYPE_CMP(sfs.f_type, SMB_SUPER_MAGIC);
+                F_TYPE_EQUAL(sfs.f_type, CIFS_MAGIC_NUMBER) ||
+                F_TYPE_EQUAL(sfs.f_type, CODA_SUPER_MAGIC) ||
+                F_TYPE_EQUAL(sfs.f_type, NCP_SUPER_MAGIC) ||
+                F_TYPE_EQUAL(sfs.f_type, NFS_SUPER_MAGIC) ||
+                F_TYPE_EQUAL(sfs.f_type, SMB_SUPER_MAGIC);
 }
 
 static bool file_has_type_prefix(const char *prefix, const char *filename) {
