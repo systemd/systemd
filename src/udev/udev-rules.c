@@ -34,6 +34,7 @@
 #include "conf-files.h"
 #include "strbuf.h"
 #include "strv.h"
+#include "util.h"
 
 #define PREALLOC_TOKEN          2048
 
@@ -1069,10 +1070,17 @@ static int add_rule(struct udev_rules *rules, char *line,
                 if (get_key(rules->udev, &linepos, &key, &op, &value) != 0) {
                         /* If we aren't at the end of the line, this is a parsing error.
                          * Make a best effort to describe where the problem is. */
-                        if (*linepos != '\n')
+                        if (*linepos != '\n') {
+                                char buf[2] = {linepos[1]};
+                                _cleanup_free_ char *tmp;
+
+                                tmp = cescape(buf);
                                 log_error("invalid key/value pair in file %s on line %u,"
-                                                "starting at character %lu\n",
-                                                filename, lineno, linepos - line + 1);
+                                          "starting at character %lu ('%s')\n",
+                                          filename, lineno, linepos - line + 1, tmp);
+                                if (linepos[1] == '#')
+                                        log_info("hint: comments can only start at beginning of line");
+                        }
                         break;
                 }
 
