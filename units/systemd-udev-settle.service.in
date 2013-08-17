@@ -16,7 +16,7 @@ DefaultDependencies=no
 Wants=systemd-udevd.service
 After=systemd-udev-trigger.service
 Before=sysinit.target
-ConditionCapability=CAP_MKNOD
+ConditionPathIsReadWrite=/sys
 
 [Service]
 Type=oneshot

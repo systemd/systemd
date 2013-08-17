@@ -12,7 +12,7 @@ DefaultDependencies=no
 Wants=systemd-udevd.service
 After=systemd-udevd-kernel.socket systemd-udevd-control.socket
 Before=sysinit.target
-ConditionCapability=CAP_MKNOD
+ConditionPathIsReadWrite=/sys
 
 [Service]
 Type=oneshot
