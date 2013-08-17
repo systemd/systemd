@@ -122,33 +122,42 @@ int main(int argc, char *argv[]) {
         }
 
         if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
-                const char *tty;
+                char *w, *state;
+                size_t l;
 
-                tty = strrchr(active, ' ');
-                if (tty)
-                        tty ++;
-                else
-                        tty = active;
-
-                /* Automatically add in a serial getty on the kernel
-                 * console */
-                if (isempty(tty) || tty_is_vc(tty))
-                        free(active);
-                else {
+                /* Automatically add in a serial getty on all active
+                 * kernel consoles */
+                FOREACH_WORD(w, l, active, state) {
+                        char *tty;
                         int k;
+
+                        tty = strndup(w, l);
+                        if (!tty) {
+                            log_oom();
+                            free(active);
+                            r = EXIT_FAILURE;
+                            goto finish;
+                        }
+
+                        if (isempty(tty) || tty_is_vc(tty)) {
+                                free(tty);
+                                continue;
+                        }
 
                         /* We assume that gettys on virtual terminals are
                          * started via manual configuration and do this magic
                          * only for non-VC terminals. */
 
                         k = add_serial_getty(tty);
-                        free(active);
 
                         if (k < 0) {
+                                free(tty);
+                                free(active);
                                 r = EXIT_FAILURE;
                                 goto finish;
                         }
                 }
+                free(active);
         }
 
         /* Automatically add in a serial getty on the first
