@@ -41,7 +41,7 @@ static unsigned opt_key_size = 0;
 static unsigned opt_keyfile_size = 0;
 static unsigned opt_keyfile_offset = 0;
 static char *opt_hash = NULL;
-static unsigned opt_tries = 0;
+static unsigned opt_tries = 3;
 static bool opt_readonly = false;
 static bool opt_verify = false;
 static bool opt_discards = false;
@@ -576,7 +576,6 @@ int main(int argc, char *argv[]) {
                 else
                         until = 0;
 
-                opt_tries = opt_tries > 0 ? opt_tries : 3;
                 opt_key_size = (opt_key_size > 0 ? opt_key_size : 256);
 
                 if (key_file) {
@@ -588,7 +587,7 @@ int main(int argc, char *argv[]) {
                                 log_warning("Key file %s is world-readable. This is not a good idea!", key_file);
                 }
 
-                for (tries = 0; tries < opt_tries; tries++) {
+                for (tries = 0; opt_tries == 0 || tries < opt_tries; tries++) {
                         _cleanup_strv_free_ char **passwords = NULL;
 
                         if (!key_file) {
@@ -616,7 +615,7 @@ int main(int argc, char *argv[]) {
                         log_warning("Invalid passphrase.");
                 }
 
-                if (tries >= opt_tries) {
+                if (opt_tries != 0 && tries >= opt_tries) {
                         log_error("Too many attempts; giving up.");
                         r = EXIT_FAILURE;
                         goto finish;

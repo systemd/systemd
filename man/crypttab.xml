@@ -330,7 +330,9 @@
                                 <term><varname>tries=</varname></term>
 
                                 <listitem><para>Specifies the maximum number of
-                                times the user is queried for a password.</para></listitem>
+                                times the user is queried for a password.
+                                The default is 3. If set to 0, the user is
+                                queried for a password indefinitely.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
