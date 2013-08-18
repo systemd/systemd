@@ -137,6 +137,29 @@
                                 will be activated in the initrd or the real root.</para>
                                 </listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>luks.options=</varname></term>
+                                <term><varname>rd.luks.options=</varname></term>
+
+                                <listitem><para>Takes a LUKS super
+                                block UUID followed by an '=' and a string
+                                of options separated by commas as argument.
+                                This will override the options for the given
+                                UUID.</para>
+                                <para>If only a list of options, without an
+                                UUID, is specified, they apply to any UUIDs not
+                                specified elsewhere, and without an entry in
+                                /etc/crypttab.</para><para>
+                                <varname>rd.luks.options=</varname>
+                                is honored only by initial RAM disk
+                                (initrd) while
+                                <varname>luks.options=</varname> is
+                                honored by both the main system and
+                                the initrd.</para>
+                                </listitem>
+                        </varlistentry>
+
                         <varlistentry>
                                 <term><varname>luks.key=</varname></term>
                                 <term><varname>rd.luks.key=</varname></term>

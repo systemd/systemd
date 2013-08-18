@@ -240,7 +240,7 @@ static int create_disk(
         return 0;
 }
 
-static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char **arg_proc_cmdline_keyfile) {
+static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char ***arg_proc_cmdline_options, char **arg_proc_cmdline_keyfile) {
         _cleanup_free_ char *line = NULL;
         char *w = NULL, *state = NULL;
         int r;
@@ -307,7 +307,20 @@ static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char **arg_proc_cm
                                         return log_oom();
                         }
 
+                } else if (startswith(word, "luks.options=")) {
+                        if (strv_extend(arg_proc_cmdline_options, word + 13) < 0)
+                                return log_oom();
+
+                } else if (startswith(word, "rd.luks.options=")) {
+
+                        if (in_initrd()) {
+                                if (strv_extend(arg_proc_cmdline_options, word + 16) < 0)
+                                        return log_oom();
+                        }
+
                 } else if (startswith(word, "luks.key=")) {
+                        if (*arg_proc_cmdline_keyfile)
+                                free(*arg_proc_cmdline_keyfile);
                         *arg_proc_cmdline_keyfile = strdup(word + 9);
                         if (!*arg_proc_cmdline_keyfile)
                                 return log_oom();
@@ -337,6 +350,7 @@ static int parse_proc_cmdline(char ***arg_proc_cmdline_disks, char **arg_proc_cm
 int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **arg_proc_cmdline_disks_done = NULL;
         _cleanup_strv_free_ char **arg_proc_cmdline_disks = NULL;
+        _cleanup_strv_free_ char **arg_proc_cmdline_options = NULL;
         _cleanup_free_ char *arg_proc_cmdline_keyfile = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         unsigned n = 0;
@@ -357,7 +371,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline(&arg_proc_cmdline_disks, &arg_proc_cmdline_keyfile) < 0)
+        if (parse_proc_cmdline(&arg_proc_cmdline_disks, &arg_proc_cmdline_options, &arg_proc_cmdline_keyfile) < 0)
                 return EXIT_FAILURE;
 
         if (!arg_enabled)
@@ -412,6 +426,26 @@ int main(int argc, char *argv[]) {
                                 continue;
                         }
 
+                        if (arg_proc_cmdline_options) {
+                                /*
+                                  If options are specified on the kernel commandline, let them override
+                                  the ones from crypttab.
+                                */
+                                STRV_FOREACH(i, arg_proc_cmdline_options) {
+                                        _cleanup_free_ char *proc_uuid = NULL, *proc_options = NULL;
+                                        const char *p = *i;
+
+                                        k = sscanf(p, "%m[0-9a-fA-F-]=%ms", &proc_uuid, &proc_options);
+                                        if (k == 2 && streq(proc_uuid, device + 5)) {
+                                                if (options)
+                                                        free(options);
+                                                options = strdup(p);
+                                                if (!proc_options)
+                                                        return log_oom();
+                                        }
+                                }
+                        }
+
                         if (arg_proc_cmdline_disks) {
                                 /*
                                   If luks UUIDs are specified on the kernel command line, use them as a filter
@@ -452,7 +486,7 @@ next:
                   on the kernel command line and not yet written.
                 */
 
-                _cleanup_free_ char *name = NULL, *device = NULL;
+                _cleanup_free_ char *name = NULL, *device = NULL, *options = NULL;
                 const char *p = *i;
 
                 if (startswith(p, "luks-"))
@@ -467,7 +501,44 @@ next:
                 if (!name || !device)
                         return log_oom();
 
-                if (create_disk(name, device, arg_proc_cmdline_keyfile, "timeout=0") < 0)
+                if (arg_proc_cmdline_options) {
+                        /*
+                          If options are specified on the kernel commandline, use them.
+                        */
+                        char **j;
+
+                        STRV_FOREACH(j, arg_proc_cmdline_options) {
+                                _cleanup_free_ char *proc_uuid = NULL, *proc_options = NULL;
+                                const char *s = *j;
+                                int k;
+
+                                k = sscanf(s, "%m[0-9a-fA-F-]=%ms", &proc_uuid, &proc_options);
+                                if (k == 2) {
+                                        if (streq(proc_uuid, device + 5)) {
+                                                if (options)
+                                                        free(options);
+                                                options = strdup(proc_options);
+                                                if (!options)
+                                                        return log_oom();
+                                        }
+                                } else if (!options) {
+                                        /*
+                                          Fall back to options without a specified UUID
+                                        */
+                                        options = strdup(s);
+                                        if (!options)
+                                                return log_oom();
+                                }
+                        }
+                }
+
+                if (!options) {
+                        options = strdup("timeout=0");
+                        if (!options)
+                                return log_oom();
+                }
+
+                if (create_disk(name, device, arg_proc_cmdline_keyfile, options) < 0)
                         r = EXIT_FAILURE;
         }
 
