@@ -25,7 +25,7 @@ if [ -f .git/hooks/pre-commit.sample ] && [ ! -f .git/hooks/pre-commit ]; then
 fi
 
 if which gtkdocize >/dev/null 2>/dev/null; then
-        gtkdocize --docdir docs/
+        gtkdocize --docdir docs/ --flavour no-tmpl
         gtkdocargs=--enable-gtk-doc
 else
         echo "You don't have gtk-doc installed, and thus won't be able to generate the documentation."
