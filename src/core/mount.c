@@ -338,6 +338,12 @@ static bool mount_is_bind(MountParameters *p) {
         return false;
 }
 
+static bool mount_is_auto(MountParameters *p) {
+        assert(p);
+
+        return !mount_test_option(p->options, "noauto");
+}
+
 static bool needs_quota(MountParameters *p) {
         assert(p);
 
@@ -356,6 +362,7 @@ static bool needs_quota(MountParameters *p) {
 
 static int mount_add_device_links(Mount *m) {
         MountParameters *p;
+        bool device_wants_mount = false;
         int r;
 
         assert(m);
@@ -376,7 +383,10 @@ static int mount_add_device_links(Mount *m) {
         if (path_equal(m->where, "/"))
                 return 0;
 
-        r = unit_add_node_link(UNIT(m), p->what, false);
+        if (mount_is_auto(p) && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+                device_wants_mount = true;
+
+        r = unit_add_node_link(UNIT(m), p->what, device_wants_mount);
         if (r < 0)
                 return r;
 

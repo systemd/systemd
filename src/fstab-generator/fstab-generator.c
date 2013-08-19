@@ -170,16 +170,6 @@ static int add_swap(const char *what, struct mntent *me) {
         return 0;
 }
 
-static bool mount_is_bind(struct mntent *me) {
-        assert(me);
-
-        return
-                hasmntopt(me, "bind") ||
-                streq(me->mnt_type, "bind") ||
-                hasmntopt(me, "rbind") ||
-                streq(me->mnt_type, "rbind");
-}
-
 static bool mount_is_network(struct mntent *me) {
         assert(me);
 
@@ -205,14 +195,12 @@ static int add_mount(
                 bool noauto,
                 bool nofail,
                 bool automount,
-                bool isbind,
                 const char *post,
                 const char *source) {
         _cleanup_free_ char
                 *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL,
                 *automount_name = NULL, *automount_unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        int r;
 
         assert(what);
         assert(where);
@@ -294,27 +282,6 @@ static int add_mount(
                         if (symlink(unit, lnk) < 0) {
                                 log_error("Failed to create symlink %s: %m", lnk);
                                 return -errno;
-                        }
-                }
-
-                if (!isbind &&
-                    !path_equal(where, "/")) {
-
-                        r = device_name(what, &device);
-                        if (r < 0)
-                                return r;
-
-                        if (r > 0) {
-                                free(lnk);
-                                lnk = strjoin(arg_dest, "/", device, ".wants/", name, NULL);
-                                if (!lnk)
-                                        return log_oom();
-
-                                mkdir_parents_label(lnk, 0755);
-                                if (symlink(unit, lnk) < 0) {
-                                        log_error("Failed to create symlink %s: %m", lnk);
-                                        return -errno;
-                                }
                         }
                 }
         }
@@ -413,7 +380,7 @@ static int parse_fstab(const char *prefix, bool initrd) {
                 if (streq(me->mnt_type, "swap"))
                         k = add_swap(what, me);
                 else {
-                        bool noauto, nofail, automount, isbind;
+                        bool noauto, nofail, automount;
                         const char *post;
 
                         noauto = !!hasmntopt(me, "noauto");
@@ -421,7 +388,6 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         automount =
                                   hasmntopt(me, "comment=systemd.automount") ||
                                   hasmntopt(me, "x-systemd.automount");
-                        isbind = mount_is_bind(me);
 
                         if (initrd) {
                                 post = SPECIAL_INITRD_FS_TARGET;
@@ -435,7 +401,7 @@ static int parse_fstab(const char *prefix, bool initrd) {
 
                         k = add_mount(what, where, me->mnt_type, me->mnt_opts,
                                       me->mnt_passno, noauto, nofail, automount,
-                                      isbind, post, fstab_path);
+                                      post, fstab_path);
                 }
 
                 if (k < 0)
@@ -523,7 +489,7 @@ static int parse_new_root_from_proc_cmdline(void) {
 
         log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
         r = add_mount(what, "/sysroot", type, opts, 0, noauto, nofail, false,
-                      false, SPECIAL_INITRD_ROOT_FS_TARGET, "/proc/cmdline");
+                      SPECIAL_INITRD_ROOT_FS_TARGET, "/proc/cmdline");
 
         return (r < 0) ? r : 0;
 }
