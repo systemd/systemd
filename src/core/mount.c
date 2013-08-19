@@ -447,6 +447,21 @@ static int mount_add_quota_links(Mount *m) {
         return 0;
 }
 
+static bool should_umount(Mount *m) {
+        MountParameters *p;
+
+        if (path_equal(m->where, "/") ||
+            path_equal(m->where, "/usr"))
+                return false;
+
+        p = get_mount_parameters(m);
+        if (p && mount_test_option(p->options, "x-initrd.mount") &&
+            !in_initrd())
+                return false;
+
+        return true;
+}
+
 static int mount_add_default_dependencies(Mount *m) {
         const char *after, *after2, *online;
         MountParameters *p;
@@ -491,9 +506,11 @@ static int mount_add_default_dependencies(Mount *m) {
                         return r;
         }
 
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
-        if (r < 0)
-                return r;
+        if (should_umount(m)) {
+                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -1553,8 +1570,7 @@ static int mount_add_one(
                 if (r < 0)
                         goto fail;
 
-                if (!path_equal(where, "/") &&
-                    !path_equal(where, "/usr")) {
+                if (should_umount(MOUNT(u))) {
                         r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
                         if (r < 0)
                                 goto fail;
