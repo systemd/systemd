@@ -97,14 +97,13 @@
                 involved with boot and systems management.</para>
 
                 <para>In contrast to
-                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                <command>systemd-nspawn</command> may be used to boot
-                full Linux-based operating systems in a
-                container.</para>
+                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
+                may be used to boot full Linux-based operating systems
+                in a container.</para>
 
                 <para>Use a tool like
                 <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                 or
                 <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 to set up an OS directory tree suitable as file system
