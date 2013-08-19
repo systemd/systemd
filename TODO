@@ -220,8 +220,6 @@ Features:
   /etc should always override /run+/usr and also any symlink
   destination.
 
-* remove duplicate default deps logic from fstab-generator vs. mount.c
-
 * when isolating, try to figure out a way how we implicitly can order
   all units we stop before the isolating unit...
 
