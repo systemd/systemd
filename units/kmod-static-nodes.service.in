@@ -9,6 +9,7 @@
 Description=Create list of required static device nodes for the current kernel
 DefaultDependencies=no
 Before=sysinit.target systemd-tmpfiles-setup-dev.service
+ConditionVirtualization=!container
 
 [Service]
 Type=oneshot
