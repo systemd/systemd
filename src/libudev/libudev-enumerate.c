@@ -270,8 +270,9 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                 return NULL;
         if (!udev_enumerate->devices_uptodate) {
                 unsigned int i;
+                int move_later = -1;
                 unsigned int max;
-                struct syspath *prev = NULL, *move_later = NULL;
+                struct syspath *prev = NULL;
                 size_t move_later_prefix = 0;
 
                 udev_list_cleanup(&udev_enumerate->devices_list);
@@ -303,23 +304,25 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                                 move_later_prefix = devices_delay_later(udev_enumerate->udev, entry->syspath);
 
                                 if (move_later_prefix > 0) {
-                                        move_later = entry;
+                                        move_later = i;
                                         continue;
                                 }
                         }
 
-                        if (move_later &&
-                             !strneq(entry->syspath, move_later->syspath, move_later_prefix)) {
+                        if ((move_later >= 0) &&
+                             !strneq(entry->syspath, udev_enumerate->devices[move_later].syspath, move_later_prefix)) {
 
-                                udev_list_entry_add(&udev_enumerate->devices_list, move_later->syspath, NULL);
-                                move_later = NULL;
+                                udev_list_entry_add(&udev_enumerate->devices_list,
+                                                    udev_enumerate->devices[move_later].syspath, NULL);
+                                move_later = -1;
                         }
 
                         udev_list_entry_add(&udev_enumerate->devices_list, entry->syspath, NULL);
                 }
 
-                if (move_later)
-                        udev_list_entry_add(&udev_enumerate->devices_list, move_later->syspath, NULL);
+                if (move_later >= 0)
+                        udev_list_entry_add(&udev_enumerate->devices_list,
+                                            udev_enumerate->devices[move_later].syspath, NULL);
 
                 /* add and cleanup delayed devices from end of list */
                 for (i = max; i < udev_enumerate->devices_cur; i++) {
