@@ -15,8 +15,8 @@ case "$service" in
         _arguments \
             {-h,--help}'[Show this help]' \
             '--version[Show package version.]' \
-            {-t,--identifier=}'[Set syslog identifier.]' \
-            {-p,--priority=}'[Set priority value.]:value:({0..7})' \
+            {-t+,--identifier=}'[Set syslog identifier.]' \
+            {-p+,--priority=}'[Set priority value.]:value:({0..7})' \
             '--level-prefix=[Control whether level prefix shall be parsed.]:boolean:(1 0)' \
             ':Message'
     ;;
@@ -38,8 +38,8 @@ case "$service" in
             '(-m -p -i -t)-c[Order by CPU load]' \
             '(-c -p -i -t)-m[Order by memory load]' \
             '(-c -m -p -t)-i[Order by IO load]' \
-            {-d,--delay=}'[Specify delay]' \
-            {-n,--iterations=}'[Run for N iterations before exiting]' \
+            {-d+,--delay=}'[Specify delay]' \
+            {-n+,--iterations=}'[Run for N iterations before exiting]' \
             {-b,--batch}'[Run in batch mode, accepting no input]' \
             '--depth=[Maximum traversal depth]'
     ;;

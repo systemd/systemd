@@ -62,26 +62,26 @@ _arguments -s \
     {-a,--all}'[Show all fields, including long and unprintable]' \
     {-f,--follow}'[Follow journal]' \
     {-e,--pager-end}'[Jump to the end of the journal in the pager]' \
-    {-n,--lines=}'[Number of journal entries to show]:integer' \
+    {-n+,--lines=}'[Number of journal entries to show]:integer' \
     '--no-tail[Show all lines, even in follow mode]' \
     {-r,--reverse}'[Reverse output]' \
-    {-o,--output=}'[Change journal output mode]:output modes:_outputmodes' \
+    {-o+,--output=}'[Change journal output mode]:output modes:_outputmodes' \
     {-x,--catalog}'[Show explanatory texts with each log line]' \
     {-q,--quiet}"[Don't show privilege warning]" \
     {-m,--merge}'[Show entries from all available journals]' \
-    {-b,--boot=}'[Show data only from the specified boot or offset]:boot id or offset:_journal_boots' \
+    {-b+,--boot=}'[Show data only from the specified boot or offset]:boot id or offset:_journal_boots' \
     {-k,--dmesg}'[Show only kernel messages, Implies -b]' \
-    {-u,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
+    {-u+,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
     '--user-unit[Show data only from the specified user session unit]:units:_journal_fields _SYSTEMD_USER_UNIT' \
-    {-p,--priority=}'[Show only messages within the specified priority range]:priority:_journal_fields PRIORITY' \
-    {-c,--cursor=}'[Start showing entries from specified cursor]:cursors:_journal_fields __CURSORS' \
+    {-p+,--priority=}'[Show only messages within the specified priority range]:priority:_journal_fields PRIORITY' \
+    {-c+,--cursor=}'[Start showing entries from specified cursor]:cursors:_journal_fields __CURSORS' \
     '--after-cursor=[Start showing entries from the location in the journal after the cursor]:cursors:_journal_fields __CURSORS' \
     '--since=[Start showing entries newer or of the specified date]:YYYY-MM-DD HH\:MM\:SS' \
     '--until=[Stop showing entries older or of the specified date]:YYYY-MM-DD HH\:MM\:SS' \
     {-F,--field=}'[List all values a certain field takes]:Fields:_list_fields' \
     '--system[Show system and kernel messages]' \
     '--user[Show messages from user services]' \
-    {-D,--directory=}'[Show journal files from directory]:directories:_directories' \
+    {-D+,--directory=}'[Show journal files from directory]:directories:_directories' \
     '--file=[Operate on specified journal files]:file:_files' \
     '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
     '--new-id128[Generate a new 128 Bit ID]' \

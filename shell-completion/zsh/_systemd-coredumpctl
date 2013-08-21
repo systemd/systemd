@@ -28,8 +28,8 @@ _systemd-coredumpctl_command(){
 }
 
 _arguments \
-    {-o,--output=}'[Write output to FILE]:output file:_files' \
-    {-F,--field=}'[Show field in list output]:field' \
+    {-o+,--output=}'[Write output to FILE]:output file:_files' \
+    {-F+,--field=}'[Show field in list output]:field' \
     '--no-pager[Do not pipe output into a pager]' \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \

@@ -28,5 +28,5 @@ _arguments -s \
     '--static[Only set static hostname]' \
     '--pretty[Only set pretty hostname]' \
     '--no-ask-password[Do not prompt for password]' \
-    {-H,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     '*::hostnamectl commands:_hostnamectl_command'

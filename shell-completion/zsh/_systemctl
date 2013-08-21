@@ -309,9 +309,9 @@ _unit_types() {
 _arguments -s \
     {-h,--help}'[Show help]' \
     '--version[Show package version]' \
-    {-t,--type=}'[List only units of a particular type]:unit type:_unit_types' \
+    {-t+,--type=}'[List only units of a particular type]:unit type:_unit_types' \
     '--state=[Display units in the specifyied state]:unit state:_unit_states' \
-    \*{-p,--property=}'[Show only properties by specific name]:unit property' \
+    \*{-p+,--property=}'[Show only properties by specific name]:unit property' \
     {-a,--all}'[Show all units/properties, including dead/empty ones]' \
     '--reverse[Show reverse dependencies]' \
     '--after[Show units ordered after]' \
@@ -334,13 +334,13 @@ _arguments -s \
     "--no-reload[When enabling/disabling unit files, don't reload daemon configuration]" \
     '--no-ask-password[Do not ask for system passwords]' \
     '--kill-who=[Who to send signal to]:killwho:(main control all)' \
-    {-s,--signal=}'[Which signal to send]:signal:_signals' \
+    {-s+,--signal=}'[Which signal to send]:signal:_signals' \
     {-f,--force}'[When enabling unit files, override existing symlinks. When shutting down, execute action immediately]' \
     '--root=[Enable unit files in the specified root directory]:directory:_directories' \
     '--runtime[Enable unit files only temporarily until next reboot]' \
-    {-H,--host=}'[Show information for remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-H+,--host=}'[Show information for remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-P,--privileged}'[Acquire privileges before execution]' \
-    {-n,--lines=}'[Journal entries to show]:number of entries' \
-    {-o,--output=}'[Change journal output mode]:modes:_outputmodes' \
+    {-n+,--lines=}'[Journal entries to show]:number of entries' \
+    {-o+,--output=}'[Change journal output mode]:modes:_outputmodes' \
     '--plain[When used with list-dependencies, print output as a list]' \
     '*::systemctl command:_systemctl_command'

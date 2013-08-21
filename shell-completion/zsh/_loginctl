@@ -95,12 +95,12 @@ done
 _arguments -s \
     {-h,--help}'[Show help]' \
     '--version[Show package version]' \
-    \*{-p,--property=}'[Show only properties by this name]:unit property' \
+    \*{-p+,--property=}'[Show only properties by this name]:unit property' \
     {-a,--all}'[Show all properties, including empty ones]' \
     '--kill-who=[Who to send signal to]:killwho:(main control all)' \
-    {-s,--signal=}'[Which signal to send]:signal:_signals' \
+    {-s+,--signal=}'[Which signal to send]:signal:_signals' \
     '--no-ask-password[Do not ask for system passwords]' \
-    {-H,--host=}'[Show information for remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-H+,--host=}'[Show information for remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-P,--privileged}'[Acquire privileges before execution]' \
     '--no-pager[Do not pipe output into a pager]' \
     '*::loginctl command:_loginctl_command'

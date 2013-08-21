@@ -12,11 +12,11 @@ _nspawn-caps(){
 
 _arguments \
     {-h,--help}'[Show this help]' \
-    {--directory=,-D}'[Directory to use as file system root for the namespace container. If omitted the current directory will be used.]:directories:_directories' \
-    {--boot,-b}'[Automatically search for an init binary and invoke it instead of a shell or a user supplied program.]' \
-    {--user=,-u}'[Run the command under specified user, create home directory and cd into it.]' \
+    {--directory=,-D+}'[Directory to use as file system root for the namespace container. If omitted the current directory will be used.]:directories:_directories' \
+    {--boot,-b+}'[Automatically search for an init binary and invoke it instead of a shell or a user supplied program.]' \
+    {--user=,-u+}'[Run the command under specified user, create home directory and cd into it.]' \
     '--uuid=[Set the specified uuid for the container.]' \
-    {--controllers=,-C}'[Makes the container appear in other hierarchies than the name=systemd:/ one. Takes a comma-separated list of controllers.]' \
+    {--controllers=,-C+}'[Makes the container appear in other hierarchies than the name=systemd:/ one. Takes a comma-separated list of controllers.]' \
     '--private-network[Turn off networking in the container. This makes all network interfaces unavailable in the container, with the exception of the loopback device.]' \
     '--read-only[Mount the root file system read only for the container.]' \
     '--capability=[List one or more additional capabilities to grant the container.]:capabilities:_nspawn-caps' \

@@ -79,5 +79,5 @@ _arguments \
     "--no-convert[Don't convert keyboard mappings]" \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-ask-password[Do not prompt for password]' \
-    {-H,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     '*::localectl commands:_localectl_command'
