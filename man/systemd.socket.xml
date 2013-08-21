@@ -510,7 +510,7 @@
                         <varlistentry>
                                 <term><varname>ReusePort=</varname></term>
                                 <listitem><para>Takes a boolean
-                                value. If true, allows multiple bind()s
+                                value. If true, allows multiple <citerefentry><refentrytitle>bind</refentrytitle><manvolnum>2</manvolnum></citerefentry>s
                                 to this TCP or UDP port.  This
                                 controls the SO_REUSEPORT socket
                                 option.  See
