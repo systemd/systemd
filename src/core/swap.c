@@ -187,8 +187,7 @@ static int swap_add_device_links(Swap *s) {
                 return 0;
 
         if (is_device_path(s->what))
-                return unit_add_node_link(UNIT(s), s->what,
-                                          !p->noauto && p->nofail &&
+                return unit_add_node_link(UNIT(s), s->what, !p->noauto &&
                                           UNIT(s)->manager->running_as == SYSTEMD_SYSTEM);
         else
                 /* File based swap devices need to be ordered after
