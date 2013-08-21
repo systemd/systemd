@@ -132,14 +132,14 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
                 len = end - pos;
                 assert(len >= 0);
 
-                /* We need to figure out when we are showing the last line, and
+                /* We need to figure out when we are showing not-last line, *and*
                  * will skip subsequent lines. In that case, we will put the dots
                  * at the end of the line, instead of putting dots in the middle
                  * or not at all.
                  */
                 tail_line =
                         line + 1 == PRINT_LINE_THRESHOLD ||
-                        end + 1 >= message + message_len;
+                        end + 1 >= message + PRINT_CHAR_THRESHOLD;
 
                 if (flags & (OUTPUT_FULL_WIDTH | OUTPUT_SHOW_ALL) ||
                     (prefix + len + 1 < n_columns && !tail_line)) {
