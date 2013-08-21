@@ -106,9 +106,19 @@ static inline bool isempty(const char *p) {
         return !p || !p[0];
 }
 
+static inline const char *startswith(const char *s, const char *prefix) {
+        if (strncmp(s, prefix, strlen(prefix)) == 0)
+                return s + strlen(prefix);
+        return NULL;
+}
+
+static inline const char *startswith_no_case(const char *s, const char *prefix) {
+        if (strncasecmp(s, prefix, strlen(prefix)) == 0)
+                return s + strlen(prefix);
+        return NULL;
+}
+
 char *endswith(const char *s, const char *postfix) _pure_;
-char *startswith(const char *s, const char *prefix) _pure_;
-char *startswith_no_case(const char *s, const char *prefix) _pure_;
 
 bool first_word(const char *s, const char *word) _pure_;
 
