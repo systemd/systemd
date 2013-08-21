@@ -197,6 +197,7 @@ static int swap_add_device_links(Swap *s) {
 }
 
 static int swap_add_default_dependencies(Swap *s) {
+        bool nofail = false, noauto = false;
         int r;
 
         assert(s);
@@ -210,6 +211,20 @@ static int swap_add_default_dependencies(Swap *s) {
         r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
         if (r < 0)
                 return r;
+
+        if (s->from_fragment) {
+                SwapParameters *p = &s->parameters_fragment;
+
+                nofail = p->nofail;
+                noauto = p->noauto;
+        }
+
+        if (!noauto) {
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, (nofail ? UNIT_WANTED_BY : UNIT_REQUIRED_BY),
+                                                      SPECIAL_SWAP_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
