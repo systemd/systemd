@@ -23,6 +23,9 @@ Bugfixes:
   - make the resulting line the requested number of *characters*, not *bytes*,
   - avoid truncuating multi-byte sequences in the middle.
 
+* When we detect invalid UTF-8, we cant't use it in an error message:
+  log...("Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
+
 * shorten the message to sane length:
 
   Cannot add dependency job for unit display-manager.service, ignoring: Unit display-manager.service failed to load: No such file or directory. See system logs and 'systemctl status display-manager.service' for details.
@@ -284,9 +287,6 @@ Features:
 * use "log level" rather than "log priority" everywhere
 
 * timedate: have global on/off switches for auto-time (NTP), and auto-timezone that connman can subscribe to.
-
-* Honour "-" prefix for InaccessibleDirectories= and ReadOnlyDirectories= to
-  suppress errors of the specified path doesn't exist
 
 * dev-setup.c: when running in a container, create a tiny stub udev
   database with the systemd tag set for all network interfaces found,

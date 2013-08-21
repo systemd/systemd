@@ -599,6 +599,7 @@ int config_parse_path(const char *unit,
 
         char **s = data;
         char *n;
+        int offset;
 
         assert(filename);
         assert(lvalue);
@@ -611,7 +612,9 @@ int config_parse_path(const char *unit,
                 return 0;
         }
 
-        if (!path_is_absolute(rvalue)) {
+        offset = rvalue[0] == '-' && (streq(lvalue, "InaccessibleDirectories") ||
+                                      streq(lvalue, "ReadOnlyDirectories"));
+        if (!path_is_absolute(rvalue + offset)) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Not an absolute path, ignoring: %s", rvalue);
                 return 0;
@@ -713,6 +716,7 @@ int config_parse_path_strv(const char *unit,
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 _cleanup_free_ char *n;
+                int offset;
 
                 n = strndup(w, l);
                 if (!n)
@@ -724,7 +728,9 @@ int config_parse_path_strv(const char *unit,
                         continue;
                 }
 
-                if (!path_is_absolute(n)) {
+                offset = n[0] == '-' && (streq(lvalue, "InaccessibleDirectories") ||
+                                         streq(lvalue, "ReadOnlyDirectories"));
+                if (!path_is_absolute(n + offset)) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                                    "Not an absolute path, ignoring: %s", rvalue);
                         continue;

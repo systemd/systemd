@@ -828,7 +828,15 @@
                                 the empty string is assigned to this
                                 option the specific list is reset, and
                                 all prior assignments have no
-                                effect.</para></listitem>
+                                effect.</para>
+                                <para>Paths in
+                                <varname>ReadOnlyDirectories=</varname>
+                                and
+                                <varname>InaccessibleDirectories=</varname>
+                                may be prefixed with
+                                <literal>-</literal>, in which case
+                                they will be ignored when they don't
+                                exist.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

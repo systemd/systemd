@@ -51,12 +51,20 @@ typedef struct BindMount {
         const char *path;
         MountMode mode;
         bool done;
+        bool ignore;
 } BindMount;
 
 static int append_mounts(BindMount **p, char **strv, MountMode mode) {
         char **i;
 
         STRV_FOREACH(i, strv) {
+
+                (*p)->ignore = false;
+
+                if ((mode == INACCESSIBLE || mode == READONLY) && (*i)[0] == '-') {
+                        (*p)->ignore = true;
+                        (*i)++;
+                }
 
                 if (!path_is_absolute(*i))
                         return -EINVAL;
@@ -155,6 +163,8 @@ static int apply_mount(
         r = mount(what, m->path, NULL, MS_BIND|MS_REC, NULL);
         if (r >= 0)
                 log_debug("Successfully mounted %s to %s", what, m->path);
+        else if (m->ignore && errno == ENOENT)
+                r = 0;
 
         return r;
 }
@@ -168,7 +178,7 @@ static int make_read_only(BindMount *m) {
                 return 0;
 
         r = mount(NULL, m->path, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_REC, NULL);
-        if (r < 0)
+        if (r < 0 && !(m->ignore && errno == ENOENT))
                 return -errno;
 
         return 0;
