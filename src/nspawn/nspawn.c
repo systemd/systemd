@@ -1602,7 +1602,7 @@ int main(int argc, char *argv[]) {
                                 }
 
                                 if ((asprintf((char **)(envp + n_env++), "LISTEN_FDS=%u", n_fd_passed) < 0) ||
-                                    (asprintf((char **)(envp + n_env++), "LISTEN_PID=%lu", (unsigned long) 1) < 0)) {
+                                    (asprintf((char **)(envp + n_env++), "LISTEN_PID=1") < 0)) {
                                         log_oom();
                                         goto child_fail;
                                 }
