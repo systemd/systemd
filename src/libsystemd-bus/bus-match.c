@@ -555,22 +555,22 @@ static int bus_match_find_leaf(
 enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n) {
         assert(k);
 
-        if (n == 4 && hasprefix(k, "type"))
+        if (n == 4 && startswith(k, "type"))
                 return BUS_MATCH_MESSAGE_TYPE;
-        if (n == 6 && hasprefix(k, "sender"))
+        if (n == 6 && startswith(k, "sender"))
                 return BUS_MATCH_SENDER;
-        if (n == 11 && hasprefix(k, "destination"))
+        if (n == 11 && startswith(k, "destination"))
                 return BUS_MATCH_DESTINATION;
-        if (n == 9 && hasprefix(k, "interface"))
+        if (n == 9 && startswith(k, "interface"))
                 return BUS_MATCH_INTERFACE;
-        if (n == 6 && hasprefix(k, "member"))
+        if (n == 6 && startswith(k, "member"))
                 return BUS_MATCH_MEMBER;
-        if (n == 4 && hasprefix(k, "path"))
+        if (n == 4 && startswith(k, "path"))
                 return BUS_MATCH_PATH;
-        if (n == 14 && hasprefix(k, "path_namespace"))
+        if (n == 14 && startswith(k, "path_namespace"))
                 return BUS_MATCH_PATH_NAMESPACE;
 
-        if (n == 4 && hasprefix(k, "arg")) {
+        if (n == 4 && startswith(k, "arg")) {
                 int j;
 
                 j = undecchar(k[3]);
@@ -580,7 +580,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
                 return BUS_MATCH_ARG + j;
         }
 
-        if (n == 5 && hasprefix(k, "arg")) {
+        if (n == 5 && startswith(k, "arg")) {
                 int a, b;
                 enum bus_match_node_type t;
 
@@ -596,7 +596,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
                 return t;
         }
 
-        if (n == 8 && hasprefix(k, "arg") && hasprefix(k + 4, "path")) {
+        if (n == 8 && startswith(k, "arg") && startswith(k + 4, "path")) {
                 int j;
 
                 j = undecchar(k[3]);
@@ -606,7 +606,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
                 return BUS_MATCH_ARG_PATH + j;
         }
 
-        if (n == 9 && hasprefix(k, "arg") && hasprefix(k + 5, "path")) {
+        if (n == 9 && startswith(k, "arg") && startswith(k + 5, "path")) {
                 enum bus_match_node_type t;
                 int a, b;
 
@@ -622,7 +622,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
                 return t;
         }
 
-        if (n == 13 && hasprefix(k, "arg") && hasprefix(k + 4, "namespace")) {
+        if (n == 13 && startswith(k, "arg") && startswith(k + 4, "namespace")) {
                 int j;
 
                 j = undecchar(k[3]);
@@ -632,7 +632,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
                 return BUS_MATCH_ARG_NAMESPACE + j;
         }
 
-        if (n == 14 && hasprefix(k, "arg") && hasprefix(k + 5, "namespace")) {
+        if (n == 14 && startswith(k, "arg") && startswith(k + 5, "namespace")) {
                 enum bus_match_node_type t;
                 int a, b;
 

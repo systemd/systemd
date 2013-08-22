@@ -186,8 +186,6 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 
 #define char_array_0(x) x[sizeof(x)-1] = 0;
 
-#define hasprefix(s, prefix) (memcmp(s, prefix, strlen(prefix)) == 0)
-
 #define IOVEC_SET_STRING(i, s)                  \
         do {                                    \
                 struct iovec *_i = &(i);        \

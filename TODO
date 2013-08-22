@@ -96,8 +96,6 @@ Features:
 
 * systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
 
-* do we really need both hasprefix() and startswith()?
-
 * journald: when we drop syslog messages because the syslog socket is
   full, make sure to write how many messages are lost as first thing
   to syslog when it works again.

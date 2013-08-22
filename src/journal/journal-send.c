@@ -245,7 +245,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
 
                 have_syslog_identifier = have_syslog_identifier ||
                         (c == (char *) iov[i].iov_base + 17 &&
-                         hasprefix(iov[i].iov_base, "SYSLOG_IDENTIFIER"));
+                         startswith(iov[i].iov_base, "SYSLOG_IDENTIFIER"));
 
                 nl = memchr(iov[i].iov_base, '\n', iov[i].iov_len);
                 if (nl) {
