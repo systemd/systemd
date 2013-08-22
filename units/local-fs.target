@@ -9,5 +9,7 @@
 Description=Local File Systems
 Documentation=man:systemd.special(7)
 After=local-fs-pre.target
+DefaultDependencies=no
+Conflicts=shutdown.target
 OnFailure=emergency.target
 OnFailureIsolate=no

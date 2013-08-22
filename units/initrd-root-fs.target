@@ -11,3 +11,5 @@ Documentation=man:systemd.special(7)
 ConditionPathExists=/etc/initrd-release
 OnFailure=emergency.target
 OnFailureIsolate=yes
+DefaultDependencies=no
+Conflicts=shutdown.target

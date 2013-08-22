@@ -12,3 +12,5 @@ OnFailure=emergency.target
 OnFailureIsolate=yes
 ConditionPathExists=/etc/initrd-release
 After=initrd-parse-etc.service
+DefaultDependencies=no
+Conflicts=shutdown.target
