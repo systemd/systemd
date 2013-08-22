@@ -38,12 +38,8 @@ int verify_polkit(
 
 #ifdef ENABLE_POLKIT
         DBusMessage *m = NULL, *reply = NULL;
-        const char *unix_process = "unix-process", *pid = "pid", *starttime = "start-time", *cancel_id = "";
+        const char *system_bus_name = "system-bus-name", *name = "name", *cancel_id = "";
         uint32_t flags = interactive ? 1 : 0;
-        pid_t pid_raw;
-        uint32_t pid_u32;
-        unsigned long long starttime_raw;
-        uint64_t starttime_u64;
         DBusMessageIter iter_msg, iter_struct, iter_array, iter_dict, iter_variant;
         int r;
         dbus_bool_t authorized = FALSE, challenge = FALSE;
@@ -68,14 +64,6 @@ int verify_polkit(
 
 #ifdef ENABLE_POLKIT
 
-        pid_raw = bus_get_unix_process_id(c, sender, error);
-        if (pid_raw == 0)
-                return -EINVAL;
-
-        r = get_starttime_of_pid(pid_raw, &starttime_raw);
-        if (r < 0)
-                return r;
-
         m = dbus_message_new_method_call(
                         "org.freedesktop.PolicyKit1",
                         "/org/freedesktop/PolicyKit1/Authority",
@@ -86,22 +74,13 @@ int verify_polkit(
 
         dbus_message_iter_init_append(m, &iter_msg);
 
-        pid_u32 = (uint32_t) pid_raw;
-        starttime_u64 = (uint64_t) starttime_raw;
-
         if (!dbus_message_iter_open_container(&iter_msg, DBUS_TYPE_STRUCT, NULL, &iter_struct) ||
-            !dbus_message_iter_append_basic(&iter_struct, DBUS_TYPE_STRING, &unix_process) ||
+            !dbus_message_iter_append_basic(&iter_struct, DBUS_TYPE_STRING, &system_bus_name) ||
             !dbus_message_iter_open_container(&iter_struct, DBUS_TYPE_ARRAY, "{sv}", &iter_array) ||
             !dbus_message_iter_open_container(&iter_array, DBUS_TYPE_DICT_ENTRY, NULL, &iter_dict) ||
-            !dbus_message_iter_append_basic(&iter_dict, DBUS_TYPE_STRING, &pid) ||
-            !dbus_message_iter_open_container(&iter_dict, DBUS_TYPE_VARIANT, "u", &iter_variant) ||
-            !dbus_message_iter_append_basic(&iter_variant, DBUS_TYPE_UINT32, &pid_u32) ||
-            !dbus_message_iter_close_container(&iter_dict, &iter_variant) ||
-            !dbus_message_iter_close_container(&iter_array, &iter_dict) ||
-            !dbus_message_iter_open_container(&iter_array, DBUS_TYPE_DICT_ENTRY, NULL, &iter_dict) ||
-            !dbus_message_iter_append_basic(&iter_dict, DBUS_TYPE_STRING, &starttime) ||
-            !dbus_message_iter_open_container(&iter_dict, DBUS_TYPE_VARIANT, "t", &iter_variant) ||
-            !dbus_message_iter_append_basic(&iter_variant, DBUS_TYPE_UINT64, &starttime_u64) ||
+            !dbus_message_iter_append_basic(&iter_dict, DBUS_TYPE_STRING, &name) ||
+            !dbus_message_iter_open_container(&iter_dict, DBUS_TYPE_VARIANT, "s", &iter_variant) ||
+            !dbus_message_iter_append_basic(&iter_variant, DBUS_TYPE_STRING, &sender) ||
             !dbus_message_iter_close_container(&iter_dict, &iter_variant) ||
             !dbus_message_iter_close_container(&iter_array, &iter_dict) ||
             !dbus_message_iter_close_container(&iter_struct, &iter_array) ||
