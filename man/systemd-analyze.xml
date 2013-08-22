@@ -285,7 +285,7 @@ $ eog avahi.svg</programlisting>
 
                 <para>This plots the dependencies between all known target units:</para>
 
-                <programlisting>systemd-analyze dot --to-pattern='*.target' --from-patter='*.target' | dot -Tsvg > targets.svg
+                <programlisting>systemd-analyze dot --to-pattern='*.target' --from-pattern='*.target' | dot -Tsvg > targets.svg
 $ eog targets.svg</programlisting>
 
 
