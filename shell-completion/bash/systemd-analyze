@@ -34,6 +34,7 @@ _systemd_analyze() {
                 [NO_OPTION]='time blame plot'
                 [CRITICAL_CHAIN]='critical-chain'
                 [DOT]='dot'
+                [LOG_LEVEL]='set-log-level'
         )
 
         _init_completion || return
@@ -68,6 +69,14 @@ _systemd_analyze() {
                 if [[ $cur = -* ]]; then
                         comps='--help --version --system --user --from-pattern --to-pattern --order --require'
                 fi
+
+        elif __contains_word "$verb" ${VERBS[LOG_LEVEL]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --version --system --user'
+                else
+                        comps='debug info notice warning err crit alert emerg'
+                fi
+
         fi
 
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

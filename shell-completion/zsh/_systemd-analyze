@@ -1,5 +1,11 @@
 #compdef systemd-analyze
 
+_systemd_analyze_set-log-level() {
+    local -a _levels
+    _levels=(debug info notice warning err crit alert emerg)
+    _describe -t level 'logging level' _levels || compadd "$@"
+}
+
 _systemd_analyze_command(){
     local -a _systemd_analyze_cmds
     # Descriptions taken from systemd-analyze --help.
@@ -9,12 +15,23 @@ _systemd_analyze_command(){
         'critical-chain:Print a tree of the time critical chain of units'
         'plot:Output SVG graphic showing service initialization'
         'dot:Dump dependency graph (in dot(1) format)'
+        'set-log-level:Set systemd log threshold'
     )
 
     if (( CURRENT == 1 )); then
         _describe "options" _systemd_analyze_cmds
     else
-        _message "no more options"
+        local curcontext="$curcontext"
+        cmd="${${_systemd_analyze_cmds[(r)$words[1]:*]%%:*}}"
+        if (( $#cmd )); then
+            if (( $+functions[_systemd_analyze_$cmd] )) && (( CURRENT == 2 )); then
+                _systemd_analyze_$cmd
+            else
+                _message "no more options"
+            fi
+        else
+            _message "unknown systemd-analyze command: $words[1]"
+        fi
     fi
 }
 
