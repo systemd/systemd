@@ -216,7 +216,7 @@ int bus_cgroup_set_property(
                         return -EINVAL;
 
                 if (mode != UNIT_CHECK) {
-                        c->cpu_shares = ul;
+                        c->blockio_weight = ul;
                         unit_write_drop_in_private_format(u, mode, name, "BlockIOWeight=%lu", ul);
                 }
 
