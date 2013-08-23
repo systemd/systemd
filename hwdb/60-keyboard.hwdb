@@ -94,6 +94,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
 #
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pn*
 keyboard:dmi:bvn*:bvr*:bd*:svnGateway*:pnA0A1*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines E725:pvr*
  KEYBOARD_KEY_a5=help                                   # Fn+F1
  KEYBOARD_KEY_a6=setup                                  # Fn+F2 Acer eSettings
  KEYBOARD_KEY_a7=battery                                # Fn+F3 Power Management
