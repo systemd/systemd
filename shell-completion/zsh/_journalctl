@@ -13,7 +13,7 @@ _list_fields() {
                     _{P,U,G}ID _COMM _EXE _CMDLINE
                     _AUDIT_{SESSION,LOGINUID}
                     _SYSTEMD_{CGROUP,SESSION,UNIT,OWNER_UID}
-                    _SYSTEMD_USER_UNIT
+                    _SYSTEMD_USER_UNIT USER_UNIT
                     _SELINUX_CONTEXT _SOURCE_REALTIME_TIMESTAMP
                     _{BOOT,MACHINE}_ID _HOSTNAME _TRANSPORT
                     _KERNEL_{DEVICE,SUBSYSTEM}
@@ -72,7 +72,7 @@ _arguments -s \
     {-b+,--boot=}'[Show data only from the specified boot or offset]:boot id or offset:_journal_boots' \
     {-k,--dmesg}'[Show only kernel messages, Implies -b]' \
     {-u+,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
-    '--user-unit[Show data only from the specified user session unit]:units:_journal_fields _SYSTEMD_USER_UNIT' \
+    '--user-unit=[Show data only from the specified user session unit]:units:_journal_fields USER_UNIT' \
     {-p+,--priority=}'[Show only messages within the specified priority range]:priority:_journal_fields PRIORITY' \
     {-c+,--cursor=}'[Start showing entries from specified cursor]:cursors:_journal_fields __CURSORS' \
     '--after-cursor=[Start showing entries from the location in the journal after the cursor]:cursors:_journal_fields __CURSORS' \
