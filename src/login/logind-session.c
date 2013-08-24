@@ -480,7 +480,8 @@ static int session_start_scope(Session *s) {
 
                 r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-user-sessions.service", kill_mode, &error, &job);
                 if (r < 0) {
-                        log_error("Failed to start session scope: %s %s", bus_error(&error, r), error.name);
+                        log_error("Failed to start session scope %s: %s %s",
+                                  scope, bus_error(&error, r), error.name);
                         dbus_error_free(&error);
 
                         free(scope);

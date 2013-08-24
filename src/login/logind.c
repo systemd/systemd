@@ -1423,12 +1423,29 @@ int manager_startup(Manager *m) {
                 return r;
 
         /* Deserialize state */
-        manager_enumerate_devices(m);
-        manager_enumerate_seats(m);
-        manager_enumerate_users(m);
-        manager_enumerate_sessions(m);
-        manager_enumerate_inhibitors(m);
-        manager_enumerate_buttons(m);
+        r = manager_enumerate_devices(m);
+        if (r < 0)
+                log_warning("Device enumeration failed: %s", strerror(-r));
+
+        r = manager_enumerate_seats(m);
+        if (r < 0)
+                log_warning("Seat enumeration failed: %s", strerror(-r));
+
+        r = manager_enumerate_users(m);
+        if (r < 0)
+                log_warning("User enumeration failed: %s", strerror(-r));
+
+        r = manager_enumerate_sessions(m);
+        if (r < 0)
+                log_warning("Session enumeration failed: %s", strerror(-r));
+
+        r = manager_enumerate_inhibitors(m);
+        if (r < 0)
+                log_warning("Inhibitor enumeration failed: %s", strerror(-r));
+
+        r = manager_enumerate_buttons(m);
+        if (r < 0)
+                log_warning("Button enumeration failed: %s", strerror(-r));
 
         /* Remove stale objects before we start them */
         manager_gc(m, false);
