@@ -84,7 +84,7 @@
                 using configuration not specified in
                 <filename>/etc/fstab</filename>;
                 <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                will refuse options that aren't listed in
+                will refuse options that are not listed in
                 <filename>/etc/fstab</filename> if it is not run as
                 UID 0.</para>
 

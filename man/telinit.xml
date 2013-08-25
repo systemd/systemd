@@ -80,7 +80,7 @@
                         <varlistentry>
                                 <term><option>--no-wall</option></term>
 
-                                <listitem><para>Don't send wall
+                                <listitem><para>Do not send wall
                                 message before
                                 reboot/halt/power-off.</para></listitem>
                         </varlistentry>

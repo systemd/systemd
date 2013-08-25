@@ -483,7 +483,7 @@
                                 was stopped. This includes cases where
                                 the commands configured in
                                 <varname>ExecStop=</varname> were used,
-                                where the service doesn't have any
+                                where the service does not have any
                                 <varname>ExecStop=</varname> defined, or
                                 where the service exited unexpectedly. This
                                 argument takes multiple command lines,
@@ -823,7 +823,7 @@
                                 in other words: the
                                 <varname>Service=</varname> setting of
                                 <filename>.socket</filename> units
-                                doesn't have to match the inverse of
+                                does not have to match the inverse of
                                 the <varname>Sockets=</varname>
                                 setting of the
                                 <filename>.service</filename> it

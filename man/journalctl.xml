@@ -281,7 +281,7 @@
                                                         <option>short-monotonic</option>
                                                 </term>
                                                 <listitem>
-                                                        <para>is very similar
+                                                        <para>is very similar,
                                                         but shows monotonic
                                                         timestamps instead of
                                                         wallclock timestamps.

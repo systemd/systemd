@@ -1,4 +1,3 @@
-<?xml version='1.0'?> <!--*-nxml-*-->
 <?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
         "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
@@ -327,8 +326,8 @@
                                 absolute filename or wildcard
                                 expression, optionally prefixed with
                                 <literal>-</literal>, which indicates
-                                that if the file does not exist it
-                                won't be read and no error or warning
+                                that if the file does not exist, it
+                                will not be read and no error or warning
                                 message is logged.  This option may be
                                 specified more than once in which case
                                 all specified files are read. If the
@@ -835,7 +834,7 @@
                                 <varname>InaccessibleDirectories=</varname>
                                 may be prefixed with
                                 <literal>-</literal>, in which case
-                                they will be ignored when they don't
+                                they will be ignored when they do not
                                 exist.</para></listitem>
                         </varlistentry>
 
@@ -972,7 +971,7 @@
                                 <function>sigreturn</function>,
                                 <function>exit_group</function>,
                                 <function>exit</function> system calls
-                                are implicitly whitelisted and don't
+                                are implicitly whitelisted and do not
                                 need to be listed explicitly. This
                                 option may be specified more than once
                                 in which case the filter masks are

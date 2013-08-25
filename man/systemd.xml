@@ -1022,7 +1022,7 @@
                                 option prefixed with
                                 <literal>rd.</literal> is honored
                                 only in the initial RAM disk (initrd),
-                                while the one that isn't prefixed only
+                                while the one that is not prefixed only
                                 in the main system.</para></listitem>
                         </varlistentry>
 

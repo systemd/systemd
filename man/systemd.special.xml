@@ -448,7 +448,7 @@
                                         after it. Note that networking
                                         daemons that simply provide
                                         functionality to other hosts
-                                        generally don't need to pull
+                                        generally do not need to pull
                                         this in.</para>
                                         </listitem>
                         </varlistentry>

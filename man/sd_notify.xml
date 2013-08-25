@@ -200,7 +200,7 @@
                 the status was sent these functions return with a
                 positive return value. In order to support both, init
                 systems that implement this scheme and those which
-                don't, it is generally recommended to ignore the return
+                do not, it is generally recommended to ignore the return
                 value of this call.</para>
         </refsect1>
 

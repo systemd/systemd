@@ -104,7 +104,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         <variablelist>
                                 <varlistentry>
                                         <term><varname>f</varname></term>
-                                        <listitem><para>Create a file if it doesn't exist yet (optionally writing a short string into it, if the argument parameter is passed)</para></listitem>
+                                        <listitem><para>Create a file if it does not exist yet (optionally writing a short string into it, if the argument parameter is passed)</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -122,7 +122,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>d</varname></term>
-                                        <listitem><para>Create a directory if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a directory if it does not exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -132,22 +132,22 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>p</varname></term>
-                                        <listitem><para>Create a named pipe (FIFO) if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a named pipe (FIFO) if it does not exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>L</varname></term>
-                                        <listitem><para>Create a symlink if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a symlink if it does not exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>c</varname></term>
-                                        <listitem><para>Create a character device node if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a character device node if it does not exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>b</varname></term>
-                                        <listitem><para>Create a block device node if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a block device node if it does not exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>

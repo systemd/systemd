@@ -127,7 +127,7 @@
                 but when the weekday is specified it must either be
                 in the abbreviated (<literal>Wed</literal>) or
                 non-abbreviated (<literal>Wednesday</literal>) English
-                language form (case doesn't matter), and is not
+                language form (case does not matter), and is not
                 subject to the locale choice of the user. Either the
                 date, or the time part may be omitted, in which case
                 the current date or 00:00:00, resp., is assumed. The

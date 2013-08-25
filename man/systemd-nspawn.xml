@@ -334,7 +334,7 @@
                                 <filename>/var/log/journal</filename>
                                 exists, it will be bind mounted
                                 into the container. If the
-                                subdirectory doesn't exist, no
+                                subdirectory does not exist, no
                                 linking is performed. Effectively,
                                 booting a container once with
                                 <literal>guest</literal> or

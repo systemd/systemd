@@ -107,7 +107,7 @@
                         <varlistentry>
                                 <term><option>--all</option></term>
 
-                                <listitem><para>Don't hide empty
+                                <listitem><para>Do not hide empty
                                 control groups in the
                                 output.</para></listitem>
                         </varlistentry>

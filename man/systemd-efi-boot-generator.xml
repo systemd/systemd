@@ -56,7 +56,7 @@
 
                 <para><filename>systemd-efi-boot-generator</filename>
                 is a generator that automatically creates mount and
-                automount units for the EFI System Partition (ESP)
+                automount units for the EFI System Partition (ESP),
                 mounting it to <filename>/boot</filename>. Note that
                 this generator will execute no operation on non-EFI
                 systems, on systems where the boot loader does not
@@ -64,7 +64,7 @@
                 <filename>/boot</filename> is an explicitly configured
                 mount (for example, listed in <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>) or where the <filename>/boot</filename> mount
                 point is non-empty. Since this generator creates an
-                automount unit the mount will only be activated
+                automount unit, the mount will only be activated
                 on-demand, when accessed.</para>
 
                 <para><filename>systemd-efi-boot-generator</filename>

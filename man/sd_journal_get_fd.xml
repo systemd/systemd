@@ -232,15 +232,15 @@ else {
                 <constant>SD_JOURNAL_APPEND</constant> or
                 <constant>SD_JOURNAL_INVALIDATE</constant> on success or
                 a negative errno-style error code. If
-                <constant>SD_JOURNAL_NOP</constant> is returned the
-                journal didn't change since the last invocation. If
-                <constant>SD_JOURNAL_APPEND</constant> is returned new
+                <constant>SD_JOURNAL_NOP</constant> is returned, the
+                journal did not change since the last invocation. If
+                <constant>SD_JOURNAL_APPEND</constant> is returned, new
                 entries have been appended to the end of the
-                journal. If <constant>SD_JOURNAL_INVALIDATE</constant>
+                journal. If <constant>SD_JOURNAL_INVALIDATE</constant>,
                 journal files were added or removed (possibly due to
-                rotation). In the latter event live-view UIs should
-                probably refresh their entire display while in the
-                case of <constant>SD_JOURNAL_APPEND</constant> it is
+                rotation). In the latter event, live-view UIs should
+                probably refresh their entire display, while in the
+                case of <constant>SD_JOURNAL_APPEND</constant>, it is
                 sufficient to simply continue reading at the previous
                 end of the journal.</para>
         </refsect1>

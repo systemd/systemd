@@ -120,7 +120,7 @@
                 returns 0 on success or a negative errno-style error
                 code. <function>sd_journal_test_cursor()</function>
                 returns positive if the current entry matches the
-                specified cursor, 0 if it doesn't match the specified
+                specified cursor, 0 if it does not match the specified
                 cursor or a negative errno-style error code on
                 failure.</para>
         </refsect1>
