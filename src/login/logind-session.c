@@ -381,7 +381,8 @@ int session_activate(Session *s) {
 }
 
 static int session_link_x11_socket(Session *s) {
-        char *t, *f, *c;
+        _cleanup_free_ char *t = NULL, *f = NULL;
+        char *c;
         size_t k;
 
         assert(s);
@@ -405,7 +406,6 @@ static int session_link_x11_socket(Session *s) {
 
         if (access(f, F_OK) < 0) {
                 log_warning("Session %s has display %s with non-existing socket %s.", s->id, s->display, f);
-                free(f);
                 return -ENOENT;
         }
 
@@ -414,10 +414,8 @@ static int session_link_x11_socket(Session *s) {
          * path is owned by the user */
 
         t = strappend(s->user->runtime_path, "/X11-display");
-        if (!t) {
-                free(f);
+        if (!t)
                 return log_oom();
-        }
 
         if (link(f, t) < 0) {
                 if (errno == EEXIST) {
@@ -437,17 +435,12 @@ static int session_link_x11_socket(Session *s) {
                         }
 
                         log_error("Failed to link %s to %s: %m", f, t);
-                        free(f);
-                        free(t);
                         return -errno;
                 }
         }
 
 done:
         log_info("Linked %s to %s.", f, t);
-        free(f);
-        free(t);
-
         s->user->display = s;
 
         return 0;
@@ -585,7 +578,7 @@ static int session_stop_scope(Session *s) {
 }
 
 static int session_unlink_x11_socket(Session *s) {
-        char *t;
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(s);
@@ -601,8 +594,6 @@ static int session_unlink_x11_socket(Session *s) {
                 return log_oom();
 
         r = unlink(t);
-        free(t);
-
         return r < 0 ? -errno : 0;
 }
 
