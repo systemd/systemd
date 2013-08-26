@@ -919,6 +919,9 @@ keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700Z*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700T*:pvr*
  KEYBOARD_KEY_ad=leftmeta
 
+keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn535U*:pvr*
+ KEYBOARD_KEY_d5=!wlan
+
 ###########################################################
 # SONY
 ###########################################################
