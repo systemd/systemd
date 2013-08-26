@@ -981,7 +981,7 @@ int bus_unit_set_properties(
 
                 if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_INVALID) {
 
-                        if (for_real)
+                        if (for_real || mode == UNIT_CHECK)
                                 break;
 
                         /* Reached EOF. Let's try again, and this time for realz... */
