@@ -656,6 +656,26 @@ keyboard:usb:v046DpC52Dd*dc*dsc*dp*ic*isc*ip*in00*
  KEYBOARD_KEY_07003e=presentation
  KEYBOARD_KEY_070037=displaytoggle
 
+# Internet Navigator
+keyboard:usb:v046DpC309*
+  KEYBOARD_KEY_90001=chat         # Messenger/SMS
+  KEYBOARD_KEY_90002=camera       # webcam
+  KEYBOARD_KEY_90003=prog1        # iTouch
+  KEYBOARD_KEY_90004=shop         # Shopping
+  KEYBOARD_KEY_C0201=new          # New (F1)
+  KEYBOARD_KEY_C0289=reply        # Reply mail (F2)
+  KEYBOARD_KEY_C028B=forwardmail  # Forward mail (F3)
+  KEYBOARD_KEY_C028C=send         # Send (F4)
+  KEYBOARD_KEY_C021A=undo         # Undo (F5).
+  KEYBOARD_KEY_C0279=redo         # Redo (F6).
+  KEYBOARD_KEY_C0208=print        # Print (F7)
+  KEYBOARD_KEY_C0207=save         # Save (F8)
+  KEYBOARD_KEY_C0194=file         # My Computer (F9)
+  KEYBOARD_KEY_C01A7=documents    # My Documents (F10)
+  KEYBOARD_KEY_C01B6=images       # My Pictures (F11) ??
+  KEYBOARD_KEY_C01B7=sound        # My Music (F12) ??
+
+
 ###########################################################
 # Maxdata
 ###########################################################
