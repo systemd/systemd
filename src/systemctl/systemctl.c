@@ -3315,6 +3315,24 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
                         return 0;
 
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "BlockIODeviceWeight")) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *path;
+                                uint64_t weight;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &weight, false) >= 0)
+                                        printf("%s=%s %" PRIu64 "\n", name, strna(path), weight);
+
+                                dbus_message_iter_next(&sub);
+                        }
+                        return 0;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && (streq(name, "BlockIOReadBandwidth") || streq(name, "BlockIOWriteBandwidth"))) {
                         DBusMessageIter sub, sub2;
 
