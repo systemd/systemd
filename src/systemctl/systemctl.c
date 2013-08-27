@@ -3746,6 +3746,48 @@ static int append_assignment(DBusMessageIter *iter, const char *assignment) {
                 if (!dbus_message_iter_close_container(&sub, &sub2))
                         return log_oom();
 
+        } else if (streq(field, "BlockIODeviceWeight")) {
+                DBusMessageIter sub2;
+
+                if (!dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT, "a(st)", &sub) ||
+                    !dbus_message_iter_open_container(&sub, DBUS_TYPE_ARRAY, "(st)", &sub2))
+                        return log_oom();
+
+                if (!isempty(eq)) {
+                        const char *path, *weight;
+                        DBusMessageIter sub3;
+                        uint64_t u;
+                        char *e;
+
+                        e = strchr(eq, ' ');
+                        if (e) {
+                                path = strndupa(eq, e - eq);
+                                weight = e+1;
+                        } else {
+                                log_error("Failed to parse %s value %s.", field, eq);
+                                return -EINVAL;
+                        }
+
+                        if (!path_startswith(path, "/dev")) {
+                                log_error("%s is not a device file in /dev.", path);
+                                return -EINVAL;
+                        }
+
+                        r = safe_atou64(weight, &u);
+                        if (r < 0) {
+                                log_error("Failed to parse %s value %s.", field, weight);
+                                return -EINVAL;
+                        }
+                        if (!dbus_message_iter_open_container(&sub2, DBUS_TYPE_STRUCT, NULL, &sub3) ||
+                            !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, &path) ||
+                            !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_UINT64, &u) ||
+                            !dbus_message_iter_close_container(&sub2, &sub3))
+                                return log_oom();
+                }
+
+                if (!dbus_message_iter_close_container(&sub, &sub2))
+                        return log_oom();
+
         } else {
                 log_error("Unknown assignment %s.", assignment);
                 return -EINVAL;
