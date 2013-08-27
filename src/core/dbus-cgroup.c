@@ -317,6 +317,92 @@ int bus_cgroup_set_property(
 
                 return 1;
 
+        } else if (streq(name, "BlockIODeviceWeight")) {
+                DBusMessageIter sub;
+                unsigned n = 0;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_ARRAY ||
+                    dbus_message_iter_get_element_type(i) != DBUS_TYPE_STRUCT)
+                        return -EINVAL;
+
+                dbus_message_iter_recurse(i, &sub);
+                while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                        DBusMessageIter sub2;
+                        const char *path;
+                        uint64_t u64;
+                        unsigned long ul;
+                        CGroupBlockIODeviceWeight *a;
+
+                        dbus_message_iter_recurse(&sub, &sub2);
+
+                        if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0 ||
+                            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &u64, false) < 0)
+                                return -EINVAL;
+
+                        ul = (unsigned long) u64;
+                        if (ul < 10 || ul > 1000)
+                                return -EINVAL;
+
+                        if (mode != UNIT_CHECK) {
+                                CGroupBlockIODeviceWeight *b;
+                                bool exist = false;
+
+                                LIST_FOREACH(device_weights, b, c->blockio_device_weights) {
+                                        if (path_equal(b->path, path)) {
+                                                a = b;
+                                                exist = true;
+                                                break;
+                                        }
+                                }
+
+                                if (!exist) {
+                                        a = new0(CGroupBlockIODeviceWeight, 1);
+                                        if (!a)
+                                                return -ENOMEM;
+
+                                        a->path = strdup(path);
+                                        if (!a->path) {
+                                                free(a);
+                                                return -ENOMEM;
+                                        }
+                                }
+
+                                a->weight = ul;
+
+                                if (!exist)
+                                        LIST_PREPEND(CGroupBlockIODeviceWeight, device_weights,
+                                                     c->blockio_device_weights, a);
+                        }
+
+                        n++;
+                        dbus_message_iter_next(&sub);
+                }
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        CGroupBlockIODeviceWeight *a;
+                        size_t size = 0;
+
+                        if (n == 0) {
+                                while (c->blockio_device_weights)
+                                        cgroup_context_free_blockio_device_weight(c, c->blockio_device_weights);
+                        }
+
+                        f = open_memstream(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                        fputs("BlockIODeviceWeight=\n", f);
+                        LIST_FOREACH(device_weights, a, c->blockio_device_weights)
+                                fprintf(f, "BlockIODeviceWeight=%s %lu\n", a->path, a->weight);
+
+                        fflush(f);
+                        unit_write_drop_in_private(u, mode, name, buf);
+                }
+
+                return 1;
+
         } else if (streq(name, "MemoryAccounting")) {
 
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
