@@ -432,13 +432,8 @@ static int unit_realize_cgroup_now(Unit *u) {
                 return 0;
 
         /* First, realize parents */
-        if (UNIT_ISSET(u->slice)) {
-                int r;
-
-                r = unit_realize_cgroup_now(UNIT_DEREF(u->slice));
-                if (r < 0)
-                        return r;
-        }
+        if (UNIT_ISSET(u->slice))
+                unit_realize_cgroup_now(UNIT_DEREF(u->slice));
 
         /* And then do the real work */
         return unit_create_cgroups(u, mask);
