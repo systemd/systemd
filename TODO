@@ -60,8 +60,6 @@ Features:
 
 * better error message if you run systemctl without systemd running
 
-* unlink PID files of units after exit
-
 * tiny tool that saves/restores backlight
 
 * systemctl status output should should include list of triggering units and their status

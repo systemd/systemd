@@ -1957,6 +1957,12 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         /* we want fresh tmpdirs in case service is started again immediately */
         exec_context_tmp_dirs_done(&s->exec_context);
 
+        /* Try to delete the pid file. At this point it will be
+         * out-of-date, and some software might be confused by it, so
+         * let's remove it. */
+        if (s->pid_file)
+                unlink_noerrno(s->pid_file);
+
         return;
 
 fail:
