@@ -317,12 +317,12 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
         case EXEC_INPUT_TTY_FAIL: {
                 int fd, r;
 
-                if ((fd = acquire_terminal(
-                                     tty_path(context),
-                                     i == EXEC_INPUT_TTY_FAIL,
-                                     i == EXEC_INPUT_TTY_FORCE,
-                                     false,
-                                     (usec_t) -1)) < 0)
+                fd = acquire_terminal(tty_path(context),
+                                      i == EXEC_INPUT_TTY_FAIL,
+                                      i == EXEC_INPUT_TTY_FORCE,
+                                      false,
+                                      (usec_t) -1);
+                if (fd < 0)
                         return fd;
 
                 if (fd != STDIN_FILENO) {
@@ -748,6 +748,7 @@ static int setup_pam(
         char **e = NULL;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
+        int flags = 0;
 
         assert(name);
         assert(user);
@@ -759,6 +760,9 @@ static int setup_pam(
          * session again. The parent process will exec() the actual
          * daemon. We do things this way to ensure that the main PID
          * of the daemon is the one we initially fork()ed. */
+
+        if (log_get_max_level() < LOG_PRI(LOG_DEBUG))
+                flags |= PAM_SILENT;
 
         pam_code = pam_start(name, user, &conv, &handle);
         if (pam_code != PAM_SUCCESS) {
@@ -772,11 +776,11 @@ static int setup_pam(
                         goto fail;
         }
 
-        pam_code = pam_acct_mgmt(handle, PAM_SILENT);
+        pam_code = pam_acct_mgmt(handle, flags);
         if (pam_code != PAM_SUCCESS)
                 goto fail;
 
-        pam_code = pam_open_session(handle, PAM_SILENT);
+        pam_code = pam_open_session(handle, flags);
         if (pam_code != PAM_SUCCESS)
                 goto fail;
 
@@ -850,7 +854,7 @@ static int setup_pam(
 
                 /* If our parent died we'll end the session */
                 if (getppid() != parent_pid) {
-                        pam_code = pam_close_session(handle, PAM_DATA_SILENT);
+                        pam_code = pam_close_session(handle, flags);
                         if (pam_code != PAM_SUCCESS)
                                 goto child_finish;
                 }
@@ -858,7 +862,7 @@ static int setup_pam(
                 r = 0;
 
         child_finish:
-                pam_end(handle, pam_code | PAM_DATA_SILENT);
+                pam_end(handle, pam_code | flags);
                 _exit(r);
         }
 
@@ -880,16 +884,19 @@ static int setup_pam(
         return 0;
 
 fail:
-        if (pam_code != PAM_SUCCESS)
+        if (pam_code != PAM_SUCCESS) {
+                log_error("PAM failed: %s", pam_strerror(handle, pam_code));
                 err = -EPERM;  /* PAM errors do not map to errno */
-        else
+        } else {
+                log_error("PAM failed: %m");
                 err = -errno;
+        }
 
         if (handle) {
                 if (close_session)
-                        pam_code = pam_close_session(handle, PAM_DATA_SILENT);
+                        pam_code = pam_close_session(handle, flags);
 
-                pam_end(handle, pam_code | PAM_DATA_SILENT);
+                pam_end(handle, pam_code | flags);
         }
 
         strv_free(e);

@@ -199,7 +199,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         dbus_error_init(&error);
 
-        /* pam_syslog(handle, LOG_INFO, "pam-systemd initializing"); */
+        if (debug)
+                pam_syslog(handle, LOG_INFO, "pam-systemd initializing");
 
         /* Make this a NOP on non-logind systems */
         if (!logind_running())
