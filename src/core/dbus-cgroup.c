@@ -314,21 +314,35 @@ int bus_cgroup_set_property(
                         }
 
                         if (mode != UNIT_CHECK) {
-                                a = new0(CGroupDeviceAllow, 1);
-                                if (!a)
-                                        return -ENOMEM;
+                                CGroupDeviceAllow *b;
+                                bool exist = false;
 
-                                a->path = strdup(path);
-                                if (!a->path) {
-                                        free(a);
-                                        return -ENOMEM;
+                                LIST_FOREACH(device_allow, b, c->device_allow) {
+                                        if (streq(b->path, path)) {
+                                                a = b;
+                                                exist = true;
+                                                break;
+                                        }
+                                }
+
+                                if (!exist) {
+                                        a = new0(CGroupDeviceAllow, 1);
+                                        if (!a)
+                                                return -ENOMEM;
+
+                                        a->path = strdup(path);
+                                        if (!a->path) {
+                                                free(a);
+                                                return -ENOMEM;
+                                        }
                                 }
 
                                 a->r = !!strchr(rwm, 'r');
                                 a->w = !!strchr(rwm, 'w');
                                 a->m = !!strchr(rwm, 'm');
 
-                                LIST_PREPEND(CGroupDeviceAllow, device_allow, c->device_allow, a);
+                                if (!exist)
+                                        LIST_PREPEND(CGroupDeviceAllow, device_allow, c->device_allow, a);
                         }
 
                         n++;
