@@ -2253,6 +2253,7 @@ int config_parse_blockio_bandwidth(
         b->path = path;
         path = NULL;
         b->bandwidth = (uint64_t) bytes;
+        b->read = streq("BlockIOReadBandwidth", lvalue);
 
         LIST_PREPEND(CGroupBlockIODeviceBandwidth, device_bandwidths, c->blockio_device_bandwidths, b);
 
