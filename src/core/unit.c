@@ -2329,7 +2329,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         free(u->cgroup_path);
                         u->cgroup_path = s;
 
-                        hashmap_put(u->manager->cgroup_unit, s, u);
+                        assert(hashmap_put(u->manager->cgroup_unit, s, u) == 1);
                         continue;
                 }
 

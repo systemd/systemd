@@ -382,6 +382,7 @@ static CGroupControllerMask unit_get_siblings_mask(Unit *u) {
 static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         char *path = NULL;
         int r;
+        bool is_in_hash = false;
 
         assert(u);
 
@@ -390,8 +391,14 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
                 return -ENOMEM;
 
         r = hashmap_put(u->manager->cgroup_unit, path, u);
-        if (r < 0)
+        if (r == 0)
+                is_in_hash = true;
+
+        if (r < 0) {
+                free(path);
+                log_error("cgroup %s exists already: %s", path, strerror(-r));
                 return r;
+        }
 
         /* First, create our own group */
         r = cg_create_with_mask(mask, path);
@@ -405,9 +412,12 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
                         log_error("Failed to migrate cgroup %s: %s", path, strerror(-r));
         }
 
-        /* And remember the new data */
-        free(u->cgroup_path);
-        u->cgroup_path = path;
+        if (!is_in_hash) {
+                /* And remember the new data */
+                free(u->cgroup_path);
+                u->cgroup_path = path;
+        }
+
         u->cgroup_realized = true;
         u->cgroup_mask = mask;
 
