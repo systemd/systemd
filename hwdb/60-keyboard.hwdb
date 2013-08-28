@@ -894,11 +894,6 @@ keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*200E[45]*:pvr*
 # Series 5
 keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700Z*:pvr*
  KEYBOARD_KEY_ce=!prog1                                 # Fn+F1 launch settings
-#KEYBOARD_KEY_89=!brightnessdown                        # Fn+F2 
-#KEYBOARD_KEY_88=!brightnessup                          # Fn+F3 
-#KEYBOARD_KEY_82=!switchvideomode                       # Fn+F4 video output
-#KEYBOARD_KEY_f9=!f23                                   # Fn+F5 touchpad turn OFF
-#KEYBOARD_KEY_f7=!f22                                   # Fn+F5 touchpad turn ON
  KEYBOARD_KEY_a0=!mute                                  # Fn+F6 mute
  KEYBOARD_KEY_ae=!volumedown                            # Fn+F7
  KEYBOARD_KEY_b0=!volumeup                              # Fn+F8
@@ -906,7 +901,6 @@ keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*700Z*:pvr*
  KEYBOARD_KEY_96=!kbdillumup                            # Fn+F10 keyboard backlight up
  KEYBOARD_KEY_b3=!prog3                                 # Fn+F11 fan/cooling mode changer
  KEYBOARD_KEY_d5=!wlan                                  # Fn+F12 wlan/airplane switch
-# KEYBOARD_KEY_ba=!ejectcd                               # Fn+DEL eject cd
 
 # Series 9
 keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*90X3A*:pvr*
