@@ -760,24 +760,30 @@ static int setup_pam(
          * daemon. We do things this way to ensure that the main PID
          * of the daemon is the one we initially fork()ed. */
 
-        if ((pam_code = pam_start(name, user, &conv, &handle)) != PAM_SUCCESS) {
+        pam_code = pam_start(name, user, &conv, &handle);
+        if (pam_code != PAM_SUCCESS) {
                 handle = NULL;
                 goto fail;
         }
 
-        if (tty)
-                if ((pam_code = pam_set_item(handle, PAM_TTY, tty)) != PAM_SUCCESS)
+        if (tty) {
+                pam_code = pam_set_item(handle, PAM_TTY, tty);
+                if (pam_code != PAM_SUCCESS)
                         goto fail;
+        }
 
-        if ((pam_code = pam_acct_mgmt(handle, PAM_SILENT)) != PAM_SUCCESS)
+        pam_code = pam_acct_mgmt(handle, PAM_SILENT);
+        if (pam_code != PAM_SUCCESS)
                 goto fail;
 
-        if ((pam_code = pam_open_session(handle, PAM_SILENT)) != PAM_SUCCESS)
+        pam_code = pam_open_session(handle, PAM_SILENT);
+        if (pam_code != PAM_SUCCESS)
                 goto fail;
 
         close_session = true;
 
-        if ((!(e = pam_getenvlist(handle)))) {
+        e = pam_getenvlist(handle);
+        if (!e) {
                 pam_code = PAM_BUF_ERR;
                 goto fail;
         }
@@ -791,7 +797,8 @@ static int setup_pam(
 
         parent_pid = getpid();
 
-        if ((pam_pid = fork()) < 0)
+        pam_pid = fork();
+        if (pam_pid < 0)
                 goto fail;
 
         if (pam_pid == 0) {
@@ -842,9 +849,11 @@ static int setup_pam(
                 }
 
                 /* If our parent died we'll end the session */
-                if (getppid() != parent_pid)
-                        if ((pam_code = pam_close_session(handle, PAM_DATA_SILENT)) != PAM_SUCCESS)
+                if (getppid() != parent_pid) {
+                        pam_code = pam_close_session(handle, PAM_DATA_SILENT);
+                        if (pam_code != PAM_SUCCESS)
                                 goto child_finish;
+                }
 
                 r = 0;
 
