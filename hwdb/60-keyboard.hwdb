@@ -245,11 +245,11 @@ keyboard:dmi:bvn*:bvr*:bd*:svnDell Inc.:pnStudio 155[78]:pvr*
 # Dell Touchpad
 keyboard:dmi:bvn*:bvr*:bd*:svnDell Inc.:pn:*Latitude*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnDell Inc.:pn:*Precision*:pvr*
- KEYBOARD_KEY_9e=!
+ KEYBOARD_KEY_9e=!f21
 
 # Dell XPS
 keyboard:dmi:bvn*:bvr*:bd*:svnDell Inc.:pnXPS*:pvr*
- KEYBOARD_KEY_8c=!
+ KEYBOARD_KEY_8c=!f23
 
 ###########################################################
 # Everex
