@@ -51,7 +51,7 @@ keyboard:name:Acer WMI hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnAcer*:pvr*
  KEYBOARD_KEY_82=f21
 
 # Aspire 5720
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire 5720*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*5720*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnZG8*:pvr*
  KEYBOARD_KEY_84=bluetooth                              # sent when bluetooth module missing, and key pressed
  KEYBOARD_KEY_92=media                                  # Acer arcade
@@ -60,7 +60,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnZG8*:pvr*
  KEYBOARD_KEY_f4=prog3                                  # e-key
 
 # Aspire 5920g
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire 5920G:*
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*5920G:*
  KEYBOARD_KEY_8a=media
  KEYBOARD_KEY_92=media
  KEYBOARD_KEY_a6=setup
@@ -68,7 +68,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire 5920G:*
  KEYBOARD_KEY_d9=bluetooth                              # (toggle) on-to-off
 
 # Aspire 6920
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire 6920:*
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*6920:*
  KEYBOARD_KEY_d9=bluetooth                              # (toggle) on-to-off
  KEYBOARD_KEY_92=media
  KEYBOARD_KEY_9e=back
@@ -76,7 +76,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire 6920:*
  KEYBOARD_KEY_89=fastforward
 
 # Aspire 8930
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire 8930:*
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*8930:*
  KEYBOARD_KEY_ca=prog3                                  # key 'HOLD' on CineDash Media Console
  KEYBOARD_KEY_83=rewind
  KEYBOARD_KEY_89=fastforward
@@ -94,7 +94,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
 #
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pn*
 keyboard:dmi:bvn*:bvr*:bd*:svnGateway*:pnA0A1*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines E725:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:pvr*
  KEYBOARD_KEY_a5=help                                   # Fn+F1
  KEYBOARD_KEY_a6=setup                                  # Fn+F2 Acer eSettings
  KEYBOARD_KEY_a7=battery                                # Fn+F3 Power Management
@@ -131,7 +131,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*6292*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*8471*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*4720*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*7720*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire 1810T*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*1810T*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAO751h:*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAO531h:*
  KEYBOARD_KEY_d9=bluetooth
@@ -142,8 +142,8 @@ keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*4720*:pvr*
  KEYBOARD_KEY_ee=screenlock
 
 #
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate 6593:*
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire 1640:*
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*6593:*
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*1640:*
  KEYBOARD_KEY_b2=www
  KEYBOARD_KEY_ee=screenlock
 
@@ -167,7 +167,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnASUS:*
 # BenQ
 ###########################################################
 
-keyboard:dmi:bvn*:bvr*:bd*:svn*BenQ*:pn*Joybook R22*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svn*BenQ*:pn*Joybook*R22*:pvr*
  KEYBOARD_KEY_6e=wlan
 
 ###########################################################
@@ -182,7 +182,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnCOMPAL:pnHEL80I:*
 ###########################################################
 
 keyboard:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*E500*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*Evo N*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*Evo*N*:pvr*
  KEYBOARD_KEY_a3=www                                    # I key
  KEYBOARD_KEY_9a=search
  KEYBOARD_KEY_9e=email
@@ -224,20 +224,20 @@ keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pvr*
  KEYBOARD_KEY_d9=f21                                    # Touchpad toggle
 
 #
-keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron 910:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron 101[012]:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron 1110:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron 1210:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*910:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*101[012]:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1110:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1210:pvr*
  KEYBOARD_KEY_84=wlan
 
 # Latitude XT2
-keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude XT2:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*XT2:pvr*
  KEYBOARD_KEY_9b=up                                     # tablet rocker up
  KEYBOARD_KEY_9e=enter                                  # tablet rocker press
  KEYBOARD_KEY_9f=back                                   # tablet back
  KEYBOARD_KEY_a3=down                                   # tablet rocker down
 
-keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnStudio 155[78]:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnStudio*155[78]:pvr*
  KEYBOARD_KEY_a0=!                                      # mute
  KEYBOARD_KEY_ae=!                                      # volume down
  KEYBOARD_KEY_b0=!                                      # volume up
@@ -272,35 +272,35 @@ keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pnAMILO*M*:pvr*
  KEYBOARD_KEY_97=prog2
  KEYBOARD_KEY_9f=prog1
 
-keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pnAmilo Li 1718:*
+keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pnAmilo*Li*1718:*
  KEYBOARD_KEY_d6=wlan
 
 # Amilo Li 2732
-keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pnAMILO Li 2732:*
+keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pnAMILO*Li*2732:*
  KEYBOARD_KEY_d9=brightnessdown                         # Fn+F8 brightness down
  KEYBOARD_KEY_ef=brightnessup                           # Fn+F9 brightness up
  KEYBOARD_KEY_a9=switchvideomode                        # Fn+F10 Cycle between available video outputs
 
 # Amilo Pa 2548
-keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*AMILO Pa 2548*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*AMILO*Pa*2548*:pvr*
  KEYBOARD_KEY_e0=volumedown
  KEYBOARD_KEY_e1=volumeup
  KEYBOARD_KEY_e5=prog1
 
 # Amilo Pro Edition V3505
-keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*AMILO Pro Edition V3505*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*AMILO*Pro*Edition*V3505*:pvr*
  KEYBOARD_KEY_a5=help                                   # Fn+F1
  KEYBOARD_KEY_a9=switchvideomode                        # Fn+F3
  KEYBOARD_KEY_d9=brightnessdown                         # Fn+F8
  KEYBOARD_KEY_e0=brightnessup                           # Fn+F9
 
 # Amilo Pro v3205
-keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*AMILO Pro V3205*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*AMILO*Pro*V3205*:pvr*
  KEYBOARD_KEY_f4=f21                                    # FIXME: silent-mode decrease CPU/GPU clock
  KEYBOARD_KEY_f7=switchvideomode                        # Fn+F3
 
 # Amilo Si 1520
-keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*Amilo Si 1520*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*Amilo*Si*1520*:pvr*
  KEYBOARD_KEY_e1=wlan
  KEYBOARD_KEY_f3=wlan
  KEYBOARD_KEY_ee=brightnessdown
@@ -309,14 +309,14 @@ keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*Amilo Si 1520*:pvr*
  KEYBOARD_KEY_f7=video
 
 # Esprimo Mobile V5
-keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*ESPRIMO Mobile V5*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*ESPRIMO*Mobile*V5*:pvr*
  KEYBOARD_KEY_a9=switchvideomode
  KEYBOARD_KEY_d9=brightnessdown
  KEYBOARD_KEY_df=sleep
  KEYBOARD_KEY_ef=brightnessup
 
 # Esprimo Mobile V6
-keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*ESPRIMO Mobile V6*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*:pn*ESPRIMO*Mobile*V6*:pvr*
  KEYBOARD_KEY_ce=brightnessup
  KEYBOARD_KEY_ef=brightnessdown
 
@@ -382,7 +382,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][n
  KEYBOARD_KEY_d8=!f23                                   # touchpad off
  KEYBOARD_KEY_d9=!f22                                   # touchpad on
 
-keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP Pavilion dv7 Notebook PC:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*Pavilion*dv7*Notebook*PC:pvr*
  KEYBOARD_KEY_b7=print
  KEYBOARD_KEY_c2=media                                  # FIXME: quick play
  KEYBOARD_KEY_c6=break
@@ -403,7 +403,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Presario*CQ*:pvr*
 # 2510p 2530p
 keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2510p*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2530p*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP G60 Notebook PC:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*G60*Notebook*PC:pvr*
  KEYBOARD_KEY_d8=!f23                                   # touchpad off
  KEYBOARD_KEY_d9=!f22                                   # touchpad on
 
@@ -418,13 +418,13 @@ keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][xX]2*:pvr*
  KEYBOARD_KEY_d9=!f22                                   # Toggle touchpad button on tx2 (ON)
 
 # Presario 2100
-keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnPresario 2100*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnPresario*2100*:pvr*
  KEYBOARD_KEY_f0=help
  KEYBOARD_KEY_f1=screenlock
  KEYBOARD_KEY_f3=search
 
 # Elitebook 8440p
-keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP EliteBook 8440p:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*EliteBook*8440p:pvr*
  KEYBOARD_KEY_88=www
  KEYBOARD_KEY_a0=mute
  KEYBOARD_KEY_ae=volumedown
@@ -432,7 +432,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP EliteBook 8440p:pvr*
  KEYBOARD_KEY_ec=mail
 
 # Elitebook 8460p
-keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP EliteBook 8460p:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*EliteBook*8460p:pvr*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
  KEYBOARD_KEY_b3=prog1                                  # Fn+F11 - Ambient Light Sensor button
  KEYBOARD_KEY_b1=prog2                                  # Fn+ESC - System information button
@@ -481,7 +481,7 @@ keyboard:usb:v04B3p301[89]*
 ###########################################################
 
 # Symphony
-keyboard:dmi:bvn*:bvr*:bd*:svnINVENTEC:pnSYMPHONY 6.0/7.0:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnINVENTEC:pnSYMPHONY*6.0/7.0:pvr*
  KEYBOARD_KEY_f3=prog2
  KEYBOARD_KEY_f4=prog1
 
@@ -549,7 +549,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnS10-*:pvr*
  KEYBOARD_KEY_f3=f21
 
 # Thinkpad X200_Tablet
-keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad X2* Tablet*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad*X2*Tablet*:pvr*
  KEYBOARD_KEY_5d=menu
  KEYBOARD_KEY_63=fn
  KEYBOARD_KEY_66=screenlock
@@ -558,7 +558,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad X2* Tablet*:pvr*
  KEYBOARD_KEY_6c=direction                              # rotate screen
 
 # ThinkPad X6 Tablet
-keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad X6*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad*X6*:pvr*
  KEYBOARD_KEY_6c=f21                                    # rotate
  KEYBOARD_KEY_68=screenlock                             # screenlock
  KEYBOARD_KEY_6b=esc                                    # escape
@@ -569,16 +569,16 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad X6*:pvr*
  KEYBOARD_KEY_69=enter                                  # enter on d-pad
 
 # IdeaPad
-keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad Y550*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*Y550*:pvr*
  KEYBOARD_KEY_95=media
  KEYBOARD_KEY_a3=play
 
 # V480
-keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo V480*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
 
 # IdeaPad
-keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad U300s*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*U300s*:pvr*
  KEYBOARD_KEY_f1=f21
  KEYBOARD_KEY_ce=f20
 
@@ -681,7 +681,7 @@ keyboard:usb:v046DpC309*
 ###########################################################
 
 # Pro 7000
-keyboard:dmi:bvn*:bvr*:bd*:svnMAXDATA:pnPro 7000*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnMAXDATA:pnPro*7000*:pvr*
  KEYBOARD_KEY_97=prog2
  KEYBOARD_KEY_9f=prog1
  KEYBOARD_KEY_a0=mute                                   # Fn+F5
@@ -827,7 +827,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnOLPC:pnXO:*
 # Onkyo
 ###########################################################
 
-keyboard:dmi:bvn*:bvr*:bd*:svnONKYO CORPORATION:pnONKYOPC:*
+keyboard:dmi:bvn*:bvr*:bd*:svnONKYO*CORPORATION:pnONKYOPC:*
  KEYBOARD_KEY_a0=mute                                   # Fn+D
  KEYBOARD_KEY_ae=volumedown                             # Fn+F
  KEYBOARD_KEY_b0=volumeup                               # Fn+G
@@ -848,7 +848,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnONKYO CORPORATION:pnONKYOPC:*
 ###########################################################
 
 # Model 2
-keyboard:dmi:bvn*:bvr*:bd*:svnOQO Inc.*:pnOQO Model 2*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnOQO*Inc.*:pnOQO*Model*2*:pvr*
  KEYBOARD_KEY_8e=wlan
  KEYBOARD_KEY_f0=switchvideomode
  KEYBOARD_KEY_f1=mute
@@ -992,12 +992,12 @@ keyboard:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVPC*:pvr*
 ###########################################################
 
 # Satellite A100
-keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSATELLITE A100:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSATELLITE*A100:pvr*
  KEYBOARD_KEY_a4=stopcd
  KEYBOARD_KEY_b2=www
 
 # Satellite A110
-keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite A110:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*A110:pvr*
  KEYBOARD_KEY_92=stop
  KEYBOARD_KEY_93=www
  KEYBOARD_KEY_94=media
@@ -1010,7 +1010,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite A110:pvr*
  KEYBOARD_KEY_f7=playpause
 
 # Satellite M30X
-keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite M30X:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*M30X:pvr*
  KEYBOARD_KEY_ef=brightnessdown
  KEYBOARD_KEY_d9=brightnessup
  KEYBOARD_KEY_ee=screenlock
@@ -1047,7 +1047,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote:*
  KEYBOARD_KEY_b0=!                                      # volume up
 
 # Znote 6615WD
-keyboard:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote 6615WD:*
+keyboard:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote*6615WD:*
  KEYBOARD_KEY_a0=!                                      # mute
  KEYBOARD_KEY_ae=!                                      # volume down
  KEYBOARD_KEY_b0=!                                      # volume up
@@ -1057,19 +1057,19 @@ keyboard:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote 6615WD:*
 ###########################################################
 
 # Common Volume Keys
-keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU SIEMENS:pnAMILO*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnFUJITSU*SIEMENS:pnAMILO*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnFOXCONN:pnQBOOK:*
 keyboard:dmi:bvn*:bvr*:bd*:svnMTC:pn*:pvrA0:*
-keyboard:dmi:bvn*:bvr*:bd*:svnMio Technology:pnN890:*
-keyboard:dmi:bvn*:bvr*:bd*:svnPEGATRON CORP.:pnSpring Peak:*
-keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA:pnSatellite [uU]30[05]*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA:pnSatellite Pro [uU]300*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA:pnSATELLITE [uU]500*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnViooo Corporation:pnPT17:*
+keyboard:dmi:bvn*:bvr*:bd*:svnMio*Technology:pnN890:*
+keyboard:dmi:bvn*:bvr*:bd*:svnPEGATRON*CORP.:pnSpring*Peak:*
+keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA:pnSatellite*[uU]30[05]*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA:pnSatellite*Pro*[uU]300*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA:pnSATELLITE*[uU]500*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnViooo*Corporation:pnPT17:*
 keyboard:dmi:bvn*:bvr*:bd*:svnHANNspree:pnSN10E100:*
 keyboard:dmi:bvn*:bvr*:bd*:svnGIGABYTE:pni1520M:*
 keyboard:dmi:bvn*:bvr*:bd*:svnBenQ:pn*nScreen*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnBenQ:pnJoybook Lite*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnBenQ:pnJoybook*Lite*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnDIXONSP:pnDIXON*:pvr*
  KEYBOARD_KEY_a0=!                                      # mute
  KEYBOARD_KEY_ae=!                                      # volume down
