@@ -1509,14 +1509,14 @@ int main(int argc, char *argv[]) {
                         log_error("Failed to adjust timer slack: %m");
 
         if (arg_capability_bounding_set_drop) {
-                r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
-                if (r < 0) {
-                        log_error("Failed to drop capability bounding set: %s", strerror(-r));
-                        goto finish;
-                }
                 r = capability_bounding_set_drop_usermode(arg_capability_bounding_set_drop);
                 if (r < 0) {
                         log_error("Failed to drop capability bounding set of usermode helpers: %s", strerror(-r));
+                        goto finish;
+                }
+                r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
+                if (r < 0) {
+                        log_error("Failed to drop capability bounding set: %s", strerror(-r));
                         goto finish;
                 }
         }
