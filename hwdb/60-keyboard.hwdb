@@ -192,7 +192,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*Evo N*:pvr*
 # Dell
 ###########################################################
 
-keyboard:dmi:bvn*:bvr*:bd*:svnDell:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pvr*
  KEYBOARD_KEY_81=playpause                              # Play/Pause
  KEYBOARD_KEY_82=stopcd                                 # Stop
  KEYBOARD_KEY_83=previoussong                           # Previous song
@@ -224,31 +224,31 @@ keyboard:dmi:bvn*:bvr*:bd*:svnDell:pvr*
  KEYBOARD_KEY_d9=f21                                    # Touchpad toggle
 
 #
-keyboard:dmi:bvn*:bvr*:bd*:svnDell:pnInspiron 910:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnDell:pnInspiron 101[012]:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnDell:pnInspiron 1110:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnDell:pnInspiron 1210:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron 910:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron 101[012]:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron 1110:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron 1210:pvr*
  KEYBOARD_KEY_84=wlan
 
 # Latitude XT2
-keyboard:dmi:bvn*:bvr*:bd*:svnDell:pnLatitude XT2:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude XT2:pvr*
  KEYBOARD_KEY_9b=up                                     # tablet rocker up
  KEYBOARD_KEY_9e=enter                                  # tablet rocker press
  KEYBOARD_KEY_9f=back                                   # tablet back
  KEYBOARD_KEY_a3=down                                   # tablet rocker down
 
-keyboard:dmi:bvn*:bvr*:bd*:svnDell Inc.:pnStudio 155[78]:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnStudio 155[78]:pvr*
  KEYBOARD_KEY_a0=!                                      # mute
  KEYBOARD_KEY_ae=!                                      # volume down
  KEYBOARD_KEY_b0=!                                      # volume up
 
 # Dell Touchpad
-keyboard:dmi:bvn*:bvr*:bd*:svnDell Inc.:pn:*Latitude*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnDell Inc.:pn:*Precision*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pn:*Latitude*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pn:*Precision*:pvr*
  KEYBOARD_KEY_9e=!f21
 
 # Dell XPS
-keyboard:dmi:bvn*:bvr*:bd*:svnDell Inc.:pnXPS*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:pvr*
  KEYBOARD_KEY_8c=!f23
 
 ###########################################################
