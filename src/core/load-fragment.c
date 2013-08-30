@@ -2205,6 +2205,7 @@ int config_parse_blockio_bandwidth(
         CGroupContext *c = data;
         const char *bandwidth;
         off_t bytes;
+        bool read;
         size_t n;
         int r;
 
@@ -2212,9 +2213,14 @@ int config_parse_blockio_bandwidth(
         assert(lvalue);
         assert(rvalue);
 
+        read = streq("BlockIOReadBandwidth", lvalue);
+
         if (isempty(rvalue)) {
-                while (c->blockio_device_bandwidths)
-                        cgroup_context_free_blockio_device_bandwidth(c, c->blockio_device_bandwidths);
+                CGroupBlockIODeviceBandwidth *next;
+
+                LIST_FOREACH_SAFE (device_bandwidths, b, next, c->blockio_device_bandwidths)
+                        if (b->read == read)
+                                cgroup_context_free_blockio_device_bandwidth(c, b);
 
                 return 0;
         }
@@ -2253,7 +2259,7 @@ int config_parse_blockio_bandwidth(
         b->path = path;
         path = NULL;
         b->bandwidth = (uint64_t) bytes;
-        b->read = streq("BlockIOReadBandwidth", lvalue);
+        b->read = read;
 
         LIST_PREPEND(CGroupBlockIODeviceBandwidth, device_bandwidths, c->blockio_device_bandwidths, b);
 
