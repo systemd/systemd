@@ -68,6 +68,7 @@ char **strv_split_quoted(const char *s);
 char **strv_split_newlines(const char *s);
 
 char *strv_join(char **l, const char *separator);
+char *strv_join_quoted(char **l);
 
 char **strv_parse_nulstr(const char *s, size_t l);
 char **strv_split_nulstr(const char *s);

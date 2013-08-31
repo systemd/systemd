@@ -273,21 +273,16 @@ static int bus_service_set_transient_property(
                         fputs("ExecStart=\n", f);
 
                         LIST_FOREACH(command, c, s->exec_command[SERVICE_EXEC_START]) {
-                                char **a;
-                                fputs("ExecStart=", f);
+                                _cleanup_free_ char *a;
 
-                                if (c->ignore)
-                                        fputc('-', f);
+                                a = strv_join_quoted(c->argv);
+                                if (!a)
+                                        return -ENOMEM;
 
-                                fputc('@', f);
-                                fputs(c->path, f);
-
-                                STRV_FOREACH(a, c->argv) {
-                                        fputc(' ', f);
-                                        fputs(*a, f);
-                                }
-
-                                fputc('\n', f);
+                                fprintf(f, "ExecStart=%s@%s %s\n",
+                                        c->ignore ? "-" : "",
+                                        c->path,
+                                        a);
                         }
 
                         fflush(f);

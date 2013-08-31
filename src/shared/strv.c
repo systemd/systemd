@@ -356,6 +356,43 @@ char *strv_join(char **l, const char *separator) {
         return r;
 }
 
+char *strv_join_quoted(char **l) {
+        char *buf = NULL;
+        char **s;
+        size_t allocated = 0, len = 0;
+
+        STRV_FOREACH(s, l) {
+                /* assuming here that escaped string cannot be more
+                 * than twice as long, and reserving space for the
+                 * separator and quotes.
+                 */
+                _cleanup_free_ char *esc = NULL;
+                size_t needed;
+
+                if (!GREEDY_REALLOC(buf, allocated,
+                                    len + strlen(*s) * 2 + 3))
+                        goto oom;
+
+                esc = cescape(*s);
+                if (!esc)
+                        goto oom;
+
+                needed = snprintf(buf + len, allocated - len, "%s\"%s\"",
+                                  len > 0 ? " " : "", esc);
+                assert(needed < allocated - len);
+                len += needed;
+        }
+
+        if (!buf)
+                buf = malloc0(1);
+
+        return buf;
+
+ oom:
+        free(buf);
+        return NULL;
+}
+
 char **strv_append(char **l, const char *s) {
         char **r, **k;
 
