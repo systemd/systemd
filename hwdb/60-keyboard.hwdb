@@ -158,7 +158,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*
 # Asus
 ###########################################################
 
-keyboard:dmi:bvn*:bvr*:bd*:svnASUS:*
+keyboard:dmi:bvn*:bvr*:bd*:svnASUS:pn*
  KEYBOARD_KEY_ed=volumeup
  KEYBOARD_KEY_ee=volumedown
  KEYBOARD_KEY_ef=mute
@@ -192,7 +192,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*Evo*N*:pvr*
 # Dell
 ###########################################################
 
-keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pn*
  KEYBOARD_KEY_81=playpause                              # Play/Pause
  KEYBOARD_KEY_82=stopcd                                 # Stop
  KEYBOARD_KEY_83=previoussong                           # Previous song
@@ -866,7 +866,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svn*:pn*:pvr*:rvnQuanta:rn30B7:rvr65.2B:*
 # Samsung
 ###########################################################
 
-keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*
  KEYBOARD_KEY_74=prog1                                  # User key
  KEYBOARD_KEY_75=www
  KEYBOARD_KEY_78=mail
