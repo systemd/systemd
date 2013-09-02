@@ -243,8 +243,8 @@ keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnStudio*155[78]:pvr*
  KEYBOARD_KEY_b0=!                                      # volume up
 
 # Dell Touchpad
-keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pn:*Latitude*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pn:*Precision*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:pvr*
  KEYBOARD_KEY_9e=!f21
 
 # Dell XPS
