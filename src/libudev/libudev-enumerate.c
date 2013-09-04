@@ -829,23 +829,27 @@ nomatch:
 static int parent_add_child(struct udev_enumerate *enumerate, const char *path)
 {
         struct udev_device *dev;
+        int r = 0;
 
         dev = udev_device_new_from_syspath(enumerate->udev, path);
         if (dev == NULL)
                 return -ENODEV;
 
         if (!match_subsystem(enumerate, udev_device_get_subsystem(dev)))
-                return 0;
+                goto nomatch;
         if (!match_sysname(enumerate, udev_device_get_sysname(dev)))
-                return 0;
+                goto nomatch;
         if (!match_property(enumerate, dev))
-                return 0;
+                goto nomatch;
         if (!match_sysattr(enumerate, dev))
-                return 0;
+                goto nomatch;
 
         syspath_add(enumerate, udev_device_get_syspath(dev));
+        r = 1;
+
+nomatch:
         udev_device_unref(dev);
-        return 1;
+        return r;
 }
 
 static int parent_crawl_children(struct udev_enumerate *enumerate, const char *path, int maxdepth)
