@@ -721,12 +721,14 @@ static bool match_subsystem(struct udev_enumerate *udev_enumerate, const char *s
 {
         struct udev_list_entry *list_entry;
 
-        subsystem = subsystem ? : "";
+        if (!subsystem)
+                return false;
 
         udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->subsystem_nomatch_list)) {
                 if (fnmatch(udev_list_entry_get_name(list_entry), subsystem, 0) == 0)
                         return false;
         }
+
         if (udev_list_get_entry(&udev_enumerate->subsystem_match_list) != NULL) {
                 udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->subsystem_match_list)) {
                         if (fnmatch(udev_list_entry_get_name(list_entry), subsystem, 0) == 0)
@@ -734,6 +736,7 @@ static bool match_subsystem(struct udev_enumerate *udev_enumerate, const char *s
                 }
                 return false;
         }
+
         return true;
 }
 
