@@ -265,18 +265,18 @@ int journal_directory_vacuum(
                         /* We do not vacuum active files or unknown files! */
                         continue;
 
-                if (journal_file_empty(dirfd(d), de->d_name)) {
+                if (journal_file_empty(dirfd(d), p)) {
 
                         /* Always vacuum empty non-online files. */
 
-                        if (unlinkat(dirfd(d), de->d_name, 0) >= 0)
-                                log_debug("Deleted empty journal %s/%s.", directory, de->d_name);
+                        if (unlinkat(dirfd(d), p, 0) >= 0)
+                                log_debug("Deleted empty journal %s/%s.", directory, p);
                         else if (errno != ENOENT)
-                                log_warning("Failed to delete %s/%s: %m", directory, de->d_name);
+                                log_warning("Failed to delete %s/%s: %m", directory, p);
                         continue;
                 }
 
-                patch_realtime(directory, de->d_name, &st, &realtime);
+                patch_realtime(directory, p, &st, &realtime);
 
                 GREEDY_REALLOC(list, n_allocated, n_list + 1);
 
