@@ -824,9 +824,9 @@ int main(int argc, char *argv[]) {
                 case '?':
                 case 'h':
                         fprintf(stdout,
-                                "\t<" ON "P" OFF "> By path; <" ON "T" OFF "> By tasks; <" ON "C" OFF "> By CPU; <" ON "M" OFF "> By memory; <" ON "I" OFF "> By I/O\n"
+                                "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks; <" ON "c" OFF "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF "> By I/O\n"
                                 "\t<" ON "+" OFF "> Increase delay; <" ON "-" OFF "> Decrease delay; <" ON "%%" OFF "> Toggle time\n"
-                                "\t<" ON "Q" OFF "> Quit; <" ON "SPACE" OFF "> Refresh");
+                                "\t<" ON "q" OFF "> Quit; <" ON "SPACE" OFF "> Refresh");
                         fflush(stdout);
                         sleep(3);
                         break;
