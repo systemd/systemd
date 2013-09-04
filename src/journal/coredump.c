@@ -41,7 +41,7 @@
 #define COREDUMP_MIN_START (3*1024*1024)
 /* Make sure to not make this larger than the maximum journal entry
  * size. See ENTRY_SIZE_MAX in journald-native.c. */
-#define COREDUMP_MAX (768*1024*1024)
+#define COREDUMP_MAX (767*1024*1024)
 
 enum {
         ARG_PID = 1,
@@ -258,6 +258,12 @@ int main(int argc, char* argv[]) {
                         break;
 
                 coredump_size += n;
+
+                if(coredump_size > COREDUMP_MAX) {
+                        log_error("Coredump too large, ignoring");
+                        goto finish;
+                }
+
                 if (!GREEDY_REALLOC(coredump_data, coredump_bufsize, coredump_size + 1)) {
                         r = log_oom();
                         goto finish;
