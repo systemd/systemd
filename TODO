@@ -636,6 +636,8 @@ Features:
   when we start a service in order to avoid confusion when a user
   assumes starting a service is enough to make it accessible
 
+* support User= and Group= attributes for AF_UNIX sockets.
+
 * Make it possible to set the keymap independently from the font on
   the kernel cmdline. Right now setting one resets also the other.
 
