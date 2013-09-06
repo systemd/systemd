@@ -385,7 +385,7 @@
                                         this unit during
                                         installation. This is best
                                         configured via
-                                        <varname>WantedBy=multi-uer.target</varname>
+                                        <varname>WantedBy=multi-user.target</varname>
                                         in the unit's
                                         <literal>[Install]</literal>
                                         section.</para>
