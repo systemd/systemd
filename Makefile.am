@@ -1709,6 +1709,7 @@ bin_PROGRAMS += \
 endif
 
 # ------------------------------------------------------------------------------
+if HAVE_BLKID
 systemgenerator_PROGRAMS +=  \
 	systemd-gpt-auto-generator
 
@@ -1725,6 +1726,7 @@ systemd_gpt_auto_generator_LDADD = \
 systemd_gpt_auto_generator_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(BLKID_CFLAGS)
+endif
 
 # ------------------------------------------------------------------------------
 systemd_rc_local_generator_SOURCES = \
