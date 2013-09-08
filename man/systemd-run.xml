@@ -188,6 +188,23 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   </refsect1>
 
   <refsect1>
+    <title>Example</title>
+
+    <para>The following command will log the environment variables
+    provided by systemd to services:</para>
+
+    <programlisting># systemd-run env
+Running as unit run-19945.service.
+# journalctl -u run-19945.service
+Sep 08 07:37:21 bupkis systemd[1]: Starting /usr/bin/env...
+Sep 08 07:37:21 bupkis systemd[1]: Started /usr/bin/env.
+Sep 08 07:37:21 bupkis env[19948]: PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Sep 08 07:37:21 bupkis env[19948]: LANG=en_US.UTF-8
+Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.x86_64
+    </programlisting>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

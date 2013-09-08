@@ -83,7 +83,31 @@ static void test_path(void) {
         }
 }
 
+static void test_find_binary(void) {
+        char *p;
+
+        assert(find_binary("/bin/sh", &p) == 0);
+        puts(p);
+        assert(streq(p, "/bin/sh"));
+        free(p);
+
+        assert(find_binary("./test-path-util", &p) == 0);
+        puts(p);
+        assert(endswith(p, "/test-path-util"));
+        assert(path_is_absolute(p));
+        free(p);
+
+        assert(find_binary("sh", &p) == 0);
+        puts(p);
+        assert(endswith(p, "/sh"));
+        assert(path_is_absolute(p));
+        free(p);
+
+        assert(find_binary("xxxx-xxxx", &p) == -ENOENT);
+}
+
 int main(void) {
         test_path();
+        test_find_binary();
         return 0;
 }

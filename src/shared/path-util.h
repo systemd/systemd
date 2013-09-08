@@ -25,6 +25,12 @@
 
 #include "macro.h"
 
+#ifdef HAVE_SPLIT_USR
+#  define DEFAULT_PATH "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+#else
+#  define DEFAULT_PATH "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+#endif
+
 bool is_path(const char *p) _pure_;
 char** path_split_and_make_absolute(const char *p);
 char* path_get_file_name(const char *p) _pure_;
@@ -43,3 +49,5 @@ char** path_strv_canonicalize_uniq(char **l);
 int path_is_mount_point(const char *path, bool allow_symlink);
 int path_is_read_only_fs(const char *path);
 int path_is_os_tree(const char *path);
+
+int find_binary(const char *name, char **filename);

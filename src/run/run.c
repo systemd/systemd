@@ -39,7 +39,7 @@ static bool arg_send_sighup = false;
 
 static int help(void) {
 
-        printf("%s [OPTIONS...] [COMMAND LINE...]\n\n"
+        printf("%s [OPTIONS...] COMMAND [ARGS...]\n\n"
                "Run the specified command in a transient scope or service unit.\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -324,7 +324,7 @@ static int start_transient_scope(
 int main(int argc, char* argv[]) {
         sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
-        _cleanup_free_ char *description = NULL;
+        _cleanup_free_ char *description = NULL, *command = NULL;
         int r;
 
         log_parse_environment();
@@ -333,6 +333,13 @@ int main(int argc, char* argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto fail;
+
+        r = find_binary(argv[optind], &command);
+        if (r < 0) {
+                log_error("Failed to find executable %s: %s", argv[optind], strerror(-r));
+                goto fail;
+        }
+        argv[optind] = command;
 
         if (!arg_description) {
                 description = strv_join(argv + optind, " ");

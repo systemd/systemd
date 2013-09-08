@@ -425,3 +425,51 @@ int path_is_os_tree(const char *path) {
 
         return r < 0 ? 0 : 1;
 }
+
+int find_binary(const char *name, char **filename) {
+        assert(name);
+        if (strchr(name, '/')) {
+                char *p;
+
+                if (path_is_absolute(name))
+                        p = strdup(name);
+                else
+                        p = path_make_absolute_cwd(name);
+                if (!p)
+                        return -ENOMEM;
+
+                *filename = p;
+                return 0;
+        } else {
+                const char *path;
+                char *state, *w;
+                size_t l;
+
+                /**
+                 * Plain getenv, not secure_getenv, because we want
+                 * to actually allow the user to pick the binary.
+                 */
+                path = getenv("PATH");
+                if (!path)
+                        path = DEFAULT_PATH;
+
+                FOREACH_WORD_SEPARATOR(w, l, path, ":", state) {
+                        char *p;
+
+                        if (asprintf(&p, "%.*s/%s", l, w, name) < 0)
+                                return -ENOMEM;
+
+                        if (access(p, X_OK) < 0) {
+                                free(p);
+                                continue;
+                        }
+
+                        path_kill_slashes(p);
+                        *filename = p;
+
+                        return 0;
+                }
+
+                return -ENOENT;
+        }
+}

@@ -456,11 +456,7 @@ static int manager_setup_signals(Manager *m) {
 }
 
 static int manager_default_environment(Manager *m) {
-#ifdef HAVE_SPLIT_USR
-        const char *path = "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-#else
-        const char *path = "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin";
-#endif
+        const char *path = "PATH=" DEFAULT_PATH;
 
         assert(m);
 

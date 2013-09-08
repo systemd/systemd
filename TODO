@@ -715,6 +715,8 @@ Features:
    - document initcall_debug
    - kernel cmdline "bootchart" option for simplicity?
 
+* systemd-run is missing completion scripts
+
 External:
 
 * dbus:
