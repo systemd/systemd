@@ -102,7 +102,8 @@ char **path_split_and_make_absolute(const char *p) {
         char **l;
         assert(p);
 
-        if (!(l = strv_split(p, ":")))
+        l = strv_split(p, ":");
+        if (!l)
                 return NULL;
 
         if (!path_strv_make_absolute_cwd(l)) {
@@ -126,7 +127,7 @@ char *path_make_absolute(const char *p, const char *prefix) {
 }
 
 char *path_make_absolute_cwd(const char *p) {
-        char *cwd, *r;
+        _cleanup_free_ char *cwd = NULL;
 
         assert(p);
 
@@ -140,10 +141,7 @@ char *path_make_absolute_cwd(const char *p) {
         if (!cwd)
                 return NULL;
 
-        r = path_make_absolute(p, cwd);
-        free(cwd);
-
-        return r;
+        return path_make_absolute(p, cwd);
 }
 
 char **path_strv_make_absolute_cwd(char **l) {
@@ -156,7 +154,8 @@ char **path_strv_make_absolute_cwd(char **l) {
         STRV_FOREACH(s, l) {
                 char *t;
 
-                if (!(t = path_make_absolute_cwd(*s)))
+                t = path_make_absolute_cwd(*s);
+                if (!t)
                         return NULL;
 
                 free(*s);
