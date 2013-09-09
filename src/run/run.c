@@ -28,6 +28,7 @@
 #include "strv.h"
 #include "build.h"
 #include "unit-name.h"
+#include "path-util.h"
 
 static bool arg_scope = false;
 static bool arg_user = false;

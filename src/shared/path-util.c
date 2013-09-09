@@ -456,7 +456,7 @@ int find_binary(const char *name, char **filename) {
                 FOREACH_WORD_SEPARATOR(w, l, path, ":", state) {
                         char *p;
 
-                        if (asprintf(&p, "%.*s/%s", l, w, name) < 0)
+                        if (asprintf(&p, "%.*s/%s", (int) l, w, name) < 0)
                                 return -ENOMEM;
 
                         if (access(p, X_OK) < 0) {
