@@ -413,7 +413,7 @@ int bus_cgroup_set_property(
                                 bool exist = false;
 
                                 LIST_FOREACH(device_allow, b, c->device_allow) {
-                                        if (streq(b->path, path)) {
+                                        if (path_equal(b->path, path)) {
                                                 a = b;
                                                 exist = true;
                                                 break;
