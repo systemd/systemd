@@ -222,6 +222,101 @@ int bus_cgroup_set_property(
 
                 return 1;
 
+        } else if (streq(name, "BlockIOReadBandwidth") || streq(name, "BlockIOWriteBandwidth")) {
+                DBusMessageIter sub;
+                unsigned n = 0;
+                bool read = true;
+
+                if (streq(name, "BlockIOWriteBandwidth"))
+                        read = false;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_ARRAY ||
+                    dbus_message_iter_get_element_type(i) != DBUS_TYPE_STRUCT)
+                         return -EINVAL;
+
+                dbus_message_iter_recurse(i, &sub);
+                while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                        DBusMessageIter sub2;
+                        const char *path;
+                        uint64_t u64;
+                        CGroupBlockIODeviceBandwidth *a;
+
+                        dbus_message_iter_recurse(&sub, &sub2);
+                        if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0 ||
+                            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &u64, false) < 0)
+                                return -EINVAL;
+
+                        if (mode != UNIT_CHECK) {
+                                CGroupBlockIODeviceBandwidth *b;
+                                bool exist = false;
+
+                                LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
+                                        if (path_equal(path, b->path) && read == b->read) {
+                                                a = b;
+                                                exist = true;
+                                                break;
+                                        }
+                                }
+
+                                if (!exist) {
+                                        a = new0(CGroupBlockIODeviceBandwidth, 1);
+                                        if (!a)
+                                                return -ENOMEM;
+
+                                        a->read = read;
+                                        a->path = strdup(path);
+                                        if (!a->path) {
+                                                free(a);
+                                                return -ENOMEM;
+                                        }
+                                }
+
+                                a->bandwidth = u64;
+
+                                if (!exist)
+                                        LIST_PREPEND(CGroupBlockIODeviceBandwidth, device_bandwidths,
+                                                     c->blockio_device_bandwidths, a);
+                        }
+
+                        n++;
+                        dbus_message_iter_next(&sub);
+                }
+
+                if (mode != UNIT_CHECK) {
+                        _cleanup_free_ char *buf = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        CGroupBlockIODeviceBandwidth *a;
+                        CGroupBlockIODeviceBandwidth *next;
+                        size_t size = 0;
+
+                        if (n == 0) {
+                                LIST_FOREACH_SAFE(device_bandwidths, a, next, c->blockio_device_bandwidths)
+                                        if (a->read == read)
+                                                cgroup_context_free_blockio_device_bandwidth(c, a);
+                        }
+
+                        f = open_memstream(&buf, &size);
+                        if (!f)
+                                return -ENOMEM;
+
+                         if (read) {
+                                fputs("BlockIOReadBandwidth=\n", f);
+                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
+                                        if (a->read)
+                                                fprintf(f, "BlockIOReadBandwidth=%s %" PRIu64 "\n", a->path, a->bandwidth);
+                        } else {
+                                fputs("BlockIOWriteBandwidth=\n", f);
+                                LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
+                                        if (!a->read)
+                                                fprintf(f, "BlockIOWriteBandwidth=%s %" PRIu64 "\n", a->path, a->bandwidth);
+                        }
+
+                        fflush(f);
+                        unit_write_drop_in_private(u, mode, name, buf);
+                }
+
+                return 1;
+
         } else if (streq(name, "MemoryAccounting")) {
 
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_BOOLEAN)
