@@ -27,7 +27,8 @@ With systemd 197 we have added native support for a number of different naming p
 1. Names incorporating Firmware/BIOS provided PCI Express hotplug slot index numbers (example: `ens1`) 
 1. Names incorporating physical/geographical location of the connector of the hardware (example: `enp2s0`) 
 1. Names incorporating the interfaces's MAC address (example: `enx78e7d1ea46da`) 
-1. Classic, unpredictable kernel-native ethX naming (example: `eth0`) 
+1. Classic, unpredictable kernel-native ethX naming (example: `eth0`)
+
 By default, systemd v197 will now name interfaces following policy 1) if that information from the firmware is applicable and available, falling back to 2) if that information from the firmware is applicable and available, falling back to 3) if applicable, falling back to 5) in all other cases. Policy 4) is not used by default, but is available if the user chooses so. 
 
 This combined policy is only applied as last resort. That means, if the system has biosdevname installed, it will take precedence. If the user has added udev rules which change the name of the kernel devices these will take precedence too. Also, any distribution specific naming schemes generally take precedence. 
