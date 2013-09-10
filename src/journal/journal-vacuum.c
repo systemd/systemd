@@ -159,7 +159,7 @@ int journal_directory_vacuum(
         struct vacuum_info *list = NULL;
         unsigned n_list = 0, i;
         size_t n_allocated = 0;
-        uint64_t sum = 0;
+        uint64_t sum = 0, freed = 0;
         usec_t retention_limit = 0;
 
         assert(directory);
@@ -267,13 +267,17 @@ int journal_directory_vacuum(
                         continue;
 
                 if (journal_file_empty(dirfd(d), p)) {
-
                         /* Always vacuum empty non-online files. */
 
-                        if (unlinkat(dirfd(d), p, 0) >= 0)
-                                log_debug("Deleted empty journal %s/%s.", directory, p);
-                        else if (errno != ENOENT)
+                        uint64_t size = 512UL * (uint64_t) st.st_blocks;
+
+                        if (unlinkat(dirfd(d), p, 0) >= 0) {
+                                log_info("Deleted empty journal %s/%s (%"PRIu64" bytes).",
+                                         directory, p, size);
+                                freed += size;
+                        } else if (errno != ENOENT)
                                 log_warning("Failed to delete %s/%s: %m", directory, p);
+
                         continue;
                 }
 
@@ -310,7 +314,9 @@ int journal_directory_vacuum(
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
-                        log_debug("Deleted archived journal %s/%s.", directory, list[i].filename);
+                        log_debug("Deleted archived journal %s/%s (%"PRIu64" bytes).",
+                                  directory, list[i].filename, list[i].usage);
+                        freed += list[i].usage;
 
                         if (list[i].usage < sum)
                                 sum -= list[i].usage;
@@ -328,6 +334,8 @@ finish:
         for (i = 0; i < n_list; i++)
                 free(list[i].filename);
         free(list);
+
+        log_info("Vacuuming done, freed %"PRIu64" bytes", freed);
 
         return r;
 }

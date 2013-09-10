@@ -1092,6 +1092,8 @@ int process_event(Server *s, struct epoll_event *ev) {
                 }
 
                 if (sfsi.ssi_signo == SIGUSR1) {
+                        log_info("Received request to flush runtime journal from PID %"PRIu32,
+                                 sfsi.ssi_pid);
                         touch("/run/systemd/journal/flushed");
                         server_flush_to_var(s);
                         server_sync(s);
@@ -1099,6 +1101,8 @@ int process_event(Server *s, struct epoll_event *ev) {
                 }
 
                 if (sfsi.ssi_signo == SIGUSR2) {
+                        log_info("Received request to rotate journal from PID %"PRIu32,
+                                 sfsi.ssi_pid);
                         server_rotate(s);
                         server_vacuum(s);
                         return 1;

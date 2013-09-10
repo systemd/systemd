@@ -1301,7 +1301,7 @@ static int access_check(sd_journal *j) {
 
 int main(int argc, char *argv[]) {
         int r;
-        _cleanup_journal_close_ sd_journal*j = NULL;
+        _cleanup_journal_close_ sd_journal *j = NULL;
         bool need_seek = false;
         sd_id128_t previous_boot_id;
         bool previous_boot_id_valid = false, first_line = true;

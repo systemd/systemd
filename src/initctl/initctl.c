@@ -223,8 +223,10 @@ static int fifo_process(Fifo *f) {
         assert(f);
 
         errno = EIO;
-        if ((l = read(f->fd, ((uint8_t*) &f->buffer) + f->bytes_read, sizeof(f->buffer) - f->bytes_read)) <= 0) {
-
+        l = read(f->fd,
+                 ((uint8_t*) &f->buffer) + f->bytes_read,
+                 sizeof(f->buffer) - f->bytes_read);
+        if (l <= 0) {
                 if (errno == EAGAIN)
                         return 0;
 
@@ -372,8 +374,8 @@ static int process_event(Server *s, struct epoll_event *ev) {
         }
 
         f = (Fifo*) ev->data.ptr;
-
-        if ((r = fifo_process(f)) < 0) {
+        r = fifo_process(f);
+        if (r < 0) {
                 log_info("Got error on fifo: %s", strerror(-r));
                 fifo_free(f);
                 return r;
