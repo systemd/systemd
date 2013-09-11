@@ -217,7 +217,11 @@
                                 systemd. If
                                 <varname>NotifyAccess=</varname> is
                                 not set, it will be implicitly set to
-                                <option>main</option>.</para>
+                                <option>main</option>. Note that
+                                currently
+                                <varname>Type=</varname><option>notify</option>
+                                won't work if used in combination with
+                                <varname>PrivateNetwork=</varname><option>yes</option>.</para>
 
                                 <para>Behavior of
                                 <option>idle</option> is very similar
