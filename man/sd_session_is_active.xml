@@ -52,6 +52,7 @@
                 <refname>sd_session_get_class</refname>
                 <refname>sd_session_get_display</refname>
                 <refname>sd_session_get_tty</refname>
+                <refname>sd_session_get_vt</refname>
                 <refpurpose>Determine state of a specific session</refpurpose>
         </refnamediv>
 
@@ -110,6 +111,12 @@
                                 <funcdef>int <function>sd_session_get_tty</function></funcdef>
                                 <paramdef>const char* <parameter>session</parameter></paramdef>
                                 <paramdef>char** <parameter>tty</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_session_get_vt</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>unsigned* <parameter>vt</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -201,6 +208,12 @@
                 freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
+
+                <para><function>sd_session_get_vt()</function>
+                may be used to determine the VT number of the
+                session identified by the specified session
+                identifier. This function will return an error if
+                the seat does not support VTs.</para>
 
                 <para>If the <varname>session</varname> parameter of
                 any of these functions is passed as

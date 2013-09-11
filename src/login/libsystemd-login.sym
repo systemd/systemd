@@ -80,3 +80,8 @@ LIBSYSTEMD_LOGIN_205 {
 global:
         sd_pid_get_slice;
 } LIBSYSTEMD_LOGIN_203;
+
+LIBSYSTEMD_LOGIN_207 {
+global:
+        sd_session_get_vt;
+} LIBSYSTEMD_LOGIN_205;

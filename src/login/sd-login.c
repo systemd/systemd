@@ -347,6 +347,23 @@ _public_ int sd_session_get_tty(const char *session, char **tty) {
         return session_get_string(session, "TTY", tty);
 }
 
+_public_ int sd_session_get_vt(const char *session, unsigned *vtnr) {
+        _cleanup_free_ char *vtnr_string;
+        unsigned u;
+        int r;
+
+        r = session_get_string(session, "VTNr", &vtnr_string);
+        if (r < 0)
+                return r;
+
+        r = safe_atou(vtnr_string, &u);
+        if (r < 0)
+                return r;
+
+        *vtnr = u;
+        return 0;
+}
+
 _public_ int sd_session_get_service(const char *session, char **service) {
         return session_get_string(session, "SERVICE", service);
 }

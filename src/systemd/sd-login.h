@@ -124,6 +124,9 @@ int sd_session_get_display(const char *session, char **display);
 /* Determine the TTY of this session. */
 int sd_session_get_tty(const char *session, char **display);
 
+/* Determine the VT number of this session. */
+int sd_session_get_vt(const char *session, unsigned *vtnr);
+
 /* Return active session and user of seat */
 int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 
