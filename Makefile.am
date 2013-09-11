@@ -64,6 +64,7 @@ dbussessionservicedir=@dbussessionservicedir@
 dbussystemservicedir=@dbussystemservicedir@
 dbusinterfacedir=@dbusinterfacedir@
 pamlibdir=@pamlibdir@
+pamconfdir=@pamconfdir@
 pkgconfigdatadir=$(datadir)/pkgconfig
 pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
@@ -3905,6 +3906,9 @@ pam_systemd_la_LIBADD = \
 
 pamlib_LTLIBRARIES = \
 	pam_systemd.la
+
+dist_pamconf_DATA = \
+	src/login/systemd-user
 endif
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
@@ -4460,6 +4464,7 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-bashcompletiondir=$$dc_install_base/$(bashcompletiondir) \
 	--with-zshcompletiondir=$$dc_install_base/$(zshcompletiondir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
+	--with-pamconfdir=$$dc_install_base/$(pamconfdir) \
 	--with-rootprefix=$$dc_install_base \
 	--disable-split-usr
 

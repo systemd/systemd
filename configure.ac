@@ -943,6 +943,11 @@ AC_ARG_WITH([pamlibdir],
         [],
         [with_pamlibdir=${with_rootlibdir}/security])
 
+AC_ARG_WITH([pamconfdir],
+        AS_HELP_STRING([--with-pamconfdir=DIR], [Directory for PAM configuration]),
+        [],
+        [with_pamconfdir=${sysconfdir}/pam.d])
+
 AC_ARG_ENABLE([split-usr],
         AS_HELP_STRING([--enable-split-usr], [Assume that /bin, /sbin aren\'t symlinks into /usr]),
         [],
@@ -975,6 +980,7 @@ AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
 AC_SUBST([bashcompletiondir], [$with_bashcompletiondir])
 AC_SUBST([zshcompletiondir], [$with_zshcompletiondir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
+AC_SUBST([pamconfdir], [$with_pamconfdir])
 AC_SUBST([rootprefix], [$with_rootprefix])
 AC_SUBST([rootlibdir], [$with_rootlibdir])
 
@@ -1047,6 +1053,7 @@ AC_MSG_RESULT([
         Installation Python:     ${PYTHON_BINARY}
         firmware path:           ${FIRMWARE_PATH}
         PAM modules dir:         ${with_pamlibdir}
+        PAM configuration dir:   ${with_pamconfdir}
         D-Bus policy dir:        ${with_dbuspolicydir}
         D-Bus session dir:       ${with_dbussessionservicedir}
         D-Bus system dir:        ${with_dbussystemservicedir}

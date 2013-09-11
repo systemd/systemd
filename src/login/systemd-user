@@ -1,0 +1,8 @@
+#%PAM-1.0
+
+# Used by systemd when launching systemd user instances.
+
+account include system-auth
+session include system-auth
+auth required pam_deny.so
+password required pam_deny.so
