@@ -58,6 +58,8 @@ CGroup Rework Completion:
 
 Features:
 
+* ensure scope units may be started only a single time
+
 * document that in instead of FsckPassNo= people should just add a manual dep to systemd-fsck@.service to their mount units.
 
 * better error message if you run systemctl without systemd running

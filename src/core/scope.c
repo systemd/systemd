@@ -239,6 +239,9 @@ static int scope_start(Unit *u) {
 
         assert(s);
 
+        if (s->state == SCOPE_FAILED)
+                return -EPERM;
+
         if (s->state == SCOPE_STOP_SIGTERM ||
             s->state == SCOPE_STOP_SIGKILL)
                 return -EAGAIN;
