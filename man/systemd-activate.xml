@@ -123,8 +123,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem><para>Add this variable to the environment of the
         launched process. If <replaceable>VAR</replaceable> is
-        followed by <literal>=</literal> assume that it is a
-        variable–value pair. Otherwise obtain the value from the
+        followed by <literal>=</literal>, assume that it is a
+        variable–value pair. Otherwise, obtain the value from the
         environment of <command>systemd-activate</command> itself.
         </para></listitem>
       </varlistentry>

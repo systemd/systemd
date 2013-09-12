@@ -136,7 +136,7 @@
                                 <term><option>--unit=</option></term>
 
                                 <listitem><para>Set default unit to
-                                activate on startup. If not specified
+                                activate on startup. If not specified,
                                 defaults to
                                 <filename>default.target</filename>.</para></listitem>
                         </varlistentry>
@@ -233,7 +233,7 @@
 
                                 <listitem><para>Highlight important
                                 log messages. Argument is a boolean
-                                value. If the argument is omitted it
+                                value. If the argument is omitted, it
                                 defaults to
                                 <option>true</option>.</para></listitem>
                         </varlistentry>
@@ -429,7 +429,7 @@
                 <filename>multi-user.target</filename> (for limited
                 console-only boots for use in embedded or server
                 environments, or similar; a subset of
-                graphical.target). However it is at the discretion of
+                graphical.target). However, it is at the discretion of
                 the administrator to configure it as an alias to any
                 other target unit. See
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -1030,9 +1030,9 @@
                                 <term><varname>systemd.dump_core=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 systemd dumps core when it
-                                crashes. Otherwise no core dump is
+                                crashes. Otherwise, no core dump is
                                 created. Defaults to
                                 <option>true</option>.</para></listitem>
                         </varlistentry>
@@ -1041,9 +1041,9 @@
                                 <term><varname>systemd.crash_shell=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 systemd spawns a shell when it
-                                crashes. Otherwise no shell is
+                                crashes. Otherwise, no shell is
                                 spawned. Defaults to
                                 <option>false</option>, for security
                                 reasons, as the shell is not protected
@@ -1065,7 +1065,7 @@
                                 <term><varname>systemd.confirm_spawn=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 asks for confirmation when spawning
                                 processes. Defaults to
                                 <option>false</option>.</para></listitem>
@@ -1075,7 +1075,7 @@
                                 <term><varname>systemd.show_status=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 shows terse service status updates on
                                 the console during bootup. Defaults to
                                 <option>true</option>, unless

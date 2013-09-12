@@ -119,7 +119,7 @@
                                 <listitem><para>Inform the init system
                                 about the main PID of the
                                 daemon. Takes a PID as argument. If
-                                the argument is omitted the PID of the
+                                the argument is omitted, the PID of the
                                 process that invoked
                                 <command>systemd-notify</command> is
                                 used. This is equivalent to
@@ -148,10 +148,10 @@
                                 <listitem><para>Returns 0 if the
                                 system was booted up with systemd,
                                 non-zero otherwise. If this option is
-                                passed no message is sent. This option
+                                passed, no message is sent. This option
                                 is hence unrelated to the other
                                 options. For details about the
-                                semantics of this option see
+                                semantics of this option, see
                                 <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
                         </varlistentry>
 

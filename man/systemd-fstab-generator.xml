@@ -90,7 +90,7 @@
                                 <listitem><para>Takes a boolean
                                 argument. Defaults to
                                 <literal>yes</literal>. If
-                                <literal>no</literal> causes the
+                                <literal>no</literal>, causes the
                                 generator to ignore any mounts or swaps
                                 configured in
                                 <filename>/etc/fstab</filename>. <varname>rd.fstab=</varname>

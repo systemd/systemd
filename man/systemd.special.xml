@@ -939,7 +939,7 @@
                                         <varname>Wants=</varname> type
                                         dependency. If the unit wants
                                         to be pulled in by the first
-                                        remote mount showing up it
+                                        remote mount showing up, it
                                         should use
                                         <filename>network-online.target</filename>
                                         (see above).</para>
@@ -1012,7 +1012,7 @@
                                         manager should start this
                                         unit. If systemd receives
                                         <constant>SIGTERM</constant> or <constant>SIGINT</constant> when running
-                                        as user service daemon it will
+                                        as user service daemon, it will
                                         start this unit.</para>
 
                                         <para>Normally, this pulls in

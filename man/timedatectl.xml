@@ -122,10 +122,10 @@
 
                                 <listitem><para>If
                                 <command>set-local-rtc</command> is
-                                invoked and this option is passed the
+                                invoked and this option is passed, the
                                 system clock is synchronized from the
                                 RTC again, taking the new setting into
-                                account. Otherwise the RTC is
+                                account. Otherwise, the RTC is
                                 synchronized from the system
                                 clock.</para></listitem>
                         </varlistentry>
@@ -161,7 +161,7 @@
                                 timezones can be listed with
                                 <command>list-timezones</command>. If
                                 the RTC is configured to be in the
-                                local time this will also update the
+                                local time, this will also update the
                                 RTC time. This call will alter the
                                 <filename>/etc/localtime</filename>
                                 symlink. See
@@ -184,17 +184,17 @@
                                 <term><command>set-local-rtc [BOOL]</command></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <literal>0</literal> the
+                                argument. If <literal>0</literal>, the
                                 system is configured to maintain the
-                                RTC in universal time, if
-                                <literal>1</literal> it will maintain
+                                RTC in universal time. If
+                                <literal>1</literal>, it will maintain
                                 the RTC in local time instead. Note
                                 that maintaining the RTC in the local
                                 timezone is not fully supported and
                                 will create various problems with time
                                 zone changes and daylight saving
-                                adjustments. If at all possible use
-                                RTC in UTC. Note that invoking this
+                                adjustments. If at all possible, keep the
+                                RTC in UTC mode. Note that invoking this
                                 will also synchronize the RTC from the
                                 system clock, unless
                                 <option>--adjust-system-clock</option> is

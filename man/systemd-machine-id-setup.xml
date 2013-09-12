@@ -69,12 +69,12 @@
                 initialized.</para>
 
                 <para>If a valid D-Bus machine ID is already
-                configured for the system the D-Bus machine ID is
+                configured for the system, the D-Bus machine ID is
                 copied and used to initialize the machine ID in
                 <filename>/etc/machine-id</filename>.</para>
 
                 <para>If run inside a KVM virtual machine and a UUID
-                is passed via the <option>-uuid</option> option this
+                is passed via the <option>-uuid</option> option, this
                 UUID is used to initialize the machine ID instead of a
                 randomly generated one. The caller must ensure that the
                 UUID passed is sufficiently unique and is different

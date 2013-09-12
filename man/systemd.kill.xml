@@ -94,16 +94,16 @@
                                 <option>none</option>.</para>
 
                                 <para>If set to
-                                <option>control-group</option> all
+                                <option>control-group</option>, all
                                 remaining processes in the control
                                 group of this unit will be terminated
                                 on unit stop (for services: after the
                                 stop command is executed, as
                                 configured with
                                 <varname>ExecStop=</varname>). If set
-                                to <option>process</option> only the
+                                to <option>process</option>, only the
                                 main process itself is killed. If set
-                                to <option>none</option> no process is
+                                to <option>none</option>, no process is
                                 killed. In this case only the stop
                                 command will be executed on unit
                                 stop, but no process be killed

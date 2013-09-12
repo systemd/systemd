@@ -88,10 +88,10 @@
                 administrator, who may use this logic to override the
                 configuration files installed from vendor
                 packages. All files are sorted by their filename in
-                alphabetical order, regardless in which of the
+                lexicographic order, regardless in which of the
                 directories they reside. If multiple files specify
                 the same binary type name, the entry in the file with
-                the alphabetically latest name will be applied.</para>
+                the lexicographically latest name will be applied.</para>
 
                 <para>If the administrator wants to disable a
                 configuration file supplied by the vendor, the

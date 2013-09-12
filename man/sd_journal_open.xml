@@ -146,7 +146,7 @@
 
                 <para>When opening the journal only journal files
                 accessible to the calling user will be opened. If
-                journal files are not accessible to the caller this
+                journal files are not accessible to the caller, this
                 will be silently ignored.</para>
 
                 <para>See

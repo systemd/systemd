@@ -94,11 +94,11 @@
                 only of 0-9, A-Z and the underscore. It may not begin
                 with two underscores or be the empty string. The value
                 part may be any value, including binary. If a match is
-                applied only entries with this field set will be
+                applied, only entries with this field set will be
                 iterated. Multiple matches may be active at the same
-                time: if they apply to different fields only entries
-                with both fields set like this will be iterated, if
-                they apply to the same fields only entries where the
+                time: If they apply to different fields, only entries
+                with both fields set like this will be iterated. If
+                they apply to the same fields, only entries where the
                 field takes one of the specified values will be
                 iterated. Well known fields are documented in
                 <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>. Whenever
@@ -110,7 +110,7 @@
 
                 <para><function>sd_journal_add_disjunction()</function>
                 may be used to insert a disjunction (i.e. logical OR)
-                in the match list. If this call is invoked all
+                in the match list. If this call is invoked, all
                 previously added matches since the last invocation of
                 <function>sd_journal_add_disjunction()</function> or
                 <function>sd_journal_add_conjunction()</function> are
@@ -123,7 +123,7 @@
 
                 <para><function>sd_journal_add_conjunction()</function>
                 may be used to insert a conjunction (i.e. logical AND)
-                in the match list. If this call is invoked all
+                in the match list. If this call is invoked, all
                 previously added matches since the last invocation of
                 <function>sd_journal_add_conjunction()</function> are
                 combined in an AND with all matches added afterwards,

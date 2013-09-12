@@ -111,7 +111,7 @@
 
                 <para>If the reference implementation is used as
                 drop-in files and -DDISABLE_SYSTEMD is set during
-                compilation this function will always return 0 and
+                compilation, this function will always return 0 and
                 otherwise become a NOP.</para>
         </refsect1>
 

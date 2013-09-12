@@ -142,7 +142,7 @@
                 details about the reference implementation see
                 <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>3</manvolnum></citerefentry></para>
 
-                <para>If -DDISABLE_SYSTEMD is set during compilation
+                <para>If -DDISABLE_SYSTEMD is set during compilation,
                 this function will always return 0 and otherwise
                 become a NOP.</para>
         </refsect1>

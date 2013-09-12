@@ -160,7 +160,7 @@
 
                 <para>On failure, these calls return a negative
                 errno-style error code. If the file descriptor is of
-                the specified type and bound to the specified address
+                the specified type and bound to the specified address,
                 a positive return value is returned, otherwise
                 zero.</para>
         </refsect1>

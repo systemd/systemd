@@ -136,7 +136,7 @@
                                 <listitem><para>If
                                 <command>set-keymap</command> or
                                 <command>set-x11-keymap</command> is
-                                invoked and this option is passed then
+                                invoked and this option is passed, then
                                 the keymap will not be converted from
                                 the console to X11, or X11 to console,
                                 respectively.</para></listitem>

@@ -128,7 +128,7 @@
                                 combined of the same and of different
                                 types. For example, by combining
                                 <varname>OnBootSec=</varname> and
-                                <varname>OnUnitActiveSec=</varname> it is
+                                <varname>OnUnitActiveSec=</varname>, it is
                                 possible to define a timer that
                                 elapses in regular intervals and
                                 activates a specific service each

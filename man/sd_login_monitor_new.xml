@@ -129,7 +129,7 @@
                 object. Whenever an event causes the monitor to wake
                 up the event loop via the file descriptor this
                 function needs to be called to reset the wake-up
-                state. If this call is not invoked the file descriptor
+                state. If this call is not invoked, the file descriptor
                 will immediately wake up the event loop again.</para>
 
                 <para><function>sd_login_monitor_get_fd()</function>
@@ -167,7 +167,7 @@
                 <varname>timeout_usec</varname>. See
                 <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                 for details about
-                <constant>CLOCK_MONOTONIC</constant>. If there's no
+                <constant>CLOCK_MONOTONIC</constant>. If there is no
                 timeout to wait for this will fill in
                 <constant>(uint64_t) -1</constant> instead. Note that
                 <function>poll()</function> takes a relative timeout

@@ -133,7 +133,7 @@
 
                                 <listitem><para>Configures controllers
                                 that shall be mounted in a single
-                                hierarchy. By default systemd will
+                                hierarchy. By default, systemd will
                                 mount all controllers which are
                                 enabled in the kernel in individual
                                 hierarchies, with the exception of
@@ -154,7 +154,7 @@
                                 necessary to rebuild the initrd if
                                 this option is changed, and make sure
                                 the new configuration file is included
-                                in it. Otherwise the initrd might
+                                in it. Otherwise, the initrd might
                                 mount the controller hierarchies in a
                                 different configuration than intended,
                                 and the main system cannot remount
@@ -175,7 +175,7 @@
                                 <literal>d</literal>,
                                 <literal>w</literal>). If
                                 <varname>RuntimeWatchdogSec=</varname>
-                                is set to a non-zero value the
+                                is set to a non-zero value, the
                                 watchdog hardware
                                 (<filename>/dev/watchdog</filename>)
                                 will be programmed to automatically
@@ -220,7 +220,7 @@
                                 Capabilities listed will be included
                                 in the bounding set, all others are
                                 removed. If the list of capabilities
-                                is prefixed with ~ all but the listed
+                                is prefixed with ~, all but the listed
                                 capabilities will be included, the
                                 effect of the assignment
                                 inverted. Note that this option also

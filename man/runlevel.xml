@@ -111,7 +111,7 @@
                                 <term><varname>$PREVLEVEL</varname></term>
 
                                 <listitem><para>If
-                                <varname>$PREVLEVEL</varname> is set
+                                <varname>$PREVLEVEL</varname> is set,
                                 <command>runlevel</command> will print
                                 this value as previous runlevel and
                                 ignore utmp.</para></listitem>

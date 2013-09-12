@@ -126,9 +126,9 @@
 
                 <para>Unit files may contain additional options on top
                 of those listed here. If systemd encounters an unknown
-                option it will write a warning log message but
+                option, it will write a warning log message but
                 continue loading the unit. If an option is prefixed
-                with <option>X-</option> it is ignored completely by
+                with <option>X-</option>, it is ignored completely by
                 systemd. Applications may use this to include
                 additional information in the unit files.</para>
 
@@ -136,7 +136,7 @@
                 written in various formats. For positive settings the
                 strings <option>1</option>, <option>yes</option>,
                 <option>true</option> and <option>on</option> are
-                equivalent. For negative settings the strings
+                equivalent. For negative settings, the strings
                 <option>0</option>, <option>no</option>,
                 <option>false</option> and <option>off</option> are
                 equivalent.</para>
@@ -160,14 +160,14 @@
                 space character. This may be used to wrap long lines.</para>
 
                 <para>Along with a unit file
-                <filename>foo.service</filename> the directory
+                <filename>foo.service</filename>, the directory
                 <filename>foo.service.wants/</filename> may exist. All
                 unit files symlinked from such a directory are
                 implicitly added as dependencies of type
                 <varname>Wanted=</varname> to the unit. This is useful
                 to hook units into the start-up of other units,
                 without having to modify their unit files. For details
-                about the semantics of <varname>Wanted=</varname> see
+                about the semantics of <varname>Wanted=</varname>, see
                 below. The preferred way to create symlinks in the
                 <filename>.wants/</filename> directory of a unit file
                 is with the <command>enable</command> command of the
@@ -179,7 +179,7 @@
                 <filename>.requires/</filename> in this case.</para>
 
                 <para>Along with a unit file
-                <filename>foo.service</filename> a directory
+                <filename>foo.service</filename>, a directory
                 <filename>foo.service.d/</filename> may exist. All
                 files with the suffix <literal>.conf</literal> from
                 this directory will be parsed after the file itself is
@@ -206,7 +206,7 @@
                 file system namespace. Example: a device unit
                 <filename>dev-sda.device</filename> refers to a device
                 with the device node <filename noindex='true'>/dev/sda</filename> in
-                the file system namespace. If this applies a special
+                the file system namespace. If this applies, a special
                 way to escape the path name is used, so that the
                 result is usable as part of a filename. Basically,
                 given a path, "/" is replaced by "-", and all
@@ -219,7 +219,7 @@
                 <para>Optionally, units may be instantiated from a
                 template file at runtime. This allows creation of
                 multiple units from a single configuration file. If
-                systemd looks for a unit configuration file it will
+                systemd looks for a unit configuration file, it will
                 first search for the literal unit name in the
                 filesystem. If that yields no success and the unit
                 name contains an <literal>@</literal> character, systemd will look for a
@@ -238,7 +238,7 @@
                 configuration options. See below for details.</para>
 
                 <para>If a unit file is empty (i.e. has the file size
-                0) or is symlinked to <filename>/dev/null</filename>
+                0) or is symlinked to <filename>/dev/null</filename>,
                 its configuration will not be loaded and it appears
                 with a load state of <literal>masked</literal>, and
                 cannot be activated. Use this as an effective way to
@@ -461,7 +461,7 @@
                                 the start-up was pulled in indirectly
                                 by some dependency or automatic
                                 start-up of units that is not
-                                requested by the user this dependency
+                                requested by the user, this dependency
                                 must be fulfilled and otherwise the
                                 transaction fails. Hence, this option
                                 may be used to configure dependencies
@@ -624,7 +624,7 @@
                                 type <varname>After=</varname> or
                                 <varname>Before=</varname>. If two
                                 units have no ordering dependencies
-                                between them they are shut down
+                                between them, they are shut down
                                 or started up simultaneously, and
                                 no ordering takes
                                 place. </para></listitem>
@@ -672,12 +672,12 @@
                                 <term><varname>OnFailureIsolate=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option> the
+                                argument. If <option>true</option>, the
                                 unit listed in
                                 <varname>OnFailure=</varname> will be
                                 enqueued in isolation mode, i.e. all
                                 units that are not its dependency will
-                                be stopped. If this is set only a
+                                be stopped. If this is set, only a
                                 single unit may be listed in
                                 <varname>OnFailure=</varname>. Defaults
                                 to
@@ -688,7 +688,7 @@
                                 <term><varname>IgnoreOnIsolate=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 this unit will not be stopped when
                                 isolating another unit. Defaults to
                                 <option>false</option>.</para></listitem>
@@ -698,7 +698,7 @@
                                 <term><varname>IgnoreOnSnapshot=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 this unit will not be included in
                                 snapshots. Defaults to
                                 <option>true</option> for device and
@@ -710,7 +710,7 @@
                                 <term><varname>StopWhenUnneeded=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 this unit will be stopped when it is
                                 no longer used. Note that in order to
                                 minimize the work to be executed,
@@ -729,10 +729,10 @@
                                 <term><varname>RefuseManualStop=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 this unit can only be activated
                                 or deactivated indirectly. In
-                                this case explicit start-up
+                                this case, explicit start-up
                                 or termination requested by the
                                 user is denied, however if it is
                                 started or stopped as a
@@ -752,10 +752,10 @@
                                 <term><varname>AllowIsolate=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 this unit may be used with the
                                 <command>systemctl isolate</command>
-                                command. Otherwise this will be
+                                command. Otherwise, this will be
                                 refused. It probably is a good idea to
                                 leave this disabled except for target
                                 units that shall be used similar to
@@ -769,7 +769,7 @@
                                 <term><varname>DefaultDependencies=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 (the default), a few default
                                 dependencies will implicitly be
                                 created for the unit. The actual
@@ -799,7 +799,7 @@
                                 <listitem><para>When clients are
                                 waiting for a job of this unit to
                                 complete, time out after the specified
-                                time. If this time limit is reached
+                                time. If this time limit is reached,
                                 the job will be cancelled, the unit
                                 however will not change state or even
                                 enter the <literal>failed</literal>
@@ -841,7 +841,7 @@
 
                                 <listitem><para>Before starting a unit
                                 verify that the specified condition is
-                                true. If it is not true the starting
+                                true. If it is not true, the starting
                                 of the unit will be skipped, however
                                 all ordering dependencies of it are
                                 still respected. A failing condition
@@ -856,7 +856,7 @@
                                 a file existence condition is
                                 checked before a unit is started. If
                                 the specified absolute path name does
-                                not exist the condition will
+                                not exist, the condition will
                                 fail. If the absolute path name passed
                                 to
                                 <varname>ConditionPathExists=</varname>
@@ -966,7 +966,7 @@
                                 <varname>systemd-nspawn</varname> to
                                 test against a specific
                                 implementation. If multiple
-                                virtualization technologies are nested
+                                virtualization technologies are nested,
                                 only the innermost is considered. The
                                 test may be negated by prepending an
                                 exclamation mark.</para>
@@ -1016,12 +1016,12 @@
                                 battery powered at the time of
                                 activation of the unit. This takes a
                                 boolean argument. If set to
-                                <varname>true</varname> the condition
+                                <varname>true</varname>, the condition
                                 will hold only if at least one AC
                                 connector of the system is connected
                                 to a power source, or if no AC
                                 connectors are known. Conversely, if
-                                set to <varname>false</varname> the
+                                set to <varname>false</varname>, the
                                 condition will hold only if there is
                                 at least one AC connector known and
                                 all AC connectors are disconnected
@@ -1032,30 +1032,30 @@
                                 be used to add a constant condition
                                 check value to the unit. It takes a
                                 boolean argument. If set to
-                                <varname>false</varname> the condition
+                                <varname>false</varname>, the condition
                                 will always fail, otherwise
                                 succeed.</para>
 
                                 <para>If multiple conditions are
-                                specified the unit will be executed if
+                                specified, the unit will be executed if
                                 all of them apply (i.e. a logical AND
                                 is applied). Condition checks can be
                                 prefixed with a pipe symbol (|) in
                                 which case a condition becomes a
                                 triggering condition. If at least one
                                 triggering condition is defined for a
-                                unit then the unit will be executed if
+                                unit, then the unit will be executed if
                                 at least one of the triggering
                                 conditions apply and all of the
                                 non-triggering conditions. If you
                                 prefix an argument with the pipe
-                                symbol and an exclamation mark the
+                                symbol and an exclamation mark, the
                                 pipe symbol must be passed first, the
                                 exclamation second. Except for
                                 <varname>ConditionPathIsSymbolicLink=</varname>,
                                 all path checks follow symlinks. If
                                 any of these options is assigned the
-                                empty string the list of conditions is
+                                empty string, the list of conditions is
                                 reset completely, all previous
                                 condition settings (of any kind) will
                                 have no effect.</para></listitem>

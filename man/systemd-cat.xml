@@ -65,11 +65,11 @@
                 pass the output the previous pipeline element
                 generates to the journal.</para>
 
-                <para>If no parameter is passed
+                <para>If no parameter is passed,
                 <command>systemd-cat</command> will write
                 everything it reads from standard input (STDIN) to the journal.</para>
 
-                <para>If parameters are passed they are executed as
+                <para>If parameters are passed, they are executed as
                 command line with standard output (STDOUT) and standard
                 error output (STDERR) connected to the journal, so
                 that all it writes is stored in the journal.</para>
@@ -102,7 +102,7 @@
 
                                 <listitem><para>Specify a short string
                                 that is used to identify the logging
-                                tool. If not specified no identifying
+                                tool. If not specified, no identification
                                 string is written to the journal.</para></listitem>
                         </varlistentry>
 
@@ -141,7 +141,7 @@
                                 <listitem><para>Controls whether lines
                                 read are parsed for syslog priority
                                 level prefixes. If enabled (the
-                                default) a line prefixed with a
+                                default), a line prefixed with a
                                 priority prefix such as
                                 <literal>&lt;5&gt;</literal> is logged
                                 at priority 5

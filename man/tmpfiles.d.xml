@@ -79,14 +79,14 @@
                 administrator, who may use this logic to override the
                 configuration files installed by vendor packages. All
                 configuration files are sorted by their filename in
-                alphabetical order, regardless in which of the
+                lexicographic order, regardless in which of the
                 directories they reside. If multiple files specify the
-                same path, the entry in the file with the alphabetically
+                same path, the entry in the file with the lexicographically
                 earliest name will be applied, all all other conflicting
                 entries logged as errors.</para>
 
                 <para>If the administrator wants to disable a
-                configuration file supplied by the vendor the
+                configuration file supplied by the vendor, the
                 recommended way is to place a symlink to
                 <filename>/dev/null</filename> in
                 <filename>/etc/tmpfiles.d/</filename> bearing the
@@ -238,10 +238,10 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                         <para>The file access mode to use when
                         creating this file or directory. If omitted or
-                        when set to - the default is used: 0755 for
+                        when set to -, the default is used: 0755 for
                         directories, 0644 for all other file
-                        objects. For z, Z lines if omitted or when set
-                        to - the file access mode will not be
+                        objects. For z, Z lines, if omitted or when set
+                        to -, the file access mode will not be
                         modified. This parameter is ignored for x, r,
                         R, L lines.</para>
                 </refsect2>
@@ -252,8 +252,8 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         <para>The user and group to use for this file
                         or directory. This may either be a numeric
                         user/group ID or a user or group name. If
-                        omitted or when set to - the default 0 (root)
-                        is used. For z, Z lines when omitted or when set to -
+                        omitted or when set to -, the default 0 (root)
+                        is used. For z, Z lines, when omitted or when set to -,
                         the file ownership will not be modified.
                         These parameters are ignored for x, r, R, L lines.</para>
                 </refsect2>
@@ -263,7 +263,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         <para>The date field, when set, is used to
                         decide what files to delete when cleaning. If
                         a file or directory is older than the current
-                        time minus the age field it is deleted. The
+                        time minus the age field, it is deleted. The
                         field format is a series of integers each
                         followed by one of the following
                         postfixes for the respective time units:</para>
@@ -280,7 +280,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                 <term><varname>us</varname></term></varlistentry>
                         </variablelist>
 
-                        <para>If multiple integers and units are specified the time
+                        <para>If multiple integers and units are specified, the time
                         values are summed up. If an integer is given without a unit,
                         s is assumed.
                         </para>
@@ -289,11 +289,11 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         unconditionally.</para>
 
                         <para>The age field only applies to lines starting with
-                        d, D and x. If omitted or set to - no automatic clean-up
+                        d, D and x. If omitted or set to -, no automatic clean-up
                         is done.</para>
 
                         <para>If the age field starts with a tilde
-                        character (~) the clean-up is only applied to
+                        character (~), the clean-up is only applied to
                         files and directories one level inside the
                         directory specified, but not the files and
                         directories immediately inside it.</para>

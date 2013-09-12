@@ -99,7 +99,7 @@
                 conjunction with STDERR-based logging as implemented
                 by systemd. If a systemd service definition file is
                 configured with <varname>StandardError=syslog</varname>
-                or <varname>StandardError=kmsg</varname> these
+                or <varname>StandardError=kmsg</varname>, these
                 prefixes can be used to encode a log level in lines
                 printed. This is similar to the kernel
                 <function>printk()</function>-style logging. See

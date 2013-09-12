@@ -90,7 +90,7 @@
                 packages.</para>
 
                 <para>If the administrator wants to disable a
-                configuration file supplied by the vendor the
+                configuration file supplied by the vendor, the
                 recommended way is to place a symlink to
                 <filename>/dev/null</filename> in
                 <filename>/etc/modules-load.d/</filename> bearing the

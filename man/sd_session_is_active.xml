@@ -116,7 +116,7 @@
                         <funcprototype>
                                 <funcdef>int <function>sd_session_get_vt</function></funcdef>
                                 <paramdef>const char* <parameter>session</parameter></paramdef>
-                                <paramdef>unsigned* <parameter>vt</parameter></paramdef>
+                                <paramdef>unsigned int* <parameter>vt</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -217,7 +217,7 @@
 
                 <para>If the <varname>session</varname> parameter of
                 any of these functions is passed as
-                <constant>NULL</constant> the operation is executed
+                <constant>NULL</constant>, the operation is executed
                 for the session the calling process is a member of, if
                 there is any.</para>
         </refsect1>
@@ -225,7 +225,7 @@
         <refsect1>
                 <title>Return Value</title>
 
-                <para>If the test succeeds
+                <para>If the test succeeds,
                 <function>sd_session_is_active()</function> returns a
                 positive integer, if it fails 0.  On success
                 <function>sd_session_get_state()</function>,

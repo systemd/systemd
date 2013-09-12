@@ -111,7 +111,7 @@
                 or active on a specific seat. Accepts a Unix user
                 identifier and a seat identifier string as
                 parameters. The <parameter>require_active</parameter>
-                parameter is a boolean value. If non-zero (true) this
+                parameter is a boolean value. If non-zero (true), this
                 function will test if the user is active (i.e. has a
                 session that is in the foreground and accepting user
                 input) on the specified seat, otherwise (false) only
@@ -133,7 +133,7 @@
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use, including all the strings
                 referenced. If the string array parameter is passed as
-                <constant>NULL</constant> the array will not be filled in, but the return
+                <constant>NULL</constant>, the array will not be filled in, but the return
                 code still indicates the number of current
                 sessions. Note that instead of an empty array <constant>NULL</constant> may
                 be returned and should be considered equivalent to an
@@ -154,7 +154,7 @@
 
                 <para>On success
                 <function>sd_uid_get_state()</function> returns 0 or a
-                positive integer. If the test succeeds
+                positive integer. If the test succeeds,
                 <function>sd_uid_is_on_seat()</function> returns a
                 positive integer, if it fails
                 0. <function>sd_uid_get_sessions()</function> and

@@ -80,7 +80,7 @@
                                 <listitem><para>Takes a boolean
                                 argument. Defaults to
                                 <literal>yes</literal>. If
-                                <literal>no</literal> disables the
+                                <literal>no</literal>, disables the
                                 generator
                                 entirely. <varname>rd.luks=</varname>
                                 is honored only by initial RAM disk
@@ -97,7 +97,7 @@
                                 <listitem><para>Takes a boolean
                                 argument. Defaults to
                                 <literal>yes</literal>. If
-                                <literal>no</literal> causes the
+                                <literal>no</literal>, causes the
                                 generator to ignore any devices
                                 configured in
                                 <filename>/etc/crypttab</filename>

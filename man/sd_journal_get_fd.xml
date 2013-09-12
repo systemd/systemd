@@ -137,8 +137,8 @@
                 <varname>timeout_usec</varname>. See
                 <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                 for details about
-                <constant>CLOCK_MONOTONIC</constant>. If there's no
-                timeout to wait for this will fill in
+                <constant>CLOCK_MONOTONIC</constant>. If there is no
+                timeout to wait for, this will fill in
                 <constant>(uint64_t) -1</constant> instead. Note that
                 <function>poll()</function> takes a relative timeout
                 in milliseconds rather than an absolute timeout in

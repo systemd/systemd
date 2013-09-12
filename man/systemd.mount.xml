@@ -151,7 +151,7 @@
                 <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for details. If
                 <option>x-systemd.device-timeout=</option> is
-                specified it may be used to configure how long systemd
+                specified, it may be used to configure how long systemd
                 should wait for a device to show up before giving up
                 on an entry from
                 <filename>/etc/fstab</filename>. Specify a time in
@@ -161,9 +161,9 @@
 
                 <para>If a mount point is configured in both
                 <filename>/etc/fstab</filename> and a unit file that
-                is stored below <filename>/usr</filename> the former
+                is stored below <filename>/usr</filename>, the former
                 will take precedence. If the unit file is stored below
-                <filename>/etc</filename> it will take
+                <filename>/etc</filename>, it will take
                 precedence. This means: native unit files take
                 precedence over traditional configuration files, but
                 this is superseded by the rule that configuration in

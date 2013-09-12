@@ -179,9 +179,9 @@
                 <para><function>sd_journal_get_data()</function>
                 returns 0 on success or a negative errno-style error
                 code. If the current entry does not include the
-                specified field -ENOENT is returned. If
+                specified field, -ENOENT is returned. If
                 <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                has not been called at least once -EADDRNOTAVAIL is
+                has not been called at least once, -EADDRNOTAVAIL is
                 returned. <function>sd_journal_enumerate_data()</function>
                 returns a positive integer if the next field has been
                 read, 0 when no more fields are known, or a negative

@@ -66,7 +66,7 @@
 
                 <para><filename>systemd-fsck</filename> will
                 forward file system checking progress to the
-                console. If a file system check fails emergency mode
+                console. If a file system check fails, emergency mode
                 is activated, by isolating to
                 <filename>emergency.target</filename>.</para>
         </refsect1>

@@ -86,7 +86,7 @@
                 <para>If no preset files exist, <command>systemctl
                 preset</command> will enable all units that are
                 installed by default. If this is not desired and all
-                units shall rather be disabled it is necessary to ship
+                units shall rather be disabled, it is necessary to ship
                 a preset file with a single, catchall
                 "<filename>disable *</filename>" line. (See example 1,
                 below.)</para>
@@ -125,10 +125,10 @@
                 <filename>/etc/</filename> are reserved for the local
                 administrator, who may use this logic to override the
                 preset files installed by vendor packages. All preset
-                files are sorted by their filename in alphabetical
+                files are sorted by their filename in lexicographic
                 order, regardless in which of the directories they
                 reside. If multiple files specify the same unit name,
-                the entry in the file with the alphabetically earliest
+                the entry in the file with the lexicographically earliest
                 name will be applied. It is recommended to prefix all
                 filenames with a two-digit number and a dash, to simplify
                 the ordering of the files.</para>

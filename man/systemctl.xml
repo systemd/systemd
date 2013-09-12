@@ -566,7 +566,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             their configuration. Note that this will reload the
             service-specific configuration, not the unit configuration
             file of systemd. If you want systemd to reload the
-            configuration file of a unit use the
+            configuration file of a unit, use the
             <command>daemon-reload</command> command. In other words:
             for the example case of Apache, this will reload Apache's
             <filename>httpd.conf</filename> in the web server, not the
@@ -692,12 +692,12 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <listitem>
             <para>Show properties of one or more units, jobs, or the
-            manager itself. If no argument is specified properties of
-            the manager will be shown. If a unit name is specified
+            manager itself. If no argument is specified, properties of
+            the manager will be shown. If a unit name is specified,
             properties of the unit is shown, and if a job id is
-            specified properties of the job is shown. By default, empty
+            specified, properties of the job is shown. By default, empty
             properties are suppressed. Use <option>--all</option> to
-            show those too. To select specific properties to show use
+            show those too. To select specific properties to show, use
             <option>--property=</option>. This command is intended to be
             used whenever computer-parsable output is required. Use
             <command>status</command> if you are looking for formatted
@@ -1075,7 +1075,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>Reload systemd manager configuration. This will reload
             all unit files and recreate the entire dependency
-            tree. While the daemon is reloaded, all sockets systemd
+            tree. While the daemon is being reloaded, all sockets systemd
             listens on on behalf of user configuration will stay
             accessible.</para> <para>This command should not be confused
             with the <command>load</command> or
@@ -1089,9 +1089,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>Reexecute the systemd manager. This will serialize the
             manager state, reexecute the process and deserialize the
             state again. This command is of little use except for
-            debugging and package upgrades. Sometimes it might be
+            debugging and package upgrades. Sometimes, it might be
             helpful as a heavy-weight <command>daemon-reload</command>.
-            While the daemon is reexecuted, all sockets systemd listening
+            While the daemon is being reexecuted, all sockets systemd listening
             on behalf of user configuration will stay accessible.
             </para>
           </listitem>

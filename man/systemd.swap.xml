@@ -114,7 +114,7 @@
                 for details about the conversion.</para>
 
                 <para>If a swap device or file is configured in both
-                <filename>/etc/fstab</filename> and a unit file the
+                <filename>/etc/fstab</filename> and a unit file, the
                 configuration in the latter takes precedence.</para>
 
                 <para>Unless the <option>noauto</option> option is set
@@ -175,7 +175,7 @@
                                 <listitem><para>Configures the time to
                                 wait for the swapon command to
                                 finish. If a command does not exit
-                                within the configured time the swap
+                                within the configured time, the swap
                                 will be considered failed and be shut
                                 down again. All commands still running
                                 will be terminated forcibly via

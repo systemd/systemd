@@ -165,14 +165,14 @@
                 call after use.</para>
 
                 <para>If the <varname>pid</varname> parameter of any
-                of these functions is passed as 0 the operation is
+                of these functions is passed as 0, the operation is
                 executed for the calling process.</para>
         </refsect1>
 
         <refsect1>
                 <title>Return Value</title>
 
-                <para>On success these calls return 0 or a positive
+                <para>On success, these calls return 0 or a positive
                 integer. On failure, these calls return a negative
                 errno-style error code.</para>
         </refsect1>

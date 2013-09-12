@@ -166,7 +166,7 @@
                 readable representation of the current error code
                 stored in
                 <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
-                the message string is passed as <constant>NULL</constant> or empty string
+                the message string is passed as <constant>NULL</constant> or empty string,
                 only the error string representation will be written,
                 prefixed with nothing. An additional journal field
                 ERRNO= is included in the entry containing the numeric
@@ -189,7 +189,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                 <para>Note that these calls implicitly add fields for
                 the source file, function name and code line where
                 invoked. This is implemented with macros. If this is
-                not desired it can be turned off by defining
+                not desired, it can be turned off by defining
                 SD_JOURNAL_SUPPRESS_LOCATION before including
                 <filename>sd-journal.h</filename>.</para>
 

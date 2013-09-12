@@ -96,7 +96,7 @@
                 <filename>foo.socket</filename> needs a matching
                 service <filename>foo.service</filename> if
                 <option>Accept=false</option> is set. If
-                <option>Accept=true</option> is set a service template
+                <option>Accept=true</option> is set, a service template
                 file <filename>foo@.service</filename> must exist from
                 which services are instantiated for each incoming
                 connection.</para>
@@ -164,17 +164,17 @@
                                 family.</para>
 
                                 <para>If the address starts with an at
-                                symbol (<literal>@</literal>) it is read as abstract
+                                symbol (<literal>@</literal>), it is read as abstract
                                 namespace socket in the
                                 <constant>AF_UNIX</constant>
                                 family. The <literal>@</literal> is
                                 replaced with a
                                 <constant>NUL</constant> character
-                                before binding. For details see
+                                before binding. For details, see
                                 <citerefentry><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                                 <para>If the address string is a
-                                single number it is read as port
+                                single number, it is read as port
                                 number to listen on via
                                 IPv6. Depending on the value of
                                 <varname>BindIPv6Only=</varname> (see below) this
@@ -184,13 +184,13 @@
                                 </para>
 
                                 <para>If the address string is a
-                                string in the format v.w.x.y:z it is
+                                string in the format v.w.x.y:z, it is
                                 read as IPv4 specifier for listening
                                 on an address v.w.x.y on a port
                                 z.</para>
 
                                 <para>If the address string is a
-                                string in the format [x]:y it is read
+                                string in the format [x]:y, it is read
                                 as IPv6 address x on a port y. Note
                                 that this might make the service
                                 available via IPv4, too, depending on
@@ -303,7 +303,7 @@
                                 <option>ipv6-only</option>, they will
                                 be accessible via IPv6 only. If
                                 <option>default</option> (which is the
-                                default, surprise!) the system wide
+                                default, surprise!), the system wide
                                 default setting is used, as controlled
                                 by
                                 <filename>/proc/sys/net/ipv6/bindv6only</filename>,
@@ -330,7 +330,7 @@
                                 <term><varname>BindToDevice=</varname></term>
                                 <listitem><para>Specifies a network
                                 interface name to bind this socket
-                                to. If set traffic will only be
+                                to. If set, traffic will only be
                                 accepted from the specified network
                                 interfaces. This controls the
                                 SO_BINDTODEVICE socket option (see

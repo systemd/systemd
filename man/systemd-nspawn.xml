@@ -151,7 +151,7 @@
                 containers. We hence recommend turning it off entirely
                 by booting with <literal>audit=0</literal> on the
                 kernel command line, or by turning it off at kernel
-                build time. If auditing is enabled in the kernel
+                build time. If auditing is enabled in the kernel,
                 operating systems booted in an nspawn container might
                 refuse log-in attempts.</para>
         </refsect1>
@@ -192,7 +192,7 @@
 
                                 <listitem><para>Directory to use as
                                 file system root for the namespace
-                                container. If omitted the current
+                                container. If omitted, the current
                                 directory will be
                                 used.</para></listitem>
                         </varlistentry>
@@ -233,7 +233,7 @@
                                 host, and is used to initialize the
                                 container's hostname (which the
                                 container can choose to override,
-                                however). If not specified the last
+                                however). If not specified, the last
                                 component of the root directory of the
                                 container is used.</para></listitem>
                         </varlistentry>
@@ -308,7 +308,7 @@
 
                                 <listitem><para>Control whether the
                                 container's journal shall be made
-                                visible to the host system. If enabled
+                                visible to the host system. If enabled,
                                 allows viewing the container's journal
                                 files from the host (but not vice
                                 versa). Takes one of

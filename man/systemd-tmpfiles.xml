@@ -94,7 +94,7 @@
 
                         <varlistentry>
                                 <term><option>--create</option></term>
-                                <listitem><para>If this option is passed all
+                                <listitem><para>If this option is passed, all
                                 files and directories marked with f,
                                 F, d, D in the configuration files are
                                 created. Files and directories marked with z,
@@ -105,7 +105,7 @@
                         <varlistentry>
                                 <term><option>--clean</option></term>
                                 <listitem><para>If this option is
-                                passed all files and directories with
+                                passed, all files and directories with
                                 an age parameter configured will be
                                 cleaned up.</para></listitem>
                         </varlistentry>
@@ -113,7 +113,7 @@
                         <varlistentry>
                                 <term><option>--remove</option></term>
                                 <listitem><para>If this option is
-                                passed all files and directories marked
+                                passed, all files and directories marked
                                 with r, R in the configuration files
                                 are removed.</para></listitem>
                         </varlistentry>

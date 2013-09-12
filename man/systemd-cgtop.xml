@@ -79,7 +79,7 @@
                 group in the <literal>cpuacct</literal> hierarchy, but
                 not in <literal>memory</literal> nor
                 <literal>blkio</literal>. If resource monitoring for
-                these resources is required it is recommended to add
+                these resources is required, it is recommended to add
                 <literal>blkio</literal> and <literal>memory</literal>
                 to the <varname>DefaultControllers=</varname> setting
                 in <filename>/etc/systemd/system.conf</filename> (see
@@ -197,8 +197,8 @@
                                 tree traversal depth. Specifies how
                                 deep <command>systemd-cgtop</command>
                                 shall traverse the control group
-                                hierarchies. If 0 is specified only
-                                the root group is monitored, for 1
+                                hierarchies. If 0 is specified, only
+                                the root group is monitored. For 1,
                                 only the first level of control groups
                                 is monitored, and so on. Defaults to
                                 3.</para></listitem>

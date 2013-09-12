@@ -77,7 +77,7 @@
                 necessary. All objects stored in the journal can be up
                 to 2^64-1 bytes in size.</para>
 
-                <para>By default the journal stores log data in
+                <para>By default, the journal stores log data in
                 <filename>/run/log/journal/</filename>. Since
                 <filename>/run/</filename> is volatile, log data is
                 lost at reboot. To make the data persistent, it

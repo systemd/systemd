@@ -206,12 +206,12 @@
                                 <command>dot</command> command (see
                                 above), selects which dependencies are
                                 shown in the dependency graph. If
-                                <option>--order</option> is passed
+                                <option>--order</option> is passed,
                                 only dependencies of type
                                 <varname>After=</varname> or
                                 <varname>Before=</varname> are
                                 shown. If <option>--require</option>
-                                is passed only dependencies of type
+                                is passed, only dependencies of type
                                 <varname>Requires=</varname>,
                                 <varname>RequiresOverridable=</varname>,
                                 <varname>Requisite=</varname>,

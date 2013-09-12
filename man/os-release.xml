@@ -62,7 +62,7 @@
                 list of environment-like shell-compatible variable
                 assignments. It is possible to source the
                 configuration from shell scripts, however, beyond mere
-                variable assignments no shell features are supported
+                variable assignments, no shell features are supported
                 (this means variable expansion is explicitly not
                 supported), allowing applications to read the file
                 without implementing a shell compatible execution
@@ -72,7 +72,7 @@
                 a-z, 0-9. All strings should be in UTF-8 format, and
                 non-printable characters should not be used. If double
                 or single quotes or backslashes are to be used within
-                variable assignments they should be escaped with
+                variable assignments, they should be escaped with
                 backslashes, following shell style. It is not
                 supported to concatenate multiple individually quoted
                 strings. Lines beginning with "#" shall be ignored as
@@ -110,7 +110,7 @@
                                 <listitem><para>A string identifying
                                 the operating system, without a
                                 version component, and suitable for
-                                presentation to the user. If not set
+                                presentation to the user. If not set,
                                 defaults to
                                 <literal>NAME=Linux</literal>. Example:
                                 <literal>NAME=Fedora</literal> or
@@ -143,7 +143,7 @@
                                 excluding any version information and
                                 suitable for processing by scripts or
                                 usage in generated filenames. If not
-                                set defaults to
+                                set, defaults to
                                 <literal>ID=linux</literal>. Example:
                                 <literal>ID=fedora</literal> or
                                 <literal>ID=debian</literal>.</para></listitem>
@@ -155,7 +155,7 @@
                                 <listitem><para>A space-separated list
                                 of operating system identifiers in the
                                 same syntax as the
-                                <varname>ID=</varname> setting. Should
+                                <varname>ID=</varname> setting. It should
                                 list identifiers of operating systems
                                 that are closely related to the local
                                 operating system in regards to
@@ -165,8 +165,8 @@
                                 OS is a derivative from. An
                                 OS should generally only list other OS
                                 identifiers it itself is a derivative
-                                from, and not any OSes that
-                                are derived from it, but symmetric
+                                of, and not any OSes that
+                                are derived from it, though symmetric
                                 relationships are possible. Build
                                 scripts and similar should check this
                                 variable if they need to identify the
@@ -179,11 +179,11 @@
                                 closest. This field is
                                 optional. Example: for an operating
                                 system with
-                                <literal>ID=centos</literal> an
+                                <literal>ID=centos</literal>, an
                                 assignment of <literal>ID_LIKE="rhel
                                 fedora"</literal> would be
                                 appropriate. For an operating system
-                                with <literal>ID=ubuntu</literal> an
+                                with <literal>ID=ubuntu</literal>, an
                                 assignment of
                                 <literal>ID_LIKE=debian</literal> is
                                 appropriate.</para></listitem>
@@ -213,7 +213,7 @@
                                 presentation to the user. May or may
                                 not contain a release code name or OS
                                 version of some kind, as suitable. If
-                                not set defaults to
+                                not set, defaults to
                                 <literal>PRETTY_NAME="Linux"</literal>. Example:
                                 <literal>PRETTY_NAME="Fedora 17 (Beefy
                                 Miracle)"</literal>.</para></listitem>
@@ -290,7 +290,7 @@
                                 <literal>tel:</literal>. Only one URL
                                 shall be listed in each setting. If
                                 multiple resources need to be
-                                referenced it is recommended to
+                                referenced, it is recommended to
                                 provide an online landing page linking
                                 all available resources. Examples:
                                 <literal>HOME_URL="https://fedoraproject.org/"</literal>
@@ -332,7 +332,7 @@
 
                 <para>Note that operating system vendors may choose
                 not to provide version information, for example to
-                accommodate for rolling releases. In this case VERSION
+                accommodate for rolling releases. In this case, VERSION
                 and VERSION_ID may be unset. Applications should not
                 rely on these fields to be set.</para>
 

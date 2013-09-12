@@ -120,7 +120,7 @@
                                 <varname>PathExists=</varname> may be
                                 used to watch the mere existence of a
                                 file or directory. If the file
-                                specified exists the configured unit
+                                specified exists, the configured unit
                                 is
                                 activated. <varname>PathExistsGlob=</varname>
                                 works similar, but checks for the
@@ -151,7 +151,7 @@
                                 combined, of the same and of different
                                 types, to watch multiple paths. If the
                                 empty string is assigned to any of
-                                these options the list of paths to
+                                these options, the list of paths to
                                 watch is reset, and any prior
                                 assignments of these options will not
                                 have any effect.</para>
@@ -199,7 +199,7 @@
                                 <term><varname>MakeDirectory=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true the directories to
+                                argument. If true, the directories to
                                 watch are created before
                                 watching. This option is ignored for
                                 <varname>PathExists=</varname>
@@ -211,7 +211,7 @@
 
                                 <listitem><para>If
                                 <varname>MakeDirectory=</varname> is
-                                enabled use the mode specified here to
+                                enabled, use the mode specified here to
                                 create the directories in
                                 question. Takes an access mode in
                                 octal notation. Defaults to

@@ -65,7 +65,7 @@
                                 <paramdef>const char* <parameter>seat</parameter></paramdef>
                                 <paramdef>char*** <parameter>sessions</parameter></paramdef>
                                 <paramdef>uid_t** <parameter>uid</parameter></paramdef>
-                                <paramdef>unsigned* <parameter>n_uids</parameter></paramdef>
+                                <paramdef>unsigned int* <parameter>n_uids</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
@@ -133,7 +133,7 @@
 
                 <para>If the <varname>seat</varname> parameter of any
                 of these functions is passed as
-                <constant>NULL</constant> the operation is executed
+                <constant>NULL</constant>, the operation is executed
                 for the seat of the session of the calling process, if
                 there is any.</para>
         </refsect1>
@@ -146,7 +146,7 @@
                 returns 0 or a positive integer. On success
                 <function>sd_seat_get_sessions()</function> returns
                 the number of entries in the session identifier
-                array. If the test succeeds
+                array. If the test succeeds,
                 <function>sd_seat_can_multi_session</function>,
                 <function>sd_seat_can_tty</function> and
                 <function>sd_seat_can_graphical</function> return a

@@ -80,8 +80,8 @@
                 field names in the catalog entry text enclosed in "@"
                 will be replaced by the respective field values of the
                 current entry. If a field name referenced in the
-                message catalog entry does not exist it the current
-                journal entry the "@" will be removed but the field
+                message catalog entry does not exist, in the current
+                journal entry, the "@" will be removed, but the field
                 name otherwise left untouched.</para>
 
                 <para><function>sd_journal_get_catalog_for_message_id()</function>
@@ -104,7 +104,7 @@
                 and
                 <function>sd_journal_get_catalog_for_message_id()</function>
                 return 0 on success or a negative errno-style error
-                code. If no matching message catalog entry is found
+                code. If no matching message catalog entry is found,
                 -ENOENT is returned.</para>
 
                 <para>On successful return, <parameter>ret</parameter>

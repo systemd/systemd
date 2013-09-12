@@ -110,7 +110,7 @@
                                 <listitem><para>Takes an absolute
                                 directory path. Sets the working
                                 directory for executed processes. If
-                                not set defaults to the root directory
+                                not set, defaults to the root directory
                                 when systemd is running as a system
                                 instance and the respective user's
                                 home directory if run as
@@ -125,7 +125,7 @@
                                 directory for executed processes, with
                                 the
                                 <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                system call. If this is used it must
+                                system call. If this is used, it must
                                 be ensured that the process and all
                                 its auxiliary files are available in
                                 the <function>chroot()</function>
@@ -254,7 +254,7 @@
                                 <term><varname>CPUSchedulingResetOnFork=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true elevated CPU
+                                argument. If true, elevated CPU
                                 scheduling priorities and policies
                                 will be reset when the executed
                                 processes fork, and can hence not leak
@@ -273,7 +273,7 @@
                                 be specified more than once in which
                                 case the specificed CPU affinity masks
                                 are merged. If the empty string is
-                                assigned the mask is reset, all
+                                assigned, the mask is reset, all
                                 assignments prior to this will have no
                                 effect. See
                                 <citerefentry><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry>
@@ -301,15 +301,15 @@
                                 option may be specified more than once
                                 in which case all listed variables
                                 will be set. If the same variable is
-                                set twice the later setting will
+                                set twice, the later setting will
                                 override the earlier setting. If the
                                 empty string is assigned to this
-                                option the list of environment
+                                option, the list of environment
                                 variables is reset, all prior
                                 assignments have no effect.
                                 Variable expansion is not performed
                                 inside the strings, however, specifier
-                                expansion is possible. $ character has
+                                expansion is possible. The $ character has
                                 no special meaning.
                                 If you need to assign a value containing spaces
                                 to a variable, use double quotes (")
@@ -353,7 +353,7 @@
                                 specified more than once in which case
                                 all specified files are read. If the
                                 empty string is assigned to this
-                                option the list of file to read is
+                                option, the list of file to read is
                                 reset, all prior assignments have no
                                 effect.</para>
 
@@ -364,7 +364,7 @@
                                 with
                                 <varname>Environment=</varname>. If
                                 the same variable is set twice from
-                                these files the files will be read in
+                                these files, the files will be read in
                                 the order they are specified and the
                                 later setting will override the
                                 earlier setting.</para></listitem>
@@ -380,19 +380,19 @@
                                 <option>tty-force</option>,
                                 <option>tty-fail</option> or
                                 <option>socket</option>. If
-                                <option>null</option> is selected
+                                <option>null</option> is selected,
                                 standard input will be connected to
                                 <filename>/dev/null</filename>,
                                 i.e. all read attempts by the process
                                 will result in immediate EOF. If
-                                <option>tty</option> is selected
+                                <option>tty</option> is selected,
                                 standard input is connected to a TTY
                                 (as configured by
                                 <varname>TTYPath=</varname>, see
                                 below) and the executed process
                                 becomes the controlling process of the
                                 terminal. If the terminal is already
-                                being controlled by another process the
+                                being controlled by another process, the
                                 executed process waits until the current
                                 controlling process releases the
                                 terminal.
@@ -414,7 +414,7 @@
                                 file (see
                                 <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details) specifies a single socket
-                                only. If this option is set standard
+                                only. If this option is set, standard
                                 input will be connected to the socket
                                 the service was activated from, which
                                 is primarily useful for compatibility
@@ -439,19 +439,19 @@
                                 <option>kmsg+console</option>,
                                 <option>journal+console</option> or
                                 <option>socket</option>. If set to
-                                <option>inherit</option> the file
+                                <option>inherit</option>, the file
                                 descriptor of standard input is
                                 duplicated for standard output. If set
-                                to <option>null</option> standard
+                                to <option>null</option>, standard
                                 output will be connected to
                                 <filename>/dev/null</filename>,
                                 i.e. everything written to it will be
-                                lost. If set to <option>tty</option>
+                                lost. If set to <option>tty</option>,
                                 standard output will be connected to a
                                 tty (as configured via
                                 <varname>TTYPath=</varname>, see
                                 below). If the TTY is used for output
-                                only the executed process will not
+                                only, the executed process will not
                                 become the controlling process of the
                                 terminal, and will not fail or wait
                                 for other processes to release the
@@ -538,7 +538,7 @@
                                 <listitem><para>If the terminal
                                 device specified with
                                 <varname>TTYPath=</varname> is a
-                                virtual console terminal try to
+                                virtual console terminal, try to
                                 deallocate the TTY before and after
                                 execution. This ensures that the
                                 screen and scrollback buffer is
@@ -549,7 +549,7 @@
                                 <term><varname>SyslogIdentifier=</varname></term>
                                 <listitem><para>Sets the process name
                                 to prefix log lines sent to syslog or
-                                the kernel log buffer with. If not set
+                                the kernel log buffer with. If not set,
                                 defaults to the process name of the
                                 executed process. This option is only
                                 useful when
@@ -693,13 +693,13 @@
                         <varlistentry>
                                 <term><varname>PAMName=</varname></term>
                                 <listitem><para>Sets the PAM service
-                                name to set up a session as. If set
+                                name to set up a session as. If set,
                                 the executed process will be
                                 registered as a PAM session under the
                                 specified service name. This is only
                                 useful in conjunction with the
                                 <varname>User=</varname> setting. If
-                                not set no PAM session will be opened
+                                not set, no PAM session will be opened
                                 for the executed processes. See
                                 <citerefentry><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 for details.</para></listitem>
@@ -708,7 +708,7 @@
                         <varlistentry>
                                 <term><varname>TCPWrapName=</varname></term>
                                 <listitem><para>If this is a
-                                socket-activated service this sets the
+                                socket-activated service, this sets the
                                 tcpwrap service name to check the
                                 permission for the current connection
                                 with. This is only useful in
@@ -718,7 +718,7 @@
                                 socket types (e.g. datagram/UDP) and
                                 on processes unrelated to socket-based
                                 activation. If the tcpwrap
-                                verification fails daemon start-up
+                                verification fails, daemon start-up
                                 will fail and the connection is
                                 terminated. See
                                 <citerefentry><refentrytitle>tcpd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -747,7 +747,7 @@
                                 Capabilities listed will be included
                                 in the bounding set, all others are
                                 removed. If the list of capabilities
-                                is prefixed with <literal>~</literal>
+                                is prefixed with <literal>~</literal>,
                                 all but the listed capabilities will
                                 be included, the effect of the
                                 assignment inverted. Note that this
@@ -756,7 +756,7 @@
                                 permitted and inheritable capability
                                 sets, on top of what
                                 <varname>Capabilities=</varname>
-                                does. If this option is not used the
+                                does. If this option is not used, the
                                 capability bounding set is not
                                 modified on process execution, hence
                                 no limits on the capabilities of the
@@ -764,11 +764,11 @@
                                 appear more than once in which case
                                 the bounding sets are merged. If the
                                 empty string is assigned to this
-                                option the bounding set is reset to
+                                option, the bounding set is reset to
                                 the empty capability set, and all
                                 prior settings have no effect. If set
                                 to <literal>~</literal> (without any
-                                further argument) the bounding set is
+                                further argument), the bounding set is
                                 reset to the full set of available
                                 capabilities, also undoing any
                                 previous settings.</para></listitem>
@@ -789,7 +789,7 @@
                                 option may appear more than once in
                                 which case the secure bits are
                                 ORed. If the empty string is assigned
-                                to this option the bits are reset to
+                                to this option, the bits are reset to
                                 0.</para></listitem>
                         </varlistentry>
 
@@ -846,7 +846,7 @@
                                 directories listed will have limited
                                 access from within the namespace. If
                                 the empty string is assigned to this
-                                option the specific list is reset, and
+                                option, the specific list is reset, and
                                 all prior assignments have no
                                 effect.</para>
                                 <para>Paths in
@@ -863,7 +863,7 @@
                                 <term><varname>PrivateTmp=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true sets up a new file
+                                argument. If true, sets up a new file
                                 system namespace for the executed
                                 processes and mounts private
                                 <filename>/tmp</filename> and
@@ -886,7 +886,7 @@
                                 <term><varname>PrivateNetwork=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true sets up a new
+                                argument. If true, sets up a new
                                 network namespace for the executed
                                 processes and configures only the
                                 loopback network device
@@ -928,7 +928,7 @@
                                 entries must be created and cleared
                                 before and after execution. If the
                                 configured string is longer than four
-                                characters it is truncated and the
+                                characters, it is truncated and the
                                 terminal four characters are
                                 used. This setting interprets %I style
                                 string replacements. This setting is
@@ -976,11 +976,11 @@
                                 termination with the
                                 <constant>SIGSYS</constant> signal
                                 (whitelisting). If the first character
-                                of the list is <literal>~</literal>
+                                of the list is <literal>~</literal>,
                                 the effect is inverted: only the
                                 listed system calls will result in
                                 immediate process termination
-                                (blacklisting). If this option is used
+                                (blacklisting). If this option is used,
                                 <varname>NoNewPrivileges=yes</varname>
                                 is implied. This feature makes use of
                                 the Secure Computing Mode 2 interfaces
@@ -997,7 +997,7 @@
                                 option may be specified more than once
                                 in which case the filter masks are
                                 merged. If the empty string is
-                                assigned the filter is reset, all
+                                assigned, the filter is reset, all
                                 prior assignments will have no
                                 effect.</para></listitem>
                         </varlistentry>

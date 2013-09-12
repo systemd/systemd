@@ -94,13 +94,13 @@
                                 <term><varname>PRETTY_HOSTNAME=</varname></term>
 
                                 <listitem><para>A pretty
-                                human-readable UTF8 machine identifier
+                                human-readable UTF-8 machine identifier
                                 string. This should contain a name
                                 like <literal>Lennart's
                                 Laptop</literal> which is useful to
                                 present to the user and does not
                                 suffer by the syntax limitations of
-                                internet domain names. If possible the
+                                internet domain names. If possible, the
                                 internet hostname as configured in
                                 <filename>/etc/hostname</filename>
                                 should be kept similar to this
@@ -109,7 +109,7 @@
                                 an Internet hostname of
                                 <literal>lennarts-computer</literal>
                                 might be a good choice. If this
-                                parameter is not set an application
+                                parameter is not set, an application
                                 should fall back to the Internet host
                                 name for presentation
                                 purposes.</para></listitem>
@@ -122,7 +122,7 @@
                                 this machine according to the <ulink
                                 url="http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">XDG
                                 Icon Naming Specification</ulink>. If
-                                this parameter is not set an
+                                this parameter is not set, an
                                 application should fall back to
                                 <literal>computer</literal> or a
                                 similar icon name.</para></listitem>
