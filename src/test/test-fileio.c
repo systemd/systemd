@@ -142,6 +142,59 @@ static void test_parse_env_file(void) {
         unlink(p);
 }
 
+static void test_parse_multiline_env_file(void) {
+        char    t[] = "/tmp/test-fileio-in-XXXXXX",
+                p[] = "/tmp/test-fileio-out-XXXXXX";
+        int fd, r;
+        FILE *f;
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
+        char **i;
+
+        assert_se(mktemp(p));
+
+        fd = mkostemp(t, O_CLOEXEC);
+        assert_se(fd >= 0);
+
+        f = fdopen(fd, "w");
+        assert_se(f);
+
+        fputs("one=BAR\\\n"
+              "    VAR\\\n"
+              "\tGAR\n"
+              "#comment\n"
+              "two=\"bar\\\n"
+              "    var\\\n"
+              "\tgar\"\n"
+              "#comment\n"
+              "tri=\"bar \\\n"
+              "    var \\\n"
+              "\tgar \"\n", f);
+
+        fflush(f);
+        fclose(f);
+
+        r = load_env_file(t, NULL, &a);
+        assert_se(r >= 0);
+
+        STRV_FOREACH(i, a)
+                log_info("Got: <%s>", *i);
+
+        assert_se(streq(a[0], "one=BAR    VAR\tGAR"));
+        assert_se(streq(a[1], "two=bar    var\tgar"));
+        assert_se(streq(a[2], "tri=bar     var \tgar "));
+        assert_se(a[3] == NULL);
+
+        r = write_env_file(p, a);
+        assert_se(r >= 0);
+
+        r = load_env_file(p, NULL, &b);
+        assert_se(r >= 0);
+
+        unlink(t);
+        unlink(p);
+}
+
+
 static void test_executable_is_script(void) {
         char t[] = "/tmp/test-executable-XXXXXX";
         int fd, r;
@@ -178,6 +231,7 @@ static void test_executable_is_script(void) {
 
 int main(int argc, char *argv[]) {
         test_parse_env_file();
+        test_parse_multiline_env_file();
         test_executable_is_script();
         return 0;
 }

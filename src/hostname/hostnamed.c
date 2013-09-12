@@ -553,7 +553,8 @@ static DBusHandlerResult hostname_message_handler(
                                  * safe than sorry */
                                 if (k == PROP_ICON_NAME && !filename_is_safe(name))
                                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
-                                if (k == PROP_PRETTY_HOSTNAME && string_has_cc(name))
+                                if (k == PROP_PRETTY_HOSTNAME &&
+                                    (string_has_cc(name) || chars_intersect(name, "\t")))
                                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
                                 if (k == PROP_CHASSIS && !valid_chassis(name))
                                         return bus_send_error_reply(connection, message, NULL, -EINVAL);
