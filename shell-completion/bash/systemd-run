@@ -1,0 +1,63 @@
+# systemd-run(1) completion                       -*- shell-script -*-
+#
+# This file is part of systemd.
+#
+# Copyright 2013 Zbigniew Jędrzejewski-Szmek
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+__systemctl() {
+        local mode=$1; shift 1
+        systemctl $mode --full --no-legend "$@"
+}
+
+__get_slice_units () { __systemctl $1 list-units --all -t slice \
+        | { while read -r a b c d; do echo " $a"; done; }; }
+
+_systemd_run() {
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local OPTS='-h --help --version --user --scope --unit --description --slice -r --remain-after-exit --send-sighup'
+
+    local mode=--system
+    local i
+    for (( i=1; i <= COMP_CWORD; i++ )); do
+        if [[ ${COMP_WORDS[i]} != -* ]]; then
+            local root_command=${COMP_WORDS[i]}
+            _command_offset $i
+            return
+        fi
+
+        [[ ${COMP_WORDS[i]} == "--user" ]] && mode=--user
+
+        [[ $i -lt $COMP_CWORD && ${COMP_WORDS[i]} == @(--unit|--description|--slice) ]] && ((i++))
+    done
+
+    case "$prev" in
+        --unit|--description)
+            # argument required but no completions available
+            return
+            ;;
+        --slice)
+            local comps=$(__get_slice_units $mode)
+
+            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+            return 0
+            ;;
+    esac
+
+    COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+    return 0
+}
+
+complete -F _systemd_run systemd-run

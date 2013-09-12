@@ -727,7 +727,7 @@ Features:
    - document initcall_debug
    - kernel cmdline "bootchart" option for simplicity?
 
-* systemd-run is missing completion scripts
+* systemd-run is missing zsh completion scripts
 
 External:
 
