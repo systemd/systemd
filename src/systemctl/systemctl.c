@@ -1494,7 +1494,8 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
 
         } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
                 uint32_t id;
-                const char *path, *result, *unit, *r;
+                const char *path, *result, *unit;
+                char *r;
 
                 if (dbus_message_get_args(message, &error,
                                           DBUS_TYPE_UINT32, &id,
