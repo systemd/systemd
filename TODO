@@ -58,6 +58,10 @@ CGroup Rework Completion:
 
 Features:
 
+* When a Type=forking service fails and needed another service that
+  service is not cleaned up again when it has StopWhenUnneeded=yes
+  http://lists.freedesktop.org/archives/systemd-devel/2013-July/012141.html
+
 * backlight: properly handle multiple backlight devices for the same
   hardware: at shutdown we should only save the backlight setting for
   the "best" way to access the backlight. Strategy should be: at
