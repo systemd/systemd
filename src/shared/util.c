@@ -5321,7 +5321,7 @@ bool string_has_cc(const char *p) {
         assert(p);
 
         for (t = p; *t; t++)
-                if (*t > 0 && *t < ' ')
+                if (*t > 0 && *t < ' ' && *t != '\t')
                         return true;
 
         return false;
