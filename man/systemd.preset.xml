@@ -127,12 +127,11 @@
                 preset files installed by vendor packages. All preset
                 files are sorted by their filename in alphabetical
                 order, regardless in which of the directories they
-                reside, to guarantee that a specific preset file takes
-                precedence over another file with an alphabetically
-                earlier name, if both files contain lines that apply
-                to the same unit names. It is recommended to prefix
-                all filenames with two-digit number, to simplify
-                ordering.</para>
+                reside. If multiple files specify the same unit name,
+                the entry in the file with the alphabetically earliest
+                name will be applied. It is recommended to prefix all
+                filenames with a two-digit number and a dash, to simplify
+                the ordering of the files.</para>
 
                 <para>If the administrator wants to disable a preset
                 file supplied by the vendor, the recommended way is to

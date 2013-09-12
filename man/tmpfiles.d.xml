@@ -80,9 +80,10 @@
                 configuration files installed by vendor packages. All
                 configuration files are sorted by their filename in
                 alphabetical order, regardless in which of the
-                directories they reside, to guarantee that a specific
-                configuration file takes precedence over another file
-                with an alphabetically later name.</para>
+                directories they reside. If multiple files specify the
+                same path, the entry in the file with the alphabetically
+                earliest name will be applied, all all other conflicting
+                entries logged as errors.</para>
 
                 <para>If the administrator wants to disable a
                 configuration file supplied by the vendor the
