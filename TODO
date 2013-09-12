@@ -58,6 +58,19 @@ CGroup Rework Completion:
 
 Features:
 
+* backlight: properly handle multiple backlight devices for the same
+  hardware: at shutdown we should only save the backlight setting for
+  the "best" way to access the backlight. Strategy should be: at
+  shutdown, ignore all backlights that are connected to a non-eDP or
+  non-LVDS port, and then prefer the firmware device over platform
+  device over raw device per-PCI card. Delete all old data. At boot
+  simply apply whatever data we find. Also see
+  http://cgit.freedesktop.org/libbacklight/tree/libbacklight.c#n194
+
+* rfkill: save/restore soft rfkill status across reboots
+
+* refuse boot if /etc/os-release is missing or /etc/machine-id cannot be set up
+
 * ensure scope units may be started only a single time
 
 * document that in instead of FsckPassNo= people should just add a manual dep to systemd-fsck@.service to their mount units.
