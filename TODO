@@ -64,8 +64,6 @@ Features:
 
 * better error message if you run systemctl without systemd running
 
-* tiny tool that saves/restores backlight
-
 * systemctl status output should should include list of triggering units and their status
 
 * for transient units, instead of writing out drop-ins for all properties consider serializing them in the normal serialization stream
