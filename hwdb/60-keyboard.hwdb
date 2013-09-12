@@ -1021,6 +1021,13 @@ keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*M30X:pvr*
  KEYBOARD_KEY_9e=f22                                    # touchpad enable
  KEYBOARD_KEY_9f=f23                                    # touchpad disable
 
+# Satellite P75-A
+keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*P75-A:pvr*
+ KEYBOARD_KEY_ef=brightnessdown
+ KEYBOARD_KEY_ee=brightnessup
+ KEYBOARD_KEY_a9=switchvideomode                        # switch display outputs
+ KEYBOARD_KEY_d4=wlan                                   # RF Switch Off
+
 ###########################################################
 # VIA
 ###########################################################
