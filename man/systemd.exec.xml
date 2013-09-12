@@ -76,6 +76,27 @@
                 configuration options are configured in the [Service],
                 [Socket], [Mount], or [Swap] sections, depending on the unit
                 type.</para>
+
+                <para>Processes started by the system systemd instance
+                are executed in a clean environment in which only the
+                <varname>$PATH</varname> and <varname>$LANG</varname>
+                variables are set by default. In order to add
+                additional variables, see the
+                <varname>Environment=</varname> and
+                <varname>EnvironmentFile=</varname> options below. To
+                specify variables globally, see
+                <varname>DefaultEnvironment=</varname> in
+                <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                or the kernel option
+                <varname>systemd.setenv=</varname> in
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Processes
+                started by the user systemd instances inherit all
+                environment variables from the user systemd instance,
+                and have <varname>$HOME</varname>,
+                <varname>$USER</varname>,
+                <varname>$XDG_RUNTIME_DIR</varname> defined, among
+                others. In addition, <varname>$MANAGERPID</varname>
+                contains the PID of the user systemd instance.</para>
         </refsect1>
 
         <refsect1>
