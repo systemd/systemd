@@ -897,8 +897,10 @@ static int system_journal_open(Server *s) {
         char ids[33];
 
         r = sd_id128_get_machine(&machine);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Failed to get machine id: %s", strerror(-r));
                 return r;
+        }
 
         sd_id128_to_string(machine, ids);
 
@@ -1000,10 +1002,8 @@ int server_flush_to_var(Server *s) {
         log_debug("Flushing to /var...");
 
         r = sd_id128_get_machine(&machine);
-        if (r < 0) {
-                log_error("Failed to get machine id: %s", strerror(-r));
+        if (r < 0)
                 return r;
-        }
 
         r = sd_journal_open(&j, SD_JOURNAL_RUNTIME_ONLY);
         if (r < 0) {
