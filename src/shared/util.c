@@ -2186,8 +2186,10 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
                                         return n > 0 ? n : -errno;
                                 }
 
-                                if (pollfd.revents != POLLIN)
-                                        return n > 0 ? n : -EIO;
+                                /* We knowingly ignore the revents value here,
+                                 * and expect that any error/EOF is reported
+                                 * via read()/write()
+                                 */
 
                                 continue;
                         }
@@ -2234,8 +2236,10 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
                                         return n > 0 ? n : -errno;
                                 }
 
-                                if (pollfd.revents != POLLOUT)
-                                        return n > 0 ? n : -EIO;
+                                /* We knowingly ignore the revents value here,
+                                 * and expect that any error/EOF is reported
+                                 * via read()/write()
+                                 */
 
                                 continue;
                         }
