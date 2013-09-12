@@ -1494,7 +1494,7 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
 
         } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
                 uint32_t id;
-                const char *path, *result, *unit;
+                const char *path, *result, *unit, *r;
 
                 if (dbus_message_get_args(message, &error,
                                           DBUS_TYPE_UINT32, &id,
@@ -1503,7 +1503,11 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
                                           DBUS_TYPE_STRING, &result,
                                           DBUS_TYPE_INVALID)) {
 
-                        free(set_remove(d->set, (char*) path));
+                        r = set_remove(d->set, (char*) path);
+                        if (!r)
+                                return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+                        free(r);
 
                         if (!isempty(result))
                                 d->result = strdup(result);
@@ -1523,7 +1527,11 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
                         /* Compatibility with older systemd versions <
                          * 183 during upgrades. This should be dropped
                          * one day. */
-                        free(set_remove(d->set, (char*) path));
+                        r = set_remove(d->set, (char*) path);
+                        if (!r)
+                                return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+                        free(r);
 
                         if (*result)
                                 d->result = strdup(result);
