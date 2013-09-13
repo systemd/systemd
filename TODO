@@ -60,6 +60,10 @@ Features:
 
 * Move backlight and random-seed into /var/lib/systemd
 
+* If we try to find a unit via a danglign symlink generate a clean
+  error. Currently we just ignore it and read the unit from the search
+  path anyway.
+
 * When a Type=forking service fails and needed another service that
   service is not cleaned up again when it has StopWhenUnneeded=yes
   http://lists.freedesktop.org/archives/systemd-devel/2013-July/012141.html
