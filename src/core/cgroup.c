@@ -257,14 +257,21 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
 
         if (mask & CGROUP_MEMORY) {
                 char buf[DECIMAL_STR_MAX(uint64_t) + 1];
+                if (c->memory_limit != (uint64_t) -1) {
+                        sprintf(buf, "%" PRIu64 "\n", c->memory_limit);
+                        r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
+                } else
+                        r = cg_set_attribute("memory", path, "memory.limit_in_bytes", "-1");
 
-                sprintf(buf, "%" PRIu64 "\n", c->memory_limit);
-                r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
                 if (r < 0)
                         log_error("Failed to set memory.limit_in_bytes on %s: %s", path, strerror(-r));
 
-                sprintf(buf, "%" PRIu64 "\n", c->memory_soft_limit);
-                r = cg_set_attribute("memory", path, "memory.soft_limit_in_bytes", buf);
+                if (c->memory_soft_limit != (uint64_t) -1) {
+                        sprintf(buf, "%" PRIu64 "\n", c->memory_soft_limit);
+                        r = cg_set_attribute("memory", path, "memory.soft_limit_in_bytes", buf);
+                } else
+                        r = cg_set_attribute("memory", path, "memory.soft_limit_in_bytes", "-1");
+
                 if (r < 0)
                         log_error("Failed to set memory.soft_limit_in_bytes on %s: %s", path, strerror(-r));
         }
