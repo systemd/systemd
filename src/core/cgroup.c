@@ -266,7 +266,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 sprintf(buf, "%" PRIu64 "\n", c->memory_soft_limit);
                 r = cg_set_attribute("memory", path, "memory.soft_limit_in_bytes", buf);
                 if (r < 0)
-                        log_error("Failed to set memory.limit_in_bytes on %s: %s", path, strerror(-r));
+                        log_error("Failed to set memory.soft_limit_in_bytes on %s: %s", path, strerror(-r));
         }
 
         if (mask & CGROUP_DEVICE) {
