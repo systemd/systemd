@@ -40,14 +40,14 @@ int main(int argc, char* argv[]) {
                 **shutdown = strv_new("shutdown", NULL),
                 **freez = strv_new("freeze", NULL);
 
-        log_info("Can Standby: %s", yes_no(can_sleep_state(standby) > 0));
-        log_info("Can Suspend: %s", yes_no(can_sleep_state(mem) > 0));
-        log_info("Can Hibernate: %s", yes_no(can_sleep_state(disk) > 0));
-        log_info("Can Hibernate+Suspend (Hybrid-Sleep): %s", yes_no(can_sleep_disk(suspend) > 0));
-        log_info("Can Hibernate+Reboot: %s", yes_no(can_sleep_disk(reboot) > 0));
-        log_info("Can Hibernate+Platform: %s", yes_no(can_sleep_disk(platform) > 0));
-        log_info("Can Hibernate+Shutdown: %s", yes_no(can_sleep_disk(shutdown) > 0));
-        log_info("Can Freeze: %s", yes_no(can_sleep_disk(freez) > 0));
+        log_info("Standby configured: %s", yes_no(can_sleep_state(standby) > 0));
+        log_info("Suspend configured: %s", yes_no(can_sleep_state(mem) > 0));
+        log_info("Hibernate configured: %s", yes_no(can_sleep_state(disk) > 0));
+        log_info("Hibernate+Suspend (Hybrid-Sleep) configured: %s", yes_no(can_sleep_disk(suspend) > 0));
+        log_info("Hibernate+Reboot configured: %s", yes_no(can_sleep_disk(reboot) > 0));
+        log_info("Hibernate+Platform configured: %s", yes_no(can_sleep_disk(platform) > 0));
+        log_info("Hibernate+Shutdown configured: %s", yes_no(can_sleep_disk(shutdown) > 0));
+        log_info("Freeze configured: %s", yes_no(can_sleep_state(freez) > 0));
 
         log_info("Suspend configured and possible: %s", yes_no(can_sleep("suspend") > 0));
         log_info("Hibernation configured and possible: %s", yes_no(can_sleep("hibernate") > 0));

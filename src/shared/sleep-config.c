@@ -163,6 +163,46 @@ int can_sleep_disk(char **types) {
         return false;
 }
 
+#define HIBERNATION_SWAP_THRESHOLD 0.98
+
+static bool enough_memory_for_hibernation(void) {
+        _cleanup_free_ char *active = NULL, *swapfree = NULL;
+        unsigned long long act, swap;
+        int r;
+
+        r = get_status_field("/proc/meminfo", "\nSwapFree:", &swapfree);
+        if (r < 0) {
+                log_error("Failed to retrieve SwapFree from /proc/meminfo: %s", strerror(-r));
+                return false;
+        }
+
+        r = safe_atollu(swapfree, &swap);
+        if (r < 0) {
+                log_error("Failed to parse SwapFree from /proc/meminfo: %s: %s",
+                          swapfree, strerror(-r));
+                return false;
+        }
+
+        r = get_status_field("/proc/meminfo", "\nActive(anon):", &active);
+        if (r < 0) {
+                log_error("Failed to retrieve Active(anon) from /proc/meminfo: %s", strerror(-r));
+                return false;
+        }
+
+        r = safe_atollu(active, &act);
+        if (r < 0) {
+                log_error("Failed to parse Active(anon) from /proc/meminfo: %s: %s",
+                          active, strerror(-r));
+                return false;
+        }
+
+        r = act <= swap * HIBERNATION_SWAP_THRESHOLD;
+        log_debug("Hibernation is %spossible, Active(anon)=%llu kB, SwapFree=%llu kB, threshold=%.2g%%",
+                  r ? "" : "im", act, swap, 100*HIBERNATION_SWAP_THRESHOLD);
+
+        return r;
+}
+
 int can_sleep(const char *verb) {
         _cleanup_strv_free_ char **modes = NULL, **states = NULL;
         int r;
@@ -175,5 +215,8 @@ int can_sleep(const char *verb) {
         if (r < 0)
                 return false;
 
-        return can_sleep_state(states) && can_sleep_disk(modes);
+        if (!can_sleep_state(states) || !can_sleep_disk(modes))
+                return false;
+
+        return streq(verb, "suspend") || enough_memory_for_hibernation();
 }

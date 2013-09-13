@@ -648,3 +648,37 @@ int executable_is_script(const char *path, char **interpreter) {
         *interpreter = ans;
         return 1;
 }
+
+/**
+ * Retrieve one field from a file like /proc/self/status.
+ * pattern should start with '\n' and end with ':'. Whitespace
+ * after ':' will be skipped. field must be freed afterwards.
+ */
+int get_status_field(const char *filename, const char *pattern, char **field) {
+        _cleanup_free_ char *status = NULL;
+        char *t;
+        size_t len;
+        int r;
+
+        assert(filename);
+        assert(field);
+
+        r = read_full_file(filename, &status, NULL);
+        if (r < 0)
+                return r;
+
+        t = strstr(status, pattern);
+        if (!t)
+                return -ENOENT;
+
+        t += strlen(pattern);
+        t += strspn(t, WHITESPACE);
+
+        len = strcspn(t, WHITESPACE);
+
+        *field = strndup(t, len);
+        if (!*field)
+                return -ENOMEM;
+
+        return 0;
+}

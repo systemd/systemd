@@ -229,9 +229,29 @@ static void test_executable_is_script(void) {
         unlink(t);
 }
 
+static void test_status_field(void) {
+        _cleanup_free_ char *t = NULL, *p = NULL, *s = NULL;
+        unsigned long long total, buffers;
+
+        assert_se(get_status_field("/proc/self/status", "\nThreads:", &t) == 0);
+        puts(t);
+        assert_se(streq(t, "1"));
+
+        assert_se(get_status_field("/proc/meminfo", "MemTotal:", &p) == 0);
+        puts(p);
+        assert_se(safe_atollu(p, &total) == 0);
+
+        assert_se(get_status_field("/proc/meminfo", "\nBuffers:", &s) == 0);
+        puts(s);
+        assert_se(safe_atollu(s, &buffers) == 0);
+
+        assert(buffers < total);
+}
+
 int main(int argc, char *argv[]) {
         test_parse_env_file();
         test_parse_multiline_env_file();
         test_executable_is_script();
+        test_status_field();
         return 0;
 }

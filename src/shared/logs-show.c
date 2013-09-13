@@ -201,7 +201,7 @@ static int output_short(
         assert(j);
 
         /* Set the threshold to one bigger than the actual print
-         * treshold, so that if the line is actually longer than what
+         * threshold, so that if the line is actually longer than what
          * we're willing to print, ellipsization will occur. This way
          * we won't output a misleading line without any indication of
          * truncation.
