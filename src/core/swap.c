@@ -220,7 +220,7 @@ static int swap_add_default_dependencies(Swap *s) {
         }
 
         if (!noauto) {
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, (nofail ? UNIT_WANTED_BY : UNIT_REQUIRED_BY),
+                r = unit_add_two_dependencies_by_name_inverse(UNIT(s), UNIT_AFTER, (nofail ? UNIT_WANTS : UNIT_REQUIRES),
                                                       SPECIAL_SWAP_TARGET, NULL, true);
                 if (r < 0)
                         return r;
