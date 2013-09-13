@@ -300,7 +300,7 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                         /* skip to be delayed devices, and move the to
                          * the point where the prefix changes. We can
                          * only move one item at a time. */
-                        if (!move_later) {
+                        if (move_later == -1) {
                                 move_later_prefix = devices_delay_later(udev_enumerate->udev, entry->syspath);
 
                                 if (move_later_prefix > 0) {
