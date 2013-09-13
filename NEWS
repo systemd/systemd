@@ -3,7 +3,7 @@ systemd System and Service Manager
 CHANGES WITH 207:
 
         * The Restart= option for services now understands a new
-          on-watchdog setting which will restart the service
+          on-watchdog setting, which will restart the service
           automatically if the service stops sending out watchdog keep
           alive messages (as configured with WatchdogSec=).
 
@@ -31,8 +31,8 @@ CHANGES WITH 207:
           paths that are optionally prefixed with "-" to indicate that
           it should not be considered a failure if they don't exist.
 
-        * journalctl -o (and similar commands) now understand a new
-          output mode "short-precise" that is similar to "short" but
+        * journalctl -o (and similar commands) now understands a new
+          output mode "short-precise", it is similar to "short" but
           shows timestamps with usec accuracy.
 
         * The option "discard" (as known from Debian) is now
@@ -40,12 +40,12 @@ CHANGES WITH 207:
           the latter is preferred now (since it is easier to remember
           and type).
 
-        * Some licensing clean-ups were made so that more code is now
+        * Some licensing clean-ups were made, so that more code is now
           LGPL-2.1 licensed than before.
 
         * A minimal tool to save/restore the display backlight
           brightness across reboots has been added. It will store the
-          backlight setting as late as possible at shutdown and
+          backlight setting as late as possible at shutdown, and
           restore it as early as possible during reboot.
 
         * A logic to automatically discover and enable home and swap
