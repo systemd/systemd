@@ -402,8 +402,8 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
                 is_in_hash = true;
 
         if (r < 0) {
-                free(path);
                 log_error("cgroup %s exists already: %s", path, strerror(-r));
+                free(path);
                 return r;
         }
 
