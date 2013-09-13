@@ -66,7 +66,7 @@ static void automount_init(Unit *u) {
         UNIT(a)->ignore_on_isolate = true;
 }
 
-static void repeat_unmout(const char *path) {
+static void repeat_unmount(const char *path) {
         assert(path);
 
         for (;;) {
@@ -100,7 +100,7 @@ static void unmount_autofs(Automount *a) {
         if (a->where &&
             (UNIT(a)->manager->exit_code != MANAGER_RELOAD &&
              UNIT(a)->manager->exit_code != MANAGER_REEXECUTE))
-                repeat_unmout(a->where);
+                repeat_unmount(a->where);
 }
 
 static void automount_done(Unit *u) {
@@ -575,7 +575,7 @@ fail:
                 close_nointr_nofail(ioctl_fd);
 
         if (mounted)
-                repeat_unmout(a->where);
+                repeat_unmount(a->where);
 
         log_error_unit(UNIT(a)->id,
                        "Failed to initialize automounter: %s", strerror(-r));
