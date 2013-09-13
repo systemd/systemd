@@ -1,13 +1,103 @@
 systemd System and Service Manager
 
-CHANGES WITH 206:
+CHANGES WITH 207:
 
-        * The systemd-sysctl tool does no longer natively read the
+        * The Restart= option for services now understands a new
+          on-watchdog setting which will restart the service
+          automatically if the service stops sending out watchdog keep
+          alive messages (as configured with WatchdogSec=).
+
+        * The getty generator (which is responsible for bringing up a
+          getty on configured serial consoles) will no longer only
+          start a getty on the primary kernel console but on all
+          others, too. This makes the order in which console= is
+          specified on the kernel command line less important.
+
+        * libsystemd-logind gained a new sd_session_get_vt() call to
+          retrieve the VT number of a session.
+
+        * If the option "tries=0" is set for an entry of /etc/crypttab
+          its passphrase is queried indefinitely instead of any
+          maximum number of tries.
+
+        * If a service with a configure PID file terminates its PID
+          file will now be removed automatically if it still exists
+          afterwards. This should put an end to stale PID files.
+
+        * systemd-run will now also take relative binary path names
+          for execution and no longer insists on absolute paths.
+
+        * InaccessibleDirectories= and ReadOnlyDirectories= now take
+          paths that are optionally prefixed with "-" to indicate that
+          it should not be considered a failure if they don't exist.
+
+        * journalctl -o (and similar commands) now understand a new
+          output mode "short-precise" that is similar to "short" but
+          shows timestamps with usec accuracy.
+
+        * The option "discard" (as known from Debian) is now
+          synonymous to "allow-discards" in /etc/crypttab. In fact,
+          the latter is preferred now (since it is easier to remember
+          and type).
+
+        * Some licensing clean-ups were made so that more code is now
+          LGPL-2.1 licensed than before.
+
+        * A minimal tool to save/restore the display backlight
+          brightness across reboots has been added. It will store the
+          backlight setting as late as possible at shutdown and
+          restore it as early as possible during reboot.
+
+        * A logic to automatically discover and enable home and swap
+          partitions on GPT disks has been added. With this in place
+          /etc/fstab becomes optional for many setups as systemd can
+          discover certain partitions located on the root disk
+          automatically. Home partitions are recognized under their
+          GPT type ID 933ac7e12eb44f13b8440e14e2aef915. Swap
+          partitions are recognized under their GPT type ID
+          0657fd6da4ab43c484e50933c84b4f4f.
+
+        * systemd will no longer pass any environment from the kernel
+          or initrd to system services. If you want to set an
+          environment for all services, do so via the kernel command
+          line systemd.setenv= assignment.
+
+        * The systemd-sysctl tool no longer natively reads the
           file /etc/sysctl.conf. If desired, the file should be
           symlinked from /etc/sysctl.d/99-sysctl.conf. Apart from
           providing legacy support by a symlink rather than built-in
           code, it also makes the otherwise hidden order of application
           of the different files visible.
+
+        * The "systemctl set-log-level" and "systemctl dump" commands
+          have been moved to systemd-analyze.
+
+        * systemd-run learned the new --remain-after-exit switch,
+          which causes the scope unit not to be cleaned up
+          automatically after the process terminated.
+
+        * tmpfiles learned a new --exclude-prefix= switch to exclude
+          certain paths from operation.
+
+        * journald will now automatically flush all messages to disk
+          as soon as a message of the log priorities CRIT, ALERT or
+          EMERG is received.
+
+        Contributions from: Andrew Cook, Brandon Philips, Christian
+        Hesse, Christoph Junghans, Colin Walters, Daniel Schaal,
+        Daniel Wallace, Dave Reisner, David Herrmann, Gao feng, George
+        McCollister, Giovanni Campagna, Hannes Reinecke, Harald Hoyer,
+        Herczeg Zsolt, Holger Hans Peter Freyther, Jan Engelhardt,
+        Jesper Larsen, Kay Sievers, Khem Raj, Lennart Poettering,
+        Lukas Nykryn, Maciej Wereski, Mantas Mikulėnas, Marcel
+        Holtmann, Martin Pitt, Michael Biebl, Michael Marineau,
+        Michael Scherer, Michael Stapelberg, Michal Sekletar, Michał
+        Górny, Olivier Brunel, Ondrej Balaz, Ronny Chevalier, Shawn
+        Landden, Steven Hiscocks, Thomas Bächler, Thomas Hindoe
+        Paaboel Andersen, Tom Gundersen, Umut Tezduyar, WANG Chao,
+        William Giokas, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2013-09-13
 
 CHANGES WITH 206:
 
@@ -105,6 +195,8 @@ CHANGES WITH 206:
         Olbrich, Ramkumar Ramachandra, Ross Lagerwall, Shawn Landden,
         Thomas H.P. Andersen, Tom Gundersen, Tomasz Torcz, William
         Giokas, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2013-07-23
 
 CHANGES WITH 205:
 
