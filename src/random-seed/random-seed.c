@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
                 r = loop_write(seed_fd, buf, (size_t) k, false);
                 if (r <= 0) {
                         log_error("Failed to write new random seed file: %s", r < 0 ? strerror(-r) : "short write");
-                        r = k == 0 ? -EIO : (int) k;
+                        r = r == 0 ? -EIO : r;
                 }
         }
 
