@@ -344,7 +344,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
         assert(!j->transaction_prev);
 
         /* Does a recursive sweep through the ordering graph, looking
-         * for a cycle. If we find cycle we try to break it. */
+         * for a cycle. If we find a cycle we try to break it. */
 
         /* Have we seen this before? */
         if (j->generation == generation) {
@@ -371,7 +371,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
                         /* logging for j not k here here to provide consistent narrative */
                         log_info_unit(j->unit->id,
-                                      "Walked on cycle path to %s/%s",
+                                      "Found dependency on %s/%s",
                                       k->unit->id, job_type_to_string(k->type));
 
                         if (!delete &&
@@ -860,13 +860,21 @@ int transaction_add_job_and_dependencies(
                 return -EINVAL;
         }
 
-        if (type != JOB_STOP && (unit->load_state == UNIT_ERROR || unit->load_state == UNIT_NOT_FOUND)) {
+        if (type != JOB_STOP && unit->load_state == UNIT_ERROR) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
                                "Unit %s failed to load: %s. "
                                "See system logs and 'systemctl status %s' for details.",
                                unit->id,
                                strerror(-unit->load_error),
                                unit->id);
+                return -EINVAL;
+        }
+
+        if (type != JOB_STOP && unit->load_state == UNIT_NOT_FOUND) {
+                dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
+                               "Unit %s failed to load: %s.",
+                               unit->id,
+                               strerror(-unit->load_error));
                 return -EINVAL;
         }
 
