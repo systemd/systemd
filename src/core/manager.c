@@ -456,8 +456,6 @@ static int manager_setup_signals(Manager *m) {
 }
 
 static int manager_default_environment(Manager *m) {
-        const char *path = "PATH=" DEFAULT_PATH;
-
         assert(m);
 
         if (m->running_as == SYSTEMD_SYSTEM) {
@@ -468,7 +466,8 @@ static int manager_default_environment(Manager *m) {
                  * The initial passed environ is untouched to keep
                  * /proc/self/environ valid; it is used for tagging
                  * the init process inside containers. */
-                m->environment = strv_new(path, NULL);
+                m->environment = strv_new("PATH=" DEFAULT_PATH,
+                                          NULL);
 
                 /* Import locale variables LC_*= from configuration */
                 locale_setup(&m->environment);
