@@ -172,7 +172,8 @@ static bool enough_memory_for_hibernation(void) {
 
         r = get_status_field("/proc/meminfo", "\nSwapFree:", &swapfree);
         if (r < 0) {
-                log_error("Failed to retrieve SwapFree from /proc/meminfo: %s", strerror(-r));
+                log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "Failed to retrieve SwapFree from /proc/meminfo: %s", strerror(-r));
                 return false;
         }
 
