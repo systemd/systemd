@@ -64,6 +64,10 @@ REQUIREMENTS:
         Mount and bind mount handling might require it:
           CONFIG_FHANDLE
 
+        Support for some SCSI devices serial number retrieval, to
+        create additional symlinks in /dev/disk/ and /dev/tape:
+          CONFIG_BLK_DEV_BSG
+
         Optional but strongly recommended:
           CONFIG_IPV6
           CONFIG_AUTOFS4_FS
