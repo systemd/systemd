@@ -1511,9 +1511,7 @@ char *cg_unescape(const char *p) {
 }
 
 #define CONTROLLER_VALID                        \
-        "0123456789"                            \
-        "abcdefghijklmnopqrstuvwxyz"            \
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
+        DIGITS LETTERS                          \
         "_"
 
 bool cg_controller_is_valid(const char *p, bool allow_named) {

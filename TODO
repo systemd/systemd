@@ -142,9 +142,6 @@ Features:
 
 * journald: make sure ratelimit is actually really per-service with the new cgroup changes
 
-* libsystemd-logind: sd_session_is_active() and friends: verify
-  validity of session name before appending it to a path
-
 * gparted needs to disable auto-activation of mount units somehow, or
   maybe we should stop doing auto-activation of this after boot
   entirely. https://bugzilla.gnome.org/show_bug.cgi?id=701676

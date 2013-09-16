@@ -554,6 +554,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
                  * the audit data and let's better register a new
                  * ID */
                 if (hashmap_get(m->sessions, id)) {
+                        log_warning("Existing logind session ID %s used by new audit session, ignoring", id);
                         audit_id = 0;
 
                         free(id);

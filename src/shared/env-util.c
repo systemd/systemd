@@ -27,11 +27,10 @@
 #include "utf8.h"
 #include "util.h"
 #include "env-util.h"
+#include "def.h"
 
 #define VALID_CHARS_ENV_NAME                    \
-        "0123456789"                            \
-        "abcdefghijklmnopqrstuvwxyz"            \
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
+        DIGITS LETTERS                          \
         "_"
 
 #ifndef ARG_MAX

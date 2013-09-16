@@ -2324,7 +2324,10 @@ if HAVE_ACL
 libudev_core_la_SOURCES += \
 	src/udev/udev-builtin-uaccess.c \
 	src/login/logind-acl.c \
-	src/login/sd-login.c
+	src/login/sd-login.c \
+	src/systemd/sd-login.h \
+	src/login/login-shared.c \
+	src/login/login-shared.h
 
 libudev_core_la_LIBADD += \
 	libsystemd-acl.la
@@ -3759,7 +3762,9 @@ libsystemd_logind_core_la_SOURCES = \
 	src/login/logind-session-dbus.c \
 	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \
-	src/login/logind-acl.h
+	src/login/logind-acl.h \
+	src/login/login-shared.c \
+	src/login/login-shared.h
 
 libsystemd_logind_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -3860,7 +3865,10 @@ tests += \
 	test-login-tables
 
 libsystemd_login_la_SOURCES = \
-	src/login/sd-login.c
+	src/login/sd-login.c \
+	src/systemd/sd-login.h \
+	src/login/login-shared.c \
+	src/login/login-shared.h
 
 libsystemd_login_la_CFLAGS = \
 	$(AM_CFLAGS) \

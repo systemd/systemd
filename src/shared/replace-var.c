@@ -24,6 +24,7 @@
 #include "macro.h"
 #include "util.h"
 #include "replace-var.h"
+#include "def.h"
 
 /*
  * Generic infrastructure for replacing @FOO@ style variables in
@@ -40,7 +41,7 @@ static int get_variable(const char *b, char **r) {
         if (*b != '@')
                 return 0;
 
-        k = strspn(b + 1, "ABCDEFGHIJKLMNOPQRSTUVWXYZ_");
+        k = strspn(b + 1, UPPERCASE_LETTERS "_");
         if (k <= 0 || b[k+1] != '@')
                 return 0;
 

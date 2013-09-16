@@ -41,6 +41,7 @@ Session* session_new(Manager *m, const char *id) {
 
         assert(m);
         assert(id);
+        assert(session_id_valid(id));
 
         s = new0(Session, 1);
         if (!s)

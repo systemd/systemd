@@ -26,11 +26,10 @@
 #include "path-util.h"
 #include "util.h"
 #include "unit-name.h"
+#include "def.h"
 
 #define VALID_CHARS                             \
-        "0123456789"                            \
-        "abcdefghijklmnopqrstuvwxyz"            \
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
+        DIGITS LETTERS                          \
         ":-_.\\"
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {

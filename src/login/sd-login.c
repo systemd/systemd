@@ -31,6 +31,7 @@
 #include "sd-login.h"
 #include "strv.h"
 #include "fileio.h"
+#include "login-shared.h"
 
 _public_ int sd_pid_get_session(pid_t pid, char **session) {
         if (pid < 0)
@@ -226,17 +227,19 @@ static int file_of_session(const char *session, char **_p) {
 
         assert(_p);
 
-        if (session)
+        if (session) {
+                if (!session_id_valid(session))
+                        return -EINVAL;
+
                 p = strappend("/run/systemd/sessions/", session);
-        else {
-                char *buf;
+        } else {
+                _cleanup_free_ char *buf = NULL;
 
                 r = sd_pid_get_session(0, &buf);
                 if (r < 0)
                         return r;
 
                 p = strappend("/run/systemd/sessions/", buf);
-                free(buf);
         }
 
         if (!p)
@@ -255,7 +258,6 @@ _public_ int sd_session_is_active(const char *session) {
                 return r;
 
         r = parse_env_file(p, NEWLINE, "ACTIVE", &s, NULL);
-
         if (r < 0)
                 return r;
 

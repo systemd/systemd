@@ -29,6 +29,7 @@ typedef enum KillWho KillWho;
 #include "logind.h"
 #include "logind-seat.h"
 #include "logind-user.h"
+#include "login-shared.h"
 
 typedef enum SessionState {
         SESSION_OPENING,  /* Session scope is being created */
