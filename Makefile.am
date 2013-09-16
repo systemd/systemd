@@ -3836,6 +3836,13 @@ test_login_LDADD = \
 	libsystemd-login-internal.la \
 	libsystemd-shared.la
 
+test_login_shared_SOURCES = \
+	src/login/test-login-shared.c
+
+test_login_shared_LDADD = \
+	libsystemd-login-internal.la \
+	libsystemd-shared.la
+
 test_inhibit_SOURCES = \
 	src/login/test-inhibit.c
 
@@ -3862,7 +3869,8 @@ manual_tests += \
 	test-inhibit
 
 tests += \
-	test-login-tables
+	test-login-tables \
+	test-login-shared
 
 libsystemd_login_la_SOURCES = \
 	src/login/sd-login.c \

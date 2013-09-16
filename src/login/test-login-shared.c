@@ -19,11 +19,20 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "macro.h"
 #include "login-shared.h"
-#include "def.h"
 
-bool session_id_valid(const char *id) {
-        assert(id);
+static void test_session_id_valid(void) {
+        assert_se(session_id_valid("c1"));
+        assert_se(session_id_valid("1234"));
 
-        return id[0] && id[strspn(id, LETTERS DIGITS)] == '\0';
+        assert_se(!session_id_valid("1-2"));
+        assert_se(!session_id_valid(""));
+        assert_se(!session_id_valid("\tid"));
+}
+
+int main(int argc, char* argv[]) {
+        test_session_id_valid();
+
+        return 0;
 }
