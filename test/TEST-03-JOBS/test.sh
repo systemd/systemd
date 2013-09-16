@@ -21,10 +21,10 @@ run_qemu() {
     mkdir -p $TESTDIR/root
     mount ${LOOPDEV}p1 $TESTDIR/root
     [[ -e $TESTDIR/root/testok ]] && ret=0
-    cp -a $TESTDIR/root/failed $TESTDIR
+    [[ -f $TESTDIR/root/failed ]] && cp -a $TESTDIR/root/failed $TESTDIR
     cp -a $TESTDIR/root/var/log/journal $TESTDIR
     umount $TESTDIR/root
-    cat $TESTDIR/failed
+    [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
     return $ret
@@ -35,9 +35,9 @@ run_nspawn() {
     ../../systemd-nspawn -b -D $TESTDIR/nspawn-root /usr/lib/systemd/systemd
     ret=1
     [[ -e $TESTDIR/nspawn-root/testok ]] && ret=0
-    cp -a $TESTDIR/nspawn-root/failed $TESTDIR
+    [[ -f $TESTDIR/root/failed ]] && cp -a $TESTDIR/nspawn-root/failed $TESTDIR
     cp -a $TESTDIR/nspawn-root/var/log/journal $TESTDIR
-    cat $TESTDIR/failed
+    [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
     return $ret
