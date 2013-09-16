@@ -1068,6 +1068,12 @@ static int add_rule(struct udev_rules *rules, char *line,
                 enum operation_type op;
 
                 if (get_key(rules->udev, &linepos, &key, &op, &value) != 0) {
+                        /* Avoid erroring on trailing whitespace. This is probably rare
+                         * so save the work for the error case instead of always trying
+                         * to strip the trailing whitespace with strstrip(). */
+                        while (isblank(*linepos))
+                                linepos++;
+
                         /* If we aren't at the end of the line, this is a parsing error.
                          * Make a best effort to describe where the problem is. */
                         if (*linepos != '\n') {
