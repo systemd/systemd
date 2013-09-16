@@ -67,6 +67,7 @@
 #include "env-util.h"
 #include "fileio.h"
 #include "unit.h"
+#include "async.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
@@ -1581,6 +1582,28 @@ void exec_context_init(ExecContext *c) {
         c->timer_slack_nsec = (nsec_t) -1;
 }
 
+static void *remove_tmpdir_thread(void *p) {
+        int r;
+        _cleanup_free_ char *dirp = p;
+        char *dir;
+
+        assert(dirp);
+
+        r = rm_rf_dangerous(dirp, false, true, false);
+        dir = dirname(dirp);
+        if (r < 0)
+                log_warning("Failed to remove content of temporary directory %s: %s",
+                            dir, strerror(-r));
+        else {
+                r = rmdir(dir);
+                if (r < 0)
+                        log_warning("Failed to remove temporary directory %s: %s",
+                                    dir, strerror(-r));
+        }
+
+        return NULL;
+}
+
 void exec_context_tmp_dirs_done(ExecContext *c) {
         char* dirs[] = {c->tmp_dir ? c->tmp_dir : c->var_tmp_dir,
                         c->tmp_dir ? c->var_tmp_dir : NULL,
@@ -1588,22 +1611,8 @@ void exec_context_tmp_dirs_done(ExecContext *c) {
         char **dirp;
 
         for(dirp = dirs; *dirp; dirp++) {
-                char *dir;
-                int r;
-
-                r = rm_rf_dangerous(*dirp, false, true, false);
-                dir = dirname(*dirp);
-                if (r < 0)
-                        log_warning("Failed to remove content of temporary directory %s: %s",
-                                    dir, strerror(-r));
-                else {
-                        r = rmdir(dir);
-                        if (r < 0)
-                                log_warning("Failed to remove  temporary directory %s: %s",
-                                            dir, strerror(-r));
-                }
-
-                free(*dirp);
+                log_debug("Spawning thread to nuke %s", *dirp);
+                asynchronous_job(remove_tmpdir_thread, *dirp);
         }
 
         c->tmp_dir = c->var_tmp_dir = NULL;

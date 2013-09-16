@@ -35,7 +35,7 @@
 #include "log.h"
 #include "dbus-job.h"
 #include "special.h"
-#include "sync.h"
+#include "async.h"
 #include "virt.h"
 
 JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name) {

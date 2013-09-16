@@ -22,14 +22,10 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#include "sync.h"
+#include "async.h"
+#include "log.h"
 
-static void *sync_thread(void *p) {
-        sync();
-        return NULL;
-}
-
-int asynchronous_sync(void) {
+int asynchronous_job(void* (*func)(void *p), void *arg) {
         pthread_attr_t a;
         pthread_t t;
         int r;
@@ -53,7 +49,7 @@ int asynchronous_sync(void) {
                 goto finish;
         }
 
-        r = pthread_create(&t, &a, sync_thread, NULL);
+        r = pthread_create(&t, &a, func, arg);
         if (r != 0) {
                 r = -r;
                 goto finish;
@@ -62,4 +58,15 @@ int asynchronous_sync(void) {
 finish:
         pthread_attr_destroy(&a);
         return r;
+}
+
+static void *sync_thread(void *p) {
+        sync();
+        return NULL;
+}
+
+int asynchronous_sync(void) {
+        log_debug("Spawning new thread for sync");
+
+        return asynchronous_job(sync_thread, NULL);
 }
