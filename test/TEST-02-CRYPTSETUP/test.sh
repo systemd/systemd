@@ -131,7 +131,7 @@ Description=Testsuite service
 After=multi-user.target
 
 [Service]
-ExecStart=/bin/bash -c 'set -x; systemctl --failed --no-legend --no-pager > /failed ; echo OK > /testok; while : ;do systemd-cat echo "testsuite service waiting for /var/log/journal" ; echo "testsuite service waiting for journal to move to /var/log/journal" > /dev/console ; for i in /var/log/journal/*;do [ -d "\$i" ] && echo "\$i" && break 2; done; sleep 1; done; sleep 1; exit 0;'
+ExecStart=/bin/bash -c 'set -x; ( systemctl --failed --no-legend --no-pager; systemctl status --failed ) > /failed ; echo OK > /testok; while : ;do systemd-cat echo "testsuite service waiting for /var/log/journal" ; echo "testsuite service waiting for journal to move to /var/log/journal" > /dev/console ; for i in /var/log/journal/*;do [ -d "\$i" ] && echo "\$i" && break 2; done; sleep 1; done; sleep 1; exit 0;'
 Type=oneshot
 EOF
 
@@ -197,7 +197,7 @@ EOF
         # softlink mtab
         ln -fs /proc/self/mounts $initdir/etc/mtab
 
-        # install any Exec's from the service files
+        # install any Execs from the service files
         egrep -ho '^Exec[^ ]*=[^ ]+' $initdir/lib/systemd/system/*.service \
             | while read i; do
             i=${i##Exec*=}; i=${i##-}
@@ -220,7 +220,7 @@ EOF
         cp -a /etc/ld.so.conf* $initdir/etc
         ldconfig -r "$initdir"
         ddebug "Strip binaeries"
-        find "$initdir" -perm +111 -type f | xargs strip --strip-unneeded | ddebug
+        find "$initdir" -executable -not -path '*/lib/modules/*.ko' -type f | xargs strip --strip-unneeded | ddebug
 
         # copy depmod files
         inst /lib/modules/$KERNEL_VER/modules.order
