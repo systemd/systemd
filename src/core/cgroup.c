@@ -92,7 +92,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sBlockIOAccounting=%s\n"
                 "%sMemoryAccounting=%s\n"
                 "%sCPUShares=%lu\n"
-                "%sBlockIOWeight%lu\n"
+                "%sBlockIOWeight=%lu\n"
                 "%sMemoryLimit=%" PRIu64 "\n"
                 "%sMemorySoftLimit=%" PRIu64 "\n"
                 "%sDevicePolicy=%s\n",
