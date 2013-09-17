@@ -191,7 +191,7 @@ int session_save(Session *s) {
         if (s->service)
                 fprintf(f, "SERVICE=%s\n", s->service);
 
-        if (s->seat && seat_can_multi_session(s->seat))
+        if (s->seat && seat_has_vts(s->seat))
                 fprintf(f, "VTNR=%i\n", s->vtnr);
 
         if (s->leader > 0)
@@ -301,7 +301,7 @@ int session_load(Session *s) {
                         seat_attach_session(o, s);
         }
 
-        if (vtnr && s->seat && seat_can_multi_session(s->seat)) {
+        if (vtnr && s->seat && seat_has_vts(s->seat)) {
                 int v;
 
                 k = safe_atoi(vtnr, &v);
@@ -372,7 +372,7 @@ int session_activate(Session *s) {
         if (s->seat->active == s)
                 return 0;
 
-        assert(seat_is_seat0(s->seat));
+        assert(seat_has_vts(s->seat));
 
         return chvt(s->vtnr);
 }

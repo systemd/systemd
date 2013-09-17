@@ -201,7 +201,7 @@ int seat_preallocate_vts(Seat *s) {
         if (s->manager->n_autovts <= 0)
                 return 0;
 
-        if (!seat_can_multi_session(s))
+        if (!seat_has_vts(s))
                 return 0;
 
         for (i = 1; i <= s->manager->n_autovts; i++) {
@@ -277,7 +277,7 @@ int seat_active_vt_changed(Seat *s, int vtnr) {
         assert(s);
         assert(vtnr >= 1);
 
-        if (!seat_can_multi_session(s))
+        if (!seat_has_vts(s))
                 return -EINVAL;
 
         log_debug("VT changed to %i", vtnr);
@@ -301,7 +301,7 @@ int seat_read_active_vt(Seat *s) {
 
         assert(s);
 
-        if (!seat_can_multi_session(s))
+        if (!seat_has_vts(s))
                 return 0;
 
         lseek(s->manager->console_active_fd, SEEK_SET, 0);
@@ -412,16 +412,18 @@ int seat_attach_session(Seat *s, Session *session) {
 
         seat_send_changed(s, "Sessions\0");
 
-        /* Note that even if a seat is not multi-session capable it
-         * still might have multiple sessions on it since old, dead
-         * sessions might continue to be tracked until all their
-         * processes are gone. The most recently added session
-         * (i.e. the first in s->sessions) is the one that matters. */
-
-        if (!seat_can_multi_session(s))
+        /* On seats with VTs, the VT logic defines which session is active. On
+         * seats without VTs, we automatically activate the first session. */
+        if (!seat_has_vts(s) && !s->active)
                 seat_set_active(s, session);
 
         return 0;
+}
+
+bool seat_has_vts(Seat *s) {
+        assert(s);
+
+        return seat_is_seat0(s) && s->manager->console_active_fd >= 0;
 }
 
 bool seat_is_seat0(Seat *s) {
@@ -433,19 +435,13 @@ bool seat_is_seat0(Seat *s) {
 bool seat_can_multi_session(Seat *s) {
         assert(s);
 
-        if (!seat_is_seat0(s))
-                return false;
-
-        /* If we can't watch which VT is in the foreground, we don't
-         * support VT switching */
-
-        return s->manager->console_active_fd >= 0;
+        return seat_has_vts(s);
 }
 
 bool seat_can_tty(Seat *s) {
         assert(s);
 
-        return seat_is_seat0(s) && s->manager->console_active_fd >= 0;
+        return seat_has_vts(s);
 }
 
 bool seat_has_master_device(Seat *s) {

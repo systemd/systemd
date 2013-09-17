@@ -60,6 +60,7 @@ int seat_preallocate_vts(Seat *s);
 
 int seat_attach_session(Seat *s, Session *session);
 
+bool seat_has_vts(Seat *s);
 bool seat_is_seat0(Seat *s);
 bool seat_can_multi_session(Seat *s);
 bool seat_can_tty(Seat *s);

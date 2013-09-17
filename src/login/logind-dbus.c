@@ -429,7 +429,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
         }
 
         if (seat) {
-                if (seat_can_multi_session(seat)) {
+                if (seat_has_vts(seat)) {
                         if (vtnr > 63)
                                 return -EINVAL;
                 } else {
