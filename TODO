@@ -58,6 +58,8 @@ CGroup Rework Completion:
 
 Features:
 
+* always set memory.user_hierarchy for all cgroups we create
+
 * Get rid of MemorySoftLimit=
 
 * After coming back from hibernation reset hibernation swap partition
