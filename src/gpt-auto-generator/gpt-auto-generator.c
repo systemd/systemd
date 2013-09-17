@@ -55,18 +55,13 @@ static inline void blkid_free_probep(blkid_probe *b) {
 }
 #define _cleanup_blkid_freep_probe_ _cleanup_(blkid_free_probep)
 
-static int verify_gpt_partition(dev_t dev, sd_id128_t *type, unsigned *nr, char **fstype) {
-        _cleanup_free_ char *t = NULL;
+static int verify_gpt_partition(const char *node, sd_id128_t *type, unsigned *nr, char **fstype) {
         _cleanup_blkid_freep_probe_ blkid_probe b = NULL;
         const char *v;
         int r;
 
-        r = asprintf(&t, "/dev/block/%u:%u", major(dev), minor(dev));
-        if (r < 0)
-                return -ENOMEM;
-
         errno = 0;
-        b = blkid_new_probe_from_filename(t);
+        b = blkid_new_probe_from_filename(node);
         if (!b)
                 return errno != 0 ? -errno : -ENOMEM;
 
@@ -237,18 +232,13 @@ static int add_home(const char *path, const char *fstype) {
         return 0;
 }
 
-static int enumerate_partitions(dev_t dev) {
-        struct udev *udev;
+static int enumerate_partitions(struct udev *udev, dev_t dev) {
         struct udev_enumerate *e = NULL;
         struct udev_device *parent = NULL, *d = NULL;
         struct udev_list_entry *first, *item;
         unsigned home_nr = (unsigned) -1;
         _cleanup_free_ char *home = NULL, *home_fstype = NULL;
         int r;
-
-        udev = udev_new();
-        if (!udev)
-                return log_oom();
 
         e = udev_enumerate_new(udev);
         if (!e) {
@@ -294,7 +284,6 @@ static int enumerate_partitions(dev_t dev) {
                 struct udev_device *q;
                 sd_id128_t type_id;
                 unsigned nr;
-                dev_t sub;
 
                 q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                 if (!q) {
@@ -314,12 +303,10 @@ static int enumerate_partitions(dev_t dev) {
                         goto finish;
                 }
 
-                sub = udev_device_get_devnum(q);
-
-                r = verify_gpt_partition(sub, &type_id, &nr, &fstype);
+                r = verify_gpt_partition(node, &type_id, &nr, &fstype);
                 if (r < 0) {
-                        log_error("Failed to verify GPT partition /dev/block/%u:%u: %s",
-                                  major(sub), minor(sub), strerror(-r));
+                        log_error("Failed to verify GPT partition %s: %s",
+                                  node, strerror(-r));
                         udev_device_unref(q);
                         goto finish;
                 }
@@ -360,8 +347,6 @@ finish:
         if (e)
                 udev_enumerate_unref(e);
 
-        if (udev)
-                udev_unref(udev);
 
         return r;
 }
@@ -440,13 +425,50 @@ static int get_block_device(const char *path, dev_t *dev) {
         return 0;
 }
 
+static int devno_to_devnode(struct udev *udev, dev_t devno, char **ret) {
+        struct udev_device *d = NULL;
+        const char *t;
+        char *n;
+        int r;
+
+        d = udev_device_new_from_devnum(udev, 'b', devno);
+        if (!d) {
+                r = log_oom();
+                goto finish;
+        }
+
+        t = udev_device_get_devnode(d);
+        if (!t) {
+                r = -ENODEV;
+                goto finish;
+        }
+
+        n = strdup(t);
+        if (!n) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        *ret = n;
+        r = 0;
+
+finish:
+        if (d)
+                udev_device_unref(d);
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
-        dev_t dev;
+        _cleanup_free_ char *node = NULL;
+        struct udev *udev = NULL;
+        dev_t devno;
         int r;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
-                return EXIT_FAILURE;
+                r = -EINVAL;
+                goto finish;
         }
 
         if (argc > 1)
@@ -458,31 +480,48 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (in_initrd())
-                return EXIT_SUCCESS;
+        if (in_initrd()) {
+                r = 0;
+                goto finish;
+        }
 
-        r = get_block_device("/", &dev);
+        r = get_block_device("/", &devno);
         if (r < 0) {
                 log_error("Failed to determine block device of root file system: %s", strerror(-r));
-                return EXIT_FAILURE;
+                goto finish;
         }
         if (r == 0) {
                 log_debug("Root file system not on a (single) block device.");
-                return EXIT_SUCCESS;
+                goto finish;
         }
 
-        log_debug("Root device /dev/block/%u:%u.", major(dev), minor(dev));
+        udev = udev_new();
+        if (!udev) {
+                r = log_oom();
+                goto finish;
+        }
 
-        r = verify_gpt_partition(dev, NULL, NULL, NULL);
+        r = devno_to_devnode(udev, devno, &node);
         if (r < 0) {
-                log_error("Failed to verify GPT partition /dev/block/%u:%u: %s",
-                          major(dev), minor(dev), strerror(-r));
-                return EXIT_FAILURE;
+                log_error("Failed to determine block device node from major/minor: %s", strerror(-r));
+                goto finish;
+        }
+
+        log_debug("Root device %s.", node);
+
+        r = verify_gpt_partition(node, NULL, NULL, NULL);
+        if (r < 0) {
+                log_error("Failed to verify GPT partition %s: %s", node, strerror(-r));
+                goto finish;
         }
         if (r == 0)
-                return EXIT_SUCCESS;
+                goto finish;
 
-        r = enumerate_partitions(dev);
+        r = enumerate_partitions(udev, devno);
+
+finish:
+        if (udev)
+                udev_unref(udev);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
