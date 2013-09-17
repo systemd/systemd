@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <linux/oom.h>
+#include <linux/input.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -309,4 +310,16 @@ static inline int name_to_handle_at(int fd, const char *name, struct file_handle
 
 #ifndef SO_REUSEPORT
 #define SO_REUSEPORT 15
+#endif
+
+#ifndef EVIOCREVOKE
+#define EVIOCREVOKE _IOW('E', 0x91, int)
+#endif
+
+#ifndef DRM_IOCTL_SET_MASTER
+#define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
+#endif
+
+#ifndef DRM_IOCTL_DROP_MASTER
+#define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
 #endif

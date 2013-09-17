@@ -53,9 +53,17 @@ Session* session_new(Manager *m, const char *id) {
                 return NULL;
         }
 
+        s->devices = hashmap_new(trivial_hash_func, trivial_compare_func);
+        if (!s->devices) {
+                free(s->state_file);
+                free(s);
+                return NULL;
+        }
+
         s->id = path_get_file_name(s->state_file);
 
         if (hashmap_put(m->sessions, s->id, s) < 0) {
+                hashmap_free(s->devices);
                 free(s->state_file);
                 free(s);
                 return NULL;
@@ -68,12 +76,19 @@ Session* session_new(Manager *m, const char *id) {
 }
 
 void session_free(Session *s) {
+        SessionDevice *sd;
+
         assert(s);
 
         if (s->in_gc_queue)
                 LIST_REMOVE(Session, gc_queue, s->manager->session_gc_queue, s);
 
         session_drop_controller(s);
+
+        while ((sd = hashmap_first(s->devices)))
+                session_device_free(sd);
+
+        hashmap_free(s->devices);
 
         if (s->user) {
                 LIST_REMOVE(Session, sessions_by_user, s->user->sessions, s);
@@ -612,6 +627,7 @@ int session_stop(Session *s) {
 
 int session_finalize(Session *s) {
         int r = 0;
+        SessionDevice *sd;
 
         assert(s);
 
@@ -626,6 +642,10 @@ int session_finalize(Session *s) {
                            "LEADER=%lu", (unsigned long) s->leader,
                            "MESSAGE=Removed session %s.", s->id,
                            NULL);
+
+        /* Kill session devices */
+        while ((sd = hashmap_first(s->devices)))
+                session_device_free(sd);
 
         /* Remove X11 symlink */
         session_unlink_x11_socket(s);
@@ -950,6 +970,8 @@ int session_set_controller(Session *s, const char *sender, bool force) {
 }
 
 void session_drop_controller(Session *s) {
+        SessionDevice *sd;
+
         assert(s);
 
         if (!s->controller)
@@ -958,6 +980,11 @@ void session_drop_controller(Session *s) {
         manager_drop_busname(s->manager, s->controller);
         free(s->controller);
         s->controller = NULL;
+
+        /* Drop all devices as they're now unused. Do that after the controller
+         * is released to avoid sending out useles dbus signals. */
+        while ((sd = hashmap_first(s->devices)))
+                session_device_free(sd);
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {

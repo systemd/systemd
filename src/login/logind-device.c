@@ -67,10 +67,14 @@ void device_free(Device *d) {
 
 void device_detach(Device *d) {
         Seat *s;
+        SessionDevice *sd;
         assert(d);
 
         if (!d->seat)
                 return;
+
+        while ((sd = d->session_devices))
+                session_device_free(sd);
 
         s = d->seat;
         LIST_REMOVE(Device, devices, d->seat->devices, d);

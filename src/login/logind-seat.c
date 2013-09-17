@@ -246,10 +246,15 @@ int seat_set_active(Seat *s, Session *session) {
         old_active = s->active;
         s->active = session;
 
+        if (old_active)
+                session_device_pause_all(old_active);
+
         seat_apply_acls(s, old_active);
 
-        if (session && session->started)
+        if (session && session->started) {
                 session_send_changed(session, "Active\0");
+                session_device_resume_all(session);
+        }
 
         if (!session || session->started)
                 seat_send_changed(s, "ActiveSession\0");

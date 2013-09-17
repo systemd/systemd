@@ -28,6 +28,7 @@ typedef enum KillWho KillWho;
 #include "util.h"
 #include "logind.h"
 #include "logind-seat.h"
+#include "logind-session-device.h"
 #include "logind-user.h"
 #include "login-shared.h"
 
@@ -107,6 +108,7 @@ struct Session {
         DBusMessage *create_message;
 
         char *controller;
+        Hashmap *devices;
 
         LIST_FIELDS(Session, sessions_by_user);
         LIST_FIELDS(Session, sessions_by_seat);

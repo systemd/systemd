@@ -3768,6 +3768,8 @@ libsystemd_logind_core_la_SOURCES = \
 	src/login/logind-seat.h \
 	src/login/logind-session.c \
 	src/login/logind-session.h \
+	src/login/logind-session-device.c \
+	src/login/logind-session-device.h \
 	src/login/logind-user.c \
 	src/login/logind-user.h \
 	src/login/logind-inhibit.c \

@@ -24,6 +24,7 @@
 
 #include "logind.h"
 #include "logind-session.h"
+#include "logind-session-device.h"
 #include "dbus-common.h"
 #include "util.h"
 
@@ -44,6 +45,30 @@
         "   <arg name=\"force\" type=\"b\"/>\n"                         \
         "  </method>\n"                                                 \
         "  <method name=\"ReleaseControl\"/>\n"                         \
+        "  <method name=\"TakeDevice\">\n"                              \
+        "   <arg name=\"major\" type=\"u\" direction=\"in\"/>\n"        \
+        "   <arg name=\"minor\" type=\"u\" direction=\"in\"/>\n"        \
+        "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
+        "   <arg name=\"paused\" type=\"b\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
+        "  <method name=\"ReleaseDevice\">\n"                           \
+        "   <arg name=\"major\" type=\"u\"/>\n"                         \
+        "   <arg name=\"minor\" type=\"u\"/>\n"                         \
+        "  </method>\n"                                                 \
+        "  <method name=\"PauseDeviceComplete\">\n"                     \
+        "   <arg name=\"major\" type=\"u\"/>\n"                         \
+        "   <arg name=\"minor\" type=\"u\"/>\n"                         \
+        "  </method>\n"                                                 \
+        "  <signal name=\"PauseDevice\">\n"                             \
+        "   <arg name=\"major\" type=\"u\"/>\n"                         \
+        "   <arg name=\"minor\" type=\"u\"/>\n"                         \
+        "   <arg name=\"type\" type=\"s\"/>\n"                          \
+        "  </signal>\n"                                                 \
+        "  <signal name=\"ResumeDevice\">\n"                            \
+        "   <arg name=\"major\" type=\"u\"/>\n"                         \
+        "   <arg name=\"minor\" type=\"u\"/>\n"                         \
+        "   <arg name=\"fd\" type=\"h\"/>\n"                            \
+        "  </signal>\n"                                                 \
         "  <signal name=\"Lock\"/>\n"                                   \
         "  <signal name=\"Unlock\"/>\n"                                 \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
@@ -403,6 +428,107 @@ static DBusHandlerResult session_message_dispatch(
                         return bus_send_error_reply(connection, message, NULL, -EPERM);
 
                 session_drop_controller(s);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "TakeDevice")) {
+                SessionDevice *sd;
+                bool b;
+                dbus_bool_t paused;
+                uint32_t major, minor;
+                dev_t dev;
+
+                if (!session_is_controller(s, bus_message_get_sender_with_fallback(message)))
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &major,
+                                    DBUS_TYPE_UINT32, &minor,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                dev = makedev(major, minor);
+                assert_cc(sizeof(unsigned long) >= sizeof(dev_t));
+
+                sd = hashmap_get(s->devices, ULONG_TO_PTR((unsigned long)dev));
+                if (sd) {
+                        /* We don't allow retrieving a device multiple times.
+                         * The related ReleaseDevice call is not ref-counted.
+                         * The caller should use dup() if it requires more than
+                         * one fd (it would be functionally equivalent). */
+                        return bus_send_error_reply(connection, message, &error, -EBUSY);
+                }
+
+                r = session_device_new(s, dev, &sd);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply) {
+                        session_device_free(sd);
+                        goto oom;
+                }
+
+                paused = !sd->active;
+                b = dbus_message_append_args(
+                                reply,
+                                DBUS_TYPE_UNIX_FD, &sd->fd,
+                                DBUS_TYPE_BOOLEAN, &paused,
+                                DBUS_TYPE_INVALID);
+                if (!b) {
+                        session_device_free(sd);
+                        return bus_send_error_reply(connection, message, NULL, -ENOMEM);
+                }
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "ReleaseDevice")) {
+                SessionDevice *sd;
+                uint32_t major, minor;
+
+                if (!session_is_controller(s, bus_message_get_sender_with_fallback(message)))
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &major,
+                                    DBUS_TYPE_UINT32, &minor,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                sd = hashmap_get(s->devices, ULONG_TO_PTR((unsigned long)makedev(major, minor)));
+                if (!sd)
+                        return bus_send_error_reply(connection, message, NULL, -ENODEV);
+
+                session_device_free(sd);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "PauseDeviceComplete")) {
+                SessionDevice *sd;
+                uint32_t major, minor;
+
+                if (!session_is_controller(s, bus_message_get_sender_with_fallback(message)))
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &major,
+                                    DBUS_TYPE_UINT32, &minor,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                sd = hashmap_get(s->devices, ULONG_TO_PTR((unsigned long)makedev(major, minor)));
+                if (!sd)
+                        return bus_send_error_reply(connection, message, NULL, -ENODEV);
+
+                session_device_complete_pause(sd);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
