@@ -51,6 +51,7 @@ struct Manager {
         Hashmap *users;
         Hashmap *inhibitors;
         Hashmap *buttons;
+        Hashmap *busnames;
 
         LIST_HEAD(Seat, seat_gc_queue);
         LIST_HEAD(Session, session_gc_queue);
@@ -190,3 +191,6 @@ int manager_unit_is_active(Manager *manager, const char *unit);
 
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, unsigned length);
+
+int manager_watch_busname(Manager *manager, const char *name);
+void manager_drop_busname(Manager *manager, const char *name);

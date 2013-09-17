@@ -74,6 +74,7 @@ Manager *manager_new(void) {
         m->users = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitors = hashmap_new(string_hash_func, string_compare_func);
         m->buttons = hashmap_new(string_hash_func, string_compare_func);
+        m->busnames = hashmap_new(string_hash_func, string_compare_func);
 
         m->user_units = hashmap_new(string_hash_func, string_compare_func);
         m->session_units = hashmap_new(string_hash_func, string_compare_func);
@@ -82,7 +83,7 @@ Manager *manager_new(void) {
         m->inhibitor_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->button_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
 
-        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons ||
+        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->busnames ||
             !m->user_units || !m->session_units ||
             !m->session_fds || !m->inhibitor_fds || !m->button_fds) {
                 manager_free(m);
@@ -111,6 +112,7 @@ void manager_free(Manager *m) {
         Seat *s;
         Inhibitor *i;
         Button *b;
+        char *n;
 
         assert(m);
 
@@ -132,12 +134,16 @@ void manager_free(Manager *m) {
         while ((b = hashmap_first(m->buttons)))
                 button_free(b);
 
+        while ((n = hashmap_first(m->busnames)))
+                free(hashmap_remove(m->busnames, n));
+
         hashmap_free(m->devices);
         hashmap_free(m->seats);
         hashmap_free(m->sessions);
         hashmap_free(m->users);
         hashmap_free(m->inhibitors);
         hashmap_free(m->buttons);
+        hashmap_free(m->busnames);
 
         hashmap_free(m->user_units);
         hashmap_free(m->session_units);
@@ -359,6 +365,40 @@ int manager_add_button(Manager *m, const char *name, Button **_button) {
                 *_button = b;
 
         return 0;
+}
+
+int manager_watch_busname(Manager *m, const char *name) {
+        char *n;
+        int r;
+
+        assert(m);
+        assert(name);
+
+        if (hashmap_get(m->busnames, name))
+                return 0;
+
+        n = strdup(name);
+        if (!n)
+                return -ENOMEM;
+
+        r = hashmap_put(m->busnames, n, n);
+        if (r < 0) {
+                free(n);
+                return r;
+        }
+
+        return 0;
+}
+
+void manager_drop_busname(Manager *m, const char *name) {
+        char *key;
+
+        assert(m);
+        assert(name);
+
+        key = hashmap_remove(m->busnames, name);
+        if (key)
+                free(key);
 }
 
 int manager_process_seat_device(Manager *m, struct udev_device *d) {
@@ -1041,6 +1081,18 @@ static int manager_connect_bus(Manager *m) {
             !dbus_connection_add_filter(m->bus, bus_message_filter, m, NULL)) {
                 r = log_oom();
                 goto fail;
+        }
+
+        dbus_bus_add_match(m->bus,
+                           "type='signal',"
+                           "sender='"DBUS_SERVICE_DBUS"',"
+                           "interface='"DBUS_INTERFACE_DBUS"',"
+                           "member='NameOwnerChanged',"
+                           "path='"DBUS_PATH_DBUS"'",
+                           &error);
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to add match for NameOwnerChanged: %s", bus_error_message(&error));
+                dbus_error_free(&error);
         }
 
         dbus_bus_add_match(m->bus,

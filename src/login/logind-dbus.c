@@ -2459,6 +2459,23 @@ DBusHandlerResult bus_message_filter(
                         HASHMAP_FOREACH(session, m->sessions, i)
                                 session_add_to_gc_queue(session);
                 }
+
+        } else if (dbus_message_is_signal(message, DBUS_INTERFACE_DBUS, "NameOwnerChanged")) {
+                const char *name, *old, *new;
+                char *key;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_STRING, &name,
+                                           DBUS_TYPE_STRING, &old,
+                                           DBUS_TYPE_STRING, &new,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse NameOwnerChanged message: %s", bus_error_message(&error));
+                        goto finish;
+                }
+
+                if (*old && !*new && (key = hashmap_remove(m->busnames, old))) {
+                        free(key);
+                }
         }
 
 finish:
