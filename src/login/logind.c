@@ -151,6 +151,8 @@ void manager_free(Manager *m) {
 
         if (m->udev_seat_monitor)
                 udev_monitor_unref(m->udev_seat_monitor);
+        if (m->udev_device_monitor)
+                udev_monitor_unref(m->udev_device_monitor);
         if (m->udev_vcsa_monitor)
                 udev_monitor_unref(m->udev_vcsa_monitor);
         if (m->udev_button_monitor)
@@ -184,7 +186,7 @@ void manager_free(Manager *m) {
         free(m);
 }
 
-int manager_add_device(Manager *m, const char *sysfs, Device **_device) {
+int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
         Device *d;
 
         assert(m);
@@ -195,10 +197,13 @@ int manager_add_device(Manager *m, const char *sysfs, Device **_device) {
                 if (_device)
                         *_device = d;
 
+                /* we support adding master-flags, but not removing them */
+                d->master = d->master || master;
+
                 return 0;
         }
 
-        d = device_new(m, sysfs);
+        d = device_new(m, sysfs, master);
         if (!d)
                 return -ENOMEM;
 
@@ -373,7 +378,8 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
 
         } else {
                 const char *sn;
-                Seat *seat;
+                Seat *seat = NULL;
+                bool master;
 
                 sn = udev_device_get_property_value(d, "ID_SEAT");
                 if (isempty(sn))
@@ -384,16 +390,23 @@ int manager_process_seat_device(Manager *m, struct udev_device *d) {
                         return 0;
                 }
 
-                r = manager_add_device(m, udev_device_get_syspath(d), &device);
+                /* ignore non-master devices for unknown seats */
+                master = udev_device_has_tag(d, "master-of-seat");
+                if (!master && !(seat = hashmap_get(m->seats, sn)))
+                        return 0;
+
+                r = manager_add_device(m, udev_device_get_syspath(d), master, &device);
                 if (r < 0)
                         return r;
 
-                r = manager_add_seat(m, sn, &seat);
-                if (r < 0) {
-                        if (!device->seat)
-                                device_free(device);
+                if (!seat) {
+                        r = manager_add_seat(m, sn, &seat);
+                        if (r < 0) {
+                                if (!device->seat)
+                                        device_free(device);
 
-                        return r;
+                                return r;
+                        }
                 }
 
                 device_attach(device, seat);
@@ -753,6 +766,22 @@ int manager_dispatch_seat_udev(Manager *m) {
         assert(m);
 
         d = udev_monitor_receive_device(m->udev_seat_monitor);
+        if (!d)
+                return -ENOMEM;
+
+        r = manager_process_seat_device(m, d);
+        udev_device_unref(d);
+
+        return r;
+}
+
+static int manager_dispatch_device_udev(Manager *m) {
+        struct udev_device *d;
+        int r;
+
+        assert(m);
+
+        d = udev_monitor_receive_device(m->udev_device_monitor);
         if (!d)
                 return -ENOMEM;
 
@@ -1149,6 +1178,7 @@ static int manager_connect_udev(Manager *m) {
 
         assert(m);
         assert(!m->udev_seat_monitor);
+        assert(!m->udev_device_monitor);
         assert(!m->udev_vcsa_monitor);
         assert(!m->udev_button_monitor);
 
@@ -1167,6 +1197,33 @@ static int manager_connect_udev(Manager *m) {
         m->udev_seat_fd = udev_monitor_get_fd(m->udev_seat_monitor);
 
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_seat_fd, &ev) < 0)
+                return -errno;
+
+        m->udev_device_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        if (!m->udev_device_monitor)
+                return -ENOMEM;
+
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_device_monitor, "input", NULL);
+        if (r < 0)
+                return r;
+
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_device_monitor, "graphics", NULL);
+        if (r < 0)
+                return r;
+
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_device_monitor, "drm", NULL);
+        if (r < 0)
+                return r;
+
+        r = udev_monitor_enable_receiving(m->udev_device_monitor);
+        if (r < 0)
+                return r;
+
+        m->udev_device_fd = udev_monitor_get_fd(m->udev_device_monitor);
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.u32 = FD_DEVICE_UDEV;
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_device_fd, &ev) < 0)
                 return -errno;
 
         /* Don't watch keys if nobody cares */
@@ -1543,6 +1600,10 @@ int manager_run(Manager *m) {
 
                 case FD_SEAT_UDEV:
                         manager_dispatch_seat_udev(m);
+                        break;
+
+                case FD_DEVICE_UDEV:
+                        manager_dispatch_device_udev(m);
                         break;
 
                 case FD_VCSA_UDEV:

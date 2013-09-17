@@ -448,10 +448,17 @@ bool seat_can_tty(Seat *s) {
         return seat_is_vtconsole(s);
 }
 
+bool seat_has_master_device(Seat *s) {
+        assert(s);
+
+        /* device list is ordered by "master" flag */
+        return !!s->devices && s->devices->master;
+}
+
 bool seat_can_graphical(Seat *s) {
         assert(s);
 
-        return !!s->devices;
+        return seat_has_master_device(s);
 }
 
 int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
@@ -499,7 +506,7 @@ int seat_check_gc(Seat *s, bool drop_not_started) {
         if (seat_is_vtconsole(s))
                 return 1;
 
-        return !!s->devices;
+        return seat_has_master_device(s);
 }
 
 void seat_add_to_gc_queue(Seat *s) {

@@ -33,13 +33,14 @@ struct Device {
 
         char *sysfs;
         Seat *seat;
+        bool master;
 
         dual_timestamp timestamp;
 
         LIST_FIELDS(struct Device, devices);
 };
 
-Device* device_new(Manager *m, const char *sysfs);
+Device* device_new(Manager *m, const char *sysfs, bool master);
 void device_free(Device *d);
 void device_attach(Device *d, Seat *s);
 void device_detach(Device *d);

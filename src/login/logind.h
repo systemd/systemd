@@ -57,9 +57,10 @@ struct Manager {
         LIST_HEAD(User, user_gc_queue);
 
         struct udev *udev;
-        struct udev_monitor *udev_seat_monitor, *udev_vcsa_monitor, *udev_button_monitor;
+        struct udev_monitor *udev_seat_monitor, *udev_device_monitor, *udev_vcsa_monitor, *udev_button_monitor;
 
         int udev_seat_fd;
+        int udev_device_fd;
         int udev_vcsa_fd;
         int udev_button_fd;
 
@@ -121,6 +122,7 @@ struct Manager {
 
 enum {
         FD_SEAT_UDEV,
+        FD_DEVICE_UDEV,
         FD_VCSA_UDEV,
         FD_BUTTON_UDEV,
         FD_CONSOLE,
@@ -132,7 +134,7 @@ enum {
 Manager *manager_new(void);
 void manager_free(Manager *m);
 
-int manager_add_device(Manager *m, const char *sysfs, Device **_device);
+int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device);
 int manager_add_button(Manager *m, const char *name, Button **_button);
 int manager_add_seat(Manager *m, const char *id, Seat **_seat);
 int manager_add_session(Manager *m, const char *id, Session **_session);
