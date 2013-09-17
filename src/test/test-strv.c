@@ -27,18 +27,18 @@
 #include "strv.h"
 
 static void test_specifier_printf(void) {
-        _cleanup_free_ char *w = NULL;
-        int r;
-
-        const Specifier table[] = {
+        static const Specifier table[] = {
                 { 'a', specifier_string, (char*) "AAAA" },
                 { 'b', specifier_string, (char*) "BBBB" },
                 { 'm', specifier_machine_id, NULL },
                 { 'B', specifier_boot_id, NULL },
                 { 'H', specifier_host_name, NULL },
                 { 'v', specifier_kernel_release, NULL },
-                { 0, NULL, NULL }
+                {}
         };
+
+        _cleanup_free_ char *w = NULL;
+        int r;
 
         r = specifier_printf("xxx a=%a b=%b yyy", table, NULL, &w);
         assert_se(r >= 0);

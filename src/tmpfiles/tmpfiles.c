@@ -51,6 +51,7 @@
 #include "set.h"
 #include "conf-files.h"
 #include "capability.h"
+#include "specifier.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -1038,10 +1039,19 @@ static bool should_include_path(const char *path) {
 }
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
+
+        static const Specifier specifier_table[] = {
+                { 'm', specifier_machine_id, NULL },
+                { 'b', specifier_boot_id, NULL },
+                { 'H', specifier_host_name, NULL },
+                { 'v', specifier_kernel_release, NULL },
+                {}
+        };
+
         _cleanup_item_free_ Item *i = NULL;
         Item *existing;
         _cleanup_free_ char
-                *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
+                *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         char type;
         Hashmap *h;
         int r, n = -1;
@@ -1050,14 +1060,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         assert(line >= 1);
         assert(buffer);
 
-        i = new0(Item, 1);
-        if (!i)
-                return log_oom();
-
         r = sscanf(buffer,
                    "%c %ms %ms %ms %ms %ms %n",
                    &type,
-                   &i->path,
+                   &path,
                    &mode,
                    &user,
                    &group,
@@ -1066,6 +1072,16 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (r < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
+        }
+
+        i = new0(Item, 1);
+        if (!i)
+                return log_oom();
+
+        r = specifier_printf(path, specifier_table, NULL, &i->path);
+        if (r < 0) {
+                log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, path);
+                return r;
         }
 
         if (n >= 0)  {
@@ -1307,11 +1323,12 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int read_config_file(const char *fn, bool ignore_enoent) {
-        FILE *f;
-        unsigned v = 0;
-        int r;
+        _cleanup_fclose_ FILE *f = NULL;
+        char line[LINE_MAX];
         Iterator iterator;
+        unsigned v = 0;
         Item *i;
+        int r;
 
         assert(fn);
 
@@ -1324,13 +1341,9 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 return r;
         }
 
-        log_debug("apply: %s\n", fn);
-        for (;;) {
-                char line[LINE_MAX], *l;
+        FOREACH_LINE(line, f, break) {
+                char *l;
                 int k;
-
-                if (!(fgets(line, sizeof(line), f)))
-                        break;
 
                 v++;
 
@@ -1338,9 +1351,9 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 if (*l == '#' || *l == 0)
                         continue;
 
-                if ((k = parse_line(fn, v, l)) < 0)
-                        if (r == 0)
-                                r = k;
+                k = parse_line(fn, v, l);
+                if (k < 0 && r == 0)
+                        r = k;
         }
 
         /* we have to determine age parameter for each entry of type X */
@@ -1376,8 +1389,6 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 if (r == 0)
                         r = -EIO;
         }
-
-        fclose(f);
 
         return r;
 }

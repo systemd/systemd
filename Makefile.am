@@ -1542,12 +1542,15 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 if ENABLE_TMPFILES
 systemd_tmpfiles_SOURCES = \
-	src/tmpfiles/tmpfiles.c
+	src/tmpfiles/tmpfiles.c \
+	src/shared/specifier.c \
+	src/shared/specifier.h
 
 systemd_tmpfiles_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
-	libsystemd-capability.la
+	libsystemd-capability.la \
+	libsystemd-id128-internal.la
 
 rootbin_PROGRAMS += \
 	systemd-tmpfiles
