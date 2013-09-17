@@ -245,7 +245,10 @@ static void test_status_field(void) {
         puts(p);
         assert_se(safe_atollu(p, &total) == 0);
 
-        assert_se(get_status_field("/proc/meminfo", "\nBuffers:", &s) == 0);
+        r = get_status_field("/proc/meminfo", "\nBuffers:", &s);
+        if (r == -ENOENT)
+                return;
+        assert(r == 0);
         puts(s);
         assert_se(safe_atollu(s, &buffers) == 0);
 
