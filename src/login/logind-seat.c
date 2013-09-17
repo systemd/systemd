@@ -445,7 +445,7 @@ bool seat_can_multi_session(Seat *s) {
 bool seat_can_tty(Seat *s) {
         assert(s);
 
-        return seat_is_seat0(s);
+        return seat_is_seat0(s) && s->manager->console_active_fd >= 0;
 }
 
 bool seat_has_master_device(Seat *s) {
