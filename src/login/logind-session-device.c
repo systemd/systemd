@@ -369,9 +369,7 @@ int session_device_new(Session *s, dev_t dev, SessionDevice **out) {
         if (r < 0)
                 goto error;
 
-        assert_cc(sizeof(unsigned long) >= sizeof(dev_t));
-
-        r = hashmap_put(s->devices, ULONG_TO_PTR((unsigned long)sd->dev), sd);
+        r = hashmap_put(s->devices, &sd->dev, sd);
         if (r < 0) {
                 r = -ENOMEM;
                 goto error;
@@ -392,7 +390,7 @@ int session_device_new(Session *s, dev_t dev, SessionDevice **out) {
         return 0;
 
 error:
-        hashmap_remove(s->devices, ULONG_TO_PTR((unsigned long)sd->dev));
+        hashmap_remove(s->devices, &sd->dev);
         free(sd->node);
         free(sd);
         return r;
@@ -407,7 +405,7 @@ void session_device_free(SessionDevice *sd) {
 
         LIST_REMOVE(SessionDevice, sd_by_device, sd->device->session_devices, sd);
 
-        hashmap_remove(sd->session->devices, ULONG_TO_PTR((unsigned long)sd->dev));
+        hashmap_remove(sd->session->devices, &sd->dev);
 
         free(sd->node);
         free(sd);

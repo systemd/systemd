@@ -36,6 +36,21 @@
 #include "dbus-common.h"
 #include "logind-session.h"
 
+static unsigned devt_hash_func(const void *p) {
+        uint64_t u = *(const dev_t*)p;
+
+        return uint64_hash_func(&u);
+}
+
+static int devt_compare_func(const void *_a, const void *_b) {
+        dev_t a, b;
+
+        a = *(const dev_t*) _a;
+        b = *(const dev_t*) _b;
+
+        return a < b ? -1 : (a > b ? 1 : 0);
+}
+
 Session* session_new(Manager *m, const char *id) {
         Session *s;
 
@@ -53,7 +68,7 @@ Session* session_new(Manager *m, const char *id) {
                 return NULL;
         }
 
-        s->devices = hashmap_new(trivial_hash_func, trivial_compare_func);
+        s->devices = hashmap_new(devt_hash_func, devt_compare_func);
         if (!s->devices) {
                 free(s->state_file);
                 free(s);

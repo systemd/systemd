@@ -452,9 +452,7 @@ static DBusHandlerResult session_message_dispatch(
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 dev = makedev(major, minor);
-                assert_cc(sizeof(unsigned long) >= sizeof(dev_t));
-
-                sd = hashmap_get(s->devices, ULONG_TO_PTR((unsigned long)dev));
+                sd = hashmap_get(s->devices, &dev);
                 if (sd) {
                         /* We don't allow retrieving a device multiple times.
                          * The related ReleaseDevice call is not ref-counted.
@@ -487,6 +485,7 @@ static DBusHandlerResult session_message_dispatch(
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "ReleaseDevice")) {
                 SessionDevice *sd;
                 uint32_t major, minor;
+                dev_t dev;
 
                 if (!session_is_controller(s, bus_message_get_sender_with_fallback(message)))
                         return bus_send_error_reply(connection, message, NULL, -EPERM);
@@ -499,7 +498,8 @@ static DBusHandlerResult session_message_dispatch(
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                sd = hashmap_get(s->devices, ULONG_TO_PTR((unsigned long)makedev(major, minor)));
+                dev = makedev(major, minor);
+                sd = hashmap_get(s->devices, &dev);
                 if (!sd)
                         return bus_send_error_reply(connection, message, NULL, -ENODEV);
 
@@ -512,6 +512,7 @@ static DBusHandlerResult session_message_dispatch(
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "PauseDeviceComplete")) {
                 SessionDevice *sd;
                 uint32_t major, minor;
+                dev_t dev;
 
                 if (!session_is_controller(s, bus_message_get_sender_with_fallback(message)))
                         return bus_send_error_reply(connection, message, NULL, -EPERM);
@@ -524,7 +525,8 @@ static DBusHandlerResult session_message_dispatch(
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                sd = hashmap_get(s->devices, ULONG_TO_PTR((unsigned long)makedev(major, minor)));
+                dev = makedev(major, minor);
+                sd = hashmap_get(s->devices, &dev);
                 if (!sd)
                         return bus_send_error_reply(connection, message, NULL, -ENODEV);
 
