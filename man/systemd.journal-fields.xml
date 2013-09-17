@@ -223,17 +223,20 @@
                                 <term><varname>_SYSTEMD_UNIT=</varname></term>
                                 <term><varname>_SYSTEMD_USER_UNIT=</varname></term>
                                 <term><varname>_SYSTEMD_OWNER_UID=</varname></term>
+                                <term><varname>_SYSTEMD_SLICE=</varname></term>
 
                                 <listitem>
-                                        <para>The control group path in
-                                        the systemd hierarchy, the
+                                        <para>The control group path
+                                        in the systemd hierarchy, the
                                         systemd session ID (if any),
-                                        the systemd unit name (if any),
-                                        the systemd user session unit name (if any)
-                                        and the owner UID of the
-                                        systemd session (if any) of
-                                        the process the journal entry
-                                        originates from.</para>
+                                        the systemd unit name (if
+                                        any), the systemd user session
+                                        unit name (if any), the owner
+                                        UID of the systemd session (if
+                                        any) and the systemd slice
+                                        unit of the process the
+                                        journal entry originates
+                                        from.</para>
                                 </listitem>
                         </varlistentry>
 
