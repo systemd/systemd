@@ -73,6 +73,7 @@
 #include "hashmap.h"
 #include "env-util.h"
 #include "fileio.h"
+#include "utf8.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
@@ -3495,26 +3496,23 @@ int signal_from_string_try_harder(const char *s) {
 }
 
 static char *tag_to_udev_node(const char *tagvalue, const char *by) {
-        char *dn, *t, *u;
-        int r;
-
-        /* FIXME: to follow udev's logic 100% we need to leave valid
-         * UTF8 chars unescaped */
+        _cleanup_free_ char *t = NULL, *u = NULL;
+        char *dn;
+        size_t enc_len;
 
         u = unquote(tagvalue, "\"\'");
         if (u == NULL)
                 return NULL;
 
-        t = xescape(u, "/ ");
-        free(u);
-
+        enc_len = strlen(u) * 4;
+        t = new(char, enc_len);
         if (t == NULL)
                 return NULL;
 
-        r = asprintf(&dn, "/dev/disk/by-%s/%s", by, t);
-        free(t);
+        if (udev_encode_string(u, t, enc_len) < 0)
+                return NULL;
 
-        if (r < 0)
+        if (asprintf(&dn, "/dev/disk/by-%s/%s", by, t) < 0)
                 return NULL;
 
         return dn;
