@@ -73,6 +73,8 @@ void session_free(Session *s) {
         if (s->in_gc_queue)
                 LIST_REMOVE(Session, gc_queue, s->manager->session_gc_queue, s);
 
+        session_drop_controller(s);
+
         if (s->user) {
                 LIST_REMOVE(Session, sessions_by_user, s->user->sessions, s);
 
@@ -916,6 +918,52 @@ int session_kill(Session *s, KillWho who, int signo) {
                 return -ESRCH;
 
         return manager_kill_unit(s->manager, s->scope, who, signo, NULL);
+}
+
+bool session_is_controller(Session *s, const char *sender)
+{
+        assert(s);
+
+        return streq_ptr(s->controller, sender);
+}
+
+int session_set_controller(Session *s, const char *sender, bool force) {
+        char *t;
+        int r;
+
+        assert(s);
+        assert(sender);
+
+        if (session_is_controller(s, sender))
+                return 0;
+        if (s->controller && !force)
+                return -EBUSY;
+
+        t = strdup(sender);
+        if (!t)
+                return -ENOMEM;
+
+        r = manager_watch_busname(s->manager, sender);
+        if (r) {
+                free(t);
+                return r;
+        }
+
+        session_drop_controller(s);
+
+        s->controller = t;
+        return 0;
+}
+
+void session_drop_controller(Session *s) {
+        assert(s);
+
+        if (!s->controller)
+                return;
+
+        manager_drop_busname(s->manager, s->controller);
+        free(s->controller);
+        s->controller = NULL;
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {

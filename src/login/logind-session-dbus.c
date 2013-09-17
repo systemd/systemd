@@ -40,6 +40,10 @@
         "   <arg name=\"who\" type=\"s\"/>\n"                           \
         "   <arg name=\"signal\" type=\"s\"/>\n"                        \
         "  </method>\n"                                                 \
+        "  <method name=\"TakeControl\"/>\n"                            \
+        "   <arg name=\"force\" type=\"b\"/>\n"                         \
+        "  </method>\n"                                                 \
+        "  <method name=\"ReleaseControl\"/>\n"                         \
         "  <signal name=\"Lock\"/>\n"                                   \
         "  <signal name=\"Unlock\"/>\n"                                 \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
@@ -361,6 +365,44 @@ static DBusHandlerResult session_message_dispatch(
                 r = session_kill(s, who, signo);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "TakeControl")) {
+                dbus_bool_t force;
+                unsigned long ul;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_BOOLEAN, &force,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), &error);
+                if (ul == (unsigned long) -1)
+                        return bus_send_error_reply(connection, message, &error, -EIO);
+
+                if (ul != 0 && (force || ul != s->user->uid))
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
+
+                r = session_set_controller(s, bus_message_get_sender_with_fallback(message), force);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "ReleaseControl")) {
+                const char *sender = bus_message_get_sender_with_fallback(message);
+
+                if (!session_is_controller(s, sender))
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
+
+                session_drop_controller(s);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)

@@ -391,10 +391,20 @@ int manager_watch_busname(Manager *m, const char *name) {
 }
 
 void manager_drop_busname(Manager *m, const char *name) {
+        Session *session;
+        Iterator i;
         char *key;
 
         assert(m);
         assert(name);
+
+        if (!hashmap_get(m->busnames, name))
+                return;
+
+        /* keep it if the name still owns a controller */
+        HASHMAP_FOREACH(session, m->sessions, i)
+                if (session_is_controller(session, name))
+                        return;
 
         key = hashmap_remove(m->busnames, name);
         if (key)

@@ -2473,8 +2473,16 @@ DBusHandlerResult bus_message_filter(
                         goto finish;
                 }
 
+                /* drop all controllers owned by this name */
                 if (*old && !*new && (key = hashmap_remove(m->busnames, old))) {
+                        Session *session;
+                        Iterator i;
+
                         free(key);
+
+                        HASHMAP_FOREACH(session, m->sessions, i)
+                                if (session_is_controller(session, old))
+                                        session_drop_controller(session);
                 }
         }
 

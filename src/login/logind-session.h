@@ -106,6 +106,8 @@ struct Session {
 
         DBusMessage *create_message;
 
+        char *controller;
+
         LIST_FIELDS(Session, sessions_by_user);
         LIST_FIELDS(Session, sessions_by_seat);
 
@@ -154,3 +156,7 @@ SessionClass session_class_from_string(const char *s) _pure_;
 
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
+
+bool session_is_controller(Session *s, const char *sender);
+int session_set_controller(Session *s, const char *sender, bool force);
+void session_drop_controller(Session *s);
