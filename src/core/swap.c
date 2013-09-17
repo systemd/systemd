@@ -1074,7 +1074,7 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
         (void) fscanf(m->proc_swaps, "%*s %*s %*s %*s %*s\n");
 
         for (i = 1;; i++) {
-                char *dev = NULL, *d;
+                _cleanup_free_ char *dev = NULL, *d = NULL;
                 int prio = 0, k;
 
                 k = fscanf(m->proc_swaps,
@@ -1089,19 +1089,14 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
                                 break;
 
                         log_warning("Failed to parse /proc/swaps:%u", i);
-                        free(dev);
                         continue;
                 }
 
                 d = cunescape(dev);
-                free(dev);
-
                 if (!d)
                         return -ENOMEM;
 
                 k = swap_process_new_swap(m, d, prio, set_flags);
-                free(d);
-
                 if (k < 0)
                         r = k;
         }

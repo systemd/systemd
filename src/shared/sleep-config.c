@@ -165,24 +165,70 @@ int can_sleep_disk(char **types) {
 
 #define HIBERNATION_SWAP_THRESHOLD 0.98
 
+static int hibernation_partition_size(size_t *size, size_t *used) {
+        _cleanup_fclose_ FILE *f;
+        int i;
+
+        assert(size);
+        assert(used);
+
+        f = fopen("/proc/swaps", "r");
+        if (!f) {
+                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "Failed to retrieve open /proc/swaps: %m");
+                assert(errno > 0);
+                return -errno;
+        }
+
+        (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
+
+        for (i = 1;; i++) {
+                _cleanup_free_ char *dev = NULL, *d = NULL, *type = NULL;
+                size_t size_field, used_field;
+                int k;
+
+                k = fscanf(f,
+                           "%ms "   /* device/file */
+                           "%ms "   /* type of swap */
+                           "%zd "   /* swap size */
+                           "%zd "   /* used */
+                           "%*i\n", /* priority */
+                           &dev, &type, &size_field, &used_field);
+                if (k != 4) {
+                        if (k == EOF)
+                                break;
+
+                        log_warning("Failed to parse /proc/swaps:%u", i);
+                        continue;
+                }
+
+                d = cunescape(dev);
+                if (!d)
+                        return -ENOMEM;
+
+                if (!streq(type, "partition")) {
+                        log_debug("Partition %s has type %s, ignoring.", d, type);
+                        continue;
+                }
+
+                *size = size_field;
+                *used = used_field;
+                return 0;
+        }
+
+        log_debug("No swap partitions were found.");
+        return -ENOSYS;
+}
+
 static bool enough_memory_for_hibernation(void) {
-        _cleanup_free_ char *active = NULL, *swapfree = NULL;
-        unsigned long long act, swap;
+        _cleanup_free_ char *active = NULL;
+        unsigned long long act;
+        size_t size, used;
         int r;
 
-        r = get_status_field("/proc/meminfo", "\nSwapFree:", &swapfree);
-        if (r < 0) {
-                log_full(r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "Failed to retrieve SwapFree from /proc/meminfo: %s", strerror(-r));
+        r = hibernation_partition_size(&size, &used);
+        if (r < 0)
                 return false;
-        }
-
-        r = safe_atollu(swapfree, &swap);
-        if (r < 0) {
-                log_error("Failed to parse SwapFree from /proc/meminfo: %s: %s",
-                          swapfree, strerror(-r));
-                return false;
-        }
 
         r = get_status_field("/proc/meminfo", "\nActive(anon):", &active);
         if (r < 0) {
@@ -197,9 +243,9 @@ static bool enough_memory_for_hibernation(void) {
                 return false;
         }
 
-        r = act <= swap * HIBERNATION_SWAP_THRESHOLD;
-        log_debug("Hibernation is %spossible, Active(anon)=%llu kB, SwapFree=%llu kB, threshold=%.2g%%",
-                  r ? "" : "im", act, swap, 100*HIBERNATION_SWAP_THRESHOLD);
+        r = act <= (size - used) * HIBERNATION_SWAP_THRESHOLD;
+        log_debug("Hibernation is %spossible, Active(anon)=%llu kB, size=%zu kB, used=%zu kB, threshold=%.2g%%",
+                  r ? "" : "im", act, size, used, 100*HIBERNATION_SWAP_THRESHOLD);
 
         return r;
 }
