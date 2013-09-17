@@ -259,7 +259,6 @@ int session_load(Session *s) {
                 *seat = NULL,
                 *vtnr = NULL,
                 *leader = NULL,
-                *audit_id = NULL,
                 *type = NULL,
                 *class = NULL,
                 *uid = NULL,

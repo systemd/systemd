@@ -117,7 +117,6 @@ static bool valid_machine_name(const char *p) {
 static int bus_manager_create_machine(Manager *manager, DBusMessage *message) {
 
         const char *name, *service, *class, *root_directory;
-        _cleanup_free_ char *p = NULL;
         DBusMessageIter iter, sub;
         MachineClass c;
         uint32_t leader;
@@ -560,7 +559,6 @@ DBusHandlerResult bus_message_filter(
 
         } else if (dbus_message_is_signal(message, "org.freedesktop.DBus.Properties", "PropertiesChanged")) {
 
-                _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
                 _cleanup_free_ char *unit = NULL;
                 const char *path;
 

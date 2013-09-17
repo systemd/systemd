@@ -2395,7 +2395,6 @@ DBusHandlerResult bus_message_filter(
 
         } else if (dbus_message_is_signal(message, "org.freedesktop.DBus.Properties", "PropertiesChanged")) {
 
-                _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
                 _cleanup_free_ char *unit = NULL;
                 const char *path;
 

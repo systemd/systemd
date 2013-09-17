@@ -64,7 +64,7 @@ static int mount_find_pri(struct mntent *me, int *ret) {
 }
 
 static int add_swap(const char *what, struct mntent *me) {
-        _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL;
+        _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         bool noauto;
         int r, pri = -1;
@@ -159,7 +159,7 @@ static int add_mount(
                 const char *post,
                 const char *source) {
         _cleanup_free_ char
-                *name = NULL, *unit = NULL, *lnk = NULL, *device = NULL,
+                *name = NULL, *unit = NULL, *lnk = NULL,
                 *automount_name = NULL, *automount_unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
 
