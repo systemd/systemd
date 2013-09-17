@@ -109,5 +109,6 @@ global:
 } LIBUDEV_189;
 
 LIBUDEV_199 {
+global:
         udev_device_set_sysattr_value;
 } LIBUDEV_196;
