@@ -372,7 +372,7 @@ int session_activate(Session *s) {
         if (s->seat->active == s)
                 return 0;
 
-        assert(seat_is_vtconsole(s->seat));
+        assert(seat_is_seat0(s->seat));
 
         return chvt(s->vtnr);
 }

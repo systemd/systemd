@@ -74,7 +74,7 @@ struct Manager {
         unsigned reserve_vt;
         int reserve_vt_fd;
 
-        Seat *vtconsole;
+        Seat *seat0;
 
         char **kill_only_users, **kill_exclude_users;
         bool kill_user_processes;

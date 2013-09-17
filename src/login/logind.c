@@ -858,7 +858,7 @@ int manager_dispatch_vcsa_udev(Manager *m) {
          * VTs, to make sure our auto VTs never go away. */
 
         if (name && startswith(name, "vcsa") && streq_ptr(udev_device_get_action(d), "remove"))
-                r = seat_preallocate_vts(m->vtconsole);
+                r = seat_preallocate_vts(m->seat0);
 
         udev_device_unref(d);
 
@@ -883,9 +883,9 @@ int manager_dispatch_button_udev(Manager *m) {
 
 int manager_dispatch_console(Manager *m) {
         assert(m);
+        assert(m->seat0);
 
-        if (m->vtconsole)
-                seat_read_active_vt(m->vtconsole);
+        seat_read_active_vt(m->seat0);
 
         return 0;
 }
@@ -1543,7 +1543,7 @@ int manager_startup(Manager *m) {
                 return r;
 
         /* Instantiate magic seat 0 */
-        r = manager_add_seat(m, "seat0", &m->vtconsole);
+        r = manager_add_seat(m, "seat0", &m->seat0);
         if (r < 0)
                 return r;
 

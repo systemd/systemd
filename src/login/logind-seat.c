@@ -105,11 +105,11 @@ int seat_save(Seat *s) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "IS_VTCONSOLE=%i\n"
+                "IS_SEAT0=%i\n"
                 "CAN_MULTI_SESSION=%i\n"
                 "CAN_TTY=%i\n"
                 "CAN_GRAPHICAL=%i\n",
-                seat_is_vtconsole(s),
+                seat_is_seat0(s),
                 seat_can_multi_session(s),
                 seat_can_tty(s),
                 seat_can_graphical(s));
@@ -424,16 +424,16 @@ int seat_attach_session(Seat *s, Session *session) {
         return 0;
 }
 
-bool seat_is_vtconsole(Seat *s) {
+bool seat_is_seat0(Seat *s) {
         assert(s);
 
-        return s->manager->vtconsole == s;
+        return s->manager->seat0 == s;
 }
 
 bool seat_can_multi_session(Seat *s) {
         assert(s);
 
-        if (!seat_is_vtconsole(s))
+        if (!seat_is_seat0(s))
                 return false;
 
         /* If we can't watch which VT is in the foreground, we don't
@@ -445,7 +445,7 @@ bool seat_can_multi_session(Seat *s) {
 bool seat_can_tty(Seat *s) {
         assert(s);
 
-        return seat_is_vtconsole(s);
+        return seat_is_seat0(s);
 }
 
 bool seat_has_master_device(Seat *s) {
@@ -503,7 +503,7 @@ int seat_check_gc(Seat *s, bool drop_not_started) {
         if (drop_not_started && !s->started)
                 return 0;
 
-        if (seat_is_vtconsole(s))
+        if (seat_is_seat0(s))
                 return 1;
 
         return seat_has_master_device(s);

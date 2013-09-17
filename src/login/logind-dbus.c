@@ -404,8 +404,8 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
                 int v;
 
                 if (!seat)
-                        seat = m->vtconsole;
-                else if (seat != m->vtconsole)
+                        seat = m->seat0;
+                else if (seat != m->seat0)
                         return -EINVAL;
 
                 v = vtnr_from_tty(tty);
@@ -420,8 +420,8 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
         } else if (tty_is_console(tty)) {
 
                 if (!seat)
-                        seat = m->vtconsole;
-                else if (seat != m->vtconsole)
+                        seat = m->seat0;
+                else if (seat != m->seat0)
                         return -EINVAL;
 
                 if (vtnr != 0)
