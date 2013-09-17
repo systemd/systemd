@@ -650,9 +650,9 @@ int executable_is_script(const char *path, char **interpreter) {
 }
 
 /**
- * Retrieve one field from a file like /proc/self/status.
- * pattern should start with '\n' and end with ':'. Whitespace
- * after ':' will be skipped. field must be freed afterwards.
+ * Retrieve one field from a file like /proc/self/status.  pattern
+ * should start with '\n' and end with a ':'. Whitespace and zeros
+ * after the ':' will be skipped. field must be freed afterwards.
  */
 int get_status_field(const char *filename, const char *pattern, char **field) {
         _cleanup_free_ char *status = NULL;
@@ -672,7 +672,12 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
                 return -ENOENT;
 
         t += strlen(pattern);
-        t += strspn(t, WHITESPACE);
+        /* Also skip zeros, because when this is used for capabilities,
+         * we don't want the zeros. This way the same cabality set
+         * always maps to the same string, irrespective of the total
+         * capability set size. For other numbers it shouldn't matter.
+         */
+        t += strspn(t, WHITESPACE "0");
 
         len = strcspn(t, WHITESPACE);
 
