@@ -180,25 +180,6 @@ static uint64_t available_space(Server *s, bool verbose) {
         return s->cached_available_space;
 }
 
-static void server_read_file_gid(Server *s) {
-        const char *g = "systemd-journal";
-        int r;
-
-        assert(s);
-
-        if (s->file_gid_valid)
-                return;
-
-        r = get_group_creds(&g, &s->file_gid);
-        if (r < 0)
-                log_warning("Failed to resolve '%s' group: %s", g, strerror(-r));
-
-        /* if we couldn't read the gid, then it will be 0, but that's
-         * fine and we shouldn't try to resolve the group again, so
-         * let's just pretend it worked right-away. */
-        s->file_gid_valid = true;
-}
-
 void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
         int r;
 #ifdef HAVE_ACL
@@ -209,11 +190,9 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
 
         assert(f);
 
-        server_read_file_gid(s);
-
-        r = fchmod_and_fchown(f->fd, 0640, 0, s->file_gid);
+        r = fchmod(f->fd, 0640);
         if (r < 0)
-                log_warning("Failed to fix access mode/rights on %s, ignoring: %s", f->path, strerror(-r));
+                log_warning("Failed to fix access mode on %s, ignoring: %s", f->path, strerror(-r));
 
 #ifdef HAVE_ACL
         if (uid <= 0)

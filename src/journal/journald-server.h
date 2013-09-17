@@ -97,9 +97,6 @@ typedef struct Server {
         usec_t max_file_usec;
         usec_t oldest_file_usec;
 
-        gid_t file_gid;
-        bool file_gid_valid;
-
         LIST_HEAD(StdoutStream, stdout_streams);
         unsigned n_stdout_streams;
 
