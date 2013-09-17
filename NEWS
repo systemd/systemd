@@ -37,7 +37,7 @@ CHANGES WITH 207:
 
         * The option "discard" (as known from Debian) is now
           synonymous to "allow-discards" in /etc/crypttab. In fact,
-          the latter is preferred now (since it is easier to remember
+          "discard" is preferred now (since it is easier to remember
           and type).
 
         * Some licensing clean-ups were made, so that more code is now
@@ -62,12 +62,13 @@ CHANGES WITH 207:
           environment for all services, do so via the kernel command
           line systemd.setenv= assignment.
 
-        * The systemd-sysctl tool no longer natively reads the
-          file /etc/sysctl.conf. If desired, the file should be
-          symlinked from /etc/sysctl.d/99-sysctl.conf. Apart from
-          providing legacy support by a symlink rather than built-in
-          code, it also makes the otherwise hidden order of application
-          of the different files visible.
+        * The systemd-sysctl tool no longer natively reads the file
+          /etc/sysctl.conf. If desired, the file should be symlinked
+          from /etc/sysctl.d/99-sysctl.conf. Apart from providing
+          legacy support by a symlink rather than built-in code, it
+          also makes the otherwise hidden order of application of the
+          different files visible. (Note that this partly reverts to a
+          pre-198 application order of sysctl knobs!)
 
         * The "systemctl set-log-level" and "systemctl dump" commands
           have been moved to systemd-analyze.
