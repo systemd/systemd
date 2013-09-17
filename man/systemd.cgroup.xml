@@ -136,22 +136,17 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
       <varlistentry>
         <term><varname>MemoryLimit=<replaceable>bytes</replaceable></varname></term>
-        <term><varname>MemorySoftLimit=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
-          <para>Specify the hard and soft limits on maximum memory
-          usage of the executed processes. The "hard" limit specifies
-          how much process and kernel memory can be used by tasks in
-          this unit, when there is no memory contention. If the kernel
-          detects memory contention, memory reclaim will be performed
-          until the memory usage is within the "soft" limit. Takes a
+          <para>Specify the limit on maximum memory usage of the
+          executed processes. The limit specifies how much process and
+          kernel memory can be used by tasks in this unit. Takes a
           memory size in bytes. If the value is suffixed with K, M, G
           or T, the specified memory size is parsed as Kilobytes,
           Megabytes, Gigabytes, or Terabytes (with the base 1024),
           respectively. This controls the
-          <literal>memory.limit_in_bytes</literal> and
-          <literal>memory.soft_limit_in_bytes</literal> control group
-          attributes. For details about these control group attributes,
+          <literal>memory.limit_in_bytes</literal> control group
+          attribute. For details about this control group attribute,
           see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroups/memory.txt">memory.txt</ulink>.</para>
 

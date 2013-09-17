@@ -37,7 +37,6 @@
         "  <property name=\"BlockIOWriteBandwidth=\" type=\"a(st)\" access=\"read\"/>\n" \
         "  <property name=\"MemoryAccounting\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"MemoryLimit\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"MemorySoftLimit\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"DevicePolicy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DeviceAllow\" type=\"a(ss)\" access=\"read\"/>\n"
 

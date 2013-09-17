@@ -2036,14 +2036,11 @@ int config_parse_memory_limit(
                 void *userdata) {
 
         CGroupContext *c = data;
-        uint64_t *limit;
         off_t bytes;
         int r;
 
-        limit = streq(lvalue, "MemoryLimit") ? &c->memory_limit : &c->memory_soft_limit;
-
         if (isempty(rvalue)) {
-                *limit = (uint64_t) -1;
+                c->memory_limit = (uint64_t) -1;
                 return 0;
         }
 
@@ -2056,7 +2053,7 @@ int config_parse_memory_limit(
                 return 0;
         }
 
-        *limit = (uint64_t) bytes;
+        c->memory_limit = (uint64_t) bytes;
         return 0;
 }
 

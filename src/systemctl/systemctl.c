@@ -3657,7 +3657,7 @@ static int append_assignment(DBusMessageIter *iter, const char *assignment) {
                     !dbus_message_iter_append_basic(&sub, DBUS_TYPE_BOOLEAN, &b))
                         return log_oom();
 
-        } else if (streq(field, "MemoryLimit") || streq(field, "MemorySoftLimit")) {
+        } else if (streq(field, "MemoryLimit")) {
                 off_t bytes;
                 uint64_t u;
 

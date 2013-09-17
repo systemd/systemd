@@ -33,7 +33,7 @@ void cgroup_context_init(CGroupContext *c) {
          * structure is preinitialized to 0 */
 
         c->cpu_shares = 1024;
-        c->memory_limit = c->memory_soft_limit = (uint64_t) -1;
+        c->memory_limit = (uint64_t) -1;
         c->blockio_weight = 1000;
 }
 
@@ -94,7 +94,6 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sCPUShares=%lu\n"
                 "%sBlockIOWeight=%lu\n"
                 "%sMemoryLimit=%" PRIu64 "\n"
-                "%sMemorySoftLimit=%" PRIu64 "\n"
                 "%sDevicePolicy=%s\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->blockio_accounting),
@@ -102,7 +101,6 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->cpu_shares,
                 prefix, c->blockio_weight,
                 prefix, c->memory_limit,
-                prefix, c->memory_soft_limit,
                 prefix, cgroup_device_policy_to_string(c->device_policy));
 
         LIST_FOREACH(device_allow, a, c->device_allow)
@@ -265,15 +263,6 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
 
                 if (r < 0)
                         log_error("Failed to set memory.limit_in_bytes on %s: %s", path, strerror(-r));
-
-                if (c->memory_soft_limit != (uint64_t) -1) {
-                        sprintf(buf, "%" PRIu64 "\n", c->memory_soft_limit);
-                        r = cg_set_attribute("memory", path, "memory.soft_limit_in_bytes", buf);
-                } else
-                        r = cg_set_attribute("memory", path, "memory.soft_limit_in_bytes", "-1");
-
-                if (r < 0)
-                        log_error("Failed to set memory.soft_limit_in_bytes on %s: %s", path, strerror(-r));
         }
 
         if (mask & CGROUP_DEVICE) {
@@ -336,8 +325,7 @@ CGroupControllerMask cgroup_context_get_mask(CGroupContext *c) {
                 mask |= CGROUP_BLKIO;
 
         if (c->memory_accounting ||
-            c->memory_limit != (uint64_t) -1 ||
-            c->memory_soft_limit != (uint64_t) -1)
+            c->memory_limit != (uint64_t) -1)
                 mask |= CGROUP_MEMORY;
 
         if (c->device_allow || c->device_policy != CGROUP_AUTO)

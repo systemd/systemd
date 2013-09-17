@@ -133,7 +133,6 @@ const BusProperty bus_cgroup_context_properties[] = {
         { "BlockIOWriteBandwidth",   bus_cgroup_append_device_bandwidths, "a(st)", 0                                           },
         { "MemoryAccounting",        bus_property_append_bool,            "b",     offsetof(CGroupContext, memory_accounting)  },
         { "MemoryLimit",             bus_property_append_uint64,          "t",     offsetof(CGroupContext, memory_limit)       },
-        { "MemorySoftLimit",         bus_property_append_uint64,          "t",     offsetof(CGroupContext, memory_soft_limit)  },
         { "DevicePolicy",            bus_cgroup_append_device_policy,     "s",     offsetof(CGroupContext, device_policy)      },
         { "DeviceAllow",             bus_cgroup_append_device_allow,      "a(ss)", 0                                           },
         {}
@@ -418,21 +417,16 @@ int bus_cgroup_set_property(
 
                 return 1;
 
-        } else if (streq(name, "MemoryLimit") || streq(name, "MemorySoftLimit")) {
+        } else if (streq(name, "MemoryLimit")) {
 
                 if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_UINT64)
                         return -EINVAL;
 
                 if (mode != UNIT_CHECK) {
                         uint64_t limit;
-
                         dbus_message_iter_get_basic(i, &limit);
 
-                        if (streq(name, "MemoryLimit"))
-                                c->memory_limit = limit;
-                        else
-                                c->memory_soft_limit = limit;
-
+                        c->memory_limit = limit;
                         unit_write_drop_in_private_format(u, mode, name, "%s=%" PRIu64, name, limit);
                 }
 

@@ -60,8 +60,6 @@ Features:
 
 * always set memory.user_hierarchy for all cgroups we create
 
-* Get rid of MemorySoftLimit=
-
 * After coming back from hibernation reset hibernation swap partition
 
 * mounts: do not test each mount unit against each other mount unit to
