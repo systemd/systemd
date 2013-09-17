@@ -72,8 +72,6 @@ Features:
   interate through that to bring down complexity from O(n^2) to O(n)
   when loading units
 
-* Move backlight and random-seed into /var/lib/systemd
-
 * If we try to find a unit via a dangling symlink generate a clean
   error. Currently we just ignore it and read the unit from the search
   path anyway.

@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = mkdir_p("/var/lib/backlight", 0755);
+        r = mkdir_p("/var/lib/systemd/backlight", 0755);
         if (r < 0) {
                 log_error("Failed to create backlight directory: %s", strerror(-r));
                 goto finish;
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        saved = strappend("/var/lib/backlight/", udev_device_get_sysname(device));
+        saved = strappend("/var/lib/systemd/backlight/", udev_device_get_sysname(device));
         if (!saved) {
                 r = log_oom();
                 goto finish;
