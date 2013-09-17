@@ -34,3 +34,7 @@ char *utf8_filter(const char *s);
 char *ascii_filter(const char *s);
 
 char *utf16_to_utf8(const void *s, size_t length);
+
+int utf8_encoded_valid_unichar(const char *str);
+int is_utf8_encoding_whitelisted(char c, const char *white);
+int udev_encode_string(const char *str, char *str_enc, size_t len);

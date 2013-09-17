@@ -1123,6 +1123,7 @@ tests += \
 	test-strxcpyx \
 	test-unit-name \
 	test-unit-file \
+	test-utf8 \
 	test-util \
 	test-date \
 	test-sleep \
@@ -1224,6 +1225,15 @@ test_unit_file_CFLAGS = \
 
 test_unit_file_LDADD = \
 	libsystemd-core.la
+
+test_utf8_SOURCES = \
+	src/test/test-utf8.c
+
+test_utf8_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_utf8_LDADD = \
+	libsystemd-shared.la
 
 test_util_SOURCES = \
 	src/test/test-util.c

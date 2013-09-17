@@ -124,6 +124,7 @@
 /test-list
 /test-log
 /test-login
+/test-login-shared
 /test-loopback
 /test-mmap-cache
 /test-ns
@@ -143,6 +144,7 @@
 /test-udev
 /test-unit-file
 /test-unit-name
+/test-utf8
 /test-util
 /test-watchdog
 /timedatectl

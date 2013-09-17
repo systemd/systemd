@@ -317,3 +317,154 @@ char *utf16_to_utf8(const void *s, size_t length) {
 
         return r;
 }
+
+/* count of characters used to encode one unicode char */
+static int utf8_encoded_expected_len(const char *str) {
+        unsigned char c = (unsigned char)str[0];
+
+        if (c < 0x80)
+                return 1;
+        if ((c & 0xe0) == 0xc0)
+                return 2;
+        if ((c & 0xf0) == 0xe0)
+                return 3;
+        if ((c & 0xf8) == 0xf0)
+                return 4;
+        if ((c & 0xfc) == 0xf8)
+                return 5;
+        if ((c & 0xfe) == 0xfc)
+                return 6;
+        return 0;
+}
+
+/* decode one unicode char */
+static int utf8_encoded_to_unichar(const char *str) {
+        int unichar;
+        int len;
+        int i;
+
+        len = utf8_encoded_expected_len(str);
+        switch (len) {
+        case 1:
+                return (int)str[0];
+        case 2:
+                unichar = str[0] & 0x1f;
+                break;
+        case 3:
+                unichar = (int)str[0] & 0x0f;
+                break;
+        case 4:
+                unichar = (int)str[0] & 0x07;
+                break;
+        case 5:
+                unichar = (int)str[0] & 0x03;
+                break;
+        case 6:
+                unichar = (int)str[0] & 0x01;
+                break;
+        default:
+                return -1;
+        }
+
+        for (i = 1; i < len; i++) {
+                if (((int)str[i] & 0xc0) != 0x80)
+                        return -1;
+                unichar <<= 6;
+                unichar |= (int)str[i] & 0x3f;
+        }
+
+        return unichar;
+}
+
+/* expected size used to encode one unicode char */
+static int utf8_unichar_to_encoded_len(int unichar) {
+        if (unichar < 0x80)
+                return 1;
+        if (unichar < 0x800)
+                return 2;
+        if (unichar < 0x10000)
+                return 3;
+        if (unichar < 0x200000)
+                return 4;
+        if (unichar < 0x4000000)
+                return 5;
+        return 6;
+}
+
+/* validate one encoded unicode char and return its length */
+int utf8_encoded_valid_unichar(const char *str) {
+        int len;
+        int unichar;
+        int i;
+
+        len = utf8_encoded_expected_len(str);
+        if (len == 0)
+                return -1;
+
+        /* ascii is valid */
+        if (len == 1)
+                return 1;
+
+        /* check if expected encoded chars are available */
+        for (i = 0; i < len; i++)
+                if ((str[i] & 0x80) != 0x80)
+                        return -1;
+
+        unichar = utf8_encoded_to_unichar(str);
+
+        /* check if encoded length matches encoded value */
+        if (utf8_unichar_to_encoded_len(unichar) != len)
+                return -1;
+
+        /* check if value has valid range */
+        if (!is_unicode_valid(unichar))
+                return -1;
+
+        return len;
+}
+
+int is_utf8_encoding_whitelisted(char c, const char *white) {
+        if ((c >= '0' && c <= '9') ||
+            (c >= 'A' && c <= 'Z') ||
+            (c >= 'a' && c <= 'z') ||
+            strchr("#+-.:=@_", c) != NULL ||
+            (white != NULL && strchr(white, c) != NULL))
+                return 1;
+        return 0;
+}
+
+int udev_encode_string(const char *str, char *str_enc, size_t len) {
+        size_t i, j;
+
+        if (str == NULL || str_enc == NULL)
+                return -1;
+
+        for (i = 0, j = 0; str[i] != '\0'; i++) {
+                int seqlen;
+
+                seqlen = utf8_encoded_valid_unichar(&str[i]);
+                if (seqlen > 1) {
+                        if (len-j < (size_t)seqlen)
+                                goto err;
+                        memcpy(&str_enc[j], &str[i], seqlen);
+                        j += seqlen;
+                        i += (seqlen-1);
+                } else if (str[i] == '\\' || !is_utf8_encoding_whitelisted(str[i], NULL)) {
+                        if (len-j < 4)
+                                goto err;
+                        sprintf(&str_enc[j], "\\x%02x", (unsigned char) str[i]);
+                        j += 4;
+                } else {
+                        if (len-j < 1)
+                                goto err;
+                        str_enc[j] = str[i];
+                        j++;
+                }
+        }
+        if (len-j < 1)
+                goto err;
+        str_enc[j] = '\0';
+        return 0;
+err:
+        return -1;
+}
