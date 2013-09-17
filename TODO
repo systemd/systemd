@@ -58,6 +58,9 @@ CGroup Rework Completion:
 
 Features:
 
+* When using "systemd status" on a slice unit also show all messages
+  matching _SYSTEMD_SLICE= not just _SYSTEMD_UNIT=
+
 * always set memory.user_hierarchy for all cgroups we create
 
 * After coming back from hibernation reset hibernation swap partition
