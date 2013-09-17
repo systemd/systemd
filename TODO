@@ -58,6 +58,15 @@ CGroup Rework Completion:
 
 Features:
 
+* Get rid of MemorySoftLimit=
+
+* After coming back from hibernation reset hibernation swap partition
+
+* mounts: do not test each mount unit against each other mount unit to
+  determine prefixes. Instead generated list of all prefixes and
+  interate through that to bring down complexity from O(n^2) to O(n)
+  when loading units
+
 * Move backlight and random-seed into /var/lib/systemd
 
 * If we try to find a unit via a dangling symlink generate a clean
