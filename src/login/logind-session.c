@@ -100,6 +100,8 @@ void session_free(Session *s) {
         if (s->seat) {
                 if (s->seat->active == s)
                         s->seat->active = NULL;
+                if (s->seat->pending_switch == s)
+                        s->seat->pending_switch = NULL;
 
                 LIST_REMOVE(Session, sessions_by_seat, s->seat->sessions, s);
         }
@@ -375,11 +377,10 @@ int session_load(Session *s) {
 }
 
 int session_activate(Session *s) {
+        unsigned int num_pending;
+
         assert(s);
         assert(s->user);
-
-        if (s->vtnr <= 0)
-                return -ENOTSUP;
 
         if (!s->seat)
                 return -ENOTSUP;
@@ -387,9 +388,29 @@ int session_activate(Session *s) {
         if (s->seat->active == s)
                 return 0;
 
-        assert(seat_has_vts(s->seat));
+        /* on seats with VTs, we let VTs manage session-switching */
+        if (seat_has_vts(s->seat)) {
+                if (s->vtnr <= 0)
+                        return -ENOTSUP;
 
-        return chvt(s->vtnr);
+                return chvt(s->vtnr);
+        }
+
+        /* On seats without VTs, we implement session-switching in logind. We
+         * try to pause all session-devices and wait until the session
+         * controller acknowledged them. Once all devices are asleep, we simply
+         * switch the active session and be done.
+         * We save the session we want to switch to in seat->pending_switch and
+         * seat_complete_switch() will perform the final switch. */
+
+        s->seat->pending_switch = s;
+
+        /* if no devices are running, immediately perform the session switch */
+        num_pending = session_device_try_pause_all(s);
+        if (!num_pending)
+                seat_complete_switch(s->seat);
+
+        return 0;
 }
 
 static int session_link_x11_socket(Session *s) {

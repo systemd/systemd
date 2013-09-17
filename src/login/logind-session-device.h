@@ -57,3 +57,4 @@ void session_device_complete_pause(SessionDevice *sd);
 
 void session_device_resume_all(Session *s);
 void session_device_pause_all(Session *s);
+unsigned int session_device_try_pause_all(Session *s);

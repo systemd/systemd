@@ -414,10 +414,21 @@ void session_device_free(SessionDevice *sd) {
 }
 
 void session_device_complete_pause(SessionDevice *sd) {
+        SessionDevice *iter;
+        Iterator i;
+
         if (!sd->active)
                 return;
 
         session_device_stop(sd);
+
+        /* if not all devices are paused, wait for further completion events */
+        HASHMAP_FOREACH(iter, sd->session->devices, i)
+                if (iter->active)
+                        return;
+
+        /* complete any pending session switch */
+        seat_complete_switch(sd->session->seat);
 }
 
 void session_device_resume_all(Session *s) {
@@ -448,4 +459,21 @@ void session_device_pause_all(Session *s) {
                         session_device_notify(sd, SESSION_DEVICE_PAUSE);
                 }
         }
+}
+
+unsigned int session_device_try_pause_all(Session *s) {
+        SessionDevice *sd;
+        Iterator i;
+        unsigned int num_pending = 0;
+
+        assert(s);
+
+        HASHMAP_FOREACH(sd, s->devices, i) {
+                if (sd->active) {
+                        session_device_notify(sd, SESSION_DEVICE_TRY_PAUSE);
+                        ++num_pending;
+                }
+        }
+
+        return num_pending;
 }

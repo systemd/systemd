@@ -425,6 +425,21 @@ int seat_attach_session(Seat *s, Session *session) {
         return 0;
 }
 
+void seat_complete_switch(Seat *s) {
+        Session *session;
+
+        assert(s);
+
+        /* if no session-switch is pending or if it got canceled, do nothing */
+        if (!s->pending_switch)
+                return;
+
+        session = s->pending_switch;
+        s->pending_switch = NULL;
+
+        seat_set_active(s, session);
+}
+
 bool seat_has_vts(Seat *s) {
         assert(s);
 
