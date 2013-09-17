@@ -363,7 +363,7 @@ int session_activate(Session *s) {
         assert(s);
         assert(s->user);
 
-        if (s->vtnr < 0)
+        if (s->vtnr <= 0)
                 return -ENOTSUP;
 
         if (!s->seat)
