@@ -69,6 +69,7 @@ typedef enum ItemType {
         CREATE_SYMLINK = 'L',
         CREATE_CHAR_DEVICE = 'c',
         CREATE_BLOCK_DEVICE = 'b',
+        ADJUST_MODE = 'm',
 
         /* These ones take globs */
         IGNORE_PATH = 'x',
@@ -257,8 +258,8 @@ static int dir_cleanup(
                 dev_t rootdev,
                 bool mountpoint,
                 int maxdepth,
-                bool keep_this_level)
-{
+                bool keep_this_level) {
+
         struct dirent *dent;
         struct timespec times[2];
         bool deleted = false;
@@ -429,12 +430,16 @@ finish:
         return r;
 }
 
-static int item_set_perms(Item *i, const char *path) {
+static int item_set_perms_full(Item *i, const char *path, bool ignore_enoent) {
+        int r;
+
         /* not using i->path directly because it may be a glob */
         if (i->mode_set)
                 if (chmod(path, i->mode) < 0) {
-                        log_error("chmod(%s) failed: %m", path);
-                        return -errno;
+                        if (errno != ENOENT || !ignore_enoent) {
+                                log_error("chmod(%s) failed: %m", path);
+                                return -errno;
+                        }
                 }
 
         if (i->uid_set || i->gid_set)
@@ -442,11 +447,18 @@ static int item_set_perms(Item *i, const char *path) {
                           i->uid_set ? i->uid : (uid_t) -1,
                           i->gid_set ? i->gid : (gid_t) -1) < 0) {
 
-                        log_error("chown(%s) failed: %m", path);
-                        return -errno;
+                        if (errno != ENOENT || !ignore_enoent) {
+                                log_error("chown(%s) failed: %m", path);
+                                return -errno;
+                        }
                 }
 
-        return label_fix(path, false, false);
+        r = label_fix(path, false, false);
+        return r == -ENOENT && ignore_enoent ? 0 : r;
+}
+
+static int item_set_perms(Item *i, const char *path) {
+        return item_set_perms_full(i, path, false);
 }
 
 static int write_one_file(Item *i, const char *path) {
@@ -642,8 +654,16 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
                 break;
+
         case WRITE_FILE:
                 r = glob_item(i, write_one_file);
+                if (r < 0)
+                        return r;
+
+                break;
+
+        case ADJUST_MODE:
+                r = item_set_perms_full(i, i->path, true);
                 if (r < 0)
                         return r;
 
@@ -819,6 +839,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
+        case ADJUST_MODE:
                 break;
 
         case REMOVE_PATH:
@@ -864,6 +885,7 @@ static int remove_item(Item *i) {
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
+        case ADJUST_MODE:
                 break;
 
         case REMOVE_PATH:
@@ -1106,6 +1128,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case RECURSIVE_REMOVE_PATH:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
+        case ADJUST_MODE:
                 break;
 
         case CREATE_SYMLINK:

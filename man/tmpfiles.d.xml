@@ -156,6 +156,17 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                 </varlistentry>
 
                                 <varlistentry>
+                                        <term><varname>m</varname></term>
+                                        <listitem><para>If the
+                                        specified file path exists
+                                        adjust its access mode, group
+                                        and user to the specified
+                                        values and reset the SELinux
+                                        label. If it doesn't exist do
+                                        nothing.</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
                                         <term><varname>x</varname></term>
                                         <listitem><para>Ignore a path
                                         during cleaning. Use this type
