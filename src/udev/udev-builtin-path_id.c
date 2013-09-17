@@ -531,6 +531,7 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                 } else if (streq(subsys, "scm")) {
                         path_prepend(&path, "scm-%s", udev_device_get_sysname(parent));
                         parent = skip_subsystem(parent, "scm");
+                        some_transport = true;
                 }
 
                 parent = udev_device_get_parent(parent);
