@@ -117,8 +117,8 @@ static int test_unit_printf(void) {
         _cleanup_free_ char *mid, *bid, *host, *root_uid;
         struct passwd *root;
 
-        assert_se((mid = specifier_machine_id('m', NULL, NULL)));
-        assert_se((bid = specifier_boot_id('b', NULL, NULL)));
+        assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
+        assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
         assert_se((host = gethostname_malloc()));
 
         assert_se((root = getpwnam("root")));
@@ -134,8 +134,8 @@ static int test_unit_printf(void) {
 #define expect(unit, pattern, expected)                                 \
         {                                                               \
                 char *e;                                                \
-                _cleanup_free_ char *t =                                \
-                        unit_full_printf(unit, pattern);                \
+                _cleanup_free_ char *t;                                 \
+                assert_se(unit_full_printf(unit, pattern, &t) >= 0);    \
                 printf("result: %s\nexpect: %s\n", t, expected);        \
                 if ((e = endswith(expected, "*")))                      \
                         assert(strncmp(t, e, e-expected));              \

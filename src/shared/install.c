@@ -967,14 +967,15 @@ static int config_parse_user(const char *unit,
 
         InstallInfo *i = data;
         char* printed;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        printed = install_full_printf(i, rvalue);
-        if (!printed)
-                return -ENOMEM;
+        r = install_full_printf(i, rvalue, &printed);
+        if (r < 0)
+                return r;
 
         free(i->user);
         i->user = printed;
@@ -1200,9 +1201,9 @@ static int install_info_symlink_alias(
         STRV_FOREACH(s, i->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL;
 
-                dst = install_full_printf(i, *s);
-                if (!dst)
-                        return -ENOMEM;
+                q = install_full_printf(i, *s, &dst);
+                if (q < 0)
+                        return q;
 
                 alias_path = path_make_absolute(dst, config_path);
                 if (!alias_path)
@@ -1232,9 +1233,9 @@ static int install_info_symlink_wants(
         STRV_FOREACH(s, i->wanted_by) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
-                dst = install_full_printf(i, *s);
-                if (!dst)
-                        return -ENOMEM;
+                q = install_full_printf(i, *s, &dst);
+                if (q < 0)
+                        return q;
 
                 if (!unit_name_is_valid(dst, true)) {
                         r = -EINVAL;
@@ -1269,9 +1270,9 @@ static int install_info_symlink_requires(
         STRV_FOREACH(s, i->required_by) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
-                dst = install_full_printf(i, *s);
-                if (!dst)
-                        return -ENOMEM;
+                q = install_full_printf(i, *s, &dst);
+                if (q < 0)
+                        return q;
 
                 if (!unit_name_is_valid(dst, true)) {
                         r = -EINVAL;

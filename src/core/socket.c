@@ -1226,11 +1226,9 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
-        argv = unit_full_printf_strv(UNIT(s), c->argv);
-        if (!argv) {
-                r = -ENOMEM;
+        r = unit_full_printf_strv(UNIT(s), c->argv, &argv);
+        if (r < 0)
                 goto fail;
-        }
 
         r = exec_spawn(c,
                        argv,

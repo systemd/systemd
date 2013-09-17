@@ -22,4 +22,4 @@
 #pragma once
 
 #include "install.h"
-char *install_full_printf(InstallInfo *i, const char *format);
+int install_full_printf(InstallInfo *i, const char *format, char **ret);

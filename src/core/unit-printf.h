@@ -23,6 +23,6 @@
 
 #include "unit.h"
 
-char *unit_name_printf(Unit *u, const char* text);
-char *unit_full_printf(Unit *u, const char *text);
-char **unit_full_printf_strv(Unit *u, char **l);
+int unit_name_printf(Unit *u, const char* text, char **ret);
+int unit_full_printf(Unit *u, const char *text, char **ret);
+int unit_full_printf_strv(Unit *u, char **l, char ***ret);

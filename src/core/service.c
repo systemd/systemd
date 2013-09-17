@@ -1765,11 +1765,9 @@ static int service_spawn(
         } else
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
-        argv = unit_full_printf_strv(UNIT(s), c->argv);
-        if (!argv) {
-                r = -ENOMEM;
+        r = unit_full_printf_strv(UNIT(s), c->argv, &argv);
+        if (r < 0)
                 goto fail;
-        }
 
         our_env = new0(char*, 5);
         if (!our_env) {

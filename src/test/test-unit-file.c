@@ -302,17 +302,18 @@ static void test_install_printf(void) {
 
         _cleanup_free_ char *mid, *bid, *host;
 
-        assert_se((mid = specifier_machine_id('m', NULL, NULL)));
-        assert_se((bid = specifier_boot_id('b', NULL, NULL)));
+        assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
+        assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
         assert_se((host = gethostname_malloc()));
 
 #define expect(src, pattern, result)                                    \
         do {                                                            \
-                _cleanup_free_ char *t = install_full_printf(&src, pattern); \
+                _cleanup_free_ char *t = NULL;                          \
                 _cleanup_free_ char                                     \
                         *d1 = strdup(i.name),                           \
                         *d2 = strdup(i.path),                           \
                         *d3 = strdup(i.user);                           \
+                assert_se(install_full_printf(&src, pattern, &t) >= 0 || !result); \
                 memzero(i.name, strlen(i.name));                        \
                 memzero(i.path, strlen(i.path));                        \
                 memzero(i.user, strlen(i.user));                        \

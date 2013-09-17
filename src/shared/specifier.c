@@ -32,21 +32,22 @@
  *
  */
 
-char *specifier_printf(const char *text, const Specifier table[], void *userdata) {
-        char *r, *t;
+int specifier_printf(const char *text, const Specifier table[], void *userdata, char **_ret) {
+        char *ret, *t;
         const char *f;
         bool percent = false;
         size_t l;
+        int r;
 
         assert(text);
         assert(table);
 
         l = strlen(text);
-        r = new(char, l+1);
-        if (!r)
-                return NULL;
+        ret = new(char, l+1);
+        if (!ret)
+                return -ENOMEM;
 
-        t = r;
+        t = ret;
 
         for (f = text; *f; f++, l--) {
 
@@ -61,32 +62,31 @@ char *specifier_printf(const char *text, const Specifier table[], void *userdata
                                                 break;
 
                                 if (i->lookup) {
-                                        char *n, *w;
+                                        _cleanup_free_ char *w = NULL;
+                                        char *n;
                                         size_t k, j;
 
-                                        w = i->lookup(i->specifier, i->data, userdata);
-                                        if (!w) {
-                                                free(r);
-                                                return NULL;
+                                        r = i->lookup(i->specifier, i->data, userdata, &w);
+                                        if (r < 0) {
+                                                free(ret);
+                                                return r;
                                         }
 
-                                        j = t - r;
+                                        j = t - ret;
                                         k = strlen(w);
 
                                         n = new(char, j + k + l + 1);
                                         if (!n) {
-                                                free(r);
-                                                free(w);
-                                                return NULL;
+                                                free(ret);
+                                                return -ENOMEM;
                                         }
 
-                                        memcpy(n, r, j);
+                                        memcpy(n, ret, j);
                                         memcpy(n + j, w, k);
 
-                                        free(r);
-                                        free(w);
+                                        free(ret);
 
-                                        r = n;
+                                        ret = n;
                                         t = n + j + k;
                                 } else {
                                         *(t++) = '%';
@@ -102,58 +102,81 @@ char *specifier_printf(const char *text, const Specifier table[], void *userdata
         }
 
         *t = 0;
-        return r;
+        *_ret = ret;
+        return 0;
 }
 
 /* Generic handler for simple string replacements */
 
-char* specifier_string(char specifier, void *data, void *userdata) {
-        return strdup(strempty(data));
+int specifier_string(char specifier, void *data, void *userdata, char **ret) {
+        char *n;
+
+        n = strdup(strempty(data));
+        if (!n)
+                return -ENOMEM;
+
+        *ret = n;
+        return 0;
 }
 
-char *specifier_machine_id(char specifier, void *data, void *userdata) {
+int specifier_machine_id(char specifier, void *data, void *userdata, char **ret) {
         sd_id128_t id;
-        char *buf;
+        char *n;
         int r;
 
         r = sd_id128_get_machine(&id);
         if (r < 0)
-                return NULL;
+                return r;
 
-        buf = new(char, 33);
-        if (!buf)
-                return NULL;
+        n = new(char, 33);
+        if (!n)
+                return -ENOMEM;
 
-        return sd_id128_to_string(id, buf);
+        *ret = sd_id128_to_string(id, n);
+        return 0;
 }
 
-char *specifier_boot_id(char specifier, void *data, void *userdata) {
+int specifier_boot_id(char specifier, void *data, void *userdata, char **ret) {
         sd_id128_t id;
-        char *buf;
+        char *n;
         int r;
 
         r = sd_id128_get_boot(&id);
         if (r < 0)
-                return NULL;
+                return r;
 
-        buf = new(char, 33);
-        if (!buf)
-                return NULL;
+        n = new(char, 33);
+        if (!n)
+                return -ENOMEM;
 
-        return sd_id128_to_string(id, buf);
+        *ret = sd_id128_to_string(id, n);
+        return 0;
 }
 
-char *specifier_host_name(char specifier, void *data, void *userdata) {
-        return gethostname_malloc();
+int specifier_host_name(char specifier, void *data, void *userdata, char **ret) {
+        char *n;
+
+        n = gethostname_malloc();
+        if (!n)
+                return -ENOMEM;
+
+        *ret = n;
+        return 0;
 }
 
-char *specifier_kernel_release(char specifier, void *data, void *userdata) {
+int specifier_kernel_release(char specifier, void *data, void *userdata, char **ret) {
         struct utsname uts;
+        char *n;
         int r;
 
         r = uname(&uts);
         if (r < 0)
-                return NULL;
+                return -errno;
 
-        return strdup(uts.release);
+        n = strdup(uts.release);
+        if (!n)
+                return -ENOMEM;
+
+        *ret = n;
+        return 0;
 }
