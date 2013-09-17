@@ -27,7 +27,7 @@
 #include "util.h"
 #include "strv.h"
 
-int main(int argc, char* argv[]) {
+static void test_login(void) {
         int r, k;
         uid_t u, u2;
         char *seat, *type, *class, *display;
@@ -215,6 +215,13 @@ int main(int argc, char* argv[]) {
         }
 
         sd_login_monitor_unref(m);
+}
+
+int main(int argc, char* argv[]) {
+        log_parse_environment();
+        log_open();
+
+        test_login();
 
         return 0;
 }

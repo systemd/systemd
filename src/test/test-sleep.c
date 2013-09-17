@@ -29,7 +29,7 @@
 #include "sleep-config.h"
 #include "strv.h"
 
-int main(int argc, char* argv[]) {
+static void test_sleep(void) {
         _cleanup_strv_free_ char
                 **standby = strv_new("standby", NULL),
                 **mem = strv_new("mem", NULL),
@@ -52,6 +52,16 @@ int main(int argc, char* argv[]) {
         log_info("Suspend configured and possible: %s", yes_no(can_sleep("suspend") > 0));
         log_info("Hibernation configured and possible: %s", yes_no(can_sleep("hibernate") > 0));
         log_info("Hybrid-sleep configured and possible: %s", yes_no(can_sleep("hybrid-sleep") > 0));
+}
+
+int main(int argc, char* argv[]) {
+        log_parse_environment();
+        log_open();
+
+        if (getuid() != 0)
+                log_warning("This program is unlikely to work for unpriviledged users");
+
+        test_sleep();
 
         return 0;
 }
