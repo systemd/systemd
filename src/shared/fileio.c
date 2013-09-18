@@ -677,7 +677,13 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
          * always maps to the same string, irrespective of the total
          * capability set size. For other numbers it shouldn't matter.
          */
-        t += strspn(t, WHITESPACE "0");
+        if (*t) {
+                t += strspn(t, WHITESPACE "0");
+                /* Back off one char if there's nothing but whitespace
+                   and zeros */
+                if (!*t)
+                        t --;
+        }
 
         len = strcspn(t, WHITESPACE);
 
