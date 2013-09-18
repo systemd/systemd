@@ -105,7 +105,7 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
         return true;
 }
 
-static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, OutputMode flags, int priority, const char* message, size_t message_len) {
+static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, OutputFlags flags, int priority, const char* message, size_t message_len) {
         const char *color_on = "", *color_off = "";
         const char *pos, *end;
         bool ellipsized = false;
