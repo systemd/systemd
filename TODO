@@ -602,7 +602,6 @@ Features:
 * udev:
   - remove src/udev/udev-builtin-firmware.c (CONFIG_FW_LOADER_USER_HELPER=n)
   - move to LGPL
-  - unify utf8 validator code with shared/
   - kill scsi_id
   - add trigger --subsystem-match=usb/usb_device device
 

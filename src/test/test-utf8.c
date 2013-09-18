@@ -47,6 +47,12 @@ static void test_udev_encode_string(void) {
         assert_se(expect_encoded_as("s/ash/ng", "s\\x2fash\\x2fng"));
 }
 
+static void test_utf8_is_printable(void) {
+        assert_se(utf8_is_printable("ascii is valid\tunicode", 22));
+        assert_se(utf8_is_printable("\342\204\242", 3));
+        assert_se(!utf8_is_printable("\341\204", 2));
+}
+
 static void test_utf8_is_valid(void) {
         assert_se(utf8_is_valid("ascii is valid unicode"));
         assert_se(utf8_is_valid("\341\204\242"));
@@ -55,5 +61,8 @@ static void test_utf8_is_valid(void) {
 
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
+        test_utf8_is_printable();
         test_udev_encode_string();
+
+        return 0;
 }
