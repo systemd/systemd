@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 #include <sys/param.h>
 
+#include "device-nodes.h"
 #include "libudev.h"
 #include "libudev-private.h"
 #include "utf8.h"
@@ -344,7 +345,7 @@ int util_replace_chars(char *str, const char *white)
         while (str[i] != '\0') {
                 int len;
 
-                if (is_utf8_encoding_whitelisted(str[i], white)) {
+                if (whitelisted_char_for_devnode(str[i], white)) {
                         i++;
                         continue;
                 }
@@ -392,7 +393,7 @@ int util_replace_chars(char *str, const char *white)
  **/
 _public_ int udev_util_encode_string(const char *str, char *str_enc, size_t len)
 {
-        return udev_encode_string(str, str_enc, len);
+        return encode_devnode_name(str, str_enc, len);
 }
 
 /*

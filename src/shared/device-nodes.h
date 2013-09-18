@@ -1,7 +1,5 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#pragma once
-
 /***
   This file is part of systemd.
 
@@ -21,17 +19,5 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-
-#include "macro.h"
-
-const char *utf8_is_valid(const char *s) _pure_;
-char *ascii_is_valid(const char *s) _pure_;
-
-bool utf8_is_printable(const char* str, size_t length) _pure_;
-
-char *ascii_filter(const char *s);
-
-char *utf16_to_utf8(const void *s, size_t length);
-
-int utf8_encoded_valid_unichar(const char *str);
+int encode_devnode_name(const char *str, char *str_enc, size_t len);
+int whitelisted_char_for_devnode(char c, const char *additional);

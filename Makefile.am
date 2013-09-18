@@ -642,6 +642,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/list.h \
 	src/shared/macro.h \
 	src/shared/def.h \
+	src/shared/device-nodes.c \
+	src/shared/device-nodes.h \
 	src/shared/sparse-endian.h \
 	src/shared/util.c \
 	src/shared/util.h \
@@ -1137,7 +1139,8 @@ tests += \
 	test-time \
 	test-hashmap \
 	test-list \
-	test-tables
+	test-tables \
+	test-device-nodes
 
 EXTRA_DIST += \
 	test/sched_idle_bad.service \
@@ -1148,6 +1151,15 @@ EXTRA_DIST += \
 
 EXTRA_DIST += \
 	src/test/test-helper.h
+
+test_device_nodes_SOURCES = \
+	src/test/test-device-nodes.c
+
+test_device_nodes_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_device_nodes_LDADD = \
+	libsystemd-shared.la
 
 test_engine_SOURCES = \
 	src/test/test-engine.c

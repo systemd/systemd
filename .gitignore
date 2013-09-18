@@ -101,6 +101,7 @@
 /test-cgroup-util
 /test-daemon
 /test-date
+/test-device-nodes
 /test-efivars
 /test-engine
 /test-env-replace

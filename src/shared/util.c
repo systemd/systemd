@@ -73,7 +73,7 @@
 #include "hashmap.h"
 #include "env-util.h"
 #include "fileio.h"
-#include "utf8.h"
+#include "device-nodes.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
@@ -3509,7 +3509,7 @@ static char *tag_to_udev_node(const char *tagvalue, const char *by) {
         if (t == NULL)
                 return NULL;
 
-        if (udev_encode_string(u, t, enc_len) < 0)
+        if (encode_devnode_name(u, t, enc_len) < 0)
                 return NULL;
 
         if (asprintf(&dn, "/dev/disk/by-%s/%s", by, t) < 0)
