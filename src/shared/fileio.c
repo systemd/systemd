@@ -673,7 +673,7 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
 
         t += strlen(pattern);
         /* Also skip zeros, because when this is used for capabilities,
-         * we don't want the zeros. This way the same cabality set
+         * we don't want the zeros. This way the same capability set
          * always maps to the same string, irrespective of the total
          * capability set size. For other numbers it shouldn't matter.
          */
