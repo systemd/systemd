@@ -411,12 +411,39 @@ static int mount_binds(const char *dest, char **l, unsigned long flags) {
 
         STRV_FOREACH_PAIR(x, y, l) {
                 _cleanup_free_ char *where = NULL;
+                struct stat source_st, dest_st;
+
+                if (stat(*x, &source_st) < 0) {
+                        log_error("failed to stat %s: %m", *x);
+                        return -errno;
+                }
 
                 where = strjoin(dest, "/", *y, NULL);
                 if (!where)
                         return log_oom();
 
-                mkdir_p_label(where, 0755);
+                if (stat(where, &dest_st) == 0) {
+                        if ((source_st.st_mode & S_IFMT) != (dest_st.st_mode & S_IFMT)) {
+                                log_error("The file types of %s and %s do not matching. Refusing bind mount",
+                                                *x, where);
+                                return -EINVAL;
+                        }
+                } else {
+                        /* Create the mount point, but be conservative -- refuse to create block
+                         * and char devices. */
+                        if (S_ISDIR(source_st.st_mode))
+                                mkdir_p_label(where, 0755);
+                        else if (S_ISFIFO(source_st.st_mode))
+                                mkfifo(where, 0644);
+                        else if (S_ISSOCK(source_st.st_mode))
+                                mknod(where, 0644 | S_IFSOCK, 0);
+                        else if (S_ISREG(source_st.st_mode))
+                                touch(where);
+                        else {
+                                log_error("Refusing to create mountpoint for file: %s", *x);
+                                return -ENOTSUP;
+                        }
+                }
 
                 if (mount(*x, where, "bind", MS_BIND, NULL) < 0) {
                         log_error("mount(%s) failed: %m", where);
