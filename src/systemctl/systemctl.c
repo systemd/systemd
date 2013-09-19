@@ -72,6 +72,7 @@ static char **arg_types = NULL;
 static char **arg_states = NULL;
 static char **arg_properties = NULL;
 static bool arg_all = false;
+static bool original_stdout_is_tty;
 static enum dependency {
         DEPENDENCY_FORWARD,
         DEPENDENCY_REVERSE,
@@ -309,7 +310,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 }
         }
 
-        if (!arg_full) {
+        if (!arg_full && original_stdout_is_tty) {
                 unsigned basic_len;
                 id_len = MIN(max_id_len, 25u);
                 basic_len = 5 + id_len + 5 + active_len + sub_len;
@@ -376,7 +377,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
                        job_count ? job_len + 1 : 0, u->job_id ? u->job_type : "");
-                if (!arg_full && arg_no_pager)
+                if (desc_len > 0)
                         printf("%.*s\n", desc_len, u->description);
                 else
                         printf("%s\n", u->description);
@@ -6176,6 +6177,11 @@ int main(int argc, char*argv[]) {
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
+
+        /* Explicitly not on_tty() to avoid setting cached value.
+         * This becomes relevant for piping output which might be
+         * ellipsized. */
+        original_stdout_is_tty = isatty(STDOUT_FILENO);
 
         r = parse_argv(argc, argv);
         if (r < 0)
