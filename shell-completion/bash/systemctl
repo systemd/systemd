@@ -139,7 +139,7 @@ _systemctl () {
                      [ENVS]='set-environment unset-environment'
                [STANDALONE]='daemon-reexec daemon-reload default dump
                              emergency exit halt hibernate hybrid-sleep kexec list-jobs
-                             list-units list-unit-files poweroff reboot rescue
+                             list-sockets list-units list-unit-files poweroff reboot rescue
                              show-environment suspend get-default'
                      [NAME]='snapshot load'
                      [FILE]='link'
