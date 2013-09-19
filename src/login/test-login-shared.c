@@ -32,6 +32,9 @@ static void test_session_id_valid(void) {
 }
 
 int main(int argc, char* argv[]) {
+        log_parse_environment();
+        log_open();
+
         test_session_id_valid();
 
         return 0;

@@ -27,6 +27,8 @@
 #include "fileio.h"
 #include "strv.h"
 #include "env-util.h"
+#include "def.h"
+#include "ctype.h"
 
 static void test_parse_env_file(void) {
         char    t[] = "/tmp/test-fileio-in-XXXXXX",
@@ -230,8 +232,8 @@ static void test_executable_is_script(void) {
 }
 
 static void test_status_field(void) {
-        _cleanup_free_ char *t = NULL, *p = NULL, *s = NULL;
-        unsigned long long total, buffers;
+        _cleanup_free_ char *t = NULL, *p = NULL, *s = NULL, *z = NULL;
+        unsigned long long total = 0, buffers = 0;
         int r;
 
         assert_se(get_status_field("/proc/self/status", "\nThreads:", &t) == 0);
@@ -239,26 +241,60 @@ static void test_status_field(void) {
         assert_se(streq(t, "1"));
 
         r = get_status_field("/proc/meminfo", "MemTotal:", &p);
-        if (r == -ENOENT)
-                return;
-        assert(r == 0);
-        puts(p);
-        assert_se(safe_atollu(p, &total) == 0);
+        if (r != -ENOENT) {
+                assert(r == 0);
+                puts(p);
+                assert_se(safe_atollu(p, &total) == 0);
+        }
 
         r = get_status_field("/proc/meminfo", "\nBuffers:", &s);
-        if (r == -ENOENT)
-                return;
-        assert(r == 0);
-        puts(s);
-        assert_se(safe_atollu(s, &buffers) == 0);
+        if (r != -ENOENT) {
+                assert(r == 0);
+                puts(s);
+                assert_se(safe_atollu(s, &buffers) == 0);
+        }
 
-        assert(buffers < total);
+        if (p && t)
+                assert(buffers < total);
+
+        /* Seccomp should be a good test for field full of zeros. */
+        r = get_status_field("/proc/meminfo", "\nSeccomp:", &z);
+        if (r != -ENOENT) {
+                assert(r == 0);
+                puts(z);
+                assert_se(safe_atollu(z, &buffers) == 0);
+        }
+}
+
+static void test_capeff(void) {
+        int pid, p;
+
+        for (pid = 0; pid < 2; pid++) {
+                _cleanup_free_ char *capeff = NULL;
+                int r;
+
+                r = get_process_capeff(0, &capeff);
+                log_info("capeff: '%s' (r=%d)", capeff, r);
+
+                if (r == -ENOENT || r == -EPERM)
+                        return;
+
+                assert(r == 0);
+                assert(*capeff);
+                p = capeff[strspn(capeff, DIGITS "abcdefABCDEF")];
+                assert(!p || isspace(p));
+        }
 }
 
 int main(int argc, char *argv[]) {
+        log_parse_environment();
+        log_open();
+
         test_parse_env_file();
         test_parse_multiline_env_file();
         test_executable_is_script();
         test_status_field();
+        test_capeff();
+
         return 0;
 }

@@ -24,6 +24,7 @@
 #include "util.h"
 #include "strv.h"
 #include "utf8.h"
+#include "ctype.h"
 
 int write_string_to_file(FILE *f, const char *line) {
         errno = 0;
@@ -672,16 +673,18 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
                 return -ENOENT;
 
         t += strlen(pattern);
-        /* Also skip zeros, because when this is used for capabilities,
-         * we don't want the zeros. This way the same capability set
-         * always maps to the same string, irrespective of the total
-         * capability set size. For other numbers it shouldn't matter.
-         */
         if (*t) {
-                t += strspn(t, WHITESPACE "0");
+                t += strspn(t, " \t");
+
+                /* Also skip zeros, because when this is used for
+                 * capabilities, we don't want the zeros. This way the
+                 * same capability set always maps to the same string,
+                 * irrespective of the total capability set size. For
+                 * other numbers it shouldn't matter. */
+                t += strspn(t, "0");
                 /* Back off one char if there's nothing but whitespace
                    and zeros */
-                if (!*t)
+                if (!*t || isspace(*t))
                         t --;
         }
 
