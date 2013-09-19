@@ -175,9 +175,12 @@ AS_IF([test "x$PYTHON_BINARY" = "x"],
              [PYTHON_BINARY=/usr/bin/python])])
 AC_ARG_VAR(PYTHON_BINARY, [Python binary used to launch installed scripts])
 
+AS_IF([test "x$have_python" != "xyes" -a "x$enable_python_devel" = "xyes"],
+      [AC_MSG_ERROR([*** python-devel support requires --with-python])])
+
 have_python_devel=no
 AC_ARG_ENABLE(python_devel, AS_HELP_STRING([--disable-python-devel], [Do not build python modules]))
-AS_IF([test "x$enable_python_devel" != "xno"], [
+AS_IF([test "x$have_python" = "xyes" -a "x$enable_python_devel" != "xno"], [
       PKG_CHECK_MODULES([PYTHON_DEVEL], [python-${PYTHON_VERSION}],
             [have_python_devel=yes],
             [PKG_CHECK_MODULES([PYTHON_DEVEL], [python],
