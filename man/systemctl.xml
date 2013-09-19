@@ -830,10 +830,11 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             case of socket units), and so on.</para>
 
             <para>Depending on whether <option>--system</option>,
-            <option>--user</option> or <option>--global</option> is
-            specified, this enables the unit for the system, for the
-            calling user only or for all future logins of all
-            users. Note that in the last case, no systemd daemon
+            <option>--user</option>, <option>--runtime</option>,
+            or<option>--global</option>, is specified, this enables the unit
+            for the system, for the calling user only, for only this boot of
+            the system, or for all future logins of all users, or only this
+            boot.  Note that in the last case, no systemd daemon
             configuration is reloaded.</para>
           </listitem>
         </varlistentry>
@@ -860,8 +861,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             </para>
 
             <para>This command honors <option>--system</option>,
-            <option>--user</option>, <option>--global</option> in a
-            similar way as <command>enable</command>.</para>
+            <option>--user</option>, <option>--runtime</option>,
+            <option>--global</option> in a similar way as
+            <command>enable</command>.</para>
           </listitem>
         </varlistentry>
 
@@ -918,7 +920,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             start them. This is a stronger version of
             <command>disable</command>, since it prohibits all kinds of
             activation of the unit, including manual activation. Use
-            this option with care.</para>
+            this option with care. This honors the
+            <option>--runtime</option> option, to only mask temporarily
+            until the next reoobt of the system.</para>
           </listitem>
         </varlistentry>
 
