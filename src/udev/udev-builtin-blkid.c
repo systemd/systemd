@@ -67,6 +67,9 @@ static void print_property(struct udev_device *dev, bool test, const char *name,
         } else if (streq(name, "PTTYPE")) {
                 udev_builtin_add_property(dev, test, "ID_PART_TABLE_TYPE", value);
 
+        } else if (streq(name, "PTUUID")) {
+                udev_builtin_add_property(dev, test, "ID_PART_TABLE_UUID", value);
+
         } else if (streq(name, "PART_ENTRY_NAME")) {
                 blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(dev, test, "ID_PART_ENTRY_NAME", s);
