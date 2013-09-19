@@ -424,7 +424,7 @@ static int mount_binds(const char *dest, char **l, unsigned long flags) {
 
                 if (stat(where, &dest_st) == 0) {
                         if ((source_st.st_mode & S_IFMT) != (dest_st.st_mode & S_IFMT)) {
-                                log_error("The file types of %s and %s do not matching. Refusing bind mount",
+                                log_error("The file types of %s and %s do not match. Refusing bind mount",
                                                 *x, where);
                                 return -EINVAL;
                         }
