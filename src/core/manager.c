@@ -1789,7 +1789,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
         }
 
         case WATCH_IDLE_PIPE: {
-                m->no_console_output = true;
+                m->no_console_output = m->n_on_console > 0;
 
                 manager_unwatch_idle_pipe(m);
                 close_idle_pipe(m);

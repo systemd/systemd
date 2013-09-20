@@ -1492,7 +1492,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                                 if (m->n_on_console == 0)
                                         /* unset no_console_output flag, since the console is free */
-                                        m->no_console_output = 0;
+                                        m->no_console_output = false;
                         } else
                                 m->n_on_console ++;
                 }
