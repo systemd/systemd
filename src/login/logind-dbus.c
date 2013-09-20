@@ -2256,7 +2256,7 @@ static DBusHandlerResult manager_message_handler(
                 }
 
                 HASHMAP_FOREACH(user, m->users, i)
-                        fprintf(f, "<node name=\"user/%llu\"/>", (unsigned long long) user->uid);
+                        fprintf(f, "<node name=\"user/_%llu\"/>", (unsigned long long) user->uid);
 
                 HASHMAP_FOREACH(session, m->sessions, i) {
                         p = bus_path_escape(session->id);
