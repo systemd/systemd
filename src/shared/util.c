@@ -3700,6 +3700,16 @@ char *resolve_dev_console(char **active) {
         else
                 tty = *active;
 
+        if (streq(tty, "tty0")) {
+                char *tmp;
+
+                /* Get the active VC (e.g. tty1) */
+                if (read_one_line_file("/sys/class/tty/tty0/active", &tmp) >= 0) {
+                        free(*active);
+                        tty = *active = tmp;
+                }
+        }
+
         return tty;
 }
 
