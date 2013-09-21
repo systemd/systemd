@@ -46,7 +46,7 @@ bluetooth:v000D*
  ID_VENDOR_FROM_DATABASE=Texas Instruments Inc.
 
 bluetooth:v000E*
- ID_VENDOR_FROM_DATABASE=Ceva, Inc. (formerly Parthus Technologies Inc.)
+ ID_VENDOR_FROM_DATABASE=Ceva, Inc. (formerly Parthus Technologies, Inc.)
 
 bluetooth:v000F*
  ID_VENDOR_FROM_DATABASE=Broadcom Corporation
@@ -55,7 +55,7 @@ bluetooth:v0010*
  ID_VENDOR_FROM_DATABASE=Mitel Semiconductor
 
 bluetooth:v0011*
- ID_VENDOR_FROM_DATABASE=Widcomm, Inc.
+ ID_VENDOR_FROM_DATABASE=Widcomm, Inc
 
 bluetooth:v0012*
  ID_VENDOR_FROM_DATABASE=Zeevo, Inc.
@@ -73,13 +73,13 @@ bluetooth:v0016*
  ID_VENDOR_FROM_DATABASE=KC Technology Inc.
 
 bluetooth:v0017*
- ID_VENDOR_FROM_DATABASE=Newlogic
+ ID_VENDOR_FROM_DATABASE=NewLogic
 
 bluetooth:v0018*
  ID_VENDOR_FROM_DATABASE=Transilica, Inc.
 
 bluetooth:v0019*
- ID_VENDOR_FROM_DATABASE=Rohde & Schwartz GmbH & Co. KG
+ ID_VENDOR_FROM_DATABASE=Rohde & Schwarz GmbH & Co. KG
 
 bluetooth:v001A*
  ID_VENDOR_FROM_DATABASE=TTPCom Limited
@@ -151,7 +151,7 @@ bluetooth:v0030*
  ID_VENDOR_FROM_DATABASE=ST Microelectronics
 
 bluetooth:v0031*
- ID_VENDOR_FROM_DATABASE=Synopsys
+ ID_VENDOR_FROM_DATABASE=Synopsis
 
 bluetooth:v0032*
  ID_VENDOR_FROM_DATABASE=Red-M (Communications) Ltd
@@ -190,16 +190,16 @@ bluetooth:v003D*
  ID_VENDOR_FROM_DATABASE=IPextreme, Inc.
 
 bluetooth:v003E*
- ID_VENDOR_FROM_DATABASE=Systems and Chips, Inc
+ ID_VENDOR_FROM_DATABASE=Systems and Chips, Inc.
 
 bluetooth:v003F*
- ID_VENDOR_FROM_DATABASE=Bluetooth SIG, Inc
+ ID_VENDOR_FROM_DATABASE=Bluetooth SIG, Inc.
 
 bluetooth:v0040*
  ID_VENDOR_FROM_DATABASE=Seiko Epson Corporation
 
 bluetooth:v0041*
- ID_VENDOR_FROM_DATABASE=Integrated Silicon Solution Taiwain, Inc.
+ ID_VENDOR_FROM_DATABASE=Integrated Silicon Solution Taiwan, Inc.
 
 bluetooth:v0042*
  ID_VENDOR_FROM_DATABASE=CONWISE Technology Corporation Ltd
@@ -244,7 +244,7 @@ bluetooth:v004F*
  ID_VENDOR_FROM_DATABASE=APT Licensing Ltd.
 
 bluetooth:v0050*
- ID_VENDOR_FROM_DATABASE=SiRF Technology, Inc.
+ ID_VENDOR_FROM_DATABASE=SiRF Technology
 
 bluetooth:v0051*
  ID_VENDOR_FROM_DATABASE=Tzero Technologies, Inc.
@@ -379,7 +379,7 @@ bluetooth:v007C*
  ID_VENDOR_FROM_DATABASE=A & R Cambridge
 
 bluetooth:v007D*
- ID_VENDOR_FROM_DATABASE=Seers Technology Co. Ltd.
+ ID_VENDOR_FROM_DATABASE=Seers Technology Co. Ltd
 
 bluetooth:v007E*
  ID_VENDOR_FROM_DATABASE=Sports Tracking Technologies Ltd.
@@ -406,7 +406,7 @@ bluetooth:v0085*
  ID_VENDOR_FROM_DATABASE=BlueRadios, Inc.
 
 bluetooth:v0086*
- ID_VENDOR_FROM_DATABASE=equinux AG
+ ID_VENDOR_FROM_DATABASE=equinox AG
 
 bluetooth:v0087*
  ID_VENDOR_FROM_DATABASE=Garmin International, Inc.
@@ -421,7 +421,7 @@ bluetooth:v008A*
  ID_VENDOR_FROM_DATABASE=Jawbone
 
 bluetooth:v008B*
- ID_VENDOR_FROM_DATABASE=Topcon Positioning Systems, LLC
+ ID_VENDOR_FROM_DATABASE=Topcorn Positioning Systems, LLC
 
 bluetooth:v008C*
  ID_VENDOR_FROM_DATABASE=Qualcomm Labs, Inc.
@@ -433,13 +433,13 @@ bluetooth:v008E*
  ID_VENDOR_FROM_DATABASE=Quintic Corp.
 
 bluetooth:v008F*
- ID_VENDOR_FROM_DATABASE=Stollmann E+V GmbH
+ ID_VENDOR_FROM_DATABASE=Stollman E+V GmbH
 
 bluetooth:v0090*
  ID_VENDOR_FROM_DATABASE=Funai Electric Co., Ltd.
 
 bluetooth:v0091*
- ID_VENDOR_FROM_DATABASE=Advanced PANMOBIL systems GmbH & Co. KG
+ ID_VENDOR_FROM_DATABASE=Advanced PANMOBIL Systems GmbH & Co. KG
 
 bluetooth:v0092*
  ID_VENDOR_FROM_DATABASE=ThinkOptics, Inc.
@@ -460,7 +460,7 @@ bluetooth:v0097*
  ID_VENDOR_FROM_DATABASE=Bluetrek Technologies Limited
 
 bluetooth:v0098*
- ID_VENDOR_FROM_DATABASE=zero1.tv GmbH
+ ID_VENDOR_FROM_DATABASE=zer01.tv GmbH
 
 bluetooth:v0099*
  ID_VENDOR_FROM_DATABASE=i.Tech Dynamic Global Distribution Ltd.
@@ -511,7 +511,7 @@ bluetooth:v00A8*
  ID_VENDOR_FROM_DATABASE=ARP Devices Limited
 
 bluetooth:v00A9*
- ID_VENDOR_FROM_DATABASE=Magneti Marelli S.p.A.
+ ID_VENDOR_FROM_DATABASE=Magneti Marelli S.p.A
 
 bluetooth:v00AA*
  ID_VENDOR_FROM_DATABASE=CAEN RFID srl
@@ -539,3 +539,180 @@ bluetooth:v00B1*
 
 bluetooth:v00B2*
  ID_VENDOR_FROM_DATABASE=Bekey A/S
+
+bluetooth:v00B3*
+ ID_VENDOR_FROM_DATABASE=Clarinox Technologies Pty. Ltd.
+
+bluetooth:v00B4*
+ ID_VENDOR_FROM_DATABASE=BDE Technology Co., Ltd.
+
+bluetooth:v00B5*
+ ID_VENDOR_FROM_DATABASE=Swirl Networks
+
+bluetooth:v00B6*
+ ID_VENDOR_FROM_DATABASE=Meso international
+
+bluetooth:v00B7*
+ ID_VENDOR_FROM_DATABASE=TreLab Ltd
+
+bluetooth:v00B8*
+ ID_VENDOR_FROM_DATABASE=Qualcomm Innovation Center, Inc. (QuIC)
+
+bluetooth:v00B9*
+ ID_VENDOR_FROM_DATABASE=Johnson Controls, Inc.
+
+bluetooth:v00BA*
+ ID_VENDOR_FROM_DATABASE=Starkey Laboratories Inc.
+
+bluetooth:v00BB*
+ ID_VENDOR_FROM_DATABASE=S-Power Electronics Limited
+
+bluetooth:v00BC*
+ ID_VENDOR_FROM_DATABASE=Ace Sensor Inc
+
+bluetooth:v00BD*
+ ID_VENDOR_FROM_DATABASE=Aplix Corporation
+
+bluetooth:v00BE*
+ ID_VENDOR_FROM_DATABASE=AAMP of America
+
+bluetooth:v00BF*
+ ID_VENDOR_FROM_DATABASE=Stalmart Technology Limited
+
+bluetooth:v00C0*
+ ID_VENDOR_FROM_DATABASE=AMICCOM Electronics Corporation
+
+bluetooth:v00C1*
+ ID_VENDOR_FROM_DATABASE=Shenzhen Excelsecu Data Technology Co.,Ltd
+
+bluetooth:v00C2*
+ ID_VENDOR_FROM_DATABASE=Geneq Inc.
+
+bluetooth:v00C3*
+ ID_VENDOR_FROM_DATABASE=adidas AG
+
+bluetooth:v00C4*
+ ID_VENDOR_FROM_DATABASE=LG Electronics
+
+bluetooth:v00C5*
+ ID_VENDOR_FROM_DATABASE=Onset Computer Corporation
+
+bluetooth:v00C6*
+ ID_VENDOR_FROM_DATABASE=Selfly BV
+
+bluetooth:v00C7*
+ ID_VENDOR_FROM_DATABASE=Quuppa Oy.
+
+bluetooth:v00C8*
+ ID_VENDOR_FROM_DATABASE=GeLo Inc
+
+bluetooth:v00C9*
+ ID_VENDOR_FROM_DATABASE=Evluma
+
+bluetooth:v00CA*
+ ID_VENDOR_FROM_DATABASE=MC10
+
+bluetooth:v00CB*
+ ID_VENDOR_FROM_DATABASE=Binauric SE
+
+bluetooth:v00CC*
+ ID_VENDOR_FROM_DATABASE=Beats Electronics
+
+bluetooth:v00CD*
+ ID_VENDOR_FROM_DATABASE=Microchip Technology Inc.
+
+bluetooth:v00CE*
+ ID_VENDOR_FROM_DATABASE=Elgato Systems GmbH
+
+bluetooth:v00CF*
+ ID_VENDOR_FROM_DATABASE=ARCHOS SA
+
+bluetooth:v00D1*
+ ID_VENDOR_FROM_DATABASE=Polar Electro Europe B.V.
+
+bluetooth:v00D2*
+ ID_VENDOR_FROM_DATABASE=Dialog Semiconductor B.V.
+
+bluetooth:v00D3*
+ ID_VENDOR_FROM_DATABASE=Taixingbang Technology (HK) Co,. LTD.
+
+bluetooth:v00D4*
+ ID_VENDOR_FROM_DATABASE=Kawantech
+
+bluetooth:v00D5*
+ ID_VENDOR_FROM_DATABASE=Austco Communication Systems
+
+bluetooth:v00D6*
+ ID_VENDOR_FROM_DATABASE=Timex Group USA, Inc.
+
+bluetooth:v00D7*
+ ID_VENDOR_FROM_DATABASE=Qualcomm Technologies, Inc.
+
+bluetooth:v00D8*
+ ID_VENDOR_FROM_DATABASE=Qualcomm Connected Experiences, Inc.
+
+bluetooth:v00D9*
+ ID_VENDOR_FROM_DATABASE=Voyetra Turtle Beach
+
+bluetooth:v00DA*
+ ID_VENDOR_FROM_DATABASE=txtr GmbH
+
+bluetooth:v00DB*
+ ID_VENDOR_FROM_DATABASE=Biosentronics
+
+bluetooth:v00DC*
+ ID_VENDOR_FROM_DATABASE=Procter & Gamble
+
+bluetooth:v00DD*
+ ID_VENDOR_FROM_DATABASE=Hosiden Corporation
+
+bluetooth:v00DE*
+ ID_VENDOR_FROM_DATABASE=Muzik LLC
+
+bluetooth:v00DF*
+ ID_VENDOR_FROM_DATABASE=Misfit Wearables Corp
+
+bluetooth:v00E0*
+ ID_VENDOR_FROM_DATABASE=Google
+
+bluetooth:v00E1*
+ ID_VENDOR_FROM_DATABASE=Danlers Ltd
+
+bluetooth:v00E2*
+ ID_VENDOR_FROM_DATABASE=Semilink Inc
+
+bluetooth:v00E3*
+ ID_VENDOR_FROM_DATABASE=inMusic Brands, Inc
+
+bluetooth:v00E4*
+ ID_VENDOR_FROM_DATABASE=L.S. Research Inc.
+
+bluetooth:v00E5*
+ ID_VENDOR_FROM_DATABASE=Eden Software Consultants Ltd.
+
+bluetooth:v00E6*
+ ID_VENDOR_FROM_DATABASE=Freshtemp
+
+bluetooth:v00E7*
+ ID_VENDOR_FROM_DATABASE=KS Technologies
+
+bluetooth:v00E8*
+ ID_VENDOR_FROM_DATABASE=ACTS Technologies
+
+bluetooth:v00E9*
+ ID_VENDOR_FROM_DATABASE=Vtrack Systems
+
+bluetooth:v00EA*
+ ID_VENDOR_FROM_DATABASE=Nielsen-Kellerman Company
+
+bluetooth:v00EB*
+ ID_VENDOR_FROM_DATABASE=Server Technology, Inc.
+
+bluetooth:v00EC*
+ ID_VENDOR_FROM_DATABASE=BioResearch Associates
+
+bluetooth:v00ED*
+ ID_VENDOR_FROM_DATABASE=Jolly Logic, LLC
+
+bluetooth:v00EE*
+ ID_VENDOR_FROM_DATABASE=Above Average Outcomes, Inc.
