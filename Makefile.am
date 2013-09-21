@@ -1137,6 +1137,7 @@ tests += \
 	test-unit-name \
 	test-unit-file \
 	test-utf8 \
+	test-ellipsize \
 	test-util \
 	test-date \
 	test-sleep \
@@ -1325,6 +1326,12 @@ test_log_SOURCES = \
 	src/test/test-log.c
 
 test_log_LDADD = \
+	libsystemd-core.la
+
+test_ellipsize_SOURCES = \
+	src/test/test-ellipsize.c
+
+test_ellipsize_LDADD = \
 	libsystemd-core.la
 
 test_date_SOURCES = \
