@@ -35,3 +35,4 @@ char *ascii_filter(const char *s);
 char *utf16_to_utf8(const void *s, size_t length);
 
 int utf8_encoded_valid_unichar(const char *str);
+int utf8_encoded_to_unichar(const char *str);

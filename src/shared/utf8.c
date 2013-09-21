@@ -98,7 +98,7 @@ static int utf8_encoded_expected_len(const char *str) {
 }
 
 /* decode one unicode char */
-static int utf8_encoded_to_unichar(const char *str) {
+int utf8_encoded_to_unichar(const char *str) {
         int unichar;
         int len;
         int i;

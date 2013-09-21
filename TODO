@@ -17,10 +17,6 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-* ellipsize_mem must take into account multi-byte unicode characters, and
-  - make the resulting line the requested number of *characters*, not *bytes*,
-  - avoid truncuating multi-byte sequences in the middle.
-
 * When we detect invalid UTF-8, we cant't use it in an error message:
   log...("Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
 

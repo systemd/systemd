@@ -405,6 +405,7 @@ static inline const char *ansi_highlight_off(void) {
 int running_in_chroot(void);
 
 char *ellipsize(const char *s, size_t length, unsigned percent);
+                                   /* bytes                 columns */
 char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent);
 
 int touch(const char *path);

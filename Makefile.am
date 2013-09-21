@@ -683,6 +683,8 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/exit-status.h \
 	src/shared/utf8.c \
 	src/shared/utf8.h \
+	src/shared/gunicode.c \
+	src/shared/gunicode.h \
 	src/shared/pager.c \
 	src/shared/pager.h \
 	src/shared/ioprio.h \
