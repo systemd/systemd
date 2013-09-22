@@ -129,7 +129,7 @@ static int create_disk(
                 if (streq(password, "/dev/urandom") ||
                     streq(password, "/dev/random") ||
                     streq(password, "/dev/hw_random"))
-                        fputs("After=systemd-random-seed-load.service\n", f);
+                        fputs("After=systemd-random-seed.service\n", f);
                 else if (!streq(password, "-") &&
                          !streq(password, "none"))
                         fprintf(f,
