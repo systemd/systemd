@@ -3,6 +3,7 @@
 /***
   This file is part of systemd.
 
+  Copyright 2008-2011 Kay Sievers
   Copyright 2012 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
@@ -19,7 +20,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-/* This file is based on the GLIB utf8 validation functions. The
+/* Parts of this file are based on the GLIB utf8 validation functions. The
  * original license text follows. */
 
 /* gutf8.c - Operations on UTF-8 strings.
