@@ -254,8 +254,9 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
         }
 
         if (mask & CGROUP_MEMORY) {
-                char buf[DECIMAL_STR_MAX(uint64_t) + 1];
                 if (c->memory_limit != (uint64_t) -1) {
+                        char buf[DECIMAL_STR_MAX(uint64_t) + 1];
+
                         sprintf(buf, "%" PRIu64 "\n", c->memory_limit);
                         r = cg_set_attribute("memory", path, "memory.limit_in_bytes", buf);
                 } else
@@ -665,6 +666,9 @@ int manager_setup_cgroup(Manager *m) {
 
         /* 6. Figure out which controllers are supported */
         m->cgroup_supported = cg_mask_supported();
+
+        /* 7.  Always enable hierarchial support if it exists... */
+        cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
 
         return 0;
 }
