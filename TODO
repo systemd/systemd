@@ -1,7 +1,3 @@
-Bugfixes:
-* the running hwdb seems not to pick up updated database files without
-  an explicit: udevadm control --reload
-
 * enabling an instance unit creates pointless link, and
   the unit will be started with getty@getty.service:
     $ systemctl enable getty@.service
