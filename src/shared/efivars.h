@@ -42,6 +42,5 @@ int efi_get_boot_option(uint16_t nr, char **title, sd_id128_t *partuuid, char **
 int efi_get_boot_order(uint16_t **order);
 int efi_get_boot_options(uint16_t **options);
 
-int efi_get_boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_timestamp *loader);
-
-int efi_get_loader_device_part_uuid(sd_id128_t *u);
+int efi_loader_get_device_part_uuid(sd_id128_t *u);
+int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader);

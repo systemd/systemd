@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
         if (dir_is_empty("/boot") <= 0)
                 return EXIT_SUCCESS;
 
-        r = efi_get_loader_device_part_uuid(&id);
+        r = efi_loader_get_device_part_uuid(&id);
         if (r == -ENOENT)
                 return EXIT_SUCCESS;
         if (r < 0) {

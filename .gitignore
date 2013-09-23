@@ -85,6 +85,7 @@
 /systemd-user-sessions
 /systemd-vconsole-setup
 /tags
+/test-boot-timestamp
 /test-bus-chat
 /test-bus-kernel
 /test-bus-kernel-bloom
@@ -102,7 +103,6 @@
 /test-daemon
 /test-date
 /test-device-nodes
-/test-efivars
 /test-engine
 /test-env-replace
 /test-fileio

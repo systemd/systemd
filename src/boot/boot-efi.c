@@ -174,7 +174,7 @@ int boot_info_query(struct boot_info *info) {
         efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderFirmwareInfo", &info->fw_info);
         efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderImageIdentifier", &info->loader_image_path);
         tilt_slashes(info->loader_image_path);
-        efi_get_loader_device_part_uuid(&info->loader_part_uuid);
+        efi_loader_get_device_part_uuid(&info->loader_part_uuid);
 
         boot_loader_read_entries(info);
         efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntrySelected", &loader_active);

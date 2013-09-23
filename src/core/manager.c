@@ -70,7 +70,7 @@
 #include "cgroup-util.h"
 #include "path-util.h"
 #include "audit-fd.h"
-#include "efivars.h"
+#include "boot-timestamps.h"
 #include "env-util.h"
 
 /* As soon as 5s passed since a unit was added to our GC queue, make sure to run a gc sweep */
@@ -496,7 +496,7 @@ int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
 
 #ifdef ENABLE_EFI
         if (detect_container(NULL) <= 0)
-                efi_get_boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
+                boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
 #endif
 
         m->running_as = running_as;

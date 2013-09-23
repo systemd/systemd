@@ -717,6 +717,10 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/output-mode.h \
 	src/shared/MurmurHash3.c \
 	src/shared/MurmurHash3.h \
+	src/shared/acpi-fpdt.h \
+	src/shared/acpi-fpdt.c \
+	src/shared/boot-timestamps.h \
+	src/shared/boot-timestamps.c \
 	src/shared/refcnt.h
 
 #-------------------------------------------------------------------------------
@@ -1155,9 +1159,6 @@ EXTRA_DIST += \
 test_device_nodes_SOURCES = \
 	src/test/test-device-nodes.c
 
-test_device_nodes_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_device_nodes_LDADD = \
 	libsystemd-shared.la
 
@@ -1209,12 +1210,12 @@ test_hostname_LDADD = \
 
 if ENABLE_EFI
 manual_tests += \
-	test-efivars
+	test-boot-timestamp
 
-test_efivars_SOURCES = \
-	src/test/test-efivars.c
+test_boot_timestamp_SOURCES = \
+	src/test/test-boot-timestamps.c
 
-test_efivars_LDADD = \
+test_boot_timestamp_LDADD = \
 	libsystemd-shared.la
 endif
 
