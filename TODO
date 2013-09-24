@@ -1,3 +1,5 @@
+Bugfixes:
+
 * enabling an instance unit creates pointless link, and
   the unit will be started with getty@getty.service:
     $ systemctl enable getty@.service
