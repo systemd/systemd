@@ -4212,7 +4212,7 @@ pci:v00001002d00006651*
  ID_MODEL_FROM_DATABASE=Bonaire
 
 pci:v00001002d00006658*
- ID_MODEL_FROM_DATABASE=Bonaire
+ ID_MODEL_FROM_DATABASE=Bonaire XTX [Radeon R7 260X]
 
 pci:v00001002d0000665C*
  ID_MODEL_FROM_DATABASE=Bonaire XT [Radeon HD 7790/8770]
@@ -4245,13 +4245,13 @@ pci:v00001002d00006663*
  ID_MODEL_FROM_DATABASE=Sun PRO [Radeon HD 8500M Series]
 
 pci:v00001002d00006664*
- ID_MODEL_FROM_DATABASE=Sun [Radeon R5 M200 Series]
+ ID_MODEL_FROM_DATABASE=Jet XT [Radeon R5 M200 Series]
 
 pci:v00001002d00006665*
- ID_MODEL_FROM_DATABASE=Sun [Radeon R5 M200 Series]
+ ID_MODEL_FROM_DATABASE=Jet PRO [Radeon R5 M200 Series]
 
 pci:v00001002d00006667*
- ID_MODEL_FROM_DATABASE=Sun [Radeon R5 M200 Series]
+ ID_MODEL_FROM_DATABASE=Jet ULT [Radeon R5 M200 Series]
 
 pci:v00001002d0000666F*
  ID_MODEL_FROM_DATABASE=Sun [Radeon HD 8500M]
@@ -5787,10 +5787,10 @@ pci:v00001002d000067A2*
  ID_MODEL_FROM_DATABASE=Hawaii GL
 
 pci:v00001002d000067B0*
- ID_MODEL_FROM_DATABASE=Hawaii XT [Radeon HD 8970]
+ ID_MODEL_FROM_DATABASE=Hawaii XT [Radeon R9 290X]
 
 pci:v00001002d000067B1*
- ID_MODEL_FROM_DATABASE=Hawaii PRO
+ ID_MODEL_FROM_DATABASE=Hawaii PRO [Radeon R9 290]
 
 pci:v00001002d000067B9*
  ID_MODEL_FROM_DATABASE=Vesuvius
@@ -5838,10 +5838,10 @@ pci:v00001002d00006809*
  ID_MODEL_FROM_DATABASE=Pitcairn LE GL [FirePro W5000]
 
 pci:v00001002d00006810*
- ID_MODEL_FROM_DATABASE=Pitcairn
+ ID_MODEL_FROM_DATABASE=Curacao XT [Radeon R9 270X]
 
 pci:v00001002d00006811*
- ID_MODEL_FROM_DATABASE=Pitcairn [Radeon R9 200 Series]
+ ID_MODEL_FROM_DATABASE=Curacao PRO [Radeon R9 270]
 
 pci:v00001002d00006816*
  ID_MODEL_FROM_DATABASE=Pitcairn
@@ -25658,6 +25658,9 @@ pci:v000010DEd00001026*
 pci:v000010DEd00001028*
  ID_MODEL_FROM_DATABASE=GK110GL [Tesla K20m]
 
+pci:v000010DEd0000103A*
+ ID_MODEL_FROM_DATABASE=GK110GL [Quadro K6000]
+
 pci:v000010DEd00001040*
  ID_MODEL_FROM_DATABASE=GF119 [GeForce GT 520]
 
@@ -26189,6 +26192,9 @@ pci:v000010DEd00001140sv0000152Dsd00000983*
 pci:v000010DEd00001140sv0000152Dsd00001030*
  ID_MODEL_FROM_DATABASE=GeForce GT 630M
 
+pci:v000010DEd00001140sv0000152Dsd00001055*
+ ID_MODEL_FROM_DATABASE=GeForce 710M
+
 pci:v000010DEd00001140sv000017AAsd00002200*
  ID_MODEL_FROM_DATABASE=NVS 5200M
 
@@ -26383,6 +26389,9 @@ pci:v000010DEd000011B0sv000010DEsd0000101B*
 
 pci:v000010DEd000011B1*
  ID_MODEL_FROM_DATABASE=GK104GL [Tesla K2 USM]
+
+pci:v000010DEd000011B6*
+ ID_MODEL_FROM_DATABASE=GK104GLM [Quadro K3100M]
 
 pci:v000010DEd000011B7*
  ID_MODEL_FROM_DATABASE=GK104GLM [Quadro K4100M]
@@ -26644,6 +26653,9 @@ pci:v000010DEd00001294*
 
 pci:v000010DEd00001295*
  ID_MODEL_FROM_DATABASE=GK208M [GeForce 710M]
+
+pci:v000010DEd00001298*
+ ID_MODEL_FROM_DATABASE=GK208M [GeForce GT 720M]
 
 pci:v000010DEd000012A0*
  ID_MODEL_FROM_DATABASE=GK208
@@ -46280,6 +46292,12 @@ pci:v000015B3d00001015*
 pci:v000015B3d00001016*
  ID_MODEL_FROM_DATABASE=MT27631 Family
 
+pci:v000015B3d00001017*
+ ID_MODEL_FROM_DATABASE=MT27640 Family
+
+pci:v000015B3d00001018*
+ ID_MODEL_FROM_DATABASE=MT27641 Family
+
 pci:v000015B3d00005274*
  ID_MODEL_FROM_DATABASE=MT21108 InfiniBridge
 
@@ -48154,6 +48172,12 @@ pci:v0000175E*
 
 pci:v00001760*
  ID_VENDOR_FROM_DATABASE=TEDIA spol. s r. o.
+
+pci:v00001760d00000101*
+ ID_MODEL_FROM_DATABASE=PCD-7004 Digital Bi-Directional Ports PCI Card
+
+pci:v00001760d00000102*
+ ID_MODEL_FROM_DATABASE=PCD-7104 Digital Input & Output PCI Card
 
 pci:v00001771*
  ID_VENDOR_FROM_DATABASE=InnoVISION Multimedia Ltd.
@@ -51138,7 +51162,7 @@ pci:v00001B4Bd00009192*
  ID_MODEL_FROM_DATABASE=88SE9172 SATA III 6Gb/s RAID Controller
 
 pci:v00001B4Bd000091A0*
- ID_MODEL_FROM_DATABASE=88SE91A0 SATA 6Gb/s Controller
+ ID_MODEL_FROM_DATABASE=88SE912x SATA 6Gb/s Controller [IDE mode]
 
 pci:v00001B4Bd000091A4*
  ID_MODEL_FROM_DATABASE=88SE912x IDE Controller
@@ -51148,6 +51172,9 @@ pci:v00001B4Bd00009230*
 
 pci:v00001B4Bd00009480*
  ID_MODEL_FROM_DATABASE=88SE9480 SAS/SATA 6Gb/s RAID controller
+
+pci:v00001B4Bd00009485*
+ ID_MODEL_FROM_DATABASE=88SE9485 SAS/SATA 6Gb/s controller
 
 pci:v00001B55*
  ID_VENDOR_FROM_DATABASE=NetUP Inc.
@@ -54354,352 +54381,397 @@ pci:v00008086d00000D36*
  ID_MODEL_FROM_DATABASE=Crystal Well Integrated Graphics Controller
 
 pci:v00008086d00000E00*
- ID_MODEL_FROM_DATABASE=Ivytown DMI2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DMI2
 
 pci:v00008086d00000E01*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port in DMI2 Mode
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port in DMI2 Mode
 
 pci:v00008086d00000E02*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port 1a
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port 1a
 
 pci:v00008086d00000E03*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port 1b
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port 1b
 
 pci:v00008086d00000E04*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port 2a
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port 2a
 
 pci:v00008086d00000E05*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port 2b
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port 2b
 
 pci:v00008086d00000E06*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port 2c
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port 2c
 
 pci:v00008086d00000E07*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port 2d
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port 2d
 
 pci:v00008086d00000E08*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port 3a
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port 3a
 
 pci:v00008086d00000E09*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port 3b
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port 3b
 
 pci:v00008086d00000E0A*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port 3c
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port 3c
 
 pci:v00008086d00000E0B*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Root Port 3d
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 PCI Express Root Port 3d
+
+pci:v00008086d00000E10*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 IIO Configuration Registers
+
+pci:v00008086d00000E13*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 IIO Configuration Registers
+
+pci:v00008086d00000E17*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 IIO Configuration Registers
+
+pci:v00008086d00000E18*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 IIO Configuration Registers
 
 pci:v00008086d00000E1C*
- ID_MODEL_FROM_DATABASE=Ivytown Debug and Error Injection Related Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 IIO Configuration Registers
 
 pci:v00008086d00000E1D*
- ID_MODEL_FROM_DATABASE=Ivytown R2PCIe
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 R2PCIe
 
 pci:v00008086d00000E1E*
- ID_MODEL_FROM_DATABASE=Ivytown Semaphore and Scratchpad Configuration Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 UBOX Registers
 
 pci:v00008086d00000E1F*
- ID_MODEL_FROM_DATABASE=Ivytown Semaphore and Scratchpad Configuration Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 UBOX Registers
 
 pci:v00008086d00000E20*
- ID_MODEL_FROM_DATABASE=Ivytown Crystal Beach DMA Channel 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Crystal Beach DMA Channel 0
 
 pci:v00008086d00000E21*
- ID_MODEL_FROM_DATABASE=Ivytown Crystal Beach DMA Channel 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Crystal Beach DMA Channel 1
 
 pci:v00008086d00000E22*
- ID_MODEL_FROM_DATABASE=Ivytown Crystal Beach DMA Channel 2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Crystal Beach DMA Channel 2
 
 pci:v00008086d00000E23*
- ID_MODEL_FROM_DATABASE=Ivytown Crystal Beach DMA Channel 3
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Crystal Beach DMA Channel 3
 
 pci:v00008086d00000E24*
- ID_MODEL_FROM_DATABASE=Ivytown Crystal Beach DMA Channel 4
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Crystal Beach DMA Channel 4
 
 pci:v00008086d00000E25*
- ID_MODEL_FROM_DATABASE=Ivytown Crystal Beach DMA Channel 5
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Crystal Beach DMA Channel 5
 
 pci:v00008086d00000E26*
- ID_MODEL_FROM_DATABASE=Ivytown Crystal Beach DMA Channel 6
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Crystal Beach DMA Channel 6
 
 pci:v00008086d00000E27*
- ID_MODEL_FROM_DATABASE=Ivytown Crystal Beach DMA Channel 7
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Crystal Beach DMA Channel 7
 
 pci:v00008086d00000E28*
- ID_MODEL_FROM_DATABASE=Ivytown VTd/Memory Map/Misc
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 VTd/Memory Map/Misc
 
 pci:v00008086d00000E29*
- ID_MODEL_FROM_DATABASE=Ivytown Memory Hotplug
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Memory Hotplug
 
 pci:v00008086d00000E2A*
- ID_MODEL_FROM_DATABASE=Ivytown IIO RAS
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 IIO RAS
 
 pci:v00008086d00000E2C*
- ID_MODEL_FROM_DATABASE=Ivytown IOAPIC
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 IOAPIC
 
 pci:v00008086d00000E2E*
- ID_MODEL_FROM_DATABASE=Ivytown CBDMA
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 CBDMA
 
 pci:v00008086d00000E2F*
- ID_MODEL_FROM_DATABASE=Ivytown CBDMA
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 CBDMA
 
 pci:v00008086d00000E30*
- ID_MODEL_FROM_DATABASE=Ivytown Home Agent 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Home Agent 0
 
 pci:v00008086d00000E32*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link 0
 
 pci:v00008086d00000E33*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link 1
 
 pci:v00008086d00000E34*
- ID_MODEL_FROM_DATABASE=Ivytown PCI Express Ring Performance Monitoring
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 R2PCIe
 
 pci:v00008086d00000E36*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Ring Performance Ring Monitoring
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Ring Performance Ring Monitoring
 
 pci:v00008086d00000E37*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Ring Performance Ring Monitoring
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Ring Performance Ring Monitoring
 
 pci:v00008086d00000E38*
- ID_MODEL_FROM_DATABASE=Ivytown Home Agent 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Home Agent 1
 
 pci:v00008086d00000E3A*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link 2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link 2
 
 pci:v00008086d00000E3E*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Ring Performance Ring Monitoring
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Ring Performance Ring Monitoring
 
 pci:v00008086d00000E3F*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Ring Performance Ring Monitoring
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Ring Performance Ring Monitoring
 
 pci:v00008086d00000E40*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link 2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link 2
 
 pci:v00008086d00000E41*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Ring Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Ring Registers
 
 pci:v00008086d00000E43*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link Reut 2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link Reut 2
 
 pci:v00008086d00000E44*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link Reut 2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link Reut 2
 
 pci:v00008086d00000E60*
- ID_MODEL_FROM_DATABASE=Ivytown Home Agent 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Home Agent 1
 
 pci:v00008086d00000E68*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Target Address/Thermal Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Target Address/Thermal Registers
 
 pci:v00008086d00000E6A*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel Target Address Decoder Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel Target Address Decoder Registers
 
 pci:v00008086d00000E6B*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel Target Address Decoder Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel Target Address Decoder Registers
 
 pci:v00008086d00000E6C*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel Target Address Decoder Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel Target Address Decoder Registers
 
 pci:v00008086d00000E6D*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel Target Address Decoder Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel Target Address Decoder Registers
 
 pci:v00008086d00000E71*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 RAS Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 RAS Registers
+
+pci:v00008086d00000E74*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 R2PCIe
+
+pci:v00008086d00000E75*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 R2PCIe
+
+pci:v00008086d00000E77*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Ring Registers
 
 pci:v00008086d00000E79*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 RAS Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 RAS Registers
+
+pci:v00008086d00000E7D*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 UBOX Registers
+
+pci:v00008086d00000E7F*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Ring Registers
 
 pci:v00008086d00000E80*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link 0
 
 pci:v00008086d00000E81*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Ring Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Ring Registers
 
 pci:v00008086d00000E83*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link Reut 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link Reut 0
 
 pci:v00008086d00000E84*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link Reut 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link Reut 0
+
+pci:v00008086d00000E87*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Registers
 
 pci:v00008086d00000E90*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link 1
 
 pci:v00008086d00000E93*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link 1
 
 pci:v00008086d00000E94*
- ID_MODEL_FROM_DATABASE=Ivytown QPI Link Reut 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 QPI Link Reut 1
 
 pci:v00008086d00000EA0*
- ID_MODEL_FROM_DATABASE=Ivytown Home Agent 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Home Agent 0
 
 pci:v00008086d00000EA8*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Target Address/Thermal Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Target Address/Thermal Registers
 
 pci:v00008086d00000EAA*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel Target Address Decoder Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel Target Address Decoder Registers
 
 pci:v00008086d00000EAB*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel Target Address Decoder Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel Target Address Decoder Registers
 
 pci:v00008086d00000EAC*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel Target Address Decoder Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel Target Address Decoder Registers
 
 pci:v00008086d00000EAD*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel Target Address Decoder Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel Target Address Decoder Registers
+
+pci:v00008086d00000EAE*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO Registers
+
+pci:v00008086d00000EAF*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO Registers
 
 pci:v00008086d00000EB0*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel 0-3 Thermal Control 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel 0-3 Thermal Control 0
 
 pci:v00008086d00000EB1*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel 0-3 Thermal Control 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel 0-3 Thermal Control 1
 
 pci:v00008086d00000EB2*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel 0-3 ERROR Registers 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel 0-3 ERROR Registers 0
 
 pci:v00008086d00000EB3*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel 0-3 ERROR Registers 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel 0-3 ERROR Registers 1
 
 pci:v00008086d00000EB4*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel 0-3 Thermal Control 2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel 0-3 Thermal Control 2
 
 pci:v00008086d00000EB5*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel 0-3 Thermal Control 3
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel 0-3 Thermal Control 3
 
 pci:v00008086d00000EB6*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel 0-3 ERROR Registers 2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel 0-3 ERROR Registers 2
 
 pci:v00008086d00000EB7*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 1 Channel 0-3 ERROR Registers 3
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 1 Channel 0-3 ERROR Registers 3
+
+pci:v00008086d00000EBC*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO Registers
+
+pci:v00008086d00000EBE*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO Registers
+
+pci:v00008086d00000EBF*
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO Registers
 
 pci:v00008086d00000EC0*
- ID_MODEL_FROM_DATABASE=Ivytown Power Control Unit 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Power Control Unit 0
 
 pci:v00008086d00000EC1*
- ID_MODEL_FROM_DATABASE=Ivytown Power Control Unit 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Power Control Unit 1
 
 pci:v00008086d00000EC2*
- ID_MODEL_FROM_DATABASE=Ivytown Power Control Unit 2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Power Control Unit 2
 
 pci:v00008086d00000EC3*
- ID_MODEL_FROM_DATABASE=Ivytown Power Control Unit 3
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Power Control Unit 3
 
 pci:v00008086d00000EC4*
- ID_MODEL_FROM_DATABASE=Ivytown Power Control Unit 4
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Power Control Unit 4
 
 pci:v00008086d00000EC8*
- ID_MODEL_FROM_DATABASE=Ivytown System Address Decoder
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 System Address Decoder
 
 pci:v00008086d00000EC9*
- ID_MODEL_FROM_DATABASE=Ivytown Broadcast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Broadcast Registers
 
 pci:v00008086d00000ECA*
- ID_MODEL_FROM_DATABASE=Ivytown Broadcast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Broadcast Registers
 
 pci:v00008086d00000ED8*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000ED9*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000EDC*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000EDD*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000EDE*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000EDF*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000EE0*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EE1*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EE2*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EE3*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EE4*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EE5*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EE6*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EE7*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EE8*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EE9*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EEA*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EEB*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EEC*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EED*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EEE*
- ID_MODEL_FROM_DATABASE=Ivytown Unicast Registers
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Unicast Registers
 
 pci:v00008086d00000EF0*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel 0-3 Thermal Control 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel 0-3 Thermal Control 0
 
 pci:v00008086d00000EF1*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel 0-3 Thermal Control 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel 0-3 Thermal Control 1
 
 pci:v00008086d00000EF2*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel 0-3 ERROR Registers 0
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel 0-3 ERROR Registers 0
 
 pci:v00008086d00000EF3*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel 0-3 ERROR Registers 1
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel 0-3 ERROR Registers 1
 
 pci:v00008086d00000EF4*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel 0-3 Thermal Control 2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel 0-3 Thermal Control 2
 
 pci:v00008086d00000EF5*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel 0-3 Thermal Control 3
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel 0-3 Thermal Control 3
 
 pci:v00008086d00000EF6*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel 0-3 ERROR Registers 2
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel 0-3 ERROR Registers 2
 
 pci:v00008086d00000EF7*
- ID_MODEL_FROM_DATABASE=Ivytown Integrated Memory Controller 0 Channel 0-3 ERROR Registers 3
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 Integrated Memory Controller 0 Channel 0-3 ERROR Registers 3
 
 pci:v00008086d00000EF8*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000EF9*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000EFA*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000EFB*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000EFC*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000EFD*
- ID_MODEL_FROM_DATABASE=Ivytown DDRIO
+ ID_MODEL_FROM_DATABASE=Xeon E5 v2/Core i7 DDRIO
 
 pci:v00008086d00000F00*
  ID_MODEL_FROM_DATABASE=ValleyView SSA-CUnit
