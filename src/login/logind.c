@@ -993,8 +993,10 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
         int r;
 
         assert(m);
-        assert(pid >= 1);
         assert(session);
+
+        if (pid < 1)
+                return -EINVAL;
 
         r = cg_pid_get_unit(pid, &unit);
         if (r < 0)
@@ -1014,8 +1016,10 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
         int r;
 
         assert(m);
-        assert(pid >= 1);
         assert(user);
+
+        if (pid < 1)
+                return -EINVAL;
 
         r = cg_pid_get_slice(pid, &unit);
         if (r < 0)
