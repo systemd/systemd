@@ -397,13 +397,13 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         }
 
         /* First, create our own group */
-        r = cg_create_with_mask(mask, path);
+        r = cg_create_everywhere(u->manager->cgroup_supported, mask, path);
         if (r < 0)
                 log_error("Failed to create cgroup %s: %s", path, strerror(-r));
 
         /* Then, possibly move things over */
-        if (u->cgroup_path && !streq(path, u->cgroup_path)) {
-                r = cg_migrate_with_mask(mask, u->cgroup_path, path);
+        if (u->cgroup_path) {
+                r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, path);
                 if (r < 0)
                         log_error("Failed to migrate cgroup %s: %s", path, strerror(-r));
         }
@@ -537,7 +537,7 @@ void unit_destroy_cgroup(Unit *u) {
         if (!u->cgroup_path)
                 return;
 
-        r = cg_trim_with_mask(u->cgroup_mask, u->cgroup_path, !unit_has_name(u, SPECIAL_ROOT_SLICE));
+        r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !unit_has_name(u, SPECIAL_ROOT_SLICE));
         if (r < 0)
                 log_debug("Failed to destroy cgroup %s: %s", u->cgroup_path, strerror(-r));
 

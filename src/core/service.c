@@ -1820,7 +1820,7 @@ static int service_spawn(
                        apply_chroot,
                        apply_tty_stdin,
                        UNIT(s)->manager->confirm_spawn,
-                       UNIT(s)->cgroup_mask,
+                       UNIT(s)->manager->cgroup_supported,
                        path,
                        UNIT(s)->id,
                        s->type == SERVICE_IDLE ? UNIT(s)->manager->idle_pipe : NULL,

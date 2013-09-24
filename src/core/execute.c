@@ -1017,7 +1017,7 @@ int exec_spawn(ExecCommand *command,
                bool apply_chroot,
                bool apply_tty_stdin,
                bool confirm_spawn,
-               CGroupControllerMask cgroup_mask,
+               CGroupControllerMask cgroup_supported,
                const char *cgroup_path,
                const char *unit_id,
                int idle_pipe[4],
@@ -1198,7 +1198,7 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (cgroup_path) {
-                        err = cg_attach_with_mask(cgroup_mask, cgroup_path, 0);
+                        err = cg_attach_everywhere(cgroup_supported, cgroup_path, 0);
                         if (err < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail_child;

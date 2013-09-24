@@ -257,7 +257,7 @@ static int scope_start(Unit *u) {
                 return r;
         }
 
-        r = cg_attach_many_with_mask(u->cgroup_mask, u->cgroup_path, s->pids);
+        r = cg_attach_many_everywhere(u->manager->cgroup_supported, u->cgroup_path, s->pids);
         if (r < 0)
                 return r;
 

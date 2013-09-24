@@ -435,6 +435,46 @@ int cg_migrate_recursive(
         return ret;
 }
 
+int cg_migrate_recursive_fallback(
+                const char *cfrom,
+                const char *pfrom,
+                const char *cto,
+                const char *pto,
+                bool ignore_self,
+                bool rem) {
+
+        int r;
+
+        assert(cfrom);
+        assert(pfrom);
+        assert(cto);
+        assert(pto);
+
+        r = cg_migrate_recursive(cfrom, pfrom, cto, pto, ignore_self, rem);
+        if (r < 0) {
+                char prefix[strlen(pto) + 1];
+
+                /* This didn't work? Then let's try all prefixes of the destination */
+
+                strcpy(prefix, pto);
+                for (;;) {
+                        char *slash;
+
+                        slash = strrchr(prefix, '/');
+                        if (!slash)
+                                break;
+
+                        *slash = 0;
+
+                        r = cg_migrate_recursive(cfrom, pfrom, cto, prefix, ignore_self, rem);
+                        if (r >= 0)
+                                break;
+                }
+        }
+
+        return r;
+}
+
 static const char *normalize_controller(const char *controller) {
 
         assert(controller);
@@ -605,6 +645,39 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         snprintf(c, sizeof(c), "%lu\n", (unsigned long) pid);
 
         return write_string_file(fs, c);
+}
+
+int cg_attach_fallback(const char *controller, const char *path, pid_t pid) {
+        int r;
+
+        assert(controller);
+        assert(path);
+        assert(pid >= 0);
+
+        r = cg_attach(controller, path, pid);
+        if (r < 0) {
+                char prefix[strlen(path) + 1];
+
+                /* This didn't work? Then let's try all prefixes of
+                 * the destination */
+
+                strcpy(prefix, path);
+                for (;;) {
+                        char *slash;
+
+                        slash = strrchr(prefix, '/');
+                        if (!slash)
+                                break;
+
+                        *slash = 0;
+
+                        r = cg_attach(controller, prefix, pid);
+                        if (r >= 0)
+                                break;
+                }
+        }
+
+        return r;
 }
 
 int cg_set_group_access(
@@ -1607,7 +1680,7 @@ static const char mask_names[] =
         "memory\0"
         "devices\0";
 
-int cg_create_with_mask(CGroupControllerMask mask, const char *path) {
+int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path) {
         CGroupControllerMask bit = 1;
         const char *n;
         int r;
@@ -1623,102 +1696,75 @@ int cg_create_with_mask(CGroupControllerMask mask, const char *path) {
 
         /* Then, do the same in the other hierarchies */
         NULSTR_FOREACH(n, mask_names) {
-                if (bit & mask)
+                if (mask & bit)
                         cg_create(n, path);
-                else
+                else if (supported & bit)
                         cg_trim(n, path, true);
 
                 bit <<= 1;
         }
 
-        return r;
+        return 0;
 }
 
-int cg_attach_with_mask(CGroupControllerMask mask, const char *path, pid_t pid) {
+int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid) {
         CGroupControllerMask bit = 1;
         const char *n;
         int r;
 
         r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, path, pid);
+        if (r < 0)
+                return r;
 
         NULSTR_FOREACH(n, mask_names) {
-                if (bit & mask)
-                        cg_attach(n, path, pid);
-                else {
-                        char prefix[strlen(path) + 1], *slash;
-
-                        /* OK, this one is a bit harder... Now we need
-                         * to add to the closest parent cgroup we
-                         * can find */
-                        strcpy(prefix, path);
-                        while ((slash = strrchr(prefix, '/'))) {
-                                int q;
-                                *slash = 0;
-
-                                q = cg_attach(n, prefix, pid);
-                                if (q >= 0)
-                                        break;
-                        }
-                }
+                if (supported & bit)
+                        cg_attach_fallback(n, path, pid);
 
                 bit <<= 1;
         }
 
-        return r;
+        return 0;
 }
 
-int cg_attach_many_with_mask(CGroupControllerMask mask, const char *path, Set* pids) {
+int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids) {
         Iterator i;
         void *pidp;
         int r = 0;
 
         SET_FOREACH(pidp, pids, i) {
                 pid_t pid = PTR_TO_LONG(pidp);
-                int k;
+                int q;
 
-                k = cg_attach_with_mask(mask, path, pid);
-                if (k < 0)
-                        r = k;
+                q = cg_attach_everywhere(supported, path, pid);
+                if (q < 0)
+                        r = q;
         }
 
         return r;
 }
 
-int cg_migrate_with_mask(CGroupControllerMask mask, const char *from, const char *to) {
+int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to) {
         CGroupControllerMask bit = 1;
         const char *n;
         int r;
 
-        if (path_equal(from, to))
-                return 0;
-
-        r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, false, true);
+        if (!path_equal(from, to))  {
+                r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, false, true);
+                if (r < 0)
+                        return r;
+        }
 
         NULSTR_FOREACH(n, mask_names) {
-                if (bit & mask)
-                        cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, to, n, to, false, false);
-                else {
-                        char prefix[strlen(to) + 1], *slash;
-
-                        strcpy(prefix, to);
-                        while ((slash = strrchr(prefix, '/'))) {
-                                int q;
-
-                                *slash = 0;
-
-                                q = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, to, n, prefix, false, false);
-                                if (q >= 0)
-                                        break;
-                        }
-                }
+                if (supported & bit)
+                        cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, n, to, false, false);
 
                 bit <<= 1;
         }
 
-        return r;
+        return 0;
 }
 
-int cg_trim_with_mask(CGroupControllerMask mask, const char *path, bool delete_root) {
+int cg_trim_everywhere(CGroupControllerMask supported, const char *path, bool delete_root) {
         CGroupControllerMask bit = 1;
         const char *n;
         int r;
@@ -1728,13 +1774,13 @@ int cg_trim_with_mask(CGroupControllerMask mask, const char *path, bool delete_r
                 return r;
 
         NULSTR_FOREACH(n, mask_names) {
-                if (bit & mask)
+                if (supported & bit)
                         cg_trim(n, path, delete_root);
 
                 bit <<= 1;
         }
 
-        return r;
+        return 0;
 }
 
 CGroupControllerMask cg_mask_supported(void) {

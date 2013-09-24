@@ -625,7 +625,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                        true,
                        true,
                        UNIT(s)->manager->confirm_spawn,
-                       UNIT(s)->cgroup_mask,
+                       UNIT(s)->manager->cgroup_supported,
                        UNIT(s)->cgroup_path,
                        UNIT(s)->id,
                        NULL,

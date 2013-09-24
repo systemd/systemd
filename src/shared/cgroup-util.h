@@ -64,6 +64,7 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path, bool re
 
 int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self);
 int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool remove);
+int cg_migrate_recursive_fallback(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool rem);
 
 int cg_split_spec(const char *spec, char **controller, char **path);
 int cg_join_spec(const char *controller, const char *path, char **spec);
@@ -81,6 +82,7 @@ int cg_delete(const char *controller, const char *path);
 
 int cg_create(const char *controller, const char *path);
 int cg_attach(const char *controller, const char *path, pid_t pid);
+int cg_attach_fallback(const char *controller, const char *path, pid_t pid);
 int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
 
 int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
@@ -126,10 +128,10 @@ bool cg_controller_is_valid(const char *p, bool allow_named);
 
 int cg_slice_to_path(const char *unit, char **ret);
 
-int cg_create_with_mask(CGroupControllerMask mask, const char *path);
-int cg_attach_with_mask(CGroupControllerMask mask, const char *path, pid_t pid);
-int cg_attach_many_with_mask(CGroupControllerMask mask, const char *path, Set* pids);
-int cg_migrate_with_mask(CGroupControllerMask mask, const char *from, const char *to);
-int cg_trim_with_mask(CGroupControllerMask mask, const char *path, bool delete_root);
+int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path);
+int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid);
+int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids);
+int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to);
+int cg_trim_everywhere(CGroupControllerMask supported, const char *path, bool delete_root);
 
 CGroupControllerMask cg_mask_supported(void);
