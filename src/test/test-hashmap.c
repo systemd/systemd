@@ -468,9 +468,11 @@ static void test_hashmap_get(void) {
 }
 
 static void test_uint64_compare_func(void) {
-        assert_se(uint64_compare_func("a", "a") == 0);
-        assert_se(uint64_compare_func("a", "b") == -1);
-        assert_se(uint64_compare_func("b", "a") == 1);
+        const uint64_t a = 0x100, b = 0x101;
+
+        assert_se(uint64_compare_func(&a, &a) == 0);
+        assert_se(uint64_compare_func(&a, &b) == -1);
+        assert_se(uint64_compare_func(&b, &a) == 1);
 }
 
 static void test_trivial_compare_func(void) {
