@@ -34,7 +34,6 @@
 #include "strv.h"
 #include "conf-parser.h"
 #include "mkdir.h"
-#include "cgroup-util.h"
 
 Manager *manager_new(void) {
         Manager *m;
@@ -83,30 +82,6 @@ void manager_free(Manager *m) {
         free(m);
 }
 
-int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
-        Machine *machine;
-
-        assert(m);
-        assert(name);
-
-        machine = hashmap_get(m->machines, name);
-        if (machine) {
-                if (_machine)
-                        *_machine = machine;
-
-                return 0;
-        }
-
-        machine = machine_new(m, name);
-        if (!machine)
-                return -ENOMEM;
-
-        if (_machine)
-                *_machine = machine;
-
-        return 0;
-}
-
 int manager_enumerate_machines(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -147,27 +122,6 @@ int manager_enumerate_machines(Manager *m) {
         }
 
         return r;
-}
-
-int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
-        _cleanup_free_ char *unit = NULL;
-        Machine *mm;
-        int r;
-
-        assert(m);
-        assert(pid >= 1);
-        assert(machine);
-
-        r = cg_pid_get_unit(pid, &unit);
-        if (r < 0)
-                return r;
-
-        mm = hashmap_get(m->machine_units, unit);
-        if (!mm)
-                return 0;
-
-        *machine = mm;
-        return 1;
 }
 
 static int manager_connect_bus(Manager *m) {

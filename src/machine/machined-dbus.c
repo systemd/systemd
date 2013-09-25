@@ -40,6 +40,7 @@
 #include "unit-name.h"
 #include "bus-errors.h"
 #include "virt.h"
+#include "cgroup-util.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
         " <interface name=\"org.freedesktop.machine1.Manager\">\n"      \
@@ -993,4 +994,49 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
         dbus_message_iter_get_basic(&sub, &state);
 
         return !streq(state, "inactive") && !streq(state, "failed");
+}
+
+int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
+        Machine *machine;
+
+        assert(m);
+        assert(name);
+
+        machine = hashmap_get(m->machines, name);
+        if (machine) {
+                if (_machine)
+                        *_machine = machine;
+
+                return 0;
+        }
+
+        machine = machine_new(m, name);
+        if (!machine)
+                return -ENOMEM;
+
+        if (_machine)
+                *_machine = machine;
+
+        return 0;
+}
+
+int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
+        _cleanup_free_ char *unit = NULL;
+        Machine *mm;
+        int r;
+
+        assert(m);
+        assert(pid >= 1);
+        assert(machine);
+
+        r = cg_pid_get_unit(pid, &unit);
+        if (r < 0)
+                return r;
+
+        mm = hashmap_get(m->machine_units, unit);
+        if (!mm)
+                return 0;
+
+        *machine = mm;
+        return 1;
 }
