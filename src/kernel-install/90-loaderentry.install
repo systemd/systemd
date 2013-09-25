@@ -59,7 +59,9 @@ if ! [[ ${BOOT_OPTIONS[*]} ]]; then
     exit 1
 fi
 
-cp --preserve "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" || {
+cp "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" &&
+   chown root:root "$BOOT_DIR_ABS/linux" &&
+   chmod 0644 "$BOOT_DIR_ABS/linux" || {
     echo "Could not copy '$KERNEL_IMAGE to '$BOOT_DIR_ABS/linux'." >&2
     exit 1
 }
