@@ -456,23 +456,14 @@ int cg_migrate_recursive_fallback(
 
                 /* This didn't work? Then let's try all prefixes of the destination */
 
-                strcpy(prefix, pto);
-                for (;;) {
-                        char *slash;
-
-                        slash = strrchr(prefix, '/');
-                        if (!slash)
-                                break;
-
-                        *slash = 0;
-
+                PATH_FOREACH_PREFIX(prefix, pto) {
                         r = cg_migrate_recursive(cfrom, pfrom, cto, prefix, ignore_self, rem);
                         if (r >= 0)
                                 break;
                 }
         }
 
-        return r;
+        return 0;
 }
 
 static const char *normalize_controller(const char *controller) {
@@ -661,23 +652,14 @@ int cg_attach_fallback(const char *controller, const char *path, pid_t pid) {
                 /* This didn't work? Then let's try all prefixes of
                  * the destination */
 
-                strcpy(prefix, path);
-                for (;;) {
-                        char *slash;
-
-                        slash = strrchr(prefix, '/');
-                        if (!slash)
-                                break;
-
-                        *slash = 0;
-
+                PATH_FOREACH_PREFIX(prefix, path) {
                         r = cg_attach(controller, prefix, pid);
                         if (r >= 0)
                                 break;
                 }
         }
 
-        return r;
+        return 0;
 }
 
 int cg_set_group_access(

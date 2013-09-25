@@ -106,8 +106,35 @@ static void test_find_binary(void) {
         assert(find_binary("xxxx-xxxx", &p) == -ENOENT);
 }
 
+static void test_prefixes(void) {
+        static const char* values[] = { "/a/b/c", "/a/b", "/a", "", NULL};
+        unsigned i = 0;
+        char s[PATH_MAX];
+
+        PATH_FOREACH_PREFIX(s, "/a/b/c/d") {
+                log_error("---%s---", s);
+                assert_se(streq(s, values[i++]));
+        }
+
+        assert_se(values[i] == NULL);
+
+        i = 0;
+        PATH_FOREACH_PREFIX(s, "////a////b////c///d///////")
+                assert_se(streq(s, values[i++]));
+
+        assert_se(values[i] == NULL);
+
+        PATH_FOREACH_PREFIX(s, "////")
+                assert_se(streq(s, ""));
+
+        PATH_FOREACH_PREFIX(s, "")
+                assert_not_reached("wut?");
+
+}
+
 int main(void) {
         test_path();
         test_find_binary();
+        test_prefixes();
         return 0;
 }

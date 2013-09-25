@@ -51,3 +51,6 @@ int path_is_read_only_fs(const char *path);
 int path_is_os_tree(const char *path);
 
 int find_binary(const char *name, char **filename);
+
+#define PATH_FOREACH_PREFIX(prefix, path) \
+        for (char *_slash = strrchr(path_kill_slashes(strcpy(prefix, path)), '/'); _slash && !(*_slash = 0); _slash = strrchr((prefix), '/'))
