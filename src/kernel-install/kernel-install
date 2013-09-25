@@ -54,9 +54,15 @@ dropindirs_sort()
 
 export LC_COLLATE=C
 
-COMMAND="$1"
-KERNEL_VERSION="$2"
-KERNEL_IMAGE="$3"
+if [[ "${0##*/}" == 'installkernel' ]]; then
+    COMMAND='add'
+else
+    COMMAND="$1"
+    shift
+fi
+
+KERNEL_VERSION="$1"
+KERNEL_IMAGE="$2"
 
 if [[ -f /etc/machine-id ]]; then
     read MACHINE_ID < /etc/machine-id
