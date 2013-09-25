@@ -36,6 +36,7 @@
 #include "macro.h"
 #include "smack-setup.h"
 #include "util.h"
+#include "fileio.h"
 #include "log.h"
 #include "label.h"
 
@@ -137,6 +138,13 @@ int smack_setup(void) {
                             strerror(abs(r)));
                 return 0;
         }
+
+#ifdef SMACK_RUN_LABEL
+        r = write_string_file("/proc/self/attr/current", SMACK_RUN_LABEL);
+        if (r)
+                log_warning("Failed to set SMACK label \"%s\" on self: %s",
+                            SMACK_RUN_LABEL, strerror(-r));
+#endif
 
         r = write_rules("/sys/fs/smackfs/cipso2", CIPSO_CONFIG);
         switch(r) {
