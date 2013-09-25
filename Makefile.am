@@ -3761,15 +3761,8 @@ systemd_logind_LDADD = \
 	libsystemd-logind-core.la \
 	$(libsystemd_logind_core_la_LIBADD)
 
-if HAVE_ACL
-systemd_logind_SOURCES += \
-	src/login/logind-acl.c
-
-systemd_logind_LDADD += \
-	libsystemd-acl.la
-endif
-
 libsystemd_logind_core_la_SOURCES = \
+	src/login/logind-core.c \
 	src/login/logind-dbus.c \
 	src/login/logind-device.c \
 	src/login/logind-device.h \
@@ -3806,6 +3799,14 @@ libsystemd_logind_core_la_LIBADD = \
 	libsystemd-dbus.la \
 	libsystemd-id128-internal.la \
 	libudev.la
+
+if HAVE_ACL
+libsystemd_logind_core_la_SOURCES += \
+	src/login/logind-acl.c
+
+libsystemd_logind_core_la_LIBADD += \
+	libsystemd-acl.la
+endif
 
 noinst_LTLIBRARIES += \
 	libsystemd-logind-core.la
