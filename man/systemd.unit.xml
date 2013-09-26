@@ -1241,7 +1241,10 @@
                       <row>
                         <entry><literal>%R</literal></entry>
                         <entry>Parent directory of the control group path where units are placed.</entry>
-                        <entry>For system instances this usually resolves to <filename>/</filename>, except in containers, where this resolves to the container's root directory. This specifier is particularly useful in the <varname>ControlGroup=</varname> setting (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</entry>
+                        <entry>For system instances this usually
+                        resolves to <filename>/</filename>, except in
+                        containers, where this resolves to the
+                        container's root directory.</entry>
                       </row>
                       <row>
                         <entry><literal>%t</literal></entry>

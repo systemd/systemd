@@ -103,32 +103,6 @@
         "  <method name=\"ResetFailedUnit\">\n"                         \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
-        "  <method name=\"SetUnitControlGroup\">\n"                     \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetUnitControlGroup\">\n"                   \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetUnitControlGroupAttribute\">\n"            \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"values\" type=\"as\" direction=\"out\"/>\n"     \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetUnitControlGroupAttribute\">\n"            \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"values\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetUnitControlGroupAttributes\">\n"         \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
@@ -316,7 +290,6 @@
         "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ShowStatus\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RuntimeWatchdogUSec\" type=\"t\" access=\"readwrite\"/>\n" \
