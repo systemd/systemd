@@ -79,10 +79,18 @@ static const MountPoint mount_table[] = {
           NULL,       MNT_NONE },
         { "smackfs",    "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_NONE },
+#ifdef HAVE_SMACK
+        { "tmpfs",      "/dev/shm",                  "tmpfs",      "mode=1777,smackfsroot=*", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+          NULL,       MNT_IN_CONTAINER },
+#endif
         { "tmpfs",      "/dev/shm",                  "tmpfs",      "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "devpts",     "/dev/pts",                  "devpts",     "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
           NULL,       MNT_IN_CONTAINER },
+#ifdef HAVE_SMACK
+        { "tmpfs",      "/run",                      "tmpfs",      "mode=755,smackfsroot=*", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+          NULL,       MNT_IN_CONTAINER },
+#endif
         { "tmpfs",      "/run",                      "tmpfs",      "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "tmpfs",      "/sys/fs/cgroup",            "tmpfs",      "mode=755", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
