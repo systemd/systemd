@@ -3829,7 +3829,8 @@ static int append_assignment(DBusMessageIter *iter, const char *assignment) {
 
 static int set_property(DBusConnection *bus, char **args) {
 
-        _cleanup_free_ DBusMessage *m = NULL, *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        _cleanup_free_ char *n = NULL;
         DBusMessageIter iter, sub;
         dbus_bool_t runtime;
         DBusError error;
@@ -3850,7 +3851,11 @@ static int set_property(DBusConnection *bus, char **args) {
 
         runtime = arg_runtime;
 
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &args[1]) ||
+        n = unit_name_mangle(args[1]);
+        if (!n)
+                return log_oom();
+
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &n) ||
             !dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &runtime) ||
             !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sv)", &sub))
                 return log_oom();
