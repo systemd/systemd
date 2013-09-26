@@ -157,138 +157,58 @@ _pure_ static MountParameters* get_mount_parameters(Mount *m) {
 }
 
 static int mount_add_mount_links(Mount *m) {
-        Unit *other;
-        int r;
+        _cleanup_free_ char *parent = NULL;
         MountParameters *pm;
+        Unit *other;
+        Iterator i;
+        Set *s;
+        int r;
 
         assert(m);
 
+        if (!path_equal(m->where, "/")) {
+                /* Adds in links to other mount points that might lie further
+                 * up in the hierarchy */
+                r = path_get_parent(m->where, &parent);
+                if (r < 0)
+                        return r;
+
+                r = unit_require_mounts_for(UNIT(m), parent);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Adds in links to other mount points that might be needed
+         * for the source path (if this is a bind mount) to be
+         * available. */
         pm = get_mount_parameters_fragment(m);
+        if (pm && path_is_absolute(pm->what)) {
+                r = unit_require_mounts_for(UNIT(m), pm->what);
+                if (r < 0)
+                        return r;
+        }
 
-        /* Adds in links to other mount points that might lie below or
-         * above us in the hierarchy */
+        /* Adds in links to other units that use this path or paths
+         * further down in the hierarchy */
+        s = manager_get_units_requiring_mounts_for(UNIT(m)->manager, m->where);
+        SET_FOREACH(other, s, i) {
 
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_MOUNT]) {
-                Mount *n = MOUNT(other);
-                MountParameters *pn;
-
-                if (n == m)
+                if (other->load_state != UNIT_LOADED)
                         continue;
 
-                if (UNIT(n)->load_state != UNIT_LOADED)
+                if (other == UNIT(m))
                         continue;
 
-                pn = get_mount_parameters_fragment(n);
+                r = unit_add_dependency(other, UNIT_AFTER, UNIT(m), true);
+                if (r < 0)
+                        return r;
 
-                if (path_startswith(m->where, n->where)) {
-
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(n), true)) < 0)
-                                return r;
-
-                        if (pn)
-                                if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(n), true)) < 0)
-                                        return r;
-
-                } else if (path_startswith(n->where, m->where)) {
-
-                        if ((r = unit_add_dependency(UNIT(n), UNIT_AFTER, UNIT(m), true)) < 0)
-                                return r;
-
-                        if (pm)
-                                if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
-                                        return r;
-
-                } else if (pm && pm->what && path_startswith(pm->what, n->where)) {
-
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(n), true)) < 0)
-                                return r;
-
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(n), true)) < 0)
-                                return r;
-
-                } else if (pn && pn->what && path_startswith(pn->what, m->where)) {
-
-                        if ((r = unit_add_dependency(UNIT(n), UNIT_AFTER, UNIT(m), true)) < 0)
-                                return r;
-
-                        if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
+                if (UNIT(m)->fragment_path) {
+                        /* If we have fragment configuration, then make this dependency required */
+                        r = unit_add_dependency(other, UNIT_REQUIRES, UNIT(m), true);
+                        if (r < 0)
                                 return r;
                 }
-        }
-
-        return 0;
-}
-
-static int mount_add_swap_links(Mount *m) {
-        Unit *other;
-        int r;
-
-        assert(m);
-
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SWAP]) {
-                r = swap_add_one_mount_link(SWAP(other), m);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int mount_add_path_links(Mount *m) {
-        Unit *other;
-        int r;
-
-        assert(m);
-
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_PATH]) {
-                r = path_add_one_mount_link(PATH(other), m);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int mount_add_automount_links(Mount *m) {
-        Unit *other;
-        int r;
-
-        assert(m);
-
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_AUTOMOUNT]) {
-                r = automount_add_one_mount_link(AUTOMOUNT(other), m);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int mount_add_socket_links(Mount *m) {
-        Unit *other;
-        int r;
-
-        assert(m);
-
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SOCKET]) {
-                r = socket_add_one_mount_link(SOCKET(other), m);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int mount_add_requires_mounts_links(Mount *m) {
-        Unit *other;
-        int r;
-
-        assert(m);
-
-        LIST_FOREACH(has_requires_mounts_for, other, UNIT(m)->manager->has_requires_mounts_for) {
-                r = unit_add_one_mount_link(other, m);
-                if (r < 0)
-                        return r;
         }
 
         return 0;
@@ -567,8 +487,9 @@ static int mount_fix_timeouts(Mount *m) {
 }
 
 static int mount_verify(Mount *m) {
+        _cleanup_free_ char *e = NULL;
         bool b;
-        char *e;
+
         assert(m);
 
         if (UNIT(m)->load_state != UNIT_LOADED)
@@ -577,12 +498,11 @@ static int mount_verify(Mount *m) {
         if (!m->from_fragment && !m->from_proc_self_mountinfo)
                 return -ENOENT;
 
-        if (!(e = unit_name_from_path(m->where, ".mount")))
+        e = unit_name_from_path(m->where, ".mount");
+        if (!e)
                 return -ENOMEM;
 
         b = unit_has_name(UNIT(m), e);
-        free(e);
-
         if (!b) {
                 log_error_unit(UNIT(m)->id,
                                "%s's Where setting doesn't match unit name. Refusing.",
@@ -643,26 +563,6 @@ static int mount_add_extras(Mount *m) {
                 return r;
 
         r = mount_add_mount_links(m);
-        if (r < 0)
-                return r;
-
-        r = mount_add_socket_links(m);
-        if (r < 0)
-                return r;
-
-        r = mount_add_swap_links(m);
-        if (r < 0)
-                return r;
-
-        r = mount_add_path_links(m);
-        if (r < 0)
-                return r;
-
-        r = mount_add_requires_mounts_links(m);
-        if (r < 0)
-                return r;
-
-        r = mount_add_automount_links(m);
         if (r < 0)
                 return r;
 
@@ -1650,78 +1550,55 @@ fail:
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         int r = 0;
         unsigned i;
-        char *device, *path, *options, *options2, *fstype, *d, *p, *o;
 
         assert(m);
 
         rewind(m->proc_self_mountinfo);
 
         for (i = 1;; i++) {
+                _cleanup_free_ char *device = NULL, *path = NULL, *options = NULL, *options2 = NULL, *fstype = NULL, *d = NULL, *p = NULL, *o = NULL;
                 int k;
 
-                device = path = options = options2 = fstype = d = p = o = NULL;
+                k = fscanf(m->proc_self_mountinfo,
+                           "%*s "       /* (1) mount id */
+                           "%*s "       /* (2) parent id */
+                           "%*s "       /* (3) major:minor */
+                           "%*s "       /* (4) root */
+                           "%ms "       /* (5) mount point */
+                           "%ms"        /* (6) mount options */
+                           "%*[^-]"     /* (7) optional fields */
+                           "- "         /* (8) separator */
+                           "%ms "       /* (9) file system type */
+                           "%ms"        /* (10) mount source */
+                           "%ms"        /* (11) mount options 2 */
+                           "%*[^\n]",   /* some rubbish at the end */
+                           &path,
+                           &options,
+                           &fstype,
+                           &device,
+                           &options2);
 
-                if ((k = fscanf(m->proc_self_mountinfo,
-                                "%*s "       /* (1) mount id */
-                                "%*s "       /* (2) parent id */
-                                "%*s "       /* (3) major:minor */
-                                "%*s "       /* (4) root */
-                                "%ms "       /* (5) mount point */
-                                "%ms"        /* (6) mount options */
-                                "%*[^-]"     /* (7) optional fields */
-                                "- "         /* (8) separator */
-                                "%ms "       /* (9) file system type */
-                                "%ms"        /* (10) mount source */
-                                "%ms"        /* (11) mount options 2 */
-                                "%*[^\n]",   /* some rubbish at the end */
-                                &path,
-                                &options,
-                                &fstype,
-                                &device,
-                                &options2)) != 5) {
+                if (k == EOF)
+                        break;
 
-                        if (k == EOF)
-                                break;
-
+                if (k != 5) {
                         log_warning("Failed to parse /proc/self/mountinfo:%u.", i);
-                        goto clean_up;
+                        continue;
                 }
 
                 o = strjoin(options, ",", options2, NULL);
-                if (!o) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!o)
+                        return log_oom();
 
-                if (!(d = cunescape(device)) ||
-                    !(p = cunescape(path))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                d = cunescape(device);
+                p = cunescape(path);
+                if (!d || !p)
+                        return log_oom();
 
-                if ((k = mount_add_one(m, d, p, o, fstype, 0, set_flags)) < 0)
+                k = mount_add_one(m, d, p, o, fstype, 0, set_flags);
+                if (k < 0)
                         r = k;
-
-clean_up:
-                free(device);
-                free(path);
-                free(options);
-                free(options2);
-                free(fstype);
-                free(d);
-                free(p);
-                free(o);
         }
-
-finish:
-        free(device);
-        free(path);
-        free(options);
-        free(options2);
-        free(fstype);
-        free(d);
-        free(p);
-        free(o);
 
         return r;
 }

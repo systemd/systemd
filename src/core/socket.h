@@ -156,10 +156,6 @@ struct Socket {
 /* Called from the service code when collecting fds */
 int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
 
-/* Called from the mount code figure out if a mount is a dependency of
- * any of the sockets of this socket */
-int socket_add_one_mount_link(Socket *s, Mount *m);
-
 /* Called from the service code when a per-connection service ended */
 void socket_connection_unref(Socket *s);
 

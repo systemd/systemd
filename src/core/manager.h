@@ -103,9 +103,6 @@ struct Manager {
          * type we maintain a per type linked list */
         LIST_HEAD(Unit, units_by_type[_UNIT_TYPE_MAX]);
 
-        /* To optimize iteration of units that have requires_mounts_for set */
-        LIST_HEAD(Unit, has_requires_mounts_for);
-
         /* Units that need to be loaded */
         LIST_HEAD(Unit, load_queue); /* this is actually more a stack than a queue, but uh. */
 
@@ -251,6 +248,11 @@ struct Manager {
 
         char *switch_root;
         char *switch_root_init;
+
+        /* This maps all possible path prefixes to the units needing
+         * them. It's a hashmap with a path string as key and a Set as
+         * value where Unit objects are contained. */
+        Hashmap *units_requiring_mounts_for;
 };
 
 int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **m);
@@ -262,6 +264,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
+
+int manager_get_unit_by_path(Manager *m, const char *path, const char *suffix, Unit **_found);
 
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
@@ -315,5 +319,7 @@ void manager_recheck_journal(Manager *m);
 
 void manager_set_show_status(Manager *m, bool b);
 void manager_status_printf(Manager *m, bool ephemeral, const char *status, const char *format, ...) _printf_attr_(4,5);
+
+Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
 
 void watch_init(Watch *w);

@@ -90,10 +90,6 @@ struct Path {
         PathResult result;
 };
 
-/* Called from the mount code figure out if a mount is a dependency of
- * any of the paths of this path object */
-int path_add_one_mount_link(Path *p, Mount *m);
-
 void path_free_specs(Path *p);
 
 extern const UnitVTable path_vtable;

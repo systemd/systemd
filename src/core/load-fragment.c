@@ -1773,33 +1773,48 @@ int config_parse_unit_condition_null(const char *unit,
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_start_limit_action, start_limit_action, StartLimitAction, "Failed to parse start limit action specifier");
 
-int config_parse_unit_requires_mounts_for(const char *unit,
-                                          const char *filename,
-                                          unsigned line,
-                                          const char *section,
-                                          const char *lvalue,
-                                          int ltype,
-                                          const char *rvalue,
-                                          void *data,
-                                          void *userdata) {
+int config_parse_unit_requires_mounts_for(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Unit *u = userdata;
+        char *state;
+        size_t l;
+        char *w;
         int r;
-        bool empty_before;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        empty_before = !u->requires_mounts_for;
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                _cleanup_free_ char *n;
 
-        r = config_parse_path_strv(unit, filename, line, section, lvalue, ltype,
-                                   rvalue, data, userdata);
+                n = strndup(w, l);
+                if (!n)
+                        return log_oom();
 
-        /* Make it easy to find units with requires_mounts set */
-        if (empty_before && u->requires_mounts_for)
-                LIST_PREPEND(Unit, has_requires_mounts_for, u->manager->has_requires_mounts_for, u);
+                if (!utf8_is_valid(n)) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
+                        continue;
+                }
+
+                r = unit_require_mounts_for(u, n);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to add required mount for, ignoring: %s", rvalue);
+                        continue;
+                }
+        }
 
         return r;
 }

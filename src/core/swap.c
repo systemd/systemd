@@ -137,42 +137,6 @@ static void swap_done(Unit *u) {
         unit_unwatch_timer(u, &s->timer_watch);
 }
 
-int swap_add_one_mount_link(Swap *s, Mount *m) {
-         int r;
-
-        assert(s);
-        assert(m);
-
-        if (UNIT(s)->load_state != UNIT_LOADED ||
-            UNIT(m)->load_state != UNIT_LOADED)
-                return 0;
-
-        if (is_device_path(s->what))
-                return 0;
-
-        if (!path_startswith(s->what, m->where))
-                return 0;
-
-        r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int swap_add_mount_links(Swap *s) {
-        Unit *other;
-        int r;
-
-        assert(s);
-
-        LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_MOUNT])
-                if ((r = swap_add_one_mount_link(s, MOUNT(other))) < 0)
-                        return r;
-
-        return 0;
-}
-
 static int swap_add_device_links(Swap *s) {
         SwapParameters *p;
 
@@ -300,11 +264,11 @@ static int swap_load(Unit *u) {
                         if ((r = unit_set_description(u, s->what)) < 0)
                                 return r;
 
-                r = swap_add_device_links(s);
+                r = unit_require_mounts_for(UNIT(s), s->what);
                 if (r < 0)
                         return r;
 
-                r = swap_add_mount_links(s);
+                r = swap_add_device_links(s);
                 if (r < 0)
                         return r;
 

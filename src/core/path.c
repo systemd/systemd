@@ -241,10 +241,6 @@ static bool path_spec_check_good(PathSpec *s, bool initial) {
         return good;
 }
 
-static bool path_spec_startswith(PathSpec *s, const char *what) {
-        return path_startswith(s->path, what);
-}
-
 static void path_spec_mkdir(PathSpec *s, mode_t mode) {
         int r;
 
@@ -301,38 +297,14 @@ static void path_done(Unit *u) {
         path_free_specs(p);
 }
 
-int path_add_one_mount_link(Path *p, Mount *m) {
+static int path_add_mount_links(Path *p) {
         PathSpec *s;
         int r;
 
         assert(p);
-        assert(m);
-
-        if (UNIT(p)->load_state != UNIT_LOADED ||
-            UNIT(m)->load_state != UNIT_LOADED)
-                return 0;
 
         LIST_FOREACH(spec, s, p->specs) {
-                if (!path_spec_startswith(s, m->where))
-                        continue;
-
-                r = unit_add_two_dependencies(UNIT(p), UNIT_AFTER, UNIT_REQUIRES,
-                                              UNIT(m), true);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int path_add_mount_links(Path *p) {
-        Unit *other;
-        int r;
-
-        assert(p);
-
-        LIST_FOREACH(units_by_type, other, UNIT(p)->manager->units_by_type[UNIT_MOUNT]) {
-                r = path_add_one_mount_link(p, MOUNT(other));
+                r = unit_require_mounts_for(UNIT(p), s->path);
                 if (r < 0)
                         return r;
         }

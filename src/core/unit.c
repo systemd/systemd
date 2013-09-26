@@ -374,6 +374,34 @@ static void unit_remove_transient(Unit *u) {
         }
 }
 
+static void unit_free_requires_mounts_for(Unit *u) {
+        char **j;
+
+        STRV_FOREACH(j, u->requires_mounts_for) {
+                char s[strlen(*j) + 1];
+
+                PATH_FOREACH_PREFIX_MORE(s, *j) {
+                        char *y;
+                        Set *x;
+
+                        x = hashmap_get2(u->manager->units_requiring_mounts_for, s, (void**) &y);
+                        if (!x)
+                                continue;
+
+                        set_remove(x, u);
+
+                        if (set_isempty(x)) {
+                                hashmap_remove(u->manager->units_requiring_mounts_for, y);
+                                free(y);
+                                set_free(x);
+                        }
+                }
+        }
+
+        strv_free(u->requires_mounts_for);
+        u->requires_mounts_for = NULL;
+}
+
 void unit_free(Unit *u) {
         UnitDependency d;
         Iterator i;
@@ -389,6 +417,8 @@ void unit_free(Unit *u) {
         if (u->load_state != UNIT_STUB)
                 if (UNIT_VTABLE(u)->done)
                         UNIT_VTABLE(u)->done(u);
+
+        unit_free_requires_mounts_for(u);
 
         SET_FOREACH(t, u->names, i)
                 hashmap_remove_value(u->manager->units, t, u);
@@ -407,11 +437,6 @@ void unit_free(Unit *u) {
 
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 bidi_set_free(u, u->dependencies[d]);
-
-        if (u->requires_mounts_for) {
-                LIST_REMOVE(Unit, has_requires_mounts_for, u->manager->has_requires_mounts_for, u);
-                strv_free(u->requires_mounts_for);
-        }
 
         if (u->type != _UNIT_TYPE_INVALID)
                 LIST_REMOVE(Unit, units_by_type, u->manager->units_by_type[u->type], u);
@@ -2659,40 +2684,39 @@ void unit_ref_unset(UnitRef *ref) {
         ref->unit = NULL;
 }
 
-int unit_add_one_mount_link(Unit *u, Mount *m) {
-        char **i;
-
-        assert(u);
-        assert(m);
-
-        if (u->load_state != UNIT_LOADED ||
-            UNIT(m)->load_state != UNIT_LOADED)
-                return 0;
-
-        STRV_FOREACH(i, u->requires_mounts_for) {
-
-                if (UNIT(m) == u)
-                        continue;
-
-                if (!path_startswith(*i, m->where))
-                        continue;
-
-                return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true);
-        }
-
-        return 0;
-}
-
 int unit_add_mount_links(Unit *u) {
-        Unit *other;
+        char **i;
         int r;
 
         assert(u);
 
-        LIST_FOREACH(units_by_type, other, u->manager->units_by_type[UNIT_MOUNT]) {
-                r = unit_add_one_mount_link(u, MOUNT(other));
-                if (r < 0)
-                        return r;
+        STRV_FOREACH(i, u->requires_mounts_for) {
+                char prefix[strlen(*i) + 1];
+
+                PATH_FOREACH_PREFIX_MORE(prefix, *i) {
+                        Unit *m;
+
+                        r = manager_get_unit_by_path(u->manager, prefix, ".mount", &m);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+                        if (m == u)
+                                continue;
+
+                        if (m->load_state != UNIT_LOADED)
+                                continue;
+
+                        r = unit_add_dependency(u, UNIT_AFTER, m, true);
+                        if (r < 0)
+                                return r;
+
+                        if (m->fragment_path) {
+                                r = unit_add_dependency(u, UNIT_REQUIRES, m, true);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
         }
 
         return 0;
@@ -3010,6 +3034,86 @@ int unit_kill_context(
         }
 
         return wait_for_exit;
+}
+
+int unit_require_mounts_for(Unit *u, const char *path) {
+        char prefix[strlen(path) + 1], *p;
+        int r;
+
+        assert(u);
+        assert(path);
+
+        /* Registers a unit for requiring a certain path and all its
+         * prefixes. We keep a simple array of these paths in the
+         * unit, since its usually short. However, we build a prefix
+         * table for all possible prefixes so that new appearing mount
+         * units can easily determine which units to make themselves a
+         * dependency of. */
+
+        p = strdup(path);
+        if (!p)
+                return -ENOMEM;
+
+        path_kill_slashes(p);
+
+        if (!path_is_absolute(p)) {
+                free(p);
+                return -EINVAL;
+        }
+
+        if (!path_is_safe(p)) {
+                free(p);
+                return -EPERM;
+        }
+
+        if (strv_contains(u->requires_mounts_for, p)) {
+                free(p);
+                return 0;
+        }
+
+        r = strv_push(&u->requires_mounts_for, p);
+        if (r < 0) {
+                free(p);
+                return r;
+        }
+
+        PATH_FOREACH_PREFIX_MORE(prefix, p) {
+                Set *x;
+
+                x = hashmap_get(u->manager->units_requiring_mounts_for, prefix);
+                if (!x) {
+                        char *q;
+
+                        if (!u->manager->units_requiring_mounts_for) {
+                                u->manager->units_requiring_mounts_for = hashmap_new(string_hash_func, string_compare_func);
+                                if (!u->manager->units_requiring_mounts_for)
+                                        return -ENOMEM;
+                        }
+
+                        q = strdup(prefix);
+                        if (!q)
+                                return -ENOMEM;
+
+                        x = set_new(NULL, NULL);
+                        if (!x) {
+                                free(q);
+                                return -ENOMEM;
+                        }
+
+                        r = hashmap_put(u->manager->units_requiring_mounts_for, q, x);
+                        if (r < 0) {
+                                free(q);
+                                set_free(x);
+                                return r;
+                        }
+                }
+
+                r = set_put(x, u);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {

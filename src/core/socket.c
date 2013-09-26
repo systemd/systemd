@@ -258,53 +258,24 @@ static int socket_verify(Socket *s) {
         return 0;
 }
 
-static bool socket_needs_mount(Socket *s, const char *prefix) {
+static int socket_add_mount_links(Socket *s) {
         SocketPort *p;
+        int r;
 
         assert(s);
 
         LIST_FOREACH(port, p, s->ports) {
+                const char *path = NULL;
 
-                if (p->type == SOCKET_SOCKET) {
-                        if (socket_address_needs_mount(&p->address, prefix))
-                                return true;
-                } else if (p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL) {
-                        if (path_startswith(p->path, prefix))
-                                return true;
-                }
-        }
+                if (p->type == SOCKET_SOCKET)
+                        path = socket_address_get_path(&p->address);
+                else if (p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL)
+                        path = p->path;
 
-        return false;
-}
+                if (!path)
+                        continue;
 
-int socket_add_one_mount_link(Socket *s, Mount *m) {
-        int r;
-
-        assert(s);
-        assert(m);
-
-        if (UNIT(s)->load_state != UNIT_LOADED ||
-            UNIT(m)->load_state != UNIT_LOADED)
-                return 0;
-
-        if (!socket_needs_mount(s, m->where))
-                return 0;
-
-        r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int socket_add_mount_links(Socket *s) {
-        Unit *other;
-        int r;
-
-        assert(s);
-
-        LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_MOUNT]) {
-                r = socket_add_one_mount_link(s, MOUNT(other));
+                r = unit_require_mounts_for(UNIT(s), path);
                 if (r < 0)
                         return r;
         }

@@ -173,7 +173,6 @@ struct Unit {
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
-        bool cgroup_realized;
         CGroupControllerMask cgroup_mask;
 
         UnitRef slice;
@@ -255,6 +254,8 @@ struct Unit {
         bool no_gc:1;
 
         bool in_audit:1;
+
+        bool cgroup_realized:1;
 };
 
 struct UnitStatusMessageFormats {
@@ -589,7 +590,6 @@ void unit_ref_unset(UnitRef *ref);
 #define UNIT_DEREF(ref) ((ref).unit)
 #define UNIT_ISSET(ref) (!!(ref).unit)
 
-int unit_add_one_mount_link(Unit *u, Mount *m);
 int unit_add_mount_links(Unit *u);
 
 int unit_exec_context_defaults(Unit *u, ExecContext *c);
@@ -608,6 +608,8 @@ int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name);
 int unit_kill_context(Unit *u, KillContext *c, bool sigkill, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
 
 int unit_make_transient(Unit *u);
+
+int unit_require_mounts_for(Unit *u, const char *path);
 
 const char *unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;

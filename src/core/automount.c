@@ -117,42 +117,17 @@ static void automount_done(Unit *u) {
         a->tokens = NULL;
 }
 
-int automount_add_one_mount_link(Automount *a, Mount *m) {
+static int automount_add_mount_links(Automount *a) {
+        _cleanup_free_ char *parent = NULL;
         int r;
 
         assert(a);
-        assert(m);
 
-        if (UNIT(a)->load_state != UNIT_LOADED ||
-            UNIT(m)->load_state != UNIT_LOADED)
-                return 0;
-
-        if (!path_startswith(a->where, m->where))
-                return 0;
-
-        if (path_equal(a->where, m->where))
-                return 0;
-
-        r = unit_add_two_dependencies(UNIT(a), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true);
+        r = path_get_parent(a->where, &parent);
         if (r < 0)
                 return r;
 
-        return 0;
-}
-
-static int automount_add_mount_links(Automount *a) {
-        Unit *other;
-        int r;
-
-        assert(a);
-
-        LIST_FOREACH(units_by_type, other, UNIT(a)->manager->units_by_type[UNIT_MOUNT]) {
-                r = automount_add_one_mount_link(a, MOUNT(other));
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return unit_require_mounts_for(UNIT(a), parent);
 }
 
 static int automount_add_default_dependencies(Automount *a) {

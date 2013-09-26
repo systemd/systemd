@@ -770,6 +770,9 @@ void manager_free(Manager *m) {
         for (i = 0; i < RLIMIT_NLIMITS; i++)
                 free(m->rlimit[i]);
 
+        assert(hashmap_isempty(m->units_requiring_mounts_for));
+        hashmap_free(m->units_requiring_mounts_for);
+
         free(m);
 }
 
@@ -782,9 +785,11 @@ int manager_enumerate(Manager *m) {
         /* Let's ask every type to load all units from disk/kernel
          * that it might know */
         for (c = 0; c < _UNIT_TYPE_MAX; c++)
-                if (unit_vtable[c]->enumerate)
-                        if ((q = unit_vtable[c]->enumerate(m)) < 0)
+                if (unit_vtable[c]->enumerate) {
+                        q = unit_vtable[c]->enumerate(m);
+                        if (q < 0)
                                 r = q;
+                }
 
         manager_dispatch_load_queue(m);
         return r;
@@ -2762,6 +2767,41 @@ void manager_status_printf(Manager *m, bool ephemeral, const char *status, const
         va_start(ap, format);
         status_vprintf(status, true, ephemeral, format, ap);
         va_end(ap);
+}
+
+int manager_get_unit_by_path(Manager *m, const char *path, const char *suffix, Unit **_found) {
+        _cleanup_free_ char *p = NULL;
+        Unit *found;
+
+        assert(m);
+        assert(path);
+        assert(suffix);
+        assert(_found);
+
+        p = unit_name_from_path(path, suffix);
+        if (!p)
+                return -ENOMEM;
+
+        found = manager_get_unit(m, p);
+        if (!found) {
+                *_found = NULL;
+                return 0;
+        }
+
+        *_found = found;
+        return 1;
+}
+
+Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
+        char p[strlen(path)+1];
+
+        assert(m);
+        assert(path);
+
+        strcpy(p, path);
+        path_kill_slashes(p);
+
+        return hashmap_get(m->units_requiring_mounts_for, streq(p, "/") ? "" : p);
 }
 
 void watch_init(Watch *w) {

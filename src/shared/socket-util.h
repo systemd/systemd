@@ -92,7 +92,7 @@ int make_socket_fd(const char* address, int flags);
 
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_;
 
-bool socket_address_needs_mount(const SocketAddress *a, const char *prefix);
+const char* socket_address_get_path(const SocketAddress *a);
 
 const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
