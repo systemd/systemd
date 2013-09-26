@@ -174,7 +174,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <term><option>--full</option></term>
 
         <listitem>
-          <para>Do not ellipsize unit names, cgroup members, and
+          <para>Do not ellipsize unit names, process tree entries, and
           truncate unit descriptions in the output of
           <command>list-units</command> and
           <command>list-jobs</command>.</para>
@@ -711,14 +711,14 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <listitem>
             <para>Set the specified unit properties at runtime where
             this is supported. This allows changing configuration
-            parameter properties such as resource management controls at
+            parameter properties such as resource control settings at
             runtime. Not all properties may be changed at runtime, but
-            many resource management settings (primarily those in
-            <citerefentry><refentrytitle>systemd.cgroup</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+            many resource control settings (primarily those in
+            <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
             may. The changes are applied instantly, and stored on disk
             for future boots, unless <option>--runtime</option> is
-            passed, in which case the settings only apply until the next
-            reboot. The syntax of the property assignment follows
+            passed, in which case the settings only apply until the
+            next reboot. The syntax of the property assignment follows
             closely the syntax of assignments in unit files.</para>
 
             <para>Example: <command>systemctl set-property foobar.service CPUShares=777</command></para>
@@ -1290,7 +1290,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.cgroup</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.resource-management</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>

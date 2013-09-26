@@ -116,8 +116,8 @@
                                 <term><option>-l</option></term>
                                 <term><option>--full</option></term>
 
-                                <listitem><para>Do not ellipsize cgroup
-                                members.</para>
+                                <listitem><para>Do not ellipsize
+                                process tree members.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -132,7 +132,7 @@
                                 <term><option>-m <replaceable>MACHINE</replaceable></option></term>
                                 <term><option>--machine=<replaceable>MACHINE</replaceable></option></term>
 
-                                <listitem><para>Limit cgroups shown to
+                                <listitem><para>Limit control groups shown to
                                 the part corresponding to the
                                 container <replaceable>MACHINE</replaceable>.
                                 </para></listitem>

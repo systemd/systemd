@@ -55,7 +55,7 @@
                 <title>Description</title>
 
                 <para><command>pam_systemd</command> registers user
-                sessions in the systemd login manager
+                sessions with the systemd login manager
                 <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                 and hence the systemd control group hierarchy.</para>
 

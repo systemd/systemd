@@ -22,9 +22,9 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd.cgroup">
+<refentry id="systemd.resource-control">
   <refentryinfo>
-    <title>systemd.cgroup</title>
+    <title>systemd.resource-control</title>
     <productname>systemd</productname>
 
     <authorgroup>
@@ -38,13 +38,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd.cgroup</refentrytitle>
+    <refentrytitle>systemd.resource-control</refentrytitle>
     <manvolnum>5</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>systemd.cgroup</refname>
-    <refpurpose>Control Group configuration unit settings</refpurpose>
+    <refname>systemd.resource-control</refname>
+    <refpurpose>Resource control unit settings</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -63,12 +63,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>Unit configuration files for services, slices, scopes,
     sockets, mount points, and swap devices share a subset of
-    configuration options which configure the control group settings
-    for spawned processes.</para>
-
-    <para>Control Groups is a concept for organizing processes in a
-    hierarch tree of named groups for the purpose of resource
-    management.</para>
+    configuration options for resource control of spawned
+    processes. Internally, this relies on the the Control Groups
+    kernel concept for organizing processes in a hierarchial tree of
+    named groups for the purpose of resource management.</para>
 
     <para>This man page lists the configuration options shared by
     those six unit types. See
@@ -82,7 +80,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     and
     <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for more information on the specific unit configuration files. The
-    execution-specific configuration options are configured in the
+    resource control configuration options are configured in the
     [Slice], [Scope], [Service], [Socket], [Mount], or [Swap]
     sections, depending on the unit type.</para>
   </refsect1>
@@ -91,7 +89,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <title>Options</title>
 
     <para>Units of the types listed above can have settings
-    for cgroup configuration:</para>
+    for resource control configuration:</para>
 
     <variablelist class='unit-directives'>
 

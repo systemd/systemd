@@ -58,14 +58,14 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <literal>.slice</literal> encodes information about a slice which
     is a concept for hierarchially managing resources of a group of
     processes. This management is performed by creating a node in the
-    control group tree. Units that manage processes (primarilly scope
-    and service units) may be assigned to a specific slice. For each
-    slice, certain resource limits may the be set that apply to all
-    processes of all units contained in that slice. Slices are
-    organized hierarchially in a tree. The name of the slice encodes
-    the location in the tree. The name consists of a dash-separated
-    series of names, which describes the path to the slice from the
-    root slice. The root slice is named,
+    Linux Control Group (cgroup) tree. Units that manage processes
+    (primarilly scope and service units) may be assigned to a specific
+    slice. For each slice, certain resource limits may the be set that
+    apply to all processes of all units contained in that
+    slice. Slices are organized hierarchially in a tree. The name of
+    the slice encodes the location in the tree. The name consists of a
+    dash-separated series of names, which describes the path to the
+    slice from the root slice. The root slice is named,
     <filename>-.slice</filename>. Example:
     <filename>foo-bar.slice</filename> is a slice that is located
     within <filename>foo.slice</filename>, which in turn is located in
@@ -89,9 +89,9 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     files. The common configuration items are configured
     in the generic [Unit] and [Install] sections. The
     slice specific configuration options are configured in
-    the [Slice] section. Currently, only generic cgroup settings
+    the [Slice] section. Currently, only generic resource control settings
     as described in
-    <citerefentry><refentrytitle>systemd.cgroup</refentrytitle><manvolnum>7</manvolnum></citerefentry> are allowed.
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>7</manvolnum></citerefentry> are allowed.
     </para>
 
     <para>Unless <varname>DefaultDependencies=false</varname>
@@ -110,7 +110,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.cgroup</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
