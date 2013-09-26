@@ -1265,6 +1265,10 @@ int main(int argc, char *argv[]) {
 
         log_show_color(isatty(STDERR_FILENO) > 0);
 
+        /* Disable the umask logic */
+        if (getpid() == 1)
+                umask(0);
+
         if (getpid() == 1 && detect_container(NULL) <= 0) {
 
                 /* Running outside of a container as PID 1 */
@@ -1438,13 +1442,9 @@ int main(int argc, char *argv[]) {
         if (serialization)
                 assert_se(fdset_remove(fds, fileno(serialization)) >= 0);
 
-        if (arg_running_as == SYSTEMD_SYSTEM) {
+        if (arg_running_as == SYSTEMD_SYSTEM)
                 /* Become a session leader if we aren't one yet. */
                 setsid();
-
-                /* Disable the umask logic */
-                umask(0);
-        }
 
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
