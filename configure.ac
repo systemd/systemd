@@ -101,6 +101,20 @@ if test -z "$GPERF" ; then
         AC_MSG_ERROR([*** gperf not found])
 fi
 
+# ------------------------------------------------------------------------------
+address_sanitizer_cflags=
+address_sanitizer_cppflags=
+address_sanitizer_ldflags=
+AC_ARG_ENABLE(address-sanitizer, AS_HELP_STRING([--enable-address-sanitizer], [enable -fsanitize=address]))
+AS_IF([test "x$enable_address_sanitizer" = "xyes"], [
+            CC_CHECK_FLAG_APPEND([with_as_cflags], [CFLAGS], [-fsanitize=address])
+            AS_IF([test -z "$with_as_cflags"],
+                  [AC_MSG_ERROR([*** -fsanitize=address is not supported])])
+            address_sanitizer_cflags="$with_as_cflags -fno-omit-frame-pointer -DVALGRIND=1"
+            address_sanitizer_cppflags="-DVALGRIND=1"
+            address_sanitizer_ldflags="-Wc,-fsanitize=address"
+      ])
+
 CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -pipe \
         -Wall \
@@ -142,13 +156,13 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fdata-sections \
         -fstack-protector \
         --param=ssp-buffer-size=4])
-AC_SUBST([OUR_CFLAGS], $with_cflags)
+AC_SUBST([OUR_CFLAGS], "$with_cflags $address_sanitizer_cflags")
 
 AS_CASE([$CFLAGS], [*-O[[12345g\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
                -Wp,-D_FORTIFY_SOURCE=2])],
         [AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
-AC_SUBST([OUR_CPPFLAGS], $with_cppflags)
+AC_SUBST([OUR_CPPFLAGS], "$with_cppflags $address_sanitizer_cppflags")
 
 CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--as-needed \
@@ -156,7 +170,7 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--gc-sections \
         -Wl,-z,relro \
         -Wl,-z,now])
-AC_SUBST([OUR_LDFLAGS], $with_ldflags)
+AC_SUBST([OUR_LDFLAGS], "$with_ldflags $address_sanitizer_ldflags")
 
 # ------------------------------------------------------------------------------
 # we use python to build the man page index, and for systemd-python
