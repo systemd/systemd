@@ -52,5 +52,12 @@ int path_is_os_tree(const char *path);
 
 int find_binary(const char *name, char **filename);
 
+/* Iterates through the path prefixes of the specified path, going up
+ * the tree, to root. Also returns "" (and not "/"!) for the root
+ * directory. Excludes the specified directory itself */
 #define PATH_FOREACH_PREFIX(prefix, path) \
-        for (char *_slash = strrchr(path_kill_slashes(strcpy(prefix, path)), '/'); _slash && !(*_slash = 0); _slash = strrchr((prefix), '/'))
+        for (char *_slash = ({ path_kill_slashes(strcpy(prefix, path)); streq(prefix, "/") ? NULL : strrchr(prefix, '/'); }); _slash && !(*_slash = 0); _slash = strrchr((prefix), '/'))
+
+/* Same as PATH_FOREACH_PREFIX but also includes the specified path itself */
+#define PATH_FOREACH_PREFIX_MORE(prefix, path) \
+        for (char *_slash = ({ path_kill_slashes(strcpy(prefix, path)); if (streq(prefix, "/")) prefix[0] = 0; strrchr(prefix, 0); }); _slash && !(*_slash = 0); _slash = strrchr((prefix), '/'))

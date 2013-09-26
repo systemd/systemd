@@ -107,29 +107,55 @@ static void test_find_binary(void) {
 }
 
 static void test_prefixes(void) {
-        static const char* values[] = { "/a/b/c", "/a/b", "/a", "", NULL};
-        unsigned i = 0;
+        static const char* values[] = { "/a/b/c/d", "/a/b/c", "/a/b", "/a", "", NULL};
+        unsigned i;
         char s[PATH_MAX];
+        bool b;
 
+        i = 0;
+        PATH_FOREACH_PREFIX_MORE(s, "/a/b/c/d") {
+                log_error("---%s---", s);
+                assert_se(streq(s, values[i++]));
+        }
+        assert_se(values[i] == NULL);
+
+        i = 1;
         PATH_FOREACH_PREFIX(s, "/a/b/c/d") {
                 log_error("---%s---", s);
                 assert_se(streq(s, values[i++]));
         }
-
         assert_se(values[i] == NULL);
 
         i = 0;
+        PATH_FOREACH_PREFIX_MORE(s, "////a////b////c///d///////")
+                assert_se(streq(s, values[i++]));
+        assert_se(values[i] == NULL);
+
+        i = 1;
         PATH_FOREACH_PREFIX(s, "////a////b////c///d///////")
                 assert_se(streq(s, values[i++]));
-
         assert_se(values[i] == NULL);
 
         PATH_FOREACH_PREFIX(s, "////")
+                assert_not_reached("Wut?");
+
+        b = false;
+        PATH_FOREACH_PREFIX_MORE(s, "////") {
+                assert_se(!b);
                 assert_se(streq(s, ""));
+                b = true;
+        }
+        assert_se(b);
 
         PATH_FOREACH_PREFIX(s, "")
                 assert_not_reached("wut?");
 
+        b = false;
+        PATH_FOREACH_PREFIX_MORE(s, "") {
+                assert(!b);
+                assert(streq(s, ""));
+                b = true;
+        }
 }
 
 int main(void) {
