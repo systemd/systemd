@@ -56,6 +56,8 @@ CGroup Rework Completion:
 
 Features:
 
+* move config_parse_path_strv() out of conf-parser.c
+
 * libdsystemd-bus should expose utf8 validation calls
 
 * When using "systemd status" on a slice unit also show all messages

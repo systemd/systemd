@@ -156,7 +156,9 @@ int main(int argc, char *argv[]) {
 
                 for (i = optind; i < argc; i++) {
                         int q;
-                        printf("%s:\n", argv[i]);
+
+                        fprintf(stdout, "%s:\n", argv[i]);
+                        fflush(stdout);
 
                         if (arg_machine)
                                 root = strjoin("machine/", arg_machine, "/", argv[i], NULL);

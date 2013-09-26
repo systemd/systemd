@@ -1003,19 +1003,28 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                 return -EINVAL;
         }
 
-        u = strdup(e+1);
-        if (!u) {
-                free(t);
-                return -ENOMEM;
-        }
-        if (!path_is_safe(u) ||
-            !path_is_absolute(u)) {
-                free(t);
-                free(u);
-                return -EINVAL;
-        }
+        if (streq(e+1, "")) {
+                u = strdup("/");
+                if (!u) {
+                        free(t);
+                        return -ENOMEM;
+                }
+        } else {
+                u = strdup(e+1);
+                if (!u) {
+                        free(t);
+                        return -ENOMEM;
+                }
 
-        path_kill_slashes(u);
+                if (!path_is_safe(u) ||
+                    !path_is_absolute(u)) {
+                        free(t);
+                        free(u);
+                        return -EINVAL;
+                }
+
+                path_kill_slashes(u);
+        }
 
         if (controller)
                 *controller = t;
