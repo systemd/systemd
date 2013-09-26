@@ -301,7 +301,7 @@ char *unit_name_path_escape(const char *f) {
 
         path_kill_slashes(p);
 
-        if (streq(p, "/")) {
+        if (streq(p, "/") || streq(p, "")) {
                 free(p);
                 return strdup("-");
         }
