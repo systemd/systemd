@@ -95,6 +95,7 @@ static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_swap_append_swap_result, swap_result,
 static const BusProperty bus_swap_properties[] = {
         { "What",       bus_property_append_string, "s", offsetof(Swap, what),  true },
         { "Priority",   bus_swap_append_priority,   "i", 0 },
+        { "TimeoutUSec",bus_property_append_usec,   "t", offsetof(Swap, timeout_usec)},
         BUS_EXEC_COMMAND_PROPERTY("ExecActivate",   offsetof(Swap, exec_command[SWAP_EXEC_ACTIVATE]),   false),
         BUS_EXEC_COMMAND_PROPERTY("ExecDeactivate", offsetof(Swap, exec_command[SWAP_EXEC_DEACTIVATE]), false),
         { "ControlPID", bus_property_append_pid,    "u", offsetof(Swap, control_pid) },
