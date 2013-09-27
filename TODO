@@ -48,11 +48,9 @@ CGroup Rework Completion:
 
 * handle jointly mounted controllers correctly
 
-* make BlockIODeviceWeight=, BlockIODeviceBandwidth= runtime settable
-
 * introduce high-level settings for RT budget, swappiness
 
-* wiki: document new bus APIs of PID 1 (transient units, Reloading signal)
+* wiki: guidelines how to make use of new cgroup apis
 
 Features:
 
@@ -63,14 +61,7 @@ Features:
 * When using "systemd status" on a slice unit also show all messages
   matching _SYSTEMD_SLICE= not just _SYSTEMD_UNIT=
 
-* always set memory.user_hierarchy for all cgroups we create
-
 * After coming back from hibernation reset hibernation swap partition
-
-* mounts: do not test each mount unit against each other mount unit to
-  determine prefixes. Instead generated list of all prefixes and
-  interate through that to bring down complexity from O(n^2) to O(n)
-  when loading units
 
 * If we try to find a unit via a dangling symlink generate a clean
   error. Currently we just ignore it and read the unit from the search
@@ -231,8 +222,6 @@ Features:
 
 * logind: add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
 
-* we need dynamic units
-
 * cgtop: make cgtop useful in a container
 
 * test/:
@@ -348,7 +337,6 @@ Features:
   - logind: wakelock/opportunistic suspend support
   - Add pretty name for seats in logind
   - logind: allow showing logout dialog from system?
-  - logind: spawn user@..service on login
   - logind: non-local X11 server handling
   - logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
   - pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
@@ -356,8 +344,6 @@ Features:
   - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
-
-* DeviceAllow/DeviceDeny: disallow everything by default, but whitelist /dev/zero, /dev/null and friends
 
 * service: watchdog logic: for testing purposes allow ping, but do not require pong
 
@@ -533,8 +519,6 @@ Features:
 
 * Query Paul Moore about relabelling socket fds while they are open
 
-* system.conf should have controls for cgroups
-
 * allow writing multiple conditions in unit files on one line
 
 * explore multiple service instances per listening socket idea
@@ -624,10 +608,6 @@ Features:
 * save coredump in Windows/Mozilla minidump format
 
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
-
-* clean up session cgroups that remain after logout (think sshd), but eventually run empty
-
-* when an instanced service exits, remove its parent cgroup too if possible.
 
 * default to actual 32bit PIDs, via /proc/sys/kernel/pid_max
 
