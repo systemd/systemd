@@ -202,6 +202,7 @@ AS_IF([test "x$have_python" = "xyes" -a "x$enable_python_devel" != "xno"], [
                   [have_python_devel=no])])
       AS_IF([test "x$have_python_devel" = xno -a "x$enable_python_devel" = xyes],
             [AC_MSG_ERROR([*** python-devel support requested but libraries not found])])
+      AC_PATH_PROGS(SPHINX_BUILD, sphinx-build-${PYTHON_VERSION} sphinx-build)
 ])
 AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 
@@ -1068,6 +1069,7 @@ AC_MSG_RESULT([
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         Build Python:            ${PYTHON}
         Installation Python:     ${PYTHON_BINARY}
+        sphinx binary:           ${SPHINX_BUILD}
         firmware path:           ${FIRMWARE_PATH}
         PAM modules dir:         ${with_pamlibdir}
         PAM configuration dir:   ${with_pamconfdir}
