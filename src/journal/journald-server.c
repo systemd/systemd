@@ -1270,7 +1270,6 @@ int process_event(Server *s, struct epoll_event *ev) {
                 if ((ev->events|EPOLLIN|EPOLLHUP) != (EPOLLIN|EPOLLHUP)) {
                         log_error("Got invalid event from epoll for %s: %"PRIx32,
                                   "stdout stream", ev->events);
-                        log_error("Got invalid event from epoll.");
                         return -EIO;
                 }
 

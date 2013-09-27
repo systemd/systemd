@@ -1788,7 +1788,6 @@ int config_parse_unit_requires_mounts_for(
         char *state;
         size_t l;
         char *w;
-        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1796,6 +1795,7 @@ int config_parse_unit_requires_mounts_for(
         assert(data);
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                int r;
                 _cleanup_free_ char *n;
 
                 n = strndup(w, l);
@@ -1816,7 +1816,7 @@ int config_parse_unit_requires_mounts_for(
                 }
         }
 
-        return r;
+        return 0;
 }
 
 int config_parse_documentation(const char *unit,
