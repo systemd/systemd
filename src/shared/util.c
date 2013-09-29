@@ -4412,38 +4412,31 @@ int dirent_ensure_type(DIR *d, struct dirent *de) {
 }
 
 int in_search_path(const char *path, char **search) {
-        char **i, *parent;
+        char **i;
+        _cleanup_free_ char *parent = NULL;
         int r;
 
         r = path_get_parent(path, &parent);
         if (r < 0)
                 return r;
 
-        r = 0;
+        STRV_FOREACH(i, search)
+                if (path_equal(parent, *i))
+                        return 1;
 
-        STRV_FOREACH(i, search) {
-                if (path_equal(parent, *i)) {
-                        r = 1;
-                        break;
-                }
-        }
-
-        free(parent);
-
-        return r;
+        return 0;
 }
 
 int get_files_in_directory(const char *path, char ***list) {
-        DIR *d;
-        int r = 0;
-        unsigned n = 0;
-        char **l = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        size_t bufsize = 0, n = 0;
+        _cleanup_strv_free_ char **l = NULL;
 
         assert(path);
 
         /* Returns all files in a directory in *list, and the number
          * of files as return value. If list is NULL returns only the
-         * number */
+         * number. */
 
         d = opendir(path);
         if (!d)
@@ -4455,11 +4448,9 @@ int get_files_in_directory(const char *path, char ***list) {
                 int k;
 
                 k = readdir_r(d, &buf.de, &de);
-                if (k != 0) {
-                        r = -k;
-                        goto finish;
-                }
-
+                assert(k >= 0);
+                if (k > 0)
+                        return -k;
                 if (!de)
                         break;
 
@@ -4469,43 +4460,25 @@ int get_files_in_directory(const char *path, char ***list) {
                         continue;
 
                 if (list) {
-                        if ((unsigned) r >= n) {
-                                char **t;
+                        /* one extra slot is needed for the terminating NULL */
+                        if (!GREEDY_REALLOC(l, bufsize, n + 2))
+                                return -ENOMEM;
 
-                                n = MAX(16, 2*r);
-                                t = realloc(l, sizeof(char*) * n);
-                                if (!t) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
+                        l[n] = strdup(de->d_name);
+                        if (!l[n])
+                                return -ENOMEM;
 
-                                l = t;
-                        }
-
-                        assert((unsigned) r < n);
-
-                        l[r] = strdup(de->d_name);
-                        if (!l[r]) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        l[++r] = NULL;
+                        l[++n] = NULL;
                 } else
-                        r++;
+                        n++;
         }
 
-finish:
-        if (d)
-                closedir(d);
+        if (list) {
+                *list = l;
+                l = NULL; /* avoid freeing */
+        }
 
-        if (r >= 0) {
-                if (list)
-                        *list = l;
-        } else
-                strv_free(l);
-
-        return r;
+        return n;
 }
 
 char *strjoin(const char *x, ...) {

@@ -27,6 +27,7 @@
 #include <errno.h>
 
 #include "util.h"
+#include "strv.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -582,6 +583,14 @@ static void test_fstab_node_to_udev_node(void) {
         free(n);
 }
 
+static void test_get_files_in_directory(void) {
+        _cleanup_strv_free_ char **l = NULL, **t = NULL;
+
+        assert_se(get_files_in_directory("/tmp", &l) >= 0);
+        assert_se(get_files_in_directory(".", &l) >= 0);
+        assert_se(get_files_in_directory(".", NULL) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -618,6 +627,7 @@ int main(int argc, char *argv[]) {
         test_parse_user_at_host();
         test_split_pair();
         test_fstab_node_to_udev_node();
+        test_get_files_in_directory();
 
         return 0;
 }
