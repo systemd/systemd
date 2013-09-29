@@ -442,7 +442,7 @@ static int parse_new_root_from_proc_cmdline(void) {
         }
 
         log_debug("Found entry what=%s where=/sysroot type=%s", what, type);
-        r = add_mount(what, "/sysroot", type, opts, 0, noauto, nofail, false,
+        r = add_mount(what, "/sysroot", type, opts, 1, noauto, nofail, false,
                       SPECIAL_INITRD_ROOT_FS_TARGET, "/proc/cmdline");
 
         return (r < 0) ? r : 0;
