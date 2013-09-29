@@ -209,17 +209,30 @@ static int add_mount(
                         "Before=%s\n",
                         post);
 
+        if (passno > 0) {
+                _cleanup_free_ char *fsck = NULL;
+
+                fsck = unit_name_from_path_instance("systemd-fsck", what, ".service");
+                if (!fsck)
+                        return log_oom();
+
+                fprintf(f,
+                        "Requires=%s\n"
+                        "After=%s\n",
+                        fsck,
+                        fsck);
+        }
+
+
         fprintf(f,
                 "\n"
                 "[Mount]\n"
                 "What=%s\n"
                 "Where=%s\n"
-                "Type=%s\n"
-                "FsckPassNo=%i\n",
+                "Type=%s\n",
                 what,
                 where,
-                type,
-                passno);
+                type);
 
         if (!isempty(opts) &&
             !streq(opts, "defaults"))

@@ -10,7 +10,7 @@ Description=File System Check on %f
 Documentation=man:systemd-fsck@.service(8)
 DefaultDependencies=no
 BindsTo=%i.device
-After=systemd-readahead-collect.service systemd-readahead-replay.service %i.device
+After=systemd-readahead-collect.service systemd-readahead-replay.service %i.device systemd-fsck-root.service
 Before=shutdown.target
 
 [Service]
