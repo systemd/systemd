@@ -118,6 +118,7 @@ static int create_disk(
                 "Conflicts=umount.target\n"
                 "DefaultDependencies=no\n"
                 "BindsTo=dev-mapper-%i.device\n"
+                "IgnoreOnIsolate=true\n"
                 "After=systemd-readahead-collect.service systemd-readahead-replay.service\n",
                 f);
 
