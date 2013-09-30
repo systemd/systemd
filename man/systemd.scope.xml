@@ -69,6 +69,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     be used to easily launch a command in a new scope unit from the
     command line.</para>
 
+    <para>See the <ulink
+    url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
+    Control Group Interfaces</ulink> for an introduction how to make
+    use of scope units from programs.</para>
+
     <para>Unless <varname>DefaultDependencies=false</varname>
     is used, scope units will implicitly have dependencies of
     type <varname>Conflicts=</varname> and

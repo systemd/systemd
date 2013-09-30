@@ -83,6 +83,11 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     resource control configuration options are configured in the
     [Slice], [Scope], [Service], [Socket], [Mount], or [Swap]
     sections, depending on the unit type.</para>
+
+    <para>See the <ulink
+    url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
+    Control Group Interfaces</ulink> for an introduction how to make
+    use of resource control APIs from programs.</para>
   </refsect1>
 
   <refsect1>
