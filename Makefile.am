@@ -3919,6 +3919,7 @@ libsystemd_login_la_LDFLAGS = \
 libsystemd_login_la_LIBADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon-internal.la \
+	libsystemd-label.la \
 	$(RT_LIBS)
 
 libsystemd_login_internal_la_SOURCES = \
