@@ -467,6 +467,30 @@ static void test_hashmap_get(void) {
         hashmap_free_free(m);
 }
 
+static void test_hashmap_many(void) {
+        Hashmap *h;
+        unsigned i;
+
+#define N_ENTRIES 100000
+
+        assert_se(h = hashmap_new(NULL, NULL));
+
+        for (i = 1; i < N_ENTRIES*3; i+=3) {
+                assert_se(hashmap_put(h, UINT_TO_PTR(i), UINT_TO_PTR(i)) >= 0);
+                assert_se(PTR_TO_UINT(hashmap_get(h, UINT_TO_PTR(i))) == i);
+        }
+
+        for (i = 1; i < N_ENTRIES*3; i++)
+                assert_se(hashmap_contains(h, UINT_TO_PTR(i)) == (i % 3 == 1));
+
+        log_info("%u <= %u * 0.75 = %g", hashmap_size(h), hashmap_buckets(h), hashmap_buckets(h) * 0.75);
+
+        assert_se(hashmap_size(h) <= hashmap_buckets(h) * 0.75);
+        assert_se(hashmap_size(h) == N_ENTRIES);
+
+        hashmap_free(h);
+}
+
 static void test_uint64_compare_func(void) {
         const uint64_t a = 0x100, b = 0x101;
 
@@ -486,8 +510,7 @@ static void test_string_compare_func(void) {
         assert_se(string_compare_func("fred", "fred") == 0);
 }
 
-int main(int argc, const char *argv[])
-{
+int main(int argc, const char *argv[]) {
         test_hashmap_copy();
         test_hashmap_get_strv();
         test_hashmap_move_one();
@@ -504,6 +527,7 @@ int main(int argc, const char *argv[])
         test_hashmap_isempty();
         test_hashmap_get();
         test_hashmap_size();
+        test_hashmap_many();
         test_uint64_compare_func();
         test_trivial_compare_func();
         test_string_compare_func();

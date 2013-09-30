@@ -76,6 +76,7 @@ int hashmap_move_one(Hashmap *h, Hashmap *other, const void *key);
 
 unsigned hashmap_size(Hashmap *h) _pure_;
 bool hashmap_isempty(Hashmap *h) _pure_;
+unsigned hashmap_buckets(Hashmap *h) _pure_;
 
 void *hashmap_iterate(Hashmap *h, Iterator *i, const void **key);
 void *hashmap_iterate_backwards(Hashmap *h, Iterator *i, const void **key);
