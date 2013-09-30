@@ -1567,6 +1567,7 @@ int main(int argc, char *argv[]) {
         /* This will close all file descriptors that were opened, but
          * not claimed by any unit. */
         fdset_free(fds);
+        fds = NULL;
 
         if (serialization) {
                 fclose(serialization);
