@@ -2665,14 +2665,16 @@ void manager_undo_generators(Manager *m) {
 }
 
 int manager_environment_add(Manager *m, char **environment) {
-
         char **e = NULL;
         assert(m);
+
         e = strv_env_merge(2, m->environment, environment);
         if (!e)
                 return -ENOMEM;
+
         strv_free(m->environment);
         m->environment = e;
+
         return 0;
 }
 

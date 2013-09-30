@@ -29,6 +29,7 @@
 #include "virt.h"
 #include "fileio.h"
 #include "strv.h"
+#include "env-util.h"
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be
@@ -69,7 +70,7 @@ static const char * const variable_names[_VARIABLE_MAX] = {
 };
 
 int locale_setup(char ***environment) {
-        char **env;
+        char **add;
         char *variables[_VARIABLE_MAX] = {};
         int r = 0, i;
 
@@ -119,22 +120,44 @@ int locale_setup(char ***environment) {
                         log_warning("Failed to read /etc/locale.conf: %s", strerror(-r));
         }
 
+        add = NULL;
         for (i = 0; i < _VARIABLE_MAX; i++) {
+                char *s;
+
                 if (!variables[i])
                         continue;
 
-                env = strv_appendf(*environment, "%s=%s", variable_names[i], variables[i]);
-                if (!env) {
+                s = strjoin(variable_names[i], "=", variables[i], NULL);
+                if (!s) {
                         r = -ENOMEM;
                         goto finish;
                 }
 
-                *environment = env;
+                if (strv_push(&add, s) < 0) {
+                        free(s);
+                        r = -ENOMEM;
+                        goto finish;
+                }
+        }
+
+        if (!strv_isempty(add)) {
+                char **e;
+
+                e = strv_env_merge(2, *environment, add);
+                if (!e) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                strv_free(*environment);
+                *environment = e;
         }
 
         r = 0;
 
 finish:
+        strv_free(add);
+
         for (i = 0; i < _VARIABLE_MAX; i++)
                 free(variables[i]);
 

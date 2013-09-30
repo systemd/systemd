@@ -42,7 +42,6 @@ unsigned strv_length(char * const *l) _pure_;
 char **strv_merge(char **a, char **b);
 char **strv_merge_concat(char **a, char **b, const char *suffix);
 char **strv_append(char **l, const char *s);
-char **strv_appendf(char **l, const char *format, ...) _printf_attr_(2, 3);
 int strv_extend(char ***l, const char *value);
 int strv_push(char ***l, char *value);
 
