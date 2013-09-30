@@ -60,9 +60,6 @@ Features:
 
 * libdsystemd-bus should expose utf8 validation calls
 
-* When using "systemd status" on a slice unit also show all messages
-  matching _SYSTEMD_SLICE= not just _SYSTEMD_UNIT=
-
 * After coming back from hibernation reset hibernation swap partition
 
 * If we try to find a unit via a dangling symlink generate a clean

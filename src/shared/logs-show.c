@@ -1048,6 +1048,16 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
             (r = sd_journal_add_match(j, m4, 0))
         );
 
+        if (r == 0 && endswith(unit, ".slice")) {
+                char *m5 = strappend("_SYSTEMD_SLICE=", unit);
+
+                /* Show all messages belonging to a slice */
+                (void)(
+                        (r = sd_journal_add_disjunction(j)) ||
+                        (r = sd_journal_add_match(j, m5, 0))
+                        );
+        }
+
         return r;
 }
 
@@ -1087,6 +1097,18 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
                 (r = sd_journal_add_match(j, muid, 0)) ||
                 (r = sd_journal_add_match(j, "_UID=0", 0))
         );
+
+        if (r == 0 && endswith(unit, ".slice")) {
+                char *m5 = strappend("_SYSTEMD_SLICE=", unit);
+
+                /* Show all messages belonging to a slice */
+                (void)(
+                        (r = sd_journal_add_disjunction(j)) ||
+                        (r = sd_journal_add_match(j, m5, 0)) ||
+                        (r = sd_journal_add_match(j, muid, 0))
+                        );
+        }
+
         return r;
 }
 
