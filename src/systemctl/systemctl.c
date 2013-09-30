@@ -5678,94 +5678,6 @@ _pure_ static int action_to_runlevel(void) {
         return table[arg_action];
 }
 
-static int talk_upstart(void) {
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
-        _cleanup_dbus_error_free_ DBusError error;
-        int previous, rl, r;
-        char
-                env1_buf[] = "RUNLEVEL=X",
-                env2_buf[] = "PREVLEVEL=X";
-        char *env1 = env1_buf, *env2 = env2_buf;
-        const char *emit = "runlevel";
-        dbus_bool_t b_false = FALSE;
-        DBusMessageIter iter, sub;
-        DBusConnection *bus;
-
-        dbus_error_init(&error);
-
-        if (!(rl = action_to_runlevel()))
-                return 0;
-
-        if (utmp_get_runlevel(&previous, NULL) < 0)
-                previous = 'N';
-
-        if (!(bus = dbus_connection_open_private("unix:abstract=/com/ubuntu/upstart", &error))) {
-                if (dbus_error_has_name(&error, DBUS_ERROR_NO_SERVER)) {
-                        r = 0;
-                        goto finish;
-                }
-
-                log_error("Failed to connect to Upstart bus: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
-
-        if ((r = bus_check_peercred(bus)) < 0) {
-                log_error("Failed to verify owner of bus.");
-                goto finish;
-        }
-
-        if (!(m = dbus_message_new_method_call(
-                              "com.ubuntu.Upstart",
-                              "/com/ubuntu/Upstart",
-                              "com.ubuntu.Upstart0_6",
-                              "EmitEvent"))) {
-
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        dbus_message_iter_init_append(m, &iter);
-
-        env1_buf[sizeof(env1_buf)-2] = rl;
-        env2_buf[sizeof(env2_buf)-2] = previous;
-
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &emit) ||
-            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "s", &sub) ||
-            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &env1) ||
-            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &env2) ||
-            !dbus_message_iter_close_container(&iter, &sub) ||
-            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &b_false)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-
-                if (bus_error_is_no_service(&error)) {
-                        r = -EADDRNOTAVAIL;
-                        goto finish;
-                }
-
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
-
-        r = 1;
-
-finish:
-        if (bus) {
-                dbus_connection_flush(bus);
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
-        }
-
-        return r;
-}
-
 static int talk_initctl(void) {
         struct init_request request = {};
         int r;
@@ -6036,11 +5948,6 @@ static int start_with_fallback(DBusConnection *bus) {
                 if (start_unit(bus, NULL) >= 0)
                         goto done;
         }
-
-        /* Hmm, talking to systemd via D-Bus didn't work. Then
-         * let's try to talk to Upstart via D-Bus. */
-        if (talk_upstart() > 0)
-                goto done;
 
         /* Nothing else worked, so let's try
          * /dev/initctl */
