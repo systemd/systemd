@@ -808,7 +808,7 @@ AC_ARG_WITH(telinit,
         AS_HELP_STRING([--with-telinit=PATH],
                 [Path to telinit]),
         [TELINIT="$withval"],
-        [TELINIT="/lib/upstart/telinit"])
+        [TELINIT="/lib/sysvinit/telinit"])
 
 AC_DEFINE_UNQUOTED(TELINIT, ["$TELINIT"], [Path to telinit])
 
