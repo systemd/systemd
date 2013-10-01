@@ -191,7 +191,13 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         if (pid == getpid())
                 return -EINVAL;
 
-        service_unwatch_main_pid(s);
+        if (s->main_pid == pid && s->main_pid_known)
+                return 0;
+
+        if (s->main_pid != pid) {
+                service_unwatch_main_pid(s);
+                exec_status_start(&s->main_exec_status, pid);
+        }
 
         s->main_pid = pid;
         s->main_pid_known = true;
@@ -204,8 +210,6 @@ static int service_set_main_pid(Service *s, pid_t pid) {
                 s->main_pid_alien = true;
         } else
                 s->main_pid_alien = false;
-
-        exec_status_start(&s->main_exec_status, pid);
 
         return 0;
 }
@@ -2696,8 +2700,10 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 if (parse_pid(value, &pid) < 0)
                         log_debug_unit(u->id, "Failed to parse main-pid value %s", value);
-                else
-                        service_set_main_pid(s, (pid_t) pid);
+                else {
+                        service_set_main_pid(s, pid);
+                        unit_watch_pid(UNIT(s), pid);
+                }
         } else if (streq(key, "main-pid-known")) {
                 int b;
 
@@ -3389,6 +3395,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                         log_debug_unit(u->id,
                                        "%s: got %s", u->id, e);
                         service_set_main_pid(s, pid);
+                        unit_watch_pid(UNIT(s), pid);
                 }
         }
 
@@ -3685,8 +3692,10 @@ static void service_bus_query_pid_done(
             (s->state == SERVICE_START ||
              s->state == SERVICE_START_POST ||
              s->state == SERVICE_RUNNING ||
-             s->state == SERVICE_RELOAD))
+             s->state == SERVICE_RELOAD)){
                 service_set_main_pid(s, pid);
+                unit_watch_pid(UNIT(s), pid);
+        }
 }
 
 int service_set_socket_fd(Service *s, int fd, Socket *sock) {
