@@ -176,7 +176,6 @@ static int session_device_open(SessionDevice *sd, bool active) {
                 if (!active)
                         sd_eviocrevoke(fd);
                 break;
-        case DEVICE_TYPE_FBDEV:
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices wihout synchronizations */
@@ -213,14 +212,6 @@ static int session_device_start(SessionDevice *sd) {
                 close_nointr_nofail(sd->fd);
                 sd->fd = r;
                 break;
-        case DEVICE_TYPE_FBDEV:
-                /* fbdev devices have no way to synchronize access. Moreover,
-                 * they mostly operate through mmaps() without any pageflips
-                 * and modesetting, so there is no way for us to prevent access
-                 * but tear down mmaps.
-                 * That would be quite expensive to do on a per-fd context. So
-                 * ignore legcy fbdev and let its users feel the pain they asked
-                 * for when deciding for fbdev. */
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices wihout synchronizations */
@@ -252,7 +243,6 @@ static void session_device_stop(SessionDevice *sd) {
                  * protection this way. */
                 sd_eviocrevoke(sd->fd);
                 break;
-        case DEVICE_TYPE_FBDEV:
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices without synchronization */
@@ -270,10 +260,7 @@ static DeviceType detect_device_type(struct udev_device *dev) {
         subsystem = udev_device_get_subsystem(dev);
         type = DEVICE_TYPE_UNKNOWN;
 
-        if (streq_ptr(subsystem, "graphics")) {
-                if (!streq(sysname, "fbcon") && startswith(sysname, "fb"))
-                        type = DEVICE_TYPE_FBDEV;
-        } else if (streq_ptr(subsystem, "drm")) {
+        if (streq_ptr(subsystem, "drm")) {
                 if (startswith(sysname, "card"))
                         type = DEVICE_TYPE_DRM;
         } else if (streq_ptr(subsystem, "input")) {
@@ -314,8 +301,7 @@ static int session_device_verify(SessionDevice *sd) {
                         goto err_dev;
                 }
                 sp = udev_device_get_syspath(dev);
-        } else if (sd->type != DEVICE_TYPE_FBDEV &&
-                   sd->type != DEVICE_TYPE_DRM) {
+        } else if (sd->type != DEVICE_TYPE_DRM) {
                 /* Prevent opening unsupported devices. Especially devices of
                  * subsystem "input" must be opened via the evdev node as
                  * we require EVIOCREVOKE. */

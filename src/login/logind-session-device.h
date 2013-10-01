@@ -33,7 +33,6 @@ typedef struct SessionDevice SessionDevice;
 
 enum DeviceType {
         DEVICE_TYPE_UNKNOWN,
-        DEVICE_TYPE_FBDEV,
         DEVICE_TYPE_DRM,
         DEVICE_TYPE_EVDEV,
 };
