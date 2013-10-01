@@ -144,7 +144,7 @@ static int sd_drmdropmaster(int fd) {
 }
 
 static int session_device_open(SessionDevice *sd, bool active) {
-        int fd;
+        int fd, r;
 
         assert(sd->type != DEVICE_TYPE_UNKNOWN);
 
@@ -155,9 +155,17 @@ static int session_device_open(SessionDevice *sd, bool active) {
 
         switch (sd->type) {
         case DEVICE_TYPE_DRM:
-                if (active)
-                        sd_drmsetmaster(fd);
-                else {
+                if (active) {
+                        /* Weird legacy DRM semantics might return an error
+                         * even though we're master. No way to detect that so
+                         * fail at all times and let caller retry in inactive
+                         * state. */
+                        r = sd_drmsetmaster(fd);
+                        if (r < 0) {
+                                close(fd);
+                                return r;
+                        }
+                } else {
                         /* DRM-Master is granted to the first user who opens a
                          * device automatically (ughh, racy!). Hence, we just
                          * drop DRM-Master in case we were the first. */
@@ -384,9 +392,17 @@ int session_device_new(Session *s, dev_t dev, SessionDevice **out) {
          * revoke access and thus invalidate the fd. But this is still needed
          * to pass a valid fd back. */
         sd->active = session_is_active(s);
-        sd->fd = session_device_open(sd, sd->active);
-        if (sd->fd < 0)
-                goto error;
+        r = session_device_open(sd, sd->active);
+        if (r < 0) {
+                /* EINVAL _may_ mean a master is active; retry inactive */
+                if (sd->active && r == -EINVAL) {
+                        sd->active = false;
+                        r = session_device_open(sd, false);
+                }
+                if (r < 0)
+                        goto error;
+        }
+        sd->fd = r;
 
         LIST_PREPEND(SessionDevice, sd_by_device, sd->device->session_devices, sd);
 
