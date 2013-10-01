@@ -2424,6 +2424,25 @@ fallback:
         return random() * RAND_MAX + random();
 }
 
+unsigned random_u(void) {
+        _cleanup_close_ int fd;
+        unsigned u;
+        ssize_t r;
+
+        fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                goto fallback;
+
+        r = loop_read(fd, &u, sizeof(u), true);
+        if (r != sizeof(u))
+                goto fallback;
+
+        return u;
+
+fallback:
+        return random() * RAND_MAX + random();
+}
+
 void rename_process(const char name[8]) {
         assert(name);
 

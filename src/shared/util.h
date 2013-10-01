@@ -253,6 +253,7 @@ int make_null_stdio(void);
 int make_console_stdio(void);
 
 unsigned long long random_ull(void);
+unsigned random_u(void);
 
 /* For basic lookup tables with strictly enumerated entries */
 #define __DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                   \
