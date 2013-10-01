@@ -58,8 +58,6 @@ Features:
 
 * we probably should replace the left-over uses of strv_append() and replace them by strv_push() or strv_extend()
 
-* logind should forget about fb devices in favour of going drm only
-
 * move config_parse_path_strv() out of conf-parser.c
 
 * libdsystemd-bus should expose utf8 validation calls
