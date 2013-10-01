@@ -46,8 +46,12 @@ static void session_device_notify(SessionDevice *sd, enum SessionDeviceNotificat
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
         _cleanup_free_ char *path = NULL;
         const char *t = NULL;
+        uint32_t major, minor;
 
         assert(sd);
+
+        major = major(sd->dev);
+        minor = minor(sd->dev);
 
         if (!sd->session->controller)
                 return;
@@ -68,8 +72,8 @@ static void session_device_notify(SessionDevice *sd, enum SessionDeviceNotificat
         switch (type) {
         case SESSION_DEVICE_RESUME:
                 if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_UINT32, major(sd->dev),
-                                              DBUS_TYPE_UINT32, minor(sd->dev),
+                                              DBUS_TYPE_UINT32, &major,
+                                              DBUS_TYPE_UINT32, &minor,
                                               DBUS_TYPE_UNIX_FD, &sd->fd,
                                               DBUS_TYPE_INVALID))
                         return;
@@ -88,8 +92,8 @@ static void session_device_notify(SessionDevice *sd, enum SessionDeviceNotificat
         }
 
         if (t && !dbus_message_append_args(m,
-                                           DBUS_TYPE_UINT32, major(sd->dev),
-                                           DBUS_TYPE_UINT32, minor(sd->dev),
+                                           DBUS_TYPE_UINT32, &major,
+                                           DBUS_TYPE_UINT32, &minor,
                                            DBUS_TYPE_STRING, &t,
                                            DBUS_TYPE_INVALID))
                 return;
