@@ -74,7 +74,7 @@ static int parse_one_option(const char *option) {
 
                 t = strdup(option+7);
                 if (!t)
-                        return -ENOMEM;
+                        return log_oom();
 
                 free(opt_cipher);
                 opt_cipher = t;
@@ -89,9 +89,10 @@ static int parse_one_option(const char *option) {
         } else if (startswith(option, "tcrypt-keyfile=")) {
 
                 opt_type = CRYPT_TCRYPT;
-                if (path_is_absolute(option+15))
-                        opt_tcrypt_keyfiles = strv_append(opt_tcrypt_keyfiles, strdup(option+15));
-                else
+                if (path_is_absolute(option+15)) {
+                        if (strv_extend(&opt_tcrypt_keyfiles, option + 15) < 0)
+                                return log_oom();
+                } else
                         log_error("Key file path '%s' is not absolute. Ignoring.", option+15);
 
         } else if (startswith(option, "keyfile-size=")) {
@@ -113,7 +114,7 @@ static int parse_one_option(const char *option) {
 
                 t = strdup(option+5);
                 if (!t)
-                        return -ENOMEM;
+                        return log_oom();
 
                 free(opt_hash);
                 opt_hash = t;
