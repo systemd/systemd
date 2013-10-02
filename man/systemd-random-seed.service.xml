@@ -61,7 +61,7 @@
                 for details. Saving/restoring the random seed across
                 boots increases the amount of available entropy early
                 at boot. On disk the random seed is stored in
-                <filename>/var/lib/random-seed</filename>.</para>
+                <filename>/var/lib/systemd/random-seed</filename>.</para>
         </refsect1>
 
         <refsect1>

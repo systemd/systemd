@@ -58,7 +58,7 @@
                 is a service that restores the display backlight
                 brightness at early-boot and saves it at shutdown. On
                 disk, the backlight brightness is stored in
-                <filename>/var/lib/backlight/</filename>. Note that by
+                <filename>/var/lib/systemd/backlight/</filename>. Note that by
                 default, only firmware backlight devices are
                 saved/restored.</para>
         </refsect1>
