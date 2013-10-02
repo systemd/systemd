@@ -4218,11 +4218,10 @@ static int set_environment(DBusConnection *bus, char **args) {
         return 0;
 }
 
-static int enable_sysv_units(char **args) {
+static int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
 
 #if defined(HAVE_SYSV_COMPAT) && defined(HAVE_CHKCONFIG)
-        const char *verb = args[0];
         unsigned f = 1, t = 1;
         LookupPaths paths = {};
 
@@ -4242,7 +4241,7 @@ static int enable_sysv_units(char **args) {
                 return r;
 
         r = 0;
-        for (f = 1; args[f]; f++) {
+        for (f = 0; args[f]; f++) {
                 const char *name;
                 _cleanup_free_ char *p = NULL, *q = NULL;
                 bool found_native = false, found_sysv;
@@ -4365,7 +4364,7 @@ finish:
         lookup_paths_free(&paths);
 
         /* Drop all SysV units */
-        for (f = 1, t = 1; args[f]; f++) {
+        for (f = 0, t = 0; args[f]; f++) {
 
                 if (isempty(args[f]))
                         continue;
@@ -4423,16 +4422,16 @@ static int enable_unit(DBusConnection *bus, char **args) {
 
         dbus_error_init(&error);
 
-        r = enable_sysv_units(args);
-        if (r < 0)
-                return r;
-
         if (!args[1])
                 return 0;
 
         r = mangle_names(args+1, &mangled_names);
         if (r < 0)
-                goto finish;
+                return r;
+
+        r = enable_sysv_units(verb, mangled_names);
+        if (r < 0)
+                return r;
 
         if (!bus || avoid_bus()) {
                 if (streq(verb, "enable")) {
@@ -4624,11 +4623,15 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         bool enabled;
         char **name;
-        char *n;
+        _cleanup_strv_free_ char **mangled_names = NULL;
 
         dbus_error_init(&error);
 
-        r = enable_sysv_units(args);
+        r = mangle_names(args+1, &mangled_names);
+        if (r < 0)
+                return r;
+
+        r = enable_sysv_units(args[0], mangled_names);
         if (r < 0)
                 return r;
 
@@ -4636,16 +4639,10 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
 
         if (!bus || avoid_bus()) {
 
-                STRV_FOREACH(name, args+1) {
+                STRV_FOREACH(name, mangled_names) {
                         UnitFileState state;
 
-                        n = unit_name_mangle(*name);
-                        if (!n)
-                                return log_oom();
-
-                        state = unit_file_get_state(arg_scope, arg_root, n);
-
-                        free(n);
+                        state = unit_file_get_state(arg_scope, arg_root, *name);
 
                         if (state < 0)
                                 return state;
@@ -4660,12 +4657,8 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                 }
 
         } else {
-                STRV_FOREACH(name, args+1) {
+                STRV_FOREACH(name, mangled_names) {
                         const char *s;
-
-                        n = unit_name_mangle(*name);
-                        if (!n)
-                                return log_oom();
 
                         r = bus_method_call_with_reply (
                                         bus,
@@ -4675,10 +4668,8 @@ static int unit_is_enabled(DBusConnection *bus, char **args) {
                                         "GetUnitFileState",
                                         &reply,
                                         NULL,
-                                        DBUS_TYPE_STRING, &n,
+                                        DBUS_TYPE_STRING, name,
                                         DBUS_TYPE_INVALID);
-
-                        free(n);
 
                         if (r)
                                 return r;
