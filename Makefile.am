@@ -767,7 +767,6 @@ noinst_LTLIBRARIES += \
 	libsystemd-label.la
 
 libsystemd_label_la_SOURCES = \
-	src/shared/cgroup-label.c \
 	src/shared/socket-label.c \
 	src/shared/label.c \
 	src/shared/label.h \

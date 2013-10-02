@@ -39,6 +39,7 @@
 #include "unit-name.h"
 #include "fileio.h"
 #include "special.h"
+#include "mkdir.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f) {
         _cleanup_free_ char *fs = NULL;
@@ -616,6 +617,46 @@ int cg_delete(const char *controller, const char *path) {
 
         r = cg_migrate_recursive(controller, path, controller, parent, false, true);
         return r == -ENOENT ? 0 : r;
+}
+
+int cg_create(const char *controller, const char *path) {
+        _cleanup_free_ char *fs = NULL;
+        int r;
+
+        r = cg_get_path_and_check(controller, path, NULL, &fs);
+        if (r < 0)
+                return r;
+
+        r = mkdir_parents(fs, 0755);
+        if (r < 0)
+                return r;
+
+        if (mkdir(fs, 0755) < 0) {
+
+                if (errno == EEXIST)
+                        return 0;
+
+                return -errno;
+        }
+
+        return 1;
+}
+
+int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
+        int r, q;
+
+        assert(pid >= 0);
+
+        r = cg_create(controller, path);
+        if (r < 0)
+                return r;
+
+        q = cg_attach(controller, path, pid);
+        if (q < 0)
+                return q;
+
+        /* This does not remove the cgroup on failure */
+        return r;
 }
 
 int cg_attach(const char *controller, const char *path, pid_t pid) {
