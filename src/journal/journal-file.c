@@ -907,6 +907,8 @@ static int journal_file_append_field(
 
         osize = offsetof(Object, field.payload) + size;
         r = journal_file_append_object(f, OBJECT_FIELD, osize, &o, &p);
+        if (r < 0)
+                return r;
 
         o->field.hash = htole64(hash);
         memcpy(o->field.payload, field, size);
