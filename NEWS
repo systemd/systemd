@@ -1,5 +1,92 @@
 systemd System and Service Manager
 
+CHANGES WITH 208:
+
+        * logind has gained support for facilitating privileged input
+          and drm device access for unprivileged clients. This work is
+          useful to allow Wayland display servers (and similar
+          programs, such as kmscon) to run under the user's ID and
+          access input and drm devices which are normally
+          protected. When this is used (and the kernel is new enough)
+          logind will "mute" IO on the file descriptors passed to
+          Wayland as long as it is in the background and "unmute" it
+          if it returns into the foreground. This allows secure
+          session switching without allowing background sessions to
+          eavesdrop on input and display data. This also introduces
+          session switching support if VT support is turned off in the
+          kernel, and on seats that are not seat0.
+
+        * A new kernel command line option luks.options= is understood
+          now which allows specifiying LUKS options for usage for LUKS
+          encrypted partitions specified with luks.uuid=.
+
+        * tmpfiles.d(5) snippets may now use specifier expansion in
+          path names. More specifically %m, %b, %H, %v, are now
+          replaced by the local machine id, boot id, hostname, and
+          kernel version number.
+
+        * A new tmpfiles.d(5) command "m" has been introduced which
+          may be used to change the owner/group/access mode of a file
+          or directory if it exists, but do nothing if it doesn't.
+
+        * This release removes high-level support for the
+          MemorySoftLimit= cgroup setting. The underlying kernel
+          cgroup attribute memory.soft_limit= is currently badly
+          designed and likely to be removed from the kernel API in its
+          current form, hence we shouldn't expose it for now.
+
+        * The memory.use_hierarchy cgroup attribute is now enabled for
+          all cgroups systemd creates in the memory cgroup
+          hierarchy. This option is likely to be come the built-in
+          default in the kernel anyway, and the non-hierarchial mode
+          never made much sense in the intrinsically hierarchial
+          cgroup system.
+
+        * A new field _SYSTEMD_SLICE= is logged along with all journal
+          messages containing the slice a message was generated
+          from. This is useful to allow easy per-customer filtering of
+          logs among other things.
+
+        * systemd-journald will no longer adjust the group of journal
+          files it creates to the "systemd-journal" group. Instead we
+          rely on the journal directory to be owned by the
+          "systemd-journal" group, and its setgid bit set, so that the
+          kernel file system layer will automatically enforce that
+          journal files inherit this group assignment. The reason for
+          this change is that we cannot allow NSS look-ups from
+          journald which would be necessary to resolve
+          "systemd-journal" to a numeric GID, because this might
+          create deadlocks if NSS involves synchronous queries to
+          other daemons (such as nscd, or sssd) which in turn are
+          logging clients of journald and might block on it, which
+          would then dead lock. A tmpfiles.d(5) snippet included in
+          systemd will make sure the setgid bit and group are
+          properly set on the journal directory if it exists on every
+          boot. However, we recommend adjusting it manually after
+          upgrades too (or from RPM scriptlets), so that the change is
+          not delayed until next reboot.
+
+        * Backlight and random seed files in /var/lib/ have moved into
+          the /var/lib/systemd/ directory, in order to centralize all
+          systemd generated files in one directory.
+
+        * Boot time performance measurements (as displayed by
+          "systemd-analyze" for example) will now read ACPI 5.0 FPDT
+          performance information if that's available to determine how
+          much time BIOS and boot loader initialization required. With
+          a sufficiently new BIOS you hence no longer need to boot
+          with Gummiboot to get access to such information.
+
+        Contributions from: Andrey Borzenkov, Chen Jie, Colin Walters,
+        Cristian Rodríguez, Dave Reisner, David Herrmann, David
+        Mackey, David Strauss, Eelco Dolstra, Evan Callicoat, Gao
+        feng, Harald Hoyer, Jimmie Tauriainen, Kay Sievers, Lennart
+        Poettering, Lukas Nykryn, Mantas Mikulėnas, Martin Pitt,
+        Michael Scherer, Michał Górny, Mike Gilbert, Patrick McCarty,
+        Sebastian Ott, Tom Gundersen, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2013-10-02
+
 CHANGES WITH 207:
 
         * The Restart= option for services now understands a new
