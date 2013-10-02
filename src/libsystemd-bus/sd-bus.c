@@ -1215,11 +1215,11 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
                 if (r == 0)
                         return ret;
 
-                r = 1;
+                ret = 1;
         } while (!z);
 
         *m = z;
-        return 1;
+        return ret;
 }
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
