@@ -302,8 +302,8 @@ int main(int argc, char *argv[]) {
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
                         k = load_module(ctx, *i);
-                        if (k < 0)
-                                r = EXIT_FAILURE;
+                        if (k < 0 && r == 0)
+                                r = k;
                 }
 
                 r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
