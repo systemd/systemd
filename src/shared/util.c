@@ -4056,8 +4056,9 @@ int vt_disallocate(const char *name) {
         return 0;
 }
 
-int copy_file(const char *from, const char *to) {
-        int r, fdf, fdt;
+int copy_file(const char *from, const char *to, int flags) {
+        _cleanup_close_ int fdf = -1;
+        int r, fdt;
 
         assert(from);
         assert(to);
@@ -4066,11 +4067,9 @@ int copy_file(const char *from, const char *to) {
         if (fdf < 0)
                 return -errno;
 
-        fdt = open(to, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY, 0644);
-        if (fdt < 0) {
-                close_nointr_nofail(fdf);
+        fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0644);
+        if (fdt < 0)
                 return -errno;
-        }
 
         for (;;) {
                 char buf[PIPE_BUF];
@@ -4080,7 +4079,6 @@ int copy_file(const char *from, const char *to) {
                 if (n < 0) {
                         r = -errno;
 
-                        close_nointr_nofail(fdf);
                         close_nointr(fdt);
                         unlink(to);
 
@@ -4095,15 +4093,13 @@ int copy_file(const char *from, const char *to) {
                 if (n != k) {
                         r = k < 0 ? k : (errno ? -errno : -EIO);
 
-                        close_nointr_nofail(fdf);
                         close_nointr(fdt);
-
                         unlink(to);
+
                         return r;
                 }
         }
 
-        close_nointr_nofail(fdf);
         r = close_nointr(fdt);
 
         if (r < 0) {

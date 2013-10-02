@@ -448,7 +448,7 @@ int terminal_vhangup(const char *name);
 
 int vt_disallocate(const char *name);
 
-int copy_file(const char *from, const char *to);
+int copy_file(const char *from, const char *to, int flags);
 
 int symlink_atomic(const char *from, const char *to);
 
