@@ -53,7 +53,7 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, mkd
 }
 
 int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        return mkdir_safe_internal(path, mode, uid, gid, false);
+        return mkdir_safe_internal(path, mode, uid, gid, mkdir);
 }
 
 static int is_dir(const char* path) {
