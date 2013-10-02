@@ -405,7 +405,9 @@ char **strv_env_clean_log(char **e, const char *message) {
                 e[k++] = *p;
         }
 
-        e[k] = NULL;
+        if (e)
+                e[k] = NULL;
+
         return e;
 }
 
