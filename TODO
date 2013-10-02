@@ -54,8 +54,6 @@ CGroup Rework Completion:
 
 Features:
 
-* set $SHELL where we set $HOME and $USER when User= is set of a service, drop its manual setting from user@.service
-
 * we probably should replace the left-over uses of strv_append() and replace them by strv_push() or strv_extend()
 
 * move config_parse_path_strv() out of conf-parser.c

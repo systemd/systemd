@@ -1021,10 +1021,13 @@
 
                         <varlistentry>
                                 <term><varname>$USER</varname></term>
+                                <term><varname>$LOGNAME</varname></term>
                                 <term><varname>$HOME</varname></term>
+                                <term><varname>$SHELL</varname></term>
 
-                                <listitem><para>User name and home
-                                directory.  Set for the units which
+                                <listitem><para>User name (twice), home
+                                directory, and the login shell.
+                                Set for the units which
                                 have <varname>User=</varname> set,
                                 which includes user
                                 <command>systemd</command> instances.
@@ -1078,6 +1081,20 @@
                                 descriptors passed to a service for
                                 socket activation.  See
                                 <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$TERM</varname></term>
+
+                                <listitem><para>Terminal type, set
+                                only for units connected to a terminal
+                                (<varname>StandardInput=tty</varname>,
+                                <varname>StandardOutput=tty</varname>,
+                                or
+                                <varname>StandardError=tty</varname>).
+                                See
+                                <citerefentry><refentrytitle>termcap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
                                 </para></listitem>
                         </varlistentry>
                 </variablelist>

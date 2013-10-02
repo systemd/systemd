@@ -1094,7 +1094,7 @@ int exec_spawn(ExecCommand *command,
         if (pid == 0) {
                 int i, err;
                 sigset_t ss;
-                const char *username = NULL, *home = NULL;
+                const char *username = NULL, *home = NULL, *shell = NULL;
                 uid_t uid = (uid_t) -1;
                 gid_t gid = (gid_t) -1;
                 _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL,
@@ -1277,7 +1277,7 @@ int exec_spawn(ExecCommand *command,
 
                 if (context->user) {
                         username = context->user;
-                        err = get_user_creds(&username, &uid, &gid, &home, NULL);
+                        err = get_user_creds(&username, &uid, &gid, &home, &shell);
                         if (err < 0) {
                                 r = EXIT_USER;
                                 goto fail_child;
@@ -1462,46 +1462,28 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 
-                our_env = new0(char*, 7);
-                if (!our_env) {
+                our_env = new(char*, 8);
+                if (!our_env ||
+                    (n_fds > 0 && (
+                            asprintf(our_env + n_env++, "LISTEN_PID=%lu", (unsigned long) getpid()) < 0 ||
+                            asprintf(our_env + n_env++, "LISTEN_FDS=%u", n_fds) < 0)) ||
+                    (home && asprintf(our_env + n_env++, "HOME=%s", home) < 0) ||
+                    (username && (
+                            asprintf(our_env + n_env++, "LOGNAME=%s", username) < 0 ||
+                            asprintf(our_env + n_env++, "USER=%s", username) < 0)) ||
+                    (shell && asprintf(our_env + n_env++, "SHELL=%s", shell) < 0) ||
+                    ((is_terminal_input(context->std_input) ||
+                      context->std_output == EXEC_OUTPUT_TTY ||
+                      context->std_error == EXEC_OUTPUT_TTY) && (
+                              !(our_env[n_env++] = strdup(default_term_for_tty(tty_path(context))))))) {
+
                         err = -ENOMEM;
                         r = EXIT_MEMORY;
                         goto fail_child;
                 }
 
-                if (n_fds > 0)
-                        if (asprintf(our_env + n_env++, "LISTEN_PID=%lu", (unsigned long) getpid()) < 0 ||
-                            asprintf(our_env + n_env++, "LISTEN_FDS=%u", n_fds) < 0) {
-                                err = -ENOMEM;
-                                r = EXIT_MEMORY;
-                                goto fail_child;
-                        }
-
-                if (home)
-                        if (asprintf(our_env + n_env++, "HOME=%s", home) < 0) {
-                                err = -ENOMEM;
-                                r = EXIT_MEMORY;
-                                goto fail_child;
-                        }
-
-                if (username)
-                        if (asprintf(our_env + n_env++, "LOGNAME=%s", username) < 0 ||
-                            asprintf(our_env + n_env++, "USER=%s", username) < 0) {
-                                err = -ENOMEM;
-                                r = EXIT_MEMORY;
-                                goto fail_child;
-                        }
-
-                if (is_terminal_input(context->std_input) ||
-                    context->std_output == EXEC_OUTPUT_TTY ||
-                    context->std_error == EXEC_OUTPUT_TTY)
-                        if (!(our_env[n_env++] = strdup(default_term_for_tty(tty_path(context))))) {
-                                err = -ENOMEM;
-                                r = EXIT_MEMORY;
-                                goto fail_child;
-                        }
-
-                assert(n_env <= 7);
+                our_env[n_env++] = NULL;
+                assert(n_env <= 8);
 
                 final_env = strv_env_merge(5,
                                            environment,
