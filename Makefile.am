@@ -721,7 +721,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/acpi-fpdt.c \
 	src/shared/boot-timestamps.h \
 	src/shared/boot-timestamps.c \
-	src/shared/refcnt.h
+	src/shared/refcnt.h \
+	src/shared/mkdir.c \
+	src/shared/mkdir.h
 
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -771,9 +773,7 @@ libsystemd_label_la_SOURCES = \
 	src/shared/label.h \
 	src/shared/selinux-util.c \
 	src/shared/selinux-util.h \
-	src/shared/mkdir.c \
 	src/shared/mkdir-label.c \
-	src/shared/mkdir.h \
 	src/shared/ask-password-api.c \
 	src/shared/ask-password-api.h \
 	src/shared/fileio-label.c \
