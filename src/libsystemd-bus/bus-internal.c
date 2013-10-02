@@ -63,7 +63,7 @@ bool object_path_is_valid(const char *p) {
 
 bool interface_name_is_valid(const char *p) {
         const char *q;
-        bool dot, found_dot;
+        bool dot, found_dot = false;
 
         if (isempty(p))
                 return false;
@@ -103,7 +103,7 @@ bool interface_name_is_valid(const char *p) {
 
 bool service_name_is_valid(const char *p) {
         const char *q;
-        bool dot, found_dot, unique;
+        bool dot, found_dot = false, unique;
 
         if (isempty(p))
                 return false;
