@@ -38,6 +38,7 @@
 #include "libudev.h"
 #include "special.h"
 #include "unit-name.h"
+#include "virt.h"
 
 /* TODO:
  *
@@ -481,6 +482,13 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
         if (in_initrd()) {
+                log_debug("In initrd, exiting.");
+                r = 0;
+                goto finish;
+        }
+
+        if (detect_container(NULL) > 0) {
+                log_debug("In a container, exiting.");
                 r = 0;
                 goto finish;
         }
