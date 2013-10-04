@@ -1440,6 +1440,9 @@ static int mount_add_one(
 
         u = manager_get_unit(m, e);
         if (!u) {
+                const char* const target =
+                        fstype_is_network(fstype) ? SPECIAL_REMOTE_FS_TARGET : SPECIAL_LOCAL_FS_TARGET;
+
                 delete = true;
 
                 u = unit_new(m, sizeof(Mount));
@@ -1466,7 +1469,7 @@ static int mount_add_one(
                         goto fail;
                 }
 
-                r = unit_add_dependency_by_name(u, UNIT_BEFORE, SPECIAL_LOCAL_FS_TARGET, NULL, true);
+                r = unit_add_dependency_by_name(u, UNIT_BEFORE, target, NULL, true);
                 if (r < 0)
                         goto fail;
 
