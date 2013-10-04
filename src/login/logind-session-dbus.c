@@ -41,7 +41,7 @@
         "   <arg name=\"who\" type=\"s\"/>\n"                           \
         "   <arg name=\"signal\" type=\"s\"/>\n"                        \
         "  </method>\n"                                                 \
-        "  <method name=\"TakeControl\"/>\n"                            \
+        "  <method name=\"TakeControl\">\n"                             \
         "   <arg name=\"force\" type=\"b\"/>\n"                         \
         "  </method>\n"                                                 \
         "  <method name=\"ReleaseControl\"/>\n"                         \
