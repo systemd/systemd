@@ -50,9 +50,9 @@ CGroup Rework Completion:
 
 * introduce high-level settings for RT budget, swappiness
 
-* wiki: guidelines how to make use of new cgroup apis
-
 Features:
+
+* tmpfiles: when applying ownership to /run/log/journal also do this for the journal fails contained in it
 
 * we probably should replace the left-over uses of strv_append() and replace them by strv_push() or strv_extend()
 
@@ -60,7 +60,7 @@ Features:
 
 * libdsystemd-bus should expose utf8 validation calls
 
-* After coming back from hibernation reset hibernation swap partition
+* After coming back from hibernation reset hibernation swap partition using the /dev/snapshot ioctl APIs
 
 * If we try to find a unit via a dangling symlink generate a clean
   error. Currently we just ignore it and read the unit from the search
