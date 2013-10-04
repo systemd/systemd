@@ -182,7 +182,7 @@ static int mount_add_mount_links(Mount *m) {
          * for the source path (if this is a bind mount) to be
          * available. */
         pm = get_mount_parameters_fragment(m);
-        if (pm && path_is_absolute(pm->what)) {
+        if (pm && pm->what && path_is_absolute(pm->what)) {
                 r = unit_require_mounts_for(UNIT(m), pm->what);
                 if (r < 0)
                         return r;
