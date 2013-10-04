@@ -1397,7 +1397,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 _cleanup_strv_free_ char **l = NULL;
                 char **e = NULL;
 
-                SELINUX_ACCESS_CHECK(connection, message, "reboot");
+                SELINUX_ACCESS_CHECK(connection, message, "reload");
 
                 r = bus_parse_strv(message, &l);
                 if (r == -ENOMEM)
@@ -1424,7 +1424,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 _cleanup_strv_free_ char **l = NULL;
                 char **e = NULL;
 
-                SELINUX_ACCESS_CHECK(connection, message, "reboot");
+                SELINUX_ACCESS_CHECK(connection, message, "reload");
 
                 r = bus_parse_strv(message, &l);
                 if (r == -ENOMEM)
@@ -1452,7 +1452,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 char **f = NULL;
                 DBusMessageIter iter;
 
-                SELINUX_ACCESS_CHECK(connection, message, "reboot");
+                SELINUX_ACCESS_CHECK(connection, message, "reload");
 
                 if (!dbus_message_iter_init(message, &iter))
                         goto oom;
