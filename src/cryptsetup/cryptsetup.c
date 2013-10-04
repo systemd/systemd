@@ -236,31 +236,24 @@ finish:
 }
 
 static char *disk_mount_point(const char *label) {
-        char *mp = NULL;
         _cleanup_free_ char *device = NULL;
-        FILE *f = NULL;
+        _cleanup_endmntent_ FILE *f = NULL;
         struct mntent *m;
 
         /* Yeah, we don't support native systemd unit files here for now */
 
         if (asprintf(&device, "/dev/mapper/%s", label) < 0)
-                goto finish;
+                return NULL;
 
         f = setmntent("/etc/fstab", "r");
         if (!f)
-                goto finish;
+                return NULL;
 
         while ((m = getmntent(f)))
-                if (path_equal(m->mnt_fsname, device)) {
-                        mp = strdup(m->mnt_dir);
-                        break;
-                }
+                if (path_equal(m->mnt_fsname, device))
+                        return strdup(m->mnt_dir);
 
-finish:
-        if (f)
-                endmntent(f);
-
-        return mp;
+        return NULL;
 }
 
 static int get_password(const char *name, usec_t until, bool accept_cached, char ***passwords) {

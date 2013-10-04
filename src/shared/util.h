@@ -39,6 +39,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <locale.h>
+#include <mntent.h>
 
 #include "macro.h"
 #include "time-util.h"
@@ -578,6 +579,11 @@ static inline void umaskp(mode_t *u) {
         umask(*u);
 }
 
+static inline void endmntentp(FILE **f) {
+        if (*f)
+                endmntent(*f);
+}
+
 #define _cleanup_free_ _cleanup_(freep)
 #define _cleanup_fclose_ _cleanup_(fclosep)
 #define _cleanup_pclose_ _cleanup_(pclosep)
@@ -585,6 +591,7 @@ static inline void umaskp(mode_t *u) {
 #define _cleanup_closedir_ _cleanup_(closedirp)
 #define _cleanup_umask_ _cleanup_(umaskp)
 #define _cleanup_globfree_ _cleanup_(globfree)
+#define _cleanup_endmntent_ _cleanup_(endmntentp)
 
 _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b == 0 || a > ((size_t) -1) / b))

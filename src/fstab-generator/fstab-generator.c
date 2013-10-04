@@ -301,15 +301,12 @@ static int add_mount(
 }
 
 static int parse_fstab(const char *prefix, bool initrd) {
-        _cleanup_free_ char *fstab_path = NULL;
-        FILE *f;
+        char *fstab_path;
+        _cleanup_endmntent_ FILE *f;
         int r = 0;
         struct mntent *me;
 
-        fstab_path = strjoin(strempty(prefix), "/etc/fstab", NULL);
-        if (!fstab_path)
-                return log_oom();
-
+        fstab_path = strappenda(strempty(prefix), "/etc/fstab");
         f = setmntent(fstab_path, "r");
         if (!f) {
                 if (errno == ENOENT)
@@ -328,10 +325,8 @@ static int parse_fstab(const char *prefix, bool initrd) {
 
                 what = fstab_node_to_udev_node(me->mnt_fsname);
                 where = strjoin(strempty(prefix), me->mnt_dir, NULL);
-                if (!what || !where) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!what || !where)
+                        return log_oom();
 
                 if (is_path(where))
                         path_kill_slashes(where);
@@ -369,8 +364,6 @@ static int parse_fstab(const char *prefix, bool initrd) {
                         r = k;
         }
 
-finish:
-        endmntent(f);
         return r;
 }
 

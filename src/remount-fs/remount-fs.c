@@ -40,7 +40,7 @@
 
 int main(int argc, char *argv[]) {
         int ret = EXIT_FAILURE;
-        FILE *f = NULL;
+        _cleanup_endmntent_ FILE *f = NULL;
         struct mntent* me;
         Hashmap *pids = NULL;
 
@@ -57,13 +57,11 @@ int main(int argc, char *argv[]) {
 
         f = setmntent("/etc/fstab", "r");
         if (!f) {
-                if (errno == ENOENT) {
-                        ret = EXIT_SUCCESS;
-                        goto finish;
-                }
+                if (errno == ENOENT)
+                        return EXIT_SUCCESS;
 
                 log_error("Failed to open /etc/fstab: %m");
-                goto finish;
+                return EXIT_FAILURE;
         }
 
         pids = hashmap_new(trivial_hash_func, trivial_compare_func);
@@ -161,9 +159,6 @@ finish:
 
         if (pids)
                 hashmap_free_free(pids);
-
-        if (f)
-                endmntent(f);
 
         return ret;
 }
