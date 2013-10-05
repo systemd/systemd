@@ -1033,35 +1033,6 @@ int config_parse_sysv_priority(const char *unit,
 }
 #endif
 
-int config_parse_fsck_passno(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
-
-        int *passno = data;
-        int i, r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atoi(rvalue, &i);
-        if (r || i < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to parse fsck pass number, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *passno = (int) i;
-        return 0;
-}
-
 DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
 int config_parse_kill_signal(const char *unit,
@@ -2708,7 +2679,6 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_start_limit_action,    "ACTION" },
                 { config_parse_set_status,            "STATUS" },
                 { config_parse_service_sockets,       "SOCKETS" },
-                { config_parse_fsck_passno,           "PASSNO" },
                 { config_parse_environ,               "ENVIRON" },
                 { config_parse_syscall_filter,        "SYSCALL" },
                 { config_parse_cpu_shares,            "SHARES" },

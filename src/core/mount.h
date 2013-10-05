@@ -58,7 +58,6 @@ typedef struct MountParameters {
         char *what;
         char *options;
         char *fstype;
-        int passno;
 } MountParameters;
 
 typedef enum MountResult {

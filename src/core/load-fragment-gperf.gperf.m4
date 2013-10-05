@@ -173,7 +173,6 @@ Service.NonBlocking,             config_parse_bool,                  0,         
 Service.BusName,                 config_parse_unit_string_printf,    0,                             offsetof(Service, bus_name)
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
-Service.FsckPassNo,              config_parse_fsck_passno,           0,                             offsetof(Service, fsck_passno)
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
@@ -225,7 +224,6 @@ Mount.What,                      config_parse_string,                0,         
 Mount.Where,                     config_parse_path,                  0,                             offsetof(Mount, where)
 Mount.Options,                   config_parse_string,                0,                             offsetof(Mount, parameters_fragment.options)
 Mount.Type,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.fstype)
-Mount.FsckPassNo,                config_parse_fsck_passno,           0,                             offsetof(Mount, parameters_fragment.passno)
 Mount.TimeoutSec,                config_parse_sec,                   0,                             offsetof(Mount, timeout_usec)
 Mount.DirectoryMode,             config_parse_mode,                  0,                             offsetof(Mount, directory_mode)
 EXEC_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl

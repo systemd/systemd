@@ -273,28 +273,6 @@
         </refsect1>
 
         <refsect1>
-                <title>Compatibility Options</title>
-
-                <para>The following option is also available in the
-                <literal>[Mount]</literal> section, but exists purely
-                for compatibility reasons and should not be used in
-                newly written mount files.</para>
-
-                <variablelist class='unit-directives'>
-                        <varlistentry>
-                                <term><varname>FsckPassNo=</varname></term>
-
-                                <listitem><para>The pass number for
-                                the file system checking service for
-                                this mount. See
-                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                for more information on this setting.
-                                </para></listitem>
-                        </varlistentry>
-                </variablelist>
-        </refsect1>
-
-        <refsect1>
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

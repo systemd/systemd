@@ -1056,48 +1056,6 @@ static int service_load_sysv(Service *s) {
 }
 #endif
 
-static int fsck_fix_order(Service *s) {
-        Unit *other;
-        int r;
-
-        assert(s);
-
-        if (s->fsck_passno <= 0)
-                return 0;
-
-        /* For each pair of services where both have an fsck priority
-         * we order things based on it. */
-
-        LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_SERVICE]) {
-                Service *t;
-                UnitDependency d;
-
-                t = SERVICE(other);
-
-                if (s == t)
-                        continue;
-
-                if (UNIT(t)->load_state != UNIT_LOADED)
-                        continue;
-
-                if (t->fsck_passno <= 0)
-                        continue;
-
-                if (t->fsck_passno < s->fsck_passno)
-                        d = UNIT_AFTER;
-                else if (t->fsck_passno > s->fsck_passno)
-                        d = UNIT_BEFORE;
-                else
-                        continue;
-
-                r = unit_add_dependency(UNIT(s), d, UNIT(t), true);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
 static int service_verify(Service *s) {
         assert(s);
 
@@ -1254,10 +1212,6 @@ static int service_load(Unit *u) {
                         return r;
 #endif
 
-                r = fsck_fix_order(s);
-                if (r < 0)
-                        return r;
-
                 if (s->bus_name)
                         if ((r = unit_watch_bus_name(u, s->bus_name)) < 0)
                                 return r;
@@ -1380,11 +1334,6 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%sSysVRunLevels: %s\n",
                         prefix, s->sysv_runlevels);
 #endif
-
-        if (s->fsck_passno > 0)
-                fprintf(f,
-                        "%sFsckPassNo: %i\n",
-                        prefix, s->fsck_passno);
 
         if (s->status_text)
                 fprintf(f, "%sStatus Text: %s\n",

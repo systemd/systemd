@@ -313,33 +313,6 @@ static int mount_add_device_links(Mount *m) {
         if (r < 0)
                 return r;
 
-        if (p->passno > 0 &&
-            UNIT(m)->manager->running_as == SYSTEMD_SYSTEM) {
-                char *name;
-                Unit *fsck;
-                /* Let's add in the fsck service */
-
-                /* aka SPECIAL_FSCK_SERVICE */
-                name = unit_name_from_path_instance("systemd-fsck", p->what, ".service");
-                if (!name)
-                        return -ENOMEM;
-
-                r = manager_load_unit_prepare(UNIT(m)->manager, name, NULL, NULL, &fsck);
-                if (r < 0) {
-                        log_warning_unit(name,
-                                         "Failed to prepare unit %s: %s", name, strerror(-r));
-                        free(name);
-                        return r;
-                }
-                free(name);
-
-                SERVICE(fsck)->fsck_passno = p->passno;
-
-                r = unit_add_two_dependencies(UNIT(m), UNIT_AFTER, UNIT_REQUIRES, fsck, true);
-                if (r < 0)
-                        return r;
-        }
-
         return 0;
 }
 
@@ -1410,7 +1383,6 @@ static int mount_add_one(
                 const char *where,
                 const char *options,
                 const char *fstype,
-                int passno,
                 bool set_flags) {
         int r;
         Unit *u;
@@ -1530,8 +1502,6 @@ static int mount_add_one(
         free(p->fstype);
         p->fstype = f;
 
-        p->passno = passno;
-
         if (load_extras) {
                 r = mount_add_extras(MOUNT(u));
                 if (r < 0)
@@ -1601,7 +1571,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (!d || !p)
                         return log_oom();
 
-                k = mount_add_one(m, d, p, o, fstype, 0, set_flags);
+                k = mount_add_one(m, d, p, o, fstype, set_flags);
                 if (k < 0)
                         r = k;
         }
