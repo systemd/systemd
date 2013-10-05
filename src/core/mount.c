@@ -59,6 +59,72 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_FAILED] = UNIT_FAILED
 };
 
+static char* mount_test_option(const char *haystack, const char *needle) {
+        struct mntent me = { .mnt_opts = (char*) haystack };
+
+        assert(needle);
+
+        /* Like glibc's hasmntopt(), but works on a string, not a
+         * struct mntent */
+
+        if (!haystack)
+                return NULL;
+
+        return hasmntopt(&me, needle);
+}
+
+static bool mount_is_network(MountParameters *p) {
+        assert(p);
+
+        if (mount_test_option(p->options, "_netdev"))
+                return true;
+
+        if (p->fstype && fstype_is_network(p->fstype))
+                return true;
+
+        return false;
+}
+
+static bool mount_is_bind(MountParameters *p) {
+        assert(p);
+
+        if (mount_test_option(p->options, "bind"))
+                return true;
+
+        if (p->fstype && streq(p->fstype, "bind"))
+                return true;
+
+        if (mount_test_option(p->options, "rbind"))
+                return true;
+
+        if (p->fstype && streq(p->fstype, "rbind"))
+                return true;
+
+        return false;
+}
+
+static bool mount_is_auto(MountParameters *p) {
+        assert(p);
+
+        return !mount_test_option(p->options, "noauto");
+}
+
+static bool needs_quota(MountParameters *p) {
+        assert(p);
+
+        if (mount_is_network(p))
+                return false;
+
+        if (mount_is_bind(p))
+                return false;
+
+        return mount_test_option(p->options, "usrquota") ||
+                mount_test_option(p->options, "grpquota") ||
+                mount_test_option(p->options, "quota") ||
+                mount_test_option(p->options, "usrjquota") ||
+                mount_test_option(p->options, "grpjquota");
+}
+
 static void mount_init(Unit *u) {
         Mount *m = MOUNT(u);
 
@@ -182,7 +248,10 @@ static int mount_add_mount_links(Mount *m) {
          * for the source path (if this is a bind mount) to be
          * available. */
         pm = get_mount_parameters_fragment(m);
-        if (pm && pm->what && path_is_absolute(pm->what)) {
+        if (pm && pm->what &&
+            path_is_absolute(pm->what) &&
+            !mount_is_network(pm)) {
+
                 r = unit_require_mounts_for(UNIT(m), pm->what);
                 if (r < 0)
                         return r;
@@ -212,72 +281,6 @@ static int mount_add_mount_links(Mount *m) {
         }
 
         return 0;
-}
-
-static char* mount_test_option(const char *haystack, const char *needle) {
-        struct mntent me = { .mnt_opts = (char*) haystack };
-
-        assert(needle);
-
-        /* Like glibc's hasmntopt(), but works on a string, not a
-         * struct mntent */
-
-        if (!haystack)
-                return NULL;
-
-        return hasmntopt(&me, needle);
-}
-
-static bool mount_is_network(MountParameters *p) {
-        assert(p);
-
-        if (mount_test_option(p->options, "_netdev"))
-                return true;
-
-        if (p->fstype && fstype_is_network(p->fstype))
-                return true;
-
-        return false;
-}
-
-static bool mount_is_bind(MountParameters *p) {
-        assert(p);
-
-        if (mount_test_option(p->options, "bind"))
-                return true;
-
-        if (p->fstype && streq(p->fstype, "bind"))
-                return true;
-
-        if (mount_test_option(p->options, "rbind"))
-                return true;
-
-        if (p->fstype && streq(p->fstype, "rbind"))
-                return true;
-
-        return false;
-}
-
-static bool mount_is_auto(MountParameters *p) {
-        assert(p);
-
-        return !mount_test_option(p->options, "noauto");
-}
-
-static bool needs_quota(MountParameters *p) {
-        assert(p);
-
-        if (mount_is_network(p))
-                return false;
-
-        if (mount_is_bind(p))
-                return false;
-
-        return mount_test_option(p->options, "usrquota") ||
-                mount_test_option(p->options, "grpquota") ||
-                mount_test_option(p->options, "quota") ||
-                mount_test_option(p->options, "usrjquota") ||
-                mount_test_option(p->options, "grpjquota");
 }
 
 static int mount_add_device_links(Mount *m) {
