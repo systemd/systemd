@@ -308,7 +308,6 @@ Features:
 * introduce ExecCondition= in services
 
 * EFI:
-  - fsck hookup for the ESP mount is missing
   - write man page for efi boot generator
   - honor language efi variables for default language selection (if there are any?)
   - honor timezone efi variables for default timezone selection (if there are any?)
