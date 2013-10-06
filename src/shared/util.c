@@ -3527,7 +3527,7 @@ static char *tag_to_udev_node(const char *tagvalue, const char *by) {
         if (u == NULL)
                 return NULL;
 
-        enc_len = strlen(u) * 4;
+        enc_len = strlen(u) * 4 + 1;
         t = new(char, enc_len);
         if (t == NULL)
                 return NULL;
