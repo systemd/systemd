@@ -26,6 +26,7 @@ static void test_utf8_is_printable(void) {
         assert_se(utf8_is_printable("ascii is valid\tunicode", 22));
         assert_se(utf8_is_printable("\342\204\242", 3));
         assert_se(!utf8_is_printable("\341\204", 2));
+        assert_se(utf8_is_printable("ąę", 4));
 }
 
 static void test_utf8_is_valid(void) {

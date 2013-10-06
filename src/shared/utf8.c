@@ -141,14 +141,15 @@ bool utf8_is_printable(const char* str, size_t length) {
 
         assert(str);
 
-        for (p = (const uint8_t*) str; length; p++) {
+        for (p = (const uint8_t*) str; length;) {
                 int encoded_len = utf8_encoded_valid_unichar((const char *)p);
-                int32_t val = utf8_encoded_to_unichar((const char*)p);
+                int val = utf8_encoded_to_unichar((const char*)p);
 
                 if (encoded_len < 0 || val < 0 || is_unicode_control(val))
                         return false;
 
                 length -= encoded_len;
+                p += encoded_len;
         }
 
         return true;
