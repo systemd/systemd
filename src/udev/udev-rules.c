@@ -156,6 +156,7 @@ enum token_type {
         TK_A_MODE_ID,                   /* mode_t */
         TK_A_TAG,                       /* val */
         TK_A_STATIC_NODE,               /* val */
+        TK_A_SECLABEL,                  /* val, attr */
         TK_A_ENV,                       /* val, attr */
         TK_A_NAME,                      /* val */
         TK_A_DEVLINK,                   /* val */
@@ -291,6 +292,7 @@ static const char *token_str(enum token_type type)
                 [TK_A_OWNER_ID] =               "A OWNER_ID",
                 [TK_A_GROUP_ID] =               "A GROUP_ID",
                 [TK_A_STATIC_NODE] =            "A STATIC_NODE",
+                [TK_A_SECLABEL] =               "A SECLABEL",
                 [TK_A_MODE_ID] =                "A MODE_ID",
                 [TK_A_ENV] =                    "A ENV",
                 [TK_A_TAG] =                    "A ENV",
@@ -398,6 +400,9 @@ static void dump_token(struct udev_rules *rules, struct token *token)
                 break;
         case TK_A_STATIC_NODE:
                 log_debug("%s '%s'\n", token_str(type), value);
+                break;
+        case TK_A_SECLABEL:
+                log_debug("%s %s '%s' '%s'\n", token_str(type), operation_str(op), attr, value);
                 break;
         case TK_M_EVENT_TIMEOUT:
                 log_debug("%s %u\n", token_str(type), token->key.event_timeout);
@@ -911,6 +916,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
         case TK_M_ATTRS:
         case TK_A_ATTR:
         case TK_A_ENV:
+        case TK_A_SECLABEL:
                 attr = data;
                 token->key.value_off = rules_add_string(rule_tmp->rules, value);
                 token->key.attr_off = rules_add_string(rule_tmp->rules, attr);
@@ -1155,6 +1161,17 @@ static int add_rule(struct udev_rules *rules, char *line,
                         } else {
                                 rule_add_key(&rule_tmp, TK_A_ATTR, op, value, attr);
                         }
+                        continue;
+                }
+
+                if (startswith(key, "SECLABEL{")) {
+                        attr = get_key_attribute(rules->udev, key + sizeof("SECLABEL")-1);
+                        if (!attr) {
+                                log_error("error parsing SECLABEL attribute\n");
+                                goto invalid;
+                        }
+
+                        rule_add_key(&rule_tmp, TK_A_SECLABEL, op, value, attr);
                         continue;
                 }
 
@@ -2329,6 +2346,20 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
                                   rules_str(rules, rule->rule.filename_off),
                                   rule->rule.filename_line);
                         break;
+                case TK_A_SECLABEL: {
+                        const char *name, *label;
+
+                        name = rules_str(rules, cur->key.attr_off);
+                        label = rules_str(rules, cur->key.value_off);
+                        if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
+                                udev_list_cleanup(&event->seclabel_list);
+                        udev_list_entry_add(&event->seclabel_list, name, label);
+                        log_debug("SECLABEL{%s}='%s' %s:%u\n",
+                                  name, label,
+                                  rules_str(rules, rule->rule.filename_off),
+                                  rule->rule.filename_line);
+                        break;
+                }
                 case TK_A_ENV: {
                         const char *name = rules_str(rules, cur->key.attr_off);
                         char *value = rules_str(rules, cur->key.value_off);

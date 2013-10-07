@@ -47,6 +47,7 @@ struct udev_event *udev_event_new(struct udev_device *dev)
         event->dev = dev;
         event->udev = udev;
         udev_list_init(udev, &event->run_list, false);
+        udev_list_init(udev, &event->seclabel_list, false);
         event->fd_signal = -1;
         event->birth_usec = now(CLOCK_MONOTONIC);
         event->timeout_usec = 30 * 1000 * 1000;
@@ -58,6 +59,7 @@ void udev_event_unref(struct udev_event *event)
         if (event == NULL)
                 return;
         udev_list_cleanup(&event->run_list);
+        udev_list_cleanup(&event->seclabel_list);
         free(event->program_result);
         free(event->name);
         free(event);
@@ -864,7 +866,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
                         }
 
                         apply = streq(udev_device_get_action(dev), "add") || event->owner_set || event->group_set || event->mode_set;
-                        udev_node_add(dev, apply, event->mode, event->uid, event->gid);
+                        udev_node_add(dev, apply, event->mode, event->uid, event->gid, &event->seclabel_list);
                 }
 
                 /* preserve old, or get new initialization timestamp */

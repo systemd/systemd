@@ -341,6 +341,13 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>SECLABEL{<replaceable>module</replaceable>}</varname></term>
+          <listitem>
+            <para>Applies the specified Linux Security Module label to the device node.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ATTR{<replaceable>key</replaceable>}</varname></term>
           <listitem>
             <para>The value that should be written to a sysfs attribute of the
