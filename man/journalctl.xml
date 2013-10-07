@@ -152,11 +152,20 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-l</option></term>
+                                <term><option>--no-full</option></term>
                                 <term><option>--full</option></term>
+                                <term><option>-l</option></term>
 
-                                <listitem><para>Show all (printable) fields in
-                                full.</para></listitem>
+                                <listitem><para>Ellipsize fields when
+                                they don't fit in available columns.
+                                The default is to show full fields,
+                                allowing them to wrap or be truncated
+                                by the pager if one is used.</para>
+
+                                <para>Old options
+                                <option>-l</option>/<option>--full</option>
+                                not useful anymore, except to undo
+                                <option>--no-full</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
