@@ -63,6 +63,9 @@ These configuration snippets shall be Unix-style text files (i.e. line separatio
 * `initrd` refers to the initrd to use when executing the kernel. This also shall be a path relative to the `$BOOT` directory. This key is optional. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd` 
 * `efi` to spawn arbitrary EFI programs. This also takes a path relative to `$BOOT`. This key is only available on EFI systems. 
 * `options` shall contain kernel parameters to pass to the Linux kernel to spawn. This key is optional. 
+* `devicetree` refers to the binary device tree to use when executing the
+kernel. This also shall be a path relative to the $BOOT directory. This
+key is optional. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.armv7hl/tegra20-paz00.dtb`
 
 Each configuration drop-in snippet must include at least a `linux` or an `efi` key, and is otherwise not valid. Here's an example for a complete drop-in file:
 
