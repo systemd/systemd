@@ -2652,7 +2652,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 unit_serialize_item(u, f, "var-tmp-dir", s->exec_context.var_tmp_dir);
 
         if (s->forbid_restart)
-                unit_serialize_item(u, f, "forbid_restart", yes_no(s->forbid_restart));
+                unit_serialize_item(u, f, "forbid-restart", yes_no(s->forbid_restart));
 
         return 0;
 }
@@ -2790,12 +2790,12 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         return log_oom();
 
                 s->exec_context.var_tmp_dir = t;
-        } else if (streq(key, "forbid_restart")) {
+        } else if (streq(key, "forbid-restart")) {
                 int b;
 
                 b = parse_boolean(value);
                 if (b < 0)
-                        log_debug_unit(u->id, "Failed to parse forbid_restart value %s", value);
+                        log_debug_unit(u->id, "Failed to parse forbid-restart value %s", value);
                 else
                         s->forbid_restart = b;
         } else
