@@ -52,7 +52,7 @@ These directories are defined below the placeholder file system `$BOOT`. This pl
 
 `$BOOT` can either be a FAT file system (which is probably the best choice, to allow acess/editing of the configuration from Windows and the EFI shell, too), or ext2, ext3, or ext4. Other file systems should not be used. Applications accessing `$BOOT` should hence not assume that fancier file system features such as symlinks, hardlinks, access control or case sensitivity are supported. 
 
-Inside the `$BOOT/loader/entries/` directory each OS vendor may drop one or more configuration snippets with the suffix ".conf", one for each boot menu item. The file name of the file is used for identification of the boot item, but shall never be presented to the user in the UI. The file name may be chosen freely but should be unique enough to avoid clashes between OS installations. More specifically it is suggested to include the machine ID (`/etc/machine-id` or the D-Bus machine ID for OSes that lack `/etc/machine-id`), the kernel version (as returned by `uname -r`) and an OS identifier (The ID field of `/etc/os-release`). Example: `$BOOT/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf`. 
+Inside the `$BOOT/loader/entries/` directory each OS vendor may drop one or more configuration snippets with the suffix ".conf", one for each boot menu item. The file name of the file is used for identification of the boot item, but shall never be presented to the user in the UI. The file name may be chosen freely but should be unique enough to avoid clashes between OS installations. More specifically it is suggested to include the machine ID (`/etc/machine-id` or the D-Bus machine ID for OSes that lack `/etc/machine-id`), the kernel version (as returned by `uname -r`) and an OS identifier (The ID field of `/etc/os-release`). Example: $BOOT/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf`. 
 
 These configuration snippets shall be Unix-style text files (i.e. line separation with a single newline character), in the UTF-8 character sets. The configuration snippets are loosely inspired on Grub1's configuration syntax. Lines beginning with '#' shall be ignored and used for commenting. The first word of a line is used as key, and shall be separated by a space from its value. The following keys are known: 
 
@@ -63,15 +63,16 @@ These configuration snippets shall be Unix-style text files (i.e. line separatio
 * `initrd` refers to the initrd to use when executing the kernel. This also shall be a path relative to the `$BOOT` directory. This key is optional. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd` 
 * `efi` to spawn arbitrary EFI programs. This also takes a path relative to `$BOOT`. This key is only available on EFI systems. 
 * `options` shall contain kernel parameters to pass to the Linux kernel to spawn. This key is optional. 
-Each configuration drop-in snippet must include at least a `linux` or an `efi` key, and is otherwise not valid. Here's an example for a complete drop-in file: 
 
-      # cat /boot/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf
-      title      Fedora 19 (Rawhide)
-      version    3.8.0-2.fc19.x86_64
-      machine-id 6a9857a393724b7a981ebb5b8495b9ea
-      options    root=UUID=6d3376e4-fc93-4509-95ec-a21d68011da2
-      linux      /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux
-      initrd     /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd
+Each configuration drop-in snippet must include at least a `linux` or an `efi` key, and is otherwise not valid. Here's an example for a complete drop-in file:
+
+    /boot/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf
+    title      Fedora 19 (Rawhide)
+    version    3.8.0-2.fc19.x86_64
+    machine-id 6a9857a393724b7a981ebb5b8495b9ea
+    options    root=UUID=6d3376e4-fc93-4509-95ec-a21d68011da2
+    linux      /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux
+    initrd     /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd
 
 On EFI systems all kernel images shall be EFI images. In order to be compatible with EFI systems it is highly recommended only to install EFI kernel images, even on non-EFI systems, if that's applicable and supported on the specific architecture.  
 
