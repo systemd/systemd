@@ -110,13 +110,13 @@ int signature_element_length(const char *s, size_t *l) {
         return signature_element_length_internal(s, true, 0, 0, l);
 }
 
-bool signature_is_single(const char *s) {
+bool signature_is_single(const char *s, bool allow_dict_entry) {
         int r;
         size_t t;
 
         assert(s);
 
-        r = signature_element_length(s, &t);
+        r = signature_element_length_internal(s, allow_dict_entry, 0, 0, &t);
         if (r < 0)
                 return false;
 
@@ -129,7 +129,7 @@ bool signature_is_pair(const char *s) {
         if (!bus_type_is_basic(*s))
                 return false;
 
-        return signature_is_single(s + 1);
+        return signature_is_single(s + 1, false);
 }
 
 bool signature_is_valid(const char *s, bool allow_dict_entry) {

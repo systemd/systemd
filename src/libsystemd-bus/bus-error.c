@@ -51,7 +51,34 @@ void sd_bus_error_free(sd_bus_error *e) {
         e->need_free = false;
 }
 
-int sd_bus_error_set(sd_bus_error *e, const char *name, const char *format, ...) {
+int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message) {
+        char *n, *m = NULL;
+
+        if (!e)
+                return 0;
+        if (bus_error_is_dirty(e))
+                return -EINVAL;
+        if (!name)
+                return -EINVAL;
+
+        n = strdup(name);
+        if (!n)
+                return -ENOMEM;
+
+        if (message) {
+                m = strdup(message);
+                if (!m)
+                        return -ENOMEM;
+        }
+
+        e->name = n;
+        e->message = m;
+        e->need_free = true;
+
+        return 0;
+}
+
+int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...) {
         char *n, *m = NULL;
         va_list ap;
         int r;
@@ -119,9 +146,7 @@ void sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *messa
         if (bus_error_is_dirty(e))
                 return;
 
-        e->name = name;
-        e->message = message;
-        e->need_free = false;
+        *e = SD_BUS_ERROR_MAKE(name, message);
 }
 
 int sd_bus_error_is_set(const sd_bus_error *e) {

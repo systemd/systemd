@@ -1956,6 +1956,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-match.h \
 	src/libsystemd-bus/bus-bloom.c \
 	src/libsystemd-bus/bus-bloom.h \
+	src/libsystemd-bus/bus-introspect.c \
+	src/libsystemd-bus/bus-introspect.h \
 	src/libsystemd-bus/kdbus.h \
 	src/libsystemd-bus/sd-memfd.c
 
@@ -1981,7 +1983,9 @@ tests += \
 	test-bus-kernel-bloom \
 	test-bus-kernel-benchmark \
 	test-bus-memfd \
-	test-bus-zero-copy
+	test-bus-zero-copy \
+	test-bus-introspect \
+	test-bus-objects
 
 noinst_PROGRAMS += \
 	busctl
@@ -2027,6 +2031,18 @@ test_bus_server_CFLAGS = \
 	-pthread
 
 test_bus_server_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la \
+	libsystemd-id128-internal.la
+
+test_bus_objects_SOURCES = \
+	src/libsystemd-bus/test-bus-objects.c
+
+test_bus_objects_CFLAGS = \
+	$(AM_CFLAGS) \
+	-pthread
+
+test_bus_objects_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la \
 	libsystemd-id128-internal.la
@@ -2092,6 +2108,16 @@ test_bus_zero_copy_CFLAGS = \
 	$(AM_CFLAGS)
 
 test_bus_zero_copy_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la
+
+test_bus_introspect_SOURCES = \
+	src/libsystemd-bus/test-bus-introspect.c
+
+test_bus_introspect_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_bus_introspect_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la
 

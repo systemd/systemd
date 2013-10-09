@@ -87,12 +87,14 @@
 /tags
 /test-boot-timestamp
 /test-bus-chat
+/test-bus-introspect
 /test-bus-kernel
 /test-bus-kernel-bloom
 /test-bus-kernel-benchmark
 /test-bus-marshal
 /test-bus-match
 /test-bus-memfd
+/test-bus-objects
 /test-bus-signature
 /test-bus-server
 /test-bus-zero-copy

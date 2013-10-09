@@ -54,14 +54,63 @@ struct filter_callback {
         LIST_FIELDS(struct filter_callback, callbacks);
 };
 
-struct object_callback {
+struct node {
+        char *path;
+        struct node *parent;
+        LIST_HEAD(struct node, child);
+        LIST_FIELDS(struct node, siblings);
+
+        LIST_HEAD(struct node_callback, callbacks);
+        LIST_HEAD(struct node_vtable, vtables);
+        LIST_HEAD(struct node_enumerator, enumerators);
+
+        bool object_manager;
+};
+
+struct node_callback {
+        struct node *node;
+
+        bool is_fallback;
         sd_bus_message_handler_t callback;
         void *userdata;
 
-        char *path;
-        bool is_fallback;
+        unsigned last_iteration;
+
+        LIST_FIELDS(struct node_callback, callbacks);
+};
+
+struct node_enumerator {
+        struct node *node;
+
+        sd_bus_node_enumerator_t callback;
+        void *userdata;
 
         unsigned last_iteration;
+
+        LIST_FIELDS(struct node_enumerator, enumerators);
+};
+
+struct node_vtable {
+        struct node *node;
+
+        char *interface;
+        bool is_fallback;
+        const sd_bus_vtable *vtable;
+        void *userdata;
+        sd_bus_object_find_t find;
+
+        unsigned last_iteration;
+
+        LIST_FIELDS(struct node_vtable, vtables);
+};
+
+struct vtable_member {
+        const char *path;
+        const char *interface;
+        const char *member;
+        struct node_vtable *parent;
+        unsigned last_iteration;
+        const sd_bus_vtable *vtable;
 };
 
 enum bus_state {
@@ -109,7 +158,7 @@ struct sd_bus {
         bool processing:1;
         bool match_callbacks_modified:1;
         bool filter_callbacks_modified:1;
-        bool object_callbacks_modified:1;
+        bool nodes_modified:1;
 
         int use_memfd;
 
@@ -131,7 +180,12 @@ struct sd_bus {
         Prioq *reply_callbacks_prioq;
         Hashmap *reply_callbacks;
         LIST_HEAD(struct filter_callback, filter_callbacks);
-        Hashmap *object_callbacks;
+
+        Hashmap *nodes;
+
+
+        Hashmap *vtable_methods;
+        Hashmap *vtable_properties;
 
         union {
                 struct sockaddr sa;
@@ -213,10 +267,11 @@ static inline void bus_unrefp(sd_bus **b) {
 
 #define BUS_EXEC_ARGV_MAX 256
 
-bool object_path_is_valid(const char *p);
 bool interface_name_is_valid(const char *p);
 bool service_name_is_valid(const char *p);
 bool member_name_is_valid(const char *p);
+bool object_path_is_valid(const char *p);
+char *object_path_startswith(const char *a, const char *b);
 
 bool namespace_complex_pattern(const char *pattern, const char *value);
 bool path_complex_pattern(const char *pattern, const char *value);

@@ -54,6 +54,8 @@ Features:
 
 * tmpfiles: when applying ownership to /run/log/journal also do this for the journal fails contained in it
 
+* rework list.h to use typeof() and thus simplify most linked list macros by not requring the type to be specified
+
 * we probably should replace the left-over uses of strv_append() and replace them by strv_push() or strv_extend()
 
 * move config_parse_path_strv() out of conf-parser.c

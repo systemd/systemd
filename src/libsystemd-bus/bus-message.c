@@ -496,9 +496,13 @@ int sd_bus_message_new_method_call(
         sd_bus_message *t;
         int r;
 
-        if (!path)
+        if (destination && !service_name_is_valid(destination))
                 return -EINVAL;
-        if (!member)
+        if (!object_path_is_valid(path))
+                return -EINVAL;
+        if (interface && !interface_name_is_valid(interface))
+                return -EINVAL;
+        if (!member_name_is_valid(member))
                 return -EINVAL;
         if (!m)
                 return -EINVAL;
@@ -626,6 +630,58 @@ fail:
         message_free(t);
         return r;
 }
+
+int sd_bus_message_new_method_errorf(
+                sd_bus *bus,
+                sd_bus_message *call,
+                sd_bus_message **m,
+                const char *name,
+                const char *format,
+                ...) {
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus_message *t;
+        va_list ap;
+        int r;
+
+        if (!name)
+                return -EINVAL;
+        if (!m)
+                return -EINVAL;
+
+        r = message_new_reply(bus, call, SD_BUS_MESSAGE_TYPE_METHOD_ERROR, &t);
+        if (r < 0)
+                return r;
+
+        r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_ERROR_NAME, SD_BUS_TYPE_STRING, name, &t->error.name);
+        if (r < 0)
+                goto fail;
+
+        if (format) {
+                _cleanup_free_ char *message = NULL;
+
+                va_start(ap, format);
+                r = vasprintf(&message, format, ap);
+                va_end(ap);
+
+                if (r < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                r = message_append_basic(t, SD_BUS_TYPE_STRING, message, (const void**) &t->error.message);
+                if (r < 0)
+                        goto fail;
+        }
+
+        *m = t;
+        return 0;
+
+fail:
+        message_free(t);
+        return r;
+}
+
 
 int bus_message_new_synthetic_error(
                 sd_bus *bus,
@@ -1558,7 +1614,7 @@ static int bus_message_open_array(
         assert(contents);
         assert(array_size);
 
-        if (!signature_is_single(contents))
+        if (!signature_is_single(contents, true))
                 return -EINVAL;
 
         alignment = bus_type_get_alignment(contents[0]);
@@ -1629,7 +1685,7 @@ static int bus_message_open_variant(
         assert(c);
         assert(contents);
 
-        if (!signature_is_single(contents))
+        if (!signature_is_single(contents, false))
                 return -EINVAL;
 
         if (*contents == SD_BUS_TYPE_DICT_ENTRY_BEGIN)
@@ -2704,7 +2760,7 @@ static int bus_message_enter_array(
         assert(contents);
         assert(array_size);
 
-        if (!signature_is_single(contents))
+        if (!signature_is_single(contents, true))
                 return -EINVAL;
 
         alignment = bus_type_get_alignment(contents[0]);
@@ -2758,7 +2814,7 @@ static int bus_message_enter_variant(
         assert(c);
         assert(contents);
 
-        if (!signature_is_single(contents))
+        if (!signature_is_single(contents, false))
                 return -EINVAL;
 
         if (*contents == SD_BUS_TYPE_DICT_ENTRY_BEGIN)
@@ -4289,4 +4345,17 @@ int bus_message_to_errno(sd_bus_message *m) {
                 return 0;
 
         return bus_error_to_errno(&m->error);
+}
+
+int sd_bus_message_get_signature(sd_bus_message *m, int complete, const char **signature) {
+        struct bus_container *c;
+
+        if (!m)
+                return -EINVAL;
+        if (!signature)
+                return -EINVAL;
+
+        c = complete ? &m->root_container : message_get_container(m);
+        *signature = c->signature ?: "";
+        return 0;
 }

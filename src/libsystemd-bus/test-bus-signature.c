@@ -28,29 +28,30 @@
 
 int main(int argc, char *argv[]) {
 
-        assert_se(signature_is_single("y"));
-        assert_se(signature_is_single("u"));
-        assert_se(signature_is_single("v"));
-        assert_se(signature_is_single("as"));
-        assert_se(signature_is_single("(ss)"));
-        assert_se(signature_is_single("()"));
-        assert_se(signature_is_single("(()()()()())"));
-        assert_se(signature_is_single("(((())))"));
-        assert_se(signature_is_single("((((s))))"));
-        assert_se(signature_is_single("{ss}"));
-        assert_se(signature_is_single("a{ss}"));
-        assert_se(!signature_is_single("uu"));
-        assert_se(!signature_is_single(""));
-        assert_se(!signature_is_single("("));
-        assert_se(!signature_is_single(")"));
-        assert_se(!signature_is_single("())"));
-        assert_se(!signature_is_single("((())"));
-        assert_se(!signature_is_single("{)"));
-        assert_se(!signature_is_single("{}"));
-        assert_se(!signature_is_single("{sss}"));
-        assert_se(!signature_is_single("{s}"));
-        assert_se(!signature_is_single("{ass}"));
-        assert_se(!signature_is_single("a}"));
+        assert_se(signature_is_single("y", false));
+        assert_se(signature_is_single("u", false));
+        assert_se(signature_is_single("v", false));
+        assert_se(signature_is_single("as", false));
+        assert_se(signature_is_single("(ss)", false));
+        assert_se(signature_is_single("()", false));
+        assert_se(signature_is_single("(()()()()())", false));
+        assert_se(signature_is_single("(((())))", false));
+        assert_se(signature_is_single("((((s))))", false));
+        assert_se(signature_is_single("{ss}", true));
+        assert_se(signature_is_single("a{ss}", false));
+        assert_se(!signature_is_single("uu", false));
+        assert_se(!signature_is_single("", false));
+        assert_se(!signature_is_single("(", false));
+        assert_se(!signature_is_single(")", false));
+        assert_se(!signature_is_single("())", false));
+        assert_se(!signature_is_single("((())", false));
+        assert_se(!signature_is_single("{)", false));
+        assert_se(!signature_is_single("{}", true));
+        assert_se(!signature_is_single("{sss}", true));
+        assert_se(!signature_is_single("{s}", true));
+        assert_se(!signature_is_single("{ss}", false));
+        assert_se(!signature_is_single("{ass}", true));
+        assert_se(!signature_is_single("a}", true));
 
         assert_se(signature_is_pair("yy"));
         assert_se(signature_is_pair("ss"));
@@ -111,6 +112,26 @@ int main(int argc, char *argv[]) {
         assert_se(!namespace_simple_pattern("foobar.waldo", "foobar"));
         assert_se(!namespace_simple_pattern("", "foo"));
         assert_se(!namespace_simple_pattern("foo", ""));
+
+        assert_se(streq(object_path_startswith("/foo/bar", "/foo"), "bar"));
+        assert_se(streq(object_path_startswith("/foo", "/foo"), ""));
+        assert_se(streq(object_path_startswith("/foo", "/"), "foo"));
+        assert_se(streq(object_path_startswith("/", "/"), ""));
+        assert_se(!object_path_startswith("/foo", "/bar"));
+        assert_se(!object_path_startswith("/", "/bar"));
+        assert_se(!object_path_startswith("/foo", ""));
+
+        assert_se(object_path_is_valid("/foo/bar"));
+        assert_se(object_path_is_valid("/foo"));
+        assert_se(object_path_is_valid("/"));
+        assert_se(object_path_is_valid("/foo5"));
+        assert_se(object_path_is_valid("/foo_5"));
+        assert_se(!object_path_is_valid(""));
+        assert_se(!object_path_is_valid("/foo/"));
+        assert_se(!object_path_is_valid("//"));
+        assert_se(!object_path_is_valid("//foo"));
+        assert_se(!object_path_is_valid("/foo//bar"));
+        assert_se(!object_path_is_valid("/foo/aaaäöä"));
 
         return 0;
 }

@@ -61,6 +61,29 @@ bool object_path_is_valid(const char *p) {
         return true;
 }
 
+char* object_path_startswith(const char *a, const char *b) {
+        const char *p;
+
+        if (!object_path_is_valid(a) ||
+            !object_path_is_valid(b))
+                return NULL;
+
+        if (streq(b, "/"))
+                return (char*) a + 1;
+
+        p = startswith(a, b);
+        if (!p)
+                return NULL;
+
+        if (*p == 0)
+                return (char*) p;
+
+        if (*p == '/')
+                return (char*) p + 1;
+
+        return NULL;
+}
+
 bool interface_name_is_valid(const char *p) {
         const char *q;
         bool dot, found_dot = false;
