@@ -50,20 +50,17 @@ _noreturn_ static void log_assert_errno(const char *text, int eno, const char *f
                         log_assert_errno(#expr, -_r_, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)
 
-static JournalFile *test_open (const char *name)
-{
+static JournalFile *test_open(const char *name) {
         JournalFile *f;
         assert_ret(journal_file_open(name, O_RDWR|O_CREAT, 0644, true, false, NULL, NULL, NULL, &f));
         return f;
 }
 
-static void test_close (JournalFile *f)
-{
+static void test_close(JournalFile *f) {
         journal_file_close (f);
 }
 
-static void append_number(JournalFile *f, int n, uint64_t *seqnum)
-{
+static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
         char *p;
         dual_timestamp ts;
         struct iovec iovec[1];
@@ -74,13 +71,12 @@ static void append_number(JournalFile *f, int n, uint64_t *seqnum)
         iovec[0].iov_base = p;
         iovec[0].iov_len = strlen(p);
         assert_ret(journal_file_append_entry(f, &ts, iovec, 1, seqnum, NULL, NULL));
-        free (p);
+        free(p);
 }
 
-static void test_check_number (sd_journal *j, int n)
-{
+static void test_check_number (sd_journal *j, int n) {
         const void *d;
-        char *k;
+        _cleanup_free_ char *k;
         size_t l;
         int x;
 
@@ -92,9 +88,10 @@ static void test_check_number (sd_journal *j, int n)
         assert_se(n == x);
 }
 
-static void test_check_numbers_down (sd_journal *j, int count)
-{
-        for (int i = 1; i <= count; i++) {
+static void test_check_numbers_down (sd_journal *j, int count) {
+        int i;
+
+        for (i = 1; i <= count; i++) {
                 int r;
                 test_check_number(j, i);
                 assert_ret(r = sd_journal_next(j));
@@ -106,8 +103,7 @@ static void test_check_numbers_down (sd_journal *j, int count)
 
 }
 
-static void test_check_numbers_up (sd_journal *j, int count)
-{
+static void test_check_numbers_up (sd_journal *j, int count) {
         for (int i = count; i >= 1; i--) {
                 int r;
                 test_check_number(j, i);
@@ -144,8 +140,7 @@ static void setup_interleaved(void) {
         test_close(two);
 }
 
-static void test_skip(void (*setup)(void))
-{
+static void test_skip(void (*setup)(void)) {
         char t[] = "/tmp/journal-skip-XXXXXX";
         sd_journal *j;
         int r;

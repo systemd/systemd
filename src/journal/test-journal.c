@@ -169,6 +169,11 @@ static void test_empty(void) {
 
                 assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
         }
+
+        journal_file_close(f1);
+        journal_file_close(f2);
+        journal_file_close(f3);
+        journal_file_close(f4);
 }
 
 int main(int argc, char *argv[]) {

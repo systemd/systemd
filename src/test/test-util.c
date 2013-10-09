@@ -587,7 +587,7 @@ static void test_get_files_in_directory(void) {
         _cleanup_strv_free_ char **l = NULL, **t = NULL;
 
         assert_se(get_files_in_directory("/tmp", &l) >= 0);
-        assert_se(get_files_in_directory(".", &l) >= 0);
+        assert_se(get_files_in_directory(".", &t) >= 0);
         assert_se(get_files_in_directory(".", NULL) >= 0);
 }
 
