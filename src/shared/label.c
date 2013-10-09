@@ -384,3 +384,15 @@ skipped:
 #endif
         return bind(fd, addr, addrlen) < 0 ? -errno : 0;
 }
+
+int label_apply(const char *path, const char *label) {
+        int r = 0;
+
+#ifdef HAVE_SELINUX
+        if (!use_selinux())
+                return 0;
+
+        r = setfilecon(path, (char *)label);
+#endif
+        return r;
+}

@@ -305,8 +305,10 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
                         if (streq(name, "selinux")) {
                                 selinux = true;
-                                /* FIXME: hook up libselinux */
-                                log_error("SECLABEL: failed to set selinux label '%s'", label);
+                                if (label_apply(devnode, label) < 0)
+                                        log_error("SECLABEL: failed to set SELinux label '%s'", label);
+                                else
+                                        log_debug("SECLABEL: set SELinux label '%s'", label);
 
 #ifdef HAVE_SMACK
                         } else if (streq(name, "smack")) {
