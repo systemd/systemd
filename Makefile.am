@@ -4588,3 +4588,8 @@ install-tree: all
 	rm -rf $(abs_srcdir)/install-tree
 	$(MAKE) install DESTDIR=$(abs_srcdir)/install-tree
 	tree $(abs_srcdir)/install-tree
+
+# Let's run all tests of the test suite, but under valgrind. Let's
+# exclude the one perl script we have in there
+valgrind-tests: $(TESTS)
+	for f in $(TESTS) ; do [ "$$f" == "$${f/.pl/}" ] && libtool --mode=execute valgrind --leak-check=full --error-exitcode=55 $(builddir)/$$f ; done
