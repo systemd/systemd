@@ -486,6 +486,7 @@ static int manager_default_environment(Manager *m) {
 int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
+        bool try_bus_connect = false;
 
         assert(_m);
         assert(running_as >= 0);
@@ -557,14 +558,17 @@ int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
         if (r < 0)
                 goto fail;
 
-        /* Try to connect to the busses, if possible. */
-        if ((running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS")) ||
-            running_as == SYSTEMD_SYSTEM) {
-                r = bus_init(m, reexecuting || running_as != SYSTEMD_SYSTEM);
-                if (r < 0)
-                        goto fail;
-        } else
+        if (running_as == SYSTEMD_SYSTEM)
+                try_bus_connect = reexecuting;
+        else if (getenv("DBUS_SESSION_BUS_ADDRESS"))
+                try_bus_connect = true;
+        else
                 log_debug("Skipping DBus session bus connection attempt - no DBUS_SESSION_BUS_ADDRESS set...");
+
+        /* Try to connect to the busses, if possible. */
+        r = bus_init(m, try_bus_connect);
+        if (r < 0)
+                goto fail;
 
         m->taint_usr = dir_is_empty("/usr") > 0;
 
