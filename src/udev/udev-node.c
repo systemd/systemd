@@ -283,6 +283,11 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
         }
 
         if (apply) {
+                bool selinux = false;
+#ifdef HAVE_SMACK
+                bool smack = false;
+#endif
+
                 if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
                         log_debug("set permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
                         chmod(devnode, mode);
@@ -290,8 +295,6 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                 } else {
                         log_debug("preserve permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
                 }
-
-                label_fix(devnode, true, false);
 
                 /* apply SECLABEL{$module}=$label */
                 udev_list_entry_foreach(entry, udev_list_get_entry(seclabel_list)) {
@@ -301,11 +304,13 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                         label = udev_list_entry_get_value(entry);
 
                         if (streq(name, "selinux")) {
+                                selinux = true;
                                 /* FIXME: hook up libselinux */
                                 log_error("SECLABEL: failed to set selinux label '%s'", label);
 
+#ifdef HAVE_SMACK
                         } else if (streq(name, "smack")) {
-#ifdef HAVE_XATTR
+                                smack = true;
                                 if (lsetxattr(devnode, "security.SMACK64", label, strlen(label), 0) < 0)
                                         log_error("SECLABEL: failed to set SMACK label '%s'", label);
                                 else
@@ -315,6 +320,14 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                         } else
                                 log_error("SECLABEL: unknown subsystem, ignoring '%s'='%s'", name, label);
                 }
+
+                /* set the defaults */
+                if (!selinux)
+                        label_fix(devnode, true, false);
+#ifdef HAVE_SMACK
+                if (!smack)
+                        lremovexattr(devnode, "security.SMACK64");
+#endif
         }
 
         /* always update timestamp when we re-use the node, like on media change events */
