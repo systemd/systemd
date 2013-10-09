@@ -278,6 +278,8 @@ int journal_directory_vacuum(
                         } else if (errno != ENOENT)
                                 log_warning("Failed to delete %s/%s: %m", directory, p);
 
+                        free(p);
+
                         continue;
                 }
 
