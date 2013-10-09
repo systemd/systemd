@@ -359,7 +359,7 @@ finish:
 static int quit_callback(sd_bus *b, sd_bus_message *m, void *userdata) {
         bool *x = userdata;
 
-        log_error("Quit callback: %s", strerror(bus_message_to_errno(m)));
+        log_error("Quit callback: %s", strerror(-bus_message_to_errno(m)));
 
         *x = 1;
         return 1;

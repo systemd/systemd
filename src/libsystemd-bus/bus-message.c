@@ -682,7 +682,6 @@ fail:
         return r;
 }
 
-
 int bus_message_new_synthetic_error(
                 sd_bus *bus,
                 uint64_t serial,
@@ -708,6 +707,16 @@ int bus_message_new_synthetic_error(
 
         if (bus && bus->unique_name) {
                 r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, bus->unique_name, &t->destination);
+                if (r < 0)
+                        goto fail;
+        }
+
+        r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_ERROR_NAME, SD_BUS_TYPE_STRING, e->name, &t->error.name);
+        if (r < 0)
+                goto fail;
+
+        if (e->message) {
+                r = message_append_basic(t, SD_BUS_TYPE_STRING, e->message, (const void**) &t->error.message);
                 if (r < 0)
                         goto fail;
         }
