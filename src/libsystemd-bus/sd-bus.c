@@ -4033,7 +4033,7 @@ static int emit_properties_changed_on_interface(
                 if (r < 0)
                         return r;
 
-                r = v->vtable->property.get(bus, m->path, interface, *property, m, &error, u);
+                r = v->vtable->property.get(bus, m->path, interface, *property, m, &error, vtable_property_convert_userdata(v->vtable, u));
                 if (r < 0)
                         return r;
 
