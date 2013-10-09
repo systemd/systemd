@@ -1935,6 +1935,7 @@ libsystemd_bus_la_SOURCES = \
 	src/systemd/sd-bus.h \
 	src/systemd/sd-bus-protocol.h \
 	src/systemd/sd-memfd.h \
+	src/systemd/sd-bus-vtable.h \
 	src/libsystemd-bus/sd-bus.c \
 	src/libsystemd-bus/bus-control.c \
 	src/libsystemd-bus/bus-control.h \
