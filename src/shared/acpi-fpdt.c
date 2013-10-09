@@ -146,6 +146,11 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
         if (brec.type != ACPI_FPDT_BOOT_REC)
                 return -EINVAL;
 
+        if (brec.startup_start == 0 || brec.exit_services_exit < brec.startup_start)
+                return -EINVAL;
+        if (brec.exit_services_exit > NSEC_PER_HOUR)
+                return -EINVAL;
+
         if (loader_start)
                 *loader_start = brec.startup_start / 1000;
         if (loader_exit)
