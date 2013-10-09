@@ -1383,6 +1383,12 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (arg_running_as == SYSTEMD_USER &&
+            !getenv("XDG_RUNTIME_DIR")) {
+                log_error("Trying to run as user instance, but \$XDG_RUNTIME_DIR is not set.");
+                goto finish;
+        }
+
         if (arg_running_as == SYSTEMD_SYSTEM &&
             arg_action == ACTION_RUN &&
             running_in_chroot() > 0) {
