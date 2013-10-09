@@ -723,7 +723,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/boot-timestamps.c \
 	src/shared/refcnt.h \
 	src/shared/mkdir.c \
-	src/shared/mkdir.h
+	src/shared/mkdir.h \
+	src/shared/smack-util.c \
+	src/shared/smack-util.h
 
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
