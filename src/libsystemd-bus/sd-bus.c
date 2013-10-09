@@ -3639,7 +3639,7 @@ static int add_object_vtable_internal(
                 sd_bus_object_find_t find,
                 void *userdata) {
 
-        struct node_vtable *c, *i;
+        struct node_vtable *c = NULL, *i;
         const sd_bus_vtable *v;
         struct node *n;
         int r;
