@@ -1887,7 +1887,6 @@ static int node_vtable_get_userdata(
         assert(bus);
         assert(path);
         assert(c);
-        assert(userdata);
 
         u = c->userdata;
         if (c->find) {
@@ -1896,7 +1895,9 @@ static int node_vtable_get_userdata(
                         return r;
         }
 
-        *userdata = u;
+        if (userdata)
+                *userdata = u;
+
         return 1;
 }
 
@@ -2344,8 +2345,8 @@ static bool bus_node_exists(sd_bus *bus, struct node *n, const char *path, bool 
         assert(bus);
         assert(n);
 
-        if (n->child)
-                return true;
+        /* Tests if there's anything attached directly to this node
+         * for the specified path */
 
         LIST_FOREACH(callbacks, k, n->callbacks) {
                 if (require_fallback && !k->is_fallback)
@@ -2359,11 +2360,11 @@ static bool bus_node_exists(sd_bus *bus, struct node *n, const char *path, bool 
                 if (require_fallback && !c->is_fallback)
                         continue;
 
-                return true;
+                if (node_vtable_get_userdata(bus, path, c, NULL) > 0)
+                        return true;
         }
 
         return !require_fallback && (n->enumerators || n->object_manager);
-
 }
 
 static int process_introspect(
@@ -2400,12 +2401,10 @@ static int process_introspect(
         empty = set_isempty(s);
 
         LIST_FOREACH(vtables, c, n->vtables) {
-                void *u;
-
                 if (require_fallback && !c->is_fallback)
                         continue;
 
-                r = node_vtable_get_userdata(bus, m->path, c, &u);
+                r = node_vtable_get_userdata(bus, m->path, c, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -3961,7 +3960,7 @@ static int emit_properties_changed_on_interface(
         struct node_vtable *c;
         struct node *n;
         char **property;
-        void *u;
+        void *u = NULL;
         int r;
 
         assert(bus);
