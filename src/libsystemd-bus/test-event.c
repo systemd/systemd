@@ -136,9 +136,19 @@ static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         return 2;
 }
 
+static bool got_quit = false;
+
+static int quit_handler(sd_event_source *s, void *userdata) {
+        log_info("got quit handler on %c", PTR_TO_INT(userdata));
+
+        got_quit = true;
+
+        return 3;
+}
+
 int main(int argc, char *argv[]) {
         sd_event *e = NULL;
-        sd_event_source *x = NULL, *y = NULL, *z = NULL;
+        sd_event_source *x = NULL, *y = NULL, *z = NULL, *q = NULL;
         static const char ch = 'x';
         int a[2] = { -1, -1 }, b[2] = { -1, -1};
 
@@ -152,6 +162,7 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_add_io(e, a[0], EPOLLIN, io_handler, INT_TO_PTR('a'), &x) >= 0);
         assert_se(sd_event_add_io(e, b[0], EPOLLIN, io_handler, INT_TO_PTR('b'), &y) >= 0);
         assert_se(sd_event_add_monotonic(e, 0, 0, time_handler, INT_TO_PTR('c'), &z) >= 0);
+        assert_se(sd_event_add_quit(e, quit_handler, INT_TO_PTR('g'), &q) >= 0);
 
         assert_se(sd_event_source_set_priority(x, 99) >= 0);
         assert_se(sd_event_source_set_mute(y, SD_EVENT_ONESHOT) >= 0);
@@ -187,6 +198,7 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_loop(e) >= 0);
 
         sd_event_source_unref(z);
+        sd_event_source_unref(q);
 
         sd_event_unref(e);
 

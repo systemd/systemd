@@ -36,19 +36,24 @@
   - Automatically tries to coalesce timer events system-wide
   - Handles signals and child PIDs
 
-  TODO:
-
-  - quit hooks
+  TODO: rename mute to enable?
 */
 
 typedef struct sd_event sd_event;
 typedef struct sd_event_source sd_event_source;
 
-typedef enum sd_event_mute {
+enum {
         SD_EVENT_MUTED = 0,
         SD_EVENT_UNMUTED = 1,
         SD_EVENT_ONESHOT = -1
-} sd_event_mute_t;
+};
+
+enum {
+        SD_EVENT_PASSIVE,
+        SD_EVENT_RUNNING,
+        SD_EVENT_QUITTING,
+        SD_EVENT_FINISHED
+};
 
 typedef int (*sd_io_handler_t)(sd_event_source *s, int fd, uint32_t revents, void *userdata);
 typedef int (*sd_time_handler_t)(sd_event_source *s, uint64_t usec, void *userdata);
@@ -56,6 +61,7 @@ typedef int (*sd_signal_handler_t)(sd_event_source *s, const struct signalfd_sig
 typedef int (*sd_child_handler_t)(sd_event_source *s, const siginfo_t *si, void *userdata);
 typedef int (*sd_defer_handler_t)(sd_event_source *s, void *userdata);
 typedef int (*sd_prepare_handler_t)(sd_event_source *s, void *userdata);
+typedef int (*sd_quit_handler_t)(sd_event_source *s, void *userdata);
 
 int sd_event_new(sd_event **e);
 sd_event* sd_event_ref(sd_event *e);
@@ -67,11 +73,13 @@ int sd_event_add_realtime(sd_event *e, uint64_t usec, uint64_t accuracy, sd_time
 int sd_event_add_signal(sd_event *e, int sig, sd_signal_handler_t callback, void *userdata, sd_event_source **s);
 int sd_event_add_child(sd_event *e, pid_t pid, int options, sd_child_handler_t callback, void *userdata, sd_event_source **s);
 int sd_event_add_defer(sd_event *e, sd_defer_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_quit(sd_event *e, sd_quit_handler_t callback, void *userdata, sd_event_source **s);
 
 int sd_event_run(sd_event *e, uint64_t timeout);
 int sd_event_loop(sd_event *e);
 
-int sd_event_quit(sd_event *e);
+int sd_event_get_state(sd_event *e);
+int sd_event_get_quit(sd_event *e);
 int sd_event_request_quit(sd_event *e);
 
 sd_event *sd_event_get(sd_event_source *s);
@@ -87,8 +95,8 @@ int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents);
 int sd_event_source_get_signal(sd_event_source *s);
 int sd_event_source_get_priority(sd_event_source *s, int *priority);
 int sd_event_source_set_priority(sd_event_source *s, int priority);
-int sd_event_source_get_mute(sd_event_source *s, sd_event_mute_t *m);
-int sd_event_source_set_mute(sd_event_source *s, sd_event_mute_t m);
+int sd_event_source_get_mute(sd_event_source *s, int *m);
+int sd_event_source_set_mute(sd_event_source *s, int m);
 int sd_event_source_get_time(sd_event_source *s, uint64_t *usec);
 int sd_event_source_set_time(sd_event_source *s, uint64_t usec);
 int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec);
