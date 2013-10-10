@@ -33,11 +33,11 @@
 
   - Supports event source priorisation
   - Scales better with a large number of time events, since it doesn't require one timerfd each
+  - Automatically tries to coalesce timer events system-wide
   - Handles signals and child PIDs
 
   TODO:
 
-  - Detect forks and return ECHILD
   - quit hooks
 */
 

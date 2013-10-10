@@ -124,11 +124,12 @@ struct sd_event {
         unsigned iteration;
 
         usec_t realtime_next, monotonic_next;
-
         usec_t perturb;
 
-        bool quit;
-        bool need_process_child;
+        bool quit:1;
+        bool need_process_child:1;
+
+        pid_t original_pid;
 };
 
 static int pending_prioq_compare(const void *a, const void *b) {
@@ -307,6 +308,7 @@ int sd_event_new(sd_event** ret) {
         e->n_ref = REFCNT_INIT;
         e->signal_fd = e->realtime_fd = e->monotonic_fd = e->epoll_fd = -1;
         e->realtime_next = e->monotonic_next = (usec_t) -1;
+        e->original_pid = getpid();
 
         assert_se(sigemptyset(&e->sigset) == 0);
 
@@ -347,6 +349,15 @@ sd_event* sd_event_unref(sd_event *e) {
                 event_free(e);
 
         return NULL;
+}
+
+static bool event_pid_changed(sd_event *e) {
+        assert(e);
+
+        /* We don't support people creating am event loop and keeping
+         * it around over a fork(). Let's complain. */
+
+        return e->original_pid != getpid();
 }
 
 static int source_io_unregister(sd_event_source *s) {
@@ -517,6 +528,8 @@ int sd_event_add_io(
                 return -EINVAL;
         if (!ret)
                 return -EINVAL;
+        if (event_pid_changed(e))
+                return -ECHILD;
 
         s = source_new(e, SOURCE_IO);
         if (!s)
@@ -607,6 +620,8 @@ static int event_add_time_internal(
                 return -EINVAL;
         if (accuracy == (uint64_t) -1)
                 return -EINVAL;
+        if (event_pid_changed(e))
+                return -ECHILD;
 
         assert(timer_fd);
         assert(earliest);
@@ -711,6 +726,8 @@ int sd_event_add_signal(sd_event *e, int sig, sd_signal_handler_t callback, void
                 return -EINVAL;
         if (!ret)
                 return -EINVAL;
+        if (event_pid_changed(e))
+                return -ECHILD;
 
         if (!e->signal_sources) {
                 e->signal_sources = new0(sd_event_source*, _NSIG);
@@ -756,6 +773,8 @@ int sd_event_add_child(sd_event *e, pid_t pid, int options, sd_child_handler_t c
                 return -EINVAL;
         if (!ret)
                 return -EINVAL;
+        if (event_pid_changed(e))
+                return -ECHILD;
 
         r = hashmap_ensure_allocated(&e->child_sources, trivial_hash_func, trivial_compare_func);
         if (r < 0)
@@ -805,6 +824,8 @@ int sd_event_add_defer(sd_event *e, sd_defer_handler_t callback, void *userdata,
                 return -EINVAL;
         if (!ret)
                 return -EINVAL;
+        if (event_pid_changed(e))
+                return -ECHILD;
 
         s = source_new(e, SOURCE_DEFER);
         if (!s)
@@ -842,9 +863,19 @@ sd_event_source* sd_event_source_unref(sd_event_source *s) {
         return NULL;
 }
 
+
+sd_event *sd_event_get(sd_event_source *s) {
+        if (!s)
+                return NULL;
+
+        return s->event;
+}
+
 int sd_event_source_get_pending(sd_event_source *s) {
         if (!s)
                 return -EINVAL;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         return s->pending;
 }
@@ -854,6 +885,8 @@ int sd_event_source_get_io_fd(sd_event_source *s) {
                 return -EINVAL;
         if (s->type != SOURCE_IO)
                 return -EDOM;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         return s->io.fd;
 }
@@ -865,6 +898,8 @@ int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events) {
                 return -EDOM;
         if (!events)
                 return -EINVAL;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         *events = s->io.events;
         return 0;
@@ -879,6 +914,8 @@ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) {
                 return -EDOM;
         if (events & ~(EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLPRI|EPOLLERR|EPOLLHUP))
                 return -EINVAL;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         if (s->io.events == events)
                 return 0;
@@ -903,6 +940,8 @@ int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents) {
                 return -EINVAL;
         if (!s->pending)
                 return -ENODATA;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         *revents = s->io.revents;
         return 0;
@@ -913,6 +952,8 @@ int sd_event_source_get_signal(sd_event_source *s) {
                 return -EINVAL;
         if (s->type != SOURCE_SIGNAL)
                 return -EDOM;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         return s->signal.sig;
 }
@@ -920,6 +961,8 @@ int sd_event_source_get_signal(sd_event_source *s) {
 int sd_event_source_get_priority(sd_event_source *s, int *priority) {
         if (!s)
                 return -EINVAL;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         return s->priority;
 }
@@ -927,6 +970,8 @@ int sd_event_source_get_priority(sd_event_source *s, int *priority) {
 int sd_event_source_set_priority(sd_event_source *s, int priority) {
         if (!s)
                 return -EINVAL;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         if (s->priority == priority)
                 return 0;
@@ -947,6 +992,8 @@ int sd_event_source_get_mute(sd_event_source *s, sd_event_mute_t *m) {
                 return -EINVAL;
         if (!m)
                 return -EINVAL;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         *m = s->mute;
         return 0;
@@ -959,6 +1006,8 @@ int sd_event_source_set_mute(sd_event_source *s, sd_event_mute_t m) {
                 return -EINVAL;
         if (m != SD_EVENT_MUTED && m != SD_EVENT_UNMUTED && !SD_EVENT_ONESHOT)
                 return -EINVAL;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         if (s->mute == m)
                 return 0;
@@ -1081,6 +1130,8 @@ int sd_event_source_get_time(sd_event_source *s, uint64_t *usec) {
                 return -EINVAL;
         if (s->type != SOURCE_REALTIME && s->type != SOURCE_MONOTONIC)
                 return -EDOM;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         *usec = s->time.next;
         return 0;
@@ -1093,6 +1144,8 @@ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
                 return -EINVAL;
         if (s->type != SOURCE_REALTIME && s->type != SOURCE_MONOTONIC)
                 return -EDOM;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         if (s->time.next == usec)
                 return 0;
@@ -1110,11 +1163,52 @@ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
         return 0;
 }
 
+int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec) {
+        if (!s)
+                return -EINVAL;
+        if (s->type != SOURCE_MONOTONIC && s->type != SOURCE_REALTIME)
+                return -EDOM;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
+
+        if (usec == 0)
+                usec = DEFAULT_ACCURACY_USEC;
+
+        if (s->time.accuracy == usec)
+                return 0;
+
+
+        s->time.accuracy = usec;
+
+        if (s->type == SOURCE_REALTIME)
+                prioq_reshuffle(s->event->realtime_latest, s, &s->time.latest_index);
+        else
+                prioq_reshuffle(s->event->monotonic_latest, s, &s->time.latest_index);
+
+        return 0;
+}
+
+int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
+        if (!s)
+                return -EINVAL;
+        if (!usec)
+                return -EINVAL;
+        if (s->type != SOURCE_MONOTONIC && s->type != SOURCE_REALTIME)
+                return -EDOM;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
+
+        *usec = s->time.accuracy;
+        return 0;
+}
+
 int sd_event_source_set_prepare(sd_event_source *s, sd_prepare_handler_t callback) {
         int r;
 
         if (!s)
                 return -EINVAL;
+        if (event_pid_changed(s->event))
+                return -ECHILD;
 
         if (s->prepare == callback)
                 return 0;
@@ -1500,6 +1594,8 @@ int sd_event_run(sd_event *e, uint64_t timeout) {
                 return -EINVAL;
         if (e->quit)
                 return -ESTALE;
+        if (event_pid_changed(e))
+                return -ECHILD;
 
         e->iteration++;
 
@@ -1568,6 +1664,8 @@ int sd_event_loop(sd_event *e) {
 
         if (!e)
                 return -EINVAL;
+        if (event_pid_changed(e))
+                return -ECHILD;
 
         while (!e->quit) {
                 r = sd_event_run(e, (uint64_t) -1);
@@ -1581,6 +1679,8 @@ int sd_event_loop(sd_event *e) {
 int sd_event_quit(sd_event *e) {
         if (!e)
                 return EINVAL;
+        if (event_pid_changed(e))
+                return -ECHILD;
 
         return e->quit;
 }
@@ -1588,49 +1688,9 @@ int sd_event_quit(sd_event *e) {
 int sd_event_request_quit(sd_event *e) {
         if (!e)
                 return -EINVAL;
+        if (event_pid_changed(e))
+                return -ECHILD;
 
         e->quit = true;
-        return 0;
-}
-
-sd_event *sd_event_get(sd_event_source *s) {
-        if (!s)
-                return NULL;
-
-        return s->event;
-}
-
-int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec) {
-        if (!s)
-                return -EINVAL;
-        if (s->type != SOURCE_MONOTONIC && s->type != SOURCE_REALTIME)
-                return -EDOM;
-
-        if (usec == 0)
-                usec = DEFAULT_ACCURACY_USEC;
-
-        if (s->time.accuracy == usec)
-                return 0;
-
-
-        s->time.accuracy = usec;
-
-        if (s->type == SOURCE_REALTIME)
-                prioq_reshuffle(s->event->realtime_latest, s, &s->time.latest_index);
-        else
-                prioq_reshuffle(s->event->monotonic_latest, s, &s->time.latest_index);
-
-        return 0;
-}
-
-int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
-        if (!s)
-                return -EINVAL;
-        if (!usec)
-                return -EINVAL;
-        if (s->type != SOURCE_MONOTONIC && s->type != SOURCE_REALTIME)
-                return -EDOM;
-
-        *usec = s->time.accuracy;
         return 0;
 }
