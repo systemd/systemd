@@ -321,8 +321,10 @@ void server_rotate(Server *s) {
                 if (r < 0)
                         if (f)
                                 log_error("Failed to rotate %s: %s", f->path, strerror(-r));
-                        else
+                        else {
                                 log_error("Failed to create user journal: %s", strerror(-r));
+                                hashmap_remove(s->user_journals, k);
+                        }
                 else {
                         hashmap_replace(s->user_journals, k, f);
                         server_fix_perms(s, f, PTR_TO_UINT32(k));
