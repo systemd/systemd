@@ -144,7 +144,7 @@ static int pending_prioq_compare(const void *a, const void *b) {
         /* Stability for the rest */
         if (x < y)
                 return -1;
-        if (y > x)
+        if (x > y)
                 return 1;
 
         return 0;
@@ -179,7 +179,7 @@ static int prepare_prioq_compare(const void *a, const void *b) {
         /* Stability for the rest */
         if (x < y)
                 return -1;
-        if (y > x)
+        if (x > y)
                 return 1;
 
         return 0;
@@ -212,7 +212,7 @@ static int time_prioq_compare(const void *a, const void *b) {
         /* Stability for the rest */
         if (x < y)
                 return -1;
-        if (y > x)
+        if (x > y)
                 return 1;
 
         return 0;
