@@ -53,7 +53,7 @@ struct sd_event_source {
         sd_prepare_handler_t prepare;
 
         EventSourceType type:4;
-        int mute:3;
+        int enabled:3;
         bool pending:1;
 
         int priority;
@@ -126,7 +126,7 @@ struct sd_event {
         sd_event_source **signal_sources;
 
         Hashmap *child_sources;
-        unsigned n_unmuted_child_sources;
+        unsigned n_enabled_child_sources;
 
         Prioq *quit;
 
@@ -145,10 +145,10 @@ static int pending_prioq_compare(const void *a, const void *b) {
         assert(x->pending);
         assert(y->pending);
 
-        /* Unmuted ones first */
-        if (x->mute != SD_EVENT_MUTED && y->mute == SD_EVENT_MUTED)
+        /* Enabled ones first */
+        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
                 return -1;
-        if (x->mute == SD_EVENT_MUTED && y->mute != SD_EVENT_MUTED)
+        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
                 return 1;
 
         /* Lower priority values first */
@@ -186,10 +186,10 @@ static int prepare_prioq_compare(const void *a, const void *b) {
         if (x->prepare_iteration > y->prepare_iteration)
                 return 1;
 
-        /* Unmuted ones first */
-        if (x->mute != SD_EVENT_MUTED && y->mute == SD_EVENT_MUTED)
+        /* Enabled ones first */
+        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
                 return -1;
-        if (x->mute == SD_EVENT_MUTED && y->mute != SD_EVENT_MUTED)
+        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
                 return 1;
 
         /* Lower priority values first */
@@ -213,10 +213,10 @@ static int earliest_time_prioq_compare(const void *a, const void *b) {
         assert(x->type == SOURCE_MONOTONIC || x->type == SOURCE_REALTIME);
         assert(y->type == SOURCE_MONOTONIC || y->type == SOURCE_REALTIME);
 
-        /* Unmuted ones first */
-        if (x->mute != SD_EVENT_MUTED && y->mute == SD_EVENT_MUTED)
+        /* Enabled ones first */
+        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
                 return -1;
-        if (x->mute == SD_EVENT_MUTED && y->mute != SD_EVENT_MUTED)
+        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
                 return 1;
 
         /* Move the pending ones to the end */
@@ -246,10 +246,10 @@ static int latest_time_prioq_compare(const void *a, const void *b) {
         assert((x->type == SOURCE_MONOTONIC && y->type == SOURCE_MONOTONIC) ||
                (x->type == SOURCE_REALTIME && y->type == SOURCE_REALTIME));
 
-        /* Unmuted ones first */
-        if (x->mute != SD_EVENT_MUTED && y->mute == SD_EVENT_MUTED)
+        /* Enabled ones first */
+        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
                 return -1;
-        if (x->mute == SD_EVENT_MUTED && y->mute != SD_EVENT_MUTED)
+        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
                 return 1;
 
         /* Move the pending ones to the end */
@@ -279,10 +279,10 @@ static int quit_prioq_compare(const void *a, const void *b) {
         assert(x->type == SOURCE_QUIT);
         assert(y->type == SOURCE_QUIT);
 
-        /* Unmuted ones first */
-        if (x->mute != SD_EVENT_MUTED && y->mute == SD_EVENT_MUTED)
+        /* Enabled ones first */
+        if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
                 return -1;
-        if (x->mute == SD_EVENT_MUTED && y->mute != SD_EVENT_MUTED)
+        if (x->enabled == SD_EVENT_OFF && y->enabled != SD_EVENT_OFF)
                 return 1;
 
         /* Lower priority values first */
@@ -416,18 +416,18 @@ static int source_io_unregister(sd_event_source *s) {
         return 0;
 }
 
-static int source_io_register(sd_event_source *s, int mute, uint32_t events) {
+static int source_io_register(sd_event_source *s, int enabled, uint32_t events) {
         struct epoll_event ev = {};
         int r;
 
         assert(s);
         assert(s->type == SOURCE_IO);
-        assert(mute != SD_EVENT_MUTED);
+        assert(enabled != SD_EVENT_OFF);
 
         ev.events = events;
         ev.data.ptr = s;
 
-        if (mute == SD_EVENT_ONESHOT)
+        if (enabled == SD_EVENT_ONESHOT)
                 ev.events |= EPOLLONESHOT;
 
         if (s->io.registered)
@@ -467,7 +467,7 @@ static void source_free(sd_event_source *s) {
 
                 case SOURCE_SIGNAL:
                         if (s->signal.sig > 0) {
-                                if (s->signal.sig != SIGCHLD || s->event->n_unmuted_child_sources == 0)
+                                if (s->signal.sig != SIGCHLD || s->event->n_enabled_child_sources == 0)
                                         assert_se(sigdelset(&s->event->sigset, s->signal.sig) == 0);
 
                                 if (s->event->signal_sources)
@@ -478,9 +478,9 @@ static void source_free(sd_event_source *s) {
 
                 case SOURCE_CHILD:
                         if (s->child.pid > 0) {
-                                if (s->mute != SD_EVENT_MUTED) {
-                                        assert(s->event->n_unmuted_child_sources > 0);
-                                        s->event->n_unmuted_child_sources--;
+                                if (s->enabled != SD_EVENT_OFF) {
+                                        assert(s->event->n_enabled_child_sources > 0);
+                                        s->event->n_enabled_child_sources--;
                                 }
 
                                 if (!s->event->signal_sources || !s->event->signal_sources[SIGCHLD])
@@ -583,9 +583,9 @@ int sd_event_add_io(
         s->io.events = events;
         s->io.callback = callback;
         s->userdata = userdata;
-        s->mute = SD_EVENT_UNMUTED;
+        s->enabled = SD_EVENT_ON;
 
-        r = source_io_register(s, s->mute, events);
+        r = source_io_register(s, s->enabled, events);
         if (r < 0) {
                 source_free(s);
                 return -errno;
@@ -700,7 +700,7 @@ static int event_add_time_internal(
         s->time.callback = callback;
         s->time.earliest_index = s->time.latest_index = PRIOQ_IDX_NULL;
         s->userdata = userdata;
-        s->mute = SD_EVENT_ONESHOT;
+        s->enabled = SD_EVENT_ONESHOT;
 
         r = prioq_put(*earliest, s, &s->time.earliest_index);
         if (r < 0)
@@ -790,12 +790,12 @@ int sd_event_add_signal(sd_event *e, int sig, sd_signal_handler_t callback, void
         s->signal.sig = sig;
         s->signal.callback = callback;
         s->userdata = userdata;
-        s->mute = SD_EVENT_UNMUTED;
+        s->enabled = SD_EVENT_ON;
 
         e->signal_sources[sig] = s;
         assert_se(sigaddset(&e->sigset, sig) == 0);
 
-        if (sig != SIGCHLD || e->n_unmuted_child_sources == 0) {
+        if (sig != SIGCHLD || e->n_enabled_child_sources == 0) {
                 r = event_update_signal_fd(e);
                 if (r < 0) {
                         source_free(s);
@@ -840,7 +840,7 @@ int sd_event_add_child(sd_event *e, pid_t pid, int options, sd_child_handler_t c
         s->child.options = options;
         s->child.callback = callback;
         s->userdata = userdata;
-        s->mute = SD_EVENT_ONESHOT;
+        s->enabled = SD_EVENT_ONESHOT;
 
         r = hashmap_put(e->child_sources, INT_TO_PTR(pid), s);
         if (r < 0) {
@@ -848,7 +848,7 @@ int sd_event_add_child(sd_event *e, pid_t pid, int options, sd_child_handler_t c
                 return r;
         }
 
-        e->n_unmuted_child_sources ++;
+        e->n_enabled_child_sources ++;
 
         assert_se(sigaddset(&e->sigset, SIGCHLD) == 0);
 
@@ -884,7 +884,7 @@ int sd_event_add_defer(sd_event *e, sd_defer_handler_t callback, void *userdata,
 
         s->defer.callback = callback;
         s->userdata = userdata;
-        s->mute = SD_EVENT_ONESHOT;
+        s->enabled = SD_EVENT_ONESHOT;
 
         r = source_set_pending(s, true);
         if (r < 0) {
@@ -918,7 +918,7 @@ int sd_event_add_quit(sd_event *e, sd_quit_handler_t callback, void *userdata, s
         s->quit.callback = callback;
         s->userdata = userdata;
         s->quit.prioq_index = PRIOQ_IDX_NULL;
-        s->mute = SD_EVENT_ONESHOT;
+        s->enabled = SD_EVENT_ONESHOT;
 
         r = prioq_put(s->event->quit, s, &s->quit.prioq_index);
         if (r < 0) {
@@ -1009,7 +1009,7 @@ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) {
         if (s->io.events == events)
                 return 0;
 
-        if (s->mute != SD_EVENT_MUTED) {
+        if (s->enabled != SD_EVENT_OFF) {
                 r = source_io_register(s, s->io.events, events);
                 if (r < 0)
                         return r;
@@ -1078,7 +1078,7 @@ int sd_event_source_set_priority(sd_event_source *s, int priority) {
         return 0;
 }
 
-int sd_event_source_get_mute(sd_event_source *s, int *m) {
+int sd_event_source_get_enabled(sd_event_source *s, int *m) {
         if (!s)
                 return -EINVAL;
         if (!m)
@@ -1086,25 +1086,25 @@ int sd_event_source_get_mute(sd_event_source *s, int *m) {
         if (event_pid_changed(s->event))
                 return -ECHILD;
 
-        *m = s->mute;
+        *m = s->enabled;
         return 0;
 }
 
-int sd_event_source_set_mute(sd_event_source *s, int m) {
+int sd_event_source_set_enabled(sd_event_source *s, int m) {
         int r;
 
         if (!s)
                 return -EINVAL;
-        if (m != SD_EVENT_MUTED && m != SD_EVENT_UNMUTED && !SD_EVENT_ONESHOT)
+        if (m != SD_EVENT_OFF && m != SD_EVENT_ON && !SD_EVENT_ONESHOT)
                 return -EINVAL;
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         if (event_pid_changed(s->event))
                 return -ECHILD;
 
-        if (s->mute == m)
+        if (s->enabled == m)
                 return 0;
 
-        if (m == SD_EVENT_MUTED) {
+        if (m == SD_EVENT_OFF) {
 
                 switch (s->type) {
 
@@ -1113,24 +1113,24 @@ int sd_event_source_set_mute(sd_event_source *s, int m) {
                         if (r < 0)
                                 return r;
 
-                        s->mute = m;
+                        s->enabled = m;
                         break;
 
                 case SOURCE_MONOTONIC:
-                        s->mute = m;
+                        s->enabled = m;
                         prioq_reshuffle(s->event->monotonic_earliest, s, &s->time.earliest_index);
                         prioq_reshuffle(s->event->monotonic_latest, s, &s->time.latest_index);
                         break;
 
                 case SOURCE_REALTIME:
-                        s->mute = m;
+                        s->enabled = m;
                         prioq_reshuffle(s->event->realtime_earliest, s, &s->time.earliest_index);
                         prioq_reshuffle(s->event->realtime_latest, s, &s->time.latest_index);
                         break;
 
                 case SOURCE_SIGNAL:
-                        s->mute = m;
-                        if (s->signal.sig != SIGCHLD || s->event->n_unmuted_child_sources == 0) {
+                        s->enabled = m;
+                        if (s->signal.sig != SIGCHLD || s->event->n_enabled_child_sources == 0) {
                                 assert_se(sigdelset(&s->event->sigset, s->signal.sig) == 0);
                                 event_update_signal_fd(s->event);
                         }
@@ -1138,10 +1138,10 @@ int sd_event_source_set_mute(sd_event_source *s, int m) {
                         break;
 
                 case SOURCE_CHILD:
-                        s->mute = m;
+                        s->enabled = m;
 
-                        assert(s->event->n_unmuted_child_sources > 0);
-                        s->event->n_unmuted_child_sources--;
+                        assert(s->event->n_enabled_child_sources > 0);
+                        s->event->n_enabled_child_sources--;
 
                         if (!s->event->signal_sources || !s->event->signal_sources[SIGCHLD]) {
                                 assert_se(sigdelset(&s->event->sigset, SIGCHLD) == 0);
@@ -1152,7 +1152,7 @@ int sd_event_source_set_mute(sd_event_source *s, int m) {
 
                 case SOURCE_DEFER:
                 case SOURCE_QUIT:
-                        s->mute = m;
+                        s->enabled = m;
                         break;
                 }
 
@@ -1164,35 +1164,35 @@ int sd_event_source_set_mute(sd_event_source *s, int m) {
                         if (r < 0)
                                 return r;
 
-                        s->mute = m;
+                        s->enabled = m;
                         break;
 
                 case SOURCE_MONOTONIC:
-                        s->mute = m;
+                        s->enabled = m;
                         prioq_reshuffle(s->event->monotonic_earliest, s, &s->time.earliest_index);
                         prioq_reshuffle(s->event->monotonic_latest, s, &s->time.latest_index);
                         break;
 
                 case SOURCE_REALTIME:
-                        s->mute = m;
+                        s->enabled = m;
                         prioq_reshuffle(s->event->realtime_earliest, s, &s->time.earliest_index);
                         prioq_reshuffle(s->event->realtime_latest, s, &s->time.latest_index);
                         break;
 
                 case SOURCE_SIGNAL:
-                        s->mute = m;
+                        s->enabled = m;
 
-                        if (s->signal.sig != SIGCHLD || s->event->n_unmuted_child_sources == 0)  {
+                        if (s->signal.sig != SIGCHLD || s->event->n_enabled_child_sources == 0)  {
                                 assert_se(sigaddset(&s->event->sigset, s->signal.sig) == 0);
                                 event_update_signal_fd(s->event);
                         }
                         break;
 
                 case SOURCE_CHILD:
-                        s->mute = m;
+                        s->enabled = m;
 
-                        if (s->mute == SD_EVENT_MUTED) {
-                                s->event->n_unmuted_child_sources++;
+                        if (s->enabled == SD_EVENT_OFF) {
+                                s->event->n_enabled_child_sources++;
 
                                 if (!s->event->signal_sources || !s->event->signal_sources[SIGCHLD]) {
                                         assert_se(sigaddset(&s->event->sigset, SIGCHLD) == 0);
@@ -1203,7 +1203,7 @@ int sd_event_source_set_mute(sd_event_source *s, int m) {
 
                 case SOURCE_DEFER:
                 case SOURCE_QUIT:
-                        s->mute = m;
+                        s->enabled = m;
                         break;
                 }
         }
@@ -1404,11 +1404,11 @@ static int event_arm_timer(
         assert_se(next);
 
         a = prioq_peek(earliest);
-        if (!a || a->mute == SD_EVENT_MUTED)
+        if (!a || a->enabled == SD_EVENT_OFF)
                 return 0;
 
         b = prioq_peek(latest);
-        assert_se(b && b->mute != SD_EVENT_MUTED);
+        assert_se(b && b->enabled != SD_EVENT_OFF);
 
         t = sleep_between(e, a->time.next, b->time.next + b->time.accuracy);
         if (*next == t)
@@ -1444,7 +1444,7 @@ static int process_io(sd_event *e, sd_event_source *s, uint32_t events) {
            anymore. We can save a syscall here...
         */
 
-        if (s->mute == SD_EVENT_ONESHOT)
+        if (s->enabled == SD_EVENT_ONESHOT)
                 s->io.registered = false;
 
         return source_set_pending(s, true);
@@ -1484,7 +1484,7 @@ static int process_timer(sd_event *e, usec_t n, Prioq *earliest, Prioq *latest) 
                 s = prioq_peek(earliest);
                 if (!s ||
                     s->time.next > n ||
-                    s->mute == SD_EVENT_MUTED ||
+                    s->enabled == SD_EVENT_OFF ||
                     s->pending)
                         break;
 
@@ -1528,7 +1528,7 @@ static int process_child(sd_event *e) {
                 if (s->pending)
                         continue;
 
-                if (s->mute == SD_EVENT_MUTED)
+                if (s->enabled == SD_EVENT_OFF)
                         continue;
 
                 zero(s->child.siginfo);
@@ -1607,8 +1607,8 @@ static int source_dispatch(sd_event_source *s) {
                         return r;
         }
 
-        if (s->mute == SD_EVENT_ONESHOT) {
-                r = sd_event_source_set_mute(s, SD_EVENT_MUTED);
+        if (s->enabled == SD_EVENT_ONESHOT) {
+                r = sd_event_source_set_enabled(s, SD_EVENT_OFF);
                 if (r < 0)
                         return r;
         }
@@ -1656,7 +1656,7 @@ static int event_prepare(sd_event *e) {
                 sd_event_source *s;
 
                 s = prioq_peek(e->prepare);
-                if (!s || s->prepare_iteration == e->iteration || s->mute == SD_EVENT_MUTED)
+                if (!s || s->prepare_iteration == e->iteration || s->enabled == SD_EVENT_OFF)
                         break;
 
                 s->prepare_iteration = e->iteration;
@@ -1681,7 +1681,7 @@ static int dispatch_quit(sd_event *e) {
         assert(e);
 
         p = prioq_peek(e->quit);
-        if (!p || p->mute == SD_EVENT_MUTED) {
+        if (!p || p->enabled == SD_EVENT_OFF) {
                 e->state = SD_EVENT_FINISHED;
                 return 0;
         }
@@ -1707,7 +1707,7 @@ static sd_event_source* event_next_pending(sd_event *e) {
         if (!p)
                 return NULL;
 
-        if (p->mute == SD_EVENT_MUTED)
+        if (p->enabled == SD_EVENT_OFF)
                 return NULL;
 
         return p;

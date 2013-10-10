@@ -35,7 +35,7 @@ static int io_handler(sd_event_source *s, int fd, uint32_t revents, void *userda
         log_info("got IO on %c", PTR_TO_INT(userdata));
 
         if (userdata == INT_TO_PTR('a')) {
-                assert_se(sd_event_source_set_mute(s, SD_EVENT_MUTED) >= 0);
+                assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
                 assert_se(!got_a);
                 got_a = true;
         } else if (userdata == INT_TO_PTR('b')) {
@@ -85,7 +85,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
                 _exit(0);
 
         assert_se(sd_event_add_child(sd_event_get(s), pid, WEXITED, child_handler, INT_TO_PTR('f'), &p) >= 0);
-        assert_se(sd_event_source_set_mute(p, SD_EVENT_ONESHOT) >= 0);
+        assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
 
         sd_event_source_unref(s);
 
@@ -106,7 +106,7 @@ static int defer_handler(sd_event_source *s, void *userdata) {
         assert_se(sigaddset(&ss, SIGUSR1) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &ss, NULL) >= 0);
         assert_se(sd_event_add_signal(sd_event_get(s), SIGUSR1, signal_handler, INT_TO_PTR('e'), &p) >= 0);
-        assert_se(sd_event_source_set_mute(p, SD_EVENT_ONESHOT) >= 0);
+        assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
         raise(SIGUSR1);
 
         sd_event_source_unref(s);
@@ -125,7 +125,7 @@ static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
                         sd_event_source *p;
 
                         assert_se(sd_event_add_defer(sd_event_get(s), defer_handler, INT_TO_PTR('d'), &p) >= 0);
-                        assert_se(sd_event_source_set_mute(p, SD_EVENT_ONESHOT) >= 0);
+                        assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
                 } else {
                         assert(!got_c);
                         got_c = true;
@@ -165,10 +165,10 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_add_quit(e, quit_handler, INT_TO_PTR('g'), &q) >= 0);
 
         assert_se(sd_event_source_set_priority(x, 99) >= 0);
-        assert_se(sd_event_source_set_mute(y, SD_EVENT_ONESHOT) >= 0);
+        assert_se(sd_event_source_set_enabled(y, SD_EVENT_ONESHOT) >= 0);
         assert_se(sd_event_source_set_prepare(x, prepare_handler) >= 0);
         assert_se(sd_event_source_set_priority(z, 50) >= 0);
-        assert_se(sd_event_source_set_mute(z, SD_EVENT_ONESHOT) >= 0);
+        assert_se(sd_event_source_set_enabled(z, SD_EVENT_ONESHOT) >= 0);
         assert_se(sd_event_source_set_prepare(z, prepare_handler) >= 0);
 
         assert_se(write(a[1], &ch, 1) >= 0);
@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
 
         do_quit = true;
         assert_se(sd_event_source_set_time(z, now(CLOCK_MONOTONIC) + 200 * USEC_PER_MSEC) >= 0);
-        assert_se(sd_event_source_set_mute(z, SD_EVENT_ONESHOT) >= 0);
+        assert_se(sd_event_source_set_enabled(z, SD_EVENT_ONESHOT) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
 

@@ -43,8 +43,8 @@ typedef struct sd_event sd_event;
 typedef struct sd_event_source sd_event_source;
 
 enum {
-        SD_EVENT_MUTED = 0,
-        SD_EVENT_UNMUTED = 1,
+        SD_EVENT_OFF = 0,
+        SD_EVENT_ON = 1,
         SD_EVENT_ONESHOT = -1
 };
 
@@ -95,8 +95,8 @@ int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents);
 int sd_event_source_get_signal(sd_event_source *s);
 int sd_event_source_get_priority(sd_event_source *s, int *priority);
 int sd_event_source_set_priority(sd_event_source *s, int priority);
-int sd_event_source_get_mute(sd_event_source *s, int *m);
-int sd_event_source_set_mute(sd_event_source *s, int m);
+int sd_event_source_get_enabled(sd_event_source *s, int *enabled);
+int sd_event_source_set_enabled(sd_event_source *s, int enabled);
 int sd_event_source_get_time(sd_event_source *s, uint64_t *usec);
 int sd_event_source_set_time(sd_event_source *s, uint64_t usec);
 int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec);
