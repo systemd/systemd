@@ -354,7 +354,7 @@ _public_ int sd_session_get_vt(const char *session, unsigned *vtnr) {
         unsigned u;
         int r;
 
-        r = session_get_string(session, "VTNr", &vtnr_string);
+        r = session_get_string(session, "VTNR", &vtnr_string);
         if (r < 0)
                 return r;
 
