@@ -51,6 +51,7 @@
 #include "journald-stream.h"
 #include "journald-console.h"
 #include "journald-native.h"
+#include "selinux-util.h"
 
 #ifdef HAVE_ACL
 #include <sys/acl.h>

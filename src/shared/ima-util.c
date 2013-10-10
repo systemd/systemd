@@ -21,8 +21,7 @@
 
 #include <unistd.h>
 
-#include "apparmor-util.h"
-
+#include "ima-util.h"
 
 static int use_ima_cached = -1;
 

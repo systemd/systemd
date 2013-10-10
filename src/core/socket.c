@@ -50,6 +50,7 @@
 #include "label.h"
 #include "exit-status.h"
 #include "def.h"
+#include "smack-util.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
