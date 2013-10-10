@@ -29,6 +29,7 @@
 #endif
 
 #include "socket-util.h"
+#include "selinux-util.h"
 #include "journald-server.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
@@ -381,8 +382,10 @@ int stdout_stream_new(Server *s) {
         }
 
 #ifdef HAVE_SELINUX
-        if (getpeercon(fd, &stream->security_context) < 0 && errno != ENOPROTOOPT)
-                log_error("Failed to determine peer security context: %m");
+        if (use_selinux()) {
+                if (getpeercon(fd, &stream->security_context) < 0 && errno != ENOPROTOOPT)
+                        log_error("Failed to determine peer security context: %m");
+        }
 #endif
 
         if (shutdown(fd, SHUT_WR) < 0) {

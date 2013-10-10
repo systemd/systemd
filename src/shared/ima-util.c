@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2013 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,33 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "selinux-util.h"
+#include <unistd.h>
 
-#ifdef HAVE_SELINUX
+#include "apparmor-util.h"
 
-#include <selinux/selinux.h>
 
-static int use_selinux_cached = -1;
+static int use_ima_cached = -1;
 
-bool use_selinux(void) {
+bool use_ima(void) {
 
-        if (use_selinux_cached < 0)
-                use_selinux_cached = is_selinux_enabled() > 0;
+        if (use_ima_cached < 0)
+                use_ima_cached = access("/sys/kernel/security/ima/", F_OK) >= 0;
 
-        return use_selinux_cached;
+        return use_ima_cached;
 }
-
-void retest_selinux(void) {
-        use_selinux_cached = -1;
-}
-
-#else
-
-bool use_selinux(void) {
-        return false;
-}
-
-void retest_selinux(void) {
-}
-
-#endif

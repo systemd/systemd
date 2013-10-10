@@ -25,6 +25,7 @@
 
 #include "socket-util.h"
 #include "path-util.h"
+#include "selinux-util.h"
 #include "journald-server.h"
 #include "journald-native.h"
 #include "journald-kmsg.h"
@@ -404,10 +405,12 @@ int server_open_native_socket(Server*s) {
         }
 
 #ifdef HAVE_SELINUX
-        one = 1;
-        r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
-        if (r < 0)
-                log_warning("SO_PASSSEC failed: %m");
+        if (use_selinux()) {
+                one = 1;
+                r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
+                if (r < 0)
+                        log_warning("SO_PASSSEC failed: %m");
+        }
 #endif
 
         one = 1;

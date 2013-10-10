@@ -32,6 +32,7 @@
 #include <attr/xattr.h>
 #endif
 
+#include "smack-util.h"
 #include "udev.h"
 
 static int node_symlink(struct udev_device *dev, const char *node, const char *slink)
@@ -311,7 +312,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                                         log_debug("SECLABEL: set SELinux label '%s'", label);
 
 #ifdef HAVE_SMACK
-                        } else if (streq(name, "smack")) {
+                        } else if (streq(name, "smack") && use_smack()) {
                                 smack = true;
                                 if (lsetxattr(devnode, "security.SMACK64", label, strlen(label), 0) < 0)
                                         log_error("SECLABEL: failed to set SMACK label '%s'", label);
@@ -327,7 +328,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                 if (!selinux)
                         label_fix(devnode, true, false);
 #ifdef HAVE_SMACK
-                if (!smack)
+                if (!smack && use_smack())
                         lremovexattr(devnode, "security.SMACK64");
 #endif
         }

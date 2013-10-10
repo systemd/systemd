@@ -27,10 +27,6 @@
 #include <sys/statvfs.h>
 #include <fnmatch.h>
 
-#ifdef HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
-
 #include <systemd/sd-id128.h>
 #include "util.h"
 #include "condition.h"
@@ -38,6 +34,10 @@
 #include "path-util.h"
 #include "fileio.h"
 #include "unit.h"
+#include "smack-util.h"
+#include "apparmor-util.h"
+#include "ima-util.h"
+#include "selinux-util.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
@@ -158,28 +158,15 @@ static bool test_virtualization(const char *parameter) {
         return v > 0 && streq(parameter, id);
 }
 
-static bool test_apparmor_enabled(void) {
-        int r;
-        _cleanup_free_ char *p = NULL;
-
-        r = read_one_line_file("/sys/module/apparmor/parameters/enabled", &p);
-        if (r < 0)
-                return false;
-
-        return parse_boolean(p) > 0;
-}
-
 static bool test_security(const char *parameter) {
-#ifdef HAVE_SELINUX
         if (streq(parameter, "selinux"))
-                return is_selinux_enabled() > 0;
-#endif
+                return use_selinux();
         if (streq(parameter, "apparmor"))
-                return test_apparmor_enabled();
+                return use_apparmor();
         if (streq(parameter, "ima"))
-                return access("/sys/kernel/security/ima/", F_OK) == 0;
+                return use_ima();
         if (streq(parameter, "smack"))
-                return access("/sys/fs/smackfs", F_OK) == 0;
+                return use_smack();
         return false;
 }
 

@@ -1,9 +1,11 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
+#pragma once
+
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2013 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,33 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "selinux-util.h"
+#include <stdbool.h>
 
-#ifdef HAVE_SELINUX
-
-#include <selinux/selinux.h>
-
-static int use_selinux_cached = -1;
-
-bool use_selinux(void) {
-
-        if (use_selinux_cached < 0)
-                use_selinux_cached = is_selinux_enabled() > 0;
-
-        return use_selinux_cached;
-}
-
-void retest_selinux(void) {
-        use_selinux_cached = -1;
-}
-
-#else
-
-bool use_selinux(void) {
-        return false;
-}
-
-void retest_selinux(void) {
-}
-
-#endif
+bool use_apparmor(void);

@@ -25,6 +25,7 @@
 
 #include "systemd/sd-messages.h"
 #include "socket-util.h"
+#include "selinux-util.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
 #include "journald-kmsg.h"
@@ -453,10 +454,12 @@ int server_open_syslog_socket(Server *s) {
         }
 
 #ifdef HAVE_SELINUX
-        one = 1;
-        r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
-        if (r < 0)
-                log_warning("SO_PASSSEC failed: %m");
+        if (use_selinux()) {
+                one = 1;
+                r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
+                if (r < 0)
+                        log_warning("SO_PASSSEC failed: %m");
+        }
 #endif
 
         one = 1;

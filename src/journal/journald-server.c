@@ -629,19 +629,21 @@ static void dispatch_message_real(
                 }
 
 #ifdef HAVE_SELINUX
-                if (label) {
-                        x = alloca(sizeof("_SELINUX_CONTEXT=") + label_len);
+                if (use_selinux()) {
+                        if (label) {
+                                x = alloca(sizeof("_SELINUX_CONTEXT=") + label_len);
 
-                        *((char*) mempcpy(stpcpy(x, "_SELINUX_CONTEXT="), label, label_len)) = 0;
-                        IOVEC_SET_STRING(iovec[n++], x);
-                } else {
-                        security_context_t con;
-
-                        if (getpidcon(ucred->pid, &con) >= 0) {
-                                x = strappenda("_SELINUX_CONTEXT=", con);
-
-                                freecon(con);
+                                *((char*) mempcpy(stpcpy(x, "_SELINUX_CONTEXT="), label, label_len)) = 0;
                                 IOVEC_SET_STRING(iovec[n++], x);
+                        } else {
+                                security_context_t con;
+
+                                if (getpidcon(ucred->pid, &con) >= 0) {
+                                        x = strappenda("_SELINUX_CONTEXT=", con);
+
+                                        freecon(con);
+                                        IOVEC_SET_STRING(iovec[n++], x);
+                                }
                         }
                 }
 #endif

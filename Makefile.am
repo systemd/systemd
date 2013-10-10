@@ -725,7 +725,11 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/mkdir.c \
 	src/shared/mkdir.h \
 	src/shared/smack-util.c \
-	src/shared/smack-util.h
+	src/shared/smack-util.h \
+	src/shared/apparmor-util.c \
+	src/shared/apparmor-util.h \
+	src/shared/ima-util.c \
+	src/shared/ima-util.h
 
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \

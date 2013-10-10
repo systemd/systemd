@@ -21,16 +21,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "smack-util.h"
-
 #include <unistd.h>
 
-static int use_smack_cached = -1;
+#include "smack-util.h"
 
 bool use_smack(void) {
 
+#ifdef HAVE_SMACK
+        static int use_smack_cached = -1;
+
         if (use_smack_cached < 0)
-                use_smack_cached = (access("/sys/fs/smackfs", F_OK) >= 0);
+                use_smack_cached = access("/sys/fs/smackfs/", F_OK) >= 0;
 
         return use_smack_cached;
+#else
+        return false;
+#endif
+
 }

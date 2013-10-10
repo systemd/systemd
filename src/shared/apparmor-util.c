@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2013 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,33 +19,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "selinux-util.h"
+#include <unistd.h>
 
-#ifdef HAVE_SELINUX
+#include "util.h"
+#include "fileio.h"
+#include "apparmor-util.h"
 
-#include <selinux/selinux.h>
+static int use_apparmor_cached = -1;
 
-static int use_selinux_cached = -1;
+bool use_apparmor(void) {
 
-bool use_selinux(void) {
+        if (use_apparmor_cached < 0) {
+                _cleanup_free_ char *p = NULL;
 
-        if (use_selinux_cached < 0)
-                use_selinux_cached = is_selinux_enabled() > 0;
+                use_apparmor_cached =
+                        read_one_line_file("/sys/module/apparmor/parameters/enabled", &p) >= 0 &&
+                        parse_boolean(p) > 0;
+        }
 
-        return use_selinux_cached;
+        return use_apparmor_cached;
 }
-
-void retest_selinux(void) {
-        use_selinux_cached = -1;
-}
-
-#else
-
-bool use_selinux(void) {
-        return false;
-}
-
-void retest_selinux(void) {
-}
-
-#endif
