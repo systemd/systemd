@@ -350,7 +350,7 @@ _public_ int sd_session_get_tty(const char *session, char **tty) {
 }
 
 _public_ int sd_session_get_vt(const char *session, unsigned *vtnr) {
-        _cleanup_free_ char *vtnr_string;
+        _cleanup_free_ char *vtnr_string = NULL;
         unsigned u;
         int r;
 
