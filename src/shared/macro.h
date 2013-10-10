@@ -159,6 +159,12 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         } while (false)
 #endif
 
+#define assert_return(expr, r)                    \
+        do {                                      \
+                if (!(expr))                      \
+                        return (r);               \
+        } while (false)
+
 #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define INT_TO_PTR(u) ((void *) ((intptr_t) (u)))
 #define PTR_TO_UINT(p) ((unsigned int) ((uintptr_t) (p)))
