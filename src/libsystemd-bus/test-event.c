@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_event_add_io(e, a[0], EPOLLIN, io_handler, INT_TO_PTR('a'), &x) >= 0);
         assert_se(sd_event_add_io(e, b[0], EPOLLIN, io_handler, INT_TO_PTR('b'), &y) >= 0);
-        assert_se(sd_event_add_monotonic(e, 0, time_handler, INT_TO_PTR('c'), &z) >= 0);
+        assert_se(sd_event_add_monotonic(e, 0, 0, time_handler, INT_TO_PTR('c'), &z) >= 0);
 
         assert_se(sd_event_source_set_priority(x, 99) >= 0);
         assert_se(sd_event_source_set_mute(y, SD_EVENT_ONESHOT) >= 0);

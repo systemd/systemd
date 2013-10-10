@@ -38,7 +38,7 @@
   TODO:
 
   - Detect forks and return ECHILD
-  - Timer events with accuracy for coalescing time events
+  - quit hooks
 */
 
 typedef struct sd_event sd_event;
@@ -62,8 +62,8 @@ sd_event* sd_event_ref(sd_event *e);
 sd_event* sd_event_unref(sd_event *e);
 
 int sd_event_add_io(sd_event *e, int fd, uint32_t events, sd_io_handler_t callback, void *userdata, sd_event_source **s);
-int sd_event_add_monotonic(sd_event *e, uint64_t usec, sd_time_handler_t callback, void *userdata, sd_event_source **s);
-int sd_event_add_realtime(sd_event *e, uint64_t usec, sd_time_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_monotonic(sd_event *e, uint64_t usec, uint64_t accuracy, sd_time_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_realtime(sd_event *e, uint64_t usec, uint64_t accuracy, sd_time_handler_t callback, void *userdata, sd_event_source **s);
 int sd_event_add_signal(sd_event *e, int sig, sd_signal_handler_t callback, void *userdata, sd_event_source **s);
 int sd_event_add_child(sd_event *e, pid_t pid, int options, sd_child_handler_t callback, void *userdata, sd_event_source **s);
 int sd_event_add_defer(sd_event *e, sd_defer_handler_t callback, void *userdata, sd_event_source **s);
@@ -91,6 +91,8 @@ int sd_event_source_get_mute(sd_event_source *s, sd_event_mute_t *m);
 int sd_event_source_set_mute(sd_event_source *s, sd_event_mute_t m);
 int sd_event_source_get_time(sd_event_source *s, uint64_t *usec);
 int sd_event_source_set_time(sd_event_source *s, uint64_t usec);
+int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec);
+int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec);
 int sd_event_source_set_prepare(sd_event_source *s, sd_prepare_handler_t callback);
 void* sd_event_source_get_userdata(sd_event_source *s);
 

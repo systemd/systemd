@@ -217,7 +217,8 @@ _pure_ static struct prioq_item* find_item(Prioq *q, void *data, unsigned *idx) 
         assert(q);
 
         if (idx) {
-                if (*idx > q->n_items)
+                if (*idx == PRIOQ_IDX_NULL ||
+                    *idx > q->n_items)
                         return NULL;
 
                 i = q->items + *idx;
