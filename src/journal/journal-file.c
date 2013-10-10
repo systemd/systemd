@@ -2551,7 +2551,7 @@ fail:
 }
 
 int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
-        char *p;
+        _cleanup_free_ char *p = NULL;
         size_t l;
         JournalFile *old_file, *new_file = NULL;
         int r;
@@ -2568,22 +2568,15 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
                 return -EINVAL;
 
         l = strlen(old_file->path);
-
-        p = new(char, l + 1 + 32 + 1 + 16 + 1 + 16 + 1);
-        if (!p)
+        r = asprintf(&p, "%.*s@" SD_ID128_FORMAT_STR "-%016"PRIx64"-%016"PRIx64".journal",
+                     (int) l - 8, old_file->path,
+                     SD_ID128_FORMAT_VAL(old_file->header->seqnum_id),
+                     le64toh((*f)->header->head_entry_seqnum),
+                     le64toh((*f)->header->head_entry_realtime));
+        if (r < 0)
                 return -ENOMEM;
 
-        memcpy(p, old_file->path, l - 8);
-        p[l-8] = '@';
-        sd_id128_to_string(old_file->header->seqnum_id, p + l - 8 + 1);
-        snprintf(p + l - 8 + 1 + 32, 1 + 16 + 1 + 16 + 8 + 1,
-                 "-%016"PRIx64"-%016"PRIx64".journal",
-                 le64toh((*f)->header->head_entry_seqnum),
-                 le64toh((*f)->header->head_entry_realtime));
-
         r = rename(old_file->path, p);
-        free(p);
-
         if (r < 0)
                 return -errno;
 
@@ -2634,7 +2627,7 @@ int journal_file_open_reliably(
 
         l = strlen(fname);
         if (asprintf(&p, "%.*s@%016llx-%016llx.journal~",
-                     (int) (l-8), fname,
+                     (int) l - 8, fname,
                      (unsigned long long) now(CLOCK_REALTIME),
                      random_ull()) < 0)
                 return -ENOMEM;
