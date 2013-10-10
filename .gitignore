@@ -107,6 +107,7 @@
 /test-device-nodes
 /test-engine
 /test-env-replace
+/test-event
 /test-fileio
 /test-hashmap
 /test-hostname

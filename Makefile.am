@@ -1936,8 +1936,9 @@ EXTRA_DIST += \
 libsystemd_bus_la_SOURCES = \
 	src/systemd/sd-bus.h \
 	src/systemd/sd-bus-protocol.h \
-	src/systemd/sd-memfd.h \
 	src/systemd/sd-bus-vtable.h \
+	src/systemd/sd-memfd.h \
+	src/systemd/sd-event.h \
 	src/libsystemd-bus/sd-bus.c \
 	src/libsystemd-bus/bus-control.c \
 	src/libsystemd-bus/bus-control.h \
@@ -1962,7 +1963,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-introspect.c \
 	src/libsystemd-bus/bus-introspect.h \
 	src/libsystemd-bus/kdbus.h \
-	src/libsystemd-bus/sd-memfd.c
+	src/libsystemd-bus/sd-memfd.c \
+	src/libsystemd-bus/sd-event.c
 
 libsystemd_bus_la_LIBADD =  \
 	libsystemd-id128-internal.la \
@@ -1988,7 +1990,8 @@ tests += \
 	test-bus-memfd \
 	test-bus-zero-copy \
 	test-bus-introspect \
-	test-bus-objects
+	test-bus-objects \
+	test-event
 
 noinst_PROGRAMS += \
 	busctl
@@ -2123,6 +2126,14 @@ test_bus_introspect_CFLAGS = \
 test_bus_introspect_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la
+
+test_event_SOURCES = \
+	src/libsystemd-bus/test-event.c
+
+test_event_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-bus.la \
+	libsystemd-id128-internal.la
 
 busctl_SOURCES = \
 	src/libsystemd-bus/busctl.c
