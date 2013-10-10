@@ -1297,6 +1297,16 @@ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
         return 0;
 }
 
+int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid) {
+        assert_return(s, -EINVAL);
+        assert_return(pid, -EINVAL);
+        assert_return(s->type == SOURCE_CHILD, -EDOM);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
+
+        *pid = s->child.pid;
+        return 0;
+}
+
 int sd_event_source_set_prepare(sd_event_source *s, sd_prepare_handler_t callback) {
         int r;
 

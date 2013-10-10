@@ -35,8 +35,6 @@
   - Scales better with a large number of time events, since it doesn't require one timerfd each
   - Automatically tries to coalesce timer events system-wide
   - Handles signals and child PIDs
-
-  TODO: rename mute to enable?
 */
 
 typedef struct sd_event sd_event;
@@ -101,6 +99,7 @@ int sd_event_source_get_time(sd_event_source *s, uint64_t *usec);
 int sd_event_source_set_time(sd_event_source *s, uint64_t usec);
 int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec);
 int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec);
+int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid);
 int sd_event_source_set_prepare(sd_event_source *s, sd_prepare_handler_t callback);
 void* sd_event_source_get_userdata(sd_event_source *s);
 
