@@ -639,7 +639,6 @@ int sd_bus_message_new_method_errorf(
                 const char *format,
                 ...) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus_message *t;
         va_list ap;
         int r;

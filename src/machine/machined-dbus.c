@@ -203,7 +203,7 @@ static int bus_manager_create_machine(Manager *manager, DBusMessage *message) {
 
         r = manager_add_machine(manager, name, &m);
         if (r < 0)
-                goto fail;
+                return r;
 
         m->leader = leader;
         m->class = c;
@@ -234,8 +234,7 @@ static int bus_manager_create_machine(Manager *manager, DBusMessage *message) {
         return 0;
 
 fail:
-        if (m)
-                machine_add_to_gc_queue(m);
+        machine_add_to_gc_queue(m);
 
         return r;
 }
@@ -1003,16 +1002,11 @@ int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
         assert(name);
 
         machine = hashmap_get(m->machines, name);
-        if (machine) {
-                if (_machine)
-                        *_machine = machine;
-
-                return 0;
+        if (!machine) {
+                machine = machine_new(m, name);
+                if (!machine)
+                        return -ENOMEM;
         }
-
-        machine = machine_new(m, name);
-        if (!machine)
-                return -ENOMEM;
 
         if (_machine)
                 *_machine = machine;
