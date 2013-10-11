@@ -3994,18 +3994,16 @@ static int emit_properties_changed_on_interface(
 
                 if (streq(c->interface, interface))
                         break;
-
-                r = node_vtable_get_userdata(bus, path, c, &u);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        break;
         }
 
         if (!c)
                 return 0;
 
-        r = sd_bus_message_new_signal(bus, path, "org.freedesktop.DBus", "PropertiesChanged", &m);
+        r = node_vtable_get_userdata(bus, path, c, &u);
+        if (r <= 0)
+                return r;
+
+        r = sd_bus_message_new_signal(bus, path, "org.freedesktop.DBus.Properties", "PropertiesChanged", &m);
         if (r < 0)
                 return r;
 
@@ -4042,7 +4040,7 @@ static int emit_properties_changed_on_interface(
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append(m, "s", *n);
+                r = sd_bus_message_append(m, "s", *property);
                 if (r < 0)
                         return r;
 

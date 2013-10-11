@@ -36,8 +36,6 @@
 
 /* Test:
  *
- *   sd_bus_emit_properties_changed()
- *
  *   Add in:
  *
  *   automatic properties
@@ -134,6 +132,16 @@ static int value_handler(sd_bus *bus, const char *path, const char *interface, c
 
         assert_se(PTR_TO_UINT(userdata) == 30);
 
+        return 1;
+}
+
+static int notify_test(sd_bus *bus, sd_bus_message *m, void *userdata) {
+        int r;
+
+        assert_se(sd_bus_emit_properties_changed(bus, m->path, "org.freedesktop.systemd.ValueTest", "Value", NULL) >= 0);
+
+        r = sd_bus_reply_method_return(bus, m, NULL);
+        assert_se(r >= 0);
 
         return 1;
 }
@@ -148,7 +156,8 @@ static const sd_bus_vtable vtable[] = {
 
 static const sd_bus_vtable vtable2[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Value", "s", value_handler, 10, 0),
+        SD_BUS_METHOD("NotifyTest", "", "", 0, notify_test),
+        SD_BUS_PROPERTY("Value", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_VTABLE_END
 };
 
@@ -342,6 +351,18 @@ static int client(struct context *c) {
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", &error, &reply, "");
         assert_se(r >= 0);
 
+        bus_message_dump(reply);
+
+        sd_bus_message_unref(reply);
+        reply = NULL;
+
+        r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.systemd.ValueTest", "NotifyTest", &error, NULL, "");
+        assert_se(r >= 0);
+
+        r = sd_bus_process(bus, &reply);
+        assert_se(r > 0);
+
+        assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.Properties", "PropertiesChanged"));
         bus_message_dump(reply);
 
         sd_bus_message_unref(reply);
