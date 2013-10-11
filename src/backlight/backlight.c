@@ -56,9 +56,11 @@ int main(int argc, char *argv[]) {
 
         errno = 0;
         device = udev_device_new_from_subsystem_sysname(udev, "backlight", argv[2]);
+        if (!device)
+                device = udev_device_new_from_subsystem_sysname(udev, "leds", argv[2]);
         if (!device) {
                 if (errno != 0) {
-                        log_error("Failed to get backlight device: %m");
+                        log_error("Failed to get backlight device '%s': %m", argv[2]);
                         r = -errno;
                 } else
                         r = log_oom();
@@ -66,7 +68,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (!streq_ptr(udev_device_get_subsystem(device), "backlight")) {
+        if (!streq_ptr(udev_device_get_subsystem(device), "backlight") &&
+            !streq_ptr(udev_device_get_subsystem(device), "leds")) {
                 log_error("Not a backlight device: %s", argv[2]);
                 r = -ENODEV;
                 goto finish;
