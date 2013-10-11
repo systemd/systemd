@@ -1966,6 +1966,9 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-bloom.h \
 	src/libsystemd-bus/bus-introspect.c \
 	src/libsystemd-bus/bus-introspect.h \
+	src/libsystemd-bus/bus-objects.c \
+	src/libsystemd-bus/bus-objects.h \
+	src/libsystemd-bus/bus-convenience.c \
 	src/libsystemd-bus/kdbus.h \
 	src/libsystemd-bus/sd-memfd.c \
 	src/libsystemd-bus/sd-event.c
