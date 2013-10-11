@@ -779,10 +779,11 @@ static void handle_signal(struct udev *udev, int signo)
 
                                 if (WIFEXITED(status)) {
                                         if (WEXITSTATUS(status) != 0)
-                                                log_error("worker [%u] exit with return code %i\n", pid, WEXITSTATUS(status));
+                                                log_error("worker [%u] exit with return code %i\n",
+                                                          pid, WEXITSTATUS(status));
                                 } else if (WIFSIGNALED(status)) {
                                         log_error("worker [%u] terminated by signal %i (%s)\n",
-                                            pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+                                                  pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
                                 } else if (WIFSTOPPED(status)) {
                                         log_error("worker [%u] stopped\n", pid);
                                 } else if (WIFCONTINUED(status)) {

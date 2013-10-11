@@ -340,13 +340,18 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 {
         struct udev_ctrl_msg *uctrl_msg;
         ssize_t size;
-        struct msghdr smsg;
         struct cmsghdr *cmsg;
         struct iovec iov;
-        struct ucred *cred;
         char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
+        struct msghdr smsg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = cred_msg,
+                .msg_controllen = sizeof(cred_msg),
+        };
+        struct ucred *cred;
 
-        uctrl_msg = calloc(1, sizeof(struct udev_ctrl_msg));
+        uctrl_msg = new0(struct udev_ctrl_msg, 1);
         if (uctrl_msg == NULL)
                 return NULL;
         uctrl_msg->refcount = 1;
@@ -381,11 +386,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 
         iov.iov_base = &uctrl_msg->ctrl_msg_wire;
         iov.iov_len = sizeof(struct udev_ctrl_msg_wire);
-        memset(&smsg, 0x00, sizeof(struct msghdr));
-        smsg.msg_iov = &iov;
-        smsg.msg_iovlen = 1;
-        smsg.msg_control = cred_msg;
-        smsg.msg_controllen = sizeof(cred_msg);
+
         size = recvmsg(conn->sock, &smsg, 0);
         if (size <  0) {
                 log_error("unable to receive ctrl message: %m\n");
