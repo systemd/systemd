@@ -2499,6 +2499,7 @@ static int object_manager_serialize_vtable(
 static int object_manager_serialize_path(
                 sd_bus *bus,
                 sd_bus_message *reply,
+                const char *prefix,
                 const char *path,
                 bool require_fallback,
                 sd_bus_error *error) {
@@ -2509,10 +2510,11 @@ static int object_manager_serialize_path(
 
         assert(bus);
         assert(reply);
+        assert(prefix);
         assert(path);
         assert(error);
 
-        n = hashmap_get(bus->nodes, path);
+        n = hashmap_get(bus->nodes, prefix);
         if (!n)
                 return 0;
 
@@ -2566,7 +2568,7 @@ static int object_manager_serialize_path_and_fallbacks(
         assert(error);
 
         /* First, add all vtables registered for this path */
-        r = object_manager_serialize_path(bus, reply, path, false, error);
+        r = object_manager_serialize_path(bus, reply, path, path, false, error);
         if (r < 0)
                 return r;
         if (sd_bus_error_is_set(error))
@@ -2587,7 +2589,7 @@ static int object_manager_serialize_path_and_fallbacks(
 
                         *e = 0;
 
-                        r = object_manager_serialize_path(bus, reply, p, true, error);
+                        r = object_manager_serialize_path(bus, reply, p, path, true, error);
                         if (r < 0)
                                 return r;
 
@@ -2687,7 +2689,13 @@ static int process_get_managed_objects(
         return 1;
 }
 
-static int object_find_and_run(sd_bus *bus, sd_bus_message *m, const char *p, bool require_fallback, bool *found_object) {
+static int object_find_and_run(
+                sd_bus *bus,
+                sd_bus_message *m,
+                const char *p,
+                bool require_fallback,
+                bool *found_object) {
+
         struct node *n;
         struct vtable_member vtable_key, *v;
         int r;
