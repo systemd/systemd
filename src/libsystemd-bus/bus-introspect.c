@@ -129,8 +129,8 @@ int introspect_write_interface(struct introspect *i, const char *interface, cons
 
                 case _SD_BUS_VTABLE_METHOD:
                         fprintf(i->f, "  <method name=\"%s\">\n", v->x.method.member);
-                        introspect_write_arguments(i, v->x.method.signature, "in");
-                        introspect_write_arguments(i, v->x.method.result, "out");
+                        introspect_write_arguments(i, strempty(v->x.method.signature), "in");
+                        introspect_write_arguments(i, strempty(v->x.method.result), "out");
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </method>\n", i->f);
                         break;
@@ -147,7 +147,7 @@ int introspect_write_interface(struct introspect *i, const char *interface, cons
 
                 case _SD_BUS_VTABLE_SIGNAL:
                         fprintf(i->f, "  <signal name=\"%s\">\n", v->x.signal.member);
-                        introspect_write_arguments(i, v->x.signal.signature, NULL);
+                        introspect_write_arguments(i, strempty(v->x.signal.signature), NULL);
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </signal>\n", i->f);
                         break;
