@@ -91,6 +91,9 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
         type_num = strtoul(from, &eptr, 0);
         if (eptr != from) {
                 switch (type_num) {
+                case 1: /* RBC devices */
+                        type = "rbc";
+                        break;
                 case 2:
                         type = "atapi";
                         break;
@@ -98,11 +101,7 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
                         type = "tape";
                         break;
                 case 4: /* UFI */
-                case 5: /* SFF-8070i */
                         type = "floppy";
-                        break;
-                case 1: /* RBC devices */
-                        type = "rbc";
                         break;
                 case 6: /* Transparent SPC-2 devices */
                         type = "scsi";
