@@ -2908,6 +2908,9 @@ int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name) {
                 return 0;
 
         r = drop_in_file(u, mode, name, &p, &q);
+        if (r < 0)
+                return r;
+
         if (unlink(q) < 0)
                 r = errno == ENOENT ? 0 : -errno;
         else
