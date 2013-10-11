@@ -52,6 +52,8 @@ CGroup Rework Completion:
 
 Features:
 
+* Add a new Distribute=$NUMBER key to socket units that makes use of SO_REUSEPORT to distribute network traffic on $NUMBER instances
+
 * tmpfiles: when applying ownership to /run/log/journal also do this for the journal fails contained in it
 
 * rework list.h to use typeof() and thus simplify most linked list macros by not requring the type to be specified

@@ -38,7 +38,6 @@
  *
  *   Add in:
  *
- *   automatic properties for Set()
  *   node hierarchy updates during dispatching
  *   emit_interfaces_added/emit_interfaces_removed
  *
@@ -48,7 +47,7 @@ struct context {
         int fds[2];
         bool quit;
         char *something;
-        const char *automatic_string_property;
+        char *automatic_string_property;
         uint32_t automatic_integer_property;
 };
 
@@ -153,8 +152,8 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_METHOD("AlterSomething", "s", "s", something_handler, 0),
         SD_BUS_METHOD("Exit", "", "", exit_handler, 0),
         SD_BUS_WRITABLE_PROPERTY("Something", "s", get_handler, set_handler, 0, 0),
-        SD_BUS_PROPERTY("AutomaticStringProperty", "s", NULL, offsetof(struct context, automatic_string_property), 0),
-        SD_BUS_PROPERTY("AutomaticIntegerProperty", "u", NULL, offsetof(struct context, automatic_integer_property), 0),
+        SD_BUS_WRITABLE_PROPERTY("AutomaticStringProperty", "s", NULL, NULL, offsetof(struct context, automatic_string_property), 0),
+        SD_BUS_WRITABLE_PROPERTY("AutomaticIntegerProperty", "u", NULL, NULL, offsetof(struct context, automatic_integer_property), 0),
         SD_BUS_METHOD("NoOperation", "", "", NULL, 0),
         SD_BUS_VTABLE_END
 };
@@ -288,6 +287,16 @@ static int client(struct context *c) {
         sd_bus_message_unref(reply);
         reply = NULL;
 
+        r = sd_bus_set_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AutomaticIntegerProperty", &error, "u", 815);
+        assert_se(r >= 0);
+
+        assert_se(c->automatic_integer_property == 815);
+
+        r = sd_bus_set_property(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AutomaticStringProperty", &error, "s", "Du Dödel, Du!");
+        assert_se(r >= 0);
+
+        assert_se(streq(c->automatic_string_property, "Du Dödel, Du!"));
+
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, "");
         assert_se(r >= 0);
 
@@ -393,7 +402,7 @@ int main(int argc, char *argv[]) {
         zero(c);
 
         c.automatic_integer_property = 4711;
-        c.automatic_string_property = "dudeldu";
+        assert_se(c.automatic_string_property = strdup("dudeldu"));
 
         assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, c.fds) >= 0);
 
@@ -414,6 +423,7 @@ int main(int argc, char *argv[]) {
                 return PTR_TO_INT(p);
 
         free(c.something);
+        free(c.automatic_string_property);
 
         return EXIT_SUCCESS;
 }

@@ -57,12 +57,9 @@ typedef struct {
 /* Callbacks */
 
 typedef int (*sd_bus_message_handler_t)(sd_bus *bus, sd_bus_message *m, void *userdata);
-
 typedef int (*sd_bus_property_get_t) (sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
 typedef int (*sd_bus_property_set_t) (sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, sd_bus_error *error, void *userdata);
-
 typedef int (*sd_bus_object_find_t) (sd_bus *bus, const char *path, const char *interface, void **found, void *userdata);
-
 typedef int (*sd_bus_node_enumerator_t) (sd_bus *bus, const char *path, char ***nodes, void *userdata);
 
 #include "sd-bus-protocol.h"

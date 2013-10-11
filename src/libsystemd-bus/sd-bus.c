@@ -2089,11 +2089,11 @@ static int method_callbacks_run(
         if (r < 0)
                 return r;
 
-        if (!streq(c->vtable->method.signature, signature)) {
+        if (!streq(strempty(c->vtable->method.signature), signature)) {
                 r = sd_bus_reply_method_errorf(bus, m,
                                                "org.freedesktop.DBus.Error.InvalidArgs",
                                                "Invalid arguments '%s' to call %s:%s, expecting '%s'.",
-                                               signature, c->interface, c->member, c->vtable->method.signature);
+                                               signature, c->interface, c->member, strempty(c->vtable->method.signature));
                 if (r < 0)
                         return r;
 
@@ -2132,6 +2132,8 @@ static int invoke_property_get(
 
         /* Automatic handling if no callback is defined. */
 
+        assert(bus_type_is_basic(v->property.signature[0]));
+
         switch (v->property.signature[0]) {
 
         case SD_BUS_TYPE_STRING:
@@ -2142,11 +2144,68 @@ static int invoke_property_get(
 
         default:
                 p = userdata;
+                break;
         }
 
         r = sd_bus_message_append_basic(m, v->property.signature[0], p);
         if (r < 0)
                 return r;
+
+        return 1;
+}
+
+static int invoke_property_set(
+                sd_bus *bus,
+                const sd_bus_vtable *v,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                sd_bus_error *error,
+                void *userdata) {
+
+        int r;
+
+        assert(bus);
+        assert(v);
+
+        if (v->property.set)
+                return v->property.set(bus, path, interface, property, value, error, userdata);
+
+        /*  Automatic handling if no callback is defined. */
+
+        assert(signature_is_single(v->property.signature, false));
+        assert(bus_type_is_basic(v->property.signature[0]));
+
+        switch (v->property.signature[0]) {
+
+        case SD_BUS_TYPE_STRING:
+        case SD_BUS_TYPE_OBJECT_PATH:
+        case SD_BUS_TYPE_SIGNATURE: {
+                const char *p;
+                char *n;
+
+                r = sd_bus_message_read_basic(value, v->property.signature[0], &p);
+                if (r < 0)
+                        return r;
+
+                n = strdup(p);
+                if (!n)
+                        return -ENOMEM;
+
+                free(*(char**) userdata);
+                *(char**) userdata = n;
+
+                break;
+        }
+
+        default:
+                r = sd_bus_message_read_basic(value, v->property.signature[0], userdata);
+                if (r < 0)
+                        return r;
+
+                break;
+        }
 
         return 1;
 }
@@ -2212,12 +2271,9 @@ static int property_get_set_callbacks_run(
                         if (r < 0)
                                 return r;
 
-                        if (c->vtable->property.set) {
-                                r = c->vtable->property.set(bus, m->path, c->interface, c->member, m, &error, u);
-                                if (r < 0)
-                                        return r;
-                        } else
-                                assert_not_reached("automatic properties not supported yet");
+                        r = invoke_property_set(bus, c->vtable, m->path, c->interface, c->member, m, &error, u);
+                        if (r < 0)
+                                return r;
                 }
 
                 if (sd_bus_error_is_set(&error)) {
@@ -3767,8 +3823,8 @@ static int add_object_vtable_internal(
                         struct vtable_member *m;
 
                         if (!member_name_is_valid(v->method.member) ||
-                            !signature_is_valid(v->method.signature, false) ||
-                            !signature_is_valid(v->method.result, false) ||
+                            !signature_is_valid(strempty(v->method.signature), false) ||
+                            !signature_is_valid(strempty(v->method.result), false) ||
                             !(v->method.handler || (isempty(v->method.signature) && isempty(v->method.result))) ||
                             v->flags & (SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE|SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY)) {
                                 r = -EINVAL;
@@ -3796,8 +3852,16 @@ static int add_object_vtable_internal(
                         break;
                 }
 
-                case _SD_BUS_VTABLE_PROPERTY:
-                case _SD_BUS_VTABLE_WRITABLE_PROPERTY: {
+                case _SD_BUS_VTABLE_WRITABLE_PROPERTY:
+
+                        if (!(v->property.set || bus_type_is_basic(v->property.signature[0]))) {
+                                r = -EINVAL;
+                                goto fail;
+                        }
+
+                        /* Fall through */
+
+                case _SD_BUS_VTABLE_PROPERTY: {
                         struct vtable_member *m;
 
                         if (!member_name_is_valid(v->property.member) ||
@@ -3834,7 +3898,7 @@ static int add_object_vtable_internal(
                 case _SD_BUS_VTABLE_SIGNAL:
 
                         if (!member_name_is_valid(v->signal.member) ||
-                            !signature_is_single(v->signal.signature, false)) {
+                            !signature_is_single(strempty(v->signal.signature), false)) {
                                 r = -EINVAL;
                                 goto fail;
                         }
