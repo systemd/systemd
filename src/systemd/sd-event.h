@@ -79,6 +79,8 @@ int sd_event_loop(sd_event *e);
 int sd_event_get_state(sd_event *e);
 int sd_event_get_quit(sd_event *e);
 int sd_event_request_quit(sd_event *e);
+int sd_event_get_now_realtime(sd_event *e, uint64_t *usec);
+int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec);
 
 sd_event *sd_event_get(sd_event_source *s);
 

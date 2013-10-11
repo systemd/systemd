@@ -133,6 +133,7 @@ struct sd_event {
         pid_t original_pid;
 
         unsigned iteration;
+        dual_timestamp timestamp;
         int state;
 
         bool quit_requested:1;
@@ -1692,7 +1693,6 @@ static sd_event_source* event_next_pending(sd_event *e) {
 int sd_event_run(sd_event *e, uint64_t timeout) {
         struct epoll_event ev_queue[EPOLL_QUEUE_MAX];
         sd_event_source *p;
-        dual_timestamp n;
         int r, i, m;
 
         assert_return(e, -EINVAL);
@@ -1731,7 +1731,7 @@ int sd_event_run(sd_event *e, uint64_t timeout) {
                 goto finish;
         }
 
-        dual_timestamp_get(&n);
+        dual_timestamp_get(&e->timestamp);
 
         for (i = 0; i < m; i++) {
 
@@ -1748,11 +1748,11 @@ int sd_event_run(sd_event *e, uint64_t timeout) {
                         goto finish;
         }
 
-        r = process_timer(e, n.monotonic, e->monotonic_earliest, e->monotonic_latest);
+        r = process_timer(e, e->timestamp.monotonic, e->monotonic_earliest, e->monotonic_latest);
         if (r < 0)
                 goto finish;
 
-        r = process_timer(e, n.realtime, e->realtime_earliest, e->realtime_latest);
+        r = process_timer(e, e->timestamp.realtime, e->realtime_earliest, e->realtime_latest);
         if (r < 0)
                 goto finish;
 
@@ -1819,5 +1819,25 @@ int sd_event_request_quit(sd_event *e) {
         assert_return(!event_pid_changed(e), -ECHILD);
 
         e->quit_requested = true;
+        return 0;
+}
+
+int sd_event_get_now_realtime(sd_event *e, uint64_t *usec) {
+        assert_return(e, -EINVAL);
+        assert_return(usec, -EINVAL);
+        assert_return(dual_timestamp_is_set(&e->timestamp), -ENODATA);
+        assert_return(!event_pid_changed(e), -ECHILD);
+
+        *usec = e->timestamp.realtime;
+        return 0;
+}
+
+int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec) {
+        assert_return(e, -EINVAL);
+        assert_return(usec, -EINVAL);
+        assert_return(dual_timestamp_is_set(&e->timestamp), -ENODATA);
+        assert_return(!event_pid_changed(e), -ECHILD);
+
+        *usec = e->timestamp.monotonic;
         return 0;
 }
