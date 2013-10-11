@@ -499,7 +499,7 @@ static int vtable_append_all_properties(
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append(reply, "s", c->interface);
+                r = sd_bus_message_append(reply, "s", v->x.property.member);
                 if (r < 0)
                         return r;
 
