@@ -147,6 +147,7 @@ int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
 int sd_bus_message_get_serial(sd_bus_message *m, uint64_t *serial);
 int sd_bus_message_get_reply_serial(sd_bus_message *m, uint64_t *serial);
 int sd_bus_message_get_no_reply(sd_bus_message *m);
+int sd_bus_message_get_signature(sd_bus_message *m, int complete, const char **signature);
 
 const char *sd_bus_message_get_path(sd_bus_message *m);
 const char *sd_bus_message_get_interface(sd_bus_message *m);
@@ -201,8 +202,6 @@ int sd_bus_message_exit_container(sd_bus_message *m);
 int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents);
 int sd_bus_message_rewind(sd_bus_message *m, int complete);
 
-int sd_bus_message_get_signature(sd_bus_message *m, int complete, const char **signature);
-
 /* Convenience calls */
 
 int sd_bus_call_method(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, sd_bus_message **reply, const char *types, ...);
@@ -235,8 +234,8 @@ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machi
 
 /* Error structures */
 
-#define SD_BUS_ERROR_NULL ((sd_bus_error) {NULL, NULL, 0})
 #define SD_BUS_ERROR_MAKE(name, message) ((sd_bus_error) {(name), (message), 0})
+#define SD_BUS_ERROR_NULL SD_BUS_ERROR_MAKE(NULL, NULL)
 
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...)  _sd_printf_attr_(3, 0);

@@ -128,9 +128,9 @@ int introspect_write_interface(struct introspect *i, const char *interface, cons
                         break;
 
                 case _SD_BUS_VTABLE_METHOD:
-                        fprintf(i->f, "  <method name=\"%s\">\n", v->method.member);
-                        introspect_write_arguments(i, v->method.signature, "in");
-                        introspect_write_arguments(i, v->method.result, "out");
+                        fprintf(i->f, "  <method name=\"%s\">\n", v->x.method.member);
+                        introspect_write_arguments(i, v->x.method.signature, "in");
+                        introspect_write_arguments(i, v->x.method.result, "out");
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </method>\n", i->f);
                         break;
@@ -138,16 +138,16 @@ int introspect_write_interface(struct introspect *i, const char *interface, cons
                 case _SD_BUS_VTABLE_PROPERTY:
                 case _SD_BUS_VTABLE_WRITABLE_PROPERTY:
                         fprintf(i->f, "  <property name=\"%s\" type=\"%s\" access=\"%s\">\n",
-                                v->property.member,
-                                v->property.signature,
+                                v->x.property.member,
+                                v->x.property.signature,
                                 v->type == _SD_BUS_VTABLE_WRITABLE_PROPERTY ? "readwrite" : "read");
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </property>\n", i->f);
                         break;
 
                 case _SD_BUS_VTABLE_SIGNAL:
-                        fprintf(i->f, "  <signal name=\"%s\">\n", v->signal.member);
-                        introspect_write_arguments(i, v->signal.signature, NULL);
+                        fprintf(i->f, "  <signal name=\"%s\">\n", v->x.signal.member);
+                        introspect_write_arguments(i, v->x.signal.signature, NULL);
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </signal>\n", i->f);
                         break;
