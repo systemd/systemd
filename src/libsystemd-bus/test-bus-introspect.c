@@ -33,9 +33,9 @@ static int prop_set(sd_bus *bus, const char *path, const char *interface, const 
 
 static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("Hello", "ssas", "a(uu)", 0, NULL),
-        SD_BUS_METHOD("DeprecatedHello", "", "", SD_BUS_VTABLE_DEPRECATED, NULL),
-        SD_BUS_METHOD("DeprecatedHelloNoReply", "", "", SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_METHOD_NO_REPLY, NULL),
+        SD_BUS_METHOD("Hello", "ssas", "a(uu)", NULL, 0),
+        SD_BUS_METHOD("DeprecatedHello", "", "", NULL, SD_BUS_VTABLE_DEPRECATED),
+        SD_BUS_METHOD("DeprecatedHelloNoReply", "", "", NULL, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_METHOD_NO_REPLY),
         SD_BUS_SIGNAL("Wowza", "sss", 0),
         SD_BUS_SIGNAL("DeprecatedWowza", "ut", SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_WRITABLE_PROPERTY("AProperty", "s", prop_get, prop_set, 0, 0),

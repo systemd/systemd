@@ -108,7 +108,6 @@ bool bus_type_is_trivial(char c) {
         return !!memchr(valid, c, sizeof(valid));
 }
 
-
 bool bus_type_is_container(char c) {
         static const char valid[] = {
                 SD_BUS_TYPE_ARRAY,

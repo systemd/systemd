@@ -2103,6 +2103,46 @@ static int method_callbacks_run(
         return c->vtable->method.handler(bus, m, u);
 }
 
+static int invoke_property_get(
+                sd_bus *bus,
+                const sd_bus_vtable *v,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata) {
+
+        int r;
+        void *p;
+
+        assert(bus);
+        assert(v);
+
+        if (v->property.get)
+                return v->property.get(bus, path, interface, property, m, error, userdata);
+
+        /* Automatic handling if no callback is defined. */
+
+        switch (v->property.signature[0]) {
+
+        case SD_BUS_TYPE_STRING:
+        case SD_BUS_TYPE_OBJECT_PATH:
+        case SD_BUS_TYPE_SIGNATURE:
+                p = *(char**) userdata;
+                break;
+
+        default:
+                p = userdata;
+        }
+
+        r = sd_bus_message_append_basic(m, v->property.signature[0], p);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int property_get_set_callbacks_run(
                 sd_bus *bus,
                 sd_bus_message *m,
@@ -2140,12 +2180,9 @@ static int property_get_set_callbacks_run(
                 if (r < 0)
                         return r;
 
-                if (c->vtable->property.get) {
-                        r = c->vtable->property.get(bus, m->path, c->interface, c->member, reply, &error, u);
-                        if (r < 0)
-                                return r;
-                } else
-                        assert_not_reached("automatic properties not supported yet");
+                r = invoke_property_get(bus, c->vtable, m->path, c->interface, c->member, reply, &error, u);
+                if (r < 0)
+                        return r;
 
                 if (sd_bus_error_is_set(&error)) {
                         r = sd_bus_reply_method_error(bus, m, &error);
@@ -2226,7 +2263,7 @@ static int vtable_append_all_properties(
                 if (r < 0)
                         return r;
 
-                r = v->property.get(bus, path, c->interface, v->property.member, reply, error, vtable_property_convert_userdata(v, userdata));
+                r = invoke_property_get(bus, v, path, c->interface, v->property.member, reply, error, vtable_property_convert_userdata(v, userdata));
                 if (r < 0)
                         return r;
 
@@ -3588,7 +3625,7 @@ static void free_node_vtable(sd_bus *bus, struct node_vtable *w) {
         if (w->interface && w->node && w->vtable) {
                 const sd_bus_vtable *v;
 
-                for (v = w->vtable; v->type != _SD_BUS_VTABLE_END; w++) {
+                for (v = w->vtable; v->type != _SD_BUS_VTABLE_END; v++) {
                         struct vtable_member *x = NULL;
 
                         switch (v->type) {
@@ -3757,6 +3794,7 @@ static int add_object_vtable_internal(
 
                         if (!member_name_is_valid(v->property.member) ||
                             !signature_is_single(v->property.signature, false) ||
+                            !(v->property.get || bus_type_is_basic(v->property.signature[0])) ||
                             v->flags & SD_BUS_VTABLE_METHOD_NO_REPLY ||
                             (v->flags & SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY && !(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE))) {
                                 r = -EINVAL;
@@ -3809,7 +3847,7 @@ fail:
                 free_node_vtable(bus, c);
 
         bus_node_gc(bus, n);
-        return 0;
+        return r;
 }
 
 static int remove_object_vtable_internal(
@@ -4048,7 +4086,7 @@ static int emit_properties_changed_on_interface(
                 if (r < 0)
                         return r;
 
-                r = v->vtable->property.get(bus, m->path, interface, *property, m, &error, vtable_property_convert_userdata(v->vtable, u));
+                r = invoke_property_get(bus, v->vtable, m->path, interface, *property, m, &error, vtable_property_convert_userdata(v->vtable, u));
                 if (r < 0)
                         return r;
 

@@ -38,7 +38,9 @@
  *
  *   Add in:
  *
- *   automatic properties
+ *   automatic properties for Set()
+ *   automatic NULL method
+ *   allow NULL as signatures in vtable
  *   node hierarchy updates during dispatching
  *   emit_interfaces_added/emit_interfaces_removed
  *
@@ -48,6 +50,8 @@ struct context {
         int fds[2];
         bool quit;
         char *something;
+        const char *automatic_string_property;
+        uint32_t automatic_integer_property;
 };
 
 static int something_handler(sd_bus *bus, sd_bus_message *m, void *userdata) {
@@ -148,15 +152,17 @@ static int notify_test(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
 static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("AlterSomething", "s", "s", 0, something_handler),
-        SD_BUS_METHOD("Exit", "", "", 0, exit_handler),
+        SD_BUS_METHOD("AlterSomething", "s", "s", something_handler, 0),
+        SD_BUS_METHOD("Exit", "", "", exit_handler, 0),
         SD_BUS_WRITABLE_PROPERTY("Something", "s", get_handler, set_handler, 0, 0),
+        SD_BUS_PROPERTY("AutomaticStringProperty", "s", NULL, offsetof(struct context, automatic_string_property), 0),
+        SD_BUS_PROPERTY("AutomaticIntegerProperty", "u", NULL, offsetof(struct context, automatic_integer_property), 0),
         SD_BUS_VTABLE_END
 };
 
 static const sd_bus_vtable vtable2[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("NotifyTest", "", "", 0, notify_test),
+        SD_BUS_METHOD("NotifyTest", "", "", notify_test, 0),
         SD_BUS_PROPERTY("Value", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_VTABLE_END
 };
@@ -383,6 +389,9 @@ int main(int argc, char *argv[]) {
         int r, q;
 
         zero(c);
+
+        c.automatic_integer_property = 4711;
+        c.automatic_string_property = "dudeldu";
 
         assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, c.fds) >= 0);
 
