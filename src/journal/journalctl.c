@@ -761,7 +761,7 @@ static int get_relative_boot_id(sd_journal *j, sd_id128_t *boot_id, int relative
                 sd_journal_flush_matches(j);
         }
 
-        qsort(all_ids, count, sizeof(boot_id_t), boot_id_cmp);
+        qsort_safe(all_ids, count, sizeof(boot_id_t), boot_id_cmp);
 
         if (sd_id128_equal(*boot_id, SD_ID128_NULL)) {
                 if (relative > (int) count || relative <= -(int)count)

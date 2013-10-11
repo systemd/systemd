@@ -471,7 +471,7 @@ static int list_units(DBusConnection *bus, char **args) {
         if (r < 0)
                 return r;
 
-        qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
+        qsort_safe(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
 
         output_units_list(unit_infos, c);
 
@@ -733,8 +733,8 @@ static int list_sockets(DBusConnection *bus, char **args) {
                 listen = triggered = NULL; /* avoid cleanup */
         }
 
-        qsort(socket_infos, cs, sizeof(struct socket_info),
-              (__compar_fn_t) socket_info_compare);
+        qsort_safe(socket_infos, cs, sizeof(struct socket_info),
+                   (__compar_fn_t) socket_info_compare);
 
         output_sockets_list(socket_infos, cs);
 
@@ -1108,7 +1108,7 @@ static int list_dependencies_one(DBusConnection *bus, const char *name, int leve
         if (r < 0)
                 return r;
 
-        qsort(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
+        qsort_safe(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
 
         STRV_FOREACH(c, deps) {
                 if (strv_contains(u, *c)) {
@@ -3532,7 +3532,7 @@ static int show_all(const char* verb,
         if (r < 0)
                 return r;
 
-        qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
+        qsort_safe(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 _cleanup_free_ char *p = NULL;

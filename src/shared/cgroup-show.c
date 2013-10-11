@@ -44,6 +44,8 @@ static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsi
         unsigned i, m, pid_width;
         pid_t biggest = 0;
 
+        assert(n_pids > 0);
+
         /* Filter duplicates */
         m = 0;
         for (i = 0; i < n_pids; i++) {

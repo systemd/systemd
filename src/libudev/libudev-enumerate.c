@@ -276,7 +276,7 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                 size_t move_later_prefix = 0;
 
                 udev_list_cleanup(&udev_enumerate->devices_list);
-                qsort(udev_enumerate->devices, udev_enumerate->devices_cur, sizeof(struct syspath), syspath_cmp);
+                qsort_safe(udev_enumerate->devices, udev_enumerate->devices_cur, sizeof(struct syspath), syspath_cmp);
 
                 max = udev_enumerate->devices_cur;
                 for (i = 0; i < max; i++) {

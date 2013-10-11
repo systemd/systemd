@@ -768,7 +768,7 @@ int bus_match_parse(
         }
 
         /* Order the whole thing, so that we always generate the same tree */
-        qsort(components, n_components, sizeof(struct bus_match_component), match_component_compare);
+        qsort_safe(components, n_components, sizeof(struct bus_match_component), match_component_compare);
 
         /* Check for duplicates */
         for (i = 0; i+1 < n_components; i++)

@@ -772,3 +772,15 @@ bool id128_is_valid(const char *s) _pure_;
 void parse_user_at_host(char *arg, char **user, char **host);
 
 int split_pair(const char *s, const char *sep, char **l, char **r);
+
+/**
+ * Normal qsort requires base to be nonnull. Here were require
+ * that only if nmemb > 0.
+ */
+static inline void qsort_safe(void *base, size_t nmemb, size_t size,
+                              int (*compar)(const void *, const void *)) {
+        if (nmemb) {
+                assert(base);
+                qsort(base, nmemb, size, compar);
+        }
+}

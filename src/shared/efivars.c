@@ -384,8 +384,7 @@ int efi_get_boot_options(uint16_t **options) {
                 list[count ++] = id;
         }
 
-        if (list)
-                qsort(list, count, sizeof(uint16_t), cmp_uint16);
+        qsort_safe(list, count, sizeof(uint16_t), cmp_uint16);
 
         *options = list;
         return count;

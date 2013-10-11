@@ -536,8 +536,7 @@ done:
                 HASHMAP_FOREACH_KEY(q, p, files, i)
                         pack_file(pack, p, on_btrfs);
         } else {
-                struct item *ordered, *j;
-                unsigned k, n;
+                unsigned n;
 
                 /* On rotating media, order things by the block
                  * numbers */
@@ -545,25 +544,31 @@ done:
                 log_debug("Ordering...");
 
                 n = hashmap_size(files);
-                if (!(ordered = new(struct item, n))) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (n) {
+                        _cleanup_free_ struct item *ordered;
+                        struct item *j;
+                        unsigned k;
 
-                j = ordered;
-                HASHMAP_FOREACH_KEY(q, p, files, i) {
-                        memcpy(j, q, sizeof(struct item));
-                        j++;
-                }
+                        ordered = new(struct item, n);
+                        if (!ordered) {
+                                r = log_oom();
+                                goto finish;
+                        }
 
-                assert(ordered + n == j);
+                        j = ordered;
+                        HASHMAP_FOREACH_KEY(q, p, files, i) {
+                                memcpy(j, q, sizeof(struct item));
+                                j++;
+                        }
 
-                qsort(ordered, n, sizeof(struct item), qsort_compare);
+                        assert(ordered + n == j);
 
-                for (k = 0; k < n; k++)
-                        pack_file(pack, ordered[k].path, on_btrfs);
+                        qsort(ordered, n, sizeof(struct item), qsort_compare);
 
-                free(ordered);
+                        for (k = 0; k < n; k++)
+                                pack_file(pack, ordered[k].path, on_btrfs);
+                } else
+                        log_warning("No pack files");
         }
 
         log_debug("Finalizing...");

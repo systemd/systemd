@@ -461,7 +461,7 @@ static int display(Hashmap *a) {
                 if (g->n_tasks_valid || g->cpu_valid || g->memory_valid || g->io_valid)
                         array[n++] = g;
 
-        qsort(array, n, sizeof(Group*), group_compare);
+        qsort_safe(array, n, sizeof(Group*), group_compare);
 
         /* Find the longest names in one run */
         for (j = 0; j < n; j++) {

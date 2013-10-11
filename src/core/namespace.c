@@ -222,7 +222,7 @@ int setup_namespace(char** read_write_dirs,
                      strv_length(read_only_dirs) +
                      strv_length(inaccessible_dirs) +
                      (private_tmp ? 2 : 0);
-        BindMount *m, *mounts;
+        BindMount *m, *mounts = NULL;
         int r = 0;
 
         if (!mount_flags)
@@ -231,26 +231,28 @@ int setup_namespace(char** read_write_dirs,
         if (unshare(CLONE_NEWNS) < 0)
                 return -errno;
 
-        m = mounts = (BindMount *) alloca(n * sizeof(BindMount));
-        if ((r = append_mounts(&m, read_write_dirs, READWRITE)) < 0 ||
-                (r = append_mounts(&m, read_only_dirs, READONLY)) < 0 ||
-                (r = append_mounts(&m, inaccessible_dirs, INACCESSIBLE)) < 0)
-                return r;
+        if (n) {
+                m = mounts = (BindMount *) alloca(n * sizeof(BindMount));
+                if ((r = append_mounts(&m, read_write_dirs, READWRITE)) < 0 ||
+                    (r = append_mounts(&m, read_only_dirs, READONLY)) < 0 ||
+                    (r = append_mounts(&m, inaccessible_dirs, INACCESSIBLE)) < 0)
+                        return r;
 
-        if (private_tmp) {
-                m->path = "/tmp";
-                m->mode = PRIVATE_TMP;
-                m++;
+                if (private_tmp) {
+                        m->path = "/tmp";
+                        m->mode = PRIVATE_TMP;
+                        m++;
 
-                m->path = "/var/tmp";
-                m->mode = PRIVATE_VAR_TMP;
-                m++;
+                        m->path = "/var/tmp";
+                        m->mode = PRIVATE_VAR_TMP;
+                        m++;
+                }
+
+                assert(mounts + n == m);
+
+                qsort(mounts, n, sizeof(BindMount), mount_path_compare);
+                drop_duplicates(mounts, &n);
         }
-
-        assert(mounts + n == m);
-
-        qsort(mounts, n, sizeof(BindMount), mount_path_compare);
-        drop_duplicates(mounts, &n);
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
            shows up in the parent */

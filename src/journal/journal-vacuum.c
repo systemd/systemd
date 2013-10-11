@@ -299,8 +299,7 @@ int journal_directory_vacuum(
                 n_list ++;
         }
 
-        if (n_list > 0)
-                qsort(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
+        qsort_safe(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
 
         for (i = 0; i < n_list; i++) {
                 struct statvfs ss;

@@ -1344,7 +1344,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 
         /* Order by the position on disk, in order to improve seek
          * times for rotating media. */
-        qsort(items, n_iovec, sizeof(EntryItem), entry_item_cmp);
+        qsort_safe(items, n_iovec, sizeof(EntryItem), entry_item_cmp);
 
         r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqnum, ret, offset);
 

@@ -127,7 +127,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
                 return -ENOMEM;
         }
 
-        qsort(files, hashmap_size(fh), sizeof(char *), base_cmp);
+        qsort_safe(files, hashmap_size(fh), sizeof(char *), base_cmp);
         *strv = files;
 
         hashmap_free(fh);

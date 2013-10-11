@@ -768,7 +768,7 @@ static int list_dependencies_one(DBusConnection *bus, const char *name, unsigned
         if (r < 0)
                 return r;
 
-        qsort(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
+        qsort_safe(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
 
         r = acquire_boot_times(bus, &boot);
         if (r < 0)

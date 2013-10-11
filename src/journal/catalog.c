@@ -399,7 +399,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
         }
 
         assert(n == hashmap_size(h));
-        qsort(items, n, sizeof(CatalogItem), catalog_compare_func);
+        qsort_safe(items, n, sizeof(CatalogItem), catalog_compare_func);
 
         r = write_catalog(database, h, sb, items, n);
         if (r < 0)

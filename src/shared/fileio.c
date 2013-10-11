@@ -662,6 +662,7 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
         int r;
 
         assert(filename);
+        assert(pattern);
         assert(field);
 
         r = read_full_file(filename, &status, NULL);
