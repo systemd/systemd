@@ -191,6 +191,7 @@ int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size,
 int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, sd_memfd *memfd);
 int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s);
 int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd* memfd);
+int sd_bus_message_append_strv(sd_bus_message *m, char **l);
 int sd_bus_message_open_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_close_container(sd_bus_message *m);
 

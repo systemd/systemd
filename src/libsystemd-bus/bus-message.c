@@ -2304,14 +2304,10 @@ int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *memfd) {
         void *a;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!memfd)
-                return -EINVAL;
-        if (m->sealed)
-                return -EPERM;
-        if (m->poisoned)
-                return -ESTALE;
+        assert_return(m, -EINVAL);
+        assert_return(memfd, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->poisoned, -ESTALE);
 
         r = sd_memfd_set_sealed(memfd, true);
         if (r < 0)
@@ -2374,6 +2370,27 @@ int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *memfd) {
                 c->index++;
 
         return 0;
+}
+
+int sd_bus_message_append_strv(sd_bus_message *m, char **l) {
+        char **i;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->poisoned, -ESTALE);
+
+        r = sd_bus_message_open_container(m, 'a', "s");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, l) {
+                r = sd_bus_message_append_basic(m, 's', *i);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(m);
 }
 
 int bus_body_part_map(struct bus_body_part *part) {
