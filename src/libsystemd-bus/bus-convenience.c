@@ -33,12 +33,9 @@ int sd_bus_emit_signal(
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = sd_bus_message_new_signal(bus, path, interface, member, &m);
         if (r < 0)
@@ -70,13 +67,9 @@ int sd_bus_call_method(
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
-        if (!bus)
-
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = sd_bus_message_new_method_call(bus, destination, path, interface, member, &m);
         if (r < 0)
@@ -103,18 +96,12 @@ int sd_bus_reply_method_return(
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!call)
-                return -EINVAL;
-        if (!call->sealed)
-                return -EPERM;
-        if (call->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(call, -EINVAL);
+        assert_return(call->sealed, -EPERM);
+        assert_return(call->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
@@ -144,20 +131,13 @@ int sd_bus_reply_method_error(
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!call)
-                return -EINVAL;
-        if (!call->sealed)
-                return -EPERM;
-        if (call->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
-                return -EINVAL;
-        if (!sd_bus_error_is_set(e))
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(call, -EINVAL);
+        assert_return(call->sealed, -EPERM);
+        assert_return(call->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL, -EINVAL);
+        assert_return(sd_bus_error_is_set(e), -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
@@ -179,6 +159,16 @@ int sd_bus_reply_method_errorf(
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         va_list ap;
         int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(call, -EINVAL);
+        assert_return(call->sealed, -EPERM);
+        assert_return(call->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 0;
 
         error.name = strdup(name);
         if (!error.name)
@@ -211,14 +201,13 @@ int sd_bus_get_property(
         sd_bus_message *rep = NULL;
         int r;
 
-        if (interface && !interface_name_is_valid(interface))
-                return -EINVAL;
-        if (!member_name_is_valid(member))
-                return -EINVAL;
-        if (!signature_is_single(type, false))
-                return -EINVAL;
-        if (!reply)
-                return -EINVAL;
+        assert_return(bus, -EINVAL);
+        assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL);
+        assert_return(member_name_is_valid(member), -EINVAL);
+        assert_return(reply, -EINVAL);
+        assert_return(signature_is_single(type, false), -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &rep, "ss", strempty(interface), member);
         if (r < 0)
@@ -247,12 +236,12 @@ int sd_bus_set_property(
         va_list ap;
         int r;
 
-        if (interface && !interface_name_is_valid(interface))
-                return -EINVAL;
-        if (!member_name_is_valid(member))
-                return -EINVAL;
-        if (!signature_is_single(type, false))
-                return -EINVAL;
+        assert_return(bus, -EINVAL);
+        assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL);
+        assert_return(member_name_is_valid(member), -EINVAL);
+        assert_return(signature_is_single(type, false), -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = sd_bus_message_new_method_call(bus, destination, path, "org.freedesktop.DBus.Properties", "Set", &m);
         if (r < 0)
