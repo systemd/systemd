@@ -236,7 +236,7 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
                 *p++ = '*';
                 if (pos < width-1)
                         p = mempset(p, ' ', width-1-pos);
-                p = stpcpy(p, ANSI_HIGHLIGHT_OFF);
+                strcpy(p, ANSI_HIGHLIGHT_OFF);
         }
 }
 
@@ -257,6 +257,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         /* m->n_running_jobs must be consistent with the contents of m->jobs,
          * so the above loop must have succeeded in finding j. */
         assert(counter == print_nr + 1);
+        assert(j);
 
         cylon_pos = m->jobs_in_progress_iteration % 14;
         if (cylon_pos >= 8)
@@ -2317,8 +2318,8 @@ int manager_distribute_fds(Manager *m, FDSet *fds) {
 
 int manager_reload(Manager *m) {
         int r, q;
-        FILE *f;
-        FDSet *fds;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_fdset_free_ FDSet *fds = NULL;
 
         assert(m);
 
@@ -2332,20 +2333,18 @@ int manager_reload(Manager *m) {
         fds = fdset_new();
         if (!fds) {
                 m->n_reloading --;
-                r = -ENOMEM;
-                goto finish;
+                return -ENOMEM;
         }
 
         r = manager_serialize(m, f, fds, false);
         if (r < 0) {
                 m->n_reloading --;
-                goto finish;
+                return r;
         }
 
         if (fseeko(f, 0, SEEK_SET) < 0) {
                 m->n_reloading --;
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         /* From here on there is no way back. */
@@ -2388,13 +2387,6 @@ int manager_reload(Manager *m) {
         m->n_reloading--;
 
         m->send_reloading_done = true;
-
-finish:
-        if (f)
-                fclose(f);
-
-        if (fds)
-                fdset_free(fds);
 
         return r;
 }

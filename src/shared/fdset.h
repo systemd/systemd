@@ -22,6 +22,7 @@
 ***/
 
 #include "set.h"
+#include "util.h"
 
 typedef struct FDSet FDSet;
 
@@ -47,3 +48,9 @@ int fdset_iterate(FDSet *s, Iterator *i);
 
 #define FDSET_FOREACH(fd, fds, i) \
         for ((i) = ITERATOR_FIRST, (fd) = fdset_iterate((fds), &(i)); (fd) >= 0; (fd) = fdset_iterate((fds), &(i)))
+
+static inline void fdset_freep(FDSet **fds) {
+        if (*fds)
+                fdset_free(*fds);
+}
+#define _cleanup_fdset_free_ _cleanup_(fdset_freep)
