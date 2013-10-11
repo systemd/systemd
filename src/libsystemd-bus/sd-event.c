@@ -333,8 +333,7 @@ int sd_event_new(sd_event** ret) {
         sd_event *e;
         int r;
 
-        if (!ret)
-                return -EINVAL;
+        assert_return(ret, -EINVAL);
 
         e = new0(sd_event, 1);
         if (!e)
@@ -368,8 +367,7 @@ fail:
 }
 
 sd_event* sd_event_ref(sd_event *e) {
-        if (!e)
-                return NULL;
+        assert_return(e, NULL);
 
         assert(e->n_ref >= 1);
         e->n_ref++;
@@ -378,8 +376,7 @@ sd_event* sd_event_ref(sd_event *e) {
 }
 
 sd_event* sd_event_unref(sd_event *e) {
-        if (!e)
-                return NULL;
+        assert_return(e, NULL);
 
         assert(e->n_ref >= 1);
         e->n_ref--;
@@ -416,7 +413,11 @@ static int source_io_unregister(sd_event_source *s) {
         return 0;
 }
 
-static int source_io_register(sd_event_source *s, int enabled, uint32_t events) {
+static int source_io_register(
+                sd_event_source *s,
+                int enabled,
+                uint32_t events) {
+
         struct epoll_event ev = {};
         int r;
 
@@ -561,19 +562,13 @@ int sd_event_add_io(
         sd_event_source *s;
         int r;
 
-        if (!e)
-                return -EINVAL;
-        if (fd < 0)
-                return -EINVAL;
-        if (events & ~(EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLPRI|EPOLLERR|EPOLLHUP))
-                return -EINVAL;
-        if (!callback)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
+        assert_return(e, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(!(events & ~(EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLPRI|EPOLLERR|EPOLLHUP)), -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(e))
-                return -ECHILD;
+        assert_return(!event_pid_changed(e), -ECHILD);
 
         s = source_new(e, SOURCE_IO);
         if (!s)
@@ -655,19 +650,13 @@ static int event_add_time_internal(
         sd_event_source *s;
         int r;
 
-        if (!e)
-                return -EINVAL;
-        if (!callback)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
-        if (usec == (uint64_t) -1)
-                return -EINVAL;
-        if (accuracy == (uint64_t) -1)
-                return -EINVAL;
+        assert_return(e, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(usec != (uint64_t) -1, -EINVAL);
+        assert_return(accuracy != (uint64_t) -1, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(e))
-                return -ECHILD;
+        assert_return(!event_pid_changed(e), -ECHILD);
 
         assert(timer_fd);
         assert(earliest);
@@ -758,23 +747,23 @@ static int event_update_signal_fd(sd_event *e) {
         return 0;
 }
 
-int sd_event_add_signal(sd_event *e, int sig, sd_signal_handler_t callback, void *userdata, sd_event_source **ret) {
+int sd_event_add_signal(
+                sd_event *e,
+                int sig,
+                sd_signal_handler_t callback,
+                void *userdata,
+                sd_event_source **ret) {
+
         sd_event_source *s;
         int r;
 
-        if (!e)
-                return -EINVAL;
-        if (sig <= 0)
-                return -EINVAL;
-        if (sig >= _NSIG)
-                return -EINVAL;
-        if (!callback)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
+        assert_return(e, -EINVAL);
+        assert_return(sig > 0, -EINVAL);
+        assert_return(sig < _NSIG, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(e))
-                return -ECHILD;
+        assert_return(!event_pid_changed(e), -ECHILD);
 
         if (!e->signal_sources) {
                 e->signal_sources = new0(sd_event_source*, _NSIG);
@@ -807,23 +796,25 @@ int sd_event_add_signal(sd_event *e, int sig, sd_signal_handler_t callback, void
         return 0;
 }
 
-int sd_event_add_child(sd_event *e, pid_t pid, int options, sd_child_handler_t callback, void *userdata, sd_event_source **ret) {
+int sd_event_add_child(
+                sd_event *e,
+                pid_t pid,
+                int options,
+                sd_child_handler_t callback,
+                void *userdata,
+                sd_event_source **ret) {
+
         sd_event_source *s;
         int r;
 
-        if (!e)
-                return -EINVAL;
-        if (pid <= 1)
-                return -EINVAL;
-        if (options & ~(WEXITED|WSTOPPED|WCONTINUED))
-                return -EINVAL;
-        if (!callback)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
+        assert_return(e, -EINVAL);
+        assert_return(pid > 1, -EINVAL);
+        assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED)), -EINVAL);
+        assert_return(options != 0, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(e))
-                return -ECHILD;
+        assert_return(!event_pid_changed(e), -ECHILD);
 
         r = hashmap_ensure_allocated(&e->child_sources, trivial_hash_func, trivial_compare_func);
         if (r < 0)
@@ -866,17 +857,20 @@ int sd_event_add_child(sd_event *e, pid_t pid, int options, sd_child_handler_t c
         return 0;
 }
 
-int sd_event_add_defer(sd_event *e, sd_defer_handler_t callback, void *userdata, sd_event_source **ret) {
+int sd_event_add_defer(
+                sd_event *e,
+                sd_defer_handler_t callback,
+                void *userdata,
+                sd_event_source **ret) {
+
         sd_event_source *s;
         int r;
 
-        if (!e)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
+        assert_return(e, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(e))
-                return -ECHILD;
+        assert_return(!event_pid_changed(e), -ECHILD);
 
         s = source_new(e, SOURCE_DEFER);
         if (!s)
@@ -896,12 +890,18 @@ int sd_event_add_defer(sd_event *e, sd_defer_handler_t callback, void *userdata,
         return 0;
 }
 
-int sd_event_add_quit(sd_event *e, sd_quit_handler_t callback, void *userdata, sd_event_source **ret) {
+int sd_event_add_quit(
+                sd_event *e,
+                sd_quit_handler_t callback,
+                void *userdata,
+                sd_event_source **ret) {
+
         sd_event_source *s;
         int r;
 
         assert_return(e, -EINVAL);
         assert_return(callback, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
@@ -952,42 +952,33 @@ sd_event_source* sd_event_source_unref(sd_event_source *s) {
 }
 
 sd_event *sd_event_get(sd_event_source *s) {
-        if (!s)
-                return NULL;
+        assert_return(s, NULL);
 
         return s->event;
 }
 
 int sd_event_source_get_pending(sd_event_source *s) {
-        if (!s)
-                return -EINVAL;
+        assert_return(s, -EINVAL);
+        assert_return(s->type != SOURCE_QUIT, -EDOM);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         return s->pending;
 }
 
 int sd_event_source_get_io_fd(sd_event_source *s) {
-        if (!s)
-                return -EINVAL;
-        if (s->type != SOURCE_IO)
-                return -EDOM;
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(s, -EINVAL);
+        assert_return(s->type == SOURCE_IO, -EDOM);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         return s->io.fd;
 }
 
 int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events) {
-        if (!s)
-                return -EINVAL;
-        if (s->type != SOURCE_IO)
-                return -EDOM;
-        if (!events)
-                return -EINVAL;
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(s, -EINVAL);
+        assert_return(events, -EINVAL);
+        assert_return(s->type == SOURCE_IO, -EDOM);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         *events = s->io.events;
         return 0;
@@ -996,15 +987,11 @@ int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events) {
 int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) {
         int r;
 
-        if (!s)
-                return -EINVAL;
-        if (!s->type != SOURCE_IO)
-                return -EDOM;
-        if (events & ~(EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLPRI|EPOLLERR|EPOLLHUP))
-                return -EINVAL;
+        assert_return(s, -EINVAL);
+        assert_return(s->type == SOURCE_IO, -EDOM);
+        assert_return(!(events & ~(EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLPRI|EPOLLERR|EPOLLHUP)), -EINVAL);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         if (s->io.events == events)
                 return 0;
@@ -1021,48 +1008,35 @@ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) {
 }
 
 int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents) {
-        if (!s)
-                return -EINVAL;
-        if (s->type != SOURCE_IO)
-                return -EDOM;
-        if (!revents)
-                return -EINVAL;
-        if (!s->pending)
-                return -ENODATA;
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(s, -EINVAL);
+        assert_return(revents, -EINVAL);
+        assert_return(s->type == SOURCE_IO, -EDOM);
+        assert_return(s->pending, -ENODATA);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         *revents = s->io.revents;
         return 0;
 }
 
 int sd_event_source_get_signal(sd_event_source *s) {
-        if (!s)
-                return -EINVAL;
-        if (s->type != SOURCE_SIGNAL)
-                return -EDOM;
-        assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(s, -EINVAL);
+        assert_return(s->type == SOURCE_SIGNAL, -EDOM);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         return s->signal.sig;
 }
 
 int sd_event_source_get_priority(sd_event_source *s, int *priority) {
-        if (!s)
-                return -EINVAL;
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(s, -EINVAL);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         return s->priority;
 }
 
 int sd_event_source_set_priority(sd_event_source *s, int priority) {
-        if (!s)
-                return -EINVAL;
+        assert_return(s, -EINVAL);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         if (s->priority == priority)
                 return 0;
@@ -1075,16 +1049,16 @@ int sd_event_source_set_priority(sd_event_source *s, int priority) {
         if (s->prepare)
                 prioq_reshuffle(s->event->prepare, s, &s->prepare_index);
 
+        if (s->type == SOURCE_QUIT)
+                prioq_reshuffle(s->event->quit, s, &s->quit.prioq_index);
+
         return 0;
 }
 
 int sd_event_source_get_enabled(sd_event_source *s, int *m) {
-        if (!s)
-                return -EINVAL;
-        if (!m)
-                return -EINVAL;
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(s, -EINVAL);
+        assert_return(m, -EINVAL);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         *m = s->enabled;
         return 0;
@@ -1093,13 +1067,10 @@ int sd_event_source_get_enabled(sd_event_source *s, int *m) {
 int sd_event_source_set_enabled(sd_event_source *s, int m) {
         int r;
 
-        if (!s)
-                return -EINVAL;
-        if (m != SD_EVENT_OFF && m != SD_EVENT_ON && !SD_EVENT_ONESHOT)
-                return -EINVAL;
+        assert_return(s, -EINVAL);
+        assert_return(m == SD_EVENT_OFF || m == SD_EVENT_ON || m == SD_EVENT_ONESHOT, -EINVAL);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         if (s->enabled == m)
                 return 0;
@@ -1150,8 +1121,12 @@ int sd_event_source_set_enabled(sd_event_source *s, int m) {
 
                         break;
 
-                case SOURCE_DEFER:
                 case SOURCE_QUIT:
+                        s->enabled = m;
+                        prioq_reshuffle(s->event->quit, s, &s->quit.prioq_index);
+                        break;
+
+                case SOURCE_DEFER:
                         s->enabled = m;
                         break;
                 }
@@ -1201,8 +1176,12 @@ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                         }
                         break;
 
-                case SOURCE_DEFER:
                 case SOURCE_QUIT:
+                        s->enabled = m;
+                        prioq_reshuffle(s->event->quit, s, &s->quit.prioq_index);
+                        break;
+
+                case SOURCE_DEFER:
                         s->enabled = m;
                         break;
                 }
@@ -1218,29 +1197,21 @@ int sd_event_source_set_enabled(sd_event_source *s, int m) {
 }
 
 int sd_event_source_get_time(sd_event_source *s, uint64_t *usec) {
-        if (!s)
-                return -EINVAL;
-        if (!usec)
-                return -EINVAL;
-        if (s->type != SOURCE_REALTIME && s->type != SOURCE_MONOTONIC)
-                return -EDOM;
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(s, -EINVAL);
+        assert_return(usec, -EINVAL);
+        assert_return(s->type == SOURCE_REALTIME || s->type == SOURCE_MONOTONIC, -EDOM);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         *usec = s->time.next;
         return 0;
 }
 
 int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
-        if (!s)
-                return -EINVAL;
-        if (usec == (uint64_t) -1)
-                return -EINVAL;
-        if (s->type != SOURCE_REALTIME && s->type != SOURCE_MONOTONIC)
-                return -EDOM;
+        assert_return(s, -EINVAL);
+        assert_return(usec != (uint64_t) -1, -EINVAL);
+        assert_return(s->type == SOURCE_REALTIME || s->type == SOURCE_MONOTONIC, -EDOM);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         if (s->time.next == usec)
                 return 0;
@@ -1258,14 +1229,22 @@ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
         return 0;
 }
 
+int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
+        assert_return(s, -EINVAL);
+        assert_return(usec, -EINVAL);
+        assert_return(s->type == SOURCE_REALTIME || s->type == SOURCE_MONOTONIC, -EDOM);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
+
+        *usec = s->time.accuracy;
+        return 0;
+}
+
 int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec) {
-        if (!s)
-                return -EINVAL;
-        if (s->type != SOURCE_MONOTONIC && s->type != SOURCE_REALTIME)
-                return -EDOM;
+        assert_return(s, -EINVAL);
+        assert_return(usec != (uint64_t) -1, -EINVAL);
+        assert_return(s->type == SOURCE_REALTIME || s->type == SOURCE_MONOTONIC, -EDOM);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
-        if (event_pid_changed(s->event))
-                return -ECHILD;
+        assert_return(!event_pid_changed(s->event), -ECHILD);
 
         if (usec == 0)
                 usec = DEFAULT_ACCURACY_USEC;
@@ -1280,20 +1259,6 @@ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec) {
         else
                 prioq_reshuffle(s->event->monotonic_latest, s, &s->time.latest_index);
 
-        return 0;
-}
-
-int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
-        if (!s)
-                return -EINVAL;
-        if (!usec)
-                return -EINVAL;
-        if (s->type != SOURCE_MONOTONIC && s->type != SOURCE_REALTIME)
-                return -EDOM;
-        if (event_pid_changed(s->event))
-                return -ECHILD;
-
-        *usec = s->time.accuracy;
         return 0;
 }
 
@@ -1466,9 +1431,7 @@ static int flush_timer(sd_event *e, int fd, uint32_t events) {
 
         assert(e);
         assert(fd >= 0);
-
-        if (events != EPOLLIN)
-                return -EIO;
+        assert_return(events == EPOLLIN, -EIO);
 
         ss = read(fd, &x, sizeof(x));
         if (ss < 0) {
@@ -1484,7 +1447,12 @@ static int flush_timer(sd_event *e, int fd, uint32_t events) {
         return 0;
 }
 
-static int process_timer(sd_event *e, usec_t n, Prioq *earliest, Prioq *latest) {
+static int process_timer(
+                sd_event *e,
+                usec_t n,
+                Prioq *earliest,
+                Prioq *latest) {
+
         sd_event_source *s;
         int r;
 
@@ -1563,9 +1531,7 @@ static int process_signal(sd_event *e, uint32_t events) {
         int r;
 
         assert(e);
-
-        if (events != EPOLLIN)
-                return -EIO;
+        assert_return(events == EPOLLIN, -EIO);
 
         for (;;) {
                 sd_event_source *s;
@@ -1726,8 +1692,8 @@ static sd_event_source* event_next_pending(sd_event *e) {
 int sd_event_run(sd_event *e, uint64_t timeout) {
         struct epoll_event ev_queue[EPOLL_QUEUE_MAX];
         sd_event_source *p;
-        int r, i, m;
         dual_timestamp n;
+        int r, i, m;
 
         assert_return(e, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
