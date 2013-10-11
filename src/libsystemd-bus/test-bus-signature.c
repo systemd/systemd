@@ -27,6 +27,8 @@
 #include "bus-internal.h"
 
 int main(int argc, char *argv[]) {
+        char prefix[256];
+        int r;
 
         assert_se(signature_is_single("y", false));
         assert_se(signature_is_single("u", false));
@@ -132,6 +134,30 @@ int main(int argc, char *argv[]) {
         assert_se(!object_path_is_valid("//foo"));
         assert_se(!object_path_is_valid("/foo//bar"));
         assert_se(!object_path_is_valid("/foo/aaaäöä"));
+
+        OBJECT_PATH_FOREACH_PREFIX(prefix, "/") {
+                log_info("<%s>", prefix);
+                assert_not_reached("???");
+        }
+
+        r = 0;
+        OBJECT_PATH_FOREACH_PREFIX(prefix, "/xxx") {
+                log_info("<%s>", prefix);
+                assert_se(streq(prefix, "/"));
+                assert_se(r == 0);
+                r++;
+        }
+        assert_se(r == 1);
+
+        r = 0;
+        OBJECT_PATH_FOREACH_PREFIX(prefix, "/xxx/yyy/zzz") {
+                log_info("<%s>", prefix);
+                assert_se(r != 0 || streq(prefix, "/xxx/yyy"));
+                assert_se(r != 1 || streq(prefix, "/xxx"));
+                assert_se(r != 2 || streq(prefix, "/"));
+                r++;
+        }
+        assert_se(r == 3);
 
         return 0;
 }

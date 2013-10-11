@@ -289,3 +289,8 @@ int bus_start_running(sd_bus *bus);
 int bus_next_address(sd_bus *bus);
 
 bool bus_pid_changed(sd_bus *bus);
+
+#define OBJECT_PATH_FOREACH_PREFIX(prefix, path)                        \
+        for (char *_slash = ({ strcpy((prefix), (path)); streq((prefix), "/") ? NULL : strrchr((prefix), '/'); }) ; \
+             _slash && !(_slash[(_slash) == (prefix)] = 0);             \
+             _slash = streq((prefix), "/") ? NULL : strrchr((prefix), '/'))

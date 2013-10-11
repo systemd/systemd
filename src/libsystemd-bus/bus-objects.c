@@ -847,7 +847,7 @@ static int object_manager_serialize_path_and_fallbacks(
                 const char *path,
                 sd_bus_error *error) {
 
-        size_t pl;
+        char *prefix;
         int r;
 
         assert(bus);
@@ -863,27 +863,14 @@ static int object_manager_serialize_path_and_fallbacks(
                 return 0;
 
         /* Second, add fallback vtables registered for any of the prefixes */
-        pl = strlen(path);
-        if (pl > 1) {
-                char p[pl + 1];
-                strcpy(p, path);
+        prefix = alloca(strlen(path) + 1);
+        OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
+                r = object_manager_serialize_path(bus, reply, prefix, path, true, error);
+                if (r < 0)
+                        return r;
 
-                for (;;) {
-                        char *e;
-
-                        e = strrchr(p, '/');
-                        if (e == p || !e)
-                                break;
-
-                        *e = 0;
-
-                        r = object_manager_serialize_path(bus, reply, p, path, true, error);
-                        if (r < 0)
-                                return r;
-
-                        if (sd_bus_error_is_set(error))
-                                return 0;
-                }
+                if (sd_bus_error_is_set(error))
+                        return 0;
         }
 
         return 0;
@@ -1105,7 +1092,7 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
 
         pl = strlen(m->path);
         do {
-                char p[pl+1];
+                char prefix[pl+1];
 
                 bus->nodes_modified = false;
 
@@ -1114,24 +1101,12 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
                         return r;
 
                 /* Look for fallback prefixes */
-                strcpy(p, m->path);
-                for (;;) {
-                        char *e;
-
-                        if (streq(p, "/"))
-                                break;
+                OBJECT_PATH_FOREACH_PREFIX(prefix, m->path) {
 
                         if (bus->nodes_modified)
                                 break;
 
-                        e = strrchr(p, '/');
-                        assert(e);
-                        if (e == p)
-                                *(e+1) = 0;
-                        else
-                                *e = 0;
-
-                        r = object_find_and_run(bus, m, p, true, &found_object);
+                        r = object_find_and_run(bus, m, prefix, true, &found_object);
                         if (r != 0)
                                 return r;
                 }
@@ -1858,7 +1833,7 @@ int sd_bus_emit_properties_changed_strv(
                 const char *interface,
                 char **names) {
 
-        size_t pl;
+        char *prefix;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -1874,28 +1849,11 @@ int sd_bus_emit_properties_changed_strv(
         if (r != 0)
                 return r;
 
-        pl = strlen(path);
-        if (pl > 1 ) {
-                char p[pl+1];
-
-                strcpy(p, path);
-                for (;;) {
-                        char *e;
-
-                        if (streq(p, "/"))
-                                break;
-
-                        e = strrchr(p, '/');
-                        assert(e);
-                        if (e == p)
-                                *(e+1) = 0;
-                        else
-                                *e = 0;
-
-                        r = emit_properties_changed_on_interface(bus, p, path, interface, true, names);
-                        if (r != 0)
-                                return r;
-                }
+        prefix = alloca(strlen(path) + 1);
+        OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
+                r = emit_properties_changed_on_interface(bus, prefix, path, interface, true, names);
+                if (r != 0)
+                        return r;
         }
 
         return -ENOENT;
