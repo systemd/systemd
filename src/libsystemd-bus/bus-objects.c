@@ -1897,12 +1897,206 @@ int sd_bus_emit_properties_changed(
         return sd_bus_emit_properties_changed_strv(bus, path, interface, names);
 }
 
-int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interfaces, ...) {
-        return -ENOSYS;
+static int interfaces_added_append_one_prefix(
+                sd_bus *bus,
+                sd_bus_message *m,
+                const char *prefix,
+                const char *path,
+                const char *interface,
+                bool require_fallback) {
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        struct node_vtable *c;
+        struct node *n;
+        void *u = NULL;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(prefix);
+        assert(path);
+        assert(interface);
+
+        n = hashmap_get(bus->nodes, prefix);
+        if (!n)
+                return 0;
+
+        LIST_FOREACH(vtables, c, n->vtables) {
+                if (require_fallback && !c->is_fallback)
+                        continue;
+
+                if (streq(c->interface, interface))
+                        break;
+        }
+
+        if (!c)
+                return 0;
+
+        r = node_vtable_get_userdata(bus, path, c, &u);
+        if (r <= 0)
+                return r;
+
+        r = sd_bus_message_append_basic(m, 's', interface);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(m, 'a', "{sv}");
+        if (r < 0)
+                return r;
+
+        r = vtable_append_all_properties(bus, m,path, c, u, &error);
+        if (r < 0)
+                return r;
+
+        if (sd_bus_error_is_set(&error))
+                return bus_error_to_errno(&error);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
-int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interfaces, ...) {
-        return -ENOSYS;
+static int interfaces_added_append_one(
+                sd_bus *bus,
+                sd_bus_message *m,
+                const char *path,
+                const char *interface) {
+
+        char *prefix;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(path);
+        assert(interface);
+
+        r = interfaces_added_append_one_prefix(bus, m, path, path, interface, false);
+        if (r != 0)
+                return r;
+
+        prefix = alloca(strlen(path) + 1);
+        OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
+                r = interfaces_added_append_one_prefix(bus, m, prefix, path, interface, true);
+                if (r != 0)
+                        return r;
+        }
+
+        return -ENOENT;
+}
+
+int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **interfaces) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        char **i;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(object_path_is_valid(path), -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (strv_isempty(interfaces))
+                return 0;
+
+        r = sd_bus_message_new_signal(bus, path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded", &m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_basic(m, 'o', path);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(m, 'a', "{sa{sv}}");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(i, interfaces) {
+                assert_return(interface_name_is_valid(*i), -EINVAL);
+
+                r = sd_bus_message_open_container(m, 'e', "sa{sv}");
+                if (r < 0)
+                        return r;
+
+                r = interfaces_added_append_one(bus, m, path, *i);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(bus, m, NULL);
+}
+
+int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) {
+        _cleanup_strv_free_ char **interfaces = NULL;
+        va_list ap;
+
+        assert_return(bus, -EINVAL);
+        assert_return(object_path_is_valid(path), -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        va_start(ap, interface);
+        interfaces = strv_new_ap(interface, ap);
+        va_end(ap);
+
+        if (!interfaces)
+                return -ENOMEM;
+
+        return sd_bus_emit_interfaces_added_strv(bus, path, interfaces);
+}
+
+int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **interfaces) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(object_path_is_valid(path), -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (strv_isempty(interfaces))
+                return 0;
+
+        r = sd_bus_message_new_signal(bus, path, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved", &m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_basic(m, 'o', path);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(m, interfaces);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(bus, m, NULL);
+}
+
+int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) {
+        _cleanup_strv_free_ char **interfaces = NULL;
+        va_list ap;
+
+        assert_return(bus, -EINVAL);
+        assert_return(object_path_is_valid(path), -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        va_start(ap, interface);
+        interfaces = strv_new_ap(interface, ap);
+        va_end(ap);
+
+        if (!interfaces)
+                return -ENOMEM;
+
+        return sd_bus_emit_interfaces_removed_strv(bus, path, interfaces);
 }
 
 int sd_bus_add_object_manager(sd_bus *bus, const char *path) {

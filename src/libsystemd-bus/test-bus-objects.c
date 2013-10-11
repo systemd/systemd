@@ -39,7 +39,6 @@
  *   Add in:
  *
  *   node hierarchy updates during dispatching
- *   emit_interfaces_added/emit_interfaces_removed
  *
  */
 
@@ -147,6 +146,28 @@ static int notify_test(sd_bus *bus, sd_bus_message *m, void *userdata) {
         return 1;
 }
 
+static int emit_interfaces_added(sd_bus *bus, sd_bus_message *m, void *userdata) {
+        int r;
+
+        assert_se(sd_bus_emit_interfaces_added(bus, m->path, "org.freedesktop.systemd.test", NULL) >= 0);
+
+        r = sd_bus_reply_method_return(bus, m, NULL);
+        assert_se(r >= 0);
+
+        return 1;
+}
+
+static int emit_interfaces_removed(sd_bus *bus, sd_bus_message *m, void *userdata) {
+        int r;
+
+        assert_se(sd_bus_emit_interfaces_removed(bus, m->path, "org.freedesktop.systemd.test", NULL) >= 0);
+
+        r = sd_bus_reply_method_return(bus, m, NULL);
+        assert_se(r >= 0);
+
+        return 1;
+}
+
 static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("AlterSomething", "s", "s", something_handler, 0),
@@ -154,7 +175,9 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_WRITABLE_PROPERTY("Something", "s", get_handler, set_handler, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("AutomaticStringProperty", "s", NULL, NULL, offsetof(struct context, automatic_string_property), 0),
         SD_BUS_WRITABLE_PROPERTY("AutomaticIntegerProperty", "u", NULL, NULL, offsetof(struct context, automatic_integer_property), 0),
-        SD_BUS_METHOD("NoOperation", "", "", NULL, 0),
+        SD_BUS_METHOD("NoOperation", NULL, NULL, NULL, 0),
+        SD_BUS_METHOD("EmitInterfacesAdded", NULL, NULL, emit_interfaces_added, 0),
+        SD_BUS_METHOD("EmitInterfacesRemoved", NULL, NULL, emit_interfaces_removed, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -380,6 +403,30 @@ static int client(struct context *c) {
         assert_se(r > 0);
 
         assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.Properties", "PropertiesChanged"));
+        bus_message_dump(reply);
+
+        sd_bus_message_unref(reply);
+        reply = NULL;
+
+        r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitInterfacesAdded", &error, NULL, "");
+        assert_se(r >= 0);
+
+        r = sd_bus_process(bus, &reply);
+        assert_se(r > 0);
+
+        assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded"));
+        bus_message_dump(reply);
+
+        sd_bus_message_unref(reply);
+        reply = NULL;
+
+        r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "EmitInterfacesRemoved", &error, NULL, "");
+        assert_se(r >= 0);
+
+        r = sd_bus_process(bus, &reply);
+        assert_se(r > 0);
+
+        assert_se(sd_bus_message_is_signal(reply, "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved"));
         bus_message_dump(reply);
 
         sd_bus_message_unref(reply);
