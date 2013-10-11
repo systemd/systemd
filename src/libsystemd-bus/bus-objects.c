@@ -742,9 +742,9 @@ static int object_manager_serialize_vtable(
                 sd_bus_message *reply,
                 const char *path,
                 struct node_vtable *c,
-                sd_bus_error *error) {
+                sd_bus_error *error,
+                void *userdata) {
 
-        void *u;
         int r;
 
         assert(bus);
@@ -752,10 +752,6 @@ static int object_manager_serialize_vtable(
         assert(path);
         assert(c);
         assert(error);
-
-        r = node_vtable_get_userdata(bus, path, c, &u);
-        if (r <= 0)
-                return r;
 
         r = sd_bus_message_open_container(reply, 'e', "sa{sv}");
         if (r < 0)
@@ -769,7 +765,7 @@ static int object_manager_serialize_vtable(
         if (r < 0)
                 return r;
 
-        r = vtable_append_all_properties(bus, reply, path, c, u, error);
+        r = vtable_append_all_properties(bus, reply, path, c, userdata, error);
         if (r < 0)
                 return r;
 
@@ -794,6 +790,7 @@ static int object_manager_serialize_path(
 
         struct node_vtable *i;
         struct node *n;
+        bool found_something = false;
         int r;
 
         assert(bus);
@@ -806,37 +803,50 @@ static int object_manager_serialize_path(
         if (!n)
                 return 0;
 
-        r = sd_bus_message_open_container(reply, 'e', "oa{sa{sv}}");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "o", path);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(reply, 'a', "{sa{sv}}");
-        if (r < 0)
-                return r;
-
         LIST_FOREACH(vtables, i, n->vtables) {
+                void *u;
 
                 if (require_fallback && !i->is_fallback)
                         continue;
 
-                r = object_manager_serialize_vtable(bus, reply, path, i, error);
+                r = node_vtable_get_userdata(bus, path, i, &u);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (!found_something) {
+                        r = sd_bus_message_open_container(reply, 'e', "oa{sa{sv}}");
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_append(reply, "o", path);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_open_container(reply, 'a', "{sa{sv}}");
+                        if (r < 0)
+                                return r;
+
+                        found_something = true;
+                }
+
+                r = object_manager_serialize_vtable(bus, reply, path, i, error, u);
                 if (r < 0)
                         return r;
                 if (sd_bus_error_is_set(error))
                         return 0;
         }
 
-        r = sd_bus_message_close_container(reply);
-        if (r < 0)
-                return r;
+        if (found_something) {
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
 
-        r = sd_bus_message_close_container(reply);
-        if (r < 0)
-                return r;
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
+        }
 
         return 1;
 }
