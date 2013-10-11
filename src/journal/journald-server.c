@@ -1145,13 +1145,13 @@ int process_event(Server *s, struct epoll_event *ev) {
                 }
 
                 for (;;) {
-                        struct msghdr msghdr;
-                        struct iovec iovec;
                         struct ucred *ucred = NULL;
                         struct timeval *tv = NULL;
                         struct cmsghdr *cmsg;
                         char *label = NULL;
                         size_t label_len = 0;
+
+                        struct iovec iovec;
                         union {
                                 struct cmsghdr cmsghdr;
 
@@ -1168,7 +1168,14 @@ int process_event(Server *s, struct epoll_event *ev) {
                                             CMSG_SPACE(sizeof(struct timeval)) +
                                             CMSG_SPACE(sizeof(int)) + /* fd */
                                             CMSG_SPACE(NAME_MAX)]; /* selinux label */
-                        } control;
+                        } control = {};
+                        struct msghdr msghdr = {
+                                .msg_iov = &iovec,
+                                .msg_iovlen = 1,
+                                .msg_control = &control,
+                                .msg_controllen = sizeof(control),
+                        };
+
                         ssize_t n;
                         int v;
                         int *fds = NULL;
@@ -1179,36 +1186,14 @@ int process_event(Server *s, struct epoll_event *ev) {
                                 return -errno;
                         }
 
-                        if (s->buffer_size < (size_t) v) {
-                                void *b;
-                                size_t l;
+                        if (!GREEDY_REALLOC(s->buffer, s->buffer_size, LINE_MAX + (size_t) v))
+                                return log_oom();
 
-                                l = MAX(LINE_MAX + (size_t) v, s->buffer_size * 2);
-                                b = realloc(s->buffer, l+1);
-
-                                if (!b) {
-                                        log_error("Couldn't increase buffer.");
-                                        return -ENOMEM;
-                                }
-
-                                s->buffer_size = l;
-                                s->buffer = b;
-                        }
-
-                        zero(iovec);
                         iovec.iov_base = s->buffer;
                         iovec.iov_len = s->buffer_size;
 
-                        zero(control);
-                        zero(msghdr);
-                        msghdr.msg_iov = &iovec;
-                        msghdr.msg_iovlen = 1;
-                        msghdr.msg_control = &control;
-                        msghdr.msg_controllen = sizeof(control);
-
                         n = recvmsg(ev->data.fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
                         if (n < 0) {
-
                                 if (errno == EINTR || errno == EAGAIN)
                                         return 1;
 
