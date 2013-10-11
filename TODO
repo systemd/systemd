@@ -182,9 +182,7 @@ Features:
   - merge busctl into systemctl or so?
   - synthesize sd_bus_message objects from kernel messages
   - properly implement name registry ioctls for kdbus
-  - get rid of object hash table, use decision tree everyhwere instead?
   - implement monitor logic
-  - object vtable logic
   - longer term:
     * priority queues
     * priority inheritance

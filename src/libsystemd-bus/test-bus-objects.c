@@ -39,8 +39,6 @@
  *   Add in:
  *
  *   automatic properties for Set()
- *   automatic NULL method
- *   allow NULL as signatures in vtable
  *   node hierarchy updates during dispatching
  *   emit_interfaces_added/emit_interfaces_removed
  *
@@ -157,6 +155,7 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_WRITABLE_PROPERTY("Something", "s", get_handler, set_handler, 0, 0),
         SD_BUS_PROPERTY("AutomaticStringProperty", "s", NULL, offsetof(struct context, automatic_string_property), 0),
         SD_BUS_PROPERTY("AutomaticIntegerProperty", "u", NULL, offsetof(struct context, automatic_integer_property), 0),
+        SD_BUS_METHOD("NoOperation", "", "", NULL, 0),
         SD_BUS_VTABLE_END
 };
 
@@ -240,6 +239,9 @@ static int client(struct context *c) {
         assert_se(sd_bus_new(&bus) >= 0);
         assert_se(sd_bus_set_fd(bus, c->fds[1], c->fds[1]) >= 0);
         assert_se(sd_bus_start(bus) >= 0);
+
+        r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "NoOperation", &error, NULL, NULL);
+        assert_se(r >= 0);
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AlterSomething", &error, &reply, "s", "hallo");
         assert_se(r >= 0);

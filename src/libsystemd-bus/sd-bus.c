@@ -2100,7 +2100,15 @@ static int method_callbacks_run(
                 return 1;
         }
 
-        return c->vtable->method.handler(bus, m, u);
+        if (c->vtable->method.handler)
+                return c->vtable->method.handler(bus, m, u);
+
+        /* If the method callback is NULL, make this a successful NOP */
+        r = sd_bus_reply_method_return(bus, m, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 static int invoke_property_get(
@@ -3761,7 +3769,7 @@ static int add_object_vtable_internal(
                         if (!member_name_is_valid(v->method.member) ||
                             !signature_is_valid(v->method.signature, false) ||
                             !signature_is_valid(v->method.result, false) ||
-                            !v->method.handler ||
+                            !(v->method.handler || (isempty(v->method.signature) && isempty(v->method.result))) ||
                             v->flags & (SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE|SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY)) {
                                 r = -EINVAL;
                                 goto fail;
