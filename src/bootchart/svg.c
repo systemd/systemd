@@ -420,12 +420,9 @@ static void svg_pss_graph(void) {
         i = 1;
         LIST_FOREACH_BEFORE(link, sampledata, head) {
                 int bottom;
-                int top;
+                int top = 0;
                 struct ps_sched_struct *prev_sample;
                 struct ps_sched_struct *cross_place;
-
-                bottom = 0;
-                top = 0;
 
                 /* put all the small pss blocks into the bottom */
                 ps = ps_first->next_ps;
@@ -533,8 +530,8 @@ static void svg_io_bi_bar(void) {
         int max_here = 0;
         int i;
         int k;
-        struct list_sample_data *start_sampledata = sampledata;
-        struct list_sample_data *stop_sampledata = sampledata;
+        struct list_sample_data *start_sampledata;
+        struct list_sample_data *stop_sampledata;
 
         svg("<!-- IO utilization graph - In -->\n");
 
@@ -599,10 +596,7 @@ static void svg_io_bi_bar(void) {
                 int stop;
                 int diff;
                 double tot;
-                double pbi;
-
-                tot = 0;
-                pbi = 0;
+                double pbi = 0;
 
                 start = MAX(i - ((range / 2) - 1), 0);
                 stop = MIN(i + (range / 2), samples);
@@ -647,8 +641,8 @@ static void svg_io_bo_bar(void) {
         int max_here = 0;
         int i;
         int k;
-        struct list_sample_data *start_sampledata = sampledata;
-        struct list_sample_data *stop_sampledata = sampledata;
+        struct list_sample_data *start_sampledata;
+        struct list_sample_data *stop_sampledata;
 
         svg("<!-- IO utilization graph - out -->\n");
 

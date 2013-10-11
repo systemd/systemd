@@ -748,7 +748,7 @@ static int list_sockets(DBusConnection *bus, char **args) {
         }
         free(socket_infos);
 
-        return 0;
+        return r;
 }
 
 static int compare_unit_file_list(const void *a, const void *b) {

@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
 
         /* we did truncate it to 6 */
         r = sd_memfd_get_size(m, &sz);
-        assert_se(sz == 6);
+        assert_se(r >= 0 && sz == 6);
 
         /* map it, check content */
         r = sd_memfd_map(m, 0, 12, (void **)&s);

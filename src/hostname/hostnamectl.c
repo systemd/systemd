@@ -110,6 +110,8 @@ static void print_status_info(StatusInfo *i) {
                            "PRETTY_NAME", &pretty_name,
                            "CPE_NAME", &cpe_name,
                            NULL);
+        if (r < 0)
+                log_warning("Failed to read /etc/os-release: %s", strerror(-r));
 
         if (!isempty(pretty_name))
                 printf("  Operating System: %s\n", pretty_name);

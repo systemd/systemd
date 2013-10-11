@@ -254,7 +254,7 @@ static void do_journal_append(char *file)
 
         p = malloc(9 + BOOTCHART_MAX);
         if (!p) {
-                r = log_oom();
+                log_oom();
                 return;
         }
 

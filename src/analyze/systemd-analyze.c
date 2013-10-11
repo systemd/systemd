@@ -384,9 +384,9 @@ static int pretty_boot_time(DBusConnection *bus, char **_buf) {
 
         size = strpcpyf(&ptr, size, "%s (userspace) ", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
         if (t->kernel_time > 0)
-                size = strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
+                strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
         else
-                size = strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
+                strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
 
         ptr = strdup(buf);
         if (!ptr)
@@ -818,18 +818,18 @@ static int list_dependencies_one(DBusConnection *bus, const char *name, unsigned
                 if (strv_contains(*units, *c)) {
                         r = list_dependencies_print("...", level + 1, (branches << 1) | (to_print ? 1 : 0),
                                                     true, NULL, boot);
+                        if (r < 0)
+                                return r;
                         continue;
                 }
 
                 r = list_dependencies_one(bus, *c, level + 1, units,
                                           (branches << 1) | (to_print ? 1 : 0));
-                if(r < 0)
+                if (r < 0)
                         return r;
 
-
-                if(!to_print)
+                if (!to_print)
                         break;
-
         }
         return 0;
 }

@@ -484,7 +484,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
                         return -EINVAL;
         }
 
-        r = manager_get_session_by_pid(m, leader, &session);
+        manager_get_session_by_pid(m, leader, &session);
         if (session) {
                 _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
                 _cleanup_free_ char *path = NULL;

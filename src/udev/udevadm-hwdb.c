@@ -648,7 +648,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
 
                         udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, test, 0))
                                 printf("%s=%s\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
-                        hwdb = udev_hwdb_unref(hwdb);
+                        udev_hwdb_unref(hwdb);
                 }
         }
 out:

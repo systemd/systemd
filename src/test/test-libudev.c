@@ -429,7 +429,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem)
         return 0;
 }
 
-static int test_hwdb(struct udev *udev, const char *modalias) {
+static void test_hwdb(struct udev *udev, const char *modalias) {
         struct udev_hwdb *hwdb;
         struct udev_list_entry *entry;
 
@@ -440,7 +440,7 @@ static int test_hwdb(struct udev *udev, const char *modalias) {
         printf("\n");
 
         hwdb = udev_hwdb_unref(hwdb);
-        return 0;
+        assert(hwdb == NULL);
 }
 
 int main(int argc, char *argv[])
