@@ -775,17 +775,13 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                         log_warning_unit(UNIT(s)->id, "SO_REUSEPORT failed: %m");
         }
 
-#ifdef HAVE_SMACK
-        if (s->smack_ip_in && use_smack())
-                if (fsetxattr(fd, "security.SMACK64IPIN", s->smack_ip_in, strlen(s->smack_ip_in), 0) < 0)
-                        log_error_unit(UNIT(s)->id,
-                                       "fsetxattr(\"security.SMACK64IPIN\"): %m");
+        if (s->smack_ip_in)
+                if (smack_label_ip_in_fd(fd, s->smack_ip_in) < 0)
+                        log_error_unit(UNIT(s)->id, "smack_label_ip_in_fd: %m");
 
-        if (s->smack_ip_out && use_smack())
-                if (fsetxattr(fd, "security.SMACK64IPOUT", s->smack_ip_out, strlen(s->smack_ip_out), 0) < 0)
-                        log_error_unit(UNIT(s)->id,
-                                       "fsetxattr(\"security.SMACK64IPOUT\"): %m");
-#endif
+        if (s->smack_ip_out)
+                if (smack_label_ip_out_fd(fd, s->smack_ip_out) < 0)
+                        log_error_unit(UNIT(s)->id, "smack_label_ip_out_fd: %m");
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {
@@ -797,12 +793,9 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
                         log_warning_unit(UNIT(s)->id,
                                          "F_SETPIPE_SZ: %m");
 
-#ifdef HAVE_SMACK
-        if (s->smack && use_smack())
-                if (fsetxattr(fd, "security.SMACK64", s->smack, strlen(s->smack), 0) < 0)
-                        log_error_unit(UNIT(s)->id,
-                                       "fsetxattr(\"security.SMACK64\"): %m");
-#endif
+        if (s->smack)
+                if (smack_label_fd(fd, s->smack) < 0)
+                        log_error_unit(UNIT(s)->id, "smack_label_fd: %m");
 }
 
 static int fifo_address_create(

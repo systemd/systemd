@@ -28,12 +28,9 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#ifdef HAVE_XATTR
-#include <attr/xattr.h>
-#endif
 
-#include "smack-util.h"
 #include "udev.h"
+#include "smack-util.h"
 
 static int node_symlink(struct udev_device *dev, const char *node, const char *slink)
 {
@@ -285,9 +282,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
         if (apply) {
                 bool selinux = false;
-#ifdef HAVE_SMACK
                 bool smack = false;
-#endif
 
                 if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
                         log_debug("set permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
@@ -311,14 +306,12 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                                 else
                                         log_debug("SECLABEL: set SELinux label '%s'", label);
 
-#ifdef HAVE_SMACK
-                        } else if (streq(name, "smack") && use_smack()) {
+                        } else if (streq(name, "smack")) {
                                 smack = true;
-                                if (lsetxattr(devnode, "security.SMACK64", label, strlen(label), 0) < 0)
+                                if (smack_label_path(devnode, label) < 0)
                                         log_error("SECLABEL: failed to set SMACK label '%s'", label);
                                 else
                                         log_debug("SECLABEL: set SMACK label '%s'", label);
-#endif
 
                         } else
                                 log_error("SECLABEL: unknown subsystem, ignoring '%s'='%s'", name, label);
@@ -327,10 +320,8 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
                 /* set the defaults */
                 if (!selinux)
                         label_fix(devnode, true, false);
-#ifdef HAVE_SMACK
-                if (!smack && use_smack())
-                        lremovexattr(devnode, "security.SMACK64");
-#endif
+                if (!smack)
+                        smack_label_path(devnode, NULL);
         }
 
         /* always update timestamp when we re-use the node, like on media change events */

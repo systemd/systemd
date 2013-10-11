@@ -26,3 +26,7 @@
 #include <stdbool.h>
 
 bool use_smack(void);
+int smack_label_path(const char *path, const char *label);
+int smack_label_fd(int fd, const char *label);
+int smack_label_ip_in_fd(int fd, const char *label);
+int smack_label_ip_out_fd(int fd, const char *label);

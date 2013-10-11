@@ -22,11 +22,14 @@
 ***/
 
 #include <unistd.h>
+#include <string.h>
+#ifdef HAVE_XATTR
+#include <attr/xattr.h>
+#endif
 
 #include "smack-util.h"
 
 bool use_smack(void) {
-
 #ifdef HAVE_SMACK
         static int use_smack_cached = -1;
 
@@ -38,4 +41,51 @@ bool use_smack(void) {
         return false;
 #endif
 
+}
+
+int smack_label_path(const char *path, const char *label) {
+#ifdef HAVE_SMACK
+        if (!use_smack())
+                return 0;
+
+        if (label)
+                return setxattr(path, "security.SMACK64", label, strlen(label), 0);
+        else
+                return lremovexattr(path, "security.SMACK64");
+#else
+        return 0;
+#endif
+}
+
+int smack_label_fd(int fd, const char *label) {
+#ifdef HAVE_SMACK
+        if (!use_smack())
+                return 0;
+
+        return fsetxattr(fd, "security.SMACK64", label, strlen(label), 0);
+#else
+        return 0;
+#endif
+}
+
+int smack_label_ip_out_fd(int fd, const char *label) {
+#ifdef HAVE_SMACK
+        if (!use_smack())
+                return 0;
+
+        return fsetxattr(fd, "security.SMACK64IPOUT", label, strlen(label), 0);
+#else
+        return 0;
+#endif
+}
+
+int smack_label_ip_in_fd(int fd, const char *label) {
+#ifdef HAVE_SMACK
+        if (!use_smack())
+                return 0;
+
+        return fsetxattr(fd, "security.SMACK64IPIN", label, strlen(label), 0);
+#else
+        return 0;
+#endif
 }
