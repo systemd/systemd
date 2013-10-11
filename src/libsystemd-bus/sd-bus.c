@@ -3398,7 +3398,6 @@ int sd_bus_emit_signal(
                 const char *types, ...) {
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        va_list ap;
         int r;
 
         if (!bus)
@@ -3412,11 +3411,15 @@ int sd_bus_emit_signal(
         if (r < 0)
                 return r;
 
-        va_start(ap, types);
-        r = bus_message_append_ap(m, types, ap);
-        va_end(ap);
-        if (r < 0)
-                return r;
+        if (!isempty(types)) {
+                va_list ap;
+
+                va_start(ap, types);
+                r = bus_message_append_ap(m, types, ap);
+                va_end(ap);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_bus_send(bus, m, NULL);
 }
@@ -3432,7 +3435,6 @@ int sd_bus_call_method(
                 const char *types, ...) {
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        va_list ap;
         int r;
 
         if (!bus)
@@ -3447,11 +3449,15 @@ int sd_bus_call_method(
         if (r < 0)
                 return r;
 
-        va_start(ap, types);
-        r = bus_message_append_ap(m, types, ap);
-        va_end(ap);
-        if (r < 0)
-                return r;
+        if (!isempty(types)) {
+                va_list ap;
+
+                va_start(ap, types);
+                r = bus_message_append_ap(m, types, ap);
+                va_end(ap);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_bus_send_with_reply_and_block(bus, m, 0, error, reply);
 }
@@ -3462,7 +3468,6 @@ int sd_bus_reply_method_return(
                 const char *types, ...) {
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        va_list ap;
         int r;
 
         if (!bus)
@@ -3485,11 +3490,15 @@ int sd_bus_reply_method_return(
         if (r < 0)
                 return r;
 
-        va_start(ap, types);
-        r = bus_message_append_ap(m, types, ap);
-        va_end(ap);
-        if (r < 0)
-                return r;
+        if (!isempty(types)) {
+                va_list ap;
+
+                va_start(ap, types);
+                r = bus_message_append_ap(m, types, ap);
+                va_end(ap);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_bus_send(bus, m, NULL);
 }
