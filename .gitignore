@@ -165,6 +165,7 @@
 *.la
 *.lo
 *.o
+*.plist
 *.stamp
 *.pyc
 __pycache__/
