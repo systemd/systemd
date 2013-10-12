@@ -300,7 +300,8 @@ int socket_address_print(const SocketAddress *a, char **p) {
         case AF_INET: {
                 char *ret;
 
-                if (!(ret = new(char, INET_ADDRSTRLEN+1+5+1)))
+                ret = new(char, INET_ADDRSTRLEN+1+5+1);
+                if (!ret)
                         return -ENOMEM;
 
                 if (!inet_ntop(AF_INET, &a->sockaddr.in4.sin_addr, ret, INET_ADDRSTRLEN)) {
@@ -316,7 +317,8 @@ int socket_address_print(const SocketAddress *a, char **p) {
         case AF_INET6: {
                 char *ret;
 
-                if (!(ret = new(char, 1+INET6_ADDRSTRLEN+2+5+1)))
+                ret = new(char, 1+INET6_ADDRSTRLEN+2+5+1);
+                if (!ret)
                         return -ENOMEM;
 
                 ret[0] = '[';
@@ -334,8 +336,8 @@ int socket_address_print(const SocketAddress *a, char **p) {
                 char *ret;
 
                 if (a->size <= offsetof(struct sockaddr_un, sun_path)) {
-
-                        if (!(ret = strdup("<unnamed>")))
+                        ret = strdup("<unnamed>");
+                        if (!ret)
                                 return -ENOMEM;
 
                 } else if (a->sockaddr.un.sun_path[0] == 0) {
@@ -346,7 +348,8 @@ int socket_address_print(const SocketAddress *a, char **p) {
                          * more than one NUL byte. That is
                          * actually an invalid assumption */
 
-                        if (!(ret = new(char, sizeof(a->sockaddr.un.sun_path)+1)))
+                        ret = new(char, sizeof(a->sockaddr.un.sun_path)+1);
+                        if (!ret)
                                 return -ENOMEM;
 
                         ret[0] = '@';
@@ -354,8 +357,8 @@ int socket_address_print(const SocketAddress *a, char **p) {
                         ret[sizeof(a->sockaddr.un.sun_path)] = 0;
 
                 } else {
-
-                        if (!(ret = strdup(a->sockaddr.un.sun_path)))
+                        ret = strdup(a->sockaddr.un.sun_path);
+                        if (!ret)
                                 return -ENOMEM;
                 }
 

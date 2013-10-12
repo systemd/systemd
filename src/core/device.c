@@ -189,10 +189,12 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
 
         assert(m);
 
-        if (!(sysfs = udev_device_get_syspath(dev)))
+        sysfs = udev_device_get_syspath(dev);
+        if (!sysfs)
                 return -ENOMEM;
 
-        if ((r = device_find_escape_name(m, path, &u)) < 0)
+        r = device_find_escape_name(m, path, &u);
+        if (r < 0)
                 return r;
 
         if (u && DEVICE(u)->sysfs && !path_equal(DEVICE(u)->sysfs, sysfs))
@@ -234,17 +236,21 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                 first = hashmap_get(m->devices_by_sysfs, sysfs);
                 LIST_PREPEND(Device, same_sysfs, first, DEVICE(u));
 
-                if ((r = hashmap_replace(m->devices_by_sysfs, DEVICE(u)->sysfs, first)) < 0)
+                r = hashmap_replace(m->devices_by_sysfs, DEVICE(u)->sysfs, first);
+                if (r < 0)
                         goto fail;
         }
 
         if ((model = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE")) ||
             (model = udev_device_get_property_value(dev, "ID_MODEL"))) {
-                if ((r = unit_set_description(u, model)) < 0)
+                r = unit_set_description(u, model);
+                if (r < 0)
                         goto fail;
-        } else
-                if ((r = unit_set_description(u, path)) < 0)
+        } else {
+                r = unit_set_description(u, path);
+                if (r < 0)
                         goto fail;
+        }
 
         if (main) {
                 /* The additional systemd udev properties we only
@@ -257,7 +263,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                         size_t l;
 
                         FOREACH_WORD_QUOTED(w, l, alias, state) {
-                                char *e;
+                                _cleanup_free_ char *e;
 
                                 e = strndup(w, l);
                                 if (!e) {
@@ -265,13 +271,10 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                                         goto fail;
                                 }
 
-                                if (!is_path(e)) {
-                                        log_warning("SYSTEMD_ALIAS for %s is not a path, ignoring: %s", sysfs, e);
-                                        free(e);
-                                } else {
+                                if (is_path(e))
                                         device_update_unit(m, dev, e, false);
-                                        free(e);
-                                }
+                                else
+                                        log_warning("SYSTEMD_ALIAS for %s is not a path, ignoring: %s", sysfs, e);
                         }
                 }
 
@@ -281,22 +284,21 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                         size_t l;
 
                         FOREACH_WORD_QUOTED(w, l, wants, state) {
-                                char *e, *n;
+                                _cleanup_free_ char *e, *n = NULL;
 
                                 e = strndup(w, l);
                                 if (!e) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
+
                                 n = unit_name_mangle(e);
                                 if (!n) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
-                                free(e);
 
                                 r = unit_add_dependency_by_name(u, UNIT_WANTS, n, NULL, true);
-                                free(n);
                                 if (r < 0)
                                         goto fail;
                         }

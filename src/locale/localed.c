@@ -805,7 +805,7 @@ static int convert_x11_to_vconsole(DBusConnection *connection) {
 
                 free_data_x11();
         } else {
-                FILE *f;
+                _cleanup_fclose_ FILE *f;
                 unsigned n = 0;
                 unsigned best_matching = 0;
                 char *new_keymap = NULL;
@@ -815,16 +815,13 @@ static int convert_x11_to_vconsole(DBusConnection *connection) {
                         return -errno;
 
                 for (;;) {
-                        char **a;
+                        _cleanup_strv_free_ char **a = NULL;
                         unsigned matching = 0;
                         int r;
 
                         r = read_next_mapping(f, &n, &a);
-                        if (r < 0) {
-                                fclose(f);
+                        if (r < 0)
                                 return r;
-                        }
-
                         if (r == 0)
                                 break;
 
@@ -879,18 +876,10 @@ static int convert_x11_to_vconsole(DBusConnection *connection) {
 
                                 free(new_keymap);
                                 new_keymap = strdup(a[0]);
-
-                                if (!new_keymap) {
-                                        strv_free(a);
-                                        fclose(f);
+                                if (!new_keymap)
                                         return -ENOMEM;
-                                }
                         }
-
-                        strv_free(a);
                 }
-
-                fclose(f);
 
                 if (!streq_ptr(state.vc_keymap, new_keymap)) {
                         free(state.vc_keymap);
@@ -906,7 +895,8 @@ static int convert_x11_to_vconsole(DBusConnection *connection) {
 
         if (modified) {
                 dbus_bool_t b;
-                DBusMessage *changed;
+
+                _cleanup_dbus_message_unref_ DBusMessage *changed = NULL;
                 int r;
 
                 r = write_data_vconsole();
@@ -918,13 +908,10 @@ static int convert_x11_to_vconsole(DBusConnection *connection) {
                                 "org.freedesktop.locale1",
                                 "VConsoleKeymap\0"
                                 "VConsoleKeymapToggle\0");
-
                 if (!changed)
                         return -ENOMEM;
 
                 b = dbus_connection_send(connection, changed, NULL);
-                dbus_message_unref(changed);
-
                 if (!b)
                         return -ENOMEM;
 
@@ -935,31 +922,26 @@ static int convert_x11_to_vconsole(DBusConnection *connection) {
 }
 
 static int append_locale(DBusMessageIter *i, const char *property, void *userdata) {
-        int r, c = 0, p;
-        char **l;
+        int c, p;
+        _cleanup_strv_free_ char **l = NULL;
 
         l = new0(char*, _PROP_MAX+1);
         if (!l)
                 return -ENOMEM;
 
-        for (p = 0; p < _PROP_MAX; p++) {
+        for (p = 0, c = 0; p < _PROP_MAX; p++) {
                 char *t;
 
                 if (isempty(data[p]))
                         continue;
 
-                if (asprintf(&t, "%s=%s", names[p], data[p]) < 0) {
-                        strv_free(l);
+                if (asprintf(&t, "%s=%s", names[p], data[p]) < 0)
                         return -ENOMEM;
-                }
 
                 l[c++] = t;
         }
 
-        r = bus_property_append_strv(i, property, (void*) l);
-        strv_free(l);
-
-        return r;
+        return bus_property_append_strv(i, property, (void*) l);
 }
 
 static const BusProperty bus_locale_properties[] = {

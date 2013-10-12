@@ -48,6 +48,9 @@
  *
  */
 
+#define GPT_SWAP SD_ID128_MAKE(06,57,fd,6d,a4,ab,43,c4,84,e5,09,33,c8,4b,4f,4f)
+#define GPT_HOME SD_ID128_MAKE(93,3a,c7,e1,2e,b4,4f,13,b8,44,0e,14,e2,ae,f9,15)
+
 static const char *arg_dest = "/tmp";
 
 static inline void blkid_free_probep(blkid_probe *b) {
@@ -113,13 +116,13 @@ static int verify_gpt_partition(const char *node, sd_id128_t *type, unsigned *nr
 
 
         if (fstype) {
-                char *fst;
-
                 errno = 0;
                 r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
                 if (r != 0)
                         *fstype = NULL;
                 else {
+                        char *fst;
+
                         fst = strdup(v);
                         if (!fst)
                                 return -ENOMEM;
@@ -242,10 +245,8 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
         int r;
 
         e = udev_enumerate_new(udev);
-        if (!e) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!e)
+                return log_oom();
 
         d = udev_device_new_from_devnum(udev, 'b', dev);
         if (!d) {
@@ -314,10 +315,9 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
                 if (r == 0)
                         goto skip;
 
-                if (sd_id128_equal(type_id, SD_ID128_MAKE(06,57,fd,6d,a4,ab,43,c4,84,e5,09,33,c8,4b,4f,4f)))
+                if (sd_id128_equal(type_id, GPT_SWAP))
                         add_swap(node, fstype);
-                else if (sd_id128_equal(type_id, SD_ID128_MAKE(93,3a,c7,e1,2e,b4,4f,13,b8,44,0e,14,e2,ae,f9,15))) {
-
+                else if (sd_id128_equal(type_id, GPT_HOME)) {
                         if (!home || nr < home_nr) {
                                 free(home);
                                 home = strdup(node);
@@ -353,7 +353,7 @@ finish:
 }
 
 static int get_btrfs_block_device(const char *path, dev_t *dev) {
-        struct btrfs_ioctl_fs_info_args fsi;
+        struct btrfs_ioctl_fs_info_args fsi = {};
         _cleanup_close_ int fd = -1;
         uint64_t id;
 
@@ -364,7 +364,6 @@ static int get_btrfs_block_device(const char *path, dev_t *dev) {
         if (fd < 0)
                 return -errno;
 
-        zero(fsi);
         if (ioctl(fd, BTRFS_IOC_FS_INFO, &fsi) < 0)
                 return -errno;
 
@@ -373,11 +372,10 @@ static int get_btrfs_block_device(const char *path, dev_t *dev) {
                 return 0;
 
         for (id = 1; id <= fsi.max_id; id++) {
-                struct btrfs_ioctl_dev_info_args di;
+                struct btrfs_ioctl_dev_info_args di = {
+                        .devid = id,
+                };
                 struct stat st;
-
-                zero(di);
-                di.devid = id;
 
                 if (ioctl(fd, BTRFS_IOC_DEV_INFO, &di) < 0) {
                         if (errno == ENODEV)
@@ -433,10 +431,8 @@ static int devno_to_devnode(struct udev *udev, dev_t devno, char **ret) {
         int r;
 
         d = udev_device_new_from_devnum(udev, 'b', devno);
-        if (!d) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!d)
+                return log_oom();
 
         t = udev_device_get_devnode(d);
         if (!t) {
@@ -454,8 +450,7 @@ static int devno_to_devnode(struct udev *udev, dev_t devno, char **ret) {
         r = 0;
 
 finish:
-        if (d)
-                udev_device_unref(d);
+        udev_device_unref(d);
 
         return r;
 }

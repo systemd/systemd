@@ -415,7 +415,8 @@ static int collect(const char *root) {
                         }
                 }
 
-                if ((n = read(fanotify_fd, &data, sizeof(data))) < 0) {
+                n = read(fanotify_fd, &data, sizeof(data));
+                if (n < 0) {
 
                         if (errno == EINTR || errno == EAGAIN)
                                 continue;
@@ -436,7 +437,7 @@ static int collect(const char *root) {
                 }
 
                 for (m = &data.metadata; FAN_EVENT_OK(m, n); m = FAN_EVENT_NEXT(m, n)) {
-                        char fn[PATH_MAX];
+                        char fn[sizeof("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
                         int k;
 
                         if (m->fd < 0)
@@ -450,9 +451,8 @@ static int collect(const char *root) {
                                 goto next_iteration;
 
                         snprintf(fn, sizeof(fn), "/proc/self/fd/%i", m->fd);
-                        char_array_0(fn);
-
-                        if ((k = readlink_malloc(fn, &p)) >= 0) {
+                        k = readlink_malloc(fn, &p);
+                        if (k >= 0) {
                                 if (startswith(p, "/tmp") ||
                                     endswith(p, " (deleted)") ||
                                     hashmap_get(files, p))

@@ -1874,6 +1874,7 @@ static void unitfilelist_free(UnitFileList **f) {
         free((*f)->path);
         free(*f);
 }
+#define _cleanup_unitfilelist_free_ _cleanup_(unitfilelist_free)
 
 int unit_file_get_list(
                 UnitFileScope scope,
@@ -1925,8 +1926,7 @@ int unit_file_get_list(
                 for (;;) {
                         struct dirent *de;
                         union dirent_storage buffer;
-                        UnitFileList __attribute__((cleanup(unitfilelist_free)))
-                                *f = NULL;
+                        _cleanup_unitfilelist_free_ UnitFileList *f = NULL;
 
                         r = readdir_r(d, &buffer.de, &de);
                         if (r != 0)

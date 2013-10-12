@@ -643,7 +643,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
         /* Kernel threads have no argv[] */
         if (r == NULL || r[0] == 0) {
-                char *t;
+                _cleanup_free_ char *t = NULL;
                 int h;
 
                 free(r);
@@ -656,8 +656,6 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                         return h;
 
                 r = strjoin("[", t, "]", NULL);
-                free(t);
-
                 if (!r)
                         return -ENOMEM;
         }

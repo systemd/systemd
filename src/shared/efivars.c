@@ -37,7 +37,7 @@ bool is_efi_boot(void) {
 
 static int read_flag(const char *varname) {
         int r;
-        void *v;
+        _cleanup_free_ void *v = NULL;
         size_t s;
         uint8_t b;
 
@@ -45,15 +45,11 @@ static int read_flag(const char *varname) {
         if (r < 0)
                 return r;
 
-        if (s != 1) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (s != 1)
+                return -EINVAL;
 
         b = *(uint8_t *)v;
         r = b > 0;
-finish:
-        free(v);
         return r;
 }
 
