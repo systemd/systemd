@@ -1860,7 +1860,8 @@ int config_parse_documentation(const char *unit,
                         free(*a);
                 }
         }
-        *b = NULL;
+        if (b)
+                *b = NULL;
 
         return r;
 }
