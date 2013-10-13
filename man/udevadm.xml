@@ -61,9 +61,10 @@
   </refsynopsisdiv>
 
   <refsect1><title>Description</title>
-    <para>udevadm expects a command and command specific options.  It
-    controls the runtime behavior of udev, requests kernel events,
-    manages the event queue, and provides simple debugging mechanisms.</para>
+    <para><command>udevadm</command> expects a command and command
+    specific options.  It controls the runtime behavior of
+    <command>systemd-udevd</command>, requests kernel events, manages
+    the event queue, and provides simple debugging mechanisms.</para>
   </refsect1>
 
   <refsect1><title>OPTIONS</title>
@@ -97,23 +98,37 @@
         <varlistentry>
           <term><option>--query=<replaceable>type</replaceable></option></term>
           <listitem>
-            <para>Query the database for specified type of device data. It needs the
-            <option>--path</option> or <option>--name</option> to identify the specified
-            device. Valid queries are:
-            <command>name</command>, <command>symlink</command>, <command>path</command>,
-            <command>property</command>, <command>all</command>.</para>
+            <para>Query the database for specified type of device
+            data. It needs the <option>--path</option> or
+            <option>--name</option> to identify the specified
+            device. Valid queries are: <constant>name</constant>,
+            <constant>symlink</constant>, <constant>path</constant>,
+            <constant>property</constant>,
+            <constant>all</constant>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>--path=<replaceable>devpath</replaceable></option></term>
           <listitem>
-            <para>The devpath of the device to query.</para>
+            <para>The <filename>/sys</filename> path of the device to
+            query, e.g.
+            <filename><optional>/sys</optional>/class/block/sda</filename>.
+            Note that this option usually isn't very useful, since
+            <command>udev</command> can guess the type of the
+            argument, so <command>udevadm
+            --devpath=/class/block/sda</command> is equivalent to
+            <command>udevadm /sys/class/block/sda</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>--name=<replaceable>file</replaceable></option></term>
           <listitem>
-            <para>The name of the device node or a symlink to query</para>
+            <para>The name of the device node or a symlink to query,
+            e.g. <filename><optional>/dev</optional>/sda</filename>.
+            Note that this option usually isn't very useful, since
+            <command>udev</command> can guess the type of the
+            argument, so <command>udevadm --name=sda</command> is
+            equivalent to <command>udevadm /dev/sda</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -462,13 +477,15 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><option>--resolve-names=<replaceable>early|late|never</replaceable></option></term>
+          <term><option>--resolve-names=<constant>early</constant>|<constant>late</constant>|<constant>never</constant></option></term>
           <listitem>
-            <para>Specify when udevadm should resolve names of users and groups.
-              When set to early (the default) names will be resolved when the
-              rules are parsed. When set to late names will be resolved for
-              every event. When set to never names will never be resolved and
-              all devices will be owned by root.</para>
+            <para>Specify when udevadm should resolve names of users
+            and groups.  When set to <constant>early</constant> (the
+            default) names will be resolved when the rules are
+            parsed. When set to <constant>late</constant> names will
+            be resolved for every event. When set to
+            <constant>never</constant> names will never be resolved
+            and all devices will be owned by root.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
