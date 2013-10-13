@@ -493,6 +493,10 @@ static void source_free(sd_event_source *s) {
 
                         break;
 
+                case SOURCE_DEFER:
+                        /* nothing */
+                        break;
+
                 case SOURCE_QUIT:
                         prioq_remove(s->event->quit, s, &s->quit.prioq_index);
                         break;
@@ -1526,15 +1530,17 @@ static int process_child(sd_event *e) {
 }
 
 static int process_signal(sd_event *e, uint32_t events) {
-        struct signalfd_siginfo si;
         bool read_one = false;
-        ssize_t ss;
         int r;
 
         assert(e);
+        assert(e->signal_sources);
+
         assert_return(events == EPOLLIN, -EIO);
 
         for (;;) {
+                struct signalfd_siginfo si;
+                ssize_t ss;
                 sd_event_source *s;
 
                 ss = read(e->signal_fd, &si, sizeof(si));
@@ -1550,17 +1556,16 @@ static int process_signal(sd_event *e, uint32_t events) {
 
                 read_one = true;
 
+                s = e->signal_sources[si.ssi_signo];
                 if (si.ssi_signo == SIGCHLD) {
                         r = process_child(e);
                         if (r < 0)
                                 return r;
-                        if (r > 0 || !e->signal_sources[si.ssi_signo])
+                        if (r > 0 || !s)
                                 continue;
-                } else {
-                        s = e->signal_sources[si.ssi_signo];
+                } else
                         if (!s)
                                 return -EIO;
-                }
 
                 s->signal.siginfo = si;
                 r = source_set_pending(s, true);
