@@ -19,15 +19,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <libudev.h>
-
 #include "util.h"
 #include "mkdir.h"
 #include "fileio.h"
+#include "libudev.h"
+#include "udev-util.h"
 
 int main(int argc, char *argv[]) {
-        struct udev *udev = NULL;
-        struct udev_device *device = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
         _cleanup_free_ char *saved = NULL;
         int r;
 
@@ -45,13 +45,13 @@ int main(int argc, char *argv[]) {
         r = mkdir_p("/var/lib/systemd/backlight", 0755);
         if (r < 0) {
                 log_error("Failed to create backlight directory: %s", strerror(-r));
-                goto finish;
+                return EXIT_FAILURE;
         }
 
         udev = udev_new();
         if (!udev) {
-                r = log_oom();
-                goto finish;
+                log_oom();
+                return EXIT_FAILURE;
         }
 
         errno = 0;
@@ -59,26 +59,24 @@ int main(int argc, char *argv[]) {
         if (!device)
                 device = udev_device_new_from_subsystem_sysname(udev, "leds", argv[2]);
         if (!device) {
-                if (errno != 0) {
+                if (errno != 0)
                         log_error("Failed to get backlight device '%s': %m", argv[2]);
-                        r = -errno;
-                } else
+                else
                         r = log_oom();
 
-                goto finish;
+                return EXIT_FAILURE;
         }
 
         if (!streq_ptr(udev_device_get_subsystem(device), "backlight") &&
             !streq_ptr(udev_device_get_subsystem(device), "leds")) {
                 log_error("Not a backlight device: %s", argv[2]);
-                r = -ENODEV;
-                goto finish;
+                return EXIT_FAILURE;
         }
 
         saved = strappend("/var/lib/systemd/backlight/", udev_device_get_sysname(device));
         if (!saved) {
-                r = log_oom();
-                goto finish;
+                log_oom();
+                return EXIT_FAILURE;
         }
 
         if (streq(argv[1], "load")) {
@@ -87,19 +85,17 @@ int main(int argc, char *argv[]) {
                 r = read_one_line_file(saved, &value);
                 if (r < 0) {
 
-                        if (r == -ENOENT) {
-                                r = 0;
-                                goto finish;
-                        }
+                        if (r == -ENOENT)
+                                return EXIT_SUCCESS;
 
                         log_error("Failed to read %s: %s", saved, strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 r = udev_device_set_sysattr_value(device, "brightness", value);
                 if (r < 0) {
                         log_error("Failed to write system attribute: %s", strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
         } else if (streq(argv[1], "save")) {
@@ -108,28 +104,19 @@ int main(int argc, char *argv[]) {
                 value = udev_device_get_sysattr_value(device, "brightness");
                 if (!value) {
                         log_error("Failed to read system attribute: %s", strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 r = write_string_file(saved, value);
                 if (r < 0) {
                         log_error("Failed to write %s: %s", saved, strerror(-r));
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
         } else {
                 log_error("Unknown verb %s.", argv[1]);
-                r = -EINVAL;
-                goto finish;
+                return EXIT_FAILURE;
         }
 
-finish:
-        if (device)
-                udev_device_unref(device);
-
-        if (udev)
-                udev_unref(udev);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-
+        return EXIT_SUCCESS;
 }

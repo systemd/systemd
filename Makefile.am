@@ -647,6 +647,7 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/sparse-endian.h \
 	src/shared/util.c \
 	src/shared/util.h \
+	src/shared/udev-util.h \
 	src/shared/virt.c \
 	src/shared/virt.h \
 	src/shared/efivars.c \

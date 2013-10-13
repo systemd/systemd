@@ -135,11 +135,8 @@ struct sd_journal {
 char *journal_make_match_string(sd_journal *j);
 void journal_print_header(sd_journal *j);
 
-static inline void journal_closep(sd_journal **j) {
-        sd_journal_close(*j);
-}
-
-#define _cleanup_journal_close_ _cleanup_(journal_closep)
+define_trivial_cleanup_func(sd_journal*, sd_journal_close)
+#define _cleanup_journal_close_ _cleanup_(sd_journal_closep)
 
 #define JOURNAL_FOREACH_DATA_RETVAL(j, data, l, retval)                     \
         for (sd_journal_restart_data(j); ((retval) = sd_journal_enumerate_data((j), &(data), &(l))) > 0; )

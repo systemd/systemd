@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -21,33 +21,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "set.h"
+#include "udev.h"
 #include "util.h"
 
-typedef struct FDSet FDSet;
+define_trivial_cleanup_func(struct udev*, udev_unref)
+define_trivial_cleanup_func(struct udev_device*, udev_device_unref)
+define_trivial_cleanup_func(struct udev_enumerate*, udev_enumerate_unref)
+define_trivial_cleanup_func(struct udev_event*, udev_event_unref)
+define_trivial_cleanup_func(struct udev_rules*, udev_rules_unref)
 
-FDSet* fdset_new(void);
-void fdset_free(FDSet *s);
-
-int fdset_put(FDSet *s, int fd);
-int fdset_put_dup(FDSet *s, int fd);
-
-bool fdset_contains(FDSet *s, int fd);
-int fdset_remove(FDSet *s, int fd);
-
-int fdset_new_fill(FDSet **_s);
-int fdset_new_listen_fds(FDSet **_s, bool unset);
-
-int fdset_cloexec(FDSet *fds, bool b);
-
-int fdset_close_others(FDSet *fds);
-
-unsigned fdset_size(FDSet *fds);
-
-int fdset_iterate(FDSet *s, Iterator *i);
-
-#define FDSET_FOREACH(fd, fds, i) \
-        for ((i) = ITERATOR_FIRST, (fd) = fdset_iterate((fds), &(i)); (fd) >= 0; (fd) = fdset_iterate((fds), &(i)))
-
-define_trivial_cleanup_func(FDSet*, fdset_free)
-#define _cleanup_fdset_free_ _cleanup_(fdset_freep)
+#define _cleanup_udev_unref_ _cleanup_(udev_unrefp)
+#define _cleanup_udev_device_unref_ _cleanup_(udev_device_unrefp)
+#define _cleanup_udev_enumerate_unref_ _cleanup_(udev_enumerate_unrefp)
+#define _cleanup_udev_event_unref_ _cleanup_(udev_event_unrefp)
+#define _cleanup_udev_rules_unref_ _cleanup_(udev_rules_unrefp)

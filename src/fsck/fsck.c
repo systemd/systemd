@@ -27,7 +27,6 @@
 #include <fcntl.h>
 #include <sys/file.h>
 
-#include <libudev.h>
 #include <dbus/dbus.h>
 
 #include "util.h"
@@ -36,6 +35,8 @@
 #include "bus-errors.h"
 #include "virt.h"
 #include "fileio.h"
+#include "libudev.h"
+#include "udev-util.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
@@ -251,8 +252,8 @@ int main(int argc, char *argv[]) {
         int i = 0, r = EXIT_FAILURE, q;
         pid_t pid;
         siginfo_t status;
-        struct udev *udev = NULL;
-        struct udev_device *udev_device = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *udev_device = NULL;
         const char *device;
         bool root_directory;
         int progress_pipe[2] = { -1, -1 };
@@ -400,12 +401,6 @@ int main(int argc, char *argv[]) {
                 touch("/run/systemd/quotacheck");
 
 finish:
-        if (udev_device)
-                udev_device_unref(udev_device);
-
-        if (udev)
-                udev_unref(udev);
-
         close_pipe(progress_pipe);
 
         return r;

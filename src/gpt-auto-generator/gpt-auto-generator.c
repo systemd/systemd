@@ -36,6 +36,7 @@
 #include "missing.h"
 #include "sd-id128.h"
 #include "libudev.h"
+#include "udev-util.h"
 #include "special.h"
 #include "unit-name.h"
 #include "virt.h"
@@ -53,10 +54,7 @@
 
 static const char *arg_dest = "/tmp";
 
-static inline void blkid_free_probep(blkid_probe *b) {
-        if (*b)
-                blkid_free_probe(*b);
-}
+define_trivial_cleanup_func(blkid_probe, blkid_free_probe)
 #define _cleanup_blkid_freep_probe_ _cleanup_(blkid_free_probep)
 
 static int verify_gpt_partition(const char *node, sd_id128_t *type, unsigned *nr, char **fstype) {
@@ -237,8 +235,9 @@ static int add_home(const char *path, const char *fstype) {
 }
 
 static int enumerate_partitions(struct udev *udev, dev_t dev) {
-        struct udev_enumerate *e = NULL;
-        struct udev_device *parent = NULL, *d = NULL;
+        struct udev_device *parent = NULL;
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         struct udev_list_entry *first, *item;
         unsigned home_nr = (unsigned) -1;
         _cleanup_free_ char *home = NULL, *home_fstype = NULL;
@@ -249,71 +248,58 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
                 return log_oom();
 
         d = udev_device_new_from_devnum(udev, 'b', dev);
-        if (!d) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!d)
+                return log_oom();
 
         parent = udev_device_get_parent(d);
-        if (!parent) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!parent)
+                return log_oom();
 
         r = udev_enumerate_add_match_parent(e, parent);
-        if (r < 0) {
-                r = log_oom();
-                goto finish;
-        }
+        if (r < 0)
+                return log_oom();
 
         r = udev_enumerate_add_match_subsystem(e, "block");
-        if (r < 0) {
-                r = log_oom();
-                goto finish;
-        }
+        if (r < 0)
+                return log_oom();
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0) {
                 log_error("Failed to enumerate partitions on /dev/block/%u:%u: %s",
                           major(dev), minor(dev), strerror(-r));
-                goto finish;
+                return r;
         }
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
                 _cleanup_free_ char *fstype = NULL;
                 const char *node = NULL;
-                struct udev_device *q;
+                _cleanup_udev_device_unref_ struct udev_device *q;
                 sd_id128_t type_id;
                 unsigned nr;
 
                 q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
-                if (!q) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!q)
+                        return log_oom();
 
                 if (udev_device_get_devnum(q) == udev_device_get_devnum(d))
-                        goto skip;
+                        continue;
 
                 if (udev_device_get_devnum(q) == udev_device_get_devnum(parent))
-                        goto skip;
+                        continue;
 
                 node = udev_device_get_devnode(q);
-                if (!node) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!node)
+                        return log_oom();
 
                 r = verify_gpt_partition(node, &type_id, &nr, &fstype);
                 if (r < 0) {
                         log_error("Failed to verify GPT partition %s: %s",
                                   node, strerror(-r));
-                        udev_device_unref(q);
-                        goto finish;
+                        return r;
                 }
                 if (r == 0)
-                        goto skip;
+                        continue;
 
                 if (sd_id128_equal(type_id, GPT_SWAP))
                         add_swap(node, fstype);
@@ -321,10 +307,8 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
                         if (!home || nr < home_nr) {
                                 free(home);
                                 home = strdup(node);
-                                if (!home) {
-                                        r = log_oom();
-                                        goto finish;
-                                }
+                                if (!home)
+                                        return log_oom();
 
                                 home_nr = nr;
 
@@ -333,21 +317,10 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
                                 fstype = NULL;
                         }
                 }
-
-        skip:
-                udev_device_unref(q);
         }
 
         if (home && home_fstype)
                 add_home(home, home_fstype);
-
-finish:
-        if (d)
-                udev_device_unref(d);
-
-        if (e)
-                udev_enumerate_unref(e);
-
 
         return r;
 }
@@ -425,41 +398,31 @@ static int get_block_device(const char *path, dev_t *dev) {
 }
 
 static int devno_to_devnode(struct udev *udev, dev_t devno, char **ret) {
-        struct udev_device *d = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *d;
         const char *t;
         char *n;
-        int r;
 
         d = udev_device_new_from_devnum(udev, 'b', devno);
         if (!d)
                 return log_oom();
 
         t = udev_device_get_devnode(d);
-        if (!t) {
-                r = -ENODEV;
-                goto finish;
-        }
+        if (!t)
+                return -ENODEV;
 
         n = strdup(t);
-        if (!n) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!n)
+                return -ENOMEM;
 
         *ret = n;
-        r = 0;
-
-finish:
-        udev_device_unref(d);
-
-        return r;
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *node = NULL;
-        struct udev *udev = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
         dev_t devno;
-        int r;
+        int r = 0;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -478,13 +441,11 @@ int main(int argc, char *argv[]) {
 
         if (in_initrd()) {
                 log_debug("In initrd, exiting.");
-                r = 0;
                 goto finish;
         }
 
         if (detect_container(NULL) > 0) {
                 log_debug("In a container, exiting.");
-                r = 0;
                 goto finish;
         }
 
@@ -523,8 +484,5 @@ int main(int argc, char *argv[]) {
         r = enumerate_partitions(udev, devno);
 
 finish:
-        if (udev)
-                udev_unref(udev);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

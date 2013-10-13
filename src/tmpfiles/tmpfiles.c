@@ -995,10 +995,7 @@ static void item_free(Item *i) {
         free(i);
 }
 
-static inline void item_freep(Item **i) {
-        if (*i)
-                item_free(*i);
-}
+define_trivial_cleanup_func(Item*, item_free)
 #define _cleanup_item_free_ _cleanup_(item_freep)
 
 static bool item_equal(Item *a, Item *b) {

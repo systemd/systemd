@@ -25,7 +25,6 @@
 #include <mntent.h>
 
 #include <libcryptsetup.h>
-#include <libudev.h>
 
 #include "fileio.h"
 #include "log.h"
@@ -34,6 +33,8 @@
 #include "strv.h"
 #include "ask-password-api.h"
 #include "def.h"
+#include "libudev.h"
+#include "udev-util.h"
 
 static const char *opt_type = NULL; /* CRYPT_LUKS1, CRYPT_TCRYPT or CRYPT_PLAIN */
 static char *opt_cipher = NULL;
@@ -184,7 +185,7 @@ static void log_glue(int level, const char *msg, void *usrptr) {
         log_debug("%s", msg);
 }
 
-static char *disk_description(const char *path) {
+static char* disk_description(const char *path) {
 
         static const char name_fields[] = {
                 "ID_PART_ENTRY_NAME\0"
@@ -193,10 +194,9 @@ static char *disk_description(const char *path) {
                 "ID_MODEL\0"
         };
 
-        struct udev *udev = NULL;
-        struct udev_device *device = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
         struct stat st;
-        char *description = NULL;
         const char *i;
 
         assert(path);
@@ -213,26 +213,17 @@ static char *disk_description(const char *path) {
 
         device = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
         if (!device)
-                goto finish;
+                return NULL;
 
         NULSTR_FOREACH(i, name_fields) {
                 const char *name;
 
                 name = udev_device_get_property_value(device, i);
-                if (!isempty(name)) {
-                        description = strdup(name);
-                        break;
-                }
+                if (!isempty(name))
+                        return strdup(name);
         }
 
-finish:
-        if (device)
-                udev_device_unref(device);
-
-        if (udev)
-                udev_unref(udev);
-
-        return description;
+        return NULL;
 }
 
 static char *disk_mount_point(const char *label) {

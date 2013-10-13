@@ -556,42 +556,33 @@ static inline void freep(void *p) {
         free(*(void**) p);
 }
 
-static inline void fclosep(FILE **f) {
-        if (*f)
-                fclose(*f);
-}
-
-static inline void pclosep(FILE **f) {
-        if (*f)
-                pclose(*f);
-}
+#define define_trivial_cleanup_func(type, func) \
+        static inline void func##p(type *p) {   \
+        if (*p)                                 \
+                func(*p);                       \
+        }                                       \
 
 static inline void closep(int *fd) {
         if (*fd >= 0)
                 close_nointr_nofail(*fd);
 }
 
-static inline void closedirp(DIR **d) {
-        if (*d)
-                closedir(*d);
-}
-
 static inline void umaskp(mode_t *u) {
         umask(*u);
 }
 
-static inline void endmntentp(FILE **f) {
-        if (*f)
-                endmntent(*f);
-}
+define_trivial_cleanup_func(FILE*, fclose)
+define_trivial_cleanup_func(FILE*, pclose)
+define_trivial_cleanup_func(DIR*, closedir)
+define_trivial_cleanup_func(FILE*, endmntent)
 
 #define _cleanup_free_ _cleanup_(freep)
-#define _cleanup_fclose_ _cleanup_(fclosep)
-#define _cleanup_pclose_ _cleanup_(pclosep)
 #define _cleanup_close_ _cleanup_(closep)
-#define _cleanup_closedir_ _cleanup_(closedirp)
 #define _cleanup_umask_ _cleanup_(umaskp)
 #define _cleanup_globfree_ _cleanup_(globfree)
+#define _cleanup_fclose_ _cleanup_(fclosep)
+#define _cleanup_pclose_ _cleanup_(pclosep)
+#define _cleanup_closedir_ _cleanup_(closedirp)
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
 
 _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {

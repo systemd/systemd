@@ -24,16 +24,13 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-#include "macro.h"
+#include "util.h"
 
 char *strv_find(char **l, const char *name) _pure_;
 char *strv_find_prefix(char **l, const char *name) _pure_;
 
 void strv_free(char **l);
-static inline void strv_freep(char ***l) {
-        strv_free(*l);
-}
-
+define_trivial_cleanup_func(char**, strv_free)
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
 
 char **strv_copy(char * const *l);

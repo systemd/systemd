@@ -27,7 +27,6 @@
 #include <unistd.h>
 #include <linux/loop.h>
 #include <linux/dm-ioctl.h>
-#include <libudev.h>
 
 #include "list.h"
 #include "mount-setup.h"
@@ -35,6 +34,8 @@
 #include "path-util.h"
 #include "util.h"
 #include "virt.h"
+#include "libudev.h"
+#include "udev-util.h"
 
 typedef struct MountPoint {
         char *path;
@@ -201,145 +202,108 @@ finish:
 }
 
 static int loopback_list_get(MountPoint **head) {
-        int r;
-        struct udev *udev;
-        struct udev_enumerate *e = NULL;
+        _cleanup_udev_unref_ struct udev *udev;
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
 
         assert(head);
 
-        if (!(udev = udev_new())) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        udev = udev_new();
+        if (!udev)
+                return -ENOMEM;
 
-        if (!(e = udev_enumerate_new(udev))) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        e = udev_enumerate_new(udev);
+        if (!e)
+                return -ENOMEM;
 
         if (udev_enumerate_add_match_subsystem(e, "block") < 0 ||
             udev_enumerate_add_match_sysname(e, "loop*") < 0 ||
-            udev_enumerate_add_match_sysattr(e, "loop/backing_file", NULL) < 0) {
-                r = -EIO;
-                goto finish;
-        }
+            udev_enumerate_add_match_sysattr(e, "loop/backing_file", NULL) < 0)
+                return -EIO;
 
-        if (udev_enumerate_scan_devices(e) < 0) {
-                r = -EIO;
-                goto finish;
-        }
+        if (udev_enumerate_scan_devices(e) < 0)
+                return -EIO;
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
                 MountPoint *lb;
-                struct udev_device *d;
+                _cleanup_udev_device_unref_ struct udev_device *d;
                 char *loop;
                 const char *dn;
 
-                if (!(d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item)))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                if (!d)
+                        return -ENOMEM;
 
-                if (!(dn = udev_device_get_devnode(d))) {
-                        udev_device_unref(d);
+                dn = udev_device_get_devnode(d);
+                if (!dn)
                         continue;
-                }
 
                 loop = strdup(dn);
-                udev_device_unref(d);
+                if (!loop)
+                        return -ENOMEM;
 
-                if (!loop) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if (!(lb = new0(MountPoint, 1))) {
+                lb = new0(MountPoint, 1);
+                if (!lb) {
                         free(loop);
-                        r = -ENOMEM;
-                        goto finish;
+                        return -ENOMEM;
                 }
 
                 lb->path = loop;
                 LIST_PREPEND(MountPoint, mount_point, *head, lb);
         }
 
-        r = 0;
-
-finish:
-        if (e)
-                udev_enumerate_unref(e);
-
-        if (udev)
-                udev_unref(udev);
-
-        return r;
+        return 0;
 }
 
 static int dm_list_get(MountPoint **head) {
-        int r;
-        struct udev *udev;
-        struct udev_enumerate *e = NULL;
+        _cleanup_udev_unref_ struct udev *udev;
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
 
         assert(head);
 
-        if (!(udev = udev_new())) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        udev = udev_new();
+        if (!udev)
+                return -ENOMEM;
 
-        if (!(e = udev_enumerate_new(udev))) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        e = udev_enumerate_new(udev);
+        if (!e)
+                return -ENOMEM;
 
         if (udev_enumerate_add_match_subsystem(e, "block") < 0 ||
-            udev_enumerate_add_match_sysname(e, "dm-*") < 0) {
-                r = -EIO;
-                goto finish;
-        }
+            udev_enumerate_add_match_sysname(e, "dm-*") < 0)
+                return -EIO;
 
-        if (udev_enumerate_scan_devices(e) < 0) {
-                r = -EIO;
-                goto finish;
-        }
+        if (udev_enumerate_scan_devices(e) < 0)
+                return -EIO;
 
         first = udev_enumerate_get_list_entry(e);
 
         udev_list_entry_foreach(item, first) {
                 MountPoint *m;
-                struct udev_device *d;
+                _cleanup_udev_device_unref_ struct udev_device *d;
                 dev_t devnum;
                 char *node;
                 const char *dn;
 
-                if (!(d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item)))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                if (!d)
+                        return -ENOMEM;
 
                 devnum = udev_device_get_devnum(d);
                 dn = udev_device_get_devnode(d);
-
-                if (major(devnum) == 0 || !dn) {
-                        udev_device_unref(d);
+                if (major(devnum) == 0 || !dn)
                         continue;
-                }
 
                 node = strdup(dn);
-                udev_device_unref(d);
+                if (!node)
+                        return -ENOMEM;
 
-                if (!node) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                if (!(m = new(MountPoint, 1))) {
+                m = new(MountPoint, 1);
+                if (!m) {
                         free(node);
-                        r = -ENOMEM;
-                        goto finish;
+                        return -ENOMEM;
                 }
 
                 m->path = node;
@@ -347,16 +311,7 @@ static int dm_list_get(MountPoint **head) {
                 LIST_PREPEND(MountPoint, mount_point, *head, m);
         }
 
-        r = 0;
-
-finish:
-        if (e)
-                udev_enumerate_unref(e);
-
-        if (udev)
-                udev_unref(udev);
-
-        return r;
+        return 0;
 }
 
 static int delete_loopback(const char *device) {

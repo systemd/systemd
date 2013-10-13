@@ -26,6 +26,7 @@
 #include "util.h"
 #include "sysfs-show.h"
 #include "path-util.h"
+#include "udev-util.h"
 
 static int show_sysfs_one(
                 struct udev *udev,
@@ -143,9 +144,9 @@ static int show_sysfs_one(
 }
 
 int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
-        struct udev *udev;
+        _cleanup_udev_unref_ struct udev *udev;
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         struct udev_list_entry *first = NULL;
-        struct udev_enumerate *e;
         int r;
 
         if (n_columns <= 0)
@@ -162,10 +163,8 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
                 return -ENOMEM;
 
         e = udev_enumerate_new(udev);
-        if (!e) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!e)
+                return ENOMEM;
 
         if (!streq(seat, "seat0"))
                 r = udev_enumerate_add_match_tag(e, seat);
@@ -173,22 +172,15 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
                 r = udev_enumerate_add_match_tag(e, "seat");
 
         if (r < 0)
-                goto finish;
+                return r;
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
-                goto finish;
+                return r;
 
         first = udev_enumerate_get_list_entry(e);
         if (first)
                 show_sysfs_one(udev, seat, &first, "/", prefix, n_columns);
-
-finish:
-        if (e)
-                udev_enumerate_unref(e);
-
-        if (udev)
-                udev_unref(udev);
 
         return r;
 }
