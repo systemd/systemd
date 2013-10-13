@@ -1284,7 +1284,7 @@ static int part_make_space(
 
                 part->munmap_this = true;
         } else {
-                n = realloc(part->data, sz);
+                n = realloc(part->data, MAX(sz, 1u));
                 if (!n) {
                         m->poisoned = true;
                         return -ENOMEM;
