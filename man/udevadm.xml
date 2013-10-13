@@ -462,9 +462,13 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><option>--subsystem=<replaceable>string</replaceable></option></term>
+          <term><option>--resolve-names=<replaceable>early|late|never</replaceable></option></term>
           <listitem>
-            <para>The subsystem string.</para>
+            <para>Specify when udevadm should resolve names of users and groups.
+              When set to early (the default) names will be resolved when the
+              rules are parsed. When set to late names will be resolved for
+              every event. When set to never names will never be resolved and
+              all devices will be owned by root.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
