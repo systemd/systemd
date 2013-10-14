@@ -81,7 +81,7 @@ static void svg_header(void) {
         struct list_sample_data *sampledata_last;
 
         sampledata = head;
-        LIST_FIND_TAIL(struct list_sample_data, link, sampledata, head);
+        LIST_FIND_TAIL(link, sampledata, head);
         sampledata_last = head;
         LIST_FOREACH_BEFORE(link, sampledata, head) {
                 sampledata_last = sampledata;

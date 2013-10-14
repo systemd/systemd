@@ -1170,7 +1170,7 @@ static void shutdown_connection(Manager *m, DBusConnection *c) {
                 JobBusClient *cl, *nextcl;
                 LIST_FOREACH_SAFE(client, cl, nextcl, j->bus_client_list) {
                         if (cl->bus == c) {
-                                LIST_REMOVE(JobBusClient, client, j->bus_client_list, cl);
+                                LIST_REMOVE(client, j->bus_client_list, cl);
                                 free(cl);
                         }
                 }

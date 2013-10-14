@@ -251,7 +251,7 @@ static void fifo_free(Fifo *f) {
         if (f->server) {
                 assert(f->server->n_fifos > 0);
                 f->server->n_fifos--;
-                LIST_REMOVE(Fifo, fifo, f->server->fifos, f);
+                LIST_REMOVE(fifo, f->server->fifos, f);
         }
 
         if (f->fd >= 0) {
@@ -341,7 +341,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 }
 
                 f->fd = fd;
-                LIST_PREPEND(Fifo, fifo, s->fifos, f);
+                LIST_PREPEND(fifo, s->fifos, f);
                 f->server = s;
                 s->n_fifos ++;
         }

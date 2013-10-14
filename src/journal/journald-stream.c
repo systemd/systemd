@@ -324,7 +324,7 @@ void stdout_stream_free(StdoutStream *s) {
         if (s->server) {
                 assert(s->server->n_stdout_streams > 0);
                 s->server->n_stdout_streams --;
-                LIST_REMOVE(StdoutStream, stdout_stream, s->server->stdout_streams, s);
+                LIST_REMOVE(stdout_stream, s->server->stdout_streams, s);
         }
 
         if (s->fd >= 0) {
@@ -404,7 +404,7 @@ int stdout_stream_new(Server *s) {
         }
 
         stream->server = s;
-        LIST_PREPEND(StdoutStream, stdout_stream, s->stdout_streams, stream);
+        LIST_PREPEND(stdout_stream, s->stdout_streams, stream);
         s->n_stdout_streams ++;
 
         return 0;

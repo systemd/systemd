@@ -96,8 +96,8 @@ static void journal_rate_limit_group_free(JournalRateLimitGroup *g) {
                 if (g->parent->lru_tail == g)
                         g->parent->lru_tail = g->lru_prev;
 
-                LIST_REMOVE(JournalRateLimitGroup, lru, g->parent->lru, g);
-                LIST_REMOVE(JournalRateLimitGroup, bucket, g->parent->buckets[g->hash % BUCKETS_MAX], g);
+                LIST_REMOVE(lru, g->parent->lru, g);
+                LIST_REMOVE(bucket, g->parent->buckets[g->hash % BUCKETS_MAX], g);
 
                 g->parent->n_groups --;
         }
@@ -156,8 +156,8 @@ static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, 
 
         journal_rate_limit_vacuum(r, ts);
 
-        LIST_PREPEND(JournalRateLimitGroup, bucket, r->buckets[g->hash % BUCKETS_MAX], g);
-        LIST_PREPEND(JournalRateLimitGroup, lru, r->lru, g);
+        LIST_PREPEND(bucket, r->buckets[g->hash % BUCKETS_MAX], g);
+        LIST_PREPEND(lru, r->lru, g);
         if (!g->lru_next)
                 r->lru_tail = g;
         r->n_groups ++;

@@ -3019,7 +3019,7 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                         return r;
                                 }
 
-                                LIST_PREPEND(ExecStatusInfo, exec, i->exec, info);
+                                LIST_PREPEND(exec, i->exec, info);
 
                                 dbus_message_iter_next(&sub);
                         }
@@ -3474,7 +3474,7 @@ static int show_one(const char *verb,
         }
 
         while ((p = info.exec)) {
-                LIST_REMOVE(ExecStatusInfo, exec, info.exec, p);
+                LIST_REMOVE(exec, info.exec, p);
                 exec_status_info_free(p);
         }
 

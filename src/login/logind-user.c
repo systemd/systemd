@@ -72,7 +72,7 @@ void user_free(User *u) {
         assert(u);
 
         if (u->in_gc_queue)
-                LIST_REMOVE(User, gc_queue, u->manager->user_gc_queue, u);
+                LIST_REMOVE(gc_queue, u->manager->user_gc_queue, u);
 
         while (u->sessions)
                 session_free(u->sessions);
@@ -644,7 +644,7 @@ void user_add_to_gc_queue(User *u) {
         if (u->in_gc_queue)
                 return;
 
-        LIST_PREPEND(User, gc_queue, u->manager->user_gc_queue, u);
+        LIST_PREPEND(gc_queue, u->manager->user_gc_queue, u);
         u->in_gc_queue = true;
 }
 

@@ -273,8 +273,7 @@ int bus_cgroup_set_property(
                                 a->bandwidth = u64;
 
                                 if (!exist)
-                                        LIST_PREPEND(CGroupBlockIODeviceBandwidth, device_bandwidths,
-                                                     c->blockio_device_bandwidths, a);
+                                        LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, a);
                         }
 
                         n++;
@@ -369,8 +368,7 @@ int bus_cgroup_set_property(
                                 a->weight = ul;
 
                                 if (!exist)
-                                        LIST_PREPEND(CGroupBlockIODeviceWeight, device_weights,
-                                                     c->blockio_device_weights, a);
+                                        LIST_PREPEND(device_weights,c->blockio_device_weights, a);
                         }
 
                         n++;
@@ -517,7 +515,7 @@ int bus_cgroup_set_property(
                                 a->m = !!strchr(rwm, 'm');
 
                                 if (!exist)
-                                        LIST_PREPEND(CGroupDeviceAllow, device_allow, c->device_allow, a);
+                                        LIST_PREPEND(device_allow, c->device_allow, a);
                         }
 
                         n++;

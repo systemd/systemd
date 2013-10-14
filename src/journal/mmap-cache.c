@@ -110,13 +110,13 @@ static void window_unlink(Window *w) {
                 munmap(w->ptr, w->size);
 
         if (w->fd)
-                LIST_REMOVE(Window, by_fd, w->fd->windows, w);
+                LIST_REMOVE(by_fd, w->fd->windows, w);
 
         if (w->in_unused) {
                 if (w->cache->last_unused == w)
                         w->cache->last_unused = w->unused_prev;
 
-                LIST_REMOVE(Window, unused, w->cache->unused, w);
+                LIST_REMOVE(unused, w->cache->unused, w);
         }
 
         LIST_FOREACH(by_window, c, w->contexts) {
@@ -180,11 +180,11 @@ static void context_detach_window(Context *c) {
 
         w = c->window;
         c->window = NULL;
-        LIST_REMOVE(Context, by_window, w->contexts, c);
+        LIST_REMOVE(by_window, w->contexts, c);
 
         if (!w->contexts && !w->keep_always) {
                 /* Not used anymore? */
-                LIST_PREPEND(Window, unused, c->cache->unused, w);
+                LIST_PREPEND(unused, c->cache->unused, w);
                 if (!c->cache->last_unused)
                         c->cache->last_unused = w;
 
@@ -203,7 +203,7 @@ static void context_attach_window(Context *c, Window *w) {
 
         if (w->in_unused) {
                 /* Used again? */
-                LIST_REMOVE(Window, unused, c->cache->unused, w);
+                LIST_REMOVE(unused, c->cache->unused, w);
                 if (c->cache->last_unused == w)
                         c->cache->last_unused = w->unused_prev;
 
@@ -211,7 +211,7 @@ static void context_attach_window(Context *c, Window *w) {
         }
 
         c->window = w;
-        LIST_PREPEND(Context, by_window, w->contexts, c);
+        LIST_PREPEND(by_window, w->contexts, c);
 }
 
 static Context *context_add(MMapCache *m, unsigned id) {
@@ -511,11 +511,11 @@ static int add_mmap(
         w->size = wsize;
         w->fd = f;
 
-        LIST_PREPEND(Window, by_fd, f->windows, w);
+        LIST_PREPEND(by_fd, f->windows, w);
 
         context_detach_window(c);
         c->window = w;
-        LIST_PREPEND(Context, by_window, w->contexts, c);
+        LIST_PREPEND(by_window, w->contexts, c);
 
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
         return 1;

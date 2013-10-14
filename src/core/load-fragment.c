@@ -300,10 +300,10 @@ int config_parse_socket_listen(const char *unit,
         p->fd = -1;
 
         if (s->ports) {
-                LIST_FIND_TAIL(SocketPort, port, s->ports, tail);
-                LIST_INSERT_AFTER(SocketPort, port, s->ports, tail, p);
+                LIST_FIND_TAIL(port, s->ports, tail);
+                LIST_INSERT_AFTER(port, s->ports, tail, p);
         } else
-                LIST_PREPEND(SocketPort, port, s->ports, p);
+                LIST_PREPEND(port, s->ports, p);
 
         return 0;
 }
@@ -1203,7 +1203,7 @@ int config_parse_timer(const char *unit,
         v->value = u;
         v->calendar_spec = c;
 
-        LIST_PREPEND(TimerValue, value, t->values, v);
+        LIST_PREPEND(value, t->values, v);
 
         return 0;
 }
@@ -1323,7 +1323,7 @@ int config_parse_path_spec(const char *unit,
         s->type = b;
         s->inotify_fd = -1;
 
-        LIST_PREPEND(PathSpec, spec, p->specs, s);
+        LIST_PREPEND(spec, p->specs, s);
 
         return 0;
 }
@@ -1657,7 +1657,7 @@ int config_parse_unit_condition_path(const char *unit,
         if (!c)
                 return log_oom();
 
-        LIST_PREPEND(Condition, conditions, u->conditions, c);
+        LIST_PREPEND(conditions, u->conditions, c);
         return 0;
 }
 
@@ -1712,7 +1712,7 @@ int config_parse_unit_condition_string(const char *unit,
         if (!c)
                 return log_oom();
 
-        LIST_PREPEND(Condition, conditions, u->conditions, c);
+        LIST_PREPEND(conditions, u->conditions, c);
         return 0;
 }
 
@@ -1766,7 +1766,7 @@ int config_parse_unit_condition_null(const char *unit,
         if (!c)
                 return log_oom();
 
-        LIST_PREPEND(Condition, conditions, u->conditions, c);
+        LIST_PREPEND(conditions, u->conditions, c);
         return 0;
 }
 
@@ -2128,7 +2128,7 @@ int config_parse_device_allow(
         a->w = !!strchr(m, 'w');
         a->m = !!strchr(m, 'm');
 
-        LIST_PREPEND(CGroupDeviceAllow, device_allow, c->device_allow, a);
+        LIST_PREPEND(device_allow, c->device_allow, a);
         return 0;
 }
 
@@ -2234,7 +2234,7 @@ int config_parse_blockio_device_weight(
 
         w->weight = lu;
 
-        LIST_PREPEND(CGroupBlockIODeviceWeight, device_weights, c->blockio_device_weights, w);
+        LIST_PREPEND(device_weights, c->blockio_device_weights, w);
         return 0;
 }
 
@@ -2310,7 +2310,7 @@ int config_parse_blockio_bandwidth(
         b->bandwidth = (uint64_t) bytes;
         b->read = read;
 
-        LIST_PREPEND(CGroupBlockIODeviceBandwidth, device_bandwidths, c->blockio_device_bandwidths, b);
+        LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, b);
 
         return 0;
 }

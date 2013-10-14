@@ -1706,7 +1706,7 @@ void exec_command_free_list(ExecCommand *c) {
         ExecCommand *i;
 
         while ((i = c)) {
-                LIST_REMOVE(ExecCommand, command, c, i);
+                LIST_REMOVE(command, c, i);
                 exec_command_done(i);
                 free(i);
         }
@@ -2194,8 +2194,8 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
 
         if (*l) {
                 /* It's kind of important, that we keep the order here */
-                LIST_FIND_TAIL(ExecCommand, command, *l, end);
-                LIST_INSERT_AFTER(ExecCommand, command, *l, end, e);
+                LIST_FIND_TAIL(command, *l, end);
+                LIST_INSERT_AFTER(command, *l, end, e);
         } else
               *l = e;
 }

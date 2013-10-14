@@ -186,7 +186,7 @@ static Match *match_new(Match *p, MatchType t) {
 
         if (p) {
                 m->parent = p;
-                LIST_PREPEND(Match, matches, p->matches, m);
+                LIST_PREPEND(matches, p->matches, m);
         }
 
         return m;
@@ -199,7 +199,7 @@ static void match_free(Match *m) {
                 match_free(m->matches);
 
         if (m->parent)
-                LIST_REMOVE(Match, matches, m->parent->matches, m);
+                LIST_REMOVE(matches, m->parent->matches, m);
 
         free(m->data);
         free(m);

@@ -775,10 +775,10 @@ static Job* transaction_add_one_job(Transaction *tr, JobType type, Unit *unit, b
         j->override = override;
         j->irreversible = tr->irreversible;
 
-        LIST_PREPEND(Job, transaction, f, j);
+        LIST_PREPEND(transaction, f, j);
 
         if (hashmap_replace(tr->jobs, unit, f) < 0) {
-                LIST_REMOVE(Job, transaction, f, j);
+                LIST_REMOVE(transaction, f, j);
                 job_free(j);
                 return NULL;
         }

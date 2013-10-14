@@ -332,7 +332,7 @@ int main(int argc, char *argv[]) {
 
         log_uptime();
 
-        LIST_HEAD_INIT(struct list_sample_data, head);
+        LIST_HEAD_INIT(head);
 
         /* main program loop */
         for (samples = 0; !exiting && samples < arg_samples_len; samples++) {
@@ -406,7 +406,7 @@ int main(int argc, char *argv[]) {
                         /* calculate how many samples we lost and scrap them */
                         arg_samples_len -= (int)(newint_ns / interval);
                 }
-                LIST_PREPEND(struct list_sample_data, link, head, sampledata);
+                LIST_PREPEND(link, head, sampledata);
         }
 
         /* do some cleanup, close fd's */

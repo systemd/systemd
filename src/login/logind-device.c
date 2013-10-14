@@ -77,7 +77,7 @@ void device_detach(Device *d) {
                 session_device_free(sd);
 
         s = d->seat;
-        LIST_REMOVE(Device, devices, d->seat->devices, d);
+        LIST_REMOVE(devices, d->seat->devices, d);
         d->seat = NULL;
 
         if (!seat_has_master_device(s)) {
@@ -110,11 +110,11 @@ void device_attach(Device *d, Seat *s) {
          * per seat, so we iterate only a few times. */
 
         if (d->master || !s->devices)
-                LIST_PREPEND(Device, devices, s->devices, d);
+                LIST_PREPEND(devices, s->devices, d);
         else {
                 LIST_FOREACH(devices, i, s->devices) {
                         if (!i->devices_next || !i->master) {
-                                LIST_INSERT_AFTER(Device, devices, s->devices, i, d);
+                                LIST_INSERT_AFTER(devices, s->devices, i, d);
                                 break;
                         }
                 }

@@ -67,7 +67,7 @@ void seat_free(Seat *s) {
         assert(s);
 
         if (s->in_gc_queue)
-                LIST_REMOVE(Seat, gc_queue, s->manager->seat_gc_queue, s);
+                LIST_REMOVE(gc_queue, s->manager->seat_gc_queue, s);
 
         while (s->sessions)
                 session_free(s->sessions);
@@ -415,7 +415,7 @@ int seat_attach_session(Seat *s, Session *session) {
         assert(!session->seat);
 
         session->seat = s;
-        LIST_PREPEND(Session, sessions_by_seat, s->sessions, session);
+        LIST_PREPEND(sessions_by_seat, s->sessions, session);
 
         seat_send_changed(s, "Sessions\0");
 
@@ -533,7 +533,7 @@ void seat_add_to_gc_queue(Seat *s) {
         if (s->in_gc_queue)
                 return;
 
-        LIST_PREPEND(Seat, gc_queue, s->manager->seat_gc_queue, s);
+        LIST_PREPEND(gc_queue, s->manager->seat_gc_queue, s);
         s->in_gc_queue = true;
 }
 

@@ -73,7 +73,7 @@ void machine_free(Machine *m) {
         assert(m);
 
         if (m->in_gc_queue)
-                LIST_REMOVE(Machine, gc_queue, m->manager->machine_gc_queue, m);
+                LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
 
         if (m->scope) {
                 hashmap_remove(m->manager->machine_units, m->scope);
@@ -369,7 +369,7 @@ void machine_add_to_gc_queue(Machine *m) {
         if (m->in_gc_queue)
                 return;
 
-        LIST_PREPEND(Machine, gc_queue, m->manager->machine_gc_queue, m);
+        LIST_PREPEND(gc_queue, m->manager->machine_gc_queue, m);
         m->in_gc_queue = true;
 }
 

@@ -283,7 +283,7 @@ void path_free_specs(Path *p) {
 
         while ((s = p->specs)) {
                 path_spec_unwatch(s, UNIT(p));
-                LIST_REMOVE(PathSpec, spec, p->specs, s);
+                LIST_REMOVE(spec, p->specs, s);
                 path_spec_done(s);
                 free(s);
         }

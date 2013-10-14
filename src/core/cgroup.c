@@ -41,7 +41,7 @@ void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
         assert(c);
         assert(a);
 
-        LIST_REMOVE(CGroupDeviceAllow, device_allow, c->device_allow, a);
+        LIST_REMOVE(device_allow, c->device_allow, a);
         free(a->path);
         free(a);
 }
@@ -50,7 +50,7 @@ void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODe
         assert(c);
         assert(w);
 
-        LIST_REMOVE(CGroupBlockIODeviceWeight, device_weights, c->blockio_device_weights, w);
+        LIST_REMOVE(device_weights, c->blockio_device_weights, w);
         free(w->path);
         free(w);
 }
@@ -59,7 +59,7 @@ void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockI
         assert(c);
         assert(b);
 
-        LIST_REMOVE(CGroupBlockIODeviceBandwidth, device_bandwidths, c->blockio_device_bandwidths, b);
+        LIST_REMOVE(device_bandwidths, c->blockio_device_bandwidths, b);
         free(b->path);
         free(b);
 }
@@ -426,7 +426,7 @@ static int unit_realize_cgroup_now(Unit *u) {
         assert(u);
 
         if (u->in_cgroup_queue) {
-                LIST_REMOVE(Unit, cgroup_queue, u->manager->cgroup_queue, u);
+                LIST_REMOVE(cgroup_queue, u->manager->cgroup_queue, u);
                 u->in_cgroup_queue = false;
         }
 
@@ -450,7 +450,7 @@ static void unit_add_to_cgroup_queue(Unit *u) {
         if (u->in_cgroup_queue)
                 return;
 
-        LIST_PREPEND(Unit, cgroup_queue, u->manager->cgroup_queue, u);
+        LIST_PREPEND(cgroup_queue, u->manager->cgroup_queue, u);
         u->in_cgroup_queue = true;
 }
 

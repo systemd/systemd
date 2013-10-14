@@ -110,7 +110,7 @@ void socket_free_ports(Socket *s) {
         assert(s);
 
         while ((p = s->ports)) {
-                LIST_REMOVE(SocketPort, port, s->ports, p);
+                LIST_REMOVE(port, s->ports, p);
 
                 if (p->fd >= 0) {
                         unit_unwatch_fd(UNIT(s), &p->fd_watch);

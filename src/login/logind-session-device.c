@@ -390,7 +390,7 @@ int session_device_new(Session *s, dev_t dev, SessionDevice **out) {
         }
         sd->fd = r;
 
-        LIST_PREPEND(SessionDevice, sd_by_device, sd->device->session_devices, sd);
+        LIST_PREPEND(sd_by_device, sd->device->session_devices, sd);
 
         *out = sd;
         return 0;
@@ -409,7 +409,7 @@ void session_device_free(SessionDevice *sd) {
         session_device_notify(sd, SESSION_DEVICE_RELEASE);
         close_nointr_nofail(sd->fd);
 
-        LIST_REMOVE(SessionDevice, sd_by_device, sd->device->session_devices, sd);
+        LIST_REMOVE(sd_by_device, sd->device->session_devices, sd);
 
         hashmap_remove(sd->session->devices, &sd->dev);
 

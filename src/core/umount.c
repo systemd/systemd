@@ -40,14 +40,14 @@
 typedef struct MountPoint {
         char *path;
         dev_t devnum;
-        LIST_FIELDS (struct MountPoint, mount_point);
+        LIST_FIELDS(struct MountPoint, mount_point);
 } MountPoint;
 
 static void mount_point_free(MountPoint **head, MountPoint *m) {
         assert(head);
         assert(m);
 
-        LIST_REMOVE(MountPoint, mount_point, *head, m);
+        LIST_REMOVE(mount_point, *head, m);
 
         free(m->path);
         free(m);
@@ -125,7 +125,7 @@ static int mount_points_list_get(MountPoint **head) {
                 }
 
                 m->path = p;
-                LIST_PREPEND(MountPoint, mount_point, *head, m);
+                LIST_PREPEND(mount_point, *head, m);
         }
 
         r = 0;
@@ -190,7 +190,7 @@ static int swap_list_get(MountPoint **head) {
                 }
 
                 swap->path = d;
-                LIST_PREPEND(MountPoint, mount_point, *head, swap);
+                LIST_PREPEND(mount_point, *head, swap);
         }
 
         r = 0;
@@ -250,7 +250,7 @@ static int loopback_list_get(MountPoint **head) {
                 }
 
                 lb->path = loop;
-                LIST_PREPEND(MountPoint, mount_point, *head, lb);
+                LIST_PREPEND(mount_point, *head, lb);
         }
 
         return 0;
@@ -308,7 +308,7 @@ static int dm_list_get(MountPoint **head) {
 
                 m->path = node;
                 m->devnum = devnum;
-                LIST_PREPEND(MountPoint, mount_point, *head, m);
+                LIST_PREPEND(mount_point, *head, m);
         }
 
         return 0;
@@ -513,7 +513,7 @@ int umount_all(bool *changed) {
         bool umount_changed;
         LIST_HEAD(MountPoint, mp_list_head);
 
-        LIST_HEAD_INIT(MountPoint, mp_list_head);
+        LIST_HEAD_INIT(mp_list_head);
         r = mount_points_list_get(&mp_list_head);
         if (r < 0)
                 goto end;
@@ -543,7 +543,7 @@ int swapoff_all(bool *changed) {
         int r;
         LIST_HEAD(MountPoint, swap_list_head);
 
-        LIST_HEAD_INIT(MountPoint, swap_list_head);
+        LIST_HEAD_INIT(swap_list_head);
 
         r = swap_list_get(&swap_list_head);
         if (r < 0)
@@ -561,7 +561,7 @@ int loopback_detach_all(bool *changed) {
         int r;
         LIST_HEAD(MountPoint, loopback_list_head);
 
-        LIST_HEAD_INIT(MountPoint, loopback_list_head);
+        LIST_HEAD_INIT(loopback_list_head);
 
         r = loopback_list_get(&loopback_list_head);
         if (r < 0)
@@ -579,7 +579,7 @@ int dm_detach_all(bool *changed) {
         int r;
         LIST_HEAD(MountPoint, dm_list_head);
 
-        LIST_HEAD_INIT(MountPoint, dm_list_head);
+        LIST_HEAD_INIT(dm_list_head);
 
         r = dm_list_get(&dm_list_head);
         if (r < 0)

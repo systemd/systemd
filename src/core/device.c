@@ -48,7 +48,7 @@ static void device_unset_sysfs(Device *d) {
         /* Remove this unit from the chain of devices which share the
          * same sysfs path. */
         first = hashmap_get(UNIT(d)->manager->devices_by_sysfs, d->sysfs);
-        LIST_REMOVE(Device, same_sysfs, first, d);
+        LIST_REMOVE(same_sysfs, first, d);
 
         if (first)
                 hashmap_remove_and_replace(UNIT(d)->manager->devices_by_sysfs, d->sysfs, first->sysfs, first);
@@ -234,7 +234,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                         }
 
                 first = hashmap_get(m->devices_by_sysfs, sysfs);
-                LIST_PREPEND(Device, same_sysfs, first, DEVICE(u));
+                LIST_PREPEND(same_sysfs, first, DEVICE(u));
 
                 r = hashmap_replace(m->devices_by_sysfs, DEVICE(u)->sysfs, first);
                 if (r < 0)

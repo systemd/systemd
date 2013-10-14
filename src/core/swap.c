@@ -66,7 +66,7 @@ static void swap_unset_proc_swaps(Swap *s) {
          * same kernel swap device. */
         swaps = UNIT(s)->manager->swaps_by_proc_swaps;
         first = hashmap_get(swaps, s->parameters_proc_swaps.what);
-        LIST_REMOVE(Swap, same_proc_swaps, first, s);
+        LIST_REMOVE(same_proc_swaps, first, s);
 
         if (first)
                 hashmap_remove_and_replace(swaps,
@@ -364,7 +364,7 @@ static int swap_add_one(
                 p->what = wp;
 
                 first = hashmap_get(m->swaps_by_proc_swaps, wp);
-                LIST_PREPEND(Swap, same_proc_swaps, first, SWAP(u));
+                LIST_PREPEND(same_proc_swaps, first, SWAP(u));
 
                 r = hashmap_replace(m->swaps_by_proc_swaps, wp, first);
                 if (r < 0)

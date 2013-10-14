@@ -319,7 +319,7 @@ void bus_job_send_change_signal(Job *j) {
         assert(j);
 
         if (j->in_dbus_queue) {
-                LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
+                LIST_REMOVE(dbus_queue, j->manager->dbus_job_queue, j);
                 j->in_dbus_queue = false;
         }
 

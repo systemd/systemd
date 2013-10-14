@@ -31,23 +31,23 @@
         t *name##_next, *name##_prev
 
 /* Initialize the list's head */
-#define LIST_HEAD_INIT(t,head)                                          \
+#define LIST_HEAD_INIT(head)                                            \
         do {                                                            \
                 (head) = NULL; }                                        \
         while(false)
 
 /* Initialize a list item */
-#define LIST_INIT(t,name,item)                                          \
+#define LIST_INIT(name,item)                                            \
         do {                                                            \
-                t *_item = (item);                                      \
+                typeof(*(item)) *_item = (item);                        \
                 assert(_item);                                          \
                 _item->name##_prev = _item->name##_next = NULL;         \
         } while(false)
 
 /* Prepend an item to the list */
-#define LIST_PREPEND(t,name,head,item)                                  \
+#define LIST_PREPEND(name,head,item)                                    \
         do {                                                            \
-                t **_head = &(head), *_item = (item);                   \
+                typeof(*(head)) **_head = &(head), *_item = (item);     \
                 assert(_item);                                          \
                 if ((_item->name##_next = *_head))                      \
                         _item->name##_next->name##_prev = _item;        \
@@ -56,9 +56,9 @@
         } while(false)
 
 /* Remove an item from the list */
-#define LIST_REMOVE(t,name,head,item)                                   \
+#define LIST_REMOVE(name,head,item)                                     \
         do {                                                            \
-                t **_head = &(head), *_item = (item);                   \
+                typeof(*(head)) **_head = &(head), *_item = (item);     \
                 assert(_item);                                          \
                 if (_item->name##_next)                                 \
                         _item->name##_next->name##_prev = _item->name##_prev; \
@@ -72,9 +72,9 @@
         } while(false)
 
 /* Find the head of the list */
-#define LIST_FIND_HEAD(t,name,item,head)                                \
+#define LIST_FIND_HEAD(name,item,head)                                  \
         do {                                                            \
-                t *_item = (item);                                      \
+                typeof(*(item)) *_item = (item);                        \
                 assert(_item);                                          \
                 while (_item->name##_prev)                              \
                        _item = _item->name##_prev;                      \
@@ -82,9 +82,9 @@
         } while (false)
 
 /* Find the tail of the list */
-#define LIST_FIND_TAIL(t,name,item,tail)                                \
+#define LIST_FIND_TAIL(name,item,tail)                                  \
         do {                                                            \
-                t *_item = (item);                                      \
+                typeof(*(item)) *_item = (item);                        \
                 assert(_item);                                          \
                 while (_item->name##_next)                              \
                         _item = _item->name##_next;                     \
@@ -92,9 +92,9 @@
         } while (false)
 
 /* Insert an item after another one (a = where, b = what) */
-#define LIST_INSERT_AFTER(t,name,head,a,b)                              \
+#define LIST_INSERT_AFTER(name,head,a,b)                                \
         do {                                                            \
-                t **_head = &(head), *_a = (a), *_b = (b);              \
+                typeof(*(head)) **_head = &(head), *_a = (a), *_b = (b); \
                 assert(_b);                                             \
                 if (!_a) {                                              \
                         if ((_b->name##_next = *_head))                 \

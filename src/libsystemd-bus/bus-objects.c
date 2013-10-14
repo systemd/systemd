@@ -1196,7 +1196,7 @@ static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
         }
 
         if (parent)
-                LIST_PREPEND(struct node, siblings, parent->child, n);
+                LIST_PREPEND(siblings, parent->child, n);
 
         return n;
 }
@@ -1217,7 +1217,7 @@ static void bus_node_gc(sd_bus *b, struct node *n) {
         assert(hashmap_remove(b->nodes, n->path) == n);
 
         if (n->parent)
-                LIST_REMOVE(struct node, siblings, n->parent->child, n);
+                LIST_REMOVE(siblings, n->parent->child, n);
 
         free(n->path);
         bus_node_gc(b, n->parent);
@@ -1255,7 +1255,7 @@ static int bus_add_object(
         c->userdata = userdata;
         c->is_fallback = fallback;
 
-        LIST_PREPEND(struct node_callback, callbacks, n->callbacks, c);
+        LIST_PREPEND(callbacks, n->callbacks, c);
         return 0;
 
 fail:
@@ -1289,7 +1289,7 @@ static int bus_remove_object(
         if (!c)
                 return 0;
 
-        LIST_REMOVE(struct node_callback, callbacks, n->callbacks, c);
+        LIST_REMOVE(callbacks, n->callbacks, c);
         free(c);
 
         bus_node_gc(bus, n);
@@ -1546,7 +1546,7 @@ static int add_object_vtable_internal(
                 }
         }
 
-        LIST_PREPEND(struct node_vtable, vtables, n->vtables, c);
+        LIST_PREPEND(vtables, n->vtables, c);
         return 0;
 
 fail:
@@ -1582,7 +1582,7 @@ static int remove_object_vtable_internal(
         if (!c)
                 return 0;
 
-        LIST_REMOVE(struct node_vtable, vtables, n->vtables, c);
+        LIST_REMOVE(vtables, n->vtables, c);
 
         free_node_vtable(bus, c);
         bus_node_gc(bus, n);
@@ -1656,7 +1656,7 @@ int sd_bus_add_node_enumerator(
         c->callback = callback;
         c->userdata = userdata;
 
-        LIST_PREPEND(struct node_enumerator, enumerators, n->enumerators, c);
+        LIST_PREPEND(enumerators, n->enumerators, c);
         return 0;
 
 fail:
@@ -1690,7 +1690,7 @@ int sd_bus_remove_node_enumerator(
         if (!c)
                 return 0;
 
-        LIST_REMOVE(struct node_enumerator, enumerators, n->enumerators, c);
+        LIST_REMOVE(enumerators, n->enumerators, c);
         free(c);
 
         bus_node_gc(bus, n);

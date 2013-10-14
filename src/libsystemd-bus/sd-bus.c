@@ -74,23 +74,23 @@ static void bus_node_destroy(sd_bus *b, struct node *n) {
                 bus_node_destroy(b, n->child);
 
         while ((c = n->callbacks)) {
-                LIST_REMOVE(struct node_callback, callbacks, n->callbacks, c);
+                LIST_REMOVE(callbacks, n->callbacks, c);
                 free(c);
         }
 
         while ((v = n->vtables)) {
-                LIST_REMOVE(struct node_vtable, vtables, n->vtables, v);
+                LIST_REMOVE(vtables, n->vtables, v);
                 free(v->interface);
                 free(v);
         }
 
         while ((e = n->enumerators)) {
-                LIST_REMOVE(struct node_enumerator, enumerators, n->enumerators, e);
+                LIST_REMOVE(enumerators, n->enumerators, e);
                 free(e);
         }
 
         if (n->parent)
-                LIST_REMOVE(struct node, siblings, n->parent->child, n);
+                LIST_REMOVE(siblings, n->parent->child, n);
 
         assert_se(hashmap_remove(b->nodes, n->path) == n);
         free(n->path);
@@ -133,7 +133,7 @@ static void bus_free(sd_bus *b) {
         prioq_free(b->reply_callbacks_prioq);
 
         while ((f = b->filter_callbacks)) {
-                LIST_REMOVE(struct filter_callback, callbacks, b->filter_callbacks, f);
+                LIST_REMOVE(callbacks, b->filter_callbacks, f);
                 free(f);
         }
 
@@ -2127,7 +2127,7 @@ int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *user
         f->userdata = userdata;
 
         bus->filter_callbacks_modified = true;
-        LIST_PREPEND(struct filter_callback, callbacks, bus->filter_callbacks, f);
+        LIST_PREPEND(callbacks, bus->filter_callbacks, f);
         return 0;
 }
 
@@ -2144,7 +2144,7 @@ int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *u
         LIST_FOREACH(callbacks, f, bus->filter_callbacks) {
                 if (f->callback == callback && f->userdata == userdata) {
                         bus->filter_callbacks_modified = true;
-                        LIST_REMOVE(struct filter_callback, callbacks, bus->filter_callbacks, f);
+                        LIST_REMOVE(callbacks, bus->filter_callbacks, f);
                         free(f);
                         return 1;
                 }
