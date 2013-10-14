@@ -50,8 +50,6 @@ Features:
 
 * "systemctl cat" or "systemctl view" command or or so, that cats the backing unit file of a service, plus its drop-ins and shows them in a pager
 
-* rfkill,backlight: we probably should use a path ID of some kind rather than the sysname as file name to store status in
-
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
 
 * Add a new Distribute=$NUMBER key to socket units that makes use of SO_REUSEPORT to distribute network traffic on $NUMBER instances

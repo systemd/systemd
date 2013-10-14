@@ -106,6 +106,7 @@
 /test-daemon
 /test-date
 /test-device-nodes
+/test-ellipsize
 /test-engine
 /test-env-replace
 /test-event
