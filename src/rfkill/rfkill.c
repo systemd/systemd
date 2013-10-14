@@ -28,8 +28,8 @@
 int main(int argc, char *argv[]) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
-        _cleanup_free_ char *saved = NULL, *ss = NULL, *escaped_name = NULL;
-        const char *sysname, *name;
+        _cleanup_free_ char *saved = NULL, *escaped_name = NULL, *escaped_path_id = NULL;
+        const char *name, *path_id;
         int r;
 
         if (argc != 3) {
@@ -55,30 +55,11 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        sysname = strchr(argv[2], ':');
-        if (!sysname) {
-                log_error("Requires pair of subsystem and sysname for specifying rfkill device.");
-                return EXIT_FAILURE;
-        }
-
-        ss = strndup(argv[2], sysname - argv[2]);
-        if (!ss) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
-
-        sysname++;
-
-        if (!streq(ss, "rfkill")) {
-                log_error("Not a rfkill device: '%s:%s'", ss, sysname);
-                return EXIT_FAILURE;
-        }
-
         errno = 0;
-        device = udev_device_new_from_subsystem_sysname(udev, ss, sysname);
+        device = udev_device_new_from_subsystem_sysname(udev, "rfkill", argv[2]);
         if (!device) {
                 if (errno != 0)
-                        log_error("Failed to get rfkill device '%s:%s': %m", ss, sysname);
+                        log_error("Failed to get rfkill device '%s': %m", argv[2]);
                 else
                         log_oom();
 
@@ -97,7 +78,18 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        saved = strjoin("/var/lib/systemd/rfkill/", escaped_name, NULL);
+        path_id = udev_device_get_property_value(device, "ID_PATH");
+        if (path_id) {
+                escaped_path_id = cescape(path_id);
+                if (!escaped_path_id) {
+                        log_oom();
+                        return EXIT_FAILURE;
+                }
+
+                saved = strjoin("/var/lib/systemd/rfkill/", escaped_path_id, "-", escaped_name, NULL);
+        } else
+                saved = strjoin("/var/lib/systemd/rfkill/", escaped_name, NULL);
+
         if (!saved) {
                 log_oom();
                 return EXIT_FAILURE;
