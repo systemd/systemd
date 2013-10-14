@@ -294,3 +294,9 @@ bool bus_pid_changed(sd_bus *bus);
         for (char *_slash = ({ strcpy((prefix), (path)); streq((prefix), "/") ? NULL : strrchr((prefix), '/'); }) ; \
              _slash && !(_slash[(_slash) == (prefix)] = 0);             \
              _slash = streq((prefix), "/") ? NULL : strrchr((prefix), '/'))
+
+/* If we are invoking callbacks of a bus object, ensure unreffing the
+ * bus from the callback doesn't destroy the object we are working
+ * on */
+#define BUS_DONT_DESTROY(bus) \
+        _cleanup_bus_unref_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)

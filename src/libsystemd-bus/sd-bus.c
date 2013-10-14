@@ -1870,6 +1870,7 @@ null_message:
 }
 
 int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
+        BUS_DONT_DESTROY(bus);
         int r;
 
         /* Returns 0 when we didn't do anything. This should cause the

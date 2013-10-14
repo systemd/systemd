@@ -1843,6 +1843,7 @@ int sd_bus_emit_properties_changed_strv(
                 const char *interface,
                 char **names) {
 
+        BUS_DONT_DESTROY(bus);
         char *prefix;
         int r;
 
@@ -1987,6 +1988,8 @@ static int interfaces_added_append_one(
 }
 
 int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **interfaces) {
+        BUS_DONT_DESTROY(bus);
+
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         char **i;
         int r;
