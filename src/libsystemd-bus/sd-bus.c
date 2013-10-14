@@ -157,8 +157,7 @@ static void bus_free(sd_bus *b) {
 int sd_bus_new(sd_bus **ret) {
         sd_bus *r;
 
-        if (!ret)
-                return -EINVAL;
+        assert_return(ret, -EINVAL);
 
         r = new0(sd_bus, 1);
         if (!r)
@@ -187,14 +186,10 @@ int sd_bus_new(sd_bus **ret) {
 int sd_bus_set_address(sd_bus *bus, const char *address) {
         char *a;
 
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (!address)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(address, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         a = strdup(address);
         if (!a)
@@ -207,16 +202,11 @@ int sd_bus_set_address(sd_bus *bus, const char *address) {
 }
 
 int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (input_fd < 0)
-                return -EINVAL;
-        if (output_fd < 0)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(input_fd >= 0, -EINVAL);
+        assert_return(output_fd >= 0, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         bus->input_fd = input_fd;
         bus->output_fd = output_fd;
@@ -226,16 +216,11 @@ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
 int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
         char *p, **a;
 
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (!path)
-                return -EINVAL;
-        if (strv_isempty(argv))
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(path, -EINVAL);
+        assert_return(!strv_isempty(argv), -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         p = strdup(path);
         if (!p)
@@ -257,122 +242,91 @@ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
 }
 
 int sd_bus_set_bus_client(sd_bus *bus, int b) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         bus->bus_client = !!b;
         return 0;
 }
 
 int sd_bus_negotiate_fds(sd_bus *bus, int b) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         SET_FLAG(bus->hello_flags, KDBUS_HELLO_ACCEPT_FD, b);
         return 0;
 }
 
 int sd_bus_negotiate_attach_comm(sd_bus *bus, int b) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_COMM, b);
         return 0;
 }
 
 int sd_bus_negotiate_attach_exe(sd_bus *bus, int b) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_EXE, b);
         return 0;
 }
 
 int sd_bus_negotiate_attach_cmdline(sd_bus *bus, int b) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CMDLINE, b);
         return 0;
 }
 
 int sd_bus_negotiate_attach_cgroup(sd_bus *bus, int b) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CGROUP, b);
         return 0;
 }
 
 int sd_bus_negotiate_attach_caps(sd_bus *bus, int b) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CAPS, b);
         return 0;
 }
 
 int sd_bus_negotiate_attach_selinux_context(sd_bus *bus, int b) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_SECLABEL, b);
         return 0;
 }
 
 int sd_bus_negotiate_attach_audit(sd_bus *bus, int b) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_AUDIT, b);
         return 0;
 }
 
 int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {
-        if (!bus)
-                return -EINVAL;
-        if (!b && !sd_id128_equal(server_id, SD_ID128_NULL))
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(b || sd_id128_equal(server_id, SD_ID128_NULL), -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         bus->is_server = !!b;
         bus->server_id = server_id;
@@ -380,12 +334,9 @@ int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {
 }
 
 int sd_bus_set_anonymous(sd_bus *bus, int b) {
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         bus->anonymous_auth = !!b;
         return 0;
@@ -970,12 +921,9 @@ static int bus_start_fd(sd_bus *b) {
 int sd_bus_start(sd_bus *bus) {
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (bus->state != BUS_UNSET)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         bus->state = BUS_OPENING;
 
@@ -1000,8 +948,7 @@ int sd_bus_open_system(sd_bus **ret) {
         sd_bus *b;
         int r;
 
-        if (!ret)
-                return -EINVAL;
+        assert_return(ret, -EINVAL);
 
         r = sd_bus_new(&b);
         if (r < 0)
@@ -1038,8 +985,7 @@ int sd_bus_open_user(sd_bus **ret) {
         size_t l;
         int r;
 
-        if (!ret)
-                return -EINVAL;
+        assert_return(ret, -EINVAL);
 
         r = sd_bus_new(&b);
         if (r < 0)
@@ -1122,10 +1068,9 @@ sd_bus *sd_bus_unref(sd_bus *bus) {
 }
 
 int sd_bus_is_open(sd_bus *bus) {
-        if (!bus)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+
+        assert_return(bus, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return BUS_IS_OPEN(bus->state);
 }
@@ -1133,12 +1078,9 @@ int sd_bus_is_open(sd_bus *bus) {
 int sd_bus_can_send(sd_bus *bus, char type) {
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state != BUS_UNSET, -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (type == SD_BUS_TYPE_UNIX_FD) {
                 if (!(bus->hello_flags & KDBUS_HELLO_ACCEPT_FD))
@@ -1157,12 +1099,9 @@ int sd_bus_can_send(sd_bus *bus, char type) {
 int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *server_id) {
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!server_id)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(server_id, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -1267,14 +1206,10 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (!m)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(m, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (m->n_fds > 0) {
                 r = sd_bus_can_send(bus, SD_BUS_TYPE_UNIX_FD);
@@ -1380,20 +1315,13 @@ int sd_bus_send_with_reply(
         struct reply_callback *c;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (!m)
-                return -EINVAL;
-        if (!callback)
-                return -EINVAL;
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
-                return -EINVAL;
-        if (m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(m, -EINVAL);
+        assert_return(m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL, -EINVAL);
+        assert_return(!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = hashmap_ensure_allocated(&bus->reply_callbacks, uint64_hash_func, uint64_compare_func);
         if (r < 0)
@@ -1445,12 +1373,9 @@ int sd_bus_send_with_reply(
 int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial) {
         struct reply_callback *c;
 
-        if (!bus)
-                return -EINVAL;
-        if (serial == 0)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(serial != 0, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         c = hashmap_remove(bus->reply_callbacks, &serial);
         if (!c)
@@ -1500,20 +1425,13 @@ int sd_bus_send_with_reply_and_block(
         uint64_t serial;
         bool room = false;
 
-        if (!bus)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (!m)
-                return -EINVAL;
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
-                return -EINVAL;
-        if (m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
-                return -EINVAL;
-        if (bus_error_is_dirty(error))
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(m, -EINVAL);
+        assert_return(m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL, -EINVAL);
+        assert_return(!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
+        assert_return(!bus_error_is_dirty(error), -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -1618,14 +1536,11 @@ int sd_bus_send_with_reply_and_block(
 }
 
 int sd_bus_get_fd(sd_bus *bus) {
-        if (!bus)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus->input_fd != bus->output_fd)
-                return -EPERM;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(bus->input_fd == bus->output_fd, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         return bus->input_fd;
 }
@@ -1633,12 +1548,9 @@ int sd_bus_get_fd(sd_bus *bus) {
 int sd_bus_get_events(sd_bus *bus) {
         int flags = 0;
 
-        if (!bus)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (bus->state == BUS_OPENING)
                 flags |= POLLOUT;
@@ -1662,14 +1574,10 @@ int sd_bus_get_events(sd_bus *bus) {
 int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
         struct reply_callback *c;
 
-        if (!bus)
-                return -EINVAL;
-        if (!timeout_usec)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(timeout_usec, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (bus->state == BUS_AUTHENTICATING) {
                 *timeout_usec = bus->auth_timeout;
@@ -1969,14 +1877,11 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
          * time. Returns > 0 when we did something, which possibly
          * means *ret is filled in with an unprocessed message. */
 
-        if (!bus)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         /* We don't allow recursively invoking sd_bus_process(). */
-        if (bus->processing)
-                return -EBUSY;
+        assert_return(!bus->processing, -EBUSY);
 
         switch (bus->state) {
 
@@ -2021,9 +1926,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         usec_t until, m;
 
         assert(bus);
-
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
 
         e = sd_bus_get_events(bus);
         if (e < 0)
@@ -2066,12 +1969,9 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
 
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
 
-        if (!bus)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (bus->rqueue_size > 0)
                 return 0;
@@ -2082,12 +1982,9 @@ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
 int sd_bus_flush(sd_bus *bus) {
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -2113,12 +2010,9 @@ int sd_bus_flush(sd_bus *bus) {
 int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata) {
         struct filter_callback *f;
 
-        if (!bus)
-                return -EINVAL;
-        if (!callback)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         f = new0(struct filter_callback, 1);
         if (!f)
@@ -2134,12 +2028,9 @@ int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *user
 int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata) {
         struct filter_callback *f;
 
-        if (!bus)
-                return -EINVAL;
-        if (!callback)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         LIST_FOREACH(callbacks, f, bus->filter_callbacks) {
                 if (f->callback == callback && f->userdata == userdata) {
@@ -2159,12 +2050,9 @@ int sd_bus_add_match(sd_bus *bus, const char *match, sd_bus_message_handler_t ca
         uint64_t cookie = 0;
         int r = 0;
 
-        if (!bus)
-                return -EINVAL;
-        if (!match)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(match, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = bus_match_parse(match, &components, &n_components);
         if (r < 0)
@@ -2196,12 +2084,9 @@ int sd_bus_remove_match(sd_bus *bus, const char *match, sd_bus_message_handler_t
         int r = 0, q = 0;
         uint64_t cookie = 0;
 
-        if (!bus)
-                return -EINVAL;
-        if (!match)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(match, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = bus_match_parse(match, &components, &n_components);
         if (r < 0)
