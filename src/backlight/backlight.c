@@ -25,10 +25,178 @@
 #include "libudev.h"
 #include "udev-util.h"
 
+static struct udev_device *find_pci_or_platform_parent(struct udev_device *device) {
+        struct udev_device *parent;
+        const char *subsystem, *sysname;
+
+        assert(device);
+
+        parent = udev_device_get_parent(device);
+        if (!parent)
+                return NULL;
+
+        subsystem = udev_device_get_subsystem(parent);
+        if (!subsystem)
+                return NULL;
+
+        sysname = udev_device_get_sysname(parent);
+        if (!sysname)
+                return NULL;
+
+        if (streq(subsystem, "drm")) {
+                const char *c;
+
+                c = startswith(sysname, "card");
+                if (!c)
+                        return NULL;
+
+                c += strspn(c, "0123456789");
+                if (*c == '-') {
+                        /* A connector DRM device, let's ignore all but LVDS and eDP! */
+
+                        if (!startswith(c, "-LVDS-") &&
+                            !startswith(c, "-Embedded DisplayPort-"))
+                                return NULL;
+                }
+
+        } else if (streq(subsystem, "pci")) {
+                const char *value;
+
+                value = udev_device_get_sysattr_value(parent, "class");
+                if (value) {
+                        unsigned long class;
+
+                        if (safe_atolu(value, &class) < 0) {
+                                log_warning("Cannot parse PCI class %s of device %s:%s.", value, subsystem, sysname);
+                                return NULL;
+                        }
+
+                        /* Graphics card */
+                        if (class == 0x30000)
+                                return parent;
+                }
+
+        } else if (streq(subsystem, "platform"))
+                return parent;
+
+        return find_pci_or_platform_parent(parent);
+}
+
+static bool same_device(struct udev_device *a, struct udev_device *b) {
+        assert(a);
+        assert(b);
+
+        if (!streq_ptr(udev_device_get_subsystem(a), udev_device_get_subsystem(b)))
+                return false;
+
+        if (!streq_ptr(udev_device_get_sysname(a), udev_device_get_sysname(b)))
+                return false;
+
+        return true;
+}
+
+static bool validate_device(struct udev *udev, struct udev_device *device) {
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *enumerate = NULL;
+        struct udev_list_entry *item = NULL, *first = NULL;
+        struct udev_device *parent;
+        const char *v, *subsystem;
+        int r;
+
+        assert(udev);
+        assert(device);
+
+        /* Verify whether we should actually care for a specific
+         * backlight device. For backlight devices there might be
+         * multiple ways to access the same control: "firmware"
+         * (i.e. ACPI), "platform" (i.e. via the machine's EC) and
+         * "raw" (via the graphics card). In general we should prefer
+         * "firmware" (i.e. ACPI) or "platform" access over "raw"
+         * access, in order not to confuse the BIOS/EC, and
+         * compatibility with possible low-level hotkey handling of
+         * screen brightness. The kernel will already make sure to
+         * expose only one of "firmware" and "platform" for the same
+         * device to userspace. However, we still need to make sure
+         * that we use "raw" only if no "firmware" or "platform"
+         * device for the same device exists. */
+
+        subsystem = udev_device_get_subsystem(device);
+        if (!streq_ptr(subsystem, "backlight"))
+                return true;
+
+        v = udev_device_get_sysattr_value(device, "type");
+        if (!streq_ptr(v, "raw"))
+                return true;
+
+        parent = find_pci_or_platform_parent(device);
+        if (!parent)
+                return true;
+
+        subsystem = udev_device_get_subsystem(parent);
+        if (!subsystem)
+                return true;
+
+        enumerate = udev_enumerate_new(udev);
+        if (!enumerate)
+                return true;
+
+        r = udev_enumerate_add_match_subsystem(enumerate, "backlight");
+        if (r < 0)
+                return true;
+
+        r = udev_enumerate_scan_devices(enumerate);
+        if (r < 0)
+                return true;
+
+        first = udev_enumerate_get_list_entry(enumerate);
+        udev_list_entry_foreach(item, first) {
+                _cleanup_udev_device_unref_ struct udev_device *other;
+                struct udev_device *other_parent;
+                const char *other_subsystem;
+
+                other = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                if (!other)
+                        return true;
+
+                if (same_device(device, other))
+                        continue;
+
+                v = udev_device_get_sysattr_value(other, "type");
+                if (!streq_ptr(v, "platform") && !streq_ptr(v, "firmware"))
+                        continue;
+
+                /* OK, so there's another backlight device, and it's a
+                 * platform or firmware device, so, let's see if we
+                 * can verify it belongs to the same device as
+                 * ours. */
+                other_parent = find_pci_or_platform_parent(other);
+                if (!other_parent)
+                        continue;
+
+                if (same_device(parent, other_parent)) {
+                        /* Both have the same PCI parent, that means
+                         * we are out. */
+                        log_debug("Skipping backlight device %s, since backlight device %s is on same PCI device and, takes precedence.", udev_device_get_sysname(device), udev_device_get_sysname(other));
+                        return false;
+                }
+
+                other_subsystem = udev_device_get_subsystem(other_parent);
+                if (streq_ptr(other_subsystem, "platform") && streq_ptr(subsystem, "pci")) {
+                        /* The other is connected to the platform bus
+                         * and we are a PCI device, that also means we
+                         * are out. */
+                        log_debug("Skipping backlight device %s, since backlight device %s is a platform device and takes precedence.", udev_device_get_sysname(device), udev_device_get_sysname(other));
+                        return false;
+                }
+        }
+
+        return true;
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
-        _cleanup_free_ char *saved = NULL;
+        _cleanup_free_ char *saved = NULL, *ss = NULL;
+        const char *sysname;
         int r;
 
         if (argc != 3) {
@@ -54,33 +222,56 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
+        sysname = strchr(argv[2], ':');
+        if (!sysname) {
+                log_error("Requires pair of subsystem and sysname for specifying backlight device.");
+                return EXIT_FAILURE;
+        }
+
+        ss = strndup(argv[2], sysname - argv[2]);
+        if (!ss) {
+                log_oom();
+                return EXIT_FAILURE;
+        }
+
+        sysname++;
+
+        if (!streq(ss, "backlight") && !streq(ss, "leds")) {
+                log_error("Not a backlight or LED device: '%s:%s'", ss, sysname);
+                return EXIT_FAILURE;
+        }
+
         errno = 0;
-        device = udev_device_new_from_subsystem_sysname(udev, "backlight", argv[2]);
-        if (!device)
-                device = udev_device_new_from_subsystem_sysname(udev, "leds", argv[2]);
+        device = udev_device_new_from_subsystem_sysname(udev, ss, sysname);
         if (!device) {
                 if (errno != 0)
-                        log_error("Failed to get backlight device '%s': %m", argv[2]);
+                        log_error("Failed to get backlight or LED device '%s:%s': %m", ss, sysname);
                 else
-                        r = log_oom();
+                        log_oom();
 
                 return EXIT_FAILURE;
         }
 
-        if (!streq_ptr(udev_device_get_subsystem(device), "backlight") &&
-            !streq_ptr(udev_device_get_subsystem(device), "leds")) {
-                log_error("Not a backlight device: %s", argv[2]);
-                return EXIT_FAILURE;
-        }
-
-        saved = strappend("/var/lib/systemd/backlight/", udev_device_get_sysname(device));
+        saved = strjoin("/var/lib/systemd/backlight/", ss, ":", sysname, NULL);
         if (!saved) {
                 log_oom();
                 return EXIT_FAILURE;
         }
 
+        /* If there are multiple conflicting backlight devices, then
+         * their probing at boot-time might happen in any order. This
+         * means the validity checking of the device then is not
+         * reliable, since it might not see other devices conflicting
+         * with a specific backlight. To deal with this we will
+         * actively delete backlight state files at shutdown (where
+         * device probing should be complete), so that the validity
+         * check at boot time doesn't have to be reliable. */
+
         if (streq(argv[1], "load")) {
                 _cleanup_free_ char *value = NULL;
+
+                if (!validate_device(udev, device))
+                        return EXIT_SUCCESS;
 
                 r = read_one_line_file(saved, &value);
                 if (r < 0) {
@@ -100,6 +291,11 @@ int main(int argc, char *argv[]) {
 
         } else if (streq(argv[1], "save")) {
                 const char *value;
+
+                if (!validate_device(udev, device)) {
+                        unlink(saved);
+                        return EXIT_SUCCESS;
+                }
 
                 value = udev_device_get_sysattr_value(device, "brightness");
                 if (!value) {
