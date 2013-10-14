@@ -34,14 +34,6 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 
-/* Test:
- *
- *   Add in:
- *
- *   node hierarchy updates during dispatching
- *
- */
-
 struct context {
         int fds[2];
         bool quit;

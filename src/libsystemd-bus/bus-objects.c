@@ -77,6 +77,8 @@ static int vtable_property_get_userdata(
         r = node_vtable_get_userdata(bus, path, p->parent, &u);
         if (r <= 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         *userdata = vtable_property_convert_userdata(p->vtable, u);
         return 1;
@@ -97,6 +99,9 @@ static int add_enumerated_to_set(
 
         LIST_FOREACH(enumerators, c, first) {
                 char **children = NULL, **k;
+
+                if (bus->nodes_modified)
+                        return 0;
 
                 r = c->callback(bus, prefix, &children, c->userdata);
                 if (r < 0)
@@ -142,6 +147,8 @@ static int add_subtree_to_set(
         r = add_enumerated_to_set(bus, prefix, n->enumerators, s);
         if (r < 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         LIST_FOREACH(siblings, i, n->child) {
                 char *t;
@@ -157,6 +164,8 @@ static int add_subtree_to_set(
                 r = add_subtree_to_set(bus, prefix, i, s);
                 if (r < 0)
                         return r;
+                if (bus->nodes_modified)
+                        return 0;
         }
 
         return 0;
@@ -205,6 +214,9 @@ static int node_callbacks_run(
         assert(found_object);
 
         LIST_FOREACH(callbacks, c, first) {
+                if (bus->nodes_modified)
+                        return 0;
+
                 if (require_fallback && !c->is_fallback)
                         continue;
 
@@ -212,6 +224,8 @@ static int node_callbacks_run(
 
                 if (c->last_iteration == bus->iteration_counter)
                         continue;
+
+                c->last_iteration = bus->iteration_counter;
 
                 r = sd_bus_message_rewind(m, true);
                 if (r < 0)
@@ -247,8 +261,15 @@ static int method_callbacks_run(
         r = node_vtable_get_userdata(bus, m->path, c->parent, &u);
         if (r <= 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         *found_object = true;
+
+        if (c->last_iteration == bus->iteration_counter)
+                return 0;
+
+        c->last_iteration = bus->iteration_counter;
 
         r = sd_bus_message_rewind(m, true);
         if (r < 0)
@@ -412,6 +433,8 @@ static int property_get_set_callbacks_run(
         r = vtable_property_get_userdata(bus, m->path, c, &u);
         if (r <= 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         *found_object = true;
 
@@ -419,9 +442,14 @@ static int property_get_set_callbacks_run(
         if (r < 0)
                 return r;
 
-        c->last_iteration = bus->iteration_counter;
-
         if (is_get) {
+                /* Note that we do not protect against reexecution
+                 * here (using the last_iteration check, see below),
+                 * should the node tree have changed and we got called
+                 * again. We assume that property Get() calls are
+                 * ultimately without side-effects or if they aren't
+                 * then at least idempotent. */
+
                 r = sd_bus_message_open_container(reply, 'v', c->vtable->x.property.signature);
                 if (r < 0)
                         return r;
@@ -438,6 +466,9 @@ static int property_get_set_callbacks_run(
                         return 1;
                 }
 
+                if (bus->nodes_modified)
+                        return 0;
+
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)
                         return r;
@@ -446,6 +477,15 @@ static int property_get_set_callbacks_run(
                 if (c->vtable->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
                         sd_bus_error_setf(&error, "org.freedesktop.DBus.Error.PropertyReadOnly", "Property '%s' is not writable.", c->member);
                 else  {
+                        /* Avoid that we call the set routine more
+                         * than once if the processing of this message
+                         * got restarted because the node tree
+                         * changed. */
+                        if (c->last_iteration == bus->iteration_counter)
+                                return 0;
+
+                        c->last_iteration = bus->iteration_counter;
+
                         r = sd_bus_message_enter_container(m, 'v', c->vtable->x.property.signature);
                         if (r < 0)
                                 return r;
@@ -462,6 +502,9 @@ static int property_get_set_callbacks_run(
 
                         return 1;
                 }
+
+                if (bus->nodes_modified)
+                        return 0;
 
                 r = sd_bus_message_exit_container(m);
                 if (r < 0)
@@ -510,8 +553,9 @@ static int vtable_append_all_properties(
                 r = invoke_property_get(bus, v, path, c->interface, v->x.property.member, reply, error, vtable_property_convert_userdata(v, userdata));
                 if (r < 0)
                         return r;
-
                 if (sd_bus_error_is_set(error))
+                        return 0;
+                if (bus->nodes_modified)
                         return 0;
 
                 r = sd_bus_message_close_container(reply);
@@ -561,6 +605,8 @@ static int property_get_all_callbacks_run(
                 r = node_vtable_get_userdata(bus, m->path, c, &u);
                 if (r < 0)
                         return r;
+                if (bus->nodes_modified)
+                        return 0;
                 if (r == 0)
                         continue;
 
@@ -569,8 +615,6 @@ static int property_get_all_callbacks_run(
                 if (iface && !streq(c->interface, iface))
                         continue;
                 found_interface = true;
-
-                c->last_iteration = bus->iteration_counter;
 
                 r = vtable_append_all_properties(bus, reply, m->path, c, u, &error);
                 if (r < 0)
@@ -583,6 +627,8 @@ static int property_get_all_callbacks_run(
 
                         return 1;
                 }
+                if (bus->nodes_modified)
+                        return 0;
         }
 
         if (!found_interface) {
@@ -650,6 +696,8 @@ static bool bus_node_exists(
 
                 if (node_vtable_get_userdata(bus, path, c, NULL) > 0)
                         return true;
+                if (bus->nodes_modified)
+                        return false;
         }
 
         return !require_fallback && (n->enumerators || n->object_manager);
@@ -677,6 +725,8 @@ static int process_introspect(
         r = get_child_nodes(bus, m->path, n, &s);
         if (r < 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         r = introspect_begin(&intro);
         if (r < 0)
@@ -695,6 +745,8 @@ static int process_introspect(
                 r = node_vtable_get_userdata(bus, m->path, c, NULL);
                 if (r < 0)
                         return r;
+                if (bus->nodes_modified)
+                        return 0;
                 if (r == 0)
                         continue;
 
@@ -711,7 +763,8 @@ static int process_introspect(
                 r = bus_node_exists(bus, n, m->path, require_fallback);
                 if (r < 0)
                         return r;
-
+                if (bus->nodes_modified)
+                        return 0;
                 if (r == 0)
                         goto finish;
         }
@@ -768,6 +821,8 @@ static int object_manager_serialize_vtable(
         r = vtable_append_all_properties(bus, reply, path, c, userdata, error);
         if (r < 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
@@ -812,6 +867,8 @@ static int object_manager_serialize_path(
                 r = node_vtable_get_userdata(bus, path, i, &u);
                 if (r < 0)
                         return r;
+                if (bus->nodes_modified)
+                        return 0;
                 if (r == 0)
                         continue;
 
@@ -835,6 +892,8 @@ static int object_manager_serialize_path(
                 if (r < 0)
                         return r;
                 if (sd_bus_error_is_set(error))
+                        return 0;
+                if (bus->nodes_modified)
                         return 0;
         }
 
@@ -871,6 +930,8 @@ static int object_manager_serialize_path_and_fallbacks(
                 return r;
         if (sd_bus_error_is_set(error))
                 return 0;
+        if (bus->nodes_modified)
+                return 0;
 
         /* Second, add fallback vtables registered for any of the prefixes */
         prefix = alloca(strlen(path) + 1);
@@ -878,8 +939,9 @@ static int object_manager_serialize_path_and_fallbacks(
                 r = object_manager_serialize_path(bus, reply, prefix, path, true, error);
                 if (r < 0)
                         return r;
-
                 if (sd_bus_error_is_set(error))
+                        return 0;
+                if (bus->nodes_modified)
                         return 0;
         }
 
@@ -909,6 +971,8 @@ static int process_get_managed_objects(
         r = get_child_nodes(bus, m->path, n, &s);
         if (r < 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         r = sd_bus_message_new_method_return(bus, m, &reply);
         if (r < 0)
@@ -960,6 +1024,9 @@ static int process_get_managed_objects(
 
                                 return 1;
                         }
+
+                        if (bus->nodes_modified)
+                                return 0;
                 }
         }
 
@@ -998,6 +1065,8 @@ static int object_find_and_run(
         r = node_callbacks_run(bus, m, n->callbacks, require_fallback, found_object);
         if (r != 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         if (!m->interface || !m->member)
                 return 0;
@@ -1012,6 +1081,8 @@ static int object_find_and_run(
                 r = method_callbacks_run(bus, m, v, require_fallback, found_object);
                 if (r != 0)
                         return r;
+                if (bus->nodes_modified)
+                        return 0;
         }
 
         /* Then, look for a known property */
@@ -1071,11 +1142,13 @@ static int object_find_and_run(
                         return r;
         }
 
+        if (bus->nodes_modified)
+                return 0;
+
         if (!*found_object) {
                 r = bus_node_exists(bus, n, m->path, require_fallback);
                 if (r < 0)
                         return r;
-
                 if (r > 0)
                         *found_object = true;
         }
@@ -1256,6 +1329,8 @@ static int bus_add_object(
         c->is_fallback = fallback;
 
         LIST_PREPEND(callbacks, n->callbacks, c);
+        bus->nodes_modified = true;
+
         return 0;
 
 fail:
@@ -1293,6 +1368,7 @@ static int bus_remove_object(
         free(c);
 
         bus_node_gc(bus, n);
+        bus->nodes_modified = true;
 
         return 1;
 }
@@ -1547,6 +1623,8 @@ static int add_object_vtable_internal(
         }
 
         LIST_PREPEND(vtables, n->vtables, c);
+        bus->nodes_modified = true;
+
         return 0;
 
 fail:
@@ -1586,6 +1664,8 @@ static int remove_object_vtable_internal(
 
         free_node_vtable(bus, c);
         bus_node_gc(bus, n);
+
+        bus->nodes_modified = true;
 
         return 1;
 }
@@ -1657,6 +1737,9 @@ int sd_bus_add_node_enumerator(
         c->userdata = userdata;
 
         LIST_PREPEND(enumerators, n->enumerators, c);
+
+        bus->nodes_modified = true;
+
         return 0;
 
 fail:
@@ -1694,6 +1777,8 @@ int sd_bus_remove_node_enumerator(
         free(c);
 
         bus_node_gc(bus, n);
+
+        bus->nodes_modified = true;
 
         return 1;
 }
@@ -1738,6 +1823,8 @@ static int emit_properties_changed_on_interface(
         r = node_vtable_get_userdata(bus, path, c, &u);
         if (r <= 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         r = sd_bus_message_new_signal(bus, path, "org.freedesktop.DBus.Properties", "PropertiesChanged", &m);
         if (r < 0)
@@ -1788,9 +1875,10 @@ static int emit_properties_changed_on_interface(
                 r = invoke_property_get(bus, v->vtable, m->path, interface, *property, m, &error, vtable_property_convert_userdata(v->vtable, u));
                 if (r < 0)
                         return r;
-
                 if (sd_bus_error_is_set(&error))
                         return bus_error_to_errno(&error);
+                if (bus->nodes_modified)
+                        return 0;
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
@@ -1856,16 +1944,25 @@ int sd_bus_emit_properties_changed_strv(
         if (strv_isempty(names))
                 return 0;
 
-        r = emit_properties_changed_on_interface(bus, path, path, interface, false, names);
-        if (r != 0)
-                return r;
+        do {
+                bus->nodes_modified = false;
 
-        prefix = alloca(strlen(path) + 1);
-        OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
-                r = emit_properties_changed_on_interface(bus, prefix, path, interface, true, names);
+                r = emit_properties_changed_on_interface(bus, path, path, interface, false, names);
                 if (r != 0)
                         return r;
-        }
+                if (bus->nodes_modified)
+                        continue;
+
+                prefix = alloca(strlen(path) + 1);
+                OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
+                        r = emit_properties_changed_on_interface(bus, prefix, path, interface, true, names);
+                        if (r != 0)
+                                return r;
+                        if (bus->nodes_modified)
+                                break;
+                }
+
+        } while (bus->nodes_modified);
 
         return -ENOENT;
 }
@@ -1936,6 +2033,8 @@ static int interfaces_added_append_one_prefix(
         r = node_vtable_get_userdata(bus, path, c, &u);
         if (r <= 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         r = sd_bus_message_append_basic(m, 's', interface);
         if (r < 0)
@@ -1948,9 +2047,10 @@ static int interfaces_added_append_one_prefix(
         r = vtable_append_all_properties(bus, m,path, c, u, &error);
         if (r < 0)
                 return r;
-
         if (sd_bus_error_is_set(&error))
                 return bus_error_to_errno(&error);
+        if (bus->nodes_modified)
+                return 0;
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
@@ -1976,12 +2076,16 @@ static int interfaces_added_append_one(
         r = interfaces_added_append_one_prefix(bus, m, path, path, interface, false);
         if (r != 0)
                 return r;
+        if (bus->nodes_modified)
+                return 0;
 
         prefix = alloca(strlen(path) + 1);
         OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                 r = interfaces_added_append_one_prefix(bus, m, prefix, path, interface, true);
                 if (r != 0)
                         return r;
+                if (bus->nodes_modified)
+                        return 0;
         }
 
         return -ENOENT;
@@ -2002,37 +2106,51 @@ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **inte
         if (strv_isempty(interfaces))
                 return 0;
 
-        r = sd_bus_message_new_signal(bus, path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded", &m);
-        if (r < 0)
-                return r;
+        do {
+                bus->nodes_modified = false;
 
-        r = sd_bus_message_append_basic(m, 'o', path);
-        if (r < 0)
-                return r;
+                if (m)
+                        m = sd_bus_message_unref(m);
 
-        r = sd_bus_message_open_container(m, 'a', "{sa{sv}}");
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(i, interfaces) {
-                assert_return(interface_name_is_valid(*i), -EINVAL);
-
-                r = sd_bus_message_open_container(m, 'e', "sa{sv}");
+                r = sd_bus_message_new_signal(bus, path, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded", &m);
                 if (r < 0)
                         return r;
 
-                r = interfaces_added_append_one(bus, m, path, *i);
+                r = sd_bus_message_append_basic(m, 'o', path);
                 if (r < 0)
                         return r;
+
+                r = sd_bus_message_open_container(m, 'a', "{sa{sv}}");
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(i, interfaces) {
+                        assert_return(interface_name_is_valid(*i), -EINVAL);
+
+                        r = sd_bus_message_open_container(m, 'e', "sa{sv}");
+                        if (r < 0)
+                                return r;
+
+                        r = interfaces_added_append_one(bus, m, path, *i);
+                        if (r < 0)
+                                return r;
+
+                        if (bus->nodes_modified)
+                                break;
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (bus->nodes_modified)
+                        continue;
 
                 r = sd_bus_message_close_container(m);
                 if (r < 0)
                         return r;
-        }
 
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return r;
+        } while (bus->nodes_modified);
 
         return sd_bus_send(bus, m, NULL);
 }
@@ -2114,6 +2232,7 @@ int sd_bus_add_object_manager(sd_bus *bus, const char *path) {
                 return -ENOMEM;
 
         n->object_manager = true;
+        bus->nodes_modified = true;
         return 0;
 }
 
@@ -2132,6 +2251,7 @@ int sd_bus_remove_object_manager(sd_bus *bus, const char *path) {
                 return 0;
 
         n->object_manager = false;
+        bus->nodes_modified = true;
         bus_node_gc(bus, n);
 
         return 1;
