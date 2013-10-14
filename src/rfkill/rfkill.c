@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
                         return EXIT_FAILURE;
                 }
 
-                saved = strjoin("/var/lib/systemd/rfkill/", escaped_path_id, "-", escaped_name, NULL);
+                saved = strjoin("/var/lib/systemd/rfkill/", escaped_path_id, ":", escaped_name, NULL);
         } else
                 saved = strjoin("/var/lib/systemd/rfkill/", escaped_name, NULL);
 

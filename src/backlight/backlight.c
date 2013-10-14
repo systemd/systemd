@@ -195,8 +195,8 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {
 int main(int argc, char *argv[]) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
-        _cleanup_free_ char *saved = NULL, *ss = NULL;
-        const char *sysname;
+        _cleanup_free_ char *saved = NULL, *ss = NULL, *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
+        const char *sysname, *path_id;
         int r;
 
         if (argc != 3) {
@@ -252,7 +252,30 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        saved = strjoin("/var/lib/systemd/backlight/", ss, ":", sysname, NULL);
+        escaped_ss = cescape(ss);
+        if (!escaped_ss) {
+                log_oom();
+                return EXIT_FAILURE;
+        }
+
+        escaped_sysname = cescape(sysname);
+        if (!escaped_sysname) {
+                log_oom();
+                return EXIT_FAILURE;
+        }
+
+        path_id = udev_device_get_property_value(device, "ID_PATH");
+        if (path_id) {
+                escaped_path_id = cescape(path_id);
+                if (!escaped_path_id) {
+                        log_oom();
+                        return EXIT_FAILURE;
+                }
+
+                saved = strjoin("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname, NULL);
+        } else
+                saved = strjoin("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname, NULL);
+
         if (!saved) {
                 log_oom();
                 return EXIT_FAILURE;
