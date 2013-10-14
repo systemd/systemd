@@ -5,6 +5,7 @@
 #  Copyright 2010-2012 Lennart Poettering
 #  Copyright 2010-2012 Kay Sievers
 #  Copyright 2013 Zbigniew Jędrzejewski-Szmek
+#  Copyright 2013 David Strauss
 #
 #  systemd is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
@@ -298,7 +299,8 @@ bin_PROGRAMS = \
 	systemd-detect-virt \
 	systemd-delta \
 	systemd-analyze \
-	systemd-run
+	systemd-run \
+	systemd-sabridge
 
 dist_bin_SCRIPTS = \
 	src/kernel-install/kernel-install
@@ -3205,6 +3207,22 @@ endif
 
 EXTRA_DIST += \
 	units/systemd-journal-gatewayd.service.in
+
+# ------------------------------------------------------------------------------
+
+systemd_sabridge_SOURCES = \
+	src/sabridge/sabridge.c
+
+systemd_sabridge_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-logs.la \
+	libsystemd-journal-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon.la \
+	libsystemd-bus.la
+
+systemd_sabridge_CFLAGS = \
+	$(AM_CFLAGS)
 
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP

@@ -71,6 +71,7 @@
 /systemd-reply-password
 /systemd-rfkill
 /systemd-run
+/systemd-sabridge
 /systemd-shutdown
 /systemd-shutdownd
 /systemd-sleep
