@@ -4461,7 +4461,7 @@ int glob_extend(char ***strv, const char *path) {
         char **p;
 
         errno = 0;
-        k = glob(optarg, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
+        k = glob(path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
 
         if (k == GLOB_NOMATCH)
                 return -ENOENT;
