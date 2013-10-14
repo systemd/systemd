@@ -69,6 +69,7 @@
 /systemd-remount-api-vfs
 /systemd-remount-fs
 /systemd-reply-password
+/systemd-rfkill
 /systemd-run
 /systemd-shutdown
 /systemd-shutdownd

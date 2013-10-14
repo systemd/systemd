@@ -57,6 +57,10 @@ ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="@rootlibexecdir@/systemd-sy
 ACTION=="add", SUBSYSTEM=="backlight", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-backlight@backlight:$name.service"
 ACTION=="add", SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-backlight@leds:$name.service"
 
+# Pull in rfkill save/restore for all rfkill devices
+
+ACTION=="add", SUBSYSTEM=="rfkill", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-rfkill@rfkill:$name.service"
+
 # Asynchronously mount file systems implemented by these modules as
 # soon as they are loaded.
 

@@ -1,4 +1,5 @@
 /systemd-backlight@.service
+/systemd-rfkill@.service
 /halt-local.service
 /rc-local.service
 /systemd-hybrid-sleep.service

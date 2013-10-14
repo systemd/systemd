@@ -3434,6 +3434,26 @@ EXTRA_DIST += \
 	units/systemd-backlight@.service.in
 
 # ------------------------------------------------------------------------------
+if ENABLE_RFKILL
+rootlibexec_PROGRAMS += \
+	systemd-rfkill
+
+nodist_systemunit_DATA += \
+	units/systemd-rfkill@.service
+
+systemd_rfkill_SOURCES = \
+	src/rfkill/rfkill.c
+
+systemd_rfkill_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la \
+	libudev-private.la
+endif
+
+EXTRA_DIST += \
+	units/systemd-rfkill@.service.in
+
+# ------------------------------------------------------------------------------
 if HAVE_LIBCRYPTSETUP
 rootlibexec_PROGRAMS += \
 	systemd-cryptsetup

@@ -744,6 +744,17 @@ man/systemd-readahead.html: man/systemd-readahead-replay.service.html
 
 endif
 
+if ENABLE_RFKILL
+MANPAGES += \
+	man/systemd-rfkill@.service.8
+MANPAGES_ALIAS += \
+	man/systemd-rfkill.8
+man/systemd-rfkill.8: man/systemd-rfkill@.service.8
+man/systemd-rfkill.html: man/systemd-rfkill@.service.html
+	$(html-alias)
+
+endif
+
 if ENABLE_TIMEDATED
 MANPAGES += \
 	man/systemd-timedated.service.8 \
