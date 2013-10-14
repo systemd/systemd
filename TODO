@@ -48,6 +48,12 @@ CGroup Rework Completion:
 
 Features:
 
+* "systemctl cat" or "systemctl view" command or or so, that cats the backing unit file of a service, plus its drop-ins and shows them in a pager
+
+* rfkill,backlight: we probably should use a path ID of some kind rather than the sysname as file name to store status in
+
+* rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
+
 * Add a new Distribute=$NUMBER key to socket units that makes use of SO_REUSEPORT to distribute network traffic on $NUMBER instances
 
 * tmpfiles: when applying ownership to /run/log/journal also do this for the journal fails contained in it
@@ -69,17 +75,6 @@ Features:
 * When a Type=forking service fails and needed another service that
   service is not cleaned up again when it has StopWhenUnneeded=yes
   http://lists.freedesktop.org/archives/systemd-devel/2013-July/012141.html
-
-* backlight: properly handle multiple backlight devices for the same
-  hardware: at shutdown we should only save the backlight setting for
-  the "best" way to access the backlight. Strategy should be: at
-  shutdown, ignore all backlights that are connected to a non-eDP or
-  non-LVDS port, and then prefer the firmware device over platform
-  device over raw device per-PCI card. Delete all old data. At boot
-  simply apply whatever data we find. Also see
-  http://cgit.freedesktop.org/libbacklight/tree/libbacklight.c#n194
-
-* rfkill: save/restore soft rfkill status across reboots
 
 * refuse boot if /etc/os-release is missing or /etc/machine-id cannot be set up
 
