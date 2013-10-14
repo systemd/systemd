@@ -49,5 +49,5 @@ int fdset_iterate(FDSet *s, Iterator *i);
 #define FDSET_FOREACH(fd, fds, i) \
         for ((i) = ITERATOR_FIRST, (fd) = fdset_iterate((fds), &(i)); (fd) >= 0; (fd) = fdset_iterate((fds), &(i)))
 
-define_trivial_cleanup_func(FDSet*, fdset_free)
+DEFINE_TRIVIAL_CLEANUP_FUNC(FDSet*, fdset_free);
 #define _cleanup_fdset_free_ _cleanup_(fdset_freep)

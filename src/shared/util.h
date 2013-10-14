@@ -556,11 +556,12 @@ static inline void freep(void *p) {
         free(*(void**) p);
 }
 
-#define define_trivial_cleanup_func(type, func) \
-        static inline void func##p(type *p) {   \
-        if (*p)                                 \
-                func(*p);                       \
-        }                                       \
+#define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
+        static inline void func##p(type *p) {                   \
+                if (*p)                                         \
+                        func(*p);                               \
+        }                                                       \
+        struct __useless_struct_to_allow_trailing_semicolon__
 
 static inline void closep(int *fd) {
         if (*fd >= 0)
@@ -571,10 +572,10 @@ static inline void umaskp(mode_t *u) {
         umask(*u);
 }
 
-define_trivial_cleanup_func(FILE*, fclose)
-define_trivial_cleanup_func(FILE*, pclose)
-define_trivial_cleanup_func(DIR*, closedir)
-define_trivial_cleanup_func(FILE*, endmntent)
+DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, fclose);
+DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, pclose);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DIR*, closedir);
+DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
 
 #define _cleanup_free_ _cleanup_(freep)
 #define _cleanup_close_ _cleanup_(closep)

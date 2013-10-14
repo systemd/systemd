@@ -30,7 +30,7 @@ char *strv_find(char **l, const char *name) _pure_;
 char *strv_find_prefix(char **l, const char *name) _pure_;
 
 void strv_free(char **l);
-define_trivial_cleanup_func(char**, strv_free)
+DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
 
 char **strv_copy(char * const *l);

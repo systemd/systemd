@@ -73,7 +73,7 @@ char **set_get_strv(Set *s);
 #define SET_FOREACH_BACKWARDS(e, s, i) \
         for ((i) = ITERATOR_LAST, (e) = set_iterate_backwards((s), &(i)); (e); (e) = set_iterate_backwards((s), &(i)))
 
-define_trivial_cleanup_func(Set*, set_free)
-define_trivial_cleanup_func(Set*, set_free_free)
+DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free_free);
 #define _cleanup_set_free_ _cleanup_(set_freep)
 #define _cleanup_set_free_free_ _cleanup_(set_free_freep)

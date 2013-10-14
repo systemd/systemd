@@ -54,7 +54,7 @@
 
 static const char *arg_dest = "/tmp";
 
-define_trivial_cleanup_func(blkid_probe, blkid_free_probe)
+DEFINE_TRIVIAL_CLEANUP_FUNC(blkid_probe, blkid_free_probe);
 #define _cleanup_blkid_freep_probe_ _cleanup_(blkid_free_probep)
 
 static int verify_gpt_partition(const char *node, sd_id128_t *type, unsigned *nr, char **fstype) {
