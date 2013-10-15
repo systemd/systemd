@@ -2758,9 +2758,7 @@ libsystemd_id128_la_LDFLAGS = \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-id128/libsystemd-id128.sym
 
 libsystemd_id128_la_LIBADD = \
-	libsystemd-shared.la \
-	libsystemd-daemon-internal.la \
-	$(RT_LIBS)
+	libsystemd-shared.la
 
 libsystemd_id128_internal_la_SOURCES = \
 	$(libsystemd_id128_la_SOURCES)
