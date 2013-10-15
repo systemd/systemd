@@ -2198,9 +2198,7 @@ libudev_la_LDFLAGS = \
 
 libudev_la_LIBADD = \
 	libsystemd-shared.la \
-	libsystemd-label.la \
 	libsystemd-daemon-internal.la \
-	$(RT_LIBS) \
 	libsystemd-id128-internal.la
 
 pkgconfiglib_DATA += \
@@ -2372,7 +2370,6 @@ libudev_core_la_LIBADD = \
 	libudev-private.la \
 	libsystemd-label.la \
 	libsystemd-daemon-internal.la \
-	$(RT_LIBS) \
 	libsystemd-shared.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
@@ -2434,6 +2431,7 @@ udevadm_SOURCES = \
 
 udevadm_LDADD = \
 	libudev-core.la \
+	libsystemd-label.la \
 	libsystemd-shared.la
 
 # Update hwdb on installation. Do not bother if installing
@@ -2761,7 +2759,6 @@ libsystemd_id128_la_LDFLAGS = \
 
 libsystemd_id128_la_LIBADD = \
 	libsystemd-shared.la \
-	libsystemd-label.la \
 	libsystemd-daemon-internal.la \
 	$(RT_LIBS)
 
@@ -3013,7 +3010,6 @@ libsystemd_journal_internal_la_CFLAGS = \
 	$(AM_CFLAGS)
 
 libsystemd_journal_internal_la_LIBADD = \
-	libsystemd-label.la \
 	libsystemd-audit.la \
 	libsystemd-daemon.la \
 	libudev.la \
