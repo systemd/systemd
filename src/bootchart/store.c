@@ -275,7 +275,7 @@ schedstat_next:
                         pscount++;
 
                         /* mark our first sample */
-                        ps->first = ps->sample;
+                        ps->first = ps->last = ps->sample;
                         ps->sample->runtime = atoll(rt);
                         ps->sample->waittime = atoll(wt);
 
