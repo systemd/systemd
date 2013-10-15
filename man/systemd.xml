@@ -1149,6 +1149,7 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>-b</varname></term>
                                 <term><varname>emergency</varname></term>
 
                                 <listitem><para>Boot into emergency

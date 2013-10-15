@@ -123,6 +123,7 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>-b</varname></term>
                                 <term><varname>emergency</varname></term>
                                 <term><varname>single</varname></term>
                                 <term><varname>s</varname></term>
