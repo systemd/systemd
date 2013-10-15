@@ -64,7 +64,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>Unit configuration files for services, slices, scopes,
     sockets, mount points, and swap devices share a subset of
     configuration options for resource control of spawned
-    processes. Internally, this relies on the the Control Groups
+    processes. Internally, this relies on the Control Groups
     kernel concept for organizing processes in a hierarchial tree of
     named groups for the purpose of resource management.</para>
 
@@ -86,7 +86,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>See the <ulink
     url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
-    Control Group Interfaces</ulink> for an introduction how to make
+    Control Group Interfaces</ulink> for an introduction on how to make
     use of resource control APIs from programs.</para>
   </refsect1>
 
@@ -199,7 +199,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           path and a weight value to specify the device specific
           weight value, between 10 and 1000. (Example: "/dev/sda
           500"). The file path may be specified as path to a block
-          device node or as any other file in which case the backing
+          device node or as any other file, in which case the backing
           block device of the file system of the file is
           determined. This controls the
           <literal>blkio.weight_device</literal> control group

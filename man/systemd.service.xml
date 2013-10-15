@@ -369,7 +369,7 @@
                                 case it will be replaced by the value
                                 of the environment variable split up
                                 at whitespace, resulting in zero or
-                                more arguments. To pass literal dollar sign
+                                more arguments. To pass a literal dollar sign,
                                 use <literal>$$</literal>. Note that the first
                                 argument (i.e. the program to execute)
                                 may not be a variable, since it must

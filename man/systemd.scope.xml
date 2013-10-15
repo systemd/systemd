@@ -71,7 +71,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>See the <ulink
     url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
-    Control Group Interfaces</ulink> for an introduction how to make
+    Control Group Interfaces</ulink> for an introduction on how to make
     use of scope units from programs.</para>
 
     <para>Unless <varname>DefaultDependencies=false</varname>

@@ -115,8 +115,8 @@
                                 <term><varname>luks.uuid=</varname></term>
                                 <term><varname>rd.luks.uuid=</varname></term>
 
-                                <listitem><para>Takes a LUKS super
-                                block UUID as argument. This will
+                                <listitem><para>Takes a LUKS superblock
+                                UUID as argument. This will
                                 activate the specified device as part
                                 of the boot process as if it was
                                 listed in

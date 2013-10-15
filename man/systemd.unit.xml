@@ -1236,12 +1236,12 @@
                       <row>
                         <entry><literal>%r</literal></entry>
                         <entry>Root control group path where units are placed.</entry>
-                        <entry>For system instances this usually resolves to <filename>/system</filename>, except in containers, where the path might be prefixed with the container's root control group.</entry>
+                        <entry>For system instances, this usually resolves to <filename>/system</filename>, except in containers, where the path might be prefixed with the container's root control group.</entry>
                       </row>
                       <row>
                         <entry><literal>%R</literal></entry>
                         <entry>Parent directory of the control group path where units are placed.</entry>
-                        <entry>For system instances this usually
+                        <entry>For system instances, this usually
                         resolves to <filename>/</filename>, except in
                         containers, where this resolves to the
                         container's root directory.</entry>

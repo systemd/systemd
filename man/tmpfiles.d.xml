@@ -158,11 +158,11 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                 <varlistentry>
                                         <term><varname>m</varname></term>
                                         <listitem><para>If the
-                                        specified file path exists
+                                        specified file path exists,
                                         adjust its access mode, group
                                         and user to the specified
                                         values and reset the SELinux
-                                        label. If it doesn't exist do
+                                        label. If it does not exist, do
                                         nothing.</para></listitem>
                                 </varlistentry>
 
@@ -187,7 +187,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         during cleaning. Use this type
                                         to exclude paths from clean-up
                                         as controlled with the Age
-                                        parameter. Unlike x this
+                                        parameter. Unlike x, this
                                         parameter will not exclude the
                                         content if path is a directory,
                                         but only directory itself.

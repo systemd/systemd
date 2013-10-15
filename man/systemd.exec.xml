@@ -1027,7 +1027,7 @@
 
                                 <listitem><para>User name (twice), home
                                 directory, and the login shell.
-                                Set for the units which
+                                The variables are set for the units that
                                 have <varname>User=</varname> set,
                                 which includes user
                                 <command>systemd</command> instances.
@@ -1053,14 +1053,14 @@
                                 <term><varname>$XDG_VTNR</varname></term>
 
                                 <listitem><para>The identifier of the
-                                session, and the seat name, and
+                                session, the seat name, and
                                 virtual terminal of the session. Set
                                 by
                                 <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 for login sessions.
                                 <varname>$XDG_SEAT</varname> and
-                                <varname>$XDG_VTNR</varname> will be
-                                only set when attached to a seat and a
+                                <varname>$XDG_VTNR</varname> will
+                                only be set when attached to a seat and a
                                 tty.</para></listitem>
                         </varlistentry>
 

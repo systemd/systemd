@@ -157,14 +157,14 @@
                                 <term><option>-l</option></term>
 
                                 <listitem><para>Ellipsize fields when
-                                they don't fit in available columns.
+                                they do not fit in available columns.
                                 The default is to show full fields,
                                 allowing them to wrap or be truncated
                                 by the pager if one is used.</para>
 
-                                <para>Old options
+                                <para>The old options
                                 <option>-l</option>/<option>--full</option>
-                                not useful anymore, except to undo
+                                are not useful anymore, except to undo
                                 <option>--no-full</option>.</para></listitem>
                         </varlistentry>
 

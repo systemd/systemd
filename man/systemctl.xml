@@ -831,7 +831,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
             <para>Depending on whether <option>--system</option>,
             <option>--user</option>, <option>--runtime</option>,
-            or<option>--global</option>, is specified, this enables the unit
+            or <option>--global</option> is specified, this enables the unit
             for the system, for the calling user only, for only this boot of
             the system, or for all future logins of all users, or only this
             boot.  Note that in the last case, no systemd daemon
@@ -861,7 +861,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             </para>
 
             <para>This command honors <option>--system</option>,
-            <option>--user</option>, <option>--runtime</option>,
+            <option>--user</option>, <option>--runtime</option> and
             <option>--global</option> in a similar way as
             <command>enable</command>.</para>
           </listitem>
@@ -921,7 +921,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <command>disable</command>, since it prohibits all kinds of
             activation of the unit, including manual activation. Use
             this option with care. This honors the
-            <option>--runtime</option> option, to only mask temporarily
+            <option>--runtime</option> option to only mask temporarily
             until the next reoobt of the system.</para>
           </listitem>
         </varlistentry>

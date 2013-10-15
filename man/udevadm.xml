@@ -98,7 +98,7 @@
         <varlistentry>
           <term><option>--query=<replaceable>type</replaceable></option></term>
           <listitem>
-            <para>Query the database for specified type of device
+            <para>Query the database for the specified type of device
             data. It needs the <option>--path</option> or
             <option>--name</option> to identify the specified
             device. Valid queries are: <constant>name</constant>,
@@ -113,7 +113,7 @@
             <para>The <filename>/sys</filename> path of the device to
             query, e.g.
             <filename><optional>/sys</optional>/class/block/sda</filename>.
-            Note that this option usually isn't very useful, since
+            Note that this option usually is not very useful, since
             <command>udev</command> can guess the type of the
             argument, so <command>udevadm
             --devpath=/class/block/sda</command> is equivalent to
@@ -125,7 +125,7 @@
           <listitem>
             <para>The name of the device node or a symlink to query,
             e.g. <filename><optional>/dev</optional>/sda</filename>.
-            Note that this option usually isn't very useful, since
+            Note that this option usually is not very useful, since
             <command>udev</command> can guess the type of the
             argument, so <command>udevadm --name=sda</command> is
             equivalent to <command>udevadm /dev/sda</command>.</para>
@@ -481,10 +481,10 @@
           <listitem>
             <para>Specify when udevadm should resolve names of users
             and groups.  When set to <constant>early</constant> (the
-            default) names will be resolved when the rules are
-            parsed. When set to <constant>late</constant> names will
+            default), names will be resolved when the rules are
+            parsed. When set to <constant>late</constant>, names will
             be resolved for every event. When set to
-            <constant>never</constant> names will never be resolved
+            <constant>never</constant>, names will never be resolved
             and all devices will be owned by root.</para>
           </listitem>
         </varlistentry>

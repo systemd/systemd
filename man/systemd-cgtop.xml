@@ -79,15 +79,15 @@
                 <varname>CPUAccounting=1</varname>,
                 <varname>MemoryAccounting=1</varname> and
                 <varname>BlockIOAccounting=1</varname> settings in the
-                unit files in question (See
+                unit files in question. See
                 <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                for details).</para>
+                for details.</para>
 
                 <para>To emphasize this: unless
                 <literal>CPUAccounting=1</literal>,
                 <literal>MemoryAccounting=1</literal> and
                 <literal>BlockIOAccounting=1</literal> are enabled for
-                the services in question no resource accounting will
+                the services in question, no resource accounting will
                 be available for system services and the data shown by
                 <command>systemd-cgtop</command> will be
                 incomplete.</para>
