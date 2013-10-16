@@ -11,12 +11,12 @@ SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*", TAG+="systemd"
 
 KERNEL=="vport*", TAG+="systemd"
 
-SUBSYSTEM=="block", KERNEL!="ram*|loop*", TAG+="systemd"
-SUBSYSTEM=="block", KERNEL!="ram*|loop*", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
+SUBSYSTEM=="block", KERNEL!="ram*", TAG+="systemd"
+SUBSYSTEM=="block", KERNEL!="ram*", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
 
 # Ignore encrypted devices with no identified superblock on it, since
 # we are probably still calling mke2fs or mkswap on it.
-SUBSYSTEM=="block", KERNEL!="ram*|loop*", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_TABLE_TYPE}=="", ENV{ID_FS_USAGE}=="", ENV{SYSTEMD_READY}="0"
+SUBSYSTEM=="block", KERNEL!="ram*", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_TABLE_TYPE}=="", ENV{ID_FS_USAGE}=="", ENV{SYSTEMD_READY}="0"
 
 # Ignore raid devices that are not yet assembled and started
 SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="md*", TEST!="md/array_state", ENV{SYSTEMD_READY}="0"
