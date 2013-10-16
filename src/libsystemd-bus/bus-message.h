@@ -189,12 +189,6 @@ static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
         return (uint8_t*) m->header + sizeof(struct bus_header);
 }
 
-static inline void bus_message_unrefp(sd_bus_message **m) {
-        sd_bus_message_unref(*m);
-}
-
-#define _cleanup_bus_message_unref_ __attribute__((cleanup(bus_message_unrefp)))
-
 int bus_message_seal(sd_bus_message *m, uint64_t serial);
 int bus_message_dump(sd_bus_message *m);
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);

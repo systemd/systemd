@@ -34,6 +34,7 @@
 
 #include "sd-bus.h"
 #include "bus-message.h"
+#include "bus-util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;

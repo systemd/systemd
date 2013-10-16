@@ -61,8 +61,7 @@
 #include "fdset.h"
 #include "build.h"
 #include "fileio.h"
-#include "bus-internal.h"
-#include "bus-message.h"
+#include "bus-util.h"
 
 #ifndef TTY_GID
 #define TTY_GID 5
@@ -1187,7 +1186,7 @@ static int register_machine(void) {
                         NULL,
                         "sayssusa(sv)",
                         arg_machine,
-                        SD_BUS_APPEND_ID128(arg_uuid),
+                        SD_BUS_MESSAGE_APPEND_ID128(arg_uuid),
                         "nspawn",
                         "container",
                         (uint32_t) 0,

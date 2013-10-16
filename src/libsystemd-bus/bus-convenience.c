@@ -22,6 +22,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-signature.h"
+#include "bus-util.h"
 
 int sd_bus_emit_signal(
                 sd_bus *bus,
@@ -99,7 +100,7 @@ int sd_bus_reply_method_return(
         assert_return(bus, -EINVAL);
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
-        assert_return(call->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL, -EINVAL);
+        assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -134,7 +135,7 @@ int sd_bus_reply_method_error(
         assert_return(bus, -EINVAL);
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
-        assert_return(call->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL, -EINVAL);
+        assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
         assert_return(sd_bus_error_is_set(e), -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -163,29 +164,74 @@ int sd_bus_reply_method_errorf(
         assert_return(bus, -EINVAL);
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
-        assert_return(call->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL, -EINVAL);
+        assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
-        error.name = strdup(name);
-        if (!error.name)
-                return -ENOMEM;
+        va_start(ap, format);
+        r = bus_error_setfv(&error, name, format, ap);
+        va_end(ap);
 
-        error.need_free = true;
-
-        if (format) {
-                va_start(ap, format);
-                r = vasprintf((char**) &error.message, format, ap);
-                va_end(ap);
-
-                if (r < 0)
-                        return -ENOMEM;
-        }
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_error(bus, call, &error);
+}
+
+int sd_bus_reply_method_errno(
+                sd_bus *bus,
+                sd_bus_message *call,
+                int error,
+                const sd_bus_error *p) {
+
+        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+
+        assert_return(bus, -EINVAL);
+        assert_return(call, -EINVAL);
+        assert_return(call->sealed, -EPERM);
+        assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 0;
+
+        if (sd_bus_error_is_set(p))
+                return sd_bus_reply_method_error(bus, call, p);
+
+        sd_bus_error_set_errno(&berror, error);
+
+        return sd_bus_reply_method_error(bus, call, &berror);
+}
+
+int sd_bus_reply_method_errnof(
+                sd_bus *bus,
+                sd_bus_message *call,
+                int error,
+                const char *format,
+                ...) {
+
+        _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        va_list ap;
+
+        assert_return(bus, -EINVAL);
+        assert_return(call, -EINVAL);
+        assert_return(call->sealed, -EPERM);
+        assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+                return 0;
+
+        va_start(ap, format);
+        bus_error_set_errnofv(&berror, error, format, ap);
+        va_end(ap);
+
+        return sd_bus_reply_method_error(bus, call, &berror);
 }
 
 int sd_bus_get_property(

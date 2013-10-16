@@ -461,7 +461,7 @@ int sd_bus_message_new_signal(
         if (bus && bus->state == BUS_UNSET)
                 return -ENOTCONN;
 
-        t = message_new(bus, SD_BUS_MESSAGE_TYPE_SIGNAL);
+        t = message_new(bus, SD_BUS_MESSAGE_SIGNAL);
         if (!t)
                 return -ENOMEM;
 
@@ -509,7 +509,7 @@ int sd_bus_message_new_method_call(
         if (bus && bus->state == BUS_UNSET)
                 return -ENOTCONN;
 
-        t = message_new(bus, SD_BUS_MESSAGE_TYPE_METHOD_CALL);
+        t = message_new(bus, SD_BUS_MESSAGE_METHOD_CALL);
         if (!t)
                 return -ENOMEM;
 
@@ -553,7 +553,7 @@ static int message_new_reply(
                 return -EINVAL;
         if (!call->sealed)
                 return -EPERM;
-        if (call->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+        if (call->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return -EINVAL;
         if (!m)
                 return -EINVAL;
@@ -592,7 +592,7 @@ int sd_bus_message_new_method_return(
                 sd_bus_message *call,
                 sd_bus_message **m) {
 
-        return message_new_reply(bus, call, SD_BUS_MESSAGE_TYPE_METHOD_RETURN, m);
+        return message_new_reply(bus, call, SD_BUS_MESSAGE_METHOD_RETURN, m);
 }
 
 int sd_bus_message_new_method_error(
@@ -609,7 +609,7 @@ int sd_bus_message_new_method_error(
         if (!m)
                 return -EINVAL;
 
-        r = message_new_reply(bus, call, SD_BUS_MESSAGE_TYPE_METHOD_ERROR, &t);
+        r = message_new_reply(bus, call, SD_BUS_MESSAGE_METHOD_ERROR, &t);
         if (r < 0)
                 return r;
 
@@ -639,46 +639,60 @@ int sd_bus_message_new_method_errorf(
                 const char *format,
                 ...) {
 
-        sd_bus_message *t;
+        _cleanup_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         va_list ap;
         int r;
 
-        if (!name)
-                return -EINVAL;
-        if (!m)
-                return -EINVAL;
+        assert_return(name, -EINVAL);
+        assert_return(m, -EINVAL);
 
-        r = message_new_reply(bus, call, SD_BUS_MESSAGE_TYPE_METHOD_ERROR, &t);
+        va_start(ap, format);
+        r = bus_error_setfv(&error, name, format, ap);
+        va_end(ap);
+
         if (r < 0)
                 return r;
 
-        r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_ERROR_NAME, SD_BUS_TYPE_STRING, name, &t->error.name);
+        return sd_bus_message_new_method_error(bus, call, &error, m);
+}
+
+int sd_bus_message_new_method_errno(
+                sd_bus *bus,
+                sd_bus_message *call,
+                int error,
+                const sd_bus_error *p,
+                sd_bus_message **m) {
+
+        _cleanup_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+
+        if (sd_bus_error_is_set(p))
+                return sd_bus_message_new_method_error(bus, call, p, m);
+
+        sd_bus_error_set_errno(&berror, error);
+
+        return sd_bus_message_new_method_error(bus, call, &berror, m);
+}
+
+int sd_bus_message_new_method_errnof(
+                sd_bus *bus,
+                sd_bus_message *call,
+                sd_bus_message **m,
+                int error,
+                const char *format,
+                ...) {
+
+        _cleanup_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+        va_list ap;
+        int r;
+
+        va_start(ap, format);
+        r = bus_error_set_errnofv(&berror, error, format, ap);
+        va_end(ap);
+
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (format) {
-                _cleanup_free_ char *message = NULL;
-
-                va_start(ap, format);
-                r = vasprintf(&message, format, ap);
-                va_end(ap);
-
-                if (r < 0) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                r = message_append_basic(t, SD_BUS_TYPE_STRING, message, (const void**) &t->error.message);
-                if (r < 0)
-                        goto fail;
-        }
-
-        *m = t;
-        return 0;
-
-fail:
-        message_free(t);
-        return r;
+        return sd_bus_message_new_method_error(bus, call, &berror, m);
 }
 
 int bus_message_new_synthetic_error(
@@ -693,7 +707,7 @@ int bus_message_new_synthetic_error(
         assert(sd_bus_error_is_set(e));
         assert(m);
 
-        t = message_new(bus, SD_BUS_MESSAGE_TYPE_METHOD_ERROR);
+        t = message_new(bus, SD_BUS_MESSAGE_METHOD_ERROR);
         if (!t)
                 return -ENOMEM;
 
@@ -789,7 +803,7 @@ int sd_bus_message_get_no_reply(sd_bus_message *m) {
         if (!m)
                 return -EINVAL;
 
-        return m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL ? !!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED) : 0;
+        return m->header->type == SD_BUS_MESSAGE_METHOD_CALL ? !!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED) : 0;
 }
 
 const char *sd_bus_message_get_path(sd_bus_message *m) {
@@ -1126,7 +1140,7 @@ int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const cha
         if (!m)
                 return -EINVAL;
 
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_SIGNAL)
+        if (m->header->type != SD_BUS_MESSAGE_SIGNAL)
                 return 0;
 
         if (interface && (!m->interface || !streq(m->interface, interface)))
@@ -1142,7 +1156,7 @@ int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, cons
         if (!m)
                 return -EINVAL;
 
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+        if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return 0;
 
         if (interface && (!m->interface || !streq(m->interface, interface)))
@@ -1158,7 +1172,7 @@ int sd_bus_message_is_method_error(sd_bus_message *m, const char *name) {
         if (!m)
                 return -EINVAL;
 
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+        if (m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return 0;
 
         if (name && (!m->error.name || !streq(m->error.name, name)))
@@ -1172,7 +1186,7 @@ int sd_bus_message_set_no_reply(sd_bus_message *m, int b) {
                 return -EINVAL;
         if (m->sealed)
                 return -EPERM;
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+        if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return -EPERM;
 
         if (b)
@@ -3876,25 +3890,25 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
         switch (m->header->type) {
 
-        case SD_BUS_MESSAGE_TYPE_SIGNAL:
+        case SD_BUS_MESSAGE_SIGNAL:
                 if (!m->path || !m->interface || !m->member)
                         return -EBADMSG;
                 break;
 
-        case SD_BUS_MESSAGE_TYPE_METHOD_CALL:
+        case SD_BUS_MESSAGE_METHOD_CALL:
 
                 if (!m->path || !m->member)
                         return -EBADMSG;
 
                 break;
 
-        case SD_BUS_MESSAGE_TYPE_METHOD_RETURN:
+        case SD_BUS_MESSAGE_METHOD_RETURN:
 
                 if (m->reply_serial == 0)
                         return -EBADMSG;
                 break;
 
-        case SD_BUS_MESSAGE_TYPE_METHOD_ERROR:
+        case SD_BUS_MESSAGE_METHOD_ERROR:
 
                 if (m->reply_serial == 0 || !m->error.name)
                         return -EBADMSG;
@@ -3902,7 +3916,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
         }
 
         /* Try to read the error message, but if we can't it's a non-issue */
-        if (m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+        if (m->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
                 sd_bus_message_read(m, "s", &m->error.message);
 
         return 0;
@@ -4363,24 +4377,21 @@ int bus_header_message_size(struct bus_header *h, size_t *sum) {
         return 0;
 }
 
-int bus_message_to_errno(sd_bus_message *m) {
-        assert(m);
+int sd_bus_message_get_errno(sd_bus_message *m) {
+        assert_return(m, -EINVAL);
 
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+        if (m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return 0;
 
-        return bus_error_to_errno(&m->error);
+        return sd_bus_error_get_errno(&m->error);
 }
 
-int sd_bus_message_get_signature(sd_bus_message *m, int complete, const char **signature) {
+const char* sd_bus_message_get_signature(sd_bus_message *m, int complete) {
         struct bus_container *c;
 
         if (!m)
-                return -EINVAL;
-        if (!signature)
-                return -EINVAL;
+                return NULL;
 
         c = complete ? &m->root_container : message_get_container(m);
-        *signature = c->signature ?: "";
-        return 0;
+        return c->signature ?: "";
 }

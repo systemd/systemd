@@ -252,13 +252,13 @@ bool path_simple_pattern(const char *pattern, const char *value) {
 
 int bus_message_type_from_string(const char *s, uint8_t *u) {
         if (streq(s, "signal"))
-                *u = SD_BUS_MESSAGE_TYPE_SIGNAL;
+                *u = SD_BUS_MESSAGE_SIGNAL;
         else if (streq(s, "method_call"))
-                *u = SD_BUS_MESSAGE_TYPE_METHOD_CALL;
+                *u = SD_BUS_MESSAGE_METHOD_CALL;
         else if (streq(s, "error"))
-                *u = SD_BUS_MESSAGE_TYPE_METHOD_ERROR;
+                *u = SD_BUS_MESSAGE_METHOD_ERROR;
         else if (streq(s, "method_return"))
-                *u = SD_BUS_MESSAGE_TYPE_METHOD_RETURN;
+                *u = SD_BUS_MESSAGE_METHOD_RETURN;
         else
                 return -EINVAL;
 
@@ -266,13 +266,13 @@ int bus_message_type_from_string(const char *s, uint8_t *u) {
 }
 
 const char *bus_message_type_to_string(uint8_t u) {
-        if (u == SD_BUS_MESSAGE_TYPE_SIGNAL)
+        if (u == SD_BUS_MESSAGE_SIGNAL)
                 return "signal";
-        else if (u == SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+        else if (u == SD_BUS_MESSAGE_METHOD_CALL)
                 return "method_call";
-        else if (u == SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+        else if (u == SD_BUS_MESSAGE_METHOD_ERROR)
                 return "error";
-        else if (u == SD_BUS_MESSAGE_TYPE_METHOD_RETURN)
+        else if (u == SD_BUS_MESSAGE_METHOD_RETURN)
                  return "method_return";
         else
                 return NULL;

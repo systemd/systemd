@@ -45,6 +45,7 @@
 #include "bus-introspect.h"
 #include "bus-signature.h"
 #include "bus-objects.h"
+#include "bus-util.h"
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 
@@ -103,6 +104,8 @@ static void bus_free(sd_bus *b) {
         unsigned i;
 
         assert(b);
+
+        sd_bus_detach_event(b);
 
         bus_close_fds(b);
 
@@ -350,9 +353,11 @@ static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata) {
         assert(bus->state == BUS_HELLO);
         assert(reply);
 
-        r = bus_message_to_errno(reply);
+        r = sd_bus_message_get_errno(reply);
         if (r < 0)
                 return r;
+        if (r > 0)
+                return -r;
 
         r = sd_bus_message_read(reply, "s", &s);
         if (r < 0)
@@ -1038,6 +1043,8 @@ void sd_bus_close(sd_bus *bus) {
 
         bus->state = BUS_CLOSED;
 
+        sd_bus_detach_event(bus);
+
         if (!bus->is_kernel)
                 bus_close_fds(bus);
 
@@ -1318,7 +1325,7 @@ int sd_bus_send_with_reply(
         assert_return(bus, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(m, -EINVAL);
-        assert_return(m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL, -EINVAL);
+        assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
         assert_return(!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -1428,7 +1435,7 @@ int sd_bus_send_with_reply_and_block(
         assert_return(bus, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(m, -EINVAL);
-        assert_return(m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL, -EINVAL);
+        assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
         assert_return(!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
         assert_return(!bus_error_is_dirty(error), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -1475,7 +1482,7 @@ int sd_bus_send_with_reply_and_block(
                         if (incoming->reply_serial == serial) {
                                 /* Found a match! */
 
-                                if (incoming->header->type == SD_BUS_MESSAGE_TYPE_METHOD_RETURN) {
+                                if (incoming->header->type == SD_BUS_MESSAGE_METHOD_RETURN) {
 
                                         if (reply)
                                                 *reply = incoming;
@@ -1485,7 +1492,7 @@ int sd_bus_send_with_reply_and_block(
                                         return 1;
                                 }
 
-                                if (incoming->header->type == SD_BUS_MESSAGE_TYPE_METHOD_ERROR) {
+                                if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR) {
                                         int k;
 
                                         r = sd_bus_error_copy(error, &incoming->error);
@@ -1494,9 +1501,9 @@ int sd_bus_send_with_reply_and_block(
                                                 return r;
                                         }
 
-                                        k = bus_error_to_errno(&incoming->error);
+                                        k = sd_bus_error_get_errno(&incoming->error);
                                         sd_bus_message_unref(incoming);
-                                        return k;
+                                        return -k;
                                 }
 
                                 sd_bus_message_unref(incoming);
@@ -1623,7 +1630,7 @@ static int process_timeout(sd_bus *bus) {
         r = bus_message_new_synthetic_error(
                         bus,
                         c->serial,
-                        &SD_BUS_ERROR_MAKE("org.freedesktop.DBus.Error.Timeout", "Timed out"),
+                        &SD_BUS_ERROR_MAKE(SD_BUS_ERROR_NO_REPLY, "Method call timed out"),
                         &m);
         if (r < 0)
                 return r;
@@ -1649,8 +1656,8 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
          * here (we leave that to the usual handling), we just verify
          * we don't let any earlier msg through. */
 
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_RETURN &&
-            m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+        if (m->header->type != SD_BUS_MESSAGE_METHOD_RETURN &&
+            m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return -EIO;
 
         if (m->reply_serial != bus->hello_serial)
@@ -1666,8 +1673,8 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_RETURN &&
-            m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_ERROR)
+        if (m->header->type != SD_BUS_MESSAGE_METHOD_RETURN &&
+            m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return 0;
 
         c = hashmap_remove(bus->reply_callbacks, &m->reply_serial);
@@ -1748,7 +1755,7 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+        if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return 0;
 
         if (!streq_ptr(m->interface, "org.freedesktop.DBus.Peer"))
@@ -1775,7 +1782,7 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
         } else {
                 r = sd_bus_message_new_method_errorf(
                                 bus, m, &reply,
-                                "org.freedesktop.DBus.Error.UnknownMethod",
+                                SD_BUS_ERROR_UNKNOWN_METHOD,
                                  "Unknown method '%s' on interface '%s'.", m->member, m->interface);
         }
 
@@ -1796,6 +1803,12 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         assert(m);
 
         bus->iteration_counter++;
+
+        log_debug("Got message sender=%s object=%s interface=%s member=%s",
+                  strna(sd_bus_message_get_sender(m)),
+                  strna(sd_bus_message_get_path(m)),
+                  strna(sd_bus_message_get_interface(m)),
+                  strna(sd_bus_message_get_member(m)));
 
         r = process_hello(bus, m);
         if (r != 0)
@@ -1855,11 +1868,11 @@ static int process_running(sd_bus *bus, sd_bus_message **ret) {
                 return 1;
         }
 
-        if (m->header->type == SD_BUS_MESSAGE_TYPE_METHOD_CALL) {
+        if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL) {
 
                 r = sd_bus_reply_method_errorf(
                                 bus, m,
-                                "org.freedesktop.DBus.Error.UnknownObject",
+                                SD_BUS_ERROR_UNKNOWN_OBJECT,
                                 "Unknown object '%s'.", m->path);
                 if (r < 0)
                         return r;
@@ -2122,4 +2135,144 @@ bool bus_pid_changed(sd_bus *bus) {
          * keeping it around over a fork(). Let's complain. */
 
         return bus->original_pid != getpid();
+}
+
+static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        void *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_process(bus, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+        void *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_process(bus, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int prepare_callback(sd_event_source *s, void *userdata) {
+        sd_bus *bus = userdata;
+        int r, e;
+        usec_t until;
+
+        assert(s);
+        assert(bus);
+
+        e = sd_bus_get_events(bus);
+        if (e < 0)
+                return e;
+
+        if (bus->output_fd != bus->input_fd) {
+
+                r = sd_event_source_set_io_events(bus->input_io_event_source, e & POLLIN);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_io_events(bus->output_io_event_source, e & POLLOUT);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_event_source_set_io_events(bus->input_io_event_source, e);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_get_timeout(bus, &until);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                int j;
+
+                j = sd_event_source_set_time(bus->time_event_source, until);
+                if (j < 0)
+                        return j;
+        }
+
+        r = sd_event_source_set_enabled(bus->time_event_source, r > 0);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(event, -EINVAL);
+        assert_return(!bus->event, -EBUSY);
+
+        assert(!bus->input_io_event_source);
+        assert(!bus->output_io_event_source);
+        assert(!bus->time_event_source);
+
+        bus->event = sd_event_ref(event);
+
+        r = sd_event_add_io(event, bus->input_fd, 0, io_callback, bus, &bus->input_io_event_source);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(bus->input_io_event_source, priority);
+        if (r < 0)
+                goto fail;
+
+        if (bus->output_fd != bus->input_fd) {
+                r = sd_event_add_io(event, bus->output_fd, 0, io_callback, bus, &bus->output_io_event_source);
+                if (r < 0)
+                        goto fail;
+
+                r = sd_event_source_set_priority(bus->output_io_event_source, priority);
+                if (r < 0)
+                        goto fail;
+        }
+
+        r = sd_event_source_set_prepare(bus->input_io_event_source, prepare_callback);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_add_monotonic(event, 0, 0, time_callback, bus, &bus->time_event_source);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(bus->time_event_source, priority);
+        if (r < 0)
+                goto fail;
+
+        return 0;
+
+fail:
+        sd_bus_detach_event(bus);
+        return r;
+}
+
+int sd_bus_detach_event(sd_bus *bus) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus->event, -ENXIO);
+
+        if (bus->input_io_event_source)
+                bus->input_io_event_source = sd_event_source_unref(bus->input_io_event_source);
+
+        if (bus->output_io_event_source)
+                bus->output_io_event_source = sd_event_source_unref(bus->output_io_event_source);
+
+        if (bus->time_event_source)
+                bus->time_event_source = sd_event_source_unref(bus->time_event_source);
+
+        if (bus->event)
+                bus->event = sd_event_unref(bus->event);
+
+        return 0;
 }

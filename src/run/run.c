@@ -23,8 +23,7 @@
 #include <getopt.h>
 
 #include "sd-bus.h"
-#include "bus-internal.h"
-#include "bus-message.h"
+#include "bus-util.h"
 #include "strv.h"
 #include "build.h"
 #include "unit-name.h"

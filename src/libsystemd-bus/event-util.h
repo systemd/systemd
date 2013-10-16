@@ -21,11 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "sd-bus.h"
+#include "util.h"
 
-bool bus_error_is_dirty(sd_bus_error *e);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_event*, sd_event_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_event_source*, sd_event_source_unref);
 
-const char *bus_error_message(const sd_bus_error *e, int error);
-
-int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap);
-int bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_list ap);
+#define _cleanup_event_unref_ _cleanup_(sd_event_unrefp)
+#define _cleanup_event_source_unref_ _cleanup_(sd_event_source_unrefp)

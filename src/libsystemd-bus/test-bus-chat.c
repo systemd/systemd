@@ -34,6 +34,7 @@
 #include "bus-error.h"
 #include "bus-match.h"
 #include "bus-internal.h"
+#include "bus-util.h"
 
 static int match_callback(sd_bus *bus, sd_bus_message *m, void *userdata) {
         log_info("Match triggered! interface=%s member=%s", strna(sd_bus_message_get_interface(m)), strna(sd_bus_message_get_member(m)));
@@ -243,7 +244,7 @@ static int server(sd_bus *bus) {
 
                         r = sd_bus_reply_method_error(
                                         bus, m,
-                                        &SD_BUS_ERROR_MAKE("org.freedesktop.DBus.Error.UnknownMethod", "Unknown method."));
+                                        &SD_BUS_ERROR_MAKE(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
@@ -359,7 +360,7 @@ finish:
 static int quit_callback(sd_bus *b, sd_bus_message *m, void *userdata) {
         bool *x = userdata;
 
-        log_error("Quit callback: %s", strerror(-bus_message_to_errno(m)));
+        log_error("Quit callback: %s", strerror(sd_bus_message_get_errno(m)));
 
         *x = 1;
         return 1;

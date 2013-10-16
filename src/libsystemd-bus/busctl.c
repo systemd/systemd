@@ -30,6 +30,7 @@
 #include "sd-bus.h"
 #include "bus-message.h"
 #include "bus-internal.h"
+#include "bus-util.h"
 
 static bool arg_no_pager = false;
 static char *arg_address = NULL;

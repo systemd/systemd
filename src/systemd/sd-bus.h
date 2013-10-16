@@ -25,7 +25,9 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
-#include <sd-id128.h>
+#include "sd-id128.h"
+#include "sd-event.h"
+#include "sd-memfd.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,7 +66,6 @@ typedef int (*sd_bus_node_enumerator_t) (sd_bus *bus, const char *path, char ***
 
 #include "sd-bus-protocol.h"
 #include "sd-bus-vtable.h"
-#include "sd-memfd.h"
 
 /* Connections */
 
@@ -109,6 +110,9 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
 
+int sd_bus_attach_event(sd_bus *bus, sd_event *e, int priority);
+int sd_bus_detach_event(sd_bus *bus);
+
 int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata);
 
@@ -139,6 +143,8 @@ int sd_bus_message_new_method_call(sd_bus *bus, const char *destination, const c
 int sd_bus_message_new_method_return(sd_bus *bus, sd_bus_message *call, sd_bus_message **m);
 int sd_bus_message_new_method_error(sd_bus *bus, sd_bus_message *call, const sd_bus_error *e, sd_bus_message **m);
 int sd_bus_message_new_method_errorf(sd_bus *bus, sd_bus_message *call, sd_bus_message **m, const char *name, const char *format, ...) _sd_printf_attr_(5, 0);
+int sd_bus_message_new_method_errno(sd_bus *bus, sd_bus_message *call, int error, const sd_bus_error *e, sd_bus_message **m);
+int sd_bus_message_new_method_errnof(sd_bus *bus, sd_bus_message *call, sd_bus_message **m, int error, const char *format, ...) _sd_printf_attr_(5, 0);
 
 sd_bus_message* sd_bus_message_ref(sd_bus_message *m);
 sd_bus_message* sd_bus_message_unref(sd_bus_message *m);
@@ -147,14 +153,15 @@ int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
 int sd_bus_message_get_serial(sd_bus_message *m, uint64_t *serial);
 int sd_bus_message_get_reply_serial(sd_bus_message *m, uint64_t *serial);
 int sd_bus_message_get_no_reply(sd_bus_message *m);
-int sd_bus_message_get_signature(sd_bus_message *m, int complete, const char **signature);
 
+const char *sd_bus_message_get_signature(sd_bus_message *m, int complete);
 const char *sd_bus_message_get_path(sd_bus_message *m);
 const char *sd_bus_message_get_interface(sd_bus_message *m);
 const char *sd_bus_message_get_member(sd_bus_message *m);
 const char *sd_bus_message_get_destination(sd_bus_message *m);
 const char *sd_bus_message_get_sender(sd_bus_message *m);
 const sd_bus_error *sd_bus_message_get_error(sd_bus_message *m);
+int sd_bus_message_get_errno(sd_bus_message *m);
 
 int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec);
 int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec);
@@ -211,6 +218,8 @@ int sd_bus_set_property(sd_bus *bus, const char *destination, const char *path, 
 int sd_bus_reply_method_return(sd_bus *bus, sd_bus_message *call, const char *types, ...);
 int sd_bus_reply_method_error(sd_bus *bus, sd_bus_message *call, const sd_bus_error *e);
 int sd_bus_reply_method_errorf(sd_bus *bus, sd_bus_message *call, const char *name, const char *format, ...) _sd_printf_attr_(4, 0);
+int sd_bus_reply_method_errno(sd_bus *bus, sd_bus_message *call, int error, const sd_bus_error *e);
+int sd_bus_reply_method_errnof(sd_bus *bus, sd_bus_message *call, int error, const char *format, ...) _sd_printf_attr_(4, 0);
 
 int sd_bus_emit_signal(sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, ...);
 
@@ -239,16 +248,19 @@ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machi
 #define SD_BUS_ERROR_NULL SD_BUS_ERROR_MAKE(NULL, NULL)
 
 void sd_bus_error_free(sd_bus_error *e);
-int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...)  _sd_printf_attr_(3, 0);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message);
-void sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message);
+int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...)  _sd_printf_attr_(3, 0);
+int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message);
+int sd_bus_error_set_errno(sd_bus_error *e, int error);
+int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) _sd_printf_attr_(3, 0);
+int sd_bus_error_get_errno(const sd_bus_error *e);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);
 int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
 
-#define SD_BUS_APPEND_ID128(x) 16,                                          \
-                (x).bytes[0],  (x).bytes[1],  (x).bytes[2],  (x).bytes[3],  \
-                (x).bytes[4],  (x).bytes[5],  (x).bytes[6],  (x).bytes[7],  \
+#define SD_BUS_MESSAGE_APPEND_ID128(x) 16,                              \
+                (x).bytes[0],  (x).bytes[1],  (x).bytes[2],  (x).bytes[3], \
+                (x).bytes[4],  (x).bytes[5],  (x).bytes[6],  (x).bytes[7], \
                 (x).bytes[8],  (x).bytes[9],  (x).bytes[10], (x).bytes[11], \
                 (x).bytes[12], (x).bytes[13], (x).bytes[14], (x).bytes[15]
 

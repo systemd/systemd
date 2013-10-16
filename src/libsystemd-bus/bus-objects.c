@@ -27,6 +27,7 @@
 #include "bus-signature.h"
 #include "bus-introspect.h"
 #include "bus-objects.h"
+#include "bus-util.h"
 
 static int node_vtable_get_userdata(
                 sd_bus *bus,
@@ -275,13 +276,13 @@ static int method_callbacks_run(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_get_signature(m, true, &signature);
-        if (r < 0)
-                return r;
+        signature = sd_bus_message_get_signature(m, true);
+        if (!signature)
+                return -EINVAL;
 
         if (!streq(strempty(c->vtable->x.method.signature), signature)) {
                 r = sd_bus_reply_method_errorf(bus, m,
-                                               "org.freedesktop.DBus.Error.InvalidArgs",
+                                               SD_BUS_ERROR_INVALID_ARGS,
                                                "Invalid arguments '%s' to call %s:%s, expecting '%s'.",
                                                signature, c->interface, c->member, strempty(c->vtable->x.method.signature));
                 if (r < 0)
@@ -475,7 +476,7 @@ static int property_get_set_callbacks_run(
 
         } else {
                 if (c->vtable->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
-                        sd_bus_error_setf(&error, "org.freedesktop.DBus.Error.PropertyReadOnly", "Property '%s' is not writable.", c->member);
+                        sd_bus_error_setf(&error, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Property '%s' is not writable.", c->member);
                 else  {
                         /* Avoid that we call the set routine more
                          * than once if the processing of this message
@@ -634,7 +635,7 @@ static int property_get_all_callbacks_run(
         if (!found_interface) {
                 r = sd_bus_reply_method_errorf(
                                 bus, m,
-                                "org.freedesktop.DBus.Error.UnknownInterface",
+                                SD_BUS_ERROR_UNKNOWN_INTERFACE,
                                 "Unknown interface '%s'.", iface);
                 if (r < 0)
                         return r;
@@ -1164,7 +1165,7 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
-        if (m->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
+        if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return 0;
 
         if (!m->path)
@@ -1203,12 +1204,12 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
             sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "Set"))
                 r = sd_bus_reply_method_errorf(
                                 bus, m,
-                                "org.freedesktop.DBus.Error.UnknownProperty",
+                                SD_BUS_ERROR_UNKNOWN_PROPERTY,
                                 "Unknown property or interface.");
         else
                 r = sd_bus_reply_method_errorf(
                                 bus, m,
-                                "org.freedesktop.DBus.Error.UnknownMethod",
+                                SD_BUS_ERROR_UNKNOWN_METHOD,
                                 "Unknown method '%s' or interface '%s'.", m->member, m->interface);
 
         if (r < 0)
@@ -1875,8 +1876,6 @@ static int emit_properties_changed_on_interface(
                 r = invoke_property_get(bus, v->vtable, m->path, interface, *property, m, &error, vtable_property_convert_userdata(v->vtable, u));
                 if (r < 0)
                         return r;
-                if (sd_bus_error_is_set(&error))
-                        return bus_error_to_errno(&error);
                 if (bus->nodes_modified)
                         return 0;
 
@@ -2047,8 +2046,6 @@ static int interfaces_added_append_one_prefix(
         r = vtable_append_all_properties(bus, m,path, c, u, &error);
         if (r < 0)
                 return r;
-        if (sd_bus_error_is_set(&error))
-                return bus_error_to_errno(&error);
         if (bus->nodes_modified)
                 return 0;
 

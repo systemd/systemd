@@ -32,6 +32,7 @@
 #include "sd-bus.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "bus-util.h"
 
 struct context {
         int fds[2];
@@ -98,7 +99,7 @@ static void *server(void *p) {
                 } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
                         r = sd_bus_message_new_method_error(
                                         bus, m,
-                                        &SD_BUS_ERROR_MAKE("org.freedesktop.DBus.Error.UnknownMethod", "Unknown method."),
+                                        &SD_BUS_ERROR_MAKE(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."),
                                         &reply);
                         if (r < 0) {
                                 log_error("Failed to allocate return: %s", strerror(-r));

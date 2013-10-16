@@ -26,6 +26,7 @@
 #include "bus-message.h"
 #include "bus-error.h"
 #include "bus-kernel.h"
+#include "bus-util.h"
 
 static void test_one(
                 const char *path,

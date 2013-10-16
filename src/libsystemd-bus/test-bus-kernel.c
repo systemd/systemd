@@ -28,6 +28,7 @@
 #include "bus-message.h"
 #include "bus-error.h"
 #include "bus-kernel.h"
+#include "bus-util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int bus_ref = -1;

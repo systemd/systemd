@@ -27,6 +27,7 @@
 
 #include "bus-match.h"
 #include "bus-message.h"
+#include "bus-util.h"
 
 static bool mask[32];
 

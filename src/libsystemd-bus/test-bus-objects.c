@@ -33,6 +33,7 @@
 #include "sd-bus.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "bus-util.h"
 
 struct context {
         int fds[2];
@@ -269,13 +270,13 @@ static int client(struct context *c) {
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Doesntexist", &error, &reply, "");
         assert_se(r < 0);
-        assert_se(sd_bus_error_has_name(&error, "org.freedesktop.DBus.Error.UnknownMethod"));
+        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD));
 
         sd_bus_error_free(&error);
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "AlterSomething", &error, &reply, "as", 1, "hallo");
         assert_se(r < 0);
-        assert_se(sd_bus_error_has_name(&error, "org.freedesktop.DBus.Error.InvalidArgs"));
+        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS));
 
         sd_bus_error_free(&error);
 
@@ -372,12 +373,12 @@ static int client(struct context *c) {
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value/a", "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", "org.freedesktop.systemd.ValueTest2");
         assert_se(r < 0);
-        assert_se(sd_bus_error_has_name(&error, "org.freedesktop.DBus.Error.UnknownInterface"));
+        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_INTERFACE));
         sd_bus_error_free(&error);
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", &error, &reply, "");
         assert_se(r < 0);
-        assert_se(sd_bus_error_has_name(&error, "org.freedesktop.DBus.Error.UnknownMethod"));
+        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD));
         sd_bus_error_free(&error);
 
         r = sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/value", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects", &error, &reply, "");

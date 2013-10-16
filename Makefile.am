@@ -1983,7 +1983,10 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-convenience.c \
 	src/libsystemd-bus/kdbus.h \
 	src/libsystemd-bus/sd-memfd.c \
-	src/libsystemd-bus/sd-event.c
+	src/libsystemd-bus/sd-event.c \
+	src/libsystemd-bus/bus-util.c \
+	src/libsystemd-bus/bus-util.h \
+	src/libsystemd-bus/event-util.h
 
 libsystemd_bus_la_LIBADD =  \
 	libsystemd-id128-internal.la \
@@ -3655,15 +3658,11 @@ if ENABLE_TIMEDATED
 systemd_timedated_SOURCES = \
 	src/timedate/timedated.c
 
-systemd_timedated_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 systemd_timedated_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-dbus.la
+	libsystemd-bus.la
 
 rootlibexec_PROGRAMS += \
 	systemd-timedated
