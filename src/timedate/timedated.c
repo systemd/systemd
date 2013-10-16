@@ -452,6 +452,35 @@ static int context_enable_ntp(Context*c, sd_bus *bus, sd_bus_error *error) {
         return -ENOTSUP;
 }
 
+static int property_get_rtc_time(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        struct tm tm;
+        usec_t t;
+        int r;
+
+        zero(tm);
+        r = hwclock_get_time(&tm);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, -r, "Failed to read RTC: %s", strerror(-r));
+                return r;
+        }
+
+        t = (usec_t) mktime(&tm) * USEC_PER_SEC;
+
+        r = sd_bus_message_append(reply, "t", t);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         Context *c = userdata;
@@ -474,7 +503,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
         if (r < 0)
                 return sd_bus_reply_method_errno(bus, m, r, &error);
         if (r == 0)
-                return 1;
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         t = strdup(z);
         if (!t)
@@ -706,6 +735,7 @@ static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_PROPERTY("LocalRTC", "b", NULL, offsetof(Context, local_rtc), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CanNTP", "b", bus_property_get_tristate, offsetof(Context, can_ntp), 0),
         SD_BUS_PROPERTY("NTP", "b", bus_property_get_tristate, offsetof(Context, use_ntp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("RTCTimeUSec", "t", property_get_rtc_time, 0, 0),
         SD_BUS_METHOD("SetTime", "xbb", NULL, method_set_time, 0),
         SD_BUS_METHOD("SetTimezone", "sb", NULL, method_set_timezone, 0),
         SD_BUS_METHOD("SetLocalRTC", "bbb", NULL, method_set_local_rtc, 0),
