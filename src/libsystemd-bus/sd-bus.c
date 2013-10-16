@@ -1589,6 +1589,11 @@ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
                 return 0;
         }
 
+        if (bus->rqueue_size > 0) {
+                *timeout_usec = 0;
+                return 1;
+        }
+
         c = prioq_peek(bus->reply_callbacks_prioq);
         if (!c) {
                 *timeout_usec = (uint64_t) -1;
@@ -1924,7 +1929,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         struct pollfd p[2] = {};
         int r, e, n;
         struct timespec ts;
-        usec_t until, m;
+        usec_t m = (usec_t) -1;
 
         assert(bus);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
@@ -1934,17 +1939,23 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
                 return e;
 
         if (need_more)
+                /* The caller really needs some more data, he doesn't
+                 * care about what's already read, or any timeouts
+                 * except its own.*/
                 e |= POLLIN;
-
-        r = sd_bus_get_timeout(bus, &until);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                m = (uint64_t) -1;
         else {
-                usec_t nw;
-                nw = now(CLOCK_MONOTONIC);
-                m = until > nw ? until - nw : 0;
+                usec_t until;
+                /* The caller wants to process if there's something to
+                 * process, but doesn't care otherwise */
+
+                r = sd_bus_get_timeout(bus, &until);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        usec_t nw;
+                        nw = now(CLOCK_MONOTONIC);
+                        m = until > nw ? until - nw : 0;
+                }
         }
 
         if (timeout_usec != (uint64_t) -1 && (m == (uint64_t) -1 || timeout_usec < m))
