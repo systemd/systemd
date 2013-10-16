@@ -26,6 +26,8 @@
 
 #include <inttypes.h>
 
+#include "_sd-common.h"
+
 typedef enum sd_shutdown_mode {
         SD_SHUTDOWN_NONE = 0,
         SD_SHUTDOWN_REBOOT = 'r',
@@ -55,7 +57,7 @@ struct sd_shutdown_command {
         /* The wall message to send around. Leave empty for the
          * default wall message */
         char wall_message[];
-} __attribute__((packed));
+} _sd_packed_;
 
 /* The scheme is very simple:
  *

@@ -28,21 +28,10 @@
 #include "sd-id128.h"
 #include "sd-event.h"
 #include "sd-memfd.h"
+#include "_sd-common.h"
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#ifndef _sd_printf_attr_
-#  if __GNUC__ >= 4
-#    define _sd_printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
-#  else
-#    define _sd_printf_attr_(a,b)
-#  endif
-#endif
-
-#ifndef _sd_sentinel_attr_
-#  define _sd_sentinel_attr_ __attribute__((sentinel))
 #endif
 
 /* Types */
@@ -142,9 +131,9 @@ int sd_bus_message_new_signal(sd_bus *bus, const char *path, const char *interfa
 int sd_bus_message_new_method_call(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message **m);
 int sd_bus_message_new_method_return(sd_bus *bus, sd_bus_message *call, sd_bus_message **m);
 int sd_bus_message_new_method_error(sd_bus *bus, sd_bus_message *call, const sd_bus_error *e, sd_bus_message **m);
-int sd_bus_message_new_method_errorf(sd_bus *bus, sd_bus_message *call, sd_bus_message **m, const char *name, const char *format, ...) _sd_printf_attr_(5, 0);
+int sd_bus_message_new_method_errorf(sd_bus *bus, sd_bus_message *call, sd_bus_message **m, const char *name, const char *format, ...) _sd_printf_(5, 0);
 int sd_bus_message_new_method_errno(sd_bus *bus, sd_bus_message *call, int error, const sd_bus_error *e, sd_bus_message **m);
-int sd_bus_message_new_method_errnof(sd_bus *bus, sd_bus_message *call, sd_bus_message **m, int error, const char *format, ...) _sd_printf_attr_(5, 0);
+int sd_bus_message_new_method_errnof(sd_bus *bus, sd_bus_message *call, sd_bus_message **m, int error, const char *format, ...) _sd_printf_(5, 0);
 
 sd_bus_message* sd_bus_message_ref(sd_bus_message *m);
 sd_bus_message* sd_bus_message_unref(sd_bus_message *m);
@@ -217,19 +206,19 @@ int sd_bus_get_property(sd_bus *bus, const char *destination, const char *path, 
 int sd_bus_set_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, const char *type, ...);
 int sd_bus_reply_method_return(sd_bus *bus, sd_bus_message *call, const char *types, ...);
 int sd_bus_reply_method_error(sd_bus *bus, sd_bus_message *call, const sd_bus_error *e);
-int sd_bus_reply_method_errorf(sd_bus *bus, sd_bus_message *call, const char *name, const char *format, ...) _sd_printf_attr_(4, 0);
+int sd_bus_reply_method_errorf(sd_bus *bus, sd_bus_message *call, const char *name, const char *format, ...) _sd_printf_(4, 0);
 int sd_bus_reply_method_errno(sd_bus *bus, sd_bus_message *call, int error, const sd_bus_error *e);
-int sd_bus_reply_method_errnof(sd_bus *bus, sd_bus_message *call, int error, const char *format, ...) _sd_printf_attr_(4, 0);
+int sd_bus_reply_method_errnof(sd_bus *bus, sd_bus_message *call, int error, const char *format, ...) _sd_printf_(4, 0);
 
 int sd_bus_emit_signal(sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, ...);
 
 int sd_bus_emit_properties_changed_strv(sd_bus *bus, const char *path, const char *interface, char **names);
-int sd_bus_emit_properties_changed(sd_bus *bus, const char *path, const char *interface, const char *name, ...) _sd_sentinel_attr_;
+int sd_bus_emit_properties_changed(sd_bus *bus, const char *path, const char *interface, const char *name, ...) _sd_sentinel_;
 
 int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **interfaces);
-int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) _sd_sentinel_attr_;
+int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) _sd_sentinel_;
 int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **interfaces);
-int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) _sd_sentinel_attr_;
+int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) _sd_sentinel_;
 
 /* Bus management */
 
@@ -249,10 +238,10 @@ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machi
 
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message);
-int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...)  _sd_printf_attr_(3, 0);
+int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...)  _sd_printf_(3, 0);
 int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message);
 int sd_bus_error_set_errno(sd_bus_error *e, int error);
-int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) _sd_printf_attr_(3, 0);
+int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) _sd_printf_(3, 0);
 int sd_bus_error_get_errno(const sd_bus_error *e);
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);

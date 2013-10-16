@@ -1,0 +1,48 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+#ifndef foosdcommonhfoo
+#define foosdcommonhfoo
+
+/***
+  This file is part of systemd.
+
+  Copyright 2013 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+/* This is a private header, never even think of including this directly! */
+
+#ifndef _sd_printf_
+#  if __GNUC__ >= 4
+#    define _sd_printf_(a,b) __attribute__ ((format (printf, a, b)))
+#  else
+#    define _sd_printf_(a,b)
+#  endif
+#endif
+
+#ifndef _sd_sentinel_
+#  define _sd_sentinel_ __attribute__((sentinel))
+#endif
+
+#ifndef _sd_packed_
+#  define _sd_packed_ __attribute__((packed))
+#endif
+
+#ifndef _sd_stringify
+#  define _sd_xstringify(x) #x
+#  define _sd_stringify(x) _sd_xstringify(x)
+#endif
+
+#endif

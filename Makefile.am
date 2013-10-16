@@ -2959,6 +2959,7 @@ test_catalog_LDADD = \
 libsystemd_journal_la_SOURCES = \
 	src/journal/sd-journal.c \
 	src/systemd/sd-journal.h \
+	src/systemd/_sd-common.h \
 	src/journal/journal-file.c \
 	src/journal/journal-file.h \
 	src/journal/journal-vacuum.c \
@@ -3122,7 +3123,8 @@ tests += \
 
 pkginclude_HEADERS += \
 	src/systemd/sd-journal.h \
-	src/systemd/sd-messages.h
+	src/systemd/sd-messages.h \
+	src/systemd/_sd-common.h
 
 lib_LTLIBRARIES += \
 	libsystemd-journal.la

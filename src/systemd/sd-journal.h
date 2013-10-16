@@ -28,51 +28,37 @@
 #include <sys/uio.h>
 #include <syslog.h>
 
-#include <systemd/sd-id128.h>
+#include "sd-id128.h"
+#include "_sd-common.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef _sd_printf_attr_
-#  if __GNUC__ >= 4
-#    define _sd_printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
-#  else
-#    define _sd_printf_attr_(a,b)
-#  endif
-#endif
-
-#ifndef _sd_sentinel_attr_
-#  define _sd_sentinel_attr_ __attribute__((sentinel))
-#endif
-
 /* Journal APIs. See sd-journal(3) for more information. */
 
 /* Write to daemon */
-int sd_journal_print(int priority, const char *format, ...) _sd_printf_attr_(2, 3);
-int sd_journal_printv(int priority, const char *format, va_list ap) _sd_printf_attr_(2, 0);
-int sd_journal_send(const char *format, ...) _sd_printf_attr_(1, 0) _sd_sentinel_attr_;
+int sd_journal_print(int priority, const char *format, ...) _sd_printf_(2, 3);
+int sd_journal_printv(int priority, const char *format, va_list ap) _sd_printf_(2, 0);
+int sd_journal_send(const char *format, ...) _sd_printf_(1, 0) _sd_sentinel_;
 int sd_journal_sendv(const struct iovec *iov, int n);
 int sd_journal_perror(const char *message);
 
 /* Used by the macros below. Don't call this directly. */
-int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_attr_(5, 6);
-int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) _sd_printf_attr_(5, 0);
-int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_attr_(4, 0) _sd_sentinel_attr_;
+int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_(5, 6);
+int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) _sd_printf_(5, 0);
+int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_(4, 0) _sd_sentinel_;
 int sd_journal_sendv_with_location(const char *file, const char *line, const char *func, const struct iovec *iov, int n);
 int sd_journal_perror_with_location(const char *file, const char *line, const char *func, const char *message);
 
 /* implicitly add code location to messages sent, if this is enabled */
 #ifndef SD_JOURNAL_SUPPRESS_LOCATION
 
-#define _sd_XSTRINGIFY(x) #x
-#define _sd_STRINGIFY(x) _sd_XSTRINGIFY(x)
-
-#define sd_journal_print(priority, ...) sd_journal_print_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
-#define sd_journal_printv(priority, format, ap) sd_journal_printv_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, format, ap)
-#define sd_journal_send(...) sd_journal_send_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
-#define sd_journal_sendv(iovec, n) sd_journal_sendv_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, iovec, n)
-#define sd_journal_perror(message) sd_journal_perror_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, message)
+#define sd_journal_print(priority, ...) sd_journal_print_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_stringify(__LINE__), __func__, __VA_ARGS__)
+#define sd_journal_printv(priority, format, ap) sd_journal_printv_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_stringify(__LINE__), __func__, format, ap)
+#define sd_journal_send(...) sd_journal_send_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_stringify(__LINE__), __func__, __VA_ARGS__)
+#define sd_journal_sendv(iovec, n) sd_journal_sendv_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_stringify(__LINE__), __func__, iovec, n)
+#define sd_journal_perror(message) sd_journal_perror_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_stringify(__LINE__), __func__, message)
 
 #endif
 
