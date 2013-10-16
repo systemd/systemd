@@ -300,7 +300,7 @@ bin_PROGRAMS = \
 	systemd-delta \
 	systemd-analyze \
 	systemd-run \
-	systemd-sabridge
+	systemd-saproxy
 
 dist_bin_SCRIPTS = \
 	src/kernel-install/kernel-install
@@ -3210,10 +3210,10 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 
-systemd_sabridge_SOURCES = \
-	src/sabridge/sabridge.c
+systemd_saproxy_SOURCES = \
+	src/saproxy/saproxy.c
 
-systemd_sabridge_LDADD = \
+systemd_saproxy_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-logs.la \
 	libsystemd-journal-internal.la \
@@ -3221,7 +3221,7 @@ systemd_sabridge_LDADD = \
 	libsystemd-daemon.la \
 	libsystemd-bus.la
 
-systemd_sabridge_CFLAGS = \
+systemd_saproxy_CFLAGS = \
 	$(AM_CFLAGS)
 
 # ------------------------------------------------------------------------------

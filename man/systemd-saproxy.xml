@@ -20,9 +20,9 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
-<refentry id="systemd-sabridge">
+<refentry id="systemd-saproxy">
         <refentryinfo>
-                <title>systemd-sabridge</title>
+                <title>systemd-saproxy</title>
                 <productname>systemd</productname>
                 <authorgroup>
                         <author>
@@ -34,23 +34,23 @@
                 </authorgroup>
         </refentryinfo>
         <refmeta>
-                <refentrytitle>systemd-sabridge</refentrytitle>
+                <refentrytitle>systemd-saproxy</refentrytitle>
                 <manvolnum>1</manvolnum>
         </refmeta>
         <refnamediv>
-                <refname>systemd-sabridge</refname>
+                <refname>systemd-saproxy</refname>
                 <refpurpose>Inherit a socket. Bidirectionally
                 proxy.</refpurpose>
         </refnamediv>
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd-sabridge</command>
+                        <command>systemd-saproxy</command>
                         <arg choice="opt" rep="repeat">OPTIONS</arg>
                         <arg choice="plain"><replaceable>HOSTNAME-OR-IP</replaceable></arg>
                         <arg choice="plain"><replaceable>PORT-OR-SERVICE</replaceable></arg>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>systemd-sabridge</command>
+                        <command>systemd-saproxy</command>
                         <arg choice="opt" rep="repeat">OPTIONS</arg>
                         <arg choice="plain"><replaceable>UNIX-DOMAIN-SOCKET-PATH</replaceable>
                         </arg>
@@ -59,7 +59,7 @@
         <refsect1>
                 <title>Description</title>
                 <para>
-                <command>systemd-sabridge</command>provides a proxy
+                <command>systemd-saproxy</command>provides a proxy
                 to socket-activate services that do not yet support
                 native socket activation. On behalf of the daemon,
                 the proxy inherits the socket from systemd, accepts
@@ -68,7 +68,7 @@
                 data between the two.</para>
                 <para>This utility's behavior is similar to
                 <citerefentry><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum> </citerefentry>.
-                The main differences for <command>systemd-sabridge</command>
+                The main differences for <command>systemd-saproxy</command>
                 are support for socket activation with
                 <literal>Accept=false</literal> and an event-driven
                 design that scales better with the number of
@@ -102,7 +102,7 @@
                                         invoked indirectly, for
                                         example with a shell script
                                         rather than with
-                                        <option>ExecStart=/usr/bin/systemd-sabridge</option>
+                                        <option>ExecStart=/usr/bin/systemd-saproxy</option>
                                         </para>
                                 </listitem>
                         </varlistentry>
@@ -137,7 +137,7 @@ After=nginx.service
 Requires=nginx.service
 
 [Service]
-ExecStart=/usr/bin/systemd-sabridge /tmp/nginx.sock
+ExecStart=/usr/bin/systemd-saproxy /tmp/nginx.sock
 PrivateTmp=true
 PrivateNetwork=true]]>
 </programlisting>
@@ -190,14 +190,14 @@ After=syslog.target remote-fs.target nss-lookup.target
 
 [Service]
 ExecStartPre=/usr/sbin/nginx -t
-ExecStart=/usr/bin/sabridge-nginx.sh
+ExecStart=/usr/bin/saproxy-nginx.sh
 PrivateTmp=true
 PrivateNetwork=true]]>
 </programlisting>
                         </example>
                         <example label="shell script">
                                 <title>
-                                /usr/bin/sabridge-nginx.sh</title>
+                                /usr/bin/saproxy-nginx.sh</title>
                                 <programlisting>
 <![CDATA[#!/bin/sh
 /usr/sbin/nginx
@@ -205,7 +205,7 @@ while [ ! -f /tmp/nginx.pid ]
   do
      /usr/bin/inotifywait /tmp/nginx.pid
   done
-/usr/bin/systemd-sabridge --ignore-env localhost 8080]]>
+/usr/bin/systemd-saproxy --ignore-env localhost 8080]]>
 </programlisting>
                         </example>
                         <example label="nginx configuration">

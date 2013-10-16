@@ -448,7 +448,7 @@ static int help(void) {
 }
 
 static void version(void) {
-        puts(PACKAGE_STRING " sabridge");
+        puts(PACKAGE_STRING " saproxy");
 }
 
 static int parse_argv(int argc, char *argv[], struct proxy *p) {
@@ -561,7 +561,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_info("Starting the socket activation bridge with listener fd=%d.", p.listen_fd);
+        log_info("Starting the socket activation proxy with listener fd=%d.", p.listen_fd);
 
         r = run_main_loop(&p);
         if (r < 0) {
