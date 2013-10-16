@@ -59,7 +59,7 @@
         <refsect1>
                 <title>Description</title>
                 <para>
-                <command>systemd-saproxy</command>provides a proxy
+                <command>systemd-saproxy</command> provides a proxy
                 to socket-activate services that do not yet support
                 native socket activation. On behalf of the daemon,
                 the proxy inherits the socket from systemd, accepts
@@ -119,8 +119,8 @@
                         <title>Direct-Use Example</title>
                         <para>Use two services with a dependency
                         and no namespace isolation.</para>
-                        <example label="bridge socket unit">
-                                <title>/etc/systemd/system/bridge-to-nginx.socket</title>
+                        <example label="proxy socket unit">
+                                <title>/etc/systemd/system/proxy-to-nginx.socket</title>
                                 <programlisting>
 <![CDATA[[Socket]
 ListenStream=80
@@ -129,8 +129,8 @@ ListenStream=80
 WantedBy=socket.target]]>
 </programlisting>
                         </example>
-                        <example label="bridge service unit">
-                                <title>/etc/systemd/system/bridge-to-nginx.service</title>
+                        <example label="proxy service unit">
+                                <title>/etc/systemd/system/proxy-to-nginx.service</title>
                                 <programlisting>
 <![CDATA[[Unit]
 After=nginx.service
@@ -154,8 +154,8 @@ server {
                         <example label="commands">
                                 <programlisting>
 <![CDATA[$ sudo systemctl --system daemon-reload
-$ sudo systemctl start bridge-to-nginx.socket
-$ sudo systemctl enable bridge-to-nginx.socket
+$ sudo systemctl start proxy-to-nginx.socket
+$ sudo systemctl enable proxy-to-nginx.socket
 $ curl http://localhost:80/]]>
 </programlisting>
                         </example>
@@ -163,15 +163,15 @@ $ curl http://localhost:80/]]>
                 <refsect2>
                         <title>Indirect-Use Example</title>
                         <para>Use a shell script to isolate the
-                        service and bridge into the same namespace.
+                        service and proxy into the same namespace.
                         This is particularly useful for running
                         TCP-only daemons without the daemon
                         affecting ports on regular
                         interfaces.</para>
-                        <example label="combined bridge and nginx socket unit">
+                        <example label="combined proxy and nginx socket unit">
 
                                 <title>
-                                /etc/systemd/system/bridge-with-nginx.socket</title>
+                                /etc/systemd/system/proxy-with-nginx.socket</title>
                                 <programlisting>
 <![CDATA[[Socket]
 ListenStream=80
@@ -180,10 +180,10 @@ ListenStream=80
 WantedBy=socket.target]]>
 </programlisting>
                         </example>
-                        <example label="combined bridge and nginx service unit">
+                        <example label="combined proxy and nginx service unit">
 
                                 <title>
-                                /etc/systemd/system/bridge-with-nginx.service</title>
+                                /etc/systemd/system/proxy-with-nginx.service</title>
                                 <programlisting>
 <![CDATA[[Unit]
 After=syslog.target remote-fs.target nss-lookup.target
@@ -222,8 +222,8 @@ server {
                         <example label="commands">
                                 <programlisting>
 <![CDATA[$ sudo systemctl --system daemon-reload
-$ sudo systemctl start bridge-with-nginx.socket
-$ sudo systemctl enable bridge-with-nginx.socket
+$ sudo systemctl start proxy-with-nginx.socket
+$ sudo systemctl enable proxy-with-nginx.socket
 $ curl http://localhost:80/]]>
 </programlisting>
                         </example>
