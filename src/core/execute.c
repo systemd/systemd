@@ -511,7 +511,7 @@ fail:
         return r;
 }
 
-_printf_attr_(1, 2) static int write_confirm_message(const char *format, ...) {
+_printf_(1, 2) static int write_confirm_message(const char *format, ...) {
         int fd;
         va_list ap;
 

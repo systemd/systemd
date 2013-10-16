@@ -114,7 +114,7 @@ int config_parse_set_status(const char *unit, const char *filename, unsigned lin
 int log_syntax_internal(const char *unit, int level,
                         const char *file, unsigned line, const char *func,
                         const char *config_file, unsigned config_line,
-                        int error, const char *format, ...) _printf_attr_(9, 10);
+                        int error, const char *format, ...) _printf_(9, 10);
 
 #define log_syntax(unit, level, config_file, config_line, error, ...)   \
         log_syntax_internal(unit, level,                                \

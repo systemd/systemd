@@ -24,8 +24,10 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
+#include "macro.h"
+
 size_t strpcpy(char **dest, size_t size, const char *src);
-size_t strpcpyf(char **dest, size_t size, const char *src, ...) __attribute__((format(printf, 3, 4)));
-size_t strpcpyl(char **dest, size_t size, const char *src, ...) __attribute__((sentinel));
+size_t strpcpyf(char **dest, size_t size, const char *src, ...) _printf_(3, 4);
+size_t strpcpyl(char **dest, size_t size, const char *src, ...) _sentinel_;
 size_t strscpy(char *dest, size_t size, const char *src);
-size_t strscpyl(char *dest, size_t size, const char *src, ...) __attribute__((sentinel));
+size_t strscpyl(char *dest, size_t size, const char *src, ...) _sentinel_;

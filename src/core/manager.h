@@ -318,7 +318,7 @@ void manager_undo_generators(Manager *m);
 void manager_recheck_journal(Manager *m);
 
 void manager_set_show_status(Manager *m, bool b);
-void manager_status_printf(Manager *m, bool ephemeral, const char *status, const char *format, ...) _printf_attr_(4,5);
+void manager_status_printf(Manager *m, bool ephemeral, const char *status, const char *format, ...) _printf_(4,5);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
 

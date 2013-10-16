@@ -75,7 +75,7 @@ int log_meta(
                 const char*file,
                 int line,
                 const char *func,
-                const char *format, ...) _printf_attr_(5,6);
+                const char *format, ...) _printf_(5,6);
 
 int log_metav(
                 int level,
@@ -83,7 +83,7 @@ int log_metav(
                 int line,
                 const char *func,
                 const char *format,
-                va_list ap) _printf_attr_(5,0);
+                va_list ap) _printf_(5,0);
 
 int log_meta_object(
                 int level,
@@ -92,7 +92,7 @@ int log_meta_object(
                 const char *func,
                 const char *object_name,
                 const char *object,
-                const char *format, ...) _printf_attr_(7,8);
+                const char *format, ...) _printf_(7,8);
 
 int log_metav_object(
                 int level,
@@ -102,14 +102,14 @@ int log_metav_object(
                 const char *object_name,
                 const char *object,
                 const char *format,
-                va_list ap) _printf_attr_(7,0);
+                va_list ap) _printf_(7,0);
 
 int log_struct_internal(
                 int level,
                 const char *file,
                 int line,
                 const char *func,
-                const char *format, ...) _printf_attr_(5,0) _sentinel_;
+                const char *format, ...) _printf_(5,0) _sentinel_;
 
 int log_oom_internal(
                 const char *file,

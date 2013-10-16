@@ -201,7 +201,7 @@ int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const 
 /* udev logging */
 void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
-                   const char *format, va_list args) _printf_attr_(6, 0);
+                   const char *format, va_list args) _printf_(6, 0);
 
 /* udevadm commands */
 struct udevadm_cmd {
