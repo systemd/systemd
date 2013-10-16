@@ -1002,7 +1002,7 @@ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) {
                 return 0;
 
         if (s->enabled != SD_EVENT_OFF) {
-                r = source_io_register(s, s->io.events, events);
+                r = source_io_register(s, s->enabled, events);
                 if (r < 0)
                         return r;
         }
