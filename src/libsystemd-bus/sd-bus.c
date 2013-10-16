@@ -1231,7 +1231,7 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         /* If this is a reply and no reply was requested, then let's
          * suppress this, if we can */
         if (m->dont_send && !serial)
-                return 0;
+                return 1;
 
         if ((bus->state == BUS_RUNNING || bus->state == BUS_HELLO) && bus->wqueue_size <= 0) {
                 size_t idx = 0;
@@ -1273,7 +1273,7 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         if (serial)
                 *serial = BUS_MESSAGE_SERIAL(m);
 
-        return 0;
+        return 1;
 }
 
 static usec_t calc_elapse(uint64_t usec) {
@@ -1482,7 +1482,7 @@ int sd_bus_send_with_reply_and_block(
                                         else
                                                 sd_bus_message_unref(incoming);
 
-                                        return 0;
+                                        return 1;
                                 }
 
                                 if (incoming->header->type == SD_BUS_MESSAGE_TYPE_METHOD_ERROR) {
