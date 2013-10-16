@@ -103,9 +103,9 @@ static int introspect_write_arguments(struct introspect *i, const char *signatur
                 fprintf(i->f, "   <arg type=\"%.*s\"", (int) l, signature);
 
                 if (direction)
-                        fprintf(i->f, " direction=\"%s\">\n", direction);
+                        fprintf(i->f, " direction=\"%s\"/>\n", direction);
                 else
-                        fputs(">\n", i->f);
+                        fputs("/>\n", i->f);
 
                 signature += l;
         }
