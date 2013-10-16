@@ -1384,8 +1384,20 @@ static int event_arm_timer(
         assert_se(next);
 
         a = prioq_peek(earliest);
-        if (!a || a->enabled == SD_EVENT_OFF)
+        if (!a || a->enabled == SD_EVENT_OFF) {
+
+                if (*next == (usec_t) -1)
+                        return 0;
+
+                /* disarm */
+                r = timerfd_settime(timer_fd, TFD_TIMER_ABSTIME, &its, NULL);
+                if (r < 0)
+                        return r;
+
+                *next = (usec_t) -1;
+
                 return 0;
+        }
 
         b = prioq_peek(latest);
         assert_se(b && b->enabled != SD_EVENT_OFF);
@@ -1430,12 +1442,14 @@ static int process_io(sd_event *e, sd_event_source *s, uint32_t events) {
         return source_set_pending(s, true);
 }
 
-static int flush_timer(sd_event *e, int fd, uint32_t events) {
+static int flush_timer(sd_event *e, int fd, uint32_t events, usec_t *next) {
         uint64_t x;
         ssize_t ss;
 
         assert(e);
         assert(fd >= 0);
+        assert(next);
+
         assert_return(events == EPOLLIN, -EIO);
 
         ss = read(fd, &x, sizeof(x));
@@ -1448,6 +1462,8 @@ static int flush_timer(sd_event *e, int fd, uint32_t events) {
 
         if (ss != sizeof(x))
                 return -EIO;
+
+        *next = (usec_t) -1;
 
         return 0;
 }
@@ -1741,9 +1757,9 @@ int sd_event_run(sd_event *e, uint64_t timeout) {
         for (i = 0; i < m; i++) {
 
                 if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_MONOTONIC))
-                        r = flush_timer(e, e->monotonic_fd, ev_queue[i].events);
+                        r = flush_timer(e, e->monotonic_fd, ev_queue[i].events, &e->monotonic_next);
                 else if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_REALTIME))
-                        r = flush_timer(e, e->realtime_fd, ev_queue[i].events);
+                        r = flush_timer(e, e->realtime_fd, ev_queue[i].events, &e->realtime_next);
                 else if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_SIGNAL))
                         r = process_signal(e, ev_queue[i].events);
                 else
