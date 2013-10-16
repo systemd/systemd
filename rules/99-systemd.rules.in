@@ -54,17 +54,17 @@ ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="@rootlibexecdir@/systemd-sy
 # Pull in backlight save/restore for all backlight devices and
 # keyboard backlights
 
-ACTION=="add", SUBSYSTEM=="backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@backlight:$name.service"
-ACTION=="add", SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@leds:$name.service"
+SUBSYSTEM=="backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@backlight:$name.service"
+SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@leds:$name.service"
 
 # Pull in rfkill save/restore for all rfkill devices
 
-ACTION=="add", SUBSYSTEM=="rfkill", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-rfkill@$name.service"
+SUBSYSTEM=="rfkill", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-rfkill@$name.service"
 
 # Asynchronously mount file systems implemented by these modules as
 # soon as they are loaded.
 
-SUBSYSTEM=="module", KERNEL=="fuse", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-fs-fuse-connections.mount"
-SUBSYSTEM=="module", KERNEL=="configfs", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-kernel-config.mount"
+SUBSYSTEM=="module", KERNEL=="fuse", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-fs-fuse-connections.mount"
+SUBSYSTEM=="module", KERNEL=="configfs", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-kernel-config.mount"
 
 LABEL="systemd_end"
