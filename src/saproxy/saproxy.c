@@ -37,7 +37,7 @@
 #include "socket-util.h"
 #include "util.h"
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 16384
 #define _cleanup_freeaddrinfo_ _cleanup_(freeaddrinfop)
 
 unsigned int total_clients = 0;
