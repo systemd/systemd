@@ -21,6 +21,7 @@
 
 #include <time.h>
 #include <string.h>
+#include <sys/timex.h>
 
 #include "util.h"
 #include "time-util.h"
@@ -791,4 +792,16 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         *nsec = r;
 
         return 0;
+}
+
+bool ntp_synced(void) {
+        struct timex txc = {};
+
+        if (adjtimex(&txc) < 0)
+                return false;
+
+        if (txc.status & STA_UNSYNC)
+                return false;
+
+        return true;
 }

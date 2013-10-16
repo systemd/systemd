@@ -72,18 +72,6 @@ typedef struct StatusInfo {
         bool can_ntp;
 } StatusInfo;
 
-static bool ntp_synced(void) {
-        struct timex txc = {};
-
-        if (adjtimex(&txc) < 0)
-                return false;
-
-        if (txc.status & STA_UNSYNC)
-                return false;
-
-        return true;
-}
-
 static const char *jump_str(int delta_minutes, char *s, size_t size) {
         if (delta_minutes == 60)
                 return "one hour forward";

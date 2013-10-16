@@ -481,6 +481,42 @@ static int property_get_rtc_time(
         return 1;
 }
 
+static int property_get_time(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        int r;
+
+        r = sd_bus_message_append(reply, "t", now(CLOCK_REALTIME));
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int property_get_ntp_sync(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        int r;
+
+        r = sd_bus_message_append(reply, "b", ntp_synced());
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         Context *c = userdata;
@@ -735,6 +771,8 @@ static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_PROPERTY("LocalRTC", "b", NULL, offsetof(Context, local_rtc), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CanNTP", "b", bus_property_get_tristate, offsetof(Context, can_ntp), 0),
         SD_BUS_PROPERTY("NTP", "b", bus_property_get_tristate, offsetof(Context, use_ntp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("NTPSynchronized", "b", property_get_ntp_sync, 0, 0),
+        SD_BUS_PROPERTY("TimeUSec", "t", property_get_time, 0, 0),
         SD_BUS_PROPERTY("RTCTimeUSec", "t", property_get_rtc_time, 0, 0),
         SD_BUS_METHOD("SetTime", "xbb", NULL, method_set_time, 0),
         SD_BUS_METHOD("SetTimezone", "sb", NULL, method_set_timezone, 0),
