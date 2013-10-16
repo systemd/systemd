@@ -81,7 +81,7 @@ int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t 
                 if (r == SD_EVENT_FINISHED)
                         break;
 
-                r = sd_event_run(e, exiting ? (uint64_t) -1 : 5 * USEC_PER_SEC /* DEFAULT_EXIT_USEC */);
+                r = sd_event_run(e, exiting ? (uint64_t) -1 : DEFAULT_EXIT_USEC);
                 if (r < 0)
                         return r;
 
