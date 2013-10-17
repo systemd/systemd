@@ -1594,7 +1594,7 @@ static int process_signal(sd_event *e, uint32_t events) {
 }
 
 static int source_dispatch(sd_event_source *s) {
-        int r;
+        int r = 0;
 
         assert(s);
         assert(s->pending || s->type == SOURCE_QUIT);
