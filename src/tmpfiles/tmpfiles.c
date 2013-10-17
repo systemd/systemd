@@ -275,12 +275,15 @@ static int dir_cleanup(
                         continue;
 
                 if (fstatat(dirfd(d), dent->d_name, &s, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (errno == ENOENT)
+                                continue;
 
-                        if (errno != ENOENT) {
+                        /* FUSE, NFS mounts, SELinux might return EACCES */
+                        if (errno == EACCES)
+                                log_debug("stat(%s/%s) failed: %m", p, dent->d_name);
+                        else
                                 log_error("stat(%s/%s) failed: %m", p, dent->d_name);
-                                r = -errno;
-                        }
-
+                        r = -errno;
                         continue;
                 }
 
