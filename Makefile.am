@@ -177,6 +177,7 @@ AM_CPPFLAGS = \
 	-DKEXEC=\"$(KEXEC)\" \
 	-I $(top_srcdir)/src \
 	-I $(top_srcdir)/src/shared \
+	-I $(top_srcdir)/src/network \
 	-I $(top_srcdir)/src/login \
 	-I $(top_srcdir)/src/journal \
 	-I $(top_srcdir)/src/systemd \
@@ -3769,6 +3770,59 @@ EXTRA_DIST += \
 	units/systemd-machined.service.in
 
 endif
+
+# ------------------------------------------------------------------------------
+rootlibexec_PROGRAMS += \
+	systemd-networkd
+
+systemd_networkd_SOURCES = \
+	src/network/networkd.h \
+	src/network/networkd.c \
+	src/network/networkd-link.c \
+	src/network/networkd-network.c \
+	src/network/networkd-address.c \
+	src/network/networkd-route.c \
+	src/network/networkd-manager.c
+
+nodist_systemd_networkd_SOURCES = \
+	src/network/networkd-gperf.c
+
+systemd_networkd_LDADD = \
+	libudev-internal.la \
+	libsystemd-bus.la \
+	libsystemd-rtnl.la \
+	libsystemd-shared.la
+
+nodist_systemunit_DATA += \
+	units/systemd-networkd.service
+
+MULTI_USER_TARGET_WANTS += \
+	systemd-networkd.service
+
+test_network_SOURCES = \
+	src/network/test-network.c \
+	src/network/networkd.h \
+	src/network/networkd-link.c \
+	src/network/networkd-network.c \
+	src/network/networkd-address.c \
+	src/network/networkd-route.c \
+	src/network/networkd-manager.c \
+	src/network/networkd-gperf.c
+
+test_network_LDADD = \
+	libudev-internal.la \
+	libsystemd-bus.la \
+	libsystemd-rtnl.la \
+	libsystemd-shared.la
+
+tests += test-network
+
+EXTRA_DIST += \
+	src/network/networkd-gperf.gperf \
+	units/systemd-networkd.service.in
+
+CLEANFILES += \
+	src/network/networkd-gperf.c
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOGIND

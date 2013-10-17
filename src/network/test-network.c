@@ -1,0 +1,74 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+/***
+  This file is part of systemd.
+
+  Copyright 2013 Tom Gundersen <teg@jklm.no>
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include "networkd.h"
+
+static void test_link(struct udev_device *loopback) {
+        _cleanup_manager_free_ Manager *manager = NULL;
+        _cleanup_link_free_ Link *link = NULL;
+
+        manager_new(&manager);
+
+        assert(link_new(manager, loopback, &link) >= 0);
+        assert(link);
+}
+
+static void test_network_load(Manager *manager) {
+        assert(network_should_reload(manager) == true);
+        assert(network_load(manager) >= 0);
+        assert(network_should_reload(manager) == false);
+}
+
+static void test_network_get(Manager *manager, struct udev_device *loopback) {
+        Network *network;
+
+        /* let's assume that the test machine does not have a .network file
+           that applies to the loopback device... */
+        assert(network_get(manager, loopback, &network) == -ENOENT);
+        assert(!network);
+}
+
+int main(void) {
+        _cleanup_manager_free_ Manager *manager = NULL;
+        struct udev *udev;
+        struct udev_device *loopback;
+
+        assert(manager_new(&manager) >= 0);
+
+        test_network_load(manager);
+
+        udev = udev_new();
+        assert(udev);
+
+        loopback = udev_device_new_from_syspath(udev, "/sys/class/net/lo");
+        assert(loopback);
+        assert(udev_device_get_ifindex(loopback) == 1);
+
+        test_network_get(manager, loopback);
+
+        test_link(loopback);
+
+        assert(manager_udev_enumerate_links(manager) >= 0);
+        assert(manager_udev_listen(manager) >= 0);
+
+        udev_device_unref(loopback);
+        udev_unref(udev);
+}

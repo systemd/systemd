@@ -58,6 +58,7 @@
 /systemd-machined
 /systemd-modules-load
 /systemd-multi-seat-x
+/systemd-networkd
 /systemd-notify
 /systemd-nspawn
 /systemd-quotacheck
@@ -133,6 +134,7 @@
 /test-loopback
 /test-mmap-cache
 /test-namespace
+/test-network
 /test-ns
 /test-path-util
 /test-prioq
