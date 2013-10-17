@@ -271,7 +271,7 @@ if test "x$enable_kmod" != "xno"; then
         if test "x$have_kmod" = "xyes"; then
                 PKG_CHECK_MODULES(KMOD, [ libkmod >= 15 ],
                         [AC_DEFINE(HAVE_KMOD, 1, [Define if kmod is available])],
-                        AC_MSG_ERROR([*** kmod version >= 14 not found]))
+                        AC_MSG_ERROR([*** kmod version >= 15 not found]))
         fi
         if test "x$have_kmod" = xno -a "x$enable_kmod" = xyes; then
                 AC_MSG_ERROR([*** kmod support requested, but libraries not found])
