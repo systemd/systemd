@@ -269,7 +269,7 @@ AC_ARG_ENABLE(kmod, AS_HELP_STRING([--disable-kmod], [disable loadable modules s
 if test "x$enable_kmod" != "xno"; then
         PKG_CHECK_EXISTS([ libkmod ], have_kmod=yes, have_kmod=no)
         if test "x$have_kmod" = "xyes"; then
-                PKG_CHECK_MODULES(KMOD, [ libkmod >= 14 ],
+                PKG_CHECK_MODULES(KMOD, [ libkmod >= 15 ],
                         [AC_DEFINE(HAVE_KMOD, 1, [Define if kmod is available])],
                         AC_MSG_ERROR([*** kmod version >= 14 not found]))
         fi
