@@ -63,7 +63,7 @@ static void context_reset(Context *c) {
 static void context_free(Context *c, sd_bus *bus) {
         assert(c);
 
-        free(c->zone);
+        context_reset(c);
         bus_verify_polkit_async_registry_free(bus, c->polkit_registry);
 }
 
@@ -525,6 +525,10 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
         char *t;
         int r;
 
+        assert(bus);
+        assert(m);
+        assert(c);
+
         r = sd_bus_message_read(m, "sb", &z, &interactive);
         if (r < 0)
                 return sd_bus_reply_method_errno(bus, m, r, NULL);
@@ -837,7 +841,6 @@ int main(int argc, char *argv[]) {
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
-        log_set_max_level(LOG_DEBUG);
         log_parse_environment();
         log_open();
 
