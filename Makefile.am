@@ -3511,15 +3511,11 @@ if ENABLE_HOSTNAMED
 systemd_hostnamed_SOURCES = \
 	src/hostname/hostnamed.c
 
-systemd_hostnamed_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 systemd_hostnamed_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-dbus.la
+	libsystemd-bus.la
 
 rootlibexec_PROGRAMS += \
 	systemd-hostnamed
