@@ -244,6 +244,7 @@ struct sd_bus {
         sd_event_source *input_io_event_source;
         sd_event_source *output_io_event_source;
         sd_event_source *time_event_source;
+        sd_event_source *quit_event_source;
         sd_event *event;
 };
 

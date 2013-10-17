@@ -2208,6 +2208,16 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
         return 1;
 }
 
+static int quit_callback(sd_event_source *event, void *userdata) {
+        sd_bus *bus = userdata;
+
+        assert(event);
+
+        sd_bus_flush(bus);
+
+        return 1;
+}
+
 int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
         int r;
 
@@ -2251,6 +2261,10 @@ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
+        r = sd_event_add_quit(event, quit_callback, bus, &bus->quit_event_source);
+        if (r < 0)
+                goto fail;
+
         return 0;
 
 fail:
@@ -2270,6 +2284,9 @@ int sd_bus_detach_event(sd_bus *bus) {
 
         if (bus->time_event_source)
                 bus->time_event_source = sd_event_source_unref(bus->time_event_source);
+
+        if (bus->quit_event_source)
+                bus->quit_event_source = sd_event_source_unref(bus->quit_event_source);
 
         if (bus->event)
                 bus->event = sd_event_unref(bus->event);

@@ -665,7 +665,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        sd_bus_flush(bus);
         r = 0;
 
 finish:
