@@ -765,6 +765,8 @@ void parse_user_at_host(char *arg, char **user, char **host);
 
 int split_pair(const char *s, const char *sep, char **l, char **r);
 
+bool restore_state(void);
+
 /**
  * Normal qsort requires base to be nonnull. Here were require
  * that only if nmemb > 0.

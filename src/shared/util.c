@@ -76,6 +76,7 @@
 #include "device-nodes.h"
 #include "utf8.h"
 #include "gunicode.h"
+#include "virt.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
@@ -5989,4 +5990,26 @@ int split_pair(const char *s, const char *sep, char **l, char **r) {
         *r = b;
 
         return 0;
+}
+
+bool restore_state(void) {
+        _cleanup_free_ char *line;
+        char *w, *state;
+        int r;
+        size_t l;
+
+        if (detect_container(NULL) > 0)
+                return true;
+
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+                return 0;
+        }
+
+        FOREACH_WORD_QUOTED(w, l, line, state)
+                if (strneq(w, "systemd.restore_state=0", l))
+                        return false;
+
+        return true;
 }

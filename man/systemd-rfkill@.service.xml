@@ -62,6 +62,26 @@
         </refsect1>
 
         <refsect1>
+                <title>Kernel Command Line</title>
+
+                <para><filename>systemd-rfkill</filename> understands
+                the following kernel command line parameter:</para>
+
+                <variablelist class='kernel-commandline-options'>
+                        <varlistentry>
+                                <term><varname>systemd.restore_state=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. Defaults to
+                                <literal>1</literal>. If
+                                <literal>0</literal>, does not restore
+                                the rfkill settings on boot. However,
+                                settings will still be stored on shutdown.
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
