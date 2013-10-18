@@ -2995,7 +2995,7 @@ libsystemd_journal_la_CFLAGS += \
 libsystemd_journal_la_LIBADD += \
 	$(XZ_LIBS)
 
-libsystemd_journal_internal_la_CFLAGS = \
+libsystemd_journal_internal_la_CFLAGS += \
 	$(XZ_CFLAGS)
 
 libsystemd_journal_internal_la_LIBADD += \
