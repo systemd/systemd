@@ -299,8 +299,7 @@ bin_PROGRAMS = \
 	systemd-detect-virt \
 	systemd-delta \
 	systemd-analyze \
-	systemd-run \
-	systemd-saproxy
+	systemd-run
 
 dist_bin_SCRIPTS = \
 	src/kernel-install/kernel-install
@@ -321,7 +320,8 @@ rootlibexec_PROGRAMS = \
 	systemd-fsck \
 	systemd-ac-power \
 	systemd-sysctl \
-	systemd-sleep
+	systemd-sleep \
+	systemd-socket-proxyd
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator \
@@ -3167,19 +3167,16 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 
-systemd_saproxy_SOURCES = \
-	src/saproxy/saproxy.c
+systemd_socket_proxyd_SOURCES = \
+	src/socket-proxy/socket-proxyd.c
 
-systemd_saproxy_LDADD = \
+systemd_socket_proxyd_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-logs.la \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon.la \
 	libsystemd-bus.la
-
-systemd_saproxy_CFLAGS = \
-	$(AM_CFLAGS)
 
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP

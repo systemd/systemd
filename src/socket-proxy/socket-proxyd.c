@@ -31,11 +31,12 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include "log.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "log.h"
 #include "socket-util.h"
 #include "util.h"
+#include "event-util.h"
 
 #define BUFFER_SIZE 16384
 #define _cleanup_freeaddrinfo_ _cleanup_(freeaddrinfop)
@@ -65,7 +66,7 @@ struct connection {
 static void free_connection(struct connection *c) {
         log_debug("Freeing fd=%d (conn %p).", c->fd, c);
         sd_event_source_unref(c->w);
-        close(c->fd);
+        close_nointr_nofail(c->fd);
         free(c);
 }
 
@@ -354,13 +355,13 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         assert(revents & EPOLLIN);
 
-        c_server_to_client = malloc0(sizeof(struct connection));
+        c_server_to_client = new0(struct connection, 1);
         if (c_server_to_client == NULL) {
                 log_oom();
                 goto fail;
         }
 
-        c_client_to_server = malloc0(sizeof(struct connection));
+        c_client_to_server = new0(struct connection, 1);
         if (c_client_to_server == NULL) {
                 log_oom();
                 goto fail;
@@ -372,19 +373,12 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 goto fail;
         }
 
-        c_client_to_server->fd = accept(fd, (struct sockaddr *) &sa, &salen);
+        c_client_to_server->fd = accept4(fd, (struct sockaddr *) &sa, &salen, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (c_client_to_server->fd < 0) {
                 log_error("Error accepting client connection.");
                 goto fail;
         }
 
-        /* Unlike on BSD, client sockets do not inherit nonblocking status
-         * from the listening socket. */
-        r = fd_nonblock(c_client_to_server->fd, true);
-        if (r < 0) {
-                log_error("Error %d marking client connection as nonblocking: %s", r, strerror(-r));
-                goto fail;
-        }
 
         if (sa.sa.sa_family == AF_INET || sa.sa.sa_family == AF_INET6) {
                 char sa_str[INET6_ADDRSTRLEN];
@@ -424,35 +418,37 @@ fail:
 
 finish:
         /* Preserve the main loop even if a single proxy setup fails. */
-        return 0;
+        return 1;
 }
 
 static int run_main_loop(struct proxy *proxy) {
+        _cleanup_event_source_unref_ sd_event_source *w_accept = NULL;
+        _cleanup_event_unref_ sd_event *e = NULL;
         int r = EXIT_SUCCESS;
-        struct sd_event *e = NULL;
-        sd_event_source *w_accept = NULL;
 
         r = sd_event_new(&e);
-        if (r < 0)
-                goto finish;
+        if (r < 0) {
+                log_error("Failed to allocate event loop: %s", strerror(-r));
+                return r;
+        }
 
         r = fd_nonblock(proxy->listen_fd, true);
-        if (r < 0)
-                goto finish;
+        if (r < 0) {
+                log_error("Failed to make listen file descriptor non-blocking: %s", strerror(-r));
+                return r;
+        }
 
         log_debug("Initializing main listener fd=%d", proxy->listen_fd);
 
-        sd_event_add_io(e, proxy->listen_fd, EPOLLIN, accept_cb, proxy, &w_accept);
+        r = sd_event_add_io(e, proxy->listen_fd, EPOLLIN, accept_cb, proxy, &w_accept);
+        if (r < 0) {
+                log_error("Failed to add event IO source: %s", strerror(-r));
+                return r;
+        }
 
         log_debug("Initialized main listener. Entering loop.");
 
-        sd_event_loop(e);
-
-finish:
-        sd_event_source_unref(w_accept);
-        sd_event_unref(e);
-
-        return r;
+        return sd_event_loop(e);
 }
 
 static int help(void) {
@@ -470,7 +466,7 @@ static int help(void) {
 }
 
 static void version(void) {
-        puts(PACKAGE_STRING " saproxy");
+        puts(PACKAGE_STRING " socket-proxyd");
 }
 
 static int parse_argv(int argc, char *argv[], struct proxy *p) {
@@ -559,21 +555,21 @@ int main(int argc, char *argv[]) {
         p.listen_fd = SD_LISTEN_FDS_START;
 
         if (!p.ignore_env) {
-            int n;
-            n = sd_listen_fds(1);
-            if (n == 0) {
-                    log_error("Found zero inheritable sockets. Are you sure this is running as a socket-activated service?");
-                    r = EXIT_FAILURE;
-                    goto finish;
-            } else if (n < 0) {
-                    log_error("Error %d while finding inheritable sockets: %s", n, strerror(-n));
-                    r = EXIT_FAILURE;
-                    goto finish;
-            } else if (n > 1) {
-                    log_error("Can't listen on more than one socket.");
-                    r = EXIT_FAILURE;
-                    goto finish;
-            }
+                int n;
+                n = sd_listen_fds(1);
+                if (n == 0) {
+                        log_error("Found zero inheritable sockets. Are you sure this is running as a socket-activated service?");
+                        r = EXIT_FAILURE;
+                        goto finish;
+                } else if (n < 0) {
+                        log_error("Error %d while finding inheritable sockets: %s", n, strerror(-n));
+                        r = EXIT_FAILURE;
+                        goto finish;
+                } else if (n > 1) {
+                        log_error("Can't listen on more than one socket.");
+                        r = EXIT_FAILURE;
+                        goto finish;
+                }
         }
 
         /* @TODO: Check if this proxy can work with datagram sockets. */
@@ -586,12 +582,7 @@ int main(int argc, char *argv[]) {
         log_info("Starting the socket activation proxy with listener fd=%d.", p.listen_fd);
 
         r = run_main_loop(&p);
-        if (r < 0) {
-                log_error("Error %d from main loop.", r);
-                goto finish;
-        }
 
 finish:
-        log_close();
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

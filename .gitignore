@@ -71,7 +71,7 @@
 /systemd-reply-password
 /systemd-rfkill
 /systemd-run
-/systemd-saproxy
+/systemd-socket-proxyd
 /systemd-shutdown
 /systemd-shutdownd
 /systemd-sleep
