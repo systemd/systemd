@@ -2659,6 +2659,9 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
         if (!c->signature || c->signature[c->index] == 0)
                 return 0;
 
+        if (message_end_of_array(m, m->rindex))
+                return 0;
+
         if (c->signature[c->index] != type)
                 return -ENXIO;
 
@@ -3005,6 +3008,9 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
         c = message_get_container(m);
 
         if (!c->signature || c->signature[c->index] == 0)
+                return 0;
+
+        if (message_end_of_array(m, m->rindex))
                 return 0;
 
         signature = strdup(contents);
