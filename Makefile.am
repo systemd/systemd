@@ -806,9 +806,6 @@ libsystemd_logs_la_SOURCES = \
 	src/shared/logs-show.c \
 	src/shared/logs-show.h
 
-libsystemd_logs_la_CFLAGS = \
-	$(AM_CFLAGS)
-
 libsystemd_logs_la_LIBADD = \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la \
@@ -1253,17 +1250,11 @@ test_unit_file_LDADD = \
 test_utf8_SOURCES = \
 	src/test/test-utf8.c
 
-test_utf8_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_utf8_LDADD = \
 	libsystemd-shared.la
 
 test_util_SOURCES = \
 	src/test/test-util.c
-
-test_util_CFLAGS = \
-	$(AM_CFLAGS)
 
 test_util_LDADD = \
 	libsystemd-core.la
@@ -1271,17 +1262,11 @@ test_util_LDADD = \
 test_hashmap_SOURCES = \
 	src/test/test-hashmap.c
 
-test_hashmap_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_hashmap_LDADD = \
 	libsystemd-core.la
 
 test_list_SOURCES = \
 	src/test/test-list.c
-
-test_list_CFLAGS = \
-	$(AM_CFLAGS)
 
 test_list_LDADD = \
 	libsystemd-core.la
@@ -1301,26 +1286,17 @@ test_tables_LDADD = \
 test_prioq_SOURCES = \
 	src/test/test-prioq.c
 
-test_prioq_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_prioq_LDADD = \
 	libsystemd-core.la
 
 test_fileio_SOURCES = \
 	src/test/test-fileio.c
 
-test_fileio_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_fileio_LDADD = \
 	libsystemd-core.la
 
 test_time_SOURCES = \
 	src/test/test-time.c
-
-test_time_CFLAGS = \
-	$(AM_CFLAGS)
 
 test_time_LDADD = \
 	libsystemd-core.la
@@ -2078,9 +2054,6 @@ test_bus_objects_LDADD = \
 test_bus_match_SOURCES = \
 	src/libsystemd-bus/test-bus-match.c
 
-test_bus_match_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_bus_match_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la \
@@ -2088,9 +2061,6 @@ test_bus_match_LDADD = \
 
 test_bus_kernel_SOURCES = \
 	src/libsystemd-bus/test-bus-kernel.c
-
-test_bus_kernel_CFLAGS = \
-	$(AM_CFLAGS)
 
 test_bus_kernel_LDADD = \
 	libsystemd-shared.la \
@@ -2100,9 +2070,6 @@ test_bus_kernel_LDADD = \
 test_bus_kernel_bloom_SOURCES = \
 	src/libsystemd-bus/test-bus-kernel-bloom.c
 
-test_bus_kernel_bloom_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_bus_kernel_bloom_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la \
@@ -2110,9 +2077,6 @@ test_bus_kernel_bloom_LDADD = \
 
 test_bus_kernel_benchmark_SOURCES = \
 	src/libsystemd-bus/test-bus-kernel-benchmark.c
-
-test_bus_kernel_benchmark_CFLAGS = \
-	$(AM_CFLAGS)
 
 test_bus_kernel_benchmark_LDADD = \
 	libsystemd-shared.la \
@@ -2122,9 +2086,6 @@ test_bus_kernel_benchmark_LDADD = \
 test_bus_memfd_SOURCES = \
 	src/libsystemd-bus/test-bus-memfd.c
 
-test_bus_memfd_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_bus_memfd_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la
@@ -2132,18 +2093,12 @@ test_bus_memfd_LDADD = \
 test_bus_zero_copy_SOURCES = \
 	src/libsystemd-bus/test-bus-zero-copy.c
 
-test_bus_zero_copy_CFLAGS = \
-	$(AM_CFLAGS)
-
 test_bus_zero_copy_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la
 
 test_bus_introspect_SOURCES = \
 	src/libsystemd-bus/test-bus-introspect.c
-
-test_bus_introspect_CFLAGS = \
-	$(AM_CFLAGS)
 
 test_bus_introspect_LDADD = \
 	libsystemd-shared.la \
@@ -2837,9 +2792,6 @@ systemd_cat_LDADD = \
 journalctl_SOURCES = \
 	src/journal/journalctl.c
 
-journalctl_CFLAGS = \
-	$(AM_CFLAGS)
-
 journalctl_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-journal-internal.la \
@@ -2856,7 +2808,7 @@ journalctl_SOURCES += \
 	src/journal/journal-qrcode.c \
 	src/journal/journal-qrcode.h
 
-journalctl_CFLAGS += \
+journalctl_CFLAGS = \
 	$(QRENCODE_CFLAGS)
 
 journalctl_LDADD += \
@@ -3043,7 +2995,7 @@ libsystemd_journal_la_CFLAGS += \
 libsystemd_journal_la_LIBADD += \
 	$(XZ_LIBS)
 
-libsystemd_journal_internal_la_CFLAGS += \
+libsystemd_journal_internal_la_CFLAGS = \
 	$(XZ_CFLAGS)
 
 libsystemd_journal_internal_la_LIBADD += \
@@ -3725,9 +3677,6 @@ libnss_myhostname_la_SOURCES = \
 	src/nss-myhostname/nss-myhostname.c \
 	src/nss-myhostname/ifconf.h \
 	src/nss-myhostname/netlink.c
-
-libnss_myhostname_la_CFLAGS = \
-	$(AM_CFLAGS)
 
 libnss_myhostname_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
