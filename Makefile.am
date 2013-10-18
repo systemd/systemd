@@ -2789,6 +2789,8 @@ systemd_cat_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-journal-internal.la
 
+journalctl_CFLAGS = $(AM_CFLAGS)
+
 journalctl_SOURCES = \
 	src/journal/journalctl.c
 
@@ -2808,7 +2810,7 @@ journalctl_SOURCES += \
 	src/journal/journal-qrcode.c \
 	src/journal/journal-qrcode.h
 
-journalctl_CFLAGS = \
+journalctl_CFLAGS += \
 	$(QRENCODE_CFLAGS)
 
 journalctl_LDADD += \
