@@ -714,11 +714,6 @@ Features:
 
 * systemd-run is missing zsh completion scripts
 
-* fsck:
-   - always fsck the rootfs before mounting from the initrd
-   - by default do not fsck the rootfs in the real root, unless passno > 0 in fstab
-   - rip out all fsckpassno handling from the core and treat it as a bolean in the fstab generator
-
 External:
 
 * dbus:
