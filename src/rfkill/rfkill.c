@@ -24,7 +24,6 @@
 #include "fileio.h"
 #include "libudev.h"
 #include "udev-util.h"
-#include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
