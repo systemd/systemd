@@ -348,7 +348,7 @@ static int get_server_connection_fd(const struct proxy *proxy) {
 static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         struct proxy *proxy = (struct proxy *) userdata;
         struct connection *c_server_to_client;
-        struct connection *c_client_to_server;
+        struct connection *c_client_to_server = NULL;
         int r = 0;
         union sockaddr_union sa;
         socklen_t salen = sizeof(sa);
