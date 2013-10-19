@@ -41,10 +41,6 @@ static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool
         bool changed_acl = false;
         uid_t uid;
 
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
-
         umask(0022);
 
         /* don't muck around with ACLs when the system is not running systemd */
