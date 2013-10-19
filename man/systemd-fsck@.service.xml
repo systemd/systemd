@@ -63,7 +63,9 @@
                 check. <filename>systemd-fsck-root.service</filename> is
                 responsible for file system checks on the root
                 file system. The root file system check is performed
-                before the other file systems.</para>
+                before the other file systems. Either service is enabled
+                at boot if passno in <filename>/etc/fstab</filename> for
+                the filesystem is set to a value greater than zero.</para>
 
                 <para><filename>systemd-fsck</filename> will
                 forward file system checking progress to the
