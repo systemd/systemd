@@ -313,7 +313,7 @@ static int invoke_property_get(
                 void *userdata) {
 
         int r;
-        void *p;
+        const void *p;
 
         assert(bus);
         assert(v);
@@ -333,6 +333,11 @@ static int invoke_property_get(
         switch (v->x.property.signature[0]) {
 
         case SD_BUS_TYPE_STRING:
+                p = *(char**) userdata;
+                if (!p)
+                        p = "";
+                break;
+
         case SD_BUS_TYPE_OBJECT_PATH:
         case SD_BUS_TYPE_SIGNATURE:
                 p = *(char**) userdata;
