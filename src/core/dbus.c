@@ -768,7 +768,7 @@ static void bus_new_connection(
 }
 
 static int init_registered_system_bus(Manager *m) {
-        char *id;
+        char *id = NULL;
 
         if (!dbus_connection_add_filter(m->system_bus, system_bus_message_filter, m, NULL))
                 return log_oom();
@@ -836,7 +836,8 @@ static int init_registered_api_bus(Manager *m) {
                 return r;
 
         if (m->running_as == SYSTEMD_USER) {
-                char *id;
+                char *id = NULL;
+
                 log_debug("Successfully connected to API D-Bus bus %s as %s",
                          strnull((id = dbus_connection_get_server_id(m->api_bus))),
                          strnull(dbus_bus_get_unique_name(m->api_bus)));
