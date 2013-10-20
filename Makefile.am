@@ -1771,10 +1771,6 @@ systemd_remount_fs_LDADD = \
 systemd_cgroups_agent_SOURCES = \
 	src/cgroups-agent/cgroups-agent.c
 
-systemd_cgroups_agent_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 systemd_cgroups_agent_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la
@@ -2629,13 +2625,14 @@ src/gudev/GUdev-1.0.gir: libgudev-1.0.la
 src_gudev_GUdev_1_0_gir_INCLUDES = GObject-2.0
 
 src_gudev_GUdev_1_0_gir_CFLAGS = \
+	$(AM_CFLAGS) \
 	$(INCLUDES) \
 	-D_GUDEV_COMPILATION \
 	-D_GUDEV_WORK_AROUND_DEV_T_BUG \
 	-I$(top_srcdir)/src \
 	-I$(top_builddir)/src \
-	-I$(top_srcdir)/src/gdev \
-	-I$(top_builddir)/src/gdev
+	-I$(top_srcdir)/src/gudev \
+	-I$(top_builddir)/src/gudev
 
 src_gudev_GUdev_1_0_gir_LIBS = libgudev-1.0.la
 
@@ -2789,7 +2786,9 @@ systemd_cat_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-journal-internal.la
 
-journalctl_CFLAGS = $(AM_CFLAGS)
+# using _CFLAGS = in the conditional below would suppress AM_CFLAGS
+journalctl_CFLAGS = \
+	$(AM_CFLAGS)
 
 journalctl_SOURCES = \
 	src/journal/journalctl.c
@@ -2964,6 +2963,7 @@ libsystemd_journal_internal_la_SOURCES = \
 	src/journal/journald-rate-limit.h \
 	src/journal/journal-internal.h
 
+# using _CFLAGS = in the conditional below would suppress AM_CFLAGS
 libsystemd_journal_internal_la_CFLAGS = \
 	$(AM_CFLAGS)
 
@@ -3149,8 +3149,8 @@ systemd_journal_gatewayd_LDADD = \
 	$(MICROHTTPD_LIBS)
 
 systemd_journal_gatewayd_CFLAGS = \
-	-DDOCUMENT_ROOT=\"$(gatewayddocumentrootdir)\" \
 	$(AM_CFLAGS) \
+	-DDOCUMENT_ROOT=\"$(gatewayddocumentrootdir)\" \
 	$(MICROHTTPD_CFLAGS)
 
 dist_systemunit_DATA += \
@@ -3822,7 +3822,7 @@ libsystemd_logind_core_la_SOURCES = \
 
 libsystemd_logind_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
-        $(DBUS_CFLAGS)
+	$(DBUS_CFLAGS)
 
 libsystemd_logind_core_la_LIBADD = \
 	libsystemd-label.la \
