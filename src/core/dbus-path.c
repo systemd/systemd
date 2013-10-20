@@ -50,7 +50,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Path\0"
 
-const char bus_path_interface[] _introspect_("Path") = BUS_PATH_INTERFACE;
+const char bus_path_interface[] = BUS_PATH_INTERFACE;
 
 const char bus_path_invalidating_properties[] =
         "Result\0";

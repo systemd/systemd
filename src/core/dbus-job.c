@@ -45,7 +45,7 @@
         BUS_INTROSPECTABLE_INTERFACE                                  \
         "</node>\n"
 
-const char bus_job_interface[] _introspect_("Job") = BUS_JOB_INTERFACE;
+const char bus_job_interface[] = BUS_JOB_INTERFACE;
 
 #define INTERFACES_LIST                              \
         BUS_GENERIC_INTERFACES_LIST                  \

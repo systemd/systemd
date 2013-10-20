@@ -87,7 +87,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Socket\0"
 
-const char bus_socket_interface[] _introspect_("Socket") = BUS_SOCKET_INTERFACE;
+const char bus_socket_interface[] = BUS_SOCKET_INTERFACE;
 
 const char bus_socket_invalidating_properties[] =
         "ExecStartPre\0"

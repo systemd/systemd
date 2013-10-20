@@ -51,7 +51,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Timer\0"
 
-const char bus_timer_interface[] _introspect_("Timer") = BUS_TIMER_INTERFACE;
+const char bus_timer_interface[] = BUS_TIMER_INTERFACE;
 
 const char bus_timer_invalidating_properties[] =
         "TimersMonotonic\0"

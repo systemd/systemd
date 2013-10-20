@@ -321,7 +321,7 @@
         BUS_GENERIC_INTERFACES_LIST                  \
         "org.freedesktop.systemd1.Manager\0"
 
-const char bus_manager_interface[] _introspect_("Manager") = BUS_MANAGER_INTERFACE;
+const char bus_manager_interface[] = BUS_MANAGER_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_exec_output, exec_output, ExecOutput);
 

@@ -44,7 +44,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Target\0"
 
-const char bus_target_interface[] _introspect_("Target") = BUS_TARGET_INTERFACE;
+const char bus_target_interface[] = BUS_TARGET_INTERFACE;
 
 DBusHandlerResult bus_target_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusBoundProperties bps[] = {

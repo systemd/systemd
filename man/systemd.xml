@@ -119,20 +119,6 @@
                                 definition files.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><option>--introspect=</option></term>
-
-                                <listitem><para>Extract D-Bus
-                                interface introspection data. This is
-                                mostly useful at install time
-                                to generate data suitable for the
-                                D-Bus interfaces
-                                repository. Optionally the interface
-                                name for the introspection data may be
-                                specified. If omitted, the
-                                introspection data for all interfaces
-                                is dumped.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><option>--unit=</option></term>
 
                                 <listitem><para>Set default unit to

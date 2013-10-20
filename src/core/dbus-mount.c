@@ -62,7 +62,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Mount\0"
 
-const char bus_mount_interface[] _introspect_("Mount") = BUS_MOUNT_INTERFACE;
+const char bus_mount_interface[] = BUS_MOUNT_INTERFACE;
 
 const char bus_mount_invalidating_properties[] =
         "What\0"

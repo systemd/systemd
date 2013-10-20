@@ -47,7 +47,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Automount\0"
 
-const char bus_automount_interface[] _introspect_("Automount") = BUS_AUTOMOUNT_INTERFACE;
+const char bus_automount_interface[] = BUS_AUTOMOUNT_INTERFACE;
 
 const char bus_automount_invalidating_properties[] =
         "Result\0";

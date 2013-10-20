@@ -78,7 +78,7 @@
         BUS_GENERIC_INTERFACES_LIST             \
         "org.freedesktop.locale1\0"
 
-const char locale_interface[] _introspect_("locale1") = INTERFACE;
+const char locale_interface[] = INTERFACE;
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be
@@ -1335,14 +1335,6 @@ int main(int argc, char *argv[]) {
         log_open();
         label_init("/etc");
         umask(0022);
-
-        if (argc == 2 && streq(argv[1], "--introspect")) {
-                fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
-                      "<node>\n", stdout);
-                fputs(locale_interface, stdout);
-                fputs("</node>\n", stdout);
-                return 0;
-        }
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");

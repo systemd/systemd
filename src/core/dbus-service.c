@@ -81,7 +81,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Service\0"
 
-const char bus_service_interface[] _introspect_("Service") = BUS_SERVICE_INTERFACE;
+const char bus_service_interface[] = BUS_SERVICE_INTERFACE;
 
 const char bus_service_invalidating_properties[] =
         "ExecStartPre\0"

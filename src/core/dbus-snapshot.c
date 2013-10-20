@@ -44,7 +44,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Snapshot\0"
 
-const char bus_snapshot_interface[] _introspect_("Snapshot") = BUS_SNAPSHOT_INTERFACE;
+const char bus_snapshot_interface[] = BUS_SNAPSHOT_INTERFACE;
 
 static const BusProperty bus_snapshot_properties[] = {
         { "Cleanup", bus_property_append_bool, "b", offsetof(Snapshot, cleanup) },

@@ -59,7 +59,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Swap\0"
 
-const char bus_swap_interface[] _introspect_("Swap") = BUS_SWAP_INTERFACE;
+const char bus_swap_interface[] = BUS_SWAP_INTERFACE;
 
 const char bus_swap_invalidating_properties[] =
         "What\0"

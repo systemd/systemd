@@ -63,7 +63,6 @@ LIBSYSTEMD_JOURNAL_AGE=11
 dbuspolicydir=@dbuspolicydir@
 dbussessionservicedir=@dbussessionservicedir@
 dbussystemservicedir=@dbussystemservicedir@
-dbusinterfacedir=@dbusinterfacedir@
 pamlibdir=@pamlibdir@
 pamconfdir=@pamconfdir@
 pkgconfigdatadir=$(datadir)/pkgconfig
@@ -127,7 +126,6 @@ nodist_udevrules_DATA =
 dist_pkgsysconf_DATA =
 dist_pkgdata_DATA =
 dist_dbuspolicy_DATA =
-dbusinterface_DATA =
 dist_dbussystemservice_DATA =
 check_PROGRAMS =
 check_DATA =
@@ -499,8 +497,7 @@ EXTRA_DIST += \
 	units/initrd-cleanup.service.in \
 	units/initrd-udevadm-cleanup-db.service.in \
 	units/initrd-switch-root.service.in \
-	units/systemd-nspawn@.service.in \
-	introspect.awk
+	units/systemd-nspawn@.service.in
 
 CLEANFILES += \
 	units/console-shell.service.m4 \
@@ -1078,28 +1075,8 @@ dist_dbuspolicy_DATA += \
 dist_dbussystemservice_DATA += \
 	src/core/org.freedesktop.systemd1.service
 
-dbusinterface_DATA += \
-	org.freedesktop.systemd1.Manager.xml \
-	org.freedesktop.systemd1.Job.xml \
-	org.freedesktop.systemd1.Unit.xml \
-	org.freedesktop.systemd1.Service.xml \
-	org.freedesktop.systemd1.Socket.xml \
-	org.freedesktop.systemd1.Timer.xml \
-	org.freedesktop.systemd1.Target.xml \
-	org.freedesktop.systemd1.Device.xml \
-	org.freedesktop.systemd1.Mount.xml \
-	org.freedesktop.systemd1.Automount.xml \
-	org.freedesktop.systemd1.Snapshot.xml \
-	org.freedesktop.systemd1.Swap.xml \
-	org.freedesktop.systemd1.Path.xml
-
 polkitpolicy_in_in_files += \
 	src/core/org.freedesktop.systemd1.policy.in.in
-
-org.freedesktop.systemd1.%.xml: systemd
-	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.$* $< $@.tmp && \
-		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
-		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
 pkgconfigdata_DATA = \
 	src/core/systemd.pc
@@ -3483,14 +3460,6 @@ dist_dbussystemservice_DATA += \
 polkitpolicy_files += \
 	src/hostname/org.freedesktop.hostname1.policy
 
-dbusinterface_DATA += \
-	org.freedesktop.hostname1.xml
-
-org.freedesktop.hostname1.xml: systemd-hostnamed
-	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.hostname1 $< $@.tmp && \
-		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
-		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
-
 SYSTEM_UNIT_ALIASES += \
 	systemd-hostnamed.service dbus-org.freedesktop.hostname1.service
 
@@ -3552,14 +3521,6 @@ dist_dbussystemservice_DATA += \
 
 polkitpolicy_files += \
 	src/locale/org.freedesktop.locale1.policy
-
-dbusinterface_DATA += \
-	org.freedesktop.locale1.xml
-
-org.freedesktop.locale1.xml: systemd-localed
-	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.locale1 $< $@.tmp && \
-		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
-		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-localed.service dbus-org.freedesktop.locale1.service
@@ -3627,14 +3588,6 @@ nodist_systemunit_DATA += \
 
 polkitpolicy_files += \
 	src/timedate/org.freedesktop.timedate1.policy
-
-org.freedesktop.timedate1.xml: systemd-timedated
-	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.timedate1 $< $@.tmp && \
-		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
-		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
-
-dbusinterface_DATA += \
-	org.freedesktop.timedate1.xml
 
 INSTALL_DIRS += \
 	$(prefix)/lib/systemd/ntp-units.d \
@@ -4400,11 +4353,6 @@ EXTRA_DIST += \
 	man/custom-man.xsl
 
 # ------------------------------------------------------------------------------
-DBUS_PREPROCESS = $(CPP) -P $(CFLAGS) $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
-
-CLEANFILES += \
-	$(dbusinterface_DATA)
-
 if HAVE_SYSV_COMPAT
 sysvinit_DATA = \
 	docs/sysvinit/README
@@ -4538,7 +4486,6 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \
 	--with-dbussessionservicedir=$$dc_install_base/$(dbussessionservicedir) \
 	--with-dbussystemservicedir=$$dc_install_base/$(dbussystemservicedir) \
-	--with-dbusinterfacedir=$$dc_install_base/$(dbusinterfacedir) \
 	--with-bashcompletiondir=$$dc_install_base/$(bashcompletiondir) \
 	--with-zshcompletiondir=$$dc_install_base/$(zshcompletiondir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \

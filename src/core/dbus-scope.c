@@ -51,7 +51,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Scope\0"
 
-const char bus_scope_interface[] _introspect_("Scope") = BUS_SCOPE_INTERFACE;
+const char bus_scope_interface[] = BUS_SCOPE_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_scope_append_scope_result, scope_result, ScopeResult);
 

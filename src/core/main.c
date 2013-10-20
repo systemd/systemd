@@ -735,7 +735,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SHOW_STATUS,
                 ARG_DESERIALIZE,
                 ARG_SWITCHED_ROOT,
-                ARG_INTROSPECT,
                 ARG_DEFAULT_STD_OUTPUT,
                 ARG_DEFAULT_STD_ERROR
         };
@@ -758,7 +757,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              },
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
                 { "switched-root",            no_argument,       NULL, ARG_SWITCHED_ROOT            },
-                { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
                 { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
                 { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
                 { NULL,                       0,                 NULL, 0                            }
@@ -930,27 +928,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_switched_root = true;
                         break;
 
-                case ARG_INTROSPECT: {
-                        const char * const * i = NULL;
-
-                        for (i = bus_interface_table; *i; i += 2)
-                                if (!optarg || streq(i[0], optarg)) {
-                                        fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
-                                              "<node>\n", stdout);
-                                        fputs(i[1], stdout);
-                                        fputs("</node>\n", stdout);
-
-                                        if (optarg)
-                                                break;
-                                }
-
-                        if (!i[0] && optarg)
-                                log_error("Unknown interface %s.", optarg);
-
-                        arg_action = ACTION_DONE;
-                        break;
-                }
-
                 case 'h':
                         arg_action = ACTION_HELP;
                         break;
@@ -1013,7 +990,6 @@ static int help(void) {
                "  -h --help                      Show this help\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
-               "     --introspect[=INTERFACE]    Extract D-Bus interface data\n"
                "     --unit=UNIT                 Set default unit\n"
                "     --system                    Run a system instance, even if PID != 1\n"
                "     --user                      Run a user instance\n"

@@ -47,7 +47,7 @@
         BUS_UNIT_INTERFACES_LIST                     \
         "org.freedesktop.systemd1.Slice\0"
 
-const char bus_slice_interface[] _introspect_("Slice") = BUS_SLICE_INTERFACE;
+const char bus_slice_interface[] = BUS_SLICE_INTERFACE;
 
 DBusHandlerResult bus_slice_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Slice *s = SLICE(u);
