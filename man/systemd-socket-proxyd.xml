@@ -102,7 +102,7 @@
                                         invoked indirectly, for
                                         example with a shell script
                                         rather than with
-                                        <option>ExecStart=/usr/bin/systemd-socket-proxyd</option>
+                                        <option>ExecStart=/usr/lib/systemd/systemd-socket-proxyd</option>
                                         </para>
                                 </listitem>
                         </varlistentry>
@@ -126,7 +126,7 @@
 ListenStream=80
 
 [Install]
-WantedBy=socket.target]]>
+WantedBy=sockets.target]]>
 </programlisting>
                         </example>
                         <example label="proxy service unit">
@@ -177,7 +177,7 @@ $ curl http://localhost:80/]]>
 ListenStream=80
 
 [Install]
-WantedBy=socket.target]]>
+WantedBy=sockets.target]]>
 </programlisting>
                         </example>
                         <example label="combined proxy and nginx service unit">
