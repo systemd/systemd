@@ -122,7 +122,8 @@ static int send_buffer(struct connection *sender) {
         int r = 0;
 
         /* We cannot assume that even a partial send() indicates that
-         * the next send() will block. Loop until it does. */
+         * the next send() will return EAGAIN or EWOULDBLOCK. Loop until
+         * it does. */
         while (sender->buffer_filled_len > sender->buffer_sent_len) {
                 len = send(receiver->fd, sender->buffer + sender->buffer_sent_len, sender->buffer_filled_len - sender->buffer_sent_len, 0);
                 log_debug("send(%d, ...)=%ld", receiver->fd, len);
@@ -132,7 +133,7 @@ static int send_buffer(struct connection *sender) {
                                 return -errno;
                         }
                         else {
-                                /* send() is in a blocking state. */
+                                /* send() is in a would-block state. */
                                 break;
                         }
                 }
@@ -167,7 +168,8 @@ static int send_buffer(struct connection *sender) {
                 return r;
         }
 
-        /* If we sent everything without blocking, the buffer is now empty. */
+        /* If we sent everything without any issues (would-block or
+         * partial send), the buffer is now empty. */
         sender->buffer_filled_len = 0;
         sender->buffer_sent_len = 0;
 
@@ -242,7 +244,7 @@ static int transfer_data_cb(sd_event_source *s, int fd, uint32_t revents, void *
         return r;
 }
 
-/* Once sending to the server is unblocked, set up the real watchers. */
+/* Once sending to the server is ready, set up the real watchers. */
 static int connected_to_server_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         struct sd_event *e = NULL;
         struct connection *c_server_to_client = (struct connection *) userdata;
@@ -434,7 +436,7 @@ static int run_main_loop(struct proxy *proxy) {
 
         r = fd_nonblock(proxy->listen_fd, true);
         if (r < 0) {
-                log_error("Failed to make listen file descriptor non-blocking: %s", strerror(-r));
+                log_error("Failed to make listen file descriptor nonblocking: %s", strerror(-r));
                 return r;
         }
 
