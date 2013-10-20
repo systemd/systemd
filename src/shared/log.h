@@ -139,7 +139,7 @@ _noreturn_ void log_assert_failed_unreachable(
 #define log_full(level, ...) \
 do { \
         if (log_get_max_level() >= (level)) \
-                log_meta(LOG_INFO, __FILE__, __LINE__, __func__, __VA_ARGS__); \
+                log_meta((level), __FILE__, __LINE__, __func__, __VA_ARGS__); \
 } while (0)
 
 #define log_debug(...)   log_full(LOG_DEBUG,   __VA_ARGS__)
