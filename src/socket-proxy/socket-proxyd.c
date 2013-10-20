@@ -574,7 +574,6 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        /* @TODO: Check if this proxy can work with datagram sockets. */
         r = sd_is_socket(p.listen_fd, 0, SOCK_STREAM, 1);
         if (r < 0) {
                 log_error("Error %d while checking inherited socket: %s", r, strerror(-r));
