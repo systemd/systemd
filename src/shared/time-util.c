@@ -283,7 +283,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         /* The result of this function can be parsed with parse_sec */
 
         for (i = 0; i < ELEMENTSOF(table); i++) {
-                int k;
+                int k = 0;
                 size_t n;
                 bool done = false;
                 usec_t a, b;

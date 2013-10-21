@@ -238,7 +238,6 @@ int bus_cgroup_set_property(
                         DBusMessageIter sub2;
                         const char *path;
                         uint64_t u64;
-                        CGroupBlockIODeviceBandwidth *a;
 
                         dbus_message_iter_recurse(&sub, &sub2);
                         if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0 ||
@@ -246,6 +245,7 @@ int bus_cgroup_set_property(
                                 return -EINVAL;
 
                         if (mode != UNIT_CHECK) {
+                                CGroupBlockIODeviceBandwidth *a = NULL;
                                 CGroupBlockIODeviceBandwidth *b;
                                 bool exist = false;
 
@@ -329,7 +329,6 @@ int bus_cgroup_set_property(
                         const char *path;
                         uint64_t u64;
                         unsigned long ul;
-                        CGroupBlockIODeviceWeight *a;
 
                         dbus_message_iter_recurse(&sub, &sub2);
 
@@ -342,6 +341,7 @@ int bus_cgroup_set_property(
                                 return -EINVAL;
 
                         if (mode != UNIT_CHECK) {
+                                CGroupBlockIODeviceWeight *a = NULL;
                                 CGroupBlockIODeviceWeight *b;
                                 bool exist = false;
 
@@ -465,7 +465,6 @@ int bus_cgroup_set_property(
                 while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
                         DBusMessageIter sub2;
                         const char *path, *rwm;
-                        CGroupDeviceAllow *a;
 
                         dbus_message_iter_recurse(&sub, &sub2);
 
@@ -487,6 +486,7 @@ int bus_cgroup_set_property(
                         }
 
                         if (mode != UNIT_CHECK) {
+                                CGroupDeviceAllow *a = NULL;
                                 CGroupDeviceAllow *b;
                                 bool exist = false;
 
