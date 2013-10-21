@@ -621,6 +621,25 @@ EXTRA_DIST += \
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
+	libsystemd-rtnl.la
+
+libsystemd_rtnl_la_SOURCES = \
+	src/systemd/sd-rtnl.h \
+	src/libsystemd-rtnl/sd-rtnl.c \
+	src/libsystemd-rtnl/rtnl-internal.h \
+	src/libsystemd-rtnl/rtnl-message.c
+
+test_rtnl_SOURCES = \
+	src/libsystemd-rtnl/test-rtnl.c
+
+test_rtnl_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-rtnl.la
+
+tests += test-rtnl
+
+# ------------------------------------------------------------------------------
+noinst_LTLIBRARIES += \
 	libsystemd-shared.la
 
 libsystemd_shared_la_SOURCES = \

@@ -135,6 +135,7 @@
 /test-path-util
 /test-prioq
 /test-replace-var
+/test-rtnl
 /test-sched-prio
 /test-sleep
 /test-strip-tab-ansi
