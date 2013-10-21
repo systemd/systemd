@@ -20,9 +20,7 @@ KERNEL=="tty[A-Z]*[0-9]|pppox[0-9]*|ircomm[0-9]*|noz[0-9]*|rfcomm[0-9]*", GROUP=
 
 SUBSYSTEM=="mem", KERNEL=="mem|kmem|port", GROUP="kmem", MODE="0640"
 
-SUBSYSTEM=="input", KERNEL=="mouse*|mice|event*", MODE="0640"
-SUBSYSTEM=="input", KERNEL=="ts[0-9]*|uinput", MODE="0640"
-SUBSYSTEM=="input", KERNEL=="js[0-9]*", MODE="0644"
+SUBSYSTEM=="input", KERNEL=="js[0-9]*", MODE="0664"
 
 SUBSYSTEM=="video4linux", GROUP="video"
 SUBSYSTEM=="misc", KERNEL=="agpgart", GROUP="video"
@@ -63,7 +61,7 @@ SUBSYSTEM=="raw", KERNEL=="raw[0-9]*", GROUP="disk"
 SUBSYSTEM=="aoe", GROUP="disk", MODE="0220"
 SUBSYSTEM=="aoe", KERNEL=="err", MODE="0440"
 
-KERNEL=="rfkill", MODE="0644"
+KERNEL=="rfkill", MODE="0664"
 KERNEL=="tun", MODE="0666", OPTIONS+="static_node=net/tun"
 
 KERNEL=="fuse", MODE="0666", OPTIONS+="static_node=fuse"
