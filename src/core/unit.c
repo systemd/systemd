@@ -127,7 +127,8 @@ int unit_add_name(Unit *u, const char *text) {
                 goto fail;
         }
 
-        if ((r = unit_name_to_instance(s, &i)) < 0)
+        r = unit_name_to_instance(s, &i);
+        if (r < 0)
                 goto fail;
 
         if (i && unit_vtable[t]->no_instances) {
@@ -154,13 +155,15 @@ int unit_add_name(Unit *u, const char *text) {
                 goto fail;
         }
 
-        if ((r = set_put(u->names, s)) < 0) {
+        r = set_put(u->names, s);
+        if (r < 0) {
                 if (r == -EEXIST)
                         r = 0;
                 goto fail;
         }
 
-        if ((r = hashmap_put(u->manager->units, s, u)) < 0) {
+        r = hashmap_put(u->manager->units, s, u);
+        if (r < 0) {
                 set_remove(u->names, s);
                 goto fail;
         }
@@ -201,7 +204,8 @@ int unit_choose_id(Unit *u, const char *name) {
                 if (!u->instance)
                         return -EINVAL;
 
-                if (!(t = unit_name_replace_instance(name, u->instance)))
+                t = unit_name_replace_instance(name, u->instance);
+                if (!t)
                         return -ENOMEM;
 
                 name = t;
@@ -213,7 +217,8 @@ int unit_choose_id(Unit *u, const char *name) {
         if (!s)
                 return -ENOENT;
 
-        if ((r = unit_name_to_instance(s, &i)) < 0)
+        r = unit_name_to_instance(s, &i);
+        if (r < 0)
                 return r;
 
         u->id = s;
@@ -546,14 +551,13 @@ static void merge_dependencies(Unit *u, Unit *other, UnitDependency d) {
         SET_FOREACH(back, other->dependencies[d], i) {
                 UnitDependency k;
 
-                for (k = 0; k < _UNIT_DEPENDENCY_MAX; k++)
-                        if ((r = set_remove_and_put(back->dependencies[k], other, u)) < 0) {
-
-                                if (r == -EEXIST)
-                                        set_remove(back->dependencies[k], other);
-                                else
-                                        assert(r == -ENOENT);
-                        }
+                for (k = 0; k < _UNIT_DEPENDENCY_MAX; k++) {
+                        r = set_remove_and_put(back->dependencies[k], other, u);
+                        if (r == -EEXIST)
+                                set_remove(back->dependencies[k], other);
+                        else
+                                assert(r >= 0 || r == -ENOENT);
+                }
         }
 
         complete_move(&u->dependencies[d], &other->dependencies[d]);
@@ -632,7 +636,8 @@ int unit_merge_by_name(Unit *u, const char *name) {
                 if (!u->instance)
                         return -EINVAL;
 
-                if (!(s = unit_name_replace_instance(name, u->instance)))
+                s = unit_name_replace_instance(name, u->instance);
+                if (!s)
                         return -ENOMEM;
 
                 name = s;
@@ -843,7 +848,7 @@ int unit_load_fragment_and_dropin(Unit *u) {
 
         assert(u);
 
-        /* Load a .service file */
+        /* Load a .{service,socket,...} file */
         r = unit_load_fragment(u);
         if (r < 0)
                 return r;
@@ -1280,7 +1285,8 @@ int unit_reload(Unit *u) {
         if (state != UNIT_ACTIVE)
                 return -ENOEXEC;
 
-        if ((following = unit_following(u))) {
+        following = unit_following(u);
+        if (following) {
                 log_debug_unit(u->id, "Redirecting reload request from %s to %s.",
                                u->id, following->id);
                 return unit_reload(following);
