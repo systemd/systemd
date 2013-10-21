@@ -507,6 +507,7 @@ static int analyze_plot(DBusConnection *bus) {
         /* style sheet */
         svg("<defs>\n  <style type=\"text/css\">\n    <![CDATA[\n"
             "      rect       { stroke-width: 1; stroke-opacity: 0; }\n"
+            "      rect.background   { fill: rgb(255,255,255); }\n"
             "      rect.activating   { fill: rgb(255,0,0); fill-opacity: 0.7; }\n"
             "      rect.active       { fill: rgb(200,150,150); fill-opacity: 0.7; }\n"
             "      rect.deactivating { fill: rgb(150,100,100); fill-opacity: 0.7; }\n"
@@ -528,6 +529,7 @@ static int analyze_plot(DBusConnection *bus) {
             "      text.sec   { font-size: 10px; }\n"
             "    ]]>\n   </style>\n</defs>\n\n");
 
+        svg("<rect class=\"background\" width=\"100%%\" height=\"100%%\" />\n");
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
         svg("<text x=\"20\" y=\"30\">%s %s (%s %s) %s</text>",
             isempty(osname) ? "Linux" : osname,
