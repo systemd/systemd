@@ -465,8 +465,10 @@ static int item_set_perms(Item *i, const char *path) {
 }
 
 static int write_one_file(Item *i, const char *path) {
-        int r, e, fd, flags;
+        int e, flags;
+        int fd = -1;
         struct stat st;
+        int r = 0;
 
         flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND :
                 i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
@@ -638,8 +640,9 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
 }
 
 static int create_item(Item *i) {
-        int r, e;
+        int e;
         struct stat st;
+        int r = 0;
 
         assert(i);
 

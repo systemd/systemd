@@ -2062,7 +2062,7 @@ void manager_dispatch_bus_query_pid_done(
 
 int manager_open_serialization(Manager *m, FILE **_f) {
         char *path = NULL;
-        int fd;
+        int fd = -1;
         FILE *f;
 
         assert(_f);

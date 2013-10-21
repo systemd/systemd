@@ -153,7 +153,7 @@ static int generate(char id[34]) {
 int machine_id_setup(void) {
         _cleanup_close_ int fd = -1;
         int r;
-        bool writable;
+        bool writable = false;
         struct stat st;
         char id[34]; /* 32 + \n + \0 */
 

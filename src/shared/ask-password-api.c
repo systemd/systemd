@@ -250,7 +250,8 @@ static int create_socket(char **name) {
         } sa = {
                 .un.sun_family = AF_UNIX,
         };
-        int one = 1, r;
+        int one = 1;
+        int r = 0;
         char *c;
 
         assert(name);

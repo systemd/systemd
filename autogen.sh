@@ -54,7 +54,7 @@ args="$args \
 fi
 
 if [ "x$1" = "xc" ]; then
-        ./configure CFLAGS='-g -O0' $args
+        ./configure CFLAGS='-g -Og' $args
         make clean
 else
         echo
