@@ -157,7 +157,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         --param=ssp-buffer-size=4])
 AC_SUBST([OUR_CFLAGS], "$with_cflags $address_sanitizer_cflags")
 
-AS_CASE([$CFLAGS], [*-O[[12345g\ ]]*],
+AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
                -Wp,-D_FORTIFY_SOURCE=2])],
         [AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
