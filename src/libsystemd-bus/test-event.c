@@ -29,6 +29,7 @@ static int prepare_handler(sd_event_source *s, void *userdata) {
 }
 
 static bool got_a, got_b, got_c;
+static unsigned got_d;
 
 static int io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
 
@@ -41,6 +42,12 @@ static int io_handler(sd_event_source *s, int fd, uint32_t revents, void *userda
         } else if (userdata == INT_TO_PTR('b')) {
                 assert_se(!got_b);
                 got_b = true;
+        } else if (userdata == INT_TO_PTR('d')) {
+                got_d++;
+                if (got_d < 2)
+                        assert_se(sd_event_source_set_enabled(s, SD_EVENT_ONESHOT) >= 0);
+                else
+                        assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
         } else
                 assert_not_reached("Yuck!");
 
@@ -148,16 +155,28 @@ static int quit_handler(sd_event_source *s, void *userdata) {
 
 int main(int argc, char *argv[]) {
         sd_event *e = NULL;
-        sd_event_source *x = NULL, *y = NULL, *z = NULL, *q = NULL;
+        sd_event_source *w = NULL, *x = NULL, *y = NULL, *z = NULL, *q = NULL;
         static const char ch = 'x';
-        int a[2] = { -1, -1 }, b[2] = { -1, -1};
+        int a[2] = { -1, -1 }, b[2] = { -1, -1}, d[2] = { -1, -1};
 
         assert_se(pipe(a) >= 0);
         assert_se(pipe(b) >= 0);
+        assert_se(pipe(d) >= 0);
 
         assert_se(sd_event_new(&e) >= 0);
 
-        got_a = false, got_b = false, got_c = false;
+        got_a = false, got_b = false, got_c = false, got_d = 0;
+
+        /* Add a oneshot handler, trigger it, re-enable it, and trigger
+         * it again. */
+        assert_se(sd_event_add_io(e, d[0], EPOLLIN, io_handler, INT_TO_PTR('d'), &w) >= 0);
+        assert_se(sd_event_source_set_enabled(w, SD_EVENT_ONESHOT) >= 0);
+        assert_se(write(d[1], &ch, 1) >= 0);
+        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(got_d == 1);
+        assert_se(write(d[1], &ch, 1) >= 0);
+        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(got_d == 2);
 
         assert_se(sd_event_add_io(e, a[0], EPOLLIN, io_handler, INT_TO_PTR('a'), &x) >= 0);
         assert_se(sd_event_add_io(e, b[0], EPOLLIN, io_handler, INT_TO_PTR('b'), &y) >= 0);

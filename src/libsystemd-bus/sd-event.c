@@ -1430,15 +1430,6 @@ static int process_io(sd_event *e, sd_event_source *s, uint32_t events) {
 
         s->io.revents = events;
 
-        /*
-           If this is a oneshot event source, then we added it to the
-           epoll with EPOLLONESHOT, hence we know it's not registered
-           anymore. We can save a syscall here...
-        */
-
-        if (s->enabled == SD_EVENT_ONESHOT)
-                s->io.registered = false;
-
         return source_set_pending(s, true);
 }
 
