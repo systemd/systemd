@@ -153,9 +153,9 @@ server {
                         </example>
                         <example label="commands">
                                 <programlisting>
-<![CDATA[$ sudo systemctl --system daemon-reload
-$ sudo systemctl start proxy-to-nginx.socket
-$ sudo systemctl enable proxy-to-nginx.socket
+<![CDATA[# systemctl --system daemon-reload
+# systemctl start proxy-to-nginx.socket
+# systemctl enable proxy-to-nginx.socket
 $ curl http://localhost:80/]]>
 </programlisting>
                         </example>
@@ -221,9 +221,9 @@ server {
                         </example>
                         <example label="commands">
                                 <programlisting>
-<![CDATA[$ sudo systemctl --system daemon-reload
-$ sudo systemctl start proxy-with-nginx.socket
-$ sudo systemctl enable proxy-with-nginx.socket
+<![CDATA[# systemctl --system daemon-reload
+# systemctl start proxy-with-nginx.socket
+# systemctl enable proxy-with-nginx.socket
 $ curl http://localhost:80/]]>
 </programlisting>
                         </example>
