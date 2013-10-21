@@ -1,6 +1,6 @@
 Bugfixes:
 
-* enabling an instance unit creates pointless link, and
+* enabling an instance unit creates a pointless link, and
   the unit will be started with getty@getty.service:
     $ systemctl enable getty@.service
     ln -s '/usr/lib/systemd/system/getty@.service' '/etc/systemd/system/getty.target.wants/getty@.service'
@@ -17,7 +17,7 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-* When we detect invalid UTF-8, we cant't use it in an error message:
+* When we detect invalid UTF-8, we cannot use it in an error message:
   log...("Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
 
 * shorten the message to sane length:
@@ -62,7 +62,7 @@ Features:
 
 * Add a new Distribute=$NUMBER key to socket units that makes use of SO_REUSEPORT to distribute network traffic on $NUMBER instances
 
-* tmpfiles: when applying ownership to /run/log/journal also do this for the journal fails contained in it
+* tmpfiles: when applying ownership to /run/log/journal, also do this for the journal fails contained in it
 
 * we probably should replace the left-over uses of strv_append() and replace them by strv_push() or strv_extend()
 
@@ -72,11 +72,11 @@ Features:
 
 * After coming back from hibernation reset hibernation swap partition using the /dev/snapshot ioctl APIs
 
-* If we try to find a unit via a dangling symlink generate a clean
-  error. Currently we just ignore it and read the unit from the search
+* If we try to find a unit via a dangling symlink, generate a clean
+  error. Currently, we just ignore it and read the unit from the search
   path anyway.
 
-* When a Type=forking service fails and needed another service that
+* When a Type=forking service fails and needed another service, that
   service is not cleaned up again when it has StopWhenUnneeded=yes
   http://lists.freedesktop.org/archives/systemd-devel/2013-July/012141.html
 
@@ -98,7 +98,7 @@ Features:
 
 * journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
 
-* given that logind/machined now let PID 1 do all nasty work we can
+* given that logind/machined now let PID 1 do all nasty work, we can
   probably reduce the capability set they retain substantially.
 
 * btrfs raid assembly: some .device jobs stay stuck in the queue
@@ -111,9 +111,9 @@ Features:
 
 * when parsing calendar timestamps support the UTC timezone (even if we won't support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
 
-* when a kernel driver logs in a tight loop we should ratelimit that too.
+* when a kernel driver logs in a tight loop, we should ratelimit that too.
 
-* "systemctl disable" of a unit instance removes all symlinks, should
+* "systemctl disable" of a unit instance removes all symlinks, but should
   only remove the instance symlink (systemctl disable of a template
   unit however should remove them all).
 
@@ -131,7 +131,7 @@ Features:
 
 * add a fixed dbus path for "my own unit", "my own session", ... to PID1, logind, ...
 
-* service_coldplug() appears to reinstall the wrong stop timeout watch?
+* service_coldplug() appears to reinstall the wrong stop timeout watch.
 
 * transient units: allow creating auxiliary units with the same call
 
@@ -154,7 +154,7 @@ Features:
 
 * we should properly escape ssh hostnames we add into dbus server strings
 
-* something pulls in pcre as so dep into our daemons such as hostnamed.
+* something pulls in pcre as shared object dependency into our daemons such as hostnamed.
 
 * document systemd-journal-flush.service properly
 

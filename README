@@ -75,8 +75,8 @@ REQUIREMENTS:
           CONFIG_TMPFS_XATTR
           CONFIG_SECCOMP
 
-        For systemd-bootchart a kernel with procfs support and several
-        proc output options enabled is required:
+        For systemd-bootchart, a kernel with procfs support and
+        several proc output options enabled is required:
           CONFIG_PROC_FS
           CONFIG_SCHEDSTATS
           CONFIG_SCHED_DEBUG
@@ -87,7 +87,7 @@ REQUIREMENTS:
 
         Note that kernel auditing is broken when used with systemd's
         container code. When using systemd in conjunction with
-        containers please make sure to either turn off auditing at
+        containers, please make sure to either turn off auditing at
         runtime using the kernel command line option "audit=0", or
         turn it off at kernel compile time using:
           CONFIG_AUDIT=n
@@ -110,14 +110,16 @@ REQUIREMENTS:
         libpython (optional)
         make, gcc, and similar tools
 
-        During runtime you need the following additional dependencies:
+        During runtime, you need the following additional
+        dependencies:
 
         util-linux >= v2.19 (requires fsck -l, agetty -s)
         sulogin (from util-linux >= 2.22 or sysvinit-tools, optional but recommended)
         dracut (optional)
         PolicyKit (optional)
 
-        When building from git you need the following additional dependencies:
+        When building from git, you need the following additional
+        dependencies:
 
         docbook-xsl
         xsltproc
@@ -131,16 +133,16 @@ REQUIREMENTS:
         sphinx (optional)
         python-lxml (entirely optional)
 
-        When systemd-hostnamed is used it is strongly recommended to
-        install nss-myhostname to ensure that in a world of
-        dynamically changing hostnames the hostname stays resolvable
+        When systemd-hostnamed is used, it is strongly recommended to
+        install nss-myhostname to ensure that, in a world of
+        dynamically changing hostnames, the hostname stays resolvable
         under all circumstances. In fact, systemd-hostnamed will warn
         if nss-myhostname is not installed.
 
         Note that D-Bus can link against libsystemd-login.so, which
-        results in a cyclic build dependency. To accommodate for this
-        please build D-Bus without systemd first, then build systemd,
-        then rebuild D-Bus with systemd support.
+        results in a cyclic build dependency. To accommodate for
+        this, please build D-Bus without systemd first, then build
+        systemd, then rebuild D-Bus with systemd support.
 
         To build HTML documentation for python-systemd using sphinx,
         please first install systemd (using 'make install'), and then
@@ -156,9 +158,9 @@ USERS AND GROUPS:
 
         tty, dialout, kmem, video, audio, lp, floppy, cdrom, tape, disk
 
-        During runtime the journal daemon requires the
+        During runtime, the journal daemon requires the
         "systemd-journal" system group to exist. New journal files will
-        be readable by this group (but not writable) which may be used
+        be readable by this group (but not writable), which may be used
         to grant specific users read access.
 
         It is also recommended to grant read access to all journal
@@ -180,12 +182,12 @@ WARNINGS:
 
         systemd will warn you during boot if /usr is on a different
         file system than /. While in systemd itself very little will
-        break if /usr is on a separate partition many of its
+        break if /usr is on a separate partition, many of its
         dependencies very likely will break sooner or later in one
-        form or another. For example udev rules tend to refer to
+        form or another. For example, udev rules tend to refer to
         binaries in /usr, binaries that link to libraries in /usr or
         binaries that refer to data files in /usr. Since these
-        breakages are not always directly visible systemd will warn
+        breakages are not always directly visible, systemd will warn
         about this, since this kind of file system setup is not really
         supported anymore by the basic set of Linux OS components.
 

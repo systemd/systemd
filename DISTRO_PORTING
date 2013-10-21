@@ -23,12 +23,12 @@ HOWTO:
 
 CONTRIBUTING UPSTREAM:
 
-        We are generally do no longer accept distribution specific
+        We do generally no longer accept distribution-specific
         patches to systemd upstream. If you have to make changes to
         systemd's source code to make it work on your distribution:
-        unless your code is generic enough to be generally useful we
+        unless your code is generic enough to be generally useful, we
         are unlikely to merge it. Please always consider adopting the
-        upstream defaults. If that's not possible please maintain the
-        relevant patches downstream.
+        upstream defaults. If that is not possible, please maintain
+        the relevant patches downstream.
 
         Thank you for understanding.

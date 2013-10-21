@@ -101,7 +101,7 @@
                         <varlistentry>
                                 <term><varname>systemd.restore_state=</varname></term>
                                 <listitem>
-                                        <para>Parameter understood by
+                                        <para>This parameter is understood by
                                         several system tools to control
                                         whether or not they should restore
                                         system state from the previous boot.

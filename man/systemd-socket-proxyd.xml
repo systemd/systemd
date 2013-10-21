@@ -46,7 +46,7 @@
                 <cmdsynopsis>
                         <command>systemd-socket-proxyd</command>
                         <arg choice="opt" rep="repeat">OPTIONS</arg>
-                        <arg choice="plain"><replaceable>HOSTNAME-OR-IP</replaceable></arg>
+                        <arg choice="plain"><replaceable>HOSTNAME-OR-IPADDR</replaceable></arg>
                         <arg choice="plain"><replaceable>PORT-OR-SERVICE</replaceable></arg>
                 </cmdsynopsis>
                 <cmdsynopsis>
@@ -67,7 +67,7 @@
                 for each client, and then bidirectionally forwards
                 data between the two.</para>
                 <para>This utility's behavior is similar to
-                <citerefentry><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum> </citerefentry>.
+                <citerefentry><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
                 The main differences for <command>systemd-socket-proxyd</command>
                 are support for socket activation with
                 <literal>Accept=false</literal> and an event-driven
@@ -98,9 +98,9 @@
                                 <listitem>
                                         <para>Skips verification of
                                         the expected PID and file
-                                        descriptor numbers. Use if
+                                        descriptor numbers. Use this if
                                         invoked indirectly, for
-                                        example with a shell script
+                                        example, with a shell script
                                         rather than with
                                         <option>ExecStart=/usr/lib/systemd/systemd-socket-proxyd</option>
                                         </para>
@@ -110,7 +110,7 @@
         </refsect1>
         <refsect1>
                 <title>Exit status</title>
-                <para>On success 0 is returned, a non-zero failure
+                <para>On success, 0 is returned, a non-zero failure
                 code otherwise.</para>
         </refsect1>
         <refsect1>
