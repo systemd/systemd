@@ -15,6 +15,7 @@ _systemd_analyze_command(){
         'critical-chain:Print a tree of the time critical chain of units'
         'plot:Output SVG graphic showing service initialization'
         'dot:Dump dependency graph (in dot(1) format)'
+        'dump:Dump server status'
         'set-log-level:Set systemd log threshold'
     )
 

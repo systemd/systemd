@@ -31,7 +31,7 @@ _systemd_analyze() {
         local OPTS='--help --version --system --user --from-pattern --to-pattern --order --require'
 
         local -A VERBS=(
-                [NO_OPTION]='time blame plot'
+                [STANDALONE]='time blame plot dump'
                 [CRITICAL_CHAIN]='critical-chain'
                 [DOT]='dot'
                 [LOG_LEVEL]='set-log-level'
@@ -55,7 +55,7 @@ _systemd_analyze() {
         if [[ -z $verb ]]; then
                 comps=${VERBS[*]}
 
-        elif __contains_word "$verb" ${VERBS[NO_OPTION]}; then
+        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
                 if [[ $cur = -* ]]; then
                         comps='--help --version --system --user'
                 fi

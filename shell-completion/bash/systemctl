@@ -137,7 +137,7 @@ _systemctl () {
                      [JOBS]='cancel'
                 [SNAPSHOTS]='delete'
                      [ENVS]='set-environment unset-environment'
-               [STANDALONE]='daemon-reexec daemon-reload default dump
+               [STANDALONE]='daemon-reexec daemon-reload default
                              emergency exit halt hibernate hybrid-sleep kexec list-jobs
                              list-sockets list-units list-unit-files poweroff reboot rescue
                              show-environment suspend get-default'
