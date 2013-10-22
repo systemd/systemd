@@ -326,17 +326,6 @@ systemgenerator_PROGRAMS = \
 	systemd-fstab-generator \
 	systemd-system-update-generator
 
-systemd_analyze_SOURCES = \
-	src/analyze/systemd-analyze.c
-
-systemd_analyze_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
-systemd_analyze_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-dbus.la
-
 dist_bashcompletion_DATA = \
 	shell-completion/bash/journalctl \
 	shell-completion/bash/systemctl \
@@ -1442,6 +1431,18 @@ else
 lcov-run lcov-report:
 	echo "Need to reconfigure with --enable-coverage"
 endif
+
+# ------------------------------------------------------------------------------
+systemd_analyze_SOURCES = \
+	src/analyze/analyze.c
+
+systemd_analyze_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_analyze_LDADD = \
+	libsystemd-shared.la \
+	libsystemd-dbus.la
 
 # ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
