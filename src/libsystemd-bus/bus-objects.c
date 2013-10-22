@@ -333,14 +333,13 @@ static int invoke_property_get(
         switch (v->x.property.signature[0]) {
 
         case SD_BUS_TYPE_STRING:
-                p = *(char**) userdata;
-                if (!p)
-                        p = "";
+        case SD_BUS_TYPE_SIGNATURE:
+                p = strempty(*(char**) userdata);
                 break;
 
         case SD_BUS_TYPE_OBJECT_PATH:
-        case SD_BUS_TYPE_SIGNATURE:
                 p = *(char**) userdata;
+                assert(p);
                 break;
 
         default:
