@@ -3497,15 +3497,11 @@ if ENABLE_LOCALED
 systemd_localed_SOURCES = \
 	src/locale/localed.c
 
-systemd_localed_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 systemd_localed_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-dbus.la
+	libsystemd-bus.la
 
 nodist_systemunit_DATA += \
 	units/systemd-localed.service
