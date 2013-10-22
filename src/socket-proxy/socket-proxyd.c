@@ -442,8 +442,10 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 r = do_accept(e, p, fd);
                 if (r == -EAGAIN || r == -EWOULDBLOCK)
                         break;
-                if (r < 0)
+                if (r < 0) {
                         log_error("Error %d while trying to accept: %s", r, strerror(-r));
+                        break;
+                }
         }
 
         /* Re-enable the watcher. */
