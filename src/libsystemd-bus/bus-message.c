@@ -2657,7 +2657,7 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
         c = message_get_container(m);
 
         if (!c->signature || c->signature[c->index] == 0)
-                return 0;
+                return -ENXIO;
 
         if (message_end_of_array(m, m->rindex))
                 return 0;
@@ -3008,7 +3008,7 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
         c = message_get_container(m);
 
         if (!c->signature || c->signature[c->index] == 0)
-                return 0;
+                return -ENXIO;
 
         if (message_end_of_array(m, m->rindex))
                 return 0;
@@ -3252,11 +3252,12 @@ static int message_read_ap(
         unsigned n_array, n_struct;
         TypeStack stack[BUS_CONTAINER_DEPTH];
         unsigned stack_ptr = 0;
+        unsigned n_loop = 0;
         int r;
 
         assert(m);
 
-        if (!types)
+        if (isempty(types))
                 return 0;
 
         /* Ideally, we'd just call ourselves recursively on every
@@ -3266,11 +3267,13 @@ static int message_read_ap(
          * in a single stackframe. We hence implement our own
          * home-grown stack in an array. */
 
-        n_array = (unsigned) -1;
-        n_struct = strlen(types);
+        n_array = (unsigned) -1; /* lenght of current array entries */
+        n_struct = strlen(types); /* length of current struct contents signature */
 
         for (;;) {
                 const char *t;
+
+                n_loop++;
 
                 if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
                         r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array);
@@ -3315,8 +3318,13 @@ static int message_read_ap(
                         r = sd_bus_message_read_basic(m, *t, p);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
+
+                        if (r == 0) {
+                                if (n_loop <= 1)
+                                        return 0;
+
                                 return -ENXIO;
+                        }
 
                         break;
                 }
@@ -3336,8 +3344,12 @@ static int message_read_ap(
                                 r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, s);
                                 if (r < 0)
                                         return r;
-                                if (r == 0)
+                                if (r == 0) {
+                                        if (n_loop <= 1)
+                                                return 0;
+
                                         return -ENXIO;
+                                }
                         }
 
                         if (n_array == (unsigned) -1) {
@@ -3366,8 +3378,12 @@ static int message_read_ap(
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_VARIANT, s);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
+                        if (r == 0) {
+                                if (n_loop <= 1)
+                                        return 0;
+
                                 return -ENXIO;
+                        }
 
                         r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
                         if (r < 0)
@@ -3396,8 +3412,11 @@ static int message_read_ap(
                                 r = sd_bus_message_enter_container(m, *t == SD_BUS_TYPE_STRUCT_BEGIN ? SD_BUS_TYPE_STRUCT : SD_BUS_TYPE_DICT_ENTRY, s);
                                 if (r < 0)
                                         return r;
-                                if (r == 0)
+                                if (r == 0) {
+                                        if (n_loop <= 1)
+                                                return 0;
                                         return -ENXIO;
+                                }
                         }
 
                         if (n_array == (unsigned) -1) {
