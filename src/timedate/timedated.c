@@ -45,8 +45,8 @@
 typedef struct Context {
         char *zone;
         bool local_rtc;
-        int can_ntp;
-        int use_ntp;
+        unsigned can_ntp;
+        unsigned use_ntp;
         Hashmap *polkit_registry;
 } Context;
 
@@ -521,7 +521,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         Context *c = userdata;
         const char *z;
-        bool interactive;
+        unsigned interactive;
         char *t;
         int r;
 
@@ -585,7 +585,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
 static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        bool lrtc, fix_system, interactive;
+        unsigned lrtc, fix_system, interactive;
         Context *c = userdata;
         struct timespec ts;
         int r;
@@ -669,7 +669,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata) 
 
 static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        bool relative, interactive;
+        unsigned relative, interactive;
         Context *c = userdata;
         int64_t utc;
         struct timespec ts;
@@ -735,7 +735,7 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
 static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        bool ntp, interactive;
+        unsigned ntp, interactive;
         Context *c = userdata;
         int r;
 

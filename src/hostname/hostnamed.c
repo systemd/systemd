@@ -371,7 +371,7 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         Context *c = userdata;
         const char *name;
-        bool interactive;
+        unsigned interactive;
         char *h;
         int r;
 
@@ -421,7 +421,7 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         Context *c = userdata;
         const char *name;
-        bool interactive;
+        unsigned interactive;
         int r;
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
@@ -472,7 +472,7 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
 
 static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop, sd_bus_message_handler_t cb) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        bool interactive;
+        unsigned interactive;
         const char *name;
         int r;
 
