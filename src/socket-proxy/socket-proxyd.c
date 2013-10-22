@@ -64,10 +64,13 @@ struct connection {
 };
 
 static void free_connection(struct connection *c) {
-        log_debug("Freeing fd=%d (conn %p).", c->fd, c);
-        sd_event_source_unref(c->w);
-        close_nointr_nofail(c->fd);
-        free(c);
+        if (c != NULL) {
+                log_debug("Freeing fd=%d (conn %p).", c->fd, c);
+                sd_event_source_unref(c->w);
+                if (c->fd > 0)
+                        close_nointr_nofail(c->fd);
+                free(c);
+        }
 }
 
 static int add_event_to_connection(struct connection *c, uint32_t events) {
@@ -347,19 +350,27 @@ static int get_server_connection_fd(const struct proxy *proxy) {
         return server_fd;
 }
 
-static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        struct proxy *proxy = (struct proxy *) userdata;
-        struct connection *c_server_to_client;
+static int do_accept(sd_event *e, struct proxy *p, int fd) {
+        struct connection *c_server_to_client = NULL;
         struct connection *c_client_to_server = NULL;
         int r = 0;
         union sockaddr_union sa;
         socklen_t salen = sizeof(sa);
+        int client_fd, server_fd;
 
-        assert(revents & EPOLLIN);
+        client_fd = accept4(fd, (struct sockaddr *) &sa, &salen, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        if (client_fd < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK)
+                    return -errno;
+                log_error("Error %d accepting client connection: %m", errno);
+                r = -errno;
+                goto fail;
+        }
 
-        c_server_to_client = new0(struct connection, 1);
-        if (c_server_to_client == NULL) {
-                log_oom();
+        server_fd = get_server_connection_fd(p);
+        if (server_fd < 0) {
+                log_error("Error initiating server connection.");
+                r = server_fd;
                 goto fail;
         }
 
@@ -369,18 +380,14 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 goto fail;
         }
 
-        c_server_to_client->fd = get_server_connection_fd(proxy);
-        if (c_server_to_client->fd < 0) {
-                log_error("Error initiating server connection.");
+        c_server_to_client = new0(struct connection, 1);
+        if (c_server_to_client == NULL) {
+                log_oom();
                 goto fail;
         }
 
-        c_client_to_server->fd = accept4(fd, (struct sockaddr *) &sa, &salen, SOCK_NONBLOCK|SOCK_CLOEXEC);
-        if (c_client_to_server->fd < 0) {
-                log_error("Error accepting client connection.");
-                goto fail;
-        }
-
+        c_client_to_server->fd = client_fd;
+        c_server_to_client->fd = server_fd;
 
         if (sa.sa.sa_family == AF_INET || sa.sa.sa_family == AF_INET6) {
                 char sa_str[INET6_ADDRSTRLEN];
@@ -401,7 +408,7 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
         log_debug("Server fd=%d (conn %p) successfully initialized.", c_server_to_client->fd, c_server_to_client);
 
         /* Initialize watcher for send to server; this shows connectivity. */
-        r = sd_event_add_io(sd_event_get(s), c_server_to_client->fd, EPOLLOUT, connected_to_server_cb, c_server_to_client, &c_server_to_client->w);
+        r = sd_event_add_io(e, c_server_to_client->fd, EPOLLOUT, connected_to_server_cb, c_server_to_client, &c_server_to_client->w);
         if (r < 0) {
                 log_error("Error %d creating connectivity watcher for fd=%d: %s", r, c_server_to_client->fd, strerror(-r));
                 goto fail;
@@ -419,7 +426,34 @@ fail:
         free_connection(c_server_to_client);
 
 finish:
-        /* Preserve the main loop even if a single proxy setup fails. */
+        return r;
+}
+
+static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        struct proxy *p = (struct proxy *) userdata;
+        sd_event *e = NULL;
+        int r = 0;
+
+        assert(revents & EPOLLIN);
+
+        e = sd_event_get(s);
+
+        for (;;) {
+                r = do_accept(e, p, fd);
+                if (r == -EAGAIN || r == -EWOULDBLOCK)
+                        break;
+                if (r < 0)
+                        log_error("Error %d while trying to accept: %s", r, strerror(-r));
+        }
+
+        /* Re-enable the watcher. */
+        r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
+        if (r < 0) {
+                log_error("Error %d while re-enabling listener with ONESHOT: %s", r, strerror(-r));
+                return r;
+        }
+
+        /* Preserve the main loop even if a single accept() fails. */
         return 1;
 }
 
@@ -444,7 +478,15 @@ static int run_main_loop(struct proxy *proxy) {
 
         r = sd_event_add_io(e, proxy->listen_fd, EPOLLIN, accept_cb, proxy, &w_accept);
         if (r < 0) {
-                log_error("Failed to add event IO source: %s", strerror(-r));
+                log_error("Error %d while adding event IO source: %s", r, strerror(-r));
+                return r;
+        }
+
+        /* Set the watcher to oneshot in case other processes are also
+         * watching to accept(). */
+        r = sd_event_source_set_enabled(w_accept, SD_EVENT_ONESHOT);
+        if (r < 0) {
+                log_error("Error %d while setting event IO source to ONESHOT: %s", r, strerror(-r));
                 return r;
         }
 
