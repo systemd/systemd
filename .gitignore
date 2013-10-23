@@ -130,6 +130,7 @@
 /test-login-shared
 /test-loopback
 /test-mmap-cache
+/test-namespace
 /test-ns
 /test-path-util
 /test-prioq
