@@ -23,7 +23,10 @@
 
 #include <stdbool.h>
 
-int setup_tmpdirs(char **tmp_dir, char **var_tmp_dir);
+int setup_tmpdirs(const char *unit_id,
+                  char **tmp_dir,
+                  char **var_tmp_dir);
+
 int setup_namespace(char **read_write_dirs,
                     char **read_only_dirs,
                     char **inaccessible_dirs,

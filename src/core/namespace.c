@@ -184,26 +184,29 @@ static int make_read_only(BindMount *m) {
         return 0;
 }
 
-int setup_tmpdirs(char **tmp_dir,
+int setup_tmpdirs(const char *unit_id,
+                  char **tmp_dir,
                   char **var_tmp_dir) {
         int r = 0;
-        char tmp_dir_template[] = "/tmp/systemd-private-XXXXXX",
-             var_tmp_dir_template[] = "/var/tmp/systemd-private-XXXXXX";
+        _cleanup_free_ char *tmp = NULL, *var = NULL;
 
         assert(tmp_dir);
         assert(var_tmp_dir);
 
-        r = create_tmp_dir(tmp_dir_template, tmp_dir);
+        tmp = strjoin("/tmp/systemd-", unit_id, "-XXXXXXX", NULL);
+        var = strjoin("/var/tmp/systemd-", unit_id, "-XXXXXXX", NULL);
+
+        r = create_tmp_dir(tmp, tmp_dir);
         if (r < 0)
                 return r;
 
-        r = create_tmp_dir(var_tmp_dir_template, var_tmp_dir);
+        r = create_tmp_dir(var, var_tmp_dir);
         if (r == 0)
                 return 0;
 
         /* failure */
         rmdir(*tmp_dir);
-        rmdir(tmp_dir_template);
+        rmdir(tmp);
         free(*tmp_dir);
         *tmp_dir = NULL;
 

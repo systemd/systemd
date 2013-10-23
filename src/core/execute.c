@@ -1089,7 +1089,7 @@ int exec_spawn(ExecCommand *command,
         free(line);
 
         if (context->private_tmp && !context->tmp_dir && !context->var_tmp_dir) {
-                r = setup_tmpdirs(&context->tmp_dir, &context->var_tmp_dir);
+                r = setup_tmpdirs(unit_id, &context->tmp_dir, &context->var_tmp_dir);
                 if (r < 0)
                         return r;
         }
