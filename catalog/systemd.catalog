@@ -204,7 +204,6 @@ Unit @UNIT@ has begun shutting down.
 Subject: Unit @UNIT@ has finished shutting down
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Unit @UNIT@ has finished shutting down.
 
@@ -212,7 +211,6 @@ Unit @UNIT@ has finished shutting down.
 Subject: Unit @UNIT@ has failed
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Unit @UNIT@ has failed.
 
@@ -222,7 +220,6 @@ The result is @RESULT@.
 Subject: Unit @UNIT@ has begun with reloading its configuration
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Unit @UNIT@ has begun with reloading its configuration
 
@@ -230,7 +227,6 @@ Unit @UNIT@ has begun with reloading its configuration
 Subject: Unit @UNIT@ has finished reloading its configuration
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Unit @UNIT@ has finished reloading its configuration
 
@@ -240,7 +236,6 @@ The result is @RESULT@.
 Subject: Process @EXECUTABLE@ could not be executed
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The process @EXECUTABLE@ could not be executed and failed.
 
@@ -250,7 +245,6 @@ The error number returned while executing this process is @ERRNO@.
 Subject: One or more messages could not be forwarded to syslog
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 One or more messages could not be forwarded to the syslog service
 running side-by-side with journald. This usually indicates that the
@@ -261,7 +255,6 @@ messages queued.
 Subject: Mount point is not empty
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The directory @WHERE@ is specified as the mount point (second field in
 /etc/fstab or Where= field in systemd unit file) and is not empty.
@@ -274,7 +267,6 @@ location.
 Subject: A virtual machine or container has been started
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The virtual machine @NAME@ with its leader PID @LEADER@ has been
 started is now ready to use.
@@ -283,7 +275,6 @@ started is now ready to use.
 Subject: A virtual machine or container has been terminated
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 The virtual machine @NAME@ with its leader PID @LEADER@ has been
 shut down.
