@@ -1718,32 +1718,7 @@ struct udev_rules *udev_rules_unref(struct udev_rules *rules)
 
 bool udev_rules_check_timestamp(struct udev_rules *rules)
 {
-        unsigned int i;
-        bool changed = false;
-
-        if (rules == NULL)
-                goto out;
-
-        for (i = 0; rules->dirs[i]; i++) {
-                struct stat stats;
-
-                if (stat(rules->dirs[i], &stats) < 0)
-                        continue;
-
-                if (rules->dirs_ts_usec[i] == timespec_load(&stats.st_mtim))
-                        continue;
-
-                /* first check */
-                if (rules->dirs_ts_usec[i] != 0) {
-                        log_debug("reload - timestamp of '%s' changed\n", rules->dirs[i]);
-                        changed = true;
-                }
-
-                /* update timestamp */
-                rules->dirs_ts_usec[i] = timespec_load(&stats.st_mtim);
-        }
-out:
-        return changed;
+        return paths_check_timestamp(rules->dirs, rules->dirs_ts_usec, true);
 }
 
 static int match_key(struct udev_rules *rules, struct token *token, const char *val)

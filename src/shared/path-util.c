@@ -473,3 +473,34 @@ int find_binary(const char *name, char **filename) {
                 return -ENOENT;
         }
 }
+
+bool paths_check_timestamp(char **paths, usec_t *paths_ts_usec, bool update)
+{
+        unsigned int i;
+        bool changed = false;
+
+        if (paths == NULL)
+                goto out;
+
+        for (i = 0; paths[i]; i++) {
+                struct stat stats;
+
+                if (stat(paths[i], &stats) < 0)
+                        continue;
+
+                if (paths_ts_usec[i] == timespec_load(&stats.st_mtim))
+                        continue;
+
+                /* first check */
+                if (paths_ts_usec[i] != 0) {
+                        log_debug("reload - timestamp of '%s' changed\n", paths[i]);
+                        changed = true;
+                }
+
+                /* update timestamp */
+                if (update)
+                        paths_ts_usec[i] = timespec_load(&stats.st_mtim);
+        }
+out:
+        return changed;
+}

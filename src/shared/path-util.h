@@ -24,6 +24,7 @@
 #include <stdbool.h>
 
 #include "macro.h"
+#include "time-util.h"
 
 #ifdef HAVE_SPLIT_USR
 #  define DEFAULT_PATH "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -51,6 +52,8 @@ int path_is_read_only_fs(const char *path);
 int path_is_os_tree(const char *path);
 
 int find_binary(const char *name, char **filename);
+
+bool paths_check_timestamp(char **paths, usec_t *paths_ts_usec, bool update);
 
 /* Iterates through the path prefixes of the specified path, going up
  * the tree, to root. Also returns "" (and not "/"!) for the root
