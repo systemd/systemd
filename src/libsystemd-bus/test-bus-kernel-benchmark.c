@@ -228,8 +228,6 @@ int main(int argc, char *argv[]) {
         pid_t pid;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-
         for (i = 1; i < argc; i++) {
                 if (streq(argv[i], "chart")) {
                         mode = MODE_CHART;
