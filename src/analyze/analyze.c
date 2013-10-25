@@ -27,9 +27,11 @@
 #include <sys/utsname.h>
 #include <fnmatch.h>
 
+#include "sd-bus.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "install.h"
 #include "log.h"
-#include "dbus-common.h"
 #include "build.h"
 #include "util.h"
 #include "strxcpyx.h"
@@ -85,6 +87,19 @@ struct boot_times {
         usec_t unitsload_finish_time;
 };
 
+struct unit_info {
+        const char *id;
+        const char *description;
+        const char *load_state;
+        const char *active_state;
+        const char *sub_state;
+        const char *following;
+        const char *unit_path;
+        uint32_t job_id;
+        const char *job_type;
+        const char *job_path;
+};
+
 struct unit_times {
         char *name;
         usec_t ixt;
@@ -102,39 +117,30 @@ static void pager_open_if_enabled(void) {
         pager_open(false);
 }
 
-static int bus_get_uint64_property(DBusConnection *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        DBusMessageIter iter, sub;
+static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "Get",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_STRING, &property,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.systemd1",
+                                path,
+                                interface,
+                                property,
+                                &error,
+                                &reply,
+                                "t");
+
+        if (r < 0) {
+                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
                 return r;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
         }
 
-        dbus_message_iter_recurse(&iter, &sub);
-
-        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_UINT64)  {
+        r = sd_bus_message_read(reply, "t", val);
+        if (r < 0) {
                 log_error("Failed to parse reply.");
-                return -EIO;
+                return r;
         }
-
-        dbus_message_iter_get_basic(&sub, val);
 
         return 0;
 }
@@ -173,43 +179,59 @@ static void free_unit_times(struct unit_times *t, unsigned n) {
         free(t);
 }
 
-static int acquire_time_data(DBusConnection *bus, struct unit_times **out) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        DBusMessageIter iter, sub;
-        int r, c = 0, n_units = 0;
-        struct unit_times *unit_times = NULL;
+static int bus_parse_unit_info(sd_bus_message *message, struct unit_info *u) {
+        int r = 0;
 
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "ListUnits",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
-                goto fail;
+        assert(message);
+        assert(u);
 
-        if (!dbus_message_iter_init(reply, &iter) ||
-                        dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-                        dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
-                log_error("Failed to parse reply.");
-                r = -EIO;
-                goto fail;
+        r = sd_bus_message_read(message, "(ssssssouso)", &u->id,
+                                                         &u->description,
+                                                         &u->load_state,
+                                                         &u->active_state,
+                                                         &u->sub_state,
+                                                         &u->following,
+                                                         &u->unit_path,
+                                                         &u->job_id,
+                                                         &u->job_type,
+                                                         &u->job_path);
+        if (r < 0) {
+                log_error("Failed to parse message as unit_info.");
+                return -EIO;
         }
 
-        for (dbus_message_iter_recurse(&iter, &sub);
-             dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID;
-             dbus_message_iter_next(&sub)) {
-                struct unit_info u;
+        return r;
+}
+
+static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r, c = 0, n_units = 0;
+        struct unit_times *unit_times = NULL;
+        struct unit_info u;
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "ListUnits",
+                               &error,
+                               &reply,
+                               "");
+        if (r < 0) {
+            log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+            goto fail;
+        }
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
+        if (r < 0)
+            goto fail;
+
+        while ((r = bus_parse_unit_info(reply, &u)) > 0) {
                 struct unit_times *t;
 
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto fail;
-                }
+                if (r < 0)
+                    goto fail;
 
                 if (c >= n_units) {
                         struct unit_times *w;
@@ -226,10 +248,6 @@ static int acquire_time_data(DBusConnection *bus, struct unit_times **out) {
                 }
                 t = unit_times+c;
                 t->name = NULL;
-
-                r = bus_parse_unit_info(&sub, &u);
-                if (r < 0)
-                        goto fail;
 
                 assert_cc(sizeof(usec_t) == sizeof(uint64_t));
 
@@ -279,7 +297,7 @@ fail:
         return r;
 }
 
-static int acquire_boot_times(DBusConnection *bus, struct boot_times **bt) {
+static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
         static struct boot_times times;
         static bool cached = false;
 
@@ -357,7 +375,7 @@ finish:
         return 0;
 }
 
-static int pretty_boot_time(DBusConnection *bus, char **_buf) {
+static int pretty_boot_time(sd_bus *bus, char **_buf) {
         char ts[FORMAT_TIMESPAN_MAX];
         struct boot_times *t;
         static char buf[4096];
@@ -419,7 +437,7 @@ static void svg_graph_box(double height, double begin, double end) {
         }
 }
 
-static int analyze_plot(DBusConnection *bus) {
+static int analyze_plot(sd_bus *bus) {
         struct unit_times *times;
         struct boot_times *boot;
         struct utsname name;
@@ -636,17 +654,13 @@ static int list_dependencies_print(const char *name, unsigned int level, unsigne
         return 0;
 }
 
-static int list_dependencies_get_dependencies(DBusConnection *bus, const char *name, char ***deps) {
-        static const char dependencies[] =
-                "After\0";
-
+static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, char ***deps) {
         _cleanup_free_ char *path;
-        const char *interface = "org.freedesktop.systemd1.Unit";
-
-        _cleanup_dbus_message_unref_  DBusMessage *reply = NULL;
-        DBusMessageIter iter, sub, sub2, sub3;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
         int r = 0;
+        const char *s;
         char **ret = NULL;
 
         assert(bus);
@@ -659,73 +673,28 @@ static int list_dependencies_get_dependencies(DBusConnection *bus, const char *n
                 goto finish;
         }
 
-        r = bus_method_call_with_reply(
-                bus,
-                "org.freedesktop.systemd1",
-                path,
-                "org.freedesktop.DBus.Properties",
-                "GetAll",
-                &reply,
-                NULL,
-                DBUS_TYPE_STRING, &interface,
-                DBUS_TYPE_INVALID);
-        if (r < 0)
-                goto finish;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-                dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-                dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY) {
-                log_error("Failed to parse reply.");
-                r = -EIO;
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.systemd1.Unit",
+                                "After",
+                                &error,
+                                &reply,
+                                "as");
+        if (r < 0) {
+                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
                 goto finish;
         }
 
-        dbus_message_iter_recurse(&iter, &sub);
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
+        if (r < 0)
+            goto finish;
 
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *prop;
-
-                assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_DICT_ENTRY);
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &prop, true) < 0) {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
+        while ((r = sd_bus_message_read(reply, "s", &s)) > 0) {
+                r = strv_extend(&ret, s);
+                if (r < 0) {
+                        log_oom();
                         goto finish;
-                }
-
-                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT) {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_iter_recurse(&sub2, &sub3);
-                dbus_message_iter_next(&sub);
-
-                if (!nulstr_contains(dependencies, prop))
-                        continue;
-
-                if (dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_ARRAY) {
-                        if (dbus_message_iter_get_element_type(&sub3) == DBUS_TYPE_STRING) {
-                                DBusMessageIter sub4;
-                                dbus_message_iter_recurse(&sub3, &sub4);
-
-                                while (dbus_message_iter_get_arg_type(&sub4) != DBUS_TYPE_INVALID) {
-                                        const char *s;
-
-                                        assert(dbus_message_iter_get_arg_type(&sub4) == DBUS_TYPE_STRING);
-                                        dbus_message_iter_get_basic(&sub4, &s);
-
-                                        r = strv_extend(&ret, s);
-                                        if (r < 0) {
-                                                log_oom();
-                                                goto finish;
-                                        }
-
-                                        dbus_message_iter_next(&sub4);
-                                }
-                        }
                 }
         }
 finish:
@@ -753,7 +722,7 @@ static int list_dependencies_compare(const void *_a, const void *_b) {
         return usb - usa;
 }
 
-static int list_dependencies_one(DBusConnection *bus, const char *name, unsigned int level, char ***units,
+static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int level, char ***units,
                                  unsigned int branches) {
         _cleanup_strv_free_ char **deps = NULL;
         char **c;
@@ -836,17 +805,14 @@ static int list_dependencies_one(DBusConnection *bus, const char *name, unsigned
         return 0;
 }
 
-static int list_dependencies(DBusConnection *bus, const char *name) {
+static int list_dependencies(sd_bus *bus, const char *name) {
         _cleanup_strv_free_ char **units = NULL;
         char ts[FORMAT_TIMESPAN_MAX];
         struct unit_times *times;
         int r;
-        const char
-                *path, *id,
-                *interface = "org.freedesktop.systemd1.Unit",
-                *property = "Id";
-        DBusMessageIter iter, sub;
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        const char *path, *id;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         struct boot_times *boot;
 
         assert(bus);
@@ -855,34 +821,24 @@ static int list_dependencies(DBusConnection *bus, const char *name) {
         if (path == NULL)
                 return -EINVAL;
 
-        r = bus_method_call_with_reply (
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "Get",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_STRING, &property,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.systemd1.Unit",
+                                "Id",
+                                &error,
+                                &reply,
+                                "s");
+        if (r < 0) {
+                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
                 return r;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
         }
 
-        dbus_message_iter_recurse(&iter, &sub);
-
-        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
+        r = sd_bus_message_read(reply, "s", &id);
+        if (r < 0) {
                 log_error("Failed to parse reply.");
-                return -EIO;
+                return r;
         }
-
-        dbus_message_iter_get_basic(&sub, &id);
 
         times = hashmap_get(unit_times_hashmap, id);
 
@@ -903,7 +859,7 @@ static int list_dependencies(DBusConnection *bus, const char *name) {
         return list_dependencies_one(bus, name, 0, &units, 0);
 }
 
-static int analyze_critical_chain(DBusConnection *bus, char *names[]) {
+static int analyze_critical_chain(sd_bus *bus, char *names[]) {
         struct unit_times *times;
         int n, r;
         unsigned int i;
@@ -941,7 +897,7 @@ static int analyze_critical_chain(DBusConnection *bus, char *names[]) {
         return 0;
 }
 
-static int analyze_blame(DBusConnection *bus) {
+static int analyze_blame(sd_bus *bus) {
         struct unit_times *times;
         unsigned i;
         int n;
@@ -965,7 +921,7 @@ static int analyze_blame(DBusConnection *bus) {
         return 0;
 }
 
-static int analyze_time(DBusConnection *bus) {
+static int analyze_time(sd_bus *bus) {
         _cleanup_free_ char *buf = NULL;
         int r;
 
@@ -977,145 +933,120 @@ static int analyze_time(DBusConnection *bus) {
         return 0;
 }
 
-static int graph_one_property(const char *name, const char *prop, DBusMessageIter *iter, char* patterns[]) {
+static int graph_one_property(sd_bus *bus, const struct unit_info *u, const char* prop, const char *color, char* patterns[]) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **units = NULL;
+        const char *s;
+        char **unit;
+        int r;
 
-        static const char * const colors[] = {
-                "Requires",              "[color=\"black\"]",
-                "RequiresOverridable",   "[color=\"black\"]",
-                "Requisite",             "[color=\"darkblue\"]",
-                "RequisiteOverridable",  "[color=\"darkblue\"]",
-                "Wants",                 "[color=\"grey66\"]",
-                "Conflicts",             "[color=\"red\"]",
-                "ConflictedBy",          "[color=\"red\"]",
-                "After",                 "[color=\"green\"]"
-        };
-
-        const char *c = NULL;
-        unsigned i;
-
-        assert(name);
+        assert(u);
         assert(prop);
-        assert(iter);
+        assert(color);
 
-        for (i = 0; i < ELEMENTSOF(colors); i += 2)
-                if (streq(colors[i], prop)) {
-                        c = colors[i+1];
-                        break;
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.systemd1",
+                                u->unit_path,
+                                "org.freedesktop.systemd1.Unit",
+                                prop,
+                                &error,
+                                &reply,
+                                "as");
+        if (r < 0) {
+            log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+            return -r;
+        }
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
+        if (r < 0)
+            return -r;
+
+        while ((r = sd_bus_message_read(reply, "s", &s)) > 0) {
+                r = strv_extend(&units, s);
+                if (r < 0) {
+                        log_oom();
+                        return -r;
+                }
+        }
+
+        STRV_FOREACH(unit, units) {
+                char **p;
+                bool match_found;
+
+                if (!strv_isempty(arg_dot_from_patterns)) {
+                        match_found = false;
+
+                        STRV_FOREACH(p, arg_dot_from_patterns)
+                                if (fnmatch(*p, u->id, 0) == 0) {
+                                        match_found = true;
+                                        break;
+                                }
+
+                        if (!match_found)
+                                continue;
                 }
 
-        if (!c)
-                return 0;
+                if (!strv_isempty(arg_dot_to_patterns)) {
+                        match_found = false;
 
-        if (arg_dot != DEP_ALL)
-                if ((arg_dot == DEP_ORDER) != streq(prop, "After"))
-                        return 0;
+                        STRV_FOREACH(p, arg_dot_to_patterns)
+                                if (fnmatch(*p, *unit, 0) == 0) {
+                                        match_found = true;
+                                        break;
+                                }
 
-        if (dbus_message_iter_get_arg_type(iter) == DBUS_TYPE_ARRAY &&
-            dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING) {
-                DBusMessageIter sub;
-
-                dbus_message_iter_recurse(iter, &sub);
-
-                for (dbus_message_iter_recurse(iter, &sub);
-                     dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID;
-                     dbus_message_iter_next(&sub)) {
-                        const char *s;
-                        char **p;
-                        bool match_found;
-
-                        assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
-                        dbus_message_iter_get_basic(&sub, &s);
-
-                        if (!strv_isempty(arg_dot_from_patterns)) {
-                                match_found = false;
-
-                                STRV_FOREACH(p, arg_dot_from_patterns)
-                                        if (fnmatch(*p, name, 0) == 0) {
-                                                match_found = true;
-                                                break;
-                                        }
-
-                                if (!match_found)
-                                        continue;
-                        }
-
-                        if (!strv_isempty(arg_dot_to_patterns)) {
-                                match_found = false;
-
-                                STRV_FOREACH(p, arg_dot_to_patterns)
-                                        if (fnmatch(*p, s, 0) == 0) {
-                                                match_found = true;
-                                                break;
-                                        }
-
-                                if (!match_found)
-                                        continue;
-                        }
-
-                        if (!strv_isempty(patterns)) {
-                                match_found = false;
-
-                                STRV_FOREACH(p, patterns)
-                                        if (fnmatch(*p, name, 0) == 0 || fnmatch(*p, s, 0) == 0) {
-                                                match_found = true;
-                                                break;
-                                        }
-                                if (!match_found)
-                                        continue;
-                        }
-
-                        printf("\t\"%s\"->\"%s\" %s;\n", name, s, c);
+                        if (!match_found)
+                                continue;
                 }
+
+                if (!strv_isempty(patterns)) {
+                        match_found = false;
+
+                        STRV_FOREACH(p, patterns)
+                                if (fnmatch(*p, u->id, 0) == 0 || fnmatch(*p, *unit, 0) == 0) {
+                                        match_found = true;
+                                        break;
+                                }
+                        if (!match_found)
+                                continue;
+                }
+
+                printf("\t\"%s\"->\"%s\" [color=\"%s\"];\n", u->id, *unit, color);
         }
 
         return 0;
 }
 
-static int graph_one(DBusConnection *bus, const struct unit_info *u, char *patterns[]) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *interface = "org.freedesktop.systemd1.Unit";
+static int graph_one(sd_bus *bus, const struct unit_info *u, char *patterns[]) {
         int r;
-        DBusMessageIter iter, sub, sub2, sub3;
 
         assert(bus);
         assert(u);
 
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        u->unit_path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
-                return r;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
+        if (arg_dot == DEP_ORDER ||arg_dot == DEP_ALL) {
+                r = graph_one_property(bus, u, "After", "green", patterns);
+                if (r < 0)
+                        return r;
         }
 
-        for (dbus_message_iter_recurse(&iter, &sub);
-             dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID;
-             dbus_message_iter_next(&sub)) {
-                const char *prop;
-
-                assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_DICT_ENTRY);
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &prop, true) < 0 ||
-                    dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                dbus_message_iter_recurse(&sub2, &sub3);
-                r = graph_one_property(u->id, prop, &sub3, patterns);
+        if (arg_dot == DEP_REQUIRE ||arg_dot == DEP_ALL) {
+                r = graph_one_property(bus, u, "Requires", "black", patterns);
+                if (r < 0)
+                        return r;
+                r = graph_one_property(bus, u, "RequiresOverridable", "black", patterns);
+                if (r < 0)
+                        return r;
+                r = graph_one_property(bus, u, "RequisiteOverridable", "darkblue", patterns);
+                if (r < 0)
+                        return r;
+                r = graph_one_property(bus, u, "Wants", "grey66", patterns);
+                if (r < 0)
+                        return r;
+                r = graph_one_property(bus, u, "Conflicts", "red", patterns);
+                if (r < 0)
+                        return r;
+                r = graph_one_property(bus, u, "ConflictedBy", "red", patterns);
                 if (r < 0)
                         return r;
         }
@@ -1123,41 +1054,32 @@ static int graph_one(DBusConnection *bus, const struct unit_info *u, char *patte
         return 0;
 }
 
-static int dot(DBusConnection *bus, char* patterns[]) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        DBusMessageIter iter, sub;
+static int dot(sd_bus *bus, char* patterns[]) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
+        struct unit_info u;
 
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "ListUnits",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
-                return r;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "ListUnits",
+                               &error,
+                               &reply,
+                               "");
+        if (r < 0) {
+            log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+            return r;
         }
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
+        if (r < 0)
+            return r;
 
         printf("digraph systemd {\n");
 
-        for (dbus_message_iter_recurse(&iter, &sub);
-             dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID;
-             dbus_message_iter_next(&sub)) {
-                struct unit_info u;
-
-                r = bus_parse_unit_info(&sub, &u);
-                if (r < 0)
-                        return -EIO;
-
+        while ((r = bus_parse_unit_info(reply, &u)) > 0) {
                 r = graph_one(bus, &u, patterns);
                 if (r < 0)
                         return r;
@@ -1177,14 +1099,11 @@ static int dot(DBusConnection *bus, char* patterns[]) {
 
         return 0;
 }
-
-static int dump(DBusConnection *bus, char **args) {
-        _cleanup_free_ DBusMessage *reply = NULL;
-        DBusError error;
+static int dump(sd_bus *bus, char **args) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *text = NULL;
         int r;
-        const char *text;
-
-        dbus_error_init(&error);
 
         if (!strv_isempty(args)) {
                 log_error("Too many arguments.");
@@ -1193,36 +1112,32 @@ static int dump(DBusConnection *bus, char **args) {
 
         pager_open_if_enabled();
 
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Dump",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
-                return r;
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "Dump",
+                               &error,
+                               &reply,
+                               "");
+        if (r < 0) {
+            log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+            return r;
+        }
 
-        if (!dbus_message_get_args(reply, &error,
-                                   DBUS_TYPE_STRING, &text,
-                                   DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error));
-                dbus_error_free(&error);
-                return  -EIO;
+        r = sd_bus_message_read(reply, "s", &text);
+        if (r < 0) {
+            log_error("Failed to parse reply");
+            return r;
         }
 
         fputs(text, stdout);
         return 0;
 }
 
-static int set_log_level(DBusConnection *bus, char **args) {
-        _cleanup_dbus_error_free_ DBusError error;
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
-        DBusMessageIter iter, sub;
-        const char* property = "LogLevel";
-        const char* interface = "org.freedesktop.systemd1.Manager";
+static int set_log_level(sd_bus *bus, char **args) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
         const char* value;
 
         assert(bus);
@@ -1234,31 +1149,17 @@ static int set_log_level(DBusConnection *bus, char **args) {
         }
 
         value = args[0];
-        dbus_error_init(&error);
 
-        m = dbus_message_new_method_call("org.freedesktop.systemd1",
-                                         "/org/freedesktop/systemd1",
-                                         "org.freedesktop.DBus.Properties",
-                                         "Set");
-        if (!m)
-                return log_oom();
-
-        dbus_message_iter_init_append(m, &iter);
-
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &interface) ||
-            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &property) ||
-            !dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &sub))
-                return log_oom();
-
-        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &value))
-                return log_oom();
-
-        if (!dbus_message_iter_close_container(&iter, &sub))
-                return log_oom();
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
+        r = sd_bus_set_property(bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "LogLevel",
+                                &error,
+                                "s",
+                                value);
+        if (r < 0) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
                 return -EIO;
         }
 
@@ -1395,7 +1296,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
         int r;
-        DBusConnection *bus = NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
 
         setlocale(LC_ALL, "");
         setlocale(LC_NUMERIC, "C"); /* we want to format/parse floats in C style */
@@ -1406,9 +1307,13 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        bus = dbus_bus_get(arg_scope == UNIT_FILE_SYSTEM ? DBUS_BUS_SYSTEM : DBUS_BUS_SESSION, NULL);
-        if (!bus) {
-                r = -EIO;
+        if (arg_scope == UNIT_FILE_SYSTEM)
+            r = sd_bus_open_system(&bus);
+        else
+            r = sd_bus_open_user(&bus);
+
+        if (r < 0) {
+                log_error("Failed to connect to bus: %s", strerror(-r));
                 goto finish;
         }
 
@@ -1428,8 +1333,6 @@ int main(int argc, char *argv[]) {
                 r = set_log_level(bus, argv+optind+1);
         else
                 log_error("Unknown operation '%s'.", argv[optind]);
-
-        dbus_connection_unref(bus);
 
 finish:
         pager_close();

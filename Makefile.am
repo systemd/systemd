@@ -1449,7 +1449,7 @@ systemd_analyze_CFLAGS = \
 
 systemd_analyze_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la
+	libsystemd-bus.la
 
 # ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
