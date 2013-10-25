@@ -1,0 +1,21 @@
+%{
+#include <stddef.h>
+#include "conf-parser.h"
+#include "link-config.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name link_config_gperf_hash
+%define lookup-function-name link_config_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Match.MACAddress,                   config_parse_string,        0, offsetof(link_config, match_mac)
+Match.Path,                         config_parse_string,        0, offsetof(link_config, match_path)
+Match.Driver,                       config_parse_string,        0, offsetof(link_config, match_driver)
+Match.Type,                         config_parse_string,        0, offsetof(link_config, match_type)
+Link.Description,                   config_parse_string,        0, offsetof(link_config, description)

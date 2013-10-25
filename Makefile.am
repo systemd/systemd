@@ -83,6 +83,7 @@ userunitdir=$(prefix)/lib/systemd/user
 userpresetdir=$(prefix)/lib/systemd/user-preset
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
 sysctldir=$(prefix)/lib/sysctl.d
+linkdir=$(prefix)/lib/net/links
 pkgincludedir=$(includedir)/systemd
 systemgeneratordir=$(rootlibexecdir)/system-generators
 usergeneratordir=$(prefix)/lib/systemd/user-generators
@@ -179,6 +180,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/core \
 	-I $(top_srcdir)/src/libudev \
 	-I $(top_srcdir)/src/udev \
+	-I $(top_srcdir)/src/udev/net \
 	-I $(top_builddir)/src/udev \
 	-I $(top_srcdir)/src/libsystemd-bus \
 	$(OUR_CPPFLAGS)
@@ -2208,6 +2210,7 @@ dist_udevrules_DATA += \
 	rules/75-tty-description.rules \
 	rules/78-sound-card.rules \
 	rules/80-net-name-slot.rules \
+	rules/85-net-configure-link.rules \
 	rules/95-udev-late.rules
 
 dist_udevhwdb_DATA = \
@@ -2288,19 +2291,27 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-builtin-input_id.c \
 	src/udev/udev-builtin-keyboard.c \
 	src/udev/udev-builtin-net_id.c \
+	src/udev/udev-builtin-net_link.c \
 	src/udev/udev-builtin-path_id.c \
-	src/udev/udev-builtin-usb_id.c
+	src/udev/udev-builtin-usb_id.c \
+	src/udev/net/link-config.h \
+	src/udev/net/link-config.c
 
 nodist_libudev_core_la_SOURCES = \
 	src/udev/keyboard-keys-from-name.h \
-	src/udev/keyboard-keys-to-name.h
+	src/udev/keyboard-keys-to-name.h \
+	src/udev/net/link-config-gperf.c
 
 BUILT_SOURCES += \
 	$(nodist_libudev_core_la_SOURCES)
 
 CLEANFILES += \
 	src/udev/keyboard-keys-from-name.gperf \
-	src/udev/keyboard-keys.txt
+	src/udev/keyboard-keys.txt \
+	src/udev/net/link-config-gperf.c
+
+EXTRA_DIST += \
+	src/udev/net/link-config-gperf.gperf
 
 libudev_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -4456,6 +4467,8 @@ endif
 INSTALL_DIRS += \
 	$(prefix)/lib/modules-load.d \
 	$(sysconfdir)/modules-load.d \
+	$(prefix)/lib/net/links \
+	$(sysconfdir)/net/links \
 	$(prefix)/lib/sysctl.d \
 	$(sysconfdir)/sysctl.d \
 	$(prefix)/lib/kernel/install.d \

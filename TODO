@@ -714,6 +714,14 @@ Features:
 
 * systemd-run is missing zsh completion scripts
 
+* udev-link-config:
+   - Make sure ID_PATH is always exported and complete for
+     network devices where possible, so we can safely rely
+     on Path= matching
+   - NamePolicy= replace the current naming rules
+   - MACPolicy= support 'firmware', 'synthetic' and 'random'
+   - Check if Driver= is broken, or just my driver (bcma)
+
 External:
 
 * dbus:
