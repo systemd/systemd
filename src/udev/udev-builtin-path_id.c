@@ -452,6 +452,19 @@ static struct udev_device *handle_usb(struct udev_device *parent, char **path)
         return parent;
 }
 
+static struct udev_device *handle_bcma(struct udev_device *parent, char **path)
+{
+        const char *sysname;
+        unsigned int core;
+
+        sysname = udev_device_get_sysname(parent);
+        if (sscanf(sysname, "bcma%*u:%u", &core) != 1)
+                return NULL;
+
+        path_prepend(path, "bcma-%u", core);
+        return parent;
+}
+
 static struct udev_device *handle_ccw(struct udev_device *parent, struct udev_device *dev, char **path)
 {
         struct udev_device *scsi_dev;
@@ -508,6 +521,9 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
                         some_transport = true;
                 } else if (streq(subsys, "usb")) {
                         parent = handle_usb(parent, &path);
+                        some_transport = true;
+                } else if (streq(subsys, "bcma")) {
+                        parent = handle_bcma(parent, &path);
                         some_transport = true;
                 } else if (streq(subsys, "serio")) {
                         path_prepend(&path, "serio-%s", udev_device_get_sysnum(parent));
