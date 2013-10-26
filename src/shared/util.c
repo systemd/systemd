@@ -1363,7 +1363,7 @@ char *bus_path_escape(const char *s) {
         assert(s);
 
         /* Escapes all chars that D-Bus' object path cannot deal
-         * with. Can be reverse with bus_path_unescape(). We special
+         * with. Can be reversed with bus_path_unescape(). We special
          * case the empty string. */
 
         if (*s == 0)
