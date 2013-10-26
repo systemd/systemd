@@ -19,10 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <netinet/ether.h>
+
 #include "link-config.h"
 
 #include "ethtool-util.h"
 
+#include "libudev-private.h"
+#include "sd-rtnl.h"
 #include "util.h"
 #include "log.h"
 #include "strv.h"
@@ -34,6 +38,8 @@ struct link_config_ctx {
         LIST_HEAD(link_config, links);
 
         int ethtool_fd;
+
+        sd_rtnl *rtnl;
 
         char **link_dirs;
         usec_t *link_dirs_ts_usec;
@@ -51,6 +57,12 @@ int link_config_ctx_new(link_config_ctx **ret) {
                 return -ENOMEM;
 
         r = ethtool_connect(&ctx->ethtool_fd);
+        if (r < 0) {
+                link_config_ctx_free(ctx);
+                return r;
+        }
+
+        r = sd_rtnl_open(0, &ctx->rtnl);
         if (r < 0) {
                 link_config_ctx_free(ctx);
                 return r;
@@ -104,7 +116,11 @@ void link_config_ctx_free(link_config_ctx *ctx) {
         if (!ctx)
                 return;
 
-        close_nointr_nofail(ctx->ethtool_fd);
+        if (ctx->ethtool_fd >= 0)
+                close_nointr_nofail(ctx->ethtool_fd);
+
+        sd_rtnl_unref(ctx->rtnl);
+
         strv_free(ctx->link_dirs);
         free(ctx->link_dirs_ts_usec);
         link_configs_free(ctx);
@@ -234,9 +250,54 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device, link_confi
         return -ENOENT;
 }
 
+static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, const char *mac, unsigned int mtu) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message;
+        bool need_update;
+        int r;
+
+        assert(rtnl);
+        assert(ifindex > 0);
+
+        r = sd_rtnl_message_link_new(RTM_NEWLINK, ifindex, 0, 0, &message);
+        if (r < 0)
+                return r;
+
+        if (name) {
+                r = sd_rtnl_message_append(message, IFLA_IFNAME, name);
+                if (r < 0)
+                        return r;
+
+                need_update = true;
+        }
+
+        if (mac) {
+                r = sd_rtnl_message_append(message, IFLA_ADDRESS, ether_aton(mac));
+                if (r < 0)
+                        return r;
+
+                need_update = true;
+        }
+
+        if (mtu > 0) {
+                r = sd_rtnl_message_append(message, IFLA_MTU, &mtu);
+                if (r < 0)
+                        return r;
+
+                need_update = true;
+        }
+
+        if  (need_update) {
+                r = sd_rtnl_send_with_reply_and_block(rtnl, message, 250 * USEC_PER_MSEC, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_device *device) {
         const char *name;
-        int r;
+        int r, ifindex;
 
         name = udev_device_get_sysname(device);
         if (!name)
@@ -273,6 +334,18 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                                     name, config->wol, strerror(-r));
                 else
                         log_info("Set WakeOnLan of %s to %s", name, config->wol);
+        }
+
+        ifindex = udev_device_get_ifindex(device);
+        if (ifindex <= 0) {
+                log_warning("Could not find ifindex");
+                return -ENODEV;
+        }
+
+        r = rtnl_set_properties(ctx->rtnl, ifindex, config->name, config->mac, config->mtu);
+        if (r < 0) {
+                log_warning("Could not set Name, MACAddress or MTU on %s", name);
+                return r;
         }
 
         return 0;

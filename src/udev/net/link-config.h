@@ -38,6 +38,9 @@ struct link_config {
         char *match_type;
 
         char *description;
+        char *mac;
+        char *name;
+        unsigned int mtu;
         unsigned int speed;
         char *duplex;
         char *wol;

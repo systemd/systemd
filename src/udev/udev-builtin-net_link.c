@@ -37,7 +37,7 @@ static int builtin_net_link(struct udev_device *dev, int argc, char **argv, bool
         r = link_config_get(ctx, dev, &link);
         if (r < 0) {
                 if (r == -ENOENT) {
-                        log_info("No matching link configuration found");
+                        log_debug("No matching link configuration found");
                         return EXIT_SUCCESS;
                 } else {
                         log_error("Could not get link config");
@@ -47,7 +47,7 @@ static int builtin_net_link(struct udev_device *dev, int argc, char **argv, bool
 
         r = link_config_apply(ctx, link, dev);
         if (r < 0) {
-                log_error("Could not apply link config");
+                log_error("Could not apply link config to %s", udev_device_get_sysname(dev));
                 return EXIT_FAILURE;
         }
 

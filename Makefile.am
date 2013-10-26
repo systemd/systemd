@@ -2344,6 +2344,7 @@ libudev_core_la_LIBADD = \
 	libsystemd-label.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-shared.la \
+	libsystemd-rtnl.la \
 	$(BLKID_LIBS) \
 	$(KMOD_LIBS)
 
