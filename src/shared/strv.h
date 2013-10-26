@@ -75,7 +75,8 @@ bool strv_overlap(char **a, char **b) _pure_;
         for ((s) = (l); (s) && *(s); (s)++)
 
 #define STRV_FOREACH_BACKWARDS(s, l)            \
-        for (; (l) && ((s) >= (l)); (s)--)
+        STRV_FOREACH(s, l) ;                    \
+                for ((s)--; (l) && ((s) >= (l)); (s)--)
 
 #define STRV_FOREACH_PAIR(x, y, l)               \
         for ((x) = (l), (y) = (x+1); (x) && *(x) && *(y); (x) += 2, (y) = (x + 1))
