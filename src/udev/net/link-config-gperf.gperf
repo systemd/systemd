@@ -19,3 +19,6 @@ Match.Path,                         config_parse_string,        0, offsetof(link
 Match.Driver,                       config_parse_string,        0, offsetof(link_config, match_driver)
 Match.Type,                         config_parse_string,        0, offsetof(link_config, match_type)
 Link.Description,                   config_parse_string,        0, offsetof(link_config, description)
+Link.SpeedMBytes,                   config_parse_unsigned,      0, offsetof(link_config, speed)
+Link.Duplex,                        config_parse_string,        0, offsetof(link_config, duplex)
+Link.WakeOnLan,                     config_parse_string,        0, offsetof(link_config, wol)

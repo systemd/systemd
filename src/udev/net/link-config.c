@@ -21,6 +21,8 @@
 
 #include "link-config.h"
 
+#include "ethtool-util.h"
+
 #include "util.h"
 #include "log.h"
 #include "strv.h"
@@ -31,12 +33,15 @@
 struct link_config_ctx {
         LIST_HEAD(link_config, links);
 
+        int ethtool_fd;
+
         char **link_dirs;
         usec_t *link_dirs_ts_usec;
 };
 
 int link_config_ctx_new(link_config_ctx **ret) {
         link_config_ctx *ctx;
+        int r;
 
         if (!ret)
                 return -EINVAL;
@@ -44,6 +49,12 @@ int link_config_ctx_new(link_config_ctx **ret) {
         ctx = new0(link_config_ctx, 1);
         if (!ctx)
                 return -ENOMEM;
+
+        r = ethtool_connect(&ctx->ethtool_fd);
+        if (r < 0) {
+                link_config_ctx_free(ctx);
+                return r;
+        }
 
         LIST_HEAD_INIT(ctx->links);
 
@@ -93,6 +104,7 @@ void link_config_ctx_free(link_config_ctx *ctx) {
         if (!ctx)
                 return;
 
+        close_nointr_nofail(ctx->ethtool_fd);
         strv_free(ctx->link_dirs);
         free(ctx->link_dirs_ts_usec);
         link_configs_free(ctx);
@@ -233,11 +245,34 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
         log_info("Configuring %s", name);
 
         if (config->description) {
-                r = udev_device_set_sysattr_value(device, "ifalias", config->description);
+                r = udev_device_set_sysattr_value(device, "ifalias",
+                                                  config->description);
                 if (r < 0)
-                        log_warning("Could not set description of %s to '%s': %s", name, config->description, strerror(-r));
+                        log_warning("Could not set description of %s to '%s': %s",
+                                    name, config->description, strerror(-r));
                 else
-                        log_info("Set link description of %s to '%s'", name, config->description);
+                        log_info("Set link description of %s to '%s'", name,
+                                 config->description);
+        }
+
+        if (config->speed || config->duplex) {
+                r = ethtool_set_speed(ctx->ethtool_fd, name,
+                                      config->speed, config->duplex);
+                if (r < 0)
+                        log_warning("Could not set speed or duplex of %s to %u Mbytes (%s): %s",
+                                    name, config->speed, config->duplex, strerror(-r));
+                else
+                        log_info("Set speed or duplex of %s to %u Mbytes (%s)", name,
+                                 config->speed, config->duplex);
+        }
+
+        if (config->wol) {
+                r = ethtool_set_wol(ctx->ethtool_fd, name, config->wol);
+                if (r < 0)
+                        log_warning("Could not set WakeOnLan of %s to %s: %s",
+                                    name, config->wol, strerror(-r));
+                else
+                        log_info("Set WakeOnLan of %s to %s", name, config->wol);
         }
 
         return 0;

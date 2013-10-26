@@ -2295,7 +2295,9 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-builtin-path_id.c \
 	src/udev/udev-builtin-usb_id.c \
 	src/udev/net/link-config.h \
-	src/udev/net/link-config.c
+	src/udev/net/link-config.c \
+	src/udev/net/ethtool-util.h \
+	src/udev/net/ethtool-util.c
 
 nodist_libudev_core_la_SOURCES = \
 	src/udev/keyboard-keys-from-name.h \

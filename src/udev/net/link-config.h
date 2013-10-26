@@ -38,6 +38,9 @@ struct link_config {
         char *match_type;
 
         char *description;
+        unsigned int speed;
+        char *duplex;
+        char *wol;
 
         LIST_FIELDS(link_config, links);
 };
