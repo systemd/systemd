@@ -20,6 +20,7 @@
 ***/
 
 #include <netinet/ether.h>
+#include <net/if.h>
 
 #include "link-config.h"
 
@@ -252,6 +253,8 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device, link_confi
 
 static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, const char *mac, unsigned int mtu) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message;
+        char new_name[IFNAMSIZ];
+        struct ether_addr new_mac;
         bool need_update;
         int r;
 
@@ -263,7 +266,8 @@ static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, con
                 return r;
 
         if (name) {
-                r = sd_rtnl_message_append(message, IFLA_IFNAME, name);
+                strscpy(new_name, IFNAMSIZ, name);
+                r = sd_rtnl_message_append(message, IFLA_IFNAME, new_name);
                 if (r < 0)
                         return r;
 
@@ -271,7 +275,16 @@ static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, con
         }
 
         if (mac) {
-                r = sd_rtnl_message_append(message, IFLA_ADDRESS, ether_aton(mac));
+                r = sscanf(mac, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                           &new_mac.ether_addr_octet[0],
+                           &new_mac.ether_addr_octet[1],
+                           &new_mac.ether_addr_octet[2],
+                           &new_mac.ether_addr_octet[3],
+                           &new_mac.ether_addr_octet[4],
+                           &new_mac.ether_addr_octet[5]);
+                if (r != 6)
+                        return -EINVAL;
+                r = sd_rtnl_message_append(message, IFLA_ADDRESS, &new_mac);
                 if (r < 0)
                         return r;
 
