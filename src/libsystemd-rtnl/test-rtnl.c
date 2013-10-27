@@ -51,7 +51,6 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert(type == IFLA_MTU);
         assert(mtu == *(unsigned int *) data);
 
-        /* let's assume that this test is always ran when the loopback device is up, so that it will fail */
         assert(sd_rtnl_send_with_reply_and_block(rtnl, message, 2 * USEC_PER_SEC, NULL) == 0);
 }
 
@@ -106,14 +105,14 @@ int main(void) {
         assert(sd_rtnl_send_with_reply_and_block(rtnl, m, -1, &r) >= 0);
         while (sd_rtnl_message_read(r, &type, &data)) {
                 switch (type) {
-                        case IFLA_MTU:
-                                assert(*(unsigned int *) data == 65536);
-                                break;;
+//                        case IFLA_MTU:
+//                                assert(*(unsigned int *) data == 65536);
+//                                break;;
+//                        case IFLA_QDISC:
+//                                assert(streq((char *) data, "noqueue"));
+//                                break;;
                         case IFLA_IFNAME:
                                 assert(streq((char *) data, "lo"));
-                                break;;
-                        case IFLA_QDISC:
-                                assert(streq((char *) data, "noqueue"));
                                 break;;
                 }
         }
