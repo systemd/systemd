@@ -22,8 +22,9 @@
 #include <netinet/ether.h>
 #include <net/if.h>
 
-#include "link-config.h"
+#include "sd-id128.h"
 
+#include "link-config.h"
 #include "ethtool-util.h"
 
 #include "libudev-private.h"
@@ -35,6 +36,7 @@
 #include "conf-parser.h"
 #include "conf-files.h"
 #include "fileio.h"
+#include "hashmap.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);
@@ -252,11 +254,9 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device, link_confi
         return -ENOENT;
 }
 
-static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, const char *mac, unsigned int mtu) {
+static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, const struct ether_addr *mac, unsigned int mtu) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message;
-        char new_name[IFNAMSIZ];
-        struct ether_addr new_mac;
-        bool need_update;
+        bool need_update = false;
         int r;
 
         assert(rtnl);
@@ -267,8 +267,7 @@ static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, con
                 return r;
 
         if (name) {
-                strscpy(new_name, IFNAMSIZ, name);
-                r = sd_rtnl_message_append(message, IFLA_IFNAME, new_name);
+                r = sd_rtnl_message_append(message, IFLA_IFNAME, name);
                 if (r < 0)
                         return r;
 
@@ -276,16 +275,7 @@ static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, con
         }
 
         if (mac) {
-                r = sscanf(mac, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                           &new_mac.ether_addr_octet[0],
-                           &new_mac.ether_addr_octet[1],
-                           &new_mac.ether_addr_octet[2],
-                           &new_mac.ether_addr_octet[3],
-                           &new_mac.ether_addr_octet[4],
-                           &new_mac.ether_addr_octet[5]);
-                if (r != 6)
-                        return -EINVAL;
-                r = sd_rtnl_message_append(message, IFLA_ADDRESS, &new_mac);
+                r = sd_rtnl_message_append(message, IFLA_ADDRESS, mac);
                 if (r < 0)
                         return r;
 
@@ -301,7 +291,7 @@ static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, con
         }
 
         if  (need_update) {
-                r = sd_rtnl_send_with_reply_and_block(rtnl, message, 250 * USEC_PER_MSEC, NULL);
+                r = sd_rtnl_send_with_reply_and_block(rtnl, message, 5 * USEC_PER_SEC, NULL);
                 if (r < 0)
                         return r;
         }
@@ -328,8 +318,90 @@ static bool enable_name_policy(void) {
         return true;
 }
 
+static bool mac_is_random(struct udev_device *device) {
+        const char *s;
+        int type;
+
+        s = udev_device_get_sysattr_value(device, "addr_assign_type");
+        if (!s)
+                return -EINVAL;
+        type = strtoul(s, NULL, 0);
+
+        /* check for NET_ADDR_RANDOM */
+        return type == 1;
+}
+
+static bool mac_is_permanent(struct udev_device *device) {
+        const char *s;
+        int type;
+
+        s = udev_device_get_sysattr_value(device, "addr_assign_type");
+        if (!s)
+                return -EINVAL;
+        type = strtoul(s, NULL, 0);
+
+        /* check for NET_ADDR_PERM */
+        return type == 0;
+}
+
+static int get_mac(struct udev_device *device, bool want_random, struct ether_addr **ret) {
+        struct ether_addr *mac;
+        unsigned int seed;
+        int r, i;
+
+        mac = calloc(1, sizeof(struct ether_addr));
+        if (!mac)
+                return -ENOMEM;
+
+        if (want_random)
+                seed = random_u();
+        else {
+                const char *name;
+                sd_id128_t machine;
+                char machineid_buf[33];
+                const char *seed_str;
+
+                /* fetch some persistent data unique (on this machine) to this device */
+                name = udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD");
+                if (!name) {
+                        name = udev_device_get_property_value(device, "ID_NET_NAME_SLOT");
+                        if (!name) {
+                                name = udev_device_get_property_value(device, "ID_NET_NAME_PATH");
+                                if (!name)
+                                        return -1;
+                        }
+                }
+                /* fetch some persistent data unique to this machine */
+                r = sd_id128_get_machine(&machine);
+                if (r < 0)
+                        return -1;
+
+                /* combine the data */
+                seed_str = strappenda(name, sd_id128_to_string(machine, machineid_buf));
+
+                /* hash to get seed */
+                seed = string_hash_func(seed_str);
+        }
+
+        srandom(seed);
+
+        for(i = 0; i < ETH_ALEN; i++) {
+                mac->ether_addr_octet[i] = random();
+        }
+
+        /* see eth_random_addr in the kernel */
+        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
+        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
+
+        *ret = mac;
+
+        return 0;
+}
+
 int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_device *device) {
-        const char *name, *new_name = NULL;
+        const char *name;
+        char *new_name = NULL;
+        struct ether_addr *mac = NULL;
         int r, ifindex;
 
         name = udev_device_get_sysname(device);
@@ -380,19 +452,27 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
 
                 STRV_FOREACH(policy, config->name_policy) {
                         if (streq(*policy, "onboard")) {
-                                new_name = udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD");
+                                r = strdup_or_null(udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD"), &new_name);
+                                if (r < 0)
+                                        return r;
                                 if (new_name)
                                         break;
                         } else if (streq(*policy, "slot")) {
-                                new_name = udev_device_get_property_value(device, "ID_NET_NAME_SLOT");
+                                r = strdup_or_null(udev_device_get_property_value(device, "ID_NET_NAME_SLOT"), &new_name);
+                                if (r < 0)
+                                        return r;
                                 if (new_name)
                                         break;
                         } else if (streq(*policy, "path")) {
-                                new_name = udev_device_get_property_value(device, "ID_NET_NAME_PATH");
+                                r = strdup_or_null(udev_device_get_property_value(device, "ID_NET_NAME_PATH"), &new_name);
+                                if (r < 0)
+                                        return r;
                                 if (new_name)
                                         break;
                         } else if (streq(*policy, "mac")) {
-                                new_name = udev_device_get_property_value(device, "ID_NET_NAME_MAC");
+                                r = strdup_or_null(udev_device_get_property_value(device, "ID_NET_NAME_MAC"), &new_name);
+                                if (r < 0)
+                                        return r;
                                 if (new_name)
                                         break;
                         } else
@@ -400,14 +480,52 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                 }
         }
 
-        if (!new_name && config->name)
-                new_name = config->name;
+        if (!new_name && config->name) {
+                new_name = calloc(1, IFNAMSIZ);
+                strscpy(new_name, IFNAMSIZ, config->name);
+        }
 
-        r = rtnl_set_properties(ctx->rtnl, ifindex, new_name, config->mac, config->mtu);
+        if (config->mac_policy) {
+                if (streq(config->mac_policy, "persistent")) {
+                        if (!mac_is_permanent(device)) {
+                                r = get_mac(device, false, &mac);
+                                if (r < 0)
+                                        return r;
+                        }
+                } else if (streq(config->mac_policy, "random")) {
+                        if (!mac_is_random(device)) {
+                                r = get_mac(device, true, &mac);
+                                if (r < 0)
+                                        return r;
+                        }
+                } else
+                        log_warning("Invalid MACAddress policy '%s', ignoring.", config->mac_policy);
+        }
+
+        if (!mac && config->mac) {
+                mac = calloc(1, sizeof(struct ether_addr));
+                r = sscanf(config->mac, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                           &mac->ether_addr_octet[0],
+                           &mac->ether_addr_octet[1],
+                           &mac->ether_addr_octet[2],
+                           &mac->ether_addr_octet[3],
+                           &mac->ether_addr_octet[4],
+                           &mac->ether_addr_octet[5]);
+                if (r != 6) {
+                        r = -EINVAL;
+                        goto out;
+                }
+        }
+
+        r = rtnl_set_properties(ctx->rtnl, ifindex, new_name, mac, config->mtu);
         if (r < 0) {
-                log_warning("Could not set Name, MACAddress or MTU on %s", name);
-                return r;
+                log_warning("Could not set Name, MACAddress or MTU on %s: %s", name, strerror(-r));
+                goto out;
         }
 
         return 0;
+out:
+        free(new_name);
+        free(mac);
+        return r;
 }

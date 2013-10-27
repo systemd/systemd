@@ -19,6 +19,7 @@ Match.Path,                         config_parse_string,        0, offsetof(link
 Match.Driver,                       config_parse_string,        0, offsetof(link_config, match_driver)
 Match.Type,                         config_parse_string,        0, offsetof(link_config, match_type)
 Link.Description,                   config_parse_string,        0, offsetof(link_config, description)
+Link.MACAddressPolicy,              config_parse_string,        0, offsetof(link_config, mac_policy)
 Link.MACAddress,                    config_parse_string,        0, offsetof(link_config, mac)
 Link.NamePolicy,                    config_parse_strv,          0, offsetof(link_config, name_policy)
 Link.Name,                          config_parse_string,        0, offsetof(link_config, name)
