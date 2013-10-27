@@ -4223,7 +4223,7 @@ static int enable_sysv_units(const char *verb, char **args) {
 
 #if defined(HAVE_SYSV_COMPAT) && defined(HAVE_CHKCONFIG)
         unsigned f = 1, t = 1;
-        LookupPaths paths = {};
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
 
         if (arg_scope != UNIT_FILE_SYSTEM)
                 return 0;
@@ -4361,8 +4361,6 @@ static int enable_sysv_units(const char *verb, char **args) {
         }
 
 finish:
-        lookup_paths_free(&paths);
-
         /* Drop all SysV units */
         for (f = 0, t = 0; args[f]; f++) {
 

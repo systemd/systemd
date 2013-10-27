@@ -44,7 +44,6 @@ typedef struct {
         Hashmap *have_installed;
 } InstallContext;
 
-#define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)
 #define _cleanup_install_context_done_ _cleanup_(install_context_done)
 
 static int lookup_paths_init_from_scope(LookupPaths *paths, UnitFileScope scope) {
