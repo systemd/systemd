@@ -282,6 +282,34 @@ static void test_strv_append(void) {
         assert_se(streq(c[0], "test3"));
 }
 
+static void test_strv_foreach(void) {
+	_cleanup_strv_free_ char **a;
+	unsigned i = 0;
+	char **check;
+
+	a = strv_new("one", "two", "three", NULL);
+
+	assert_se(a);
+
+	STRV_FOREACH(check, a) {
+		assert_se(streq(*check, input_table_multiple[i++]));
+	}
+}
+
+static void test_strv_foreach_backwards(void) {
+	_cleanup_strv_free_ char **a;
+	unsigned i = 2;
+	char **check;
+
+	a = strv_new("one", "two", "three", NULL);
+
+	assert_se(a);
+
+	STRV_FOREACH_BACKWARDS(check, a) {
+		assert_se(streq(*check, input_table_multiple[i--]));
+	}
+}
+
 static void test_strv_foreach_pair(void) {
         _cleanup_strv_free_ char **a = NULL;
         char **x, **y;
@@ -298,6 +326,8 @@ static void test_strv_foreach_pair(void) {
 
 int main(int argc, char *argv[]) {
         test_specifier_printf();
+        test_strv_foreach();
+        test_strv_foreach_backwards();
         test_strv_foreach_pair();
         test_strv_find();
         test_strv_find_prefix();
