@@ -83,7 +83,7 @@ userunitdir=$(prefix)/lib/systemd/user
 userpresetdir=$(prefix)/lib/systemd/user-preset
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
 sysctldir=$(prefix)/lib/sysctl.d
-linkdir=$(prefix)/lib/net/links
+linksdir=$(prefix)/lib/net/links
 pkgincludedir=$(includedir)/systemd
 systemgeneratordir=$(rootlibexecdir)/system-generators
 usergeneratordir=$(prefix)/lib/systemd/user-generators
@@ -2214,6 +2214,9 @@ INSTALL_DIRS += \
 	$(sysconfdir)/udev/rules.d \
 	$(sysconfdir)/udev/hwdb.d
 
+dist_links_DATA = \
+	links/99-default.link
+
 dist_udevrules_DATA += \
 	rules/99-systemd.rules \
 	rules/42-usb-hid-pm.rules \
@@ -2228,7 +2231,6 @@ dist_udevrules_DATA += \
 	rules/75-net-description.rules \
 	rules/75-tty-description.rules \
 	rules/78-sound-card.rules \
-	rules/80-net-name-slot.rules \
 	rules/85-net-configure-link.rules \
 	rules/95-udev-late.rules
 

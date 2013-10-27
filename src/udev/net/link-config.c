@@ -34,6 +34,7 @@
 #include "path-util.h"
 #include "conf-parser.h"
 #include "conf-files.h"
+#include "fileio.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);
@@ -308,8 +309,27 @@ static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, con
         return 0;
 }
 
+static bool enable_name_policy(void) {
+        _cleanup_free_ char *line;
+        char *w, *state;
+        int r;
+        size_t l;
+
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+                return true; /* something is very wrong, let's not make it worse */
+        }
+
+        FOREACH_WORD_QUOTED(w, l, line, state)
+                if (strneq(w, "net.ifnames=0", l))
+                        return false;
+
+        return true;
+}
+
 int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_device *device) {
-        const char *name;
+        const char *name, *new_name = NULL;
         int r, ifindex;
 
         name = udev_device_get_sysname(device);
@@ -355,7 +375,35 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                 return -ENODEV;
         }
 
-        r = rtnl_set_properties(ctx->rtnl, ifindex, config->name, config->mac, config->mtu);
+        if (config->name_policy && enable_name_policy()) {
+                char **policy;
+
+                STRV_FOREACH(policy, config->name_policy) {
+                        if (streq(*policy, "onboard")) {
+                                new_name = udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD");
+                                if (new_name)
+                                        break;
+                        } else if (streq(*policy, "slot")) {
+                                new_name = udev_device_get_property_value(device, "ID_NET_NAME_SLOT");
+                                if (new_name)
+                                        break;
+                        } else if (streq(*policy, "path")) {
+                                new_name = udev_device_get_property_value(device, "ID_NET_NAME_PATH");
+                                if (new_name)
+                                        break;
+                        } else if (streq(*policy, "mac")) {
+                                new_name = udev_device_get_property_value(device, "ID_NET_NAME_MAC");
+                                if (new_name)
+                                        break;
+                        } else
+                                log_warning("Invalid link naming policy '%s', ignoring.", *policy);
+                }
+        }
+
+        if (!new_name && config->name)
+                new_name = config->name;
+
+        r = rtnl_set_properties(ctx->rtnl, ifindex, new_name, config->mac, config->mtu);
         if (r < 0) {
                 log_warning("Could not set Name, MACAddress or MTU on %s", name);
                 return r;

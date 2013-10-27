@@ -39,6 +39,7 @@ struct link_config {
 
         char *description;
         char *mac;
+        char **name_policy;
         char *name;
         unsigned int mtu;
         unsigned int speed;

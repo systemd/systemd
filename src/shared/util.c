@@ -6004,7 +6004,7 @@ bool restore_state(void) {
         r = read_one_line_file("/proc/cmdline", &line);
         if (r < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-                return 0;
+                return true; /* something is very wrong, let's not make it worse */
         }
 
         FOREACH_WORD_QUOTED(w, l, line, state)
