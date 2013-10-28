@@ -29,6 +29,24 @@
 #include "strxcpyx.h"
 #include "util.h"
 #include "log.h"
+#include "conf-parser.h"
+
+static const char* const duplex_table[] = {
+        [DUP_FULL] = "full",
+        [DUP_HALF] = "half"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(duplex, Duplex);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_duplex, duplex, Duplex, "Failed to parse duplex setting");
+
+static const char* const wol_table[] = {
+        [WOL_PHY] = "phy",
+        [WOL_MAGIC] = "magic",
+        [WOL_OFF] = "off"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(wol, WakeOnLan);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_wol, wol, WakeOnLan, "Failed to parse WakeOnLan setting");
 
 int ethtool_connect(int *ret) {
         int fd;
@@ -45,14 +63,14 @@ int ethtool_connect(int *ret) {
         return 0;
 }
 
-int ethtool_set_speed(int fd, const char *ifname, const unsigned int speed, const char *duplex)
+int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex duplex)
 {
         struct ifreq ifr;
         struct ethtool_cmd ecmd;
         bool need_update;
         int r;
 
-        if (speed == 0 && !duplex)
+        if (speed == 0 && duplex == _DUP_INVALID)
                 return 0;
 
         memset(&ecmd, 0x00, sizeof(struct ethtool_cmd));
@@ -70,17 +88,21 @@ int ethtool_set_speed(int fd, const char *ifname, const unsigned int speed, cons
                 need_update = true;
         }
 
-        if (duplex) {
-                if (streq(duplex, "half")) {
+        switch (duplex) {
+                case DUP_HALF:
                         if (ecmd.duplex != DUPLEX_HALF) {
                                 ecmd.duplex = DUPLEX_HALF;
                                 need_update = true;
                         }
-                } else if (streq(duplex, "full"))
+                        break;
+                case DUP_FULL:
                         if (ecmd.duplex != DUPLEX_FULL) {
                                 ecmd.duplex = DUPLEX_FULL;
                                 need_update = true;
                         }
+                        break;
+                default:
+                        break;
         }
 
         if (need_update) {
@@ -94,13 +116,13 @@ int ethtool_set_speed(int fd, const char *ifname, const unsigned int speed, cons
         return 0;
 }
 
-int ethtool_set_wol(int fd, const char *ifname, const char *wol) {
+int ethtool_set_wol(int fd, const char *ifname, WakeOnLan wol) {
         struct ifreq ifr;
         struct ethtool_wolinfo ecmd;
         bool need_update;
         int r;
 
-        if (!wol)
+        if (wol == _WOL_INVALID)
                 return 0;
 
         memset(&ecmd, 0x00, sizeof(struct ethtool_wolinfo));
@@ -113,23 +135,28 @@ int ethtool_set_wol(int fd, const char *ifname, const char *wol) {
         if (r < 0)
                 return -errno;
 
-        if (streq(wol, "phy")) {
-                if (ecmd.wolopts != WAKE_PHY) {
-                        ecmd.wolopts = WAKE_PHY;
-                        need_update = true;
-                }
-        } else if (streq(wol, "magic")) {
-                if (ecmd.wolopts != WAKE_MAGIC) {
-                        ecmd.wolopts = WAKE_MAGIC;
-                        need_update = true;
-                }
-        } else if (streq(wol, "off")) {
-                if (ecmd.wolopts != 0) {
-                        ecmd.wolopts = 0;
-                        need_update = true;
-                }
-        } else
-                return -EINVAL;
+        switch (wol) {
+                case WOL_PHY:
+                        if (ecmd.wolopts != WAKE_PHY) {
+                                ecmd.wolopts = WAKE_PHY;
+                                need_update = true;
+                        }
+                        break;
+                case WOL_MAGIC:
+                        if (ecmd.wolopts != WAKE_MAGIC) {
+                                ecmd.wolopts = WAKE_MAGIC;
+                                need_update = true;
+                        }
+                        break;
+                case WOL_OFF:
+                        if (ecmd.wolopts != 0) {
+                                ecmd.wolopts = 0;
+                                need_update = true;
+                        }
+                        break;
+                default:
+                        break;
+        }
 
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SWOL;

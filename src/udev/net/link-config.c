@@ -153,6 +153,11 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
                 goto failure;
         }
 
+        link->mac_policy = _MACPOLICY_INVALID;
+        link->wol = _WOL_INVALID;
+        link->duplex = _DUP_INVALID;
+
+
         r = config_parse(NULL, filename, file, "Match\0Link\0Ethernet\0", config_item_perf_lookup,
                          (void*) link_config_gperf_lookup, false, false, link);
         if (r < 0) {
@@ -205,32 +210,36 @@ static bool match_config(link_config *match, struct udev_device *device) {
 
         if (match->match_mac) {
                 property = udev_device_get_sysattr_value(device, "address");
-                if (!property || !streq(match->match_mac, property)) {
-                        log_debug("Device MAC address (%s) did not match MACAddress=%s", property, match->match_mac);
+                if (!property || memcmp(match->match_mac, ether_aton(property), ETH_ALEN)) {
+                        log_debug("Device MAC address (%s) did not match MACAddress=%s",
+                                  property, ether_ntoa(match->match_mac));
                         return 0;
                 }
         }
 
         if (match->match_path) {
                 property = udev_device_get_property_value(device, "ID_PATH");
-                if (!property || !streq(match->match_path, property)) {
-                        log_debug("Device's persistent path (%s) did not match Path=%s", property, match->match_path);
+                if (!streq_ptr(match->match_path, property)) {
+                        log_debug("Device's persistent path (%s) did not match Path=%s",
+                                  property, match->match_path);
                         return 0;
                 }
         }
 
         if (match->match_driver) {
                 property = udev_device_get_driver(device);
-                if (!property || !streq(match->match_driver, property)) {
-                        log_debug("Device driver (%s) did not match Driver=%s", property, match->match_driver);
+                if (!streq_ptr(match->match_driver, property)) {
+                        log_debug("Device driver (%s) did not match Driver=%s",
+                                  property, match->match_driver);
                         return 0;
                 }
         }
 
         if (match->match_type) {
                 property = udev_device_get_devtype(device);
-                if (!property || !streq(match->match_type, property)) {
-                        log_debug("Device type (%s) did not match Type=%s", property, match->match_type);
+                if (!streq_ptr(match->match_type, property)) {
+                        log_debug("Device type (%s) did not match Type=%s",
+                                  property, match->match_type);
                         return 0;
                 }
         }
@@ -344,14 +353,9 @@ static bool mac_is_permanent(struct udev_device *device) {
         return type == 0;
 }
 
-static int get_mac(struct udev_device *device, bool want_random, struct ether_addr **ret) {
-        struct ether_addr *mac;
+static int get_mac(struct udev_device *device, bool want_random, struct ether_addr *mac) {
         unsigned int seed;
         int r, i;
-
-        mac = calloc(1, sizeof(struct ether_addr));
-        if (!mac)
-                return -ENOMEM;
 
         if (want_random)
                 seed = random_u();
@@ -393,14 +397,13 @@ static int get_mac(struct udev_device *device, bool want_random, struct ether_ad
         mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
         mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
 
-        *ret = mac;
-
         return 0;
 }
 
 int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_device *device) {
         const char *name;
-        char *new_name = NULL;
+        const char *new_name = NULL;
+        struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
         int r, ifindex;
 
@@ -416,30 +419,17 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                 if (r < 0)
                         log_warning("Could not set description of %s to '%s': %s",
                                     name, config->description, strerror(-r));
-                else
-                        log_info("Set link description of %s to '%s'", name,
-                                 config->description);
         }
 
-        if (config->speed || config->duplex) {
-                r = ethtool_set_speed(ctx->ethtool_fd, name,
-                                      config->speed, config->duplex);
-                if (r < 0)
-                        log_warning("Could not set speed or duplex of %s to %u Mbytes (%s): %s",
-                                    name, config->speed, config->duplex, strerror(-r));
-                else
-                        log_info("Set speed or duplex of %s to %u Mbytes (%s)", name,
-                                 config->speed, config->duplex);
-        }
+        r = ethtool_set_speed(ctx->ethtool_fd, name, config->speed, config->duplex);
+        if (r < 0)
+                log_warning("Could not set speed or duplex of %s to %u Mbytes (%s): %s",
+                             name, config->speed, duplex_to_string(config->duplex), strerror(-r));
 
-        if (config->wol) {
-                r = ethtool_set_wol(ctx->ethtool_fd, name, config->wol);
-                if (r < 0)
-                        log_warning("Could not set WakeOnLan of %s to %s: %s",
-                                    name, config->wol, strerror(-r));
-                else
-                        log_info("Set WakeOnLan of %s to %s", name, config->wol);
-        }
+        r = ethtool_set_wol(ctx->ethtool_fd, name, config->wol);
+        if (r < 0)
+                log_warning("Could not set WakeOnLan of %s to %s: %s",
+                            name, wol_to_string(config->wol), strerror(-r));
 
         ifindex = udev_device_get_ifindex(device);
         if (ifindex <= 0) {
@@ -448,84 +438,58 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
         }
 
         if (config->name_policy && enable_name_policy()) {
-                char **policy;
+                NamePolicy *policy;
 
-                STRV_FOREACH(policy, config->name_policy) {
-                        if (streq(*policy, "onboard")) {
-                                r = strdup_or_null(udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD"), &new_name);
-                                if (r < 0)
-                                        return r;
-                                if (new_name)
+                for (policy = config->name_policy; !new_name && *policy != _NAMEPOLICY_INVALID; policy++) {
+                        switch (*policy) {
+                                case NAMEPOLICY_ONBOARD:
+                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_ONBOARD");
                                         break;
-                        } else if (streq(*policy, "slot")) {
-                                r = strdup_or_null(udev_device_get_property_value(device, "ID_NET_NAME_SLOT"), &new_name);
-                                if (r < 0)
-                                        return r;
-                                if (new_name)
+                                case NAMEPOLICY_SLOT:
+                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_SLOT");
                                         break;
-                        } else if (streq(*policy, "path")) {
-                                r = strdup_or_null(udev_device_get_property_value(device, "ID_NET_NAME_PATH"), &new_name);
-                                if (r < 0)
-                                        return r;
-                                if (new_name)
+                                case NAMEPOLICY_PATH:
+                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_PATH");
                                         break;
-                        } else if (streq(*policy, "mac")) {
-                                r = strdup_or_null(udev_device_get_property_value(device, "ID_NET_NAME_MAC"), &new_name);
-                                if (r < 0)
-                                        return r;
-                                if (new_name)
+                                case NAMEPOLICY_MAC:
+                                        new_name = udev_device_get_property_value(device, "ID_NET_NAME_MAC");
                                         break;
-                        } else
-                                log_warning("Invalid link naming policy '%s', ignoring.", *policy);
+                                default:
+                                        break;
+                        }
                 }
         }
 
         if (!new_name && config->name) {
-                new_name = calloc(1, IFNAMSIZ);
-                strscpy(new_name, IFNAMSIZ, config->name);
+                new_name = config->name;
         }
 
-        if (config->mac_policy) {
-                if (streq(config->mac_policy, "persistent")) {
+        switch (config->mac_policy) {
+                case MACPOLICY_PERSISTENT:
                         if (!mac_is_permanent(device)) {
-                                r = get_mac(device, false, &mac);
+                                r = get_mac(device, false, &generated_mac);
                                 if (r < 0)
                                         return r;
+                                mac = &generated_mac;
                         }
-                } else if (streq(config->mac_policy, "random")) {
+                        break;
+                case MACPOLICY_RANDOM:
                         if (!mac_is_random(device)) {
-                                r = get_mac(device, true, &mac);
+                                r = get_mac(device, true, &generated_mac);
                                 if (r < 0)
                                         return r;
+                                mac = &generated_mac;
                         }
-                } else
-                        log_warning("Invalid MACAddress policy '%s', ignoring.", config->mac_policy);
-        }
-
-        if (!mac && config->mac) {
-                mac = calloc(1, sizeof(struct ether_addr));
-                r = sscanf(config->mac, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                           &mac->ether_addr_octet[0],
-                           &mac->ether_addr_octet[1],
-                           &mac->ether_addr_octet[2],
-                           &mac->ether_addr_octet[3],
-                           &mac->ether_addr_octet[4],
-                           &mac->ether_addr_octet[5]);
-                if (r != 6) {
-                        r = -EINVAL;
-                        goto out;
-                }
+                        break;
+                default:
+                        mac = config->mac;
         }
 
         r = rtnl_set_properties(ctx->rtnl, ifindex, new_name, mac, config->mtu);
         if (r < 0) {
                 log_warning("Could not set Name, MACAddress or MTU on %s: %s", name, strerror(-r));
-                goto out;
+                return r;
         }
 
         return 0;
-out:
-        free(new_name);
-        free(mac);
-        return r;
 }

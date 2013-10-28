@@ -19,7 +19,37 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#pragma once
+
+#include <macro.h>
+
+/* we can't use DUPLEX_ prefix, as it
+ * clashes with <linux/ethtool.h> */
+typedef enum Duplex {
+        DUP_FULL,
+        DUP_HALF,
+        _DUP_MAX,
+        _DUP_INVALID = -1
+} Duplex;
+
+typedef enum WakeOnLan {
+        WOL_PHY,
+        WOL_MAGIC,
+        WOL_OFF,
+        _WOL_MAX,
+        _WOL_INVALID = -1
+} WakeOnLan;
+
 int ethtool_connect(int *ret);
 
-int ethtool_set_speed(int fd, const char *ifname, const unsigned int speed, const char *duplex);
-int ethtool_set_wol(int fd, const char *ifname, const char *wol);
+int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex duplex);
+int ethtool_set_wol(int fd, const char *ifname, WakeOnLan wol);
+
+const char *duplex_to_string(Duplex d) _const_;
+Duplex duplex_from_string(const char *d) _pure_;
+
+const char *wol_to_string(WakeOnLan wol) _const_;
+WakeOnLan wol_from_string(const char *wol) _pure_;
+
+int config_parse_duplex(const char *unit, const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_wol(const char *unit, const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <netinet/ether.h>
 
 #include "conf-parser.h"
 #include "util.h"
