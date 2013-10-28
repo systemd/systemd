@@ -25,7 +25,7 @@
 
 link_config_ctx *ctx;
 
-static int builtin_net_link(struct udev_device *dev, int argc, char **argv, bool test) {
+static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv, bool test) {
         link_config *link;
         int r;
 
@@ -54,7 +54,7 @@ static int builtin_net_link(struct udev_device *dev, int argc, char **argv, bool
         return EXIT_SUCCESS;
 }
 
-static int builtin_net_link_init(struct udev *udev) {
+static int builtin_net_setup_link_init(struct udev *udev) {
         int r;
 
         if (ctx)
@@ -72,12 +72,12 @@ static int builtin_net_link_init(struct udev *udev) {
         return 0;
 }
 
-static void builtin_net_link_exit(struct udev *udev) {
+static void builtin_net_setup_link_exit(struct udev *udev) {
         link_config_ctx_free(ctx);
         log_debug("Unloaded link configuration context");
 }
 
-static bool builtin_net_link_validate(struct udev *udev) {
+static bool builtin_net_setup_link_validate(struct udev *udev) {
         log_debug("Check if link configuration needs reloading");
         if (!ctx)
                 return false;
@@ -85,12 +85,12 @@ static bool builtin_net_link_validate(struct udev *udev) {
         return link_config_should_reload(ctx);
 }
 
-const struct udev_builtin udev_builtin_net_link = {
-        .name = "net_link",
-        .cmd = builtin_net_link,
-        .init = builtin_net_link_init,
-        .exit = builtin_net_link_exit,
-        .validate = builtin_net_link_validate,
+const struct udev_builtin udev_builtin_net_setup_link = {
+        .name = "net_setup_link",
+        .cmd = builtin_net_setup_link,
+        .init = builtin_net_setup_link_init,
+        .exit = builtin_net_setup_link_exit,
+        .validate = builtin_net_setup_link_validate,
         .help = "configure network link",
         .run_once = false,
 };

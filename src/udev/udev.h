@@ -184,7 +184,7 @@ extern const struct udev_builtin udev_builtin_keyboard;
 extern const struct udev_builtin udev_builtin_kmod;
 #endif
 extern const struct udev_builtin udev_builtin_net_id;
-extern const struct udev_builtin udev_builtin_net_link;
+extern const struct udev_builtin udev_builtin_net_setup_link;
 extern const struct udev_builtin udev_builtin_path_id;
 extern const struct udev_builtin udev_builtin_usb_id;
 extern const struct udev_builtin udev_builtin_uaccess;

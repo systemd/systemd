@@ -83,7 +83,7 @@ _udevadm() {
                         fi
                         ;;
                 'test-builtin')
-                        comps='blkid btrfs hwdb input_id keyboard kmod net_id path_id usb_id uaccess'
+                        comps='blkid btrfs hwdb input_id keyboard kmod net_id net_setup_link path_id usb_id uaccess'
                         ;;
                 *)
                         comps=${VERBS[*]}
