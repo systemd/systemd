@@ -48,13 +48,11 @@ CGroup Rework Completion:
 
 Features:
 
-* saproxy: Support multiple inherited sockets mapped using different proxies
-
-* saproxy: Use a nonblocking alternative to getaddrinfo
-
-* saproxy: Until we can start daemons directly, find a less ugly, less racy alternative than shell scripts for the second man page example.
-
-* saproxy: Support starting daemons directly without requiring a shell script; update man pages
+* socket-proxyd:
+  - Support multiple inherited sockets mapped using different proxies
+  - Use a nonblocking alternative to getaddrinfo
+  - Until we can start daemons directly, find a less ugly, less racy alternative than shell scripts for the second man page example.
+  - Support starting daemons directly without requiring a shell script; update man pages
 
 * "systemctl cat" or "systemctl view" command or or so, that cats the backing unit file of a service, plus its drop-ins and shows them in a pager
 
