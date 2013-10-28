@@ -83,7 +83,7 @@ userunitdir=$(prefix)/lib/systemd/user
 userpresetdir=$(prefix)/lib/systemd/user-preset
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
 sysctldir=$(prefix)/lib/sysctl.d
-linksdir=$(prefix)/lib/net/links
+networkdir=$(prefix)/lib/systemd/network
 pkgincludedir=$(includedir)/systemd
 systemgeneratordir=$(rootlibexecdir)/system-generators
 usergeneratordir=$(prefix)/lib/systemd/user-generators
@@ -2214,8 +2214,8 @@ INSTALL_DIRS += \
 	$(sysconfdir)/udev/rules.d \
 	$(sysconfdir)/udev/hwdb.d
 
-dist_links_DATA = \
-	links/99-default.link
+dist_network_DATA = \
+	network/99-default.link
 
 dist_udevrules_DATA += \
 	rules/99-systemd.rules \
@@ -4492,8 +4492,8 @@ endif
 INSTALL_DIRS += \
 	$(prefix)/lib/modules-load.d \
 	$(sysconfdir)/modules-load.d \
-	$(prefix)/lib/net/links \
-	$(sysconfdir)/net/links \
+	$(prefix)/lib/systemd/network \
+	$(sysconfdir)/systemd/network \
 	$(prefix)/lib/sysctl.d \
 	$(sysconfdir)/sysctl.d \
 	$(prefix)/lib/kernel/install.d \
