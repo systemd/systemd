@@ -54,6 +54,10 @@ Features:
   - Until we can start daemons directly, find a less ugly, less racy alternative than shell scripts for the second man page example.
   - Support starting daemons directly without requiring a shell script; update man pages
 
+* optimize the cgroup propagation bits, especially unit_get_members_mask(), cgroup_context_get_mask()
+
+* sd_bus_message_enter_container() should optionally allow 0 as type and/or NULL as content signature in case the caller wants to enter unknown containers
+
 * "systemctl cat" or "systemctl view" command or or so, that cats the backing unit file of a service, plus its drop-ins and shows them in a pager
 
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
