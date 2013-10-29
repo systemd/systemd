@@ -25,6 +25,7 @@
 #include "link-config.h"
 
 #include "utf8.h"
+#include "util.h"
 #include "conf-parser.h"
 
 static const char* const mac_policy_table[] = {
@@ -103,7 +104,7 @@ int config_parse_hwaddr(const char *unit,
         assert(rvalue);
         assert(data);
 
-        n = calloc(1, sizeof(struct ether_addr));
+        n = new0(struct ether_addr, 1);
         if (!n)
                 return log_oom();
 
