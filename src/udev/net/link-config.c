@@ -322,12 +322,15 @@ static bool enable_name_policy(void) {
 
 static bool mac_is_random(struct udev_device *device) {
         const char *s;
-        int type;
+        unsigned type;
+        int r;
 
         s = udev_device_get_sysattr_value(device, "addr_assign_type");
         if (!s)
-                return -EINVAL;
-        type = strtoul(s, NULL, 0);
+                return false; /* if we don't know, assume it is not random */
+        r = safe_atou(s, &type);
+        if (r < 0)
+                return false;
 
         /* check for NET_ADDR_RANDOM */
         return type == 1;
@@ -335,12 +338,15 @@ static bool mac_is_random(struct udev_device *device) {
 
 static bool mac_is_permanent(struct udev_device *device) {
         const char *s;
-        int type;
+        unsigned type;
+        int r;
 
         s = udev_device_get_sysattr_value(device, "addr_assign_type");
         if (!s)
-                return -EINVAL;
-        type = strtoul(s, NULL, 0);
+                return true; /* if we don't know, assume it is permanent */
+        r = safe_atou(s, &type);
+        if (r < 0)
+                return true;
 
         /* check for NET_ADDR_PERM */
         return type == 0;
