@@ -37,6 +37,7 @@
 #include "conf-files.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "rtnl-util.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);
@@ -266,51 +267,6 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device, link_confi
         return -ENOENT;
 }
 
-static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, const struct ether_addr *mac, unsigned int mtu) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message;
-        bool need_update = false;
-        int r;
-
-        assert(rtnl);
-        assert(ifindex > 0);
-
-        r = sd_rtnl_message_link_new(RTM_NEWLINK, ifindex, 0, 0, &message);
-        if (r < 0)
-                return r;
-
-        if (name) {
-                r = sd_rtnl_message_append(message, IFLA_IFNAME, name);
-                if (r < 0)
-                        return r;
-
-                need_update = true;
-        }
-
-        if (mac) {
-                r = sd_rtnl_message_append(message, IFLA_ADDRESS, mac);
-                if (r < 0)
-                        return r;
-
-                need_update = true;
-        }
-
-        if (mtu > 0) {
-                r = sd_rtnl_message_append(message, IFLA_MTU, &mtu);
-                if (r < 0)
-                        return r;
-
-                need_update = true;
-        }
-
-        if  (need_update) {
-                r = sd_rtnl_send_with_reply_and_block(rtnl, message, 0, NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
 static bool enable_name_policy(void) {
         _cleanup_free_ char *line;
         char *w, *state;
@@ -498,7 +454,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                         mac = config->mac;
         }
 
-        r = rtnl_set_properties(ctx->rtnl, ifindex, new_name, mac, config->mtu);
+        r = rtnl_set_link_properties(ctx->rtnl, ifindex, new_name, mac, config->mtu);
         if (r < 0) {
                 log_warning("Could not set Name, MACAddress or MTU on %s: %s", name, strerror(-r));
                 return r;

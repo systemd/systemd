@@ -183,6 +183,7 @@ AM_CPPFLAGS = \
 	-I $(top_srcdir)/src/udev/net \
 	-I $(top_builddir)/src/udev \
 	-I $(top_srcdir)/src/libsystemd-bus \
+	-I $(top_srcdir)/src/libsystemd-rtnl \
 	$(OUR_CPPFLAGS)
 
 AM_CFLAGS = $(OUR_CFLAGS)
@@ -627,7 +628,9 @@ libsystemd_rtnl_la_SOURCES = \
 	src/systemd/sd-rtnl.h \
 	src/libsystemd-rtnl/sd-rtnl.c \
 	src/libsystemd-rtnl/rtnl-internal.h \
-	src/libsystemd-rtnl/rtnl-message.c
+	src/libsystemd-rtnl/rtnl-message.c \
+	src/libsystemd-rtnl/rtnl-util.h \
+	src/libsystemd-rtnl/rtnl-util.c
 
 test_rtnl_SOURCES = \
 	src/libsystemd-rtnl/test-rtnl.c
