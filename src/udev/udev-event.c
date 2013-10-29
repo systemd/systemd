@@ -25,16 +25,14 @@
 #include <string.h>
 #include <time.h>
 #include <net/if.h>
-#include <sys/ioctl.h>
 #include <sys/prctl.h>
 #include <sys/poll.h>
 #include <sys/epoll.h>
 #include <sys/wait.h>
-#include <sys/socket.h>
 #include <sys/signalfd.h>
-#include <linux/sockios.h>
 
 #include "udev.h"
+#include "rtnl-util.h"
 
 struct udev_event *udev_event_new(struct udev_device *dev)
 {
@@ -750,32 +748,30 @@ out:
 static int rename_netif(struct udev_event *event)
 {
         struct udev_device *dev = event->dev;
-        int sk;
-        struct ifreq ifr;
-        int err;
+        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        char name[IFNAMSIZ];
+        const char *oldname;
+        int r;
+
+        oldname = udev_device_get_sysname(dev);
 
         log_debug("changing net interface name from '%s' to '%s'\n",
-                  udev_device_get_sysname(dev), event->name);
+                  oldname, event->name);
 
-        sk = socket(PF_INET, SOCK_DGRAM, 0);
-        if (sk < 0) {
-                err = -errno;
-                log_error("error opening socket: %m\n");
-                return err;
-        }
+        strscpy(name, IFNAMSIZ, event->name);
 
-        memset(&ifr, 0x00, sizeof(struct ifreq));
-        strscpy(ifr.ifr_name, IFNAMSIZ, udev_device_get_sysname(dev));
-        strscpy(ifr.ifr_newname, IFNAMSIZ, event->name);
-        err = ioctl(sk, SIOCSIFNAME, &ifr);
-        if (err >= 0) {
-                print_kmsg("renamed network interface %s to %s\n", ifr.ifr_name, ifr.ifr_newname);
-        } else {
-                err = -errno;
-                log_error("error changing net interface name %s to %s: %m\n", ifr.ifr_name, ifr.ifr_newname);
-        }
-        close(sk);
-        return err;
+        r = sd_rtnl_open(0, &rtnl);
+        if (r < 0)
+                return r;
+
+        r = rtnl_set_link_properties(rtnl, udev_device_get_ifindex(dev), name, NULL, 0);
+        if (r < 0)
+                log_error("error changing net interface name %s to %s: %s",
+                          oldname, name, strerror(-r));
+        else
+                log_info("renamed network interface %s to %s", oldname, name);
+
+        return r;
 }
 
 int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigmask)
