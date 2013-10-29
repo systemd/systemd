@@ -487,6 +487,17 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--list-boots</option></term>
+
+                                <listitem><para>Show a tabular list of
+                                boot numbers (relative to current
+                                boot), their IDs, and the timestamps
+                                of the first and last message
+                                pertaining to the boot.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-k</option></term>
                                 <term><option>--dmesg</option></term>
 

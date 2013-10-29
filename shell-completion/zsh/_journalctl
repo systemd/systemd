@@ -70,6 +70,7 @@ _arguments -s \
     {-q,--quiet}"[Don't show privilege warning]" \
     {-m,--merge}'[Show entries from all available journals]' \
     {-b+,--boot=}'[Show data only from the specified boot or offset]:boot id or offset:_journal_boots' \
+    '--list-boots[List boots ordered by time]' \
     {-k,--dmesg}'[Show only kernel messages, Implies -b]' \
     {-u+,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
     '--user-unit=[Show data only from the specified user session unit]:units:_journal_fields USER_UNIT' \

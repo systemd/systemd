@@ -104,12 +104,14 @@ static enum {
         ACTION_DISK_USAGE,
         ACTION_LIST_CATALOG,
         ACTION_DUMP_CATALOG,
-        ACTION_UPDATE_CATALOG
+        ACTION_UPDATE_CATALOG,
+        ACTION_LIST_BOOTS,
 } arg_action = ACTION_SHOW;
 
 typedef struct boot_id_t {
         sd_id128_t id;
-        uint64_t timestamp;
+        uint64_t first;
+        uint64_t last;
 } boot_id_t;
 
 static int help(void) {
@@ -125,6 +127,7 @@ static int help(void) {
                "     --after-cursor=CURSOR Start showing entries from specified cursor\n"
                "     --show-cursor         Print the cursor after all the entries\n"
                "  -b --boot[=ID]           Show data only from ID or current boot if unspecified\n"
+               "     --list-boots          Show terse information about recorded boots\n"
                "  -k --dmesg               Show kernel message log from current boot\n"
                "  -u --unit=UNIT           Show data only from the specified unit\n"
                "     --user-unit=UNIT      Show data only from the specified user session unit\n"
@@ -178,6 +181,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_FULL,
                 ARG_NO_TAIL,
                 ARG_NEW_ID128,
+                ARG_LIST_BOOTS,
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_ROOT,
@@ -216,6 +220,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",          no_argument,       NULL, 'q'                },
                 { "merge",          no_argument,       NULL, 'm'                },
                 { "boot",           optional_argument, NULL, 'b'                },
+                { "list-boots",     no_argument,       NULL, ARG_LIST_BOOTS     },
                 { "this-boot",      optional_argument, NULL, 'b'                }, /* deprecated */
                 { "dmesg",          no_argument,       NULL, 'k'                },
                 { "system",         no_argument,       NULL, ARG_SYSTEM         },
@@ -368,6 +373,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 }
                         }
 
+                        break;
+
+                case ARG_LIST_BOOTS:
+                        arg_action = ACTION_LIST_BOOTS;
                         break;
 
                 case 'k':
@@ -698,10 +707,91 @@ static int add_matches(sd_journal *j, char **args) {
 static int boot_id_cmp(const void *a, const void *b) {
         uint64_t _a, _b;
 
-        _a = ((const boot_id_t *)a)->timestamp;
-        _b = ((const boot_id_t *)b)->timestamp;
+        _a = ((const boot_id_t *)a)->first;
+        _b = ((const boot_id_t *)b)->first;
 
         return _a < _b ? -1 : (_a > _b ? 1 : 0);
+}
+
+static int list_boots(sd_journal *j) {
+        int r;
+        const void *data;
+        unsigned int count = 0;
+        int w, i;
+        size_t length, allocated = 0;
+        boot_id_t *id;
+        _cleanup_free_ boot_id_t *all_ids = NULL;
+
+        r = sd_journal_query_unique(j, "_BOOT_ID");
+        if (r < 0)
+                return r;
+
+        SD_JOURNAL_FOREACH_UNIQUE(j, data, length) {
+                if (length < strlen("_BOOT_ID="))
+                        continue;
+
+                if (!GREEDY_REALLOC(all_ids, allocated, count + 1))
+                        return log_oom();
+
+                id = &all_ids[count];
+
+                r = sd_id128_from_string(((const char *)data) + strlen("_BOOT_ID="), &id->id);
+                if (r < 0)
+                        continue;
+
+                r = sd_journal_add_match(j, data, length);
+                if (r < 0)
+                        return r;
+
+                r = sd_journal_seek_head(j);
+                if (r < 0)
+                        return r;
+
+                r = sd_journal_next(j);
+                if (r < 0)
+                        return r;
+                else if (r == 0)
+                        goto flush;
+
+                r = sd_journal_get_realtime_usec(j, &id->first);
+                if (r < 0)
+                        return r;
+
+                r = sd_journal_seek_tail(j);
+                if (r < 0)
+                        return r;
+
+                r = sd_journal_previous(j);
+                if (r < 0)
+                        return r;
+                else if (r == 0)
+                        goto flush;
+
+                r = sd_journal_get_realtime_usec(j, &id->last);
+                if (r < 0)
+                        return r;
+
+                count++;
+        flush:
+                sd_journal_flush_matches(j);
+        }
+
+        qsort_safe(all_ids, count, sizeof(boot_id_t), boot_id_cmp);
+
+        /* numbers are one less, but we need an extra char for the sign */
+        w = DECIMAL_STR_WIDTH(count - 1) + 1;
+
+        for (id = all_ids, i = 0; id < all_ids + count; id++, i++) {
+                char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
+
+                printf("% *i " SD_ID128_FORMAT_STR " %s—%s\n",
+                       w, i - count + 1,
+                       SD_ID128_FORMAT_VAL(id->id),
+                       format_timestamp(a, sizeof(a), id->first),
+                       format_timestamp(b, sizeof(b), id->last));
+        }
+
+        return 0;
 }
 
 static int get_relative_boot_id(sd_journal *j, sd_id128_t *boot_id, int relative) {
@@ -749,7 +839,7 @@ static int get_relative_boot_id(sd_journal *j, sd_id128_t *boot_id, int relative
                 else if (r == 0)
                         goto flush;
 
-                r = sd_journal_get_realtime_usec(j, &id->timestamp);
+                r = sd_journal_get_realtime_usec(j, &id->first);
                 if (r < 0)
                         return r;
 
@@ -1407,6 +1497,11 @@ int main(int argc, char *argv[]) {
                 printf("Journals take up %s on disk.\n",
                        format_bytes(sbytes, sizeof(sbytes), bytes));
                 return EXIT_SUCCESS;
+        }
+
+        if (arg_action == ACTION_LIST_BOOTS) {
+                r = list_boots(j);
+                goto finish;
         }
 
         /* add_boot() must be called first!
