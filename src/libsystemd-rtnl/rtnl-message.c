@@ -51,7 +51,7 @@ static int message_new(sd_rtnl_message **ret, size_t initial_size) {
         if (!m)
                 return -ENOMEM;
 
-        m->hdr = calloc(initial_size, 1);
+        m->hdr = malloc0(initial_size);
         if (!m->hdr) {
                 free(m);
                 return -ENOMEM;
