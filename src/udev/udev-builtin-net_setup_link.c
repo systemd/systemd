@@ -74,6 +74,7 @@ static int builtin_net_setup_link_init(struct udev *udev) {
 
 static void builtin_net_setup_link_exit(struct udev *udev) {
         link_config_ctx_free(ctx);
+        ctx = NULL;
         log_debug("Unloaded link configuration context");
 }
 
