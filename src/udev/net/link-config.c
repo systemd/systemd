@@ -293,7 +293,7 @@ static int rtnl_set_properties(sd_rtnl *rtnl, int ifindex, const char *name, con
         }
 
         if  (need_update) {
-                r = sd_rtnl_send_with_reply_and_block(rtnl, message, 5 * USEC_PER_SEC, NULL);
+                r = sd_rtnl_send_with_reply_and_block(rtnl, message, 0, NULL);
                 if (r < 0)
                         return r;
         }

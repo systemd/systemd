@@ -33,6 +33,9 @@ struct sd_rtnl {
 
         unsigned serial;
 };
+
+#define RTNL_DEFAULT_TIMEOUT ((usec_t) (10 * USEC_PER_SEC))
+
 int message_get_errno(sd_rtnl_message *m);
 int message_get_serial(sd_rtnl_message *m);
 int message_seal(sd_rtnl *nl, sd_rtnl_message *m);

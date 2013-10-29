@@ -109,10 +109,15 @@ int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl,
         p[0].fd = nl->fd;
         p[0].events = POLLOUT;
 
-        timeout = now(CLOCK_MONOTONIC) + usec;
+        if (usec == (uint64_t) -1)
+                timeout = 0;
+        else if (usec == 0)
+                timeout = now(CLOCK_MONOTONIC) + RTNL_DEFAULT_TIMEOUT;
+        else
+                timeout = now(CLOCK_MONOTONIC) + usec;
 
         for (;;) {
-                if (usec != (uint64_t) -1) {
+                if (timeout) {
                         usec_t n;
 
                         n = now(CLOCK_MONOTONIC);
@@ -122,7 +127,7 @@ int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl,
                         timespec_store(&left, timeout - n);
                 }
 
-                r = ppoll(p, 1, usec == (uint64_t) -1 ? NULL : &left, NULL);
+                r = ppoll(p, 1, timeout ? &left : NULL, NULL);
                 if (r < 0)
                         return 0;
 
@@ -140,7 +145,7 @@ int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl,
         for (;;) {
                 _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *reply = NULL;
 
-                if (usec != (uint64_t) -1) {
+                if (timeout) {
                         usec_t n;
 
                         n = now(CLOCK_MONOTONIC);
@@ -150,7 +155,7 @@ int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl,
                         timespec_store(&left, timeout - n);
                 }
 
-                r = ppoll(p, 1, usec == (uint64_t) -1 ? NULL : &left, NULL);
+                r = ppoll(p, 1, timeout ? &left : NULL, NULL);
                 if (r < 0)
                         return r;
 
