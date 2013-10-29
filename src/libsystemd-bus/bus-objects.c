@@ -1619,7 +1619,7 @@ static int add_object_vtable_internal(
                 case _SD_BUS_VTABLE_SIGNAL:
 
                         if (!member_name_is_valid(v->x.signal.member) ||
-                            !signature_is_single(strempty(v->x.signal.signature), false)) {
+                            !signature_is_valid(strempty(v->x.signal.signature), false)) {
                                 r = -EINVAL;
                                 goto fail;
                         }
