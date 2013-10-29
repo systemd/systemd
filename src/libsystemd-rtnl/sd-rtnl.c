@@ -48,7 +48,7 @@ static int sd_rtnl_new(sd_rtnl **ret) {
 }
 
 int sd_rtnl_open(uint32_t groups, sd_rtnl **ret) {
-        sd_rtnl *rtnl;
+        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
         int r;
 
         r = sd_rtnl_new(&rtnl);
@@ -56,22 +56,17 @@ int sd_rtnl_open(uint32_t groups, sd_rtnl **ret) {
                 return r;
 
         rtnl->fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
-        if (rtnl->fd < 0) {
-                r = -errno;
-                sd_rtnl_unref(rtnl);
-                return r;
-        }
+        if (rtnl->fd < 0)
+                return -errno;
 
         rtnl->sockaddr.nl.nl_groups = groups;
 
         r = bind(rtnl->fd, &rtnl->sockaddr.sa, sizeof(rtnl->sockaddr));
-        if (r < 0) {
-                r = -errno;
-                sd_rtnl_unref(rtnl);
-                return r;
-        }
+        if (r < 0)
+                return -errno;
 
         *ret = rtnl;
+        rtnl = NULL;
 
         return 0;
 }
@@ -98,7 +93,6 @@ int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl,
                 uint64_t usec,
                 sd_rtnl_message **ret) {
         struct pollfd p[1] = {};
-        sd_rtnl_message *reply;
         struct timespec left;
         usec_t timeout;
         int r, serial;
@@ -144,6 +138,8 @@ int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl,
         p[0].events = POLLIN;
 
         for (;;) {
+                _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *reply = NULL;
+
                 if (usec != (uint64_t) -1) {
                         usec_t n;
 
@@ -167,20 +163,16 @@ int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl,
 
                         if (received_serial == serial) {
                                 r = message_get_errno(reply);
-                                if (r < 0) {
-                                        sd_rtnl_message_unref(reply);
+                                if (r < 0)
                                         return r;
-                                }
 
-                                if (ret)
+                                if (ret) {
                                         *ret = reply;
-                                else
-                                        reply = sd_rtnl_message_unref(reply);
+                                        reply = NULL;
+                                }
 
                                 break;;
                         }
-
-                        reply = sd_rtnl_message_unref(reply);
                 }
         }
 
