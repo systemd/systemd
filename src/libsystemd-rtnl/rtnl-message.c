@@ -45,7 +45,7 @@ static int message_new(sd_rtnl_message **ret, size_t initial_size) {
         sd_rtnl_message *m;
 
         assert_return(ret, -EINVAL);
-        assert_return(initial_size > 0, -EINVAL);
+        assert_return(initial_size >= sizeof(struct nlmsghdr), -EINVAL);
 
         m = new0(sd_rtnl_message, 1);
         if (!m)
@@ -67,7 +67,7 @@ static int message_new(sd_rtnl_message **ret, size_t initial_size) {
         return 0;
 }
 
-int sd_rtnl_message_link_new(__u16 nlmsg_type, int index, unsigned int type, unsigned int flags, sd_rtnl_message **ret) {
+int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, unsigned int type, unsigned int flags, sd_rtnl_message **ret) {
         struct ifinfomsg *ifi;
         int r;
 
@@ -82,7 +82,7 @@ int sd_rtnl_message_link_new(__u16 nlmsg_type, int index, unsigned int type, uns
         (*ret)->hdr->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
         (*ret)->hdr->nlmsg_type = nlmsg_type;
 
-        ifi = (struct ifinfomsg *) NLMSG_DATA((*ret)->hdr);
+        ifi = NLMSG_DATA((*ret)->hdr);
 
         ifi->ifi_family = AF_UNSPEC;
         ifi->ifi_index = index;
@@ -93,7 +93,7 @@ int sd_rtnl_message_link_new(__u16 nlmsg_type, int index, unsigned int type, uns
         return 0;
 }
 
-int sd_rtnl_message_addr_new(__u16 nlmsg_type, int index, unsigned char family, unsigned char prefixlen, unsigned char flags, unsigned char scope, sd_rtnl_message **ret) {
+int sd_rtnl_message_addr_new(uint16_t nlmsg_type, int index, unsigned char family, unsigned char prefixlen, unsigned char flags, unsigned char scope, sd_rtnl_message **ret) {
         struct ifaddrmsg *ifa;
         int r;
 
@@ -108,7 +108,7 @@ int sd_rtnl_message_addr_new(__u16 nlmsg_type, int index, unsigned char family, 
         (*ret)->hdr->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
         (*ret)->hdr->nlmsg_type = nlmsg_type;
 
-        ifa = (struct ifaddrmsg *) NLMSG_DATA((*ret)->hdr);
+        ifa = NLMSG_DATA((*ret)->hdr);
 
         ifa->ifa_family = family;
         ifa->ifa_prefixlen = prefixlen;
@@ -135,7 +135,7 @@ sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m) {
         return NULL;
 }
 
-int sd_rtnl_message_get_type(sd_rtnl_message *m, __u16 *type) {
+int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type) {
         assert_return(m, -EINVAL);
         assert_return(type, -EINVAL);
 
@@ -147,7 +147,7 @@ int sd_rtnl_message_get_type(sd_rtnl_message *m, __u16 *type) {
 /* If successful the updated message will be correctly aligned, if unsuccessful the old message is
    untouched */
 static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data, size_t data_length) {
-        __u32 rta_length, message_length;
+        uint32_t rta_length, message_length;
         struct nlmsghdr *new_hdr;
         struct rtattr *rta;
 
@@ -187,7 +187,7 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
 }
 
 int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *data) {
-        __u16 rtm_type;
+        uint16_t rtm_type;
         struct ifaddrmsg *ifa;
 
         assert_return(m, -EINVAL);
@@ -258,7 +258,7 @@ static int message_read(sd_rtnl_message *m, unsigned short *type, void **data) {
 }
 
 int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) {
-        __u16 rtm_type;
+        uint16_t rtm_type;
 
         assert_return(m, -EINVAL);
         assert_return(data, -EINVAL);
@@ -270,7 +270,7 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
                 case RTM_DELLINK:
                 case RTM_GETLINK:
                         if (!m->next_rta) {
-                                struct ifinfomsg *ifi = (struct ifinfomsg *) NLMSG_DATA(m->hdr);
+                                struct ifinfomsg *ifi = NLMSG_DATA(m->hdr);
 
                                 m->next_rta = IFLA_RTA(ifi);
                                 m->remaining_size = IFLA_PAYLOAD(m->hdr);
@@ -280,7 +280,7 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
                 case RTM_DELADDR:
                 case RTM_GETADDR:
                         if (!m->next_rta) {
-                                struct ifaddrmsg *ifa = (struct ifaddrmsg *) NLMSG_DATA(m->hdr);
+                                struct ifaddrmsg *ifa = NLMSG_DATA(m->hdr);
 
                                 m->next_rta = IFA_RTA(ifa);
                                 m->remaining_size = IFLA_PAYLOAD(m->hdr);
@@ -327,15 +327,15 @@ static int message_receive_need(sd_rtnl *rtnl, size_t *need) {
         assert_return(need, -EINVAL);
 
         /* ioctl(rtnl->fd, FIONREAD, &need)
-        Does not appear to work on netlink sockets. libnl uses
-        MSG_PEEK instead. I don't know if that is worth the
-        extra roundtrip.
+           Does not appear to work on netlink sockets. libnl uses
+           MSG_PEEK instead. I don't know if that is worth the
+           extra roundtrip.
 
-        For now we simply use the maximum message size the kernel
-        may use (NLMSG_GOODSIZE), and then realloc to the actual
-        size after reading the message (hence avoiding huge memory
-        usage in case many small messages are kept around) */
-        *need = getpagesize();
+           For now we simply use the maximum message size the kernel
+           may use (NLMSG_GOODSIZE), and then realloc to the actual
+           size after reading the message (hence avoiding huge memory
+           usage in case many small messages are kept around) */
+        *need = page_size();
         if (*need > 8192UL)
                 *need = 8192UL;
 
@@ -361,7 +361,7 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
  * which has a valid header and the correct size.
  * If nothing useful was received 0 is returned.
  * On failure, a negative error code is returned.
-*/
+ */
 int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         sd_rtnl_message *m;
         socklen_t addr_len = sizeof(nl->sockaddr);
@@ -400,12 +400,12 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         else if (nl->sockaddr.nl.nl_pid != 0)
                 k = 0; /* not from the kernel */
         else if ((size_t) k < sizeof(struct nlmsghdr) ||
-                 (size_t) k < m->hdr->nlmsg_len)
+                        (size_t) k < m->hdr->nlmsg_len)
                 k = -EIO; /* too small (we do accept too big though) */
         else if (m->hdr->nlmsg_type == NLMSG_NOOP)
                 k = 0;
         else if (m->hdr->nlmsg_type == NLMSG_ERROR &&
-                 m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
+                        m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
                 k = -EIO;
         else if ((pid_t) m->hdr->nlmsg_pid != getpid())
                 k = 0; /* not for us */

@@ -47,7 +47,7 @@ static int sd_rtnl_new(sd_rtnl **ret) {
         return 0;
 }
 
-int sd_rtnl_open(__u32 groups, sd_rtnl **ret) {
+int sd_rtnl_open(uint32_t groups, sd_rtnl **ret) {
         sd_rtnl *rtnl;
         int r;
 
@@ -94,9 +94,9 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
 }
 
 int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl,
-                                        sd_rtnl_message *message,
-                                        uint64_t usec,
-                                        sd_rtnl_message **ret) {
+                sd_rtnl_message *message,
+                uint64_t usec,
+                sd_rtnl_message **ret) {
         struct pollfd p[1] = {};
         sd_rtnl_message *reply;
         struct timespec left;

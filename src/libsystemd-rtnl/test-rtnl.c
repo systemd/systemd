@@ -28,7 +28,7 @@
 
 static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message;
-        __u16 type;
+        uint16_t type;
         const char *mac = "98:fe:94:3f:c6:18", *name = "test";
         unsigned int mtu = 1450;
         void *data;
@@ -60,7 +60,7 @@ int main(void) {
         sd_rtnl_message *r;
         void *data;
         int if_loopback;
-        __u16 type;
+        uint16_t type;
         unsigned int mtu = 0;
         unsigned int *mtu_reply;
 
