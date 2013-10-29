@@ -4431,6 +4431,11 @@ int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all) {
         bool done_something = false;
         int r;
 
+        assert_return(m, -EINVAL);
+        assert_return(source, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(source->sealed, -EPERM);
+
         do {
                 const char *contents;
                 char type;
