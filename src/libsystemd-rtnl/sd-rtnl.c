@@ -43,8 +43,19 @@ static int sd_rtnl_new(sd_rtnl **ret) {
 
         rtnl->sockaddr.nl.nl_family = AF_NETLINK;
 
+        rtnl->original_pid = getpid();
+
         *ret = rtnl;
         return 0;
+}
+
+static bool rtnl_pid_changed(sd_rtnl *rtnl) {
+        assert(rtnl);
+
+        /* We don't support people creating an rtnl connection and
+         * keeping it around over a fork(). Let's complain. */
+
+        return rtnl->original_pid != getpid();
 }
 
 int sd_rtnl_open(uint32_t groups, sd_rtnl **ret) {
@@ -98,6 +109,7 @@ int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl,
         int r, serial;
 
         assert_return(nl, -EINVAL);
+        assert_return(!rtnl_pid_changed(nl), -ECHILD);
         assert_return(message, -EINVAL);
 
         r = message_seal(nl, message);

@@ -32,6 +32,7 @@ struct sd_rtnl {
         } sockaddr;
 
         unsigned serial;
+        pid_t original_pid;
 };
 
 #define RTNL_DEFAULT_TIMEOUT ((usec_t) (10 * USEC_PER_SEC))
