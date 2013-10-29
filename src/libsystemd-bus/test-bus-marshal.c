@@ -37,7 +37,7 @@
 #include "bus-util.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *copy = NULL;
         int r, boolean;
         const char *x, *y, *z, *a, *b, *c, *d;
         uint8_t u, v;
@@ -46,6 +46,9 @@ int main(int argc, char *argv[]) {
         char *h;
         const int32_t integer_array[] = { -1, -2, 0, 1, 2 }, *return_array;
         char *s;
+        _cleanup_free_ char *first = NULL, *second = NULL, *third = NULL;
+        _cleanup_fclose_ FILE *ms = NULL;
+        size_t first_size = 0, second_size = 0, third_size = 0;
 
         r = sd_bus_message_new_method_call(NULL, "foobar.waldo", "/", "foobar.waldo", "Piep", &m);
         assert_se(r >= 0);
@@ -90,7 +93,12 @@ int main(int argc, char *argv[]) {
         r = bus_message_seal(m, 4711);
         assert_se(r >= 0);
 
-        bus_message_dump(m);
+        bus_message_dump(m, stdout, true);
+
+        ms = open_memstream(&first, &first_size);
+        bus_message_dump(m, ms, false);
+        fflush(ms);
+        assert_se(!ferror(ms));
 
         r = bus_message_get_blob(m, &buffer, &sz);
         assert_se(r >= 0);
@@ -136,7 +144,15 @@ int main(int argc, char *argv[]) {
         r = bus_message_from_malloc(buffer, sz, NULL, 0, NULL, NULL, &m);
         assert_se(r >= 0);
 
-        bus_message_dump(m);
+        bus_message_dump(m, stdout, true);
+
+        fclose(ms);
+        ms = open_memstream(&second, &second_size);
+        bus_message_dump(m, ms, false);
+        fflush(ms);
+        assert_se(!ferror(ms));
+        assert_se(first_size == second_size);
+        assert_se(memcmp(first, second, first_size) == 0);
 
         assert_se(sd_bus_message_rewind(m, true) >= 0);
 
@@ -173,6 +189,8 @@ int main(int argc, char *argv[]) {
         assert_se(streq(c, "ccc"));
         assert_se(streq(d, "3"));
 
+        assert_se(sd_bus_message_verify_type(m, 'a', "s") > 0);
+
         r = sd_bus_message_read(m, "as", 2, &x, &y);
         assert_se(r > 0);
         assert_se(streq(x, "foobar"));
@@ -189,6 +207,30 @@ int main(int argc, char *argv[]) {
 
         r = sd_bus_message_peek_type(m, NULL, NULL);
         assert_se(r == 0);
+
+        r = sd_bus_message_new_method_call(NULL, "foobar.waldo", "/", "foobar.waldo", "Piep", &copy);
+        assert_se(r >= 0);
+
+        r = sd_bus_message_rewind(m, true);
+        assert_se(r >= 0);
+
+        r = sd_bus_message_copy(copy, m, true);
+        assert_se(r >= 0);
+
+        r = bus_message_seal(copy, 4712);
+        assert_se(r >= 0);
+
+        fclose(ms);
+        ms = open_memstream(&third, &third_size);
+        bus_message_dump(copy, ms, false);
+        fflush(ms);
+        assert_se(!ferror(ms));
+
+        printf("<%.*s>", (int) first_size, first);
+        printf("<%.*s>", (int) third_size, third);
+
+        assert_se(first_size == third_size);
+        assert_se(memcmp(first, third, third_size) == 0);
 
         return 0;
 }

@@ -3103,10 +3103,8 @@ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **content
         struct bus_container *c;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!m->sealed)
-                return -EPERM;
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
 
         c = message_get_container(m);
 
@@ -4018,7 +4016,7 @@ int sd_bus_message_set_destination(sd_bus_message *m, const char *destination) {
         return message_append_field_string(m, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, destination, &m->destination);
 }
 
-int bus_message_dump(sd_bus_message *m) {
+int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
         const char *u = NULL, *uu = NULL, *s = NULL;
         char **cmdline = NULL;
         unsigned level = 1;
@@ -4028,102 +4026,108 @@ int bus_message_dump(sd_bus_message *m) {
 
         assert(m);
 
-        printf("Message %p\n"
-               "\tn_ref=%u\n"
-               "\tendian=%c\n"
-               "\ttype=%i\n"
-               "\tflags=%u\n"
-               "\tversion=%u\n"
-               "\tserial=%u\n"
-               "\tfields_size=%u\n"
-               "\tbody_size=%u\n"
-               "\tpath=%s\n"
-               "\tinterface=%s\n"
-               "\tmember=%s\n"
-               "\tdestination=%s\n"
-               "\tsender=%s\n"
-               "\tsignature=%s\n"
-               "\treply_serial=%u\n"
-               "\terror.name=%s\n"
-               "\terror.message=%s\n"
-               "\tsealed=%s\n"
-               "\tn_body_parts=%u\n",
-               m,
-               m->n_ref,
-               m->header->endian,
-               m->header->type,
-               m->header->flags,
-               m->header->version,
-               BUS_MESSAGE_SERIAL(m),
-               BUS_MESSAGE_FIELDS_SIZE(m),
-               BUS_MESSAGE_BODY_SIZE(m),
-               strna(m->path),
-               strna(m->interface),
-               strna(m->member),
-               strna(m->destination),
-               strna(m->sender),
-               strna(m->root_container.signature),
-               m->reply_serial,
-               strna(m->error.name),
-               strna(m->error.message),
-               yes_no(m->sealed),
-               m->n_body_parts);
+        if (!f)
+                f = stdout;
 
-        if (m->pid != 0)
-                printf("\tpid=%lu\n", (unsigned long) m->pid);
-        if (m->tid != 0)
-                printf("\ttid=%lu\n", (unsigned long) m->tid);
-        if (m->uid_valid)
-                printf("\tuid=%lu\n", (unsigned long) m->uid);
-        if (m->gid_valid)
-                printf("\tgid=%lu\n", (unsigned long) m->gid);
-        if (m->pid_starttime != 0)
-                printf("\tpid_starttime=%llu\n", (unsigned long long) m->pid_starttime);
-        if (m->monotonic != 0)
-                printf("\tmonotonic=%llu\n", (unsigned long long) m->monotonic);
-        if (m->realtime != 0)
-                printf("\trealtime=%llu\n", (unsigned long long) m->realtime);
-        if (m->exe)
-                printf("\texe=[%s]\n", m->exe);
-        if (m->comm)
-                printf("\tcomm=[%s]\n", m->comm);
-        if (m->tid_comm)
-                printf("\ttid_comm=[%s]\n", m->tid_comm);
-        if (m->label)
-                printf("\tlabel=[%s]\n", m->label);
-        if (m->cgroup)
-                printf("\tcgroup=[%s]\n", m->cgroup);
+        if (with_header) {
+                fprintf(f,
+                        "Message %p\n"
+                        "\tn_ref=%u\n"
+                        "\tendian=%c\n"
+                        "\ttype=%i\n"
+                        "\tflags=%u\n"
+                        "\tversion=%u\n"
+                        "\tserial=%u\n"
+                        "\tfields_size=%u\n"
+                        "\tbody_size=%u\n"
+                        "\tpath=%s\n"
+                        "\tinterface=%s\n"
+                        "\tmember=%s\n"
+                        "\tdestination=%s\n"
+                        "\tsender=%s\n"
+                        "\tsignature=%s\n"
+                        "\treply_serial=%u\n"
+                        "\terror.name=%s\n"
+                        "\terror.message=%s\n"
+                        "\tsealed=%s\n"
+                        "\tn_body_parts=%u\n",
+                        m,
+                        m->n_ref,
+                        m->header->endian,
+                        m->header->type,
+                        m->header->flags,
+                        m->header->version,
+                        BUS_MESSAGE_SERIAL(m),
+                        BUS_MESSAGE_FIELDS_SIZE(m),
+                        BUS_MESSAGE_BODY_SIZE(m),
+                        strna(m->path),
+                        strna(m->interface),
+                        strna(m->member),
+                        strna(m->destination),
+                        strna(m->sender),
+                        strna(m->root_container.signature),
+                        m->reply_serial,
+                        strna(m->error.name),
+                        strna(m->error.message),
+                        yes_no(m->sealed),
+                        m->n_body_parts);
 
-        sd_bus_message_get_unit(m, &u);
-        if (u)
-                printf("\tunit=[%s]\n", u);
-        sd_bus_message_get_user_unit(m, &uu);
-        if (uu)
-                printf("\tuser_unit=[%s]\n", uu);
-        sd_bus_message_get_session(m, &s);
-        if (s)
-                printf("\tsession=[%s]\n", s);
-        if (sd_bus_message_get_owner_uid(m, &owner) >= 0)
-                printf("\towner_uid=%lu\n", (unsigned long) owner);
-        if (sd_bus_message_get_audit_loginuid(m, &audit_loginuid) >= 0)
-                printf("\taudit_loginuid=%lu\n", (unsigned long) audit_loginuid);
-        if (sd_bus_message_get_audit_sessionid(m, &audit_sessionid) >= 0)
-                printf("\taudit_sessionid=%lu\n", (unsigned long) audit_sessionid);
+                if (m->pid != 0)
+                        fprintf(f, "\tpid=%lu\n", (unsigned long) m->pid);
+                if (m->tid != 0)
+                        fprintf(f, "\ttid=%lu\n", (unsigned long) m->tid);
+                if (m->uid_valid)
+                        fprintf(f, "\tuid=%lu\n", (unsigned long) m->uid);
+                if (m->gid_valid)
+                        fprintf(f, "\tgid=%lu\n", (unsigned long) m->gid);
+                if (m->pid_starttime != 0)
+                        fprintf(f, "\tpid_starttime=%llu\n", (unsigned long long) m->pid_starttime);
+                if (m->monotonic != 0)
+                        fprintf(f, "\tmonotonic=%llu\n", (unsigned long long) m->monotonic);
+                if (m->realtime != 0)
+                        fprintf(f, "\trealtime=%llu\n", (unsigned long long) m->realtime);
+                if (m->exe)
+                        fprintf(f, "\texe=[%s]\n", m->exe);
+                if (m->comm)
+                        fprintf(f, "\tcomm=[%s]\n", m->comm);
+                if (m->tid_comm)
+                        fprintf(f, "\ttid_comm=[%s]\n", m->tid_comm);
+                if (m->label)
+                        fprintf(f, "\tlabel=[%s]\n", m->label);
+                if (m->cgroup)
+                        fprintf(f, "\tcgroup=[%s]\n", m->cgroup);
 
-        printf("\tCAP_KILL=%i\n", sd_bus_message_has_effective_cap(m, 5));
+                sd_bus_message_get_unit(m, &u);
+                if (u)
+                        fprintf(f, "\tunit=[%s]\n", u);
+                sd_bus_message_get_user_unit(m, &uu);
+                if (uu)
+                        fprintf(f, "\tuser_unit=[%s]\n", uu);
+                sd_bus_message_get_session(m, &s);
+                if (s)
+                        fprintf(f, "\tsession=[%s]\n", s);
+                if (sd_bus_message_get_owner_uid(m, &owner) >= 0)
+                        fprintf(f, "\towner_uid=%lu\n", (unsigned long) owner);
+                if (sd_bus_message_get_audit_loginuid(m, &audit_loginuid) >= 0)
+                        fprintf(f, "\taudit_loginuid=%lu\n", (unsigned long) audit_loginuid);
+                if (sd_bus_message_get_audit_sessionid(m, &audit_sessionid) >= 0)
+                        fprintf(f, "\taudit_sessionid=%lu\n", (unsigned long) audit_sessionid);
 
-        if (sd_bus_message_get_cmdline(m, &cmdline) >= 0) {
-                char **c;
+                fprintf(f, "\tCAP_KILL=%i\n", sd_bus_message_has_effective_cap(m, 5));
 
-                fputs("\tcmdline=[", stdout);
-                STRV_FOREACH(c, cmdline) {
-                        if (c != cmdline)
-                                putchar(' ');
+                if (sd_bus_message_get_cmdline(m, &cmdline) >= 0) {
+                        char **c;
 
-                        fputs(*c, stdout);
+                        fputs("\tcmdline=[", f);
+                        STRV_FOREACH(c, cmdline) {
+                                if (c != cmdline)
+                                        fputc(' ', f);
+
+                                fputs(*c, f);
+                        }
+
+                        fputs("]\n", f);
                 }
-
-                fputs("]\n", stdout);
         }
 
         r = sd_bus_message_rewind(m, true);
@@ -4132,7 +4136,7 @@ int bus_message_dump(sd_bus_message *m) {
                 return r;
         }
 
-        printf("BEGIN_MESSAGE \"%s\" {\n", strempty(m->root_container.signature));
+        fprintf(f, "BEGIN_MESSAGE \"%s\" {\n", strempty(m->root_container.signature));
 
         for(;;) {
                 _cleanup_free_ char *prefix = NULL;
@@ -4173,13 +4177,13 @@ int bus_message_dump(sd_bus_message *m) {
                                 return log_oom();
 
                         if (type == SD_BUS_TYPE_ARRAY)
-                                printf("%s} END_ARRAY \n", prefix);
+                                fprintf(f, "%s} END_ARRAY \n", prefix);
                         else if (type == SD_BUS_TYPE_VARIANT)
-                                printf("%s} END_VARIANT\n", prefix);
+                                fprintf(f, "%s} END_VARIANT\n", prefix);
                         else if (type == SD_BUS_TYPE_STRUCT)
-                                printf("%s} END_STRUCT\n", prefix);
+                                fprintf(f, "%s} END_STRUCT\n", prefix);
                         else if (type == SD_BUS_TYPE_DICT_ENTRY)
-                                printf("%s} END_DICT_ENTRY\n", prefix);
+                                fprintf(f, "%s} END_DICT_ENTRY\n", prefix);
 
                         continue;
                 }
@@ -4196,13 +4200,13 @@ int bus_message_dump(sd_bus_message *m) {
                         }
 
                         if (type == SD_BUS_TYPE_ARRAY)
-                                printf("%sBEGIN_ARRAY \"%s\" {\n", prefix, contents);
+                                fprintf(f, "%sBEGIN_ARRAY \"%s\" {\n", prefix, contents);
                         else if (type == SD_BUS_TYPE_VARIANT)
-                                printf("%sBEGIN_VARIANT \"%s\" {\n", prefix, contents);
+                                fprintf(f, "%sBEGIN_VARIANT \"%s\" {\n", prefix, contents);
                         else if (type == SD_BUS_TYPE_STRUCT)
-                                printf("%sBEGIN_STRUCT \"%s\" {\n", prefix, contents);
+                                fprintf(f, "%sBEGIN_STRUCT \"%s\" {\n", prefix, contents);
                         else if (type == SD_BUS_TYPE_DICT_ENTRY)
-                                printf("%sBEGIN_DICT_ENTRY \"%s\" {\n", prefix, contents);
+                                fprintf(f, "%sBEGIN_DICT_ENTRY \"%s\" {\n", prefix, contents);
 
                         level ++;
 
@@ -4215,58 +4219,60 @@ int bus_message_dump(sd_bus_message *m) {
                         return r;
                 }
 
+                assert(r > 0);
+
                 switch (type) {
 
                 case SD_BUS_TYPE_BYTE:
-                        printf("%sBYTE: %u\n", prefix, basic.u8);
+                        fprintf(f, "%sBYTE: %u\n", prefix, basic.u8);
                         break;
 
                 case SD_BUS_TYPE_BOOLEAN:
-                        printf("%sBOOLEAN: %s\n", prefix, yes_no(basic.i));
+                        fprintf(f, "%sBOOLEAN: %s\n", prefix, yes_no(basic.i));
                         break;
 
                 case SD_BUS_TYPE_INT16:
-                        printf("%sINT16: %i\n", prefix, basic.s16);
+                        fprintf(f, "%sINT16: %i\n", prefix, basic.s16);
                         break;
 
                 case SD_BUS_TYPE_UINT16:
-                        printf("%sUINT16: %u\n", prefix, basic.u16);
+                        fprintf(f, "%sUINT16: %u\n", prefix, basic.u16);
                         break;
 
                 case SD_BUS_TYPE_INT32:
-                        printf("%sINT32: %i\n", prefix, basic.s32);
+                        fprintf(f, "%sINT32: %i\n", prefix, basic.s32);
                         break;
 
                 case SD_BUS_TYPE_UINT32:
-                        printf("%sUINT32: %u\n", prefix, basic.u32);
+                        fprintf(f, "%sUINT32: %u\n", prefix, basic.u32);
                         break;
 
                 case SD_BUS_TYPE_INT64:
-                        printf("%sINT64: %lli\n", prefix, (long long) basic.s64);
+                        fprintf(f, "%sINT64: %lli\n", prefix, (long long) basic.s64);
                         break;
 
                 case SD_BUS_TYPE_UINT64:
-                        printf("%sUINT64: %llu\n", prefix, (unsigned long long) basic.u64);
+                        fprintf(f, "%sUINT64: %llu\n", prefix, (unsigned long long) basic.u64);
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:
-                        printf("%sDOUBLE: %g\n", prefix, basic.d64);
+                        fprintf(f, "%sDOUBLE: %g\n", prefix, basic.d64);
                         break;
 
                 case SD_BUS_TYPE_STRING:
-                        printf("%sSTRING: \"%s\"\n", prefix, basic.string);
+                        fprintf(f, "%sSTRING: \"%s\"\n", prefix, basic.string);
                         break;
 
                 case SD_BUS_TYPE_OBJECT_PATH:
-                        printf("%sOBJECT_PATH: \"%s\"\n", prefix, basic.string);
+                        fprintf(f, "%sOBJECT_PATH: \"%s\"\n", prefix, basic.string);
                         break;
 
                 case SD_BUS_TYPE_SIGNATURE:
-                        printf("%sSIGNATURE: \"%s\"\n", prefix, basic.string);
+                        fprintf(f, "%sSIGNATURE: \"%s\"\n", prefix, basic.string);
                         break;
 
                 case SD_BUS_TYPE_UNIX_FD:
-                        printf("%sUNIX_FD: %i\n", prefix, basic.i);
+                        fprintf(f, "%sUNIX_FD: %i\n", prefix, basic.i);
                         break;
 
                 default:
@@ -4274,7 +4280,7 @@ int bus_message_dump(sd_bus_message *m) {
                 }
         }
 
-        printf("} END_MESSAGE\n");
+        fprintf(f, "} END_MESSAGE\n");
         return 0;
 }
 
@@ -4419,4 +4425,103 @@ const char* sd_bus_message_get_signature(sd_bus_message *m, int complete) {
 
         c = complete ? &m->root_container : message_get_container(m);
         return c->signature ?: "";
+}
+
+int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all) {
+        bool done_something = false;
+        int r;
+
+        do {
+                const char *contents;
+                char type;
+                union {
+                        uint8_t u8;
+                        uint16_t u16;
+                        int16_t s16;
+                        uint32_t u32;
+                        int32_t s32;
+                        uint64_t u64;
+                        int64_t s64;
+                        double d64;
+                        const char *string;
+                        int i;
+                } basic;
+
+                r = sd_bus_message_peek_type(source, &type, &contents);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                done_something = true;
+
+                if (bus_type_is_container(type) > 0) {
+
+                        r = sd_bus_message_enter_container(source, type, contents);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_open_container(m, type, contents);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_copy(m, source, true);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(source);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                r = sd_bus_message_read_basic(source, type, &basic);
+                if (r < 0)
+                        return r;
+
+                assert(r > 0);
+
+                if (type == SD_BUS_TYPE_OBJECT_PATH ||
+                    type == SD_BUS_TYPE_SIGNATURE ||
+                    type == SD_BUS_TYPE_STRING)
+                        r = sd_bus_message_append_basic(m, type, basic.string);
+                else
+                        r = sd_bus_message_append_basic(m, type, &basic);
+
+                if (r < 0)
+                        return r;
+
+        } while (all);
+
+        return done_something;
+}
+
+int sd_bus_message_verify_type(sd_bus_message *m, char type, const char *contents) {
+        const char *c;
+        char t;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(!type || bus_type_is_valid(type), -EINVAL);
+        assert_return(!contents || signature_is_valid(contents, true), -EINVAL);
+        assert_return(type || contents, -EINVAL);
+        assert_return(!contents || !type || bus_type_is_container(type), -EINVAL);
+
+        r = sd_bus_message_peek_type(m, &t, &c);
+        if (r <= 0)
+                return r;
+
+        if (type != 0 && type != t)
+                return 0;
+
+        if (contents && !streq_ptr(contents, c))
+                return 0;
+
+        return 1;
 }

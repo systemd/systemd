@@ -158,7 +158,7 @@ static int monitor(sd_bus *bus, char *argv[]) {
                 }
 
                 if (m) {
-                        bus_message_dump(m);
+                        bus_message_dump(m, stdout, true);
                         continue;
                 }
 
