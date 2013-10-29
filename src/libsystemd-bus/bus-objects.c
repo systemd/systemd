@@ -585,7 +585,7 @@ static int property_get_all_callbacks_run(
 
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         struct node_vtable *c;
-        bool found_interface = false;
+        bool found_interface;
         int r;
 
         assert(bus);
@@ -599,6 +599,11 @@ static int property_get_all_callbacks_run(
         r = sd_bus_message_open_container(reply, 'a', "{sv}");
         if (r < 0)
                 return r;
+
+        found_interface =
+                streq(iface, "org.freedesktop.DBus.Properties") ||
+                streq(iface, "org.freedesktop.DBus.Peer") ||
+                streq(iface, "org.freedesktop.DBus.Introspectable");
 
         LIST_FOREACH(vtables, c, first) {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
