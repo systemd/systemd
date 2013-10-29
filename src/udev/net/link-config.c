@@ -54,7 +54,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(link_config_ctx*, link_config_ctx_free);
 
 int link_config_ctx_new(link_config_ctx **ret) {
         _cleanup_link_config_ctx_free_ link_config_ctx *ctx = NULL;
-        int r;
 
         if (!ret)
                 return -EINVAL;
@@ -63,15 +62,9 @@ int link_config_ctx_new(link_config_ctx **ret) {
         if (!ctx)
                 return -ENOMEM;
 
-        r = ethtool_connect(&ctx->ethtool_fd);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_open(0, &ctx->rtnl);
-        if (r < 0)
-                return r;
-
         LIST_HEAD_INIT(ctx->links);
+
+        ctx->ethtool_fd = -1;
 
         ctx->link_dirs = strv_new("/etc/systemd/network",
                                   "/run/systemd/network",
@@ -89,6 +82,23 @@ int link_config_ctx_new(link_config_ctx **ret) {
 
         *ret = ctx;
         ctx = NULL;
+
+        return 0;
+}
+
+static int link_config_ctx_connect(link_config_ctx *ctx) {
+        int r;
+
+        if (ctx->ethtool_fd >= 0 && ctx->rtnl)
+                return 0;
+
+        r = ethtool_connect(&ctx->ethtool_fd);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_open(0, &ctx->rtnl);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -405,6 +415,10 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
         int r, ifindex;
+
+        r = link_config_ctx_connect(ctx);
+        if (r < 0)
+                return r;
 
         name = udev_device_get_sysname(device);
         if (!name)
