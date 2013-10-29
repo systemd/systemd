@@ -49,8 +49,11 @@ struct link_config_ctx {
         usec_t link_dirs_ts_usec;
 };
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(link_config_ctx*, link_config_ctx_free);
+#define _cleanup_link_config_ctx_free_ _cleanup_(link_config_ctx_freep)
+
 int link_config_ctx_new(link_config_ctx **ret) {
-        link_config_ctx *ctx;
+        _cleanup_link_config_ctx_free_ link_config_ctx *ctx = NULL;
         int r;
 
         if (!ret)
@@ -61,16 +64,12 @@ int link_config_ctx_new(link_config_ctx **ret) {
                 return -ENOMEM;
 
         r = ethtool_connect(&ctx->ethtool_fd);
-        if (r < 0) {
-                link_config_ctx_free(ctx);
+        if (r < 0)
                 return r;
-        }
 
         r = sd_rtnl_open(0, &ctx->rtnl);
-        if (r < 0) {
-                link_config_ctx_free(ctx);
+        if (r < 0)
                 return r;
-        }
 
         LIST_HEAD_INIT(ctx->links);
 
@@ -80,16 +79,17 @@ int link_config_ctx_new(link_config_ctx **ret) {
                                   NULL);
         if (!ctx->link_dirs) {
                 log_error("failed to build link config directory array");
-                link_config_ctx_free(ctx);
                 return -ENOMEM;
         }
+
         if (!path_strv_canonicalize_uniq(ctx->link_dirs)) {
                 log_error("failed to canonicalize link config directories\n");
-                link_config_ctx_free(ctx);
                 return -ENOMEM;
         }
 
         *ret = ctx;
+        ctx = NULL;
+
         return 0;
 }
 
