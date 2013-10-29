@@ -4047,8 +4047,6 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         "\tsender=%s\n"
                         "\tsignature=%s\n"
                         "\treply_serial=%u\n"
-                        "\terror.name=%s\n"
-                        "\terror.message=%s\n"
                         "\tsealed=%s\n"
                         "\tn_body_parts=%u\n",
                         m,
@@ -4067,10 +4065,15 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         strna(m->sender),
                         strna(m->root_container.signature),
                         m->reply_serial,
-                        strna(m->error.name),
-                        strna(m->error.message),
                         yes_no(m->sealed),
                         m->n_body_parts);
+
+                if (sd_bus_error_is_set(&m->error))
+                        fprintf(f,
+                                "\terror.name=%s\n"
+                                "\terror.message=%s\n",
+                                strna(m->error.name),
+                                strna(m->error.message));
 
                 if (m->pid != 0)
                         fprintf(f, "\tpid=%lu\n", (unsigned long) m->pid);
@@ -4113,7 +4116,9 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 if (sd_bus_message_get_audit_sessionid(m, &audit_sessionid) >= 0)
                         fprintf(f, "\taudit_sessionid=%lu\n", (unsigned long) audit_sessionid);
 
-                fprintf(f, "\tCAP_KILL=%i\n", sd_bus_message_has_effective_cap(m, 5));
+                r = sd_bus_message_has_effective_cap(m, 5);
+                if (r >= 0)
+                        fprintf(f, "\tCAP_KILL=%s\n", yes_no(r));
 
                 if (sd_bus_message_get_cmdline(m, &cmdline) >= 0) {
                         char **c;
