@@ -344,13 +344,19 @@ static int message_receive_need(sd_rtnl *rtnl, size_t *need) {
 
 /* returns the number of bytes sent, or a negative error code */
 int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
+        union {
+                struct sockaddr sa;
+                struct sockaddr_nl nl;
+        } addr = {
+                .nl.nl_family = AF_NETLINK,
+        };
         ssize_t k;
 
         assert_return(nl, -EINVAL);
         assert_return(m, -EINVAL);
 
         k = sendto(nl->fd, m->hdr, m->hdr->nlmsg_len,
-                        0, &nl->sockaddr.sa, sizeof(nl->sockaddr));
+                        0, &addr.sa, sizeof(addr));
         if (k < 0)
                 return (errno == EAGAIN) ? 0 : -errno;
 
@@ -364,7 +370,11 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
  */
 int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         sd_rtnl_message *m;
-        socklen_t addr_len = sizeof(nl->sockaddr);
+        union {
+                struct sockaddr sa;
+                struct sockaddr_nl nl;
+        } addr;
+        socklen_t addr_len;
         int r;
         ssize_t k;
         size_t need;
@@ -380,21 +390,23 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         if (r < 0)
                 return r;
 
+        addr_len = sizeof(addr);
+
         k = recvfrom(nl->fd, m->hdr, need,
-                        0, &nl->sockaddr.sa, &addr_len);
+                        0, &addr.sa, &addr_len);
         if (k < 0)
                 k = (errno == EAGAIN) ? 0 : -errno; /* no data */
         else if (k == 0)
                 k = -ECONNRESET; /* connection was closed by the kernel */
-        else if (addr_len != sizeof(nl->sockaddr.nl) ||
-                        nl->sockaddr.nl.nl_family != AF_NETLINK)
+        else if (addr_len != sizeof(addr.nl) ||
+                        addr.nl.nl_family != AF_NETLINK)
                 k = -EIO; /* not a netlink message */
-        else if (nl->sockaddr.nl.nl_pid != 0)
+        else if (addr.nl.nl_pid != 0)
                 k = 0; /* not from the kernel */
         else if ((size_t) k < sizeof(struct nlmsghdr) ||
                         (size_t) k < m->hdr->nlmsg_len)
                 k = -EIO; /* too small (we do accept too big though) */
-        else if ((pid_t) m->hdr->nlmsg_pid != getpid())
+        else if (m->hdr->nlmsg_pid != nl->sockaddr.nl.nl_pid)
                 k = 0; /* not for us */
 
         if (k > 0)

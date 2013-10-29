@@ -60,6 +60,7 @@ static bool rtnl_pid_changed(sd_rtnl *rtnl) {
 
 int sd_rtnl_open(uint32_t groups, sd_rtnl **ret) {
         _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        socklen_t addrlen;
         int r;
 
         r = sd_rtnl_new(&rtnl);
@@ -72,9 +73,15 @@ int sd_rtnl_open(uint32_t groups, sd_rtnl **ret) {
 
         rtnl->sockaddr.nl.nl_groups = groups;
 
-        r = bind(rtnl->fd, &rtnl->sockaddr.sa, sizeof(rtnl->sockaddr));
+        addrlen = sizeof(rtnl->sockaddr);
+
+        r = bind(rtnl->fd, &rtnl->sockaddr.sa, addrlen);
         if (r < 0)
                 return -errno;
+
+        r = getsockname(rtnl->fd, &rtnl->sockaddr.sa, &addrlen);
+        if (r < 0)
+                return r;
 
         *ret = rtnl;
         rtnl = NULL;

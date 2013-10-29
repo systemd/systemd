@@ -51,7 +51,17 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert(type == IFLA_MTU);
         assert(mtu == *(unsigned int *) data);
 
-        assert(sd_rtnl_send_with_reply_and_block(rtnl, message, 2 * USEC_PER_SEC, NULL) == 0);
+        assert(sd_rtnl_send_with_reply_and_block(rtnl, message, 0, NULL) == 0);
+}
+
+static void test_multiple(void) {
+        sd_rtnl *rtnl1, *rtnl2;
+
+        assert(sd_rtnl_open(0, &rtnl1) >= 0);
+        assert(sd_rtnl_open(0, &rtnl2) >= 0);
+
+        rtnl1 = sd_rtnl_unref(rtnl1);
+        rtnl2 = sd_rtnl_unref(rtnl2);
 }
 
 int main(void) {
@@ -63,6 +73,8 @@ int main(void) {
         uint16_t type;
         unsigned int mtu = 0;
         unsigned int *mtu_reply;
+
+        test_multiple();
 
         assert(sd_rtnl_open(0, &rtnl) >= 0);
         assert(rtnl);
@@ -80,7 +92,7 @@ int main(void) {
 
         assert(sd_rtnl_message_read(m, &type, &data) == 0);
 
-        assert(sd_rtnl_send_with_reply_and_block(rtnl, m, 100000000, &r) >= 0);
+        assert(sd_rtnl_send_with_reply_and_block(rtnl, m, 0, &r) >= 0);
         assert(sd_rtnl_message_get_type(r, &type) >= 0);
         assert(type == RTM_NEWLINK);
 

@@ -31,7 +31,8 @@ struct sd_rtnl {
                 struct sockaddr_nl nl;
         } sockaddr;
 
-        unsigned serial;
+        uint32_t serial;
+
         pid_t original_pid;
 };
 
