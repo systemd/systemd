@@ -149,3 +149,64 @@ int log_syntax_internal(const char *unit, int level,
                 *i = x;                                                 \
                 return 0;                                               \
         }
+
+#define DEFINE_CONFIG_PARSE_ENUMV(function,name,type,invalid,msg)              \
+        int function(const char *unit,                                         \
+                     const char *filename,                                     \
+                     unsigned line,                                            \
+                     const char *section,                                      \
+                     const char *lvalue,                                       \
+                     int ltype,                                                \
+                     const char *rvalue,                                       \
+                     void *data,                                               \
+                     void *userdata) {                                         \
+                                                                               \
+                type **enums = data, *xs, x, *ys;                              \
+                char *w, *state;                                               \
+                size_t l, i = 0;                                               \
+                                                                               \
+                assert(filename);                                              \
+                assert(lvalue);                                                \
+                assert(rvalue);                                                \
+                assert(data);                                                  \
+                                                                               \
+                xs = new0(type, 1);                                            \
+                *xs = invalid;                                                 \
+                                                                               \
+                FOREACH_WORD(w, l, rvalue, state) {                            \
+                        _cleanup_free_ char *en = NULL;                        \
+                                                                               \
+                        en = strndup(w, l);                                    \
+                        if (!en)                                               \
+                                return -ENOMEM;                                \
+                                                                               \
+                        if ((x = name##_from_string(en)) < 0) {                \
+                                log_syntax(unit, LOG_ERR, filename, line,      \
+                                       -x, msg ", ignoring: %s", en);          \
+                                continue;                                      \
+                        }                                                      \
+                                                                               \
+                        for (ys = xs; x != invalid && *ys != invalid; ys++) {  \
+                                if (*ys == x) {                                \
+                                        log_syntax(unit, LOG_ERR, filename,    \
+                                              line, -x,                        \
+                                              "Duplicate entry, ignoring: %s", \
+                                              en);                             \
+                                        x = invalid;                           \
+                                }                                              \
+                        }                                                      \
+                                                                               \
+                        if (x == invalid)                                      \
+                                continue;                                      \
+                                                                               \
+                        *(xs + i) = x;                                         \
+                        xs = realloc(xs, ++i + 1);                             \
+                        if (!xs)                                               \
+                                return -ENOMEM;                                \
+                        *(xs + i) = invalid;                                   \
+                }                                                              \
+                                                                               \
+                free(*enums);                                                  \
+                *enums = xs;                                                   \
+                return 0;                                                      \
+        }
