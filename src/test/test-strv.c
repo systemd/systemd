@@ -324,7 +324,7 @@ static void test_strv_foreach_pair(void) {
         }
 }
 
-static void test_strv_from_stdarg_alloca_one(const char **l, const char *first, ...) {
+static void test_strv_from_stdarg_alloca_one(char **l, const char *first, ...) {
         char **j;
         unsigned i;
 
@@ -339,9 +339,9 @@ static void test_strv_from_stdarg_alloca_one(const char **l, const char *first, 
 }
 
 static void test_strv_from_stdarg_alloca(void) {
-        test_strv_from_stdarg_alloca_one((const char*[]) { "foo", "bar", NULL }, "foo", "bar", NULL);
-        test_strv_from_stdarg_alloca_one((const char*[]) { "foo", "bar", NULL }, "foo", "bar", NULL);
-        test_strv_from_stdarg_alloca_one((const char*[]) { "foo", NULL }, "foo", NULL);
+        test_strv_from_stdarg_alloca_one(STRV_MAKE("foo", "bar"), "foo", "bar", NULL);
+        test_strv_from_stdarg_alloca_one(STRV_MAKE("foo"), "foo", NULL);
+        test_strv_from_stdarg_alloca_one(STRV_MAKE_EMPTY, NULL);
 }
 
 int main(int argc, char *argv[]) {

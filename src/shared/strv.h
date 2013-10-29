@@ -86,12 +86,16 @@ bool strv_overlap(char **a, char **b) _pure_;
 char **strv_sort(char **l);
 void strv_print(char **l);
 
+#define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
+
+#define STRV_MAKE_EMPTY ((char*[1]) { NULL })
+
 #define strv_from_stdarg_alloca(first)                          \
         ({                                                      \
                 char **_l;                                      \
                                                                 \
                 if (!first)                                     \
-                        _l = ((char*[1]) { NULL });             \
+                        _l = (char**) &first;                   \
                 else {                                          \
                         unsigned _n;                            \
                         va_list _ap;                            \
