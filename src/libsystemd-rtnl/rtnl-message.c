@@ -380,18 +380,10 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         if (r < 0)
                 return r;
 
-        r = message_receive_need(nl, &need);
-        if (r < 0)
-                return r;
-
-        m->hdr = realloc(m->hdr, need);
-        if (!m->hdr)
-                return -ENOMEM;
-
         k = recvfrom(nl->fd, m->hdr, need,
                         0, &nl->sockaddr.sa, &addr_len);
         if (k < 0)
-                k = (errno == EAGAIN) ? 0 : -errno; /* no data? weird... */
+                k = (errno == EAGAIN) ? 0 : -errno; /* no data */
         else if (k == 0)
                 k = -ECONNRESET; /* connection was closed by the kernel */
         else if (addr_len != sizeof(nl->sockaddr.nl) ||
@@ -402,11 +394,6 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         else if ((size_t) k < sizeof(struct nlmsghdr) ||
                         (size_t) k < m->hdr->nlmsg_len)
                 k = -EIO; /* too small (we do accept too big though) */
-        else if (m->hdr->nlmsg_type == NLMSG_NOOP)
-                k = 0;
-        else if (m->hdr->nlmsg_type == NLMSG_ERROR &&
-                        m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
-                k = -EIO;
         else if ((pid_t) m->hdr->nlmsg_pid != getpid())
                 k = 0; /* not for us */
 
