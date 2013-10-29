@@ -85,3 +85,32 @@ bool strv_overlap(char **a, char **b) _pure_;
 
 char **strv_sort(char **l);
 void strv_print(char **l);
+
+#define strv_from_stdarg_alloca(first)                          \
+        ({                                                      \
+                char **_l;                                      \
+                                                                \
+                if (!first)                                     \
+                        _l = ((char*[1]) { NULL });             \
+                else {                                          \
+                        unsigned _n;                            \
+                        va_list _ap;                            \
+                                                                \
+                        _n = 1;                                 \
+                        va_start(_ap, first);                   \
+                        while (va_arg(_ap, char*))              \
+                                _n++;                           \
+                        va_end(_ap);                            \
+                                                                \
+                        _l = newa(char*, _n+1);                 \
+                        _l[_n = 0] = (char*) first;             \
+                        va_start(_ap, first);                   \
+                        for (;;) {                              \
+                                _l[++_n] = va_arg(_ap, char*);  \
+                                if (!_l[_n])                    \
+                                        break;                  \
+                        }                                       \
+                        va_end(_ap);                            \
+                }                                               \
+                _l;                                             \
+        })

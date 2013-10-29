@@ -283,31 +283,31 @@ static void test_strv_append(void) {
 }
 
 static void test_strv_foreach(void) {
-	_cleanup_strv_free_ char **a;
-	unsigned i = 0;
-	char **check;
+        _cleanup_strv_free_ char **a;
+        unsigned i = 0;
+        char **check;
 
-	a = strv_new("one", "two", "three", NULL);
+        a = strv_new("one", "two", "three", NULL);
 
-	assert_se(a);
+        assert_se(a);
 
-	STRV_FOREACH(check, a) {
-		assert_se(streq(*check, input_table_multiple[i++]));
-	}
+        STRV_FOREACH(check, a) {
+                assert_se(streq(*check, input_table_multiple[i++]));
+        }
 }
 
 static void test_strv_foreach_backwards(void) {
-	_cleanup_strv_free_ char **a;
-	unsigned i = 2;
-	char **check;
+        _cleanup_strv_free_ char **a;
+        unsigned i = 2;
+        char **check;
 
-	a = strv_new("one", "two", "three", NULL);
+        a = strv_new("one", "two", "three", NULL);
 
-	assert_se(a);
+        assert_se(a);
 
-	STRV_FOREACH_BACKWARDS(check, a) {
-		assert_se(streq(*check, input_table_multiple[i--]));
-	}
+        STRV_FOREACH_BACKWARDS(check, a) {
+                assert_se(streq(*check, input_table_multiple[i--]));
+        }
 }
 
 static void test_strv_foreach_pair(void) {
@@ -322,6 +322,26 @@ static void test_strv_foreach_pair(void) {
         STRV_FOREACH_PAIR(x, y, a) {
                 assert_se(streq(*x, *y));
         }
+}
+
+static void test_strv_from_stdarg_alloca_one(const char **l, const char *first, ...) {
+        char **j;
+        unsigned i;
+
+        j = strv_from_stdarg_alloca(first);
+
+        for (i = 0;; i++) {
+                assert_se(streq_ptr(l[i], j[i]));
+
+                if (!l[i])
+                        break;
+        }
+}
+
+static void test_strv_from_stdarg_alloca(void) {
+        test_strv_from_stdarg_alloca_one((const char*[]) { "foo", "bar", NULL }, "foo", "bar", NULL);
+        test_strv_from_stdarg_alloca_one((const char*[]) { "foo", "bar", NULL }, "foo", "bar", NULL);
+        test_strv_from_stdarg_alloca_one((const char*[]) { "foo", NULL }, "foo", NULL);
 }
 
 int main(int argc, char *argv[]) {
@@ -346,6 +366,7 @@ int main(int argc, char *argv[]) {
         test_strv_merge();
         test_strv_merge_concat();
         test_strv_append();
+        test_strv_from_stdarg_alloca();
 
         return 0;
 }

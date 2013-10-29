@@ -2214,7 +2214,8 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
         if (!l)
                 return -ENOMEM;
 
-        if (!(p = strdup(path))) {
+        p = strdup(path);
+        if (!p) {
                 strv_free(l);
                 return -ENOMEM;
         }

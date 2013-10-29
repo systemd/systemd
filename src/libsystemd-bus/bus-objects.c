@@ -1976,8 +1976,7 @@ int sd_bus_emit_properties_changed(
                 const char *interface,
                 const char *name, ...)  {
 
-        _cleanup_strv_free_ char **names = NULL;
-        va_list ap;
+        char **names;
 
         assert_return(bus, -EINVAL);
         assert_return(object_path_is_valid(path), -EINVAL);
@@ -1988,12 +1987,7 @@ int sd_bus_emit_properties_changed(
         if (!name)
                 return 0;
 
-        va_start(ap, name);
-        names = strv_new_ap(name, ap);
-        va_end(ap);
-
-        if (!names)
-                return -ENOMEM;
+        names = strv_from_stdarg_alloca(name);
 
         return sd_bus_emit_properties_changed_strv(bus, path, interface, names);
 }
@@ -2157,20 +2151,14 @@ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **inte
 }
 
 int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) {
-        _cleanup_strv_free_ char **interfaces = NULL;
-        va_list ap;
+        char **interfaces;
 
         assert_return(bus, -EINVAL);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        va_start(ap, interface);
-        interfaces = strv_new_ap(interface, ap);
-        va_end(ap);
-
-        if (!interfaces)
-                return -ENOMEM;
+        interfaces = strv_from_stdarg_alloca(interface);
 
         return sd_bus_emit_interfaces_added_strv(bus, path, interfaces);
 }
@@ -2203,20 +2191,14 @@ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **in
 }
 
 int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) {
-        _cleanup_strv_free_ char **interfaces = NULL;
-        va_list ap;
+        char **interfaces;
 
         assert_return(bus, -EINVAL);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        va_start(ap, interface);
-        interfaces = strv_new_ap(interface, ap);
-        va_end(ap);
-
-        if (!interfaces)
-                return -ENOMEM;
+        interfaces = strv_from_stdarg_alloca(interface);
 
         return sd_bus_emit_interfaces_removed_strv(bus, path, interfaces);
 }
