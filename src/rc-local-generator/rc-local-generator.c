@@ -39,45 +39,32 @@
 const char *arg_dest = "/tmp";
 
 static int add_symlink(const char *service, const char *where) {
-        char *from = NULL, *to = NULL;
+        _cleanup_free_ char *from = NULL, *to = NULL;
         int r;
 
         assert(service);
+        assert(where);
 
-        asprintf(&from, SYSTEM_DATA_UNIT_PATH "/%s", service);
-        asprintf(&to, "%s/%s.wants/%s", arg_dest, where, service);
+        from = strjoin(SYSTEM_DATA_UNIT_PATH, "/", service, NULL);
+        if (!from)
+                return log_oom();
 
-        if (!from || !to) {
-                r = log_oom();
-                goto finish;
-        }
+        to = strjoin(arg_dest, "/", where, ".wants/", service, NULL);
+        if (!to)
+                return log_oom();
 
         mkdir_parents_label(to, 0755);
 
         r = symlink(from, to);
         if (r < 0) {
                 if (errno == EEXIST)
-                        r = 0;
-                else {
-                        log_error("Failed to create symlink %s: %m", to);
-                        r = -errno;
-                }
+                        return 0;
+
+                log_error("Failed to create symlink %s: %m", to);
+                return -errno;
         }
 
-finish:
-        free(from);
-        free(to);
-
-        return r;
-}
-
-static bool file_is_executable(const char *f) {
-        struct stat st;
-
-        if (stat(f, &st) < 0)
-                return false;
-
-        return S_ISREG(st.st_mode) && (st.st_mode & 0111);
+        return 1;
 }
 
 int main(int argc, char *argv[]) {
@@ -97,14 +84,14 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (file_is_executable(RC_LOCAL_SCRIPT_PATH_START)) {
+        if (access(RC_LOCAL_SCRIPT_PATH_START, X_OK) >= 0) {
                 log_debug("Automatically adding rc-local.service.");
 
                 if (add_symlink("rc-local.service", "multi-user.target") < 0)
                         r = EXIT_FAILURE;
         }
 
-        if (file_is_executable(RC_LOCAL_SCRIPT_PATH_STOP)) {
+        if (access(RC_LOCAL_SCRIPT_PATH_STOP, X_OK) >= 0) {
                 log_debug("Automatically adding halt-local.service.");
 
                 if (add_symlink("halt-local.service", "final.target") < 0)
