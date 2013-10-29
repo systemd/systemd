@@ -73,9 +73,10 @@ int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex dup
         if (speed == 0 && duplex == _DUP_INVALID)
                 return 0;
 
-        memset(&ecmd, 0x00, sizeof(struct ethtool_cmd));
+        zero(ecmd);
         ecmd.cmd = ETHTOOL_GSET;
-        memset(&ifr, 0x00, sizeof(struct ifreq));
+
+        zero(ifr);
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
         ifr.ifr_data = (void *)&ecmd;
 
@@ -125,9 +126,10 @@ int ethtool_set_wol(int fd, const char *ifname, WakeOnLan wol) {
         if (wol == _WOL_INVALID)
                 return 0;
 
-        memset(&ecmd, 0x00, sizeof(struct ethtool_wolinfo));
+        zero(ecmd);
         ecmd.cmd = ETHTOOL_GWOL;
-        memset(&ifr, 0x00, sizeof(struct ifreq));
+
+        zero(ifr);
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
         ifr.ifr_data = (void *)&ecmd;
 
