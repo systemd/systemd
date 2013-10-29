@@ -49,7 +49,7 @@ struct uid_gid {
 struct udev_rules {
         struct udev *udev;
         char **dirs;
-        usec_t *dirs_ts_usec;
+        usec_t dirs_ts_usec;
         int resolve_names;
 
         /* every key in the rules file becomes a token */
@@ -1653,9 +1653,6 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
         }
         strv_uniq(rules->dirs);
 
-        rules->dirs_ts_usec = calloc(strv_length(rules->dirs), sizeof(usec_t));
-        if(!rules->dirs_ts_usec)
-                return udev_rules_unref(rules);
         udev_rules_check_timestamp(rules);
 
         r = conf_files_list_strv(&files, ".rules", NULL, (const char **)rules->dirs);
@@ -1711,14 +1708,13 @@ struct udev_rules *udev_rules_unref(struct udev_rules *rules)
         free(rules->uids);
         free(rules->gids);
         strv_free(rules->dirs);
-        free(rules->dirs_ts_usec);
         free(rules);
         return NULL;
 }
 
 bool udev_rules_check_timestamp(struct udev_rules *rules)
 {
-        return paths_check_timestamp(rules->dirs, rules->dirs_ts_usec, true);
+        return paths_check_timestamp(rules->dirs, &rules->dirs_ts_usec, true);
 }
 
 static int match_key(struct udev_rules *rules, struct token *token, const char *val)

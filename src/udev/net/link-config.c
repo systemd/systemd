@@ -46,7 +46,7 @@ struct link_config_ctx {
         sd_rtnl *rtnl;
 
         char **link_dirs;
-        usec_t *link_dirs_ts_usec;
+        usec_t link_dirs_ts_usec;
 };
 
 int link_config_ctx_new(link_config_ctx **ret) {
@@ -89,12 +89,6 @@ int link_config_ctx_new(link_config_ctx **ret) {
                 return -ENOMEM;
         }
 
-        ctx->link_dirs_ts_usec = calloc(strv_length(ctx->link_dirs), sizeof(usec_t));
-        if(!ctx->link_dirs_ts_usec) {
-                link_config_ctx_free(ctx);
-                return -ENOMEM;
-        }
-
         *ret = ctx;
         return 0;
 }
@@ -126,7 +120,6 @@ void link_config_ctx_free(link_config_ctx *ctx) {
         sd_rtnl_unref(ctx->rtnl);
 
         strv_free(ctx->link_dirs);
-        free(ctx->link_dirs_ts_usec);
         link_configs_free(ctx);
 
         free(ctx);
@@ -183,8 +176,8 @@ int link_config_load(link_config_ctx *ctx) {
 
         link_configs_free(ctx);
 
-        /* update timestamps */
-        paths_check_timestamp(ctx->link_dirs, ctx->link_dirs_ts_usec, true);
+        /* update timestamp */
+        paths_check_timestamp(ctx->link_dirs, &ctx->link_dirs_ts_usec, true);
 
         r = conf_files_list_strv(&files, ".link", NULL, (const char **)ctx->link_dirs);
         if (r < 0) {
@@ -202,7 +195,7 @@ int link_config_load(link_config_ctx *ctx) {
 }
 
 bool link_config_should_reload(link_config_ctx *ctx) {
-        return paths_check_timestamp(ctx->link_dirs, ctx->link_dirs_ts_usec, false);
+        return paths_check_timestamp(ctx->link_dirs, &ctx->link_dirs_ts_usec, false);
 }
 
 static bool match_config(link_config *match, struct udev_device *device) {

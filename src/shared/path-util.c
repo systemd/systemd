@@ -474,10 +474,12 @@ int find_binary(const char *name, char **filename) {
         }
 }
 
-bool paths_check_timestamp(char **paths, usec_t *paths_ts_usec, bool update)
+bool paths_check_timestamp(char **paths, usec_t *timestamp, bool update)
 {
         unsigned int i;
         bool changed = false;
+
+        assert(timestamp);
 
         if (paths == NULL)
                 goto out;
@@ -488,18 +490,16 @@ bool paths_check_timestamp(char **paths, usec_t *paths_ts_usec, bool update)
                 if (stat(paths[i], &stats) < 0)
                         continue;
 
-                if (paths_ts_usec[i] == timespec_load(&stats.st_mtim))
+                /* first check */
+                if (*timestamp >= timespec_load(&stats.st_mtim))
                         continue;
 
-                /* first check */
-                if (paths_ts_usec[i] != 0) {
-                        log_debug("reload - timestamp of '%s' changed\n", paths[i]);
-                        changed = true;
-                }
+                log_debug("timestamp of '%s' changed\n", paths[i]);
+                changed = true;
 
                 /* update timestamp */
                 if (update)
-                        paths_ts_usec[i] = timespec_load(&stats.st_mtim);
+                        *timestamp = timespec_load(&stats.st_mtim);
         }
 out:
         return changed;
