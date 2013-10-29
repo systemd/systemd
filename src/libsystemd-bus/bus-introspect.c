@@ -63,7 +63,7 @@ int introspect_write_child_nodes(struct introspect *i, Set *s, const char *prefi
                 const char *e;
 
                 e = object_path_startswith(node, prefix);
-                if (e)
+                if (e && e[0])
                         fprintf(i->f, " <node name=\"%s\"/>\n", e);
 
                 free(node);
