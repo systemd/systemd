@@ -467,12 +467,14 @@ static int property_get_rtc_time(
 
         zero(tm);
         r = hwclock_get_time(&tm);
-        if (r < 0) {
+        if (r == -EBUSY) {
+                log_warning("/dev/rtc is busy, is somebody keeping it open continously? That's not a good idea... Returning a bogus RTC timestamp.");
+                t = 0;
+        } else if (r < 0) {
                 sd_bus_error_set_errnof(error, -r, "Failed to read RTC: %s", strerror(-r));
                 return r;
-        }
-
-        t = (usec_t) mktime(&tm) * USEC_PER_SEC;
+        } else
+                t = (usec_t) mktime(&tm) * USEC_PER_SEC;
 
         r = sd_bus_message_append(reply, "t", t);
         if (r < 0)
