@@ -365,13 +365,13 @@ static int get_mac(struct udev_device *device, bool want_random, struct ether_ad
                         if (!name) {
                                 name = udev_device_get_property_value(device, "ID_NET_NAME_PATH");
                                 if (!name)
-                                        return -1;
+                                        return -ENOENT;
                         }
                 }
                 /* fetch some persistent data unique to this machine */
                 r = sd_id128_get_machine(&machine);
                 if (r < 0)
-                        return -1;
+                        return r;
 
                 /* combine the data */
                 seed_str = strappenda(name, sd_id128_to_string(machine, machineid_buf));
