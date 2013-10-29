@@ -24,211 +24,91 @@
 #include <net/if.h>
 #include <asm/types.h>
 #include <netinet/in.h>
+#include <linux/rtnetlink.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
 
 #include "util.h"
 #include "macro.h"
 #include "loopback-setup.h"
 #include "socket-util.h"
+#include "sd-rtnl.h"
+#include "rtnl-util.h"
 
-#define NLMSG_TAIL(nmsg)                                                \
-        ((struct rtattr *) (((uint8_t*) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
-
-static int add_rtattr(struct nlmsghdr *n, size_t max_length, int type, const void *data, size_t data_length) {
-        size_t length;
-        struct rtattr *rta;
-
-        length = RTA_LENGTH(data_length);
-
-        if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(length) > max_length)
-                return -E2BIG;
-
-        rta = NLMSG_TAIL(n);
-        rta->rta_type = type;
-        rta->rta_len = length;
-        memcpy(RTA_DATA(rta), data, data_length);
-        n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(length);
-
-        return 0;
-}
-
-static ssize_t sendto_loop(int fd, const void *buf, size_t buf_len, int flags, const struct sockaddr *sa, socklen_t sa_len) {
-
-        for (;;) {
-                ssize_t l;
-
-                l = sendto(fd, buf, buf_len, flags, sa, sa_len);
-                if (l >= 0)
-                        return l;
-
-                if (errno != EINTR)
-                        return -errno;
-        }
-}
-
-static ssize_t recvfrom_loop(int fd, void *buf, size_t buf_len, int flags, struct sockaddr *sa, socklen_t *sa_len) {
-
-        for (;;) {
-                ssize_t l;
-
-                l = recvfrom(fd, buf, buf_len, flags, sa, sa_len);
-                if (l >= 0)
-                        return l;
-
-                if (errno != EINTR)
-                        return -errno;
-        }
-}
-
-static int add_adresses(int fd, int if_loopback, unsigned *requests) {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_nl nl;
-        } sa = {
-                .nl.nl_family = AF_NETLINK,
-        };
-
-        union {
-                struct nlmsghdr header;
-                uint8_t buf[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
-                            NLMSG_ALIGN(sizeof(struct ifaddrmsg)) +
-                            RTA_LENGTH(sizeof(struct in6_addr))];
-        } request = {
-                .header.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg)),
-                .header.nlmsg_type = RTM_NEWADDR,
-                .header.nlmsg_flags = NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK,
-                .header.nlmsg_seq = *requests + 1,
-        };
-
-        struct ifaddrmsg *ifaddrmsg;
-        uint32_t ipv4_address = htonl(INADDR_LOOPBACK);
+static int pipe_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        int *counter = userdata;
         int r;
 
-        ifaddrmsg = NLMSG_DATA(&request.header);
-        ifaddrmsg->ifa_family = AF_INET;
-        ifaddrmsg->ifa_prefixlen = 8;
-        ifaddrmsg->ifa_flags = IFA_F_PERMANENT;
-        ifaddrmsg->ifa_scope = RT_SCOPE_HOST;
-        ifaddrmsg->ifa_index = if_loopback;
+        (*counter) --;
 
-        r = add_rtattr(&request.header, sizeof(request), IFA_LOCAL,
-                       &ipv4_address, sizeof(ipv4_address));
+        r = sd_rtnl_message_get_errno(m);
+
+        return r == -EEXIST ? 0 : r;
+}
+
+static int add_adresses(sd_rtnl *rtnl, int if_loopback, uint32_t ipv4_address, int *counter) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *ipv4 = NULL, *ipv6 = NULL;
+        int r;
+
+        r = sd_rtnl_message_addr_new(RTM_NEWADDR, if_loopback, AF_INET, 8, IFA_F_PERMANENT, RT_SCOPE_HOST, &ipv4);
         if (r < 0)
                 return r;
 
-        if (sendto_loop(fd, &request, request.header.nlmsg_len, 0, &sa.sa, sizeof(sa)) < 0)
-                return -errno;
-        (*requests)++;
+        r = sd_rtnl_message_append(ipv4, IFA_LOCAL, &ipv4_address);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_call_async(rtnl, ipv4, &pipe_handler, counter, 0, NULL);
+        if (r < 0)
+                return r;
+
+        (*counter) ++;
 
         if (!socket_ipv6_is_supported())
                 return 0;
 
-        request.header.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-        request.header.nlmsg_seq = *requests + 1;
-
-        ifaddrmsg->ifa_family = AF_INET6;
-        ifaddrmsg->ifa_prefixlen = 128;
-
-        r = add_rtattr(&request.header, sizeof(request), IFA_LOCAL,
-                       &in6addr_loopback, sizeof(in6addr_loopback));
+        r = sd_rtnl_message_addr_new(RTM_NEWADDR, if_loopback, AF_INET6, 128, 0, 0, &ipv6);
         if (r < 0)
                 return r;
 
-        if (sendto_loop(fd, &request, request.header.nlmsg_len, 0, &sa.sa, sizeof(sa)) < 0)
-                return -errno;
-        (*requests)++;
+        r = sd_rtnl_message_append(ipv6, IFA_LOCAL, &in6addr_loopback);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_call_async(rtnl, ipv6, &pipe_handler, counter, 0, NULL);
+        if (r < 0)
+                return r;
+
+        (*counter) ++;
 
         return 0;
 }
 
-static int start_interface(int fd, int if_loopback, unsigned *requests) {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_nl nl;
-        } sa = {
-                .nl.nl_family = AF_NETLINK,
-        };
+static int start_interface(sd_rtnl *rtnl, int if_loopback, uint32_t ipv4_address, int *counter) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
 
-        union {
-                struct nlmsghdr header;
-                uint8_t buf[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
-                            NLMSG_ALIGN(sizeof(struct ifinfomsg))];
-        } request = {
-                .header.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
-                .header.nlmsg_type = RTM_NEWLINK,
-                .header.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK,
-                .header.nlmsg_seq = *requests + 1,
-        };
+        r = sd_rtnl_message_link_new(RTM_NEWLINK, if_loopback, 0, IFF_UP, &req);
+        if (r < 0)
+                return r;
 
-        struct ifinfomsg *ifinfomsg;
+        r = sd_rtnl_message_append(req, IFA_LOCAL, &ipv4_address);
+        if (r < 0)
+                return r;
 
-        ifinfomsg = NLMSG_DATA(&request.header);
-        ifinfomsg->ifi_family = AF_UNSPEC;
-        ifinfomsg->ifi_index = if_loopback;
-        ifinfomsg->ifi_flags = IFF_UP;
-        ifinfomsg->ifi_change = IFF_UP;
+        r = sd_rtnl_call_async(rtnl, req, &pipe_handler, counter, 0, NULL);
+        if (r < 0)
+                return r;
 
-        if (sendto_loop(fd, &request, request.header.nlmsg_len, 0, &sa.sa, sizeof(sa)) < 0)
-                return -errno;
-
-        (*requests)++;
+        (*counter) ++;
 
         return 0;
-}
-
-static int read_response(int fd, unsigned requests_max) {
-        union {
-                struct sockaddr sa;
-                struct sockaddr_nl nl;
-        } sa;
-        union {
-                struct nlmsghdr header;
-                uint8_t buf[NLMSG_ALIGN(sizeof(struct nlmsghdr)) +
-                            NLMSG_ALIGN(sizeof(struct nlmsgerr))];
-        } response;
-
-        ssize_t l;
-        socklen_t sa_len = sizeof(sa);
-        struct nlmsgerr *nlmsgerr;
-
-        l = recvfrom_loop(fd, &response, sizeof(response), 0, &sa.sa, &sa_len);
-        if (l < 0)
-                return -errno;
-
-        if (sa_len != sizeof(sa.nl) ||
-            sa.nl.nl_family != AF_NETLINK)
-                return -EIO;
-
-        if (sa.nl.nl_pid != 0)
-                return 0;
-
-        if ((size_t) l < sizeof(struct nlmsghdr))
-                return -EIO;
-
-        if (response.header.nlmsg_type != NLMSG_ERROR ||
-            (pid_t) response.header.nlmsg_pid != getpid() ||
-            response.header.nlmsg_seq >= requests_max)
-                return 0;
-
-        if ((size_t) l < NLMSG_LENGTH(sizeof(struct nlmsgerr)) ||
-            response.header.nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
-                return -EIO;
-
-        nlmsgerr = NLMSG_DATA(&response.header);
-
-        if (nlmsgerr->error < 0 && nlmsgerr->error != -EEXIST)
-                return nlmsgerr->error;
-
-        return response.header.nlmsg_seq;
 }
 
 static int check_loopback(void) {
         int r;
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -1;
         union {
                 struct sockaddr sa;
                 struct sockaddr_in in;
@@ -253,56 +133,48 @@ static int check_loopback(void) {
 }
 
 int loopback_setup(void) {
-        int r, if_loopback;
-        union {
-                struct sockaddr sa;
-                struct sockaddr_nl nl;
-        } sa = {
-                .nl.nl_family = AF_NETLINK,
-        };
-        unsigned requests = 0, i;
-        _cleanup_close_ int fd = -1;
+        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        int r, if_loopback, counter = 0;
         bool eperm = false;
+        uint32_t ipv4_address = htonl(INADDR_LOOPBACK);
 
         errno = 0;
         if_loopback = (int) if_nametoindex("lo");
         if (if_loopback <= 0)
                 return errno ? -errno : -ENODEV;
 
-        fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-        if (fd < 0)
-                return -errno;
-
-        if (bind(fd, &sa.sa, sizeof(sa)) < 0) {
-                r = -errno;
-                goto error;
-        }
-
-        r = add_adresses(fd, if_loopback, &requests);
+        r = sd_rtnl_open(0, &rtnl);
         if (r < 0)
-                goto error;
+                return r;
 
-        r = start_interface(fd, if_loopback, &requests);
+        r = add_adresses(rtnl, if_loopback, ipv4_address, &counter);
         if (r < 0)
-                goto error;
+                return r;
 
-        for (i = 0; i < requests; i++) {
-                r = read_response(fd, requests);
+        r = start_interface(rtnl, if_loopback, ipv4_address, &counter);
+        if (r < 0)
+                return r;
 
-                if (r == -EPERM)
-                        eperm = true;
-                else if (r  < 0)
-                        goto error;
+        while (counter > 0) {
+                r = sd_rtnl_wait(rtnl, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_rtnl_process(rtnl, 0);
+                if (r < 0) {
+                        if (r == -EPERM)
+                                eperm = true;
+                        else {
+                                log_warning("Failed to configure loopback device: %s", strerror(-r));
+                                return r;
+                        }
+                }
         }
 
         if (eperm && check_loopback() < 0) {
-                r = -EPERM;
-                goto error;
+                log_warning("Failed to configure loopback device: %s", strerror(EPERM));
+                return -EPERM;
         }
 
         return 0;
-
-error:
-        log_warning("Failed to configure loopback device: %s", strerror(-r));
-        return r;
 }

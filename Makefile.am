@@ -1024,6 +1024,7 @@ libsystemd_core_la_LIBADD = \
 	libsystemd-daemon-internal.la \
 	libudev-internal.la \
 	libsystemd-shared.la \
+	libsystemd-rtnl.la \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS) \
@@ -1851,7 +1852,8 @@ systemd_nspawn_LDADD = \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-rtnl.la
 
 # ------------------------------------------------------------------------------
 systemd_run_SOURCES = \
