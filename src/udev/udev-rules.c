@@ -1081,7 +1081,7 @@ static int add_rule(struct udev_rules *rules, char *line,
                                           "starting at character %tu ('%s')\n",
                                           filename, lineno, linepos - line + 1, tmp);
                                 if (linepos[1] == '#')
-                                        log_info("hint: comments can only start at beginning of line");
+                                        log_error("hint: comments can only start at beginning of line");
                         }
                         break;
                 }
