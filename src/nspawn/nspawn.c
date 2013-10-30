@@ -1191,7 +1191,7 @@ static int register_machine(void) {
                         "container",
                         (uint32_t) 0,
                         strempty(arg_directory),
-                        1, "Slice", "s", strempty(arg_slice));
+                        !isempty(arg_slice), "Slice", "s", arg_slice);
         if (r < 0) {
                 log_error("Failed to register machine: %s", error.message ? error.message : strerror(-r));
                 return r;
