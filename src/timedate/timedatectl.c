@@ -27,7 +27,9 @@
 #include <string.h>
 #include <sys/timex.h>
 
-#include "dbus-common.h"
+#include "sd-bus.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "util.h"
 #include "spawn-polkit-agent.h"
 #include "build.h"
@@ -38,14 +40,9 @@
 
 static bool arg_adjust_system_clock = false;
 static bool arg_no_pager = false;
-static enum transport {
-        TRANSPORT_NORMAL,
-        TRANSPORT_SSH,
-        TRANSPORT_POLKIT
-} arg_transport = TRANSPORT_NORMAL;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static bool arg_ask_password = true;
 static char *arg_host = NULL;
-static char *arg_user = NULL;
 
 static void pager_open_if_enabled(void) {
 
@@ -125,7 +122,7 @@ static void print_status_info(StatusInfo *i) {
         zero(tm);
         r = hwclock_get_time(&tm);
         if (r >= 0) {
-                /* Calculcate the week-day */
+                /* Calculate the week-day */
                 mktime(&tm);
 
                 assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S", &tm) > 0);
@@ -192,110 +189,80 @@ static void print_status_info(StatusInfo *i) {
                       "         RTC in UTC, by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
 }
 
-static int status_property(const char *name, DBusMessageIter *iter, StatusInfo *i) {
+static int get_timedate_property_bool(sd_bus *bus, const char *name, bool *target) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
         assert(name);
-        assert(iter);
 
-        switch (dbus_message_iter_get_arg_type(iter)) {
-
-        case DBUS_TYPE_STRING: {
-                const char *s;
-
-                dbus_message_iter_get_basic(iter, &s);
-                if (!isempty(s)) {
-                        if (streq(name, "Timezone"))
-                                i->timezone = s;
-                }
-                break;
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.timedate1",
+                                "/org/freedesktop/timedate1",
+                                "org.freedesktop.timedate1",
+                                name,
+                                &error,
+                                &reply,
+                                "b");
+        if (r < 0) {
+                log_error("Failed to get property: %s %s", name, bus_error_message(&error, -r));
+                return r;
         }
 
-        case DBUS_TYPE_BOOLEAN: {
-                dbus_bool_t b;
-
-                dbus_message_iter_get_basic(iter, &b);
-                if (streq(name, "LocalRTC"))
-                        i->local_rtc = b;
-                else if (streq(name, "NTP"))
-                        i->ntp = b;
-                else if (streq(name, "CanNTP"))
-                        i->can_ntp = b;
-        }
+        r = sd_bus_message_read(reply, "b", target);
+        if (r < 0) {
+                log_error("Failed to parse reply.");
+                return r;
         }
 
         return 0;
 }
 
-static int show_status(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *interface = "";
+static int show_status(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-        DBusMessageIter iter, sub, sub2, sub3;
         StatusInfo info = {};
 
-        assert(args);
+        assert(bus);
 
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_INVALID);
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.timedate1",
+                                "/org/freedesktop/timedate1",
+                                "org.freedesktop.timedate1",
+                                "Timezone",
+                                &error,
+                                &reply,
+                                "s");
+        if (r < 0) {
+                log_error("Failed to get property: Timezone %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "s", &info.timezone);
         if (r < 0)
                 return r;
 
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
-        }
+        r = get_timedate_property_bool(bus, "LocalRTC", &info.local_rtc);
+        if (r < 0)
+                return r;
 
-        dbus_message_iter_recurse(&iter, &sub);
+        r = get_timedate_property_bool(bus, "NTP", &info.ntp);
+        if (r < 0)
+                return r;
 
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *name;
-
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_DICT_ENTRY) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &name, true) < 0) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT)  {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                dbus_message_iter_recurse(&sub2, &sub3);
-
-                r = status_property(name, &sub3, &info);
-                if (r < 0) {
-                        log_error("Failed to parse reply.");
-                        return r;
-                }
-
-                dbus_message_iter_next(&sub);
-        }
+        r = get_timedate_property_bool(bus, "CanNTP", &info.can_ntp);
+        if (r < 0)
+                return r;
 
         print_status_info(&info);
         return 0;
 }
 
-static int set_time(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t relative = false, interactive = arg_ask_password;
+static int set_time(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        bool relative = false, interactive = arg_ask_password;
         usec_t t;
-        dbus_int64_t u;
         int r;
 
         assert(args);
@@ -309,47 +276,47 @@ static int set_time(DBusConnection *bus, char **args, unsigned n) {
                 return r;
         }
 
-        u = (dbus_uint64_t) t;
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "SetTime",
+                               &error,
+                               NULL,
+                               "xbb", (int64_t)t, relative, interactive);
+        if (r < 0)
+                log_error("Failed to set time: %s", bus_error_message(&error, -r));
 
-        return bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        "SetTime",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_INT64, &u,
-                        DBUS_TYPE_BOOLEAN, &relative,
-                        DBUS_TYPE_BOOLEAN, &interactive,
-                        DBUS_TYPE_INVALID);
+        return r;
 }
 
-static int set_timezone(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = arg_ask_password;
+static int set_timezone(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        bool interactive = arg_ask_password;
+        int r;
 
         assert(args);
         assert(n == 2);
 
         polkit_agent_open_if_enabled();
 
-        return bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        "SetTimezone",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &args[1],
-                        DBUS_TYPE_BOOLEAN, &interactive,
-                        DBUS_TYPE_INVALID);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "SetTimezone",
+                               &error,
+                               NULL,
+                               "sb", args[1], interactive);
+        if (r < 0)
+                log_error("Failed to set timezone: %s", bus_error_message(&error, -r));
+
+        return r;
 }
 
-static int set_local_rtc(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = arg_ask_password, b, q;
+static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        bool interactive = arg_ask_password, b, q;
         int r;
 
         assert(args);
@@ -366,23 +333,23 @@ static int set_local_rtc(DBusConnection *bus, char **args, unsigned n) {
         b = r;
         q = arg_adjust_system_clock;
 
-        return bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        "SetLocalRTC",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_BOOLEAN, &b,
-                        DBUS_TYPE_BOOLEAN, &q,
-                        DBUS_TYPE_BOOLEAN, &interactive,
-                        DBUS_TYPE_INVALID);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "SetLocalRTC",
+                               &error,
+                               NULL,
+                               "bbb", b, q, interactive);
+        if (r < 0)
+                log_error("Failed to set local RTC: %s", bus_error_message(&error, -r));
+
+        return r;
 }
 
-static int set_ntp(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = arg_ask_password, b;
+static int set_ntp(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        bool interactive = arg_ask_password, b;
         int r;
 
         assert(args);
@@ -398,20 +365,21 @@ static int set_ntp(DBusConnection *bus, char **args, unsigned n) {
 
         b = r;
 
-        return bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        "SetNTP",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_BOOLEAN, &b,
-                        DBUS_TYPE_BOOLEAN, &interactive,
-                        DBUS_TYPE_INVALID);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "SetNTP",
+                               &error,
+                               NULL,
+                               "bb", b, interactive);
+        if (r < 0)
+                log_error("Failed to set ntp: %s", bus_error_message(&error, -r));
+
+        return r;
 }
 
-static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
+static int list_timezones(sd_bus *bus, char **args, unsigned n) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
         size_t n_zones = 0;
@@ -490,9 +458,9 @@ static int help(void) {
                "     --adjust-system-clock\n"
                "                         Adjust system clock when changing local RTC mode\n"
                "     --no-pager          Do not pipe output into a pager\n"
-               "  -P --privileged        Acquire privileges before execution\n"
                "     --no-ask-password   Do not prompt for password\n"
-               "  -H --host=[USER@]HOST  Operate on remote host\n\n"
+               "  -H --host=[USER@]HOST  Operate on remote host\n"
+               "  -M --machine=CONTAINER Operate on local container\n\n"
                "Commands:\n"
                "  status                 Show current time settings\n"
                "  set-time TIME          Set system time\n"
@@ -519,7 +487,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",             no_argument,       NULL, ARG_VERSION             },
                 { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
                 { "host",                required_argument, NULL, 'H'                     },
-                { "privileged",          no_argument,       NULL, 'P'                     },
+                { "machine",             required_argument, NULL, 'M'                     },
                 { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
                 { "adjust-system-clock", no_argument,       NULL, ARG_ADJUST_SYSTEM_CLOCK },
                 { NULL,                  0,                 NULL, 0                       }
@@ -530,7 +498,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -543,13 +511,14 @@ static int parse_argv(int argc, char *argv[]) {
                         puts(SYSTEMD_FEATURES);
                         return 0;
 
-                case 'P':
-                        arg_transport = TRANSPORT_POLKIT;
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
                         break;
 
-                case 'H':
-                        arg_transport = TRANSPORT_SSH;
-                        parse_user_at_host(optarg, &arg_user, &arg_host);
+                case 'M':
+                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_host = optarg;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -576,7 +545,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int timedatectl_main(DBusConnection *bus, int argc, char *argv[], DBusError *error) {
+static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
 
         static const struct {
                 const char* verb;
@@ -586,7 +555,7 @@ static int timedatectl_main(DBusConnection *bus, int argc, char *argv[], DBusErr
                         EQUAL
                 } argc_cmp;
                 const int argc;
-                int (* const dispatch)(DBusConnection *bus, char **args, unsigned n);
+                int (* const dispatch)(sd_bus *bus, char **args, unsigned n);
         } verbs[] = {
                 { "status",                LESS,   1, show_status      },
                 { "set-time",              EQUAL,  2, set_time         },
@@ -601,7 +570,6 @@ static int timedatectl_main(DBusConnection *bus, int argc, char *argv[], DBusErr
 
         assert(argc >= 0);
         assert(argv);
-        assert(error);
 
         left = argc - optind;
 
@@ -654,20 +622,12 @@ static int timedatectl_main(DBusConnection *bus, int argc, char *argv[], DBusErr
                 assert_not_reached("Unknown comparison operator.");
         }
 
-        if (!bus) {
-                log_error("Failed to get D-Bus connection: %s", error->message);
-                return -EIO;
-        }
-
         return verbs[i].dispatch(bus, argv + optind, left);
 }
 
 int main(int argc, char *argv[]) {
-        int r, retval = EXIT_FAILURE;
-        DBusConnection *bus = NULL;
-        DBusError error;
-
-        dbus_error_init(&error);
+        int r, ret = EXIT_FAILURE;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
@@ -677,33 +637,22 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
         else if (r == 0) {
-                retval = EXIT_SUCCESS;
+                ret = EXIT_SUCCESS;
                 goto finish;
         }
 
-        if (arg_transport == TRANSPORT_NORMAL)
-                bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-        else if (arg_transport == TRANSPORT_POLKIT)
-                bus_connect_system_polkit(&bus, &error);
-        else if (arg_transport == TRANSPORT_SSH)
-                bus_connect_system_ssh(NULL, arg_host, &bus, &error);
-        else
-                assert_not_reached("Uh, invalid transport...");
-
-        r = timedatectl_main(bus, argc, argv, &error);
-        retval = r < 0 ? EXIT_FAILURE : r;
-
-finish:
-        if (bus) {
-                dbus_connection_flush(bus);
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
+        r = bus_open_transport(arg_transport, arg_host, false, &bus);
+        if (r < 0) {
+                log_error("Failed to create bus connection: %s", strerror(-r));
+                ret = EXIT_FAILURE;
+                goto finish;
         }
 
-        dbus_error_free(&error);
-        dbus_shutdown();
+        r = timedatectl_main(bus, argc, argv);
+        ret = r < 0 ? EXIT_FAILURE : r;
 
+finish:
         pager_close();
 
-        return retval;
+        return ret;
 }

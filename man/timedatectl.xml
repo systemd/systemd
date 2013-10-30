@@ -98,23 +98,24 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-P</option></term>
-                                <term><option>--privileged</option></term>
-
-                                <listitem><para>Acquire privileges via PolicyKit
-                                before executing the operation.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>-H</option></term>
-                                <term><option>--host</option></term>
+                                <term><option>--host=</option></term>
 
-                                <listitem><para>Execute the operation
+                                <listitem><para>Execute operation
                                 remotely. Specify a hostname, or
                                 username and hostname separated by <literal>@</literal>,
                                 to connect to. This will use SSH to
-                                talk to a remote
-                                system.</para></listitem>
+                                talk to the remote machine manager
+                                instance.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-M</option></term>
+                                <term><option>--machine=</option></term>
+
+                                <listitem><para>Execute operation on a
+                                local container. Specify a container
+                                name to connect to.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

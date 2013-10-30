@@ -3651,7 +3651,7 @@ timedatectl_CFLAGS = \
 
 timedatectl_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la
+	libsystemd-bus.la
 
 bin_PROGRAMS += \
 	timedatectl
