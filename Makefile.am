@@ -3692,9 +3692,6 @@ systemd_machined_SOURCES = \
 	src/machine/machined.c \
 	src/machine/machined.h
 
-systemd_machined_CFLAGS = \
-	$(libsystemd_machine_core_la_CFLAGS)
-
 systemd_machined_LDADD = \
 	libsystemd-machine-core.la \
 	$(libsystemd_machine_core_la_LIBADD)
@@ -3707,9 +3704,6 @@ libsystemd_machine_core_la_SOURCES = \
 	src/machine/machine.c \
 	src/machine/machine.h \
 	src/machine/machine-dbus.c
-
-libsystemd_machine_core_la_CFLAGS = \
-	$(AM_CFLAGS)
 
 libsystemd_machine_core_la_LIBADD = \
 	libsystemd-label.la \
@@ -3740,9 +3734,6 @@ rootbin_PROGRAMS += \
 
 test_machine_tables_SOURCES = \
 	src/machine/test-machine-tables.c
-
-test_machine_tables_CFLAGS = \
-	$(AM_CFLAGS)
 
 test_machine_tables_LDADD = \
 	libsystemd-machine-core.la
