@@ -172,7 +172,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
                 log_warning("Colud not parse config file %s: %s", filename, strerror(-r));
                 goto failure;
         } else
-                log_info("Parsed configuration file %s", filename);
+                log_debug("Parsed configuration file %s", filename);
 
         link->filename = strdup(filename);
 
