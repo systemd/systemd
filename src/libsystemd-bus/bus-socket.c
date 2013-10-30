@@ -600,7 +600,7 @@ static int bus_socket_read_auth(sd_bus *b) {
         return 1;
 }
 
-static int bus_socket_setup(sd_bus *b) {
+int bus_socket_setup(sd_bus *b) {
         int enable;
         socklen_t l;
 
@@ -668,7 +668,7 @@ static int bus_socket_start_auth_client(sd_bus *b) {
         return bus_socket_write_auth(b);
 }
 
-static int bus_socket_start_auth(sd_bus *b) {
+int bus_socket_start_auth(sd_bus *b) {
         assert(b);
 
         b->state = BUS_AUTHENTICATING;

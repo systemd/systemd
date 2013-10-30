@@ -1947,6 +1947,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-socket.h \
 	src/libsystemd-bus/bus-kernel.c \
 	src/libsystemd-bus/bus-kernel.h \
+	src/libsystemd-bus/bus-container.c \
+	src/libsystemd-bus/bus-container.h \
 	src/libsystemd-bus/bus-message.c \
 	src/libsystemd-bus/bus-message.h \
 	src/libsystemd-bus/bus-signature.c \

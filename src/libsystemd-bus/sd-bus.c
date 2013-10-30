@@ -46,6 +46,7 @@
 #include "bus-signature.h"
 #include "bus-objects.h"
 #include "bus-util.h"
+#include "bus-container.h"
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 
@@ -117,6 +118,7 @@ static void bus_free(sd_bus *b) {
         free(b->auth_buffer);
         free(b->address);
         free(b->kernel);
+        free(b->machine);
 
         free(b->exec_path);
         strv_free(b->exec_argv);
@@ -753,6 +755,45 @@ static int parse_kernel_address(sd_bus *b, const char **p, char **guid) {
         return 0;
 }
 
+static int parse_container_address(sd_bus *b, const char **p, char **guid) {
+        _cleanup_free_ char *machine = NULL;
+        int r;
+
+        assert(b);
+        assert(p);
+        assert(*p);
+        assert(guid);
+
+        while (**p != 0 && **p != ';') {
+                r = parse_address_key(p, "guid", guid);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "machine", &machine);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                skip_address_key(p);
+        }
+
+        if (!machine)
+                return -EINVAL;
+
+        free(b->machine);
+        b->machine = machine;
+        machine = NULL;
+
+        b->sockaddr.un.sun_family = AF_UNIX;
+        strncpy(b->sockaddr.un.sun_path, "/var/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
+        b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + sizeof("/var/run/dbus/system_bus_socket") - 1;
+
+        return 0;
+}
+
 static void bus_reset_parsed_address(sd_bus *b) {
         assert(b);
 
@@ -765,6 +806,8 @@ static void bus_reset_parsed_address(sd_bus *b) {
         b->server_id = SD_ID128_NULL;
         free(b->kernel);
         b->kernel = NULL;
+        free(b->machine);
+        b->machine = NULL;
 }
 
 static int bus_parse_next_address(sd_bus *b) {
@@ -824,6 +867,14 @@ static int bus_parse_next_address(sd_bus *b) {
                                 return r;
 
                         break;
+                } else if (startswith(a, "x-container:")) {
+
+                        a += 12;
+                        r = parse_container_address(b, &a, &guid);
+                        if (r < 0)
+                                return r;
+
+                        break;
                 }
 
                 a = strchr(a, ';');
@@ -849,15 +900,7 @@ static int bus_start_address(sd_bus *b) {
         for (;;) {
                 sd_bus_close(b);
 
-                if (b->sockaddr.sa.sa_family != AF_UNSPEC) {
-
-                        r = bus_socket_connect(b);
-                        if (r >= 0)
-                                return r;
-
-                        b->last_connect_error = -r;
-
-                } else if (b->exec_path) {
+                if (b->exec_path) {
 
                         r = bus_socket_exec(b);
                         if (r >= 0)
@@ -867,6 +910,22 @@ static int bus_start_address(sd_bus *b) {
                 } else if (b->kernel) {
 
                         r = bus_kernel_connect(b);
+                        if (r >= 0)
+                                return r;
+
+                        b->last_connect_error = -r;
+
+                } else if (b->machine) {
+
+                        r = bus_container_connect(b);
+                        if (r >= 0)
+                                return r;
+
+                        b->last_connect_error = -r;
+
+                } else if (b->sockaddr.sa.sa_family != AF_UNSPEC) {
+
+                        r = bus_socket_connect(b);
                         if (r >= 0)
                                 return r;
 
@@ -937,7 +996,7 @@ int sd_bus_start(sd_bus *bus) {
 
         if (bus->input_fd >= 0)
                 r = bus_start_fd(bus);
-        else if (bus->address || bus->sockaddr.sa.sa_family != AF_UNSPEC || bus->exec_path || bus->kernel)
+        else if (bus->address || bus->sockaddr.sa.sa_family != AF_UNSPEC || bus->exec_path || bus->kernel || bus->machine)
                 r = bus_start_address(bus);
         else
                 return -EINVAL;
@@ -1047,6 +1106,42 @@ int sd_bus_open_system_remote(const char *host, sd_bus **ret) {
                 return -ENOMEM;
 
         p = strjoin("unixexec:path=ssh,argv1=-xT,argv2=", e, ",argv3=systemd-stdio-bridge", NULL);
+        if (!p)
+                return -ENOMEM;
+
+        r = sd_bus_new(&bus);
+        if (r < 0) {
+                free(p);
+                return r;
+        }
+
+        bus->address = p;
+        bus->bus_client = true;
+
+        r = sd_bus_start(bus);
+        if (r < 0) {
+                bus_free(bus);
+                return r;
+        }
+
+        *ret = bus;
+        return 0;
+}
+
+int sd_bus_open_system_container(const char *machine, sd_bus **ret) {
+        _cleanup_free_ char *e = NULL;
+        sd_bus *bus;
+        char *p;
+        int r;
+
+        assert_return(machine, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        e = bus_address_escape(machine);
+        if (!e)
+                return -ENOMEM;
+
+        p = strjoin("x-container:machine=", e, NULL);
         if (!p)
                 return -ENOMEM;
 

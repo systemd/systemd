@@ -47,12 +47,12 @@ static bool arg_no_pager = false;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static enum transport {
-        TRANSPORT_NORMAL,
-        TRANSPORT_SSH,
-} arg_transport = TRANSPORT_NORMAL;
+        TRANSPORT_LOCAL,
+        TRANSPORT_REMOTE,
+        TRANSPORT_CONTAINER
+} arg_transport = TRANSPORT_LOCAL;
 static bool arg_ask_password = true;
 static char *arg_host = NULL;
-static char *arg_user = NULL;
 
 static void pager_open_if_enabled(void) {
 
@@ -94,9 +94,6 @@ static int list_machines(sd_bus *bus, char **args, unsigned n) {
                 goto fail;
 
         while ((r = sd_bus_message_read(reply, "(ssso)", &name, &class, &service, &object)) > 0) {
-                if (r < 0)
-                        goto fail;
-
                 printf("%-32s %-9s %-16s\n", name, class, service);
 
                 k++;
@@ -115,7 +112,7 @@ static int list_machines(sd_bus *bus, char **args, unsigned n) {
 
 fail:
         log_error("Failed to parse reply: %s", strerror(-r));
-        return -EIO;
+        return r;
 }
 
 static int show_scope_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
@@ -129,30 +126,28 @@ static int show_scope_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         assert(bus);
         assert(unit);
 
-        if (arg_transport == TRANSPORT_SSH)
+        if (arg_transport == TRANSPORT_REMOTE)
                 return 0;
 
         path = unit_dbus_path_from_name(unit);
         if (!path)
                 return log_oom();
 
-        r = sd_bus_call_method(
+        r = sd_bus_get_property(
                         bus,
                         "org.freedesktop.systemd1",
                         path,
-                        "org.freedesktop.DBus.Properties",
-                        "Get",
+                        "org.freedesktop.systemd1.Scope",
+                        "ControlGroup",
                         &error,
                         &reply,
-                        "ss",
-                        "org.freedesktop.systemd1.Scope",
-                        "ControlGroup");
+                        "s");
         if (r < 0) {
                 log_error("Failed to query ControlGroup: %s", bus_error_message(&error, -r));
                 return r;
         }
 
-        r = sd_bus_message_read(reply, "v", "s", &cgroup);
+        r = sd_bus_message_read(reply, "s", &cgroup);
         if (r < 0) {
                 log_error("Failed to parse reply: %s", strerror(-r));
                 return r;
@@ -371,9 +366,6 @@ static int show_one(const char *verb, sd_bus *bus, const char *path, bool show_p
                 const char *name;
                 const char *contents;
 
-                if (r < 0)
-                        goto fail;
-
                 r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &name);
                 if (r < 0)
                         goto fail;
@@ -415,7 +407,7 @@ static int show_one(const char *verb, sd_bus *bus, const char *path, bool show_p
 
 fail:
         log_error("Failed to parse reply: %s", strerror(-r));
-        return -EIO;
+        return r;
 }
 
 static int show(sd_bus *bus, char **args, unsigned n) {
@@ -460,7 +452,7 @@ static int show(sd_bus *bus, char **args, unsigned n) {
                 r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0) {
                         log_error("Failed to parse reply: %s", strerror(-r));
-                        return -EIO;
+                        return r;
                 }
 
                 r = show_one(args[0], bus, path, show_properties, &new_line);
@@ -534,14 +526,15 @@ static int help(void) {
                "Send control commands to or query the virtual machine and container registration manager.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "  -p --property=NAME     Show only properties by this name\n"
-               "  -a --all               Show all properties, including empty ones\n"
-               "     --kill-who=WHO      Who to send signal to\n"
-               "  -l --full              Do not ellipsize output\n"
-               "  -s --signal=SIGNAL     Which signal to send\n"
+               "     --no-pager          Do not pipe output into a pager\n"
                "     --no-ask-password   Don't prompt for password\n"
                "  -H --host=[USER@]HOST  Show information for remote host\n"
-               "     --no-pager          Do not pipe output into a pager\n\n"
+               "  -M --machine=CONTAINER Show information for local container\n"
+               "  -p --property=NAME     Show only properties by this name\n"
+               "  -a --all               Show all properties, including empty ones\n"
+               "  -l --full              Do not ellipsize output\n"
+               "     --kill-who=WHO      Who to send signal to\n"
+               "  -s --signal=SIGNAL     Which signal to send\n\n"
                "Commands:\n"
                "  list                   List running VMs and containers\n"
                "  status [NAME...]       Show VM/container status\n"
@@ -572,16 +565,17 @@ static int parse_argv(int argc, char *argv[]) {
                 { "kill-who",        required_argument, NULL, ARG_KILL_WHO        },
                 { "signal",          required_argument, NULL, 's'                 },
                 { "host",            required_argument, NULL, 'H'                 },
+                { "machine",         required_argument, NULL, 'M'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 { NULL,              0,                 NULL, 0                   }
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:als:H:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hp:als:H:M:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -594,22 +588,16 @@ static int parse_argv(int argc, char *argv[]) {
                         puts(SYSTEMD_FEATURES);
                         return 0;
 
-                case 'p': {
-                        char **l;
-
-                        l = strv_append(arg_property, optarg);
-                        if (!l)
-                                return -ENOMEM;
-
-                        strv_free(arg_property);
-                        arg_property = l;
+                case 'p':
+                        r = strv_extend(&arg_property, optarg);
+                        if (r < 0)
+                                return log_oom();
 
                         /* If the user asked for a particular
                          * property, show it to him, even if it is
                          * empty. */
                         arg_all = true;
                         break;
-                }
 
                 case 'a':
                         arg_all = true;
@@ -640,8 +628,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'H':
-                        arg_transport = TRANSPORT_SSH;
-                        parse_user_at_host(optarg, &arg_user, &arg_host);
+                        arg_transport = TRANSPORT_REMOTE;
+                        arg_host = optarg;
+                        break;
+
+                case 'M':
+                        arg_transport = TRANSPORT_CONTAINER;
+                        arg_host = optarg;
                         break;
 
                 case '?':
@@ -741,7 +734,7 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[], const int r) {
 }
 
 int main(int argc, char*argv[]) {
-        int r, retval = EXIT_FAILURE;
+        int r, ret = EXIT_FAILURE;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
 
         setlocale(LC_ALL, "");
@@ -752,28 +745,31 @@ int main(int argc, char*argv[]) {
         if (r < 0)
                 goto finish;
         else if (r == 0) {
-                retval = EXIT_SUCCESS;
+                ret = EXIT_SUCCESS;
                 goto finish;
         }
 
-        if (arg_transport == TRANSPORT_NORMAL)
+        if (arg_transport == TRANSPORT_LOCAL)
                 r = sd_bus_open_system(&bus);
-        else if (arg_transport == TRANSPORT_SSH)
+        else if (arg_transport == TRANSPORT_REMOTE)
                 r = sd_bus_open_system_remote(arg_host, &bus);
+        else if (arg_transport == TRANSPORT_CONTAINER)
+                r = sd_bus_open_system_container(arg_host, &bus);
         else
                 assert_not_reached("Uh, invalid transport...");
         if (r < 0) {
-                retval = EXIT_FAILURE;
+                log_error("Failed to connect to machined: %s", strerror(-r));
+                ret = EXIT_FAILURE;
                 goto finish;
         }
 
         r = machinectl_main(bus, argc, argv, r);
-        retval = r < 0 ? EXIT_FAILURE : r;
+        ret = r < 0 ? EXIT_FAILURE : r;
 
 finish:
         strv_free(arg_property);
 
         pager_close();
 
-        return retval;
+        return ret;
 }

@@ -196,6 +196,7 @@ struct sd_bus {
         socklen_t sockaddr_size;
 
         char *kernel;
+        char *machine;
 
         sd_id128_t server_id;
 
