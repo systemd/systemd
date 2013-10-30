@@ -534,7 +534,7 @@ int bus_generic_print_property(const char *name, sd_bus_message *property, bool 
 
                         sd_bus_message_peek_type(property, &tp, &cnt);
                         if (all || cnt) {
-				const char *str;
+                                const char *str;
 
                                 printf("%s=", name);
 

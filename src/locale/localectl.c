@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
+  Copyright 2013 Kay Sievers
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -29,7 +30,10 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
-#include "dbus-common.h"
+#include "sd-bus.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "bus-message.h"
 #include "util.h"
 #include "spawn-polkit-agent.h"
 #include "build.h"
@@ -40,14 +44,9 @@
 #include "utf8.h"
 
 static bool arg_no_pager = false;
-static enum transport {
-        TRANSPORT_NORMAL,
-        TRANSPORT_SSH,
-        TRANSPORT_POLKIT
-} arg_transport = TRANSPORT_NORMAL;
 static bool arg_ask_password = true;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
-static char *arg_user = NULL;
 static bool arg_convert = true;
 
 static void pager_open_if_enabled(void) {
@@ -61,7 +60,6 @@ static void pager_open_if_enabled(void) {
 static void polkit_agent_open_if_enabled(void) {
 
         /* Open the polkit agent as a child process if necessary */
-
         if (!arg_ask_password)
                 return;
 
@@ -104,167 +102,167 @@ static void print_status_info(StatusInfo *i) {
                 printf("     X11 Options: %s\n", i->x11_options);
 }
 
-static int status_property(const char *name, DBusMessageIter *iter, StatusInfo *i) {
+static int status_read_property(const char *name, sd_bus_message *property, StatusInfo *i) {
+        char type;
+        const char *contents;
         int r;
 
         assert(name);
-        assert(iter);
+        assert(property);
 
-        switch (dbus_message_iter_get_arg_type(iter)) {
+        r = sd_bus_message_peek_type(property, &type, &contents);
+        if (r < 0) {
+                log_error("Could not determine type of message: %s", strerror(-r));
+                return r;
+        }
 
-        case DBUS_TYPE_STRING: {
+        switch (type) {
+
+        case SD_BUS_TYPE_STRING: {
                 const char *s;
 
-                dbus_message_iter_get_basic(iter, &s);
-                if (!isempty(s)) {
-                        if (streq(name, "VConsoleKeymap"))
-                                i->vconsole_keymap = s;
-                        else if (streq(name, "VConsoleKeymapToggle"))
-                                i->vconsole_keymap_toggle = s;
-                        else if (streq(name, "X11Layout"))
-                                i->x11_layout = s;
-                        else if (streq(name, "X11Model"))
-                                i->x11_model = s;
-                        else if (streq(name, "X11Variant"))
-                                i->x11_variant = s;
-                        else if (streq(name, "X11Options"))
-                                i->x11_options = s;
-                }
+                sd_bus_message_read_basic(property, type, &s);
+                if (isempty(s))
+                        break;
+
+                if (streq(name, "VConsoleKeymap"))
+                        i->vconsole_keymap = s;
+                else if (streq(name, "VConsoleKeymapToggle"))
+                        i->vconsole_keymap_toggle = s;
+                else if (streq(name, "X11Layout"))
+                        i->x11_layout = s;
+                else if (streq(name, "X11Model"))
+                        i->x11_model = s;
+                else if (streq(name, "X11Variant"))
+                        i->x11_variant = s;
+                else if (streq(name, "X11Options"))
+                        i->x11_options = s;
+
                 break;
         }
 
-        case DBUS_TYPE_ARRAY:
+        case SD_BUS_TYPE_ARRAY: {
+                _cleanup_strv_free_ char **l = NULL;
 
-                if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING) {
-                        char **l;
+                if (!streq(contents, "s"))
+                        break;
 
-                        r = bus_parse_strv_iter(iter, &l);
-                        if (r < 0)
-                                return r;
+                if (!streq(name, "Locale"))
+                        break;
 
-                        if (streq(name, "Locale")) {
-                                strv_free(i->locale);
-                                i->locale = l;
-                                l = NULL;
-                        }
+                r = bus_message_read_strv_extend(property, &l);
+                if (r < 0)
+                        break;
 
-                        strv_free(l);
-                }
+                strv_free(i->locale);
+                i->locale = l;
+                l = NULL;
+
+                break;
+        }
         }
 
-        return 0;
+        return r;
 }
 
-static int show_status(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *interface = "";
+static int show_status(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-        DBusMessageIter iter, sub, sub2, sub3;
         StatusInfo info = {};
 
         assert(args);
 
-        r = bus_method_call_with_reply(
-                        bus,
+        r = sd_bus_call_method( bus,
                         "org.freedesktop.locale1",
                         "/org/freedesktop/locale1",
                         "org.freedesktop.DBus.Properties",
                         "GetAll",
+                        &error,
                         &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
+                        "s", "");
+        if (r < 0) {
+                log_error("Could not get properties: %s", bus_error_message(&error, -r));
                 return r;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
         }
 
-        dbus_message_iter_recurse(&iter, &sub);
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
+        if (r < 0)
+                goto fail;
 
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+        while ((r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
                 const char *name;
+                const char *contents;
 
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_DICT_ENTRY) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
+                r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &name);
+                if (r < 0)
+                        goto fail;
 
-                dbus_message_iter_recurse(&sub, &sub2);
+                r = sd_bus_message_peek_type(reply, NULL, &contents);
+                if (r < 0)
+                        goto fail;
 
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &name, true) < 0) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
+                r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_VARIANT, contents);
+                if (r < 0)
+                        goto fail;
 
-                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT)  {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                dbus_message_iter_recurse(&sub2, &sub3);
-
-                r = status_property(name, &sub3, &info);
+                r = status_read_property(name, reply, &info);
                 if (r < 0) {
                         log_error("Failed to parse reply.");
                         return r;
                 }
 
-                dbus_message_iter_next(&sub);
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        goto fail;
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        goto fail;
         }
 
         print_status_info(&info);
+
+fail:
         strv_free(info.locale);
-        return 0;
+        return r;
 }
 
-static int set_locale(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
-        dbus_bool_t interactive = arg_ask_password;
-        DBusError error;
-        DBusMessageIter iter;
+static int set_locale(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
         assert(args);
 
-        dbus_error_init(&error);
-
         polkit_agent_open_if_enabled();
 
-        m = dbus_message_new_method_call(
+        r = sd_bus_message_new_method_call(bus,
                         "org.freedesktop.locale1",
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
-                        "SetLocale");
-        if (!m)
-                return log_oom();
-
-        dbus_message_iter_init_append(m, &iter);
-
-        r = bus_append_strv_iter(&iter, args + 1);
+                        "SetLocale", &m);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &interactive))
-                return log_oom();
+        r = sd_bus_message_append_strv(m, args + 1);
+        if (r < 0)
+                return r;
 
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
+        r = sd_bus_message_append(m, "b", arg_ask_password);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_send_with_reply_and_block(bus, m, 0, &error, NULL);
+
+        if (r < 0) {
+                log_error("Failed to issue method call: %s", strerror(-r));
+                return r;
         }
 
-        r = 0;
-
-finish:
-        dbus_error_free(&error);
-        return r;
+        return 0;
 }
 
 static int add_locales_from_archive(Set *locales) {
@@ -428,7 +426,7 @@ static int add_locales_from_libdir (Set *locales) {
         return 0;
 }
 
-static int list_locales(DBusConnection *bus, char **args, unsigned n) {
+static int list_locales(sd_bus *bus, char **args, unsigned n) {
         _cleanup_set_free_ Set *locales;
         _cleanup_strv_free_ char **l = NULL;
         int r;
@@ -458,9 +456,9 @@ static int list_locales(DBusConnection *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int set_vconsole_keymap(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = arg_ask_password, b;
+static int set_vconsole_keymap(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *map, *toggle_map;
 
         assert(bus);
@@ -475,21 +473,15 @@ static int set_vconsole_keymap(DBusConnection *bus, char **args, unsigned n) {
 
         map = args[1];
         toggle_map = n > 2 ? args[2] : "";
-        b = arg_convert;
 
-        return bus_method_call_with_reply(
-                        bus,
+        return sd_bus_call_method(bus,
                         "org.freedesktop.locale1",
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
                         "SetVConsoleKeyboard",
-                        &reply,
+                        &error,
                         NULL,
-                        DBUS_TYPE_STRING, &map,
-                        DBUS_TYPE_STRING, &toggle_map,
-                        DBUS_TYPE_BOOLEAN, &b,
-                        DBUS_TYPE_BOOLEAN, &interactive,
-                        DBUS_TYPE_INVALID);
+                        "ssbb", map, toggle_map, arg_convert, arg_ask_password);
 }
 
 static Set *keymaps = NULL;
@@ -531,7 +523,7 @@ static int nftw_cb(
         return 0;
 }
 
-static int list_vconsole_keymaps(DBusConnection *bus, char **args, unsigned n) {
+static int list_vconsole_keymaps(sd_bus *bus, char **args, unsigned n) {
         _cleanup_strv_free_ char **l = NULL;
 
         keymaps = set_new(string_hash_func, string_compare_func);
@@ -565,9 +557,9 @@ static int list_vconsole_keymaps(DBusConnection *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int set_x11_keymap(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = arg_ask_password, b;
+static int set_x11_keymap(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *layout, *model, *variant, *options;
 
         assert(bus);
@@ -584,26 +576,19 @@ static int set_x11_keymap(DBusConnection *bus, char **args, unsigned n) {
         model = n > 2 ? args[2] : "";
         variant = n > 3 ? args[3] : "";
         options = n > 4 ? args[4] : "";
-        b = arg_convert;
 
-        return bus_method_call_with_reply(
-                        bus,
+        return sd_bus_call_method(bus,
                         "org.freedesktop.locale1",
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
                         "SetX11Keyboard",
-                        &reply,
+                        &error,
                         NULL,
-                        DBUS_TYPE_STRING, &layout,
-                        DBUS_TYPE_STRING, &model,
-                        DBUS_TYPE_STRING, &variant,
-                        DBUS_TYPE_STRING, &options,
-                        DBUS_TYPE_BOOLEAN, &b,
-                        DBUS_TYPE_BOOLEAN, &interactive,
-                        DBUS_TYPE_INVALID);
+                        "ssssbb", layout, model, variant, options,
+                                  arg_convert, arg_ask_password);
 }
 
-static int list_x11_keymaps(DBusConnection *bus, char **args, unsigned n) {
+static int list_x11_keymaps(sd_bus *bus, char **args, unsigned n) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **list = NULL;
         char line[LINE_MAX];
@@ -714,9 +699,9 @@ static int help(void) {
                "     --version             Show package version\n"
                "     --no-convert          Don't convert keyboard mappings\n"
                "     --no-pager            Do not pipe output into a pager\n"
-               "  -P --privileged          Acquire privileges before execution\n"
                "     --no-ask-password     Do not prompt for password\n"
-               "  -H --host=[USER@]HOST    Operate on remote host\n\n"
+               "  -H --host=[USER@]HOST    Operate on remote host\n"
+               "  -M --machine=CONTAINER Operate on local container\n\n"
                "Commands:\n"
                "  status                   Show current locale settings\n"
                "  set-locale LOCALE...     Set system locale\n"
@@ -745,14 +730,14 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "version",             no_argument,       NULL, ARG_VERSION             },
-                { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
-                { "host",                required_argument, NULL, 'H'                     },
-                { "privileged",          no_argument,       NULL, 'P'                     },
-                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
-                { "no-convert",          no_argument,       NULL, ARG_NO_CONVERT          },
-                { NULL,                  0,                 NULL, 0                       }
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "host",            required_argument, NULL, 'H'                 },
+                { "machine",         required_argument, NULL, 'M'                 },
+                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "no-convert",      no_argument,       NULL, ARG_NO_CONVERT      },
+                { NULL,              0,                 NULL, 0                   }
         };
 
         int c;
@@ -760,7 +745,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:M:P", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -773,15 +758,6 @@ static int parse_argv(int argc, char *argv[]) {
                         puts(SYSTEMD_FEATURES);
                         return 0;
 
-                case 'P':
-                        arg_transport = TRANSPORT_POLKIT;
-                        break;
-
-                case 'H':
-                        arg_transport = TRANSPORT_SSH;
-                        parse_user_at_host(optarg, &arg_user, &arg_host);
-                        break;
-
                 case ARG_NO_CONVERT:
                         arg_convert = false;
                         break;
@@ -792,6 +768,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_ASK_PASSWORD:
                         arg_ask_password = false;
+                        break;
+
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
+                        break;
+
+                case 'M':
+                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_host = optarg;
                         break;
 
                 case '?':
@@ -806,7 +792,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int localectl_main(DBusConnection *bus, int argc, char *argv[], DBusError *error) {
+static int localectl_main(sd_bus *bus, int argc, char *argv[]) {
 
         static const struct {
                 const char* verb;
@@ -816,7 +802,7 @@ static int localectl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                         EQUAL
                 } argc_cmp;
                 const int argc;
-                int (* const dispatch)(DBusConnection *bus, char **args, unsigned n);
+                int (* const dispatch)(sd_bus *bus, char **args, unsigned n);
         } verbs[] = {
                 { "status",                   LESS,   1, show_status           },
                 { "set-locale",               MORE,   2, set_locale            },
@@ -835,7 +821,6 @@ static int localectl_main(DBusConnection *bus, int argc, char *argv[], DBusError
 
         assert(argc >= 0);
         assert(argv);
-        assert(error);
 
         left = argc - optind;
 
@@ -888,20 +873,12 @@ static int localectl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 assert_not_reached("Unknown comparison operator.");
         }
 
-        if (!bus) {
-                log_error("Failed to get D-Bus connection: %s", error->message);
-                return -EIO;
-        }
-
         return verbs[i].dispatch(bus, argv + optind, left);
 }
 
-int main(int argc, char *argv[]) {
-        int r, retval = EXIT_FAILURE;
-        DBusConnection *bus = NULL;
-        DBusError error;
-
-        dbus_error_init(&error);
+int main(int argc, char*argv[]) {
+        int r, ret = EXIT_FAILURE;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
@@ -911,33 +888,22 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
         else if (r == 0) {
-                retval = EXIT_SUCCESS;
+                ret = EXIT_SUCCESS;
                 goto finish;
         }
 
-        if (arg_transport == TRANSPORT_NORMAL)
-                bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-        else if (arg_transport == TRANSPORT_POLKIT)
-                bus_connect_system_polkit(&bus, &error);
-        else if (arg_transport == TRANSPORT_SSH)
-                bus_connect_system_ssh(NULL, arg_host, &bus, &error);
-        else
-                assert_not_reached("Uh, invalid transport...");
-
-        r = localectl_main(bus, argc, argv, &error);
-        retval = r < 0 ? EXIT_FAILURE : r;
-
-finish:
-        if (bus) {
-                dbus_connection_flush(bus);
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
+        r = bus_open_transport(arg_transport, arg_host, false, &bus);
+        if (r < 0) {
+                log_error("Failed to create bus connection: %s", strerror(-r));
+                ret = EXIT_FAILURE;
+                goto finish;
         }
 
-        dbus_error_free(&error);
-        dbus_shutdown();
+        r = localectl_main(bus, argc, argv);
+        ret = r < 0 ? EXIT_FAILURE : r;
 
+finish:
         pager_close();
 
-        return retval;
+        return ret;
 }

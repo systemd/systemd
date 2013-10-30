@@ -3583,13 +3583,9 @@ update-kbd-model-map: src/locale/generate-kbd-model-map
 localectl_SOURCES = \
 	src/locale/localectl.c
 
-localectl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 localectl_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la \
+	libsystemd-bus.la \
 	libsystemd-id128-internal.la
 
 bin_PROGRAMS += \
