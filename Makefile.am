@@ -744,7 +744,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/apparmor-util.c \
 	src/shared/apparmor-util.h \
 	src/shared/ima-util.c \
-	src/shared/ima-util.h
+	src/shared/ima-util.h \
+	src/shared/ptyfwd.c \
+	src/shared/ptyfwd.h
 
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \

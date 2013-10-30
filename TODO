@@ -48,6 +48,8 @@ CGroup Rework Completion:
 
 Features:
 
+* remove NSS usage from PID 1 (notably the specifiers)
+
 * socket-proxyd:
   - Support multiple inherited sockets mapped using different proxies
   - Use a nonblocking alternative to getaddrinfo
