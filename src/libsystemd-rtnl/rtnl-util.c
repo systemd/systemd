@@ -25,25 +25,43 @@
 
 #include "rtnl-util.h"
 
-int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *name, const struct ether_addr *mac, unsigned mtu) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message;
+int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message = NULL;
+        int r;
+
+        assert(rtnl);
+        assert(ifindex > 0);
+        assert(name);
+
+        r = sd_rtnl_message_link_new(RTM_NEWLINK, ifindex, 0, 0, &message);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_append(message, IFLA_IFNAME, name);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_send_with_reply_and_block(rtnl, message, 0, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const struct ether_addr *mac, unsigned mtu) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message = NULL;
         bool need_update = false;
         int r;
 
         assert(rtnl);
         assert(ifindex > 0);
 
+        if (!mac && mtu == 0)
+                return 0;
+
         r = sd_rtnl_message_link_new(RTM_NEWLINK, ifindex, 0, 0, &message);
         if (r < 0)
                 return r;
-
-        if (name) {
-                r = sd_rtnl_message_append(message, IFLA_IFNAME, name);
-                if (r < 0)
-                        return r;
-
-                need_update = true;
-        }
 
         if (mac) {
                 r = sd_rtnl_message_append(message, IFLA_ADDRESS, mac);

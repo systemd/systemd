@@ -23,4 +23,5 @@
 
 #include "sd-rtnl.h"
 
-int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *name, const struct ether_addr *mac, unsigned mtu);
+int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name);
+int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const struct ether_addr *mac, unsigned mtu);

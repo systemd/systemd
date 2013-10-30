@@ -280,8 +280,10 @@ static bool enable_name_policy(void) {
         }
 
         FOREACH_WORD_QUOTED(w, l, line, state)
-                if (strneq(w, "net.ifnames=0", l))
+                if (strneq(w, "net.ifnames=0", l)) {
+                        log_info("Link name policy disabled on kernel commandline, ignoring.");
                         return false;
+                }
 
         return true;
 }
@@ -365,40 +367,45 @@ static int get_mac(struct udev_device *device, bool want_random, struct ether_ad
         return 0;
 }
 
-int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_device *device) {
-        const char *name;
+int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_device *device, const char **name) {
+        const char *old_name;
         const char *new_name = NULL;
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
         int r, ifindex;
 
+        assert(ctx);
+        assert(config);
+        assert(device);
+        assert(name);
+
         r = link_config_ctx_connect(ctx);
         if (r < 0)
                 return r;
 
-        name = udev_device_get_sysname(device);
-        if (!name)
+        old_name = udev_device_get_sysname(device);
+        if (!old_name)
                 return -EINVAL;
 
-        log_info("Configuring %s", name);
+        log_info("Configuring %s", old_name);
 
         if (config->description) {
                 r = udev_device_set_sysattr_value(device, "ifalias",
                                                   config->description);
                 if (r < 0)
                         log_warning("Could not set description of %s to '%s': %s",
-                                    name, config->description, strerror(-r));
+                                    old_name, config->description, strerror(-r));
         }
 
-        r = ethtool_set_speed(ctx->ethtool_fd, name, config->speed, config->duplex);
+        r = ethtool_set_speed(ctx->ethtool_fd, old_name, config->speed, config->duplex);
         if (r < 0)
                 log_warning("Could not set speed or duplex of %s to %u Mbytes (%s): %s",
-                             name, config->speed, duplex_to_string(config->duplex), strerror(-r));
+                             old_name, config->speed, duplex_to_string(config->duplex), strerror(-r));
 
-        r = ethtool_set_wol(ctx->ethtool_fd, name, config->wol);
+        r = ethtool_set_wol(ctx->ethtool_fd, old_name, config->wol);
         if (r < 0)
                 log_warning("Could not set WakeOnLan of %s to %s: %s",
-                            name, wol_to_string(config->wol), strerror(-r));
+                            old_name, wol_to_string(config->wol), strerror(-r));
 
         ifindex = udev_device_get_ifindex(device);
         if (ifindex <= 0) {
@@ -429,9 +436,12 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                 }
         }
 
-        if (!new_name && config->name) {
-                new_name = config->name;
-        }
+        if (new_name)
+                *name = new_name; /* a name was set by a policy */
+        else if (config->name)
+                *name = config->name; /* a name was set manually in the config */
+        else
+                *name = NULL;
 
         switch (config->mac_policy) {
                 case MACPOLICY_PERSISTENT:
@@ -454,9 +464,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                         mac = config->mac;
         }
 
-        r = rtnl_set_link_properties(ctx->rtnl, ifindex, new_name, mac, config->mtu);
+        r = rtnl_set_link_properties(ctx->rtnl, ifindex, mac, config->mtu);
         if (r < 0) {
-                log_warning("Could not set Name, MACAddress or MTU on %s: %s", name, strerror(-r));
+                log_warning("Could not set MACAddress or MTU on %s: %s", old_name, strerror(-r));
                 return r;
         }
 

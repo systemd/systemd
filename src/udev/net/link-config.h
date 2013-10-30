@@ -74,7 +74,7 @@ int link_config_load(link_config_ctx *ctx);
 bool link_config_should_reload(link_config_ctx *ctx);
 
 int link_config_get(link_config_ctx *ctx, struct udev_device *device, struct link_config **ret);
-int link_config_apply(link_config_ctx *ctx, struct link_config *config, struct udev_device *device);
+int link_config_apply(link_config_ctx *ctx, struct link_config *config, struct udev_device *device, const char **name);
 
 const char *name_policy_to_string(NamePolicy p) _const_;
 NamePolicy name_policy_from_string(const char *p) _pure_;

@@ -26,6 +26,7 @@
 link_config_ctx *ctx;
 
 static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv, bool test) {
+        const char *name;
         link_config *link;
         int r;
 
@@ -45,11 +46,14 @@ static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv
                 }
         }
 
-        r = link_config_apply(ctx, link, dev);
+        r = link_config_apply(ctx, link, dev, &name);
         if (r < 0) {
                 log_error("Could not apply link config to %s", udev_device_get_sysname(dev));
                 return EXIT_FAILURE;
         }
+
+        if (name)
+                udev_builtin_add_property(dev, test, "ID_NET_NAME", name);
 
         return EXIT_SUCCESS;
 }

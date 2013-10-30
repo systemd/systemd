@@ -6,6 +6,8 @@ IMPORT{builtin}="path_id"
 
 ACTION!="add", GOTO="net_setup_link_end"
 
-RUN{builtin}="net_setup_link"
+IMPORT{builtin}="net_setup_link"
+
+NAME=="", ENV{ID_NET_NAME}!="", NAME="$env{ID_NET_NAME}"
 
 LABEL="net_setup_link_end"
