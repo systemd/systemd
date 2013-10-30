@@ -759,7 +759,7 @@ int main(int argc, char*argv[]) {
         if (arg_transport == TRANSPORT_NORMAL)
                 r = sd_bus_open_system(&bus);
         else if (arg_transport == TRANSPORT_SSH)
-                r = bus_connect_system_ssh(arg_host, &bus);
+                r = sd_bus_open_system_remote(arg_host, &bus);
         else
                 assert_not_reached("Uh, invalid transport...");
         if (r < 0) {

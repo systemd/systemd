@@ -50,7 +50,7 @@ static void start_target(const char *target) {
 
         assert(target);
 
-        r = bus_connect_system(&bus);
+        r = bus_open_system_systemd(&bus);
         if (r < 0) {
                 log_error("Failed to get D-Bus connection: %s", strerror(-r));
                 return;

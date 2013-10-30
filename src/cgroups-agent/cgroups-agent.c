@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
          * this to avoid an activation loop when we start dbus when we
          * are called when the dbus service is shut down. */
 
-        r = bus_connect_system(&bus);
+        r = bus_open_system_systemd(&bus);
         if (r < 0) {
                 log_warning("Failed to get D-Bus connection: %s", strerror(-r));
                 return EXIT_FAILURE;

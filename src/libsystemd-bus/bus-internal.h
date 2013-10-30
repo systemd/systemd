@@ -289,6 +289,8 @@ int bus_next_address(sd_bus *bus);
 
 bool bus_pid_changed(sd_bus *bus);
 
+char *bus_address_escape(const char *v);
+
 #define OBJECT_PATH_FOREACH_PREFIX(prefix, path)                        \
         for (char *_slash = ({ strcpy((prefix), (path)); streq((prefix), "/") ? NULL : strrchr((prefix), '/'); }) ; \
              _slash && !(_slash[(_slash) == (prefix)] = 0);             \

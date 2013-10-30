@@ -1033,6 +1033,42 @@ fail:
         return r;
 }
 
+int sd_bus_open_system_remote(const char *host, sd_bus **ret) {
+        _cleanup_free_ char *e = NULL;
+        char *p = NULL;
+        sd_bus *bus;
+        int r;
+
+        assert_return(host, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        e = bus_address_escape(host);
+        if (!e)
+                return -ENOMEM;
+
+        p = strjoin("unixexec:path=ssh,argv1=-xT,argv2=", e, ",argv3=systemd-stdio-bridge", NULL);
+        if (!p)
+                return -ENOMEM;
+
+        r = sd_bus_new(&bus);
+        if (r < 0) {
+                free(p);
+                return r;
+        }
+
+        bus->address = p;
+        bus->bus_client = true;
+
+        r = sd_bus_start(bus);
+        if (r < 0) {
+                bus_free(bus);
+                return r;
+        }
+
+        *ret = bus;
+        return 0;
+}
+
 void sd_bus_close(sd_bus *bus) {
         if (!bus)
                 return;

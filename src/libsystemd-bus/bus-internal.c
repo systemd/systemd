@@ -277,3 +277,29 @@ const char *bus_message_type_to_string(uint8_t u) {
         else
                 return NULL;
 }
+
+char *bus_address_escape(const char *v) {
+        const char *a;
+        char *r, *b;
+
+        r = new(char, strlen(v)*3+1);
+        if (!r)
+                return NULL;
+
+        for (a = v, b = r; *a; a++) {
+
+                if ((*a >= '0' && *a <= '9') ||
+                    (*a >= 'a' && *a <= 'z') ||
+                    (*a >= 'A' && *a <= 'Z') ||
+                    strchr("_-/.", *a))
+                        *(b++) = *a;
+                else {
+                        *(b++) = '%';
+                        *(b++) = hexchar(*a >> 4);
+                        *(b++) = hexchar(*a & 0xF);
+                }
+        }
+
+        *b = 0;
+        return r;
+}

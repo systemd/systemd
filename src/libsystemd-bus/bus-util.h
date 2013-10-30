@@ -37,8 +37,7 @@ int bus_verify_polkit(sd_bus *bus, sd_bus_message *m, const char *action, bool i
 int bus_verify_polkit_async(sd_bus *bus, Hashmap **registry, sd_bus_message *m, const char *action, bool interactive, sd_bus_error *error, sd_bus_message_handler_t callback, void *userdata);
 void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry);
 
-int bus_connect_system(sd_bus **_bus);
-int bus_connect_system_ssh(const char *host, sd_bus **_bus);
+int bus_open_system_systemd(sd_bus **_bus);
 
 int bus_generic_print_property(const char *name, sd_bus_message *property, bool all);
 

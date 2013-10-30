@@ -380,26 +380,22 @@ void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry) {
 }
 
 static int bus_check_peercred(sd_bus *c) {
-        int fd;
         struct ucred ucred;
         socklen_t l;
+        int fd;
 
         assert(c);
 
         fd = sd_bus_get_fd(c);
-
-        assert(fd >= 0);
+        if (fd < 0)
+                return fd;
 
         l = sizeof(struct ucred);
-        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l) < 0) {
-                log_error("SO_PEERCRED failed: %m");
+        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l) < 0)
                 return -errno;
-        }
 
-        if (l != sizeof(struct ucred)) {
-                log_error("SO_PEERCRED returned wrong size.");
+        if (l != sizeof(struct ucred))
                 return -E2BIG;
-        }
 
         if (ucred.uid != 0 && ucred.uid != geteuid())
                 return -EPERM;
@@ -407,79 +403,37 @@ static int bus_check_peercred(sd_bus *c) {
         return 1;
 }
 
-int bus_connect_system(sd_bus **_bus) {
-        sd_bus *bus = NULL;
-        int r;
-        bool private = true;
-
-        assert(_bus);
-
-        if (geteuid() == 0) {
-                /* If we are root, then let's talk directly to the
-                 * system instance, instead of going via the bus */
-
-                r = sd_bus_new(&bus);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_set_address(bus, "unix:path=/run/systemd/private");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_start(bus);
-                if (r < 0)
-                        return r;
-
-        } else {
-                r = sd_bus_open_system(&bus);
-                if (r < 0)
-                        return r;
-
-                private = false;
-        }
-
-        if (private) {
-                r = bus_check_peercred(bus);
-                if (r < 0) {
-                        sd_bus_unref(bus);
-
-                        return -EACCES;
-                }
-        }
-
-        *_bus = bus;
-        return 0;
-}
-
-int bus_connect_system_ssh(const char *host, sd_bus **_bus) {
-        sd_bus *bus;
-        char *p = NULL;
+int bus_open_system_systemd(sd_bus **_bus) {
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
 
         assert(_bus);
-        assert(host);
 
-        asprintf(&p, "unixexec:path=ssh,argv1=-xT,argv2=%s,argv3=systemd-stdio-bridge", host);
-        if (!p)
-                return -ENOMEM;
+        if (geteuid() != 0)
+                return sd_bus_open_system(_bus);
 
-	r = sd_bus_new(&bus);
-	if (r < 0)
-		return r;
+        /* If we are root, then let's talk directly to the system
+         * instance, instead of going via the bus */
 
-	r = sd_bus_set_address(bus, p);
-	if (r < 0)
-		return r;
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
 
-	r = sd_bus_set_bus_client(bus, true);
-	if (r < 0)
-		return r;
+        r = sd_bus_set_address(bus, "unix:path=/run/systemd/private");
+        if (r < 0)
+                return r;
 
-	r = sd_bus_start(bus);
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        r = bus_check_peercred(bus);
         if (r < 0)
                 return r;
 
         *_bus = bus;
+        bus = NULL;
+
         return 0;
 }
 
