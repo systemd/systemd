@@ -60,7 +60,7 @@
  */
 
 static inline bool BUS_MATCH_IS_COMPARE(enum bus_match_node_type t) {
-        return t >= BUS_MATCH_MESSAGE_TYPE && t <= BUS_MATCH_ARG_NAMESPACE_LAST;
+        return t >= BUS_MATCH_SENDER && t <= BUS_MATCH_ARG_NAMESPACE_LAST;
 }
 
 static inline bool BUS_MATCH_CAN_HASH(enum bus_match_node_type t) {
@@ -142,6 +142,22 @@ static bool value_node_test(
 
         case BUS_MATCH_SENDER:
         case BUS_MATCH_DESTINATION:
+                if (streq_ptr(node->value.str, value_str))
+                        return true;
+
+                /* FIXME: So here's an ugliness: if the match is for a
+                 * well-known name then we cannot actually check this
+                 * correctly here. This doesn't matter much for dbus1
+                 * where no false positives exist, hence we just
+                 * ignore this case here. For kdbus the messages
+                 * should contain all well-known names of the sender,
+                 * hence we can fix things there correctly. */
+
+                if (node->value.str[0] != ':' && value_str[0] == ':')
+                        return true;
+
+                return false;
+
         case BUS_MATCH_INTERFACE:
         case BUS_MATCH_MEMBER:
         case BUS_MATCH_PATH:

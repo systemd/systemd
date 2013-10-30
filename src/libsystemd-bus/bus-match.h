@@ -31,8 +31,8 @@ enum bus_match_node_type {
         BUS_MATCH_LEAF,
 
         /* The following are all different kinds of compare nodes */
-        BUS_MATCH_MESSAGE_TYPE,
         BUS_MATCH_SENDER,
+        BUS_MATCH_MESSAGE_TYPE,
         BUS_MATCH_DESTINATION,
         BUS_MATCH_INTERFACE,
         BUS_MATCH_MEMBER,
