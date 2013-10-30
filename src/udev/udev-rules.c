@@ -551,6 +551,7 @@ static int import_property_from_string(struct udev_device *dev, char *line)
         char *key;
         char *val;
         size_t len;
+        struct udev_list_entry *entry;
 
         /* find key */
         key = line;
@@ -601,22 +602,11 @@ static int import_property_from_string(struct udev_device *dev, char *line)
                 val++;
         }
 
-        /* handle device, renamed by external tool, returning new path */
-        if (streq(key, "DEVPATH")) {
-                char syspath[UTIL_PATH_SIZE];
+        entry = udev_device_add_property(dev, key, val);
+        /* store in db, skip private keys */
+        if (key[0] != '.')
+                udev_list_entry_set_num(entry, true);
 
-                log_debug("updating devpath from '%s' to '%s'\n",
-                          udev_device_get_devpath(dev), val);
-                strscpyl(syspath, sizeof(syspath), "/sys", val, NULL);
-                udev_device_set_syspath(dev, syspath);
-        } else {
-                struct udev_list_entry *entry;
-
-                entry = udev_device_add_property(dev, key, val);
-                /* store in db, skip private keys */
-                if (key[0] != '.')
-                        udev_list_entry_set_num(entry, true);
-        }
         return 0;
 }
 
