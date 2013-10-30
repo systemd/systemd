@@ -501,7 +501,7 @@ int main(int argc, char *argv[])
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
                 if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
-                        log_info("HDIO_GET_IDENTITY failed for '%s': %m\n", node);
+                        log_debug("HDIO_GET_IDENTITY failed for '%s': %m\n", node);
                         rc = 2;
                         goto close;
                 }
