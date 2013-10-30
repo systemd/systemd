@@ -3523,12 +3523,11 @@ hostnamectl_SOURCES = \
 	src/hostname/hostnamectl.c
 
 hostnamectl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
+	$(AM_CFLAGS)
 
 hostnamectl_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la \
+	libsystemd-bus.la \
 	libsystemd-id128-internal.la
 
 bin_PROGRAMS += \
