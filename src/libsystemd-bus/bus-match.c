@@ -153,7 +153,7 @@ static bool value_node_test(
                  * should contain all well-known names of the sender,
                  * hence we can fix things there correctly. */
 
-                if (node->value.str[0] != ':' && value_str[0] == ':')
+                if (node->value.str[0] != ':' && value_str && value_str[0] == ':')
                         return true;
 
                 return false;

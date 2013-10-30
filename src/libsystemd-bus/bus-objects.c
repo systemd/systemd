@@ -600,7 +600,7 @@ static int property_get_all_callbacks_run(
         if (r < 0)
                 return r;
 
-        found_interface =
+        found_interface = !iface ||
                 streq(iface, "org.freedesktop.DBus.Properties") ||
                 streq(iface, "org.freedesktop.DBus.Peer") ||
                 streq(iface, "org.freedesktop.DBus.Introspectable");
