@@ -180,6 +180,7 @@ Features:
   - synthesize sd_bus_message objects from kernel messages
   - properly implement name registry ioctls for kdbus
   - implement monitor logic
+  - properly map matches with well-known names against messages with unique names
   - longer term:
     * priority queues
     * priority inheritance
