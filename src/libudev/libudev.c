@@ -125,7 +125,7 @@ _public_ struct udev *udev_new(void)
                 return NULL;
         udev->refcount = 1;
         udev->log_fn = log_stderr;
-        udev->log_priority = LOG_ERR;
+        udev->log_priority = LOG_INFO;
         udev_list_init(udev, &udev->properties_list, true);
 
         f = fopen("/etc/udev/udev.conf", "re");
