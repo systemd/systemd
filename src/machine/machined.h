@@ -23,30 +23,25 @@
 
 #include <stdbool.h>
 #include <inttypes.h>
-#include <dbus/dbus.h>
 
 #include "util.h"
 #include "list.h"
 #include "hashmap.h"
+#include "sd-event.h"
+#include "sd-bus.h"
 
 typedef struct Manager Manager;
 
 #include "machine.h"
 
 struct Manager {
-        DBusConnection *bus;
-
-        int bus_fd;
-        int epoll_fd;
+        sd_event *event;
+        sd_bus *bus;
 
         Hashmap *machines;
         Hashmap *machine_units;
 
         LIST_HEAD(Machine, machine_gc_queue);
-};
-
-enum {
-        FD_BUS
 };
 
 Manager *manager_new(void);
@@ -63,11 +58,17 @@ void manager_gc(Manager *m, bool drop_not_started);
 
 int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine);
 
-extern const DBusObjectPathVTable bus_manager_vtable;
+extern const sd_bus_vtable manager_vtable[];
 
-DBusHandlerResult bus_message_filter(DBusConnection *c, DBusMessage *message, void *userdata);
+int machine_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata);
 
-int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, DBusMessageIter *more_properties, DBusError *error, char **job);
-int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char **job);
-int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error);
+int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata);
+int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata);
+int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata);
+int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata);
+
+int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, sd_bus_message *more_properties, sd_bus_error *error, char **job);
+int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
+int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error);
 int manager_unit_is_active(Manager *manager, const char *unit);
+int manager_job_is_active(Manager *manager, const char *path);

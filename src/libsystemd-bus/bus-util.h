@@ -43,5 +43,40 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
 
 #define _cleanup_bus_unref_ _cleanup_(sd_bus_unrefp)
-#define _cleanup_bus_error_free_ _cleanup_(sd_bus_error_free)
 #define _cleanup_bus_message_unref_ _cleanup_(sd_bus_message_unrefp)
+#define _cleanup_bus_error_free_ _cleanup_(sd_bus_error_free)
+
+#define BUS_DEFINE_PROPERTY_GET_ENUM(function, name, type)              \
+        int function(sd_bus *bus,                                       \
+                     const char *path,                                  \
+                     const char *interface,                             \
+                     const char *property,                              \
+                     sd_bus_message *reply,                             \
+                     sd_bus_error *error,                               \
+                     void *userdata) {                                  \
+                                                                        \
+                const char *value;                                      \
+                type *field = userdata;                                 \
+                int r;                                                  \
+                                                                        \
+                assert(bus);                                            \
+                assert(reply);                                          \
+                assert(field);                                          \
+                                                                        \
+                value = strempty(name##_to_string(*field));             \
+                                                                        \
+                r = sd_bus_message_append_basic(reply, 's', value);     \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                return 1;                                               \
+        }                                                               \
+        struct __useless_struct_to_allow_trailing_semicolon__
+
+#define BUS_ERROR_NO_SUCH_UNIT "org.freedesktop.systemd1.NoSuchUnit"
+#define BUS_ERROR_LOAD_FAILED "org.freedesktop.systemd1.LoadFailed"
+#define BUS_ERROR_JOB_FAILED "org.freedesktop.systemd1.JobFailed"
+
+#define BUS_ERROR_NO_SUCH_MACHINE "org.freedesktop.machine1.NoSuchMachine"
+#define BUS_ERROR_NO_MACHINE_FOR_PID "org.freedesktop.machine1.NoMachineForPID"
+#define BUS_ERROR_MACHINE_EXISTS "org.freedesktop.machine1.MachineExists"

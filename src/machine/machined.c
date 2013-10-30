@@ -26,27 +26,32 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 
-#include <systemd/sd-daemon.h>
+#include "sd-daemon.h"
 
-#include "machined.h"
-#include "dbus-common.h"
-#include "dbus-loop.h"
 #include "strv.h"
 #include "conf-parser.h"
+#include "cgroup-util.h"
 #include "mkdir.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "machined.h"
 
 Manager *manager_new(void) {
         Manager *m;
+        int r;
 
         m = new0(Manager, 1);
         if (!m)
                 return NULL;
 
-        m->bus_fd = -1;
-        m->epoll_fd = -1;
-
         m->machines = hashmap_new(string_hash_func, string_compare_func);
         m->machine_units = hashmap_new(string_hash_func, string_compare_func);
+
+        r = sd_event_new(&m->event);
+        if (r < 0) {
+                manager_free(m);
+                return NULL;
+        }
 
         if (!m->machines || !m->machine_units) {
                 manager_free(m);
@@ -67,19 +72,50 @@ void manager_free(Manager *m) {
         hashmap_free(m->machines);
         hashmap_free(m->machine_units);
 
-        if (m->bus) {
-                dbus_connection_flush(m->bus);
-                dbus_connection_close(m->bus);
-                dbus_connection_unref(m->bus);
-        }
-
-        if (m->bus_fd >= 0)
-                close_nointr_nofail(m->bus_fd);
-
-        if (m->epoll_fd >= 0)
-                close_nointr_nofail(m->epoll_fd);
+        sd_bus_unref(m->bus);
+        sd_event_unref(m->event);
 
         free(m);
+}
+
+int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
+        Machine *machine;
+
+        assert(m);
+        assert(name);
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine) {
+                machine = machine_new(m, name);
+                if (!machine)
+                        return -ENOMEM;
+        }
+
+        if (_machine)
+                *_machine = machine;
+
+        return 0;
+}
+
+int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
+        _cleanup_free_ char *unit = NULL;
+        Machine *mm;
+        int r;
+
+        assert(m);
+        assert(pid >= 1);
+        assert(machine);
+
+        r = cg_pid_get_unit(pid, &unit);
+        if (r < 0)
+                return r;
+
+        mm = hashmap_get(m->machine_units, unit);
+        if (!mm)
+                return 0;
+
+        *machine = mm;
+        return 1;
 }
 
 int manager_enumerate_machines(Manager *m) {
@@ -125,122 +161,118 @@ int manager_enumerate_machines(Manager *m) {
 }
 
 static int manager_connect_bus(Manager *m) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-        struct epoll_event ev = {
-                .events = EPOLLIN,
-                .data.u32 = FD_BUS,
-        };
 
         assert(m);
         assert(!m->bus);
-        assert(m->bus_fd < 0);
 
-        dbus_error_init(&error);
-
-        m->bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-        if (!m->bus) {
-                log_error("Failed to get system D-Bus connection: %s", bus_error_message(&error));
-                r = -ECONNREFUSED;
-                goto fail;
+        r = sd_bus_open_system(&m->bus);
+        if (r < 0) {
+                log_error("Failed to connect to system bus: %s", strerror(-r));
+                return r;
         }
 
-        if (!dbus_connection_register_object_path(m->bus, "/org/freedesktop/machine1", &bus_manager_vtable, m) ||
-            !dbus_connection_register_fallback(m->bus, "/org/freedesktop/machine1/machine", &bus_machine_vtable, m) ||
-            !dbus_connection_add_filter(m->bus, bus_message_filter, m, NULL)) {
-                r = log_oom();
-                goto fail;
+        r = sd_bus_add_object_vtable(m->bus, "/org/freedesktop/machine1", "org.freedesktop.machine1.Manager", manager_vtable, m);
+        if (r < 0) {
+                log_error("Failed to add manager object vtable: %s", strerror(-r));
+                return r;
         }
 
-        dbus_bus_add_match(m->bus,
-                           "type='signal',"
-                           "sender='org.freedesktop.systemd1',"
-                           "interface='org.freedesktop.systemd1.Manager',"
-                           "member='JobRemoved',"
-                           "path='/org/freedesktop/systemd1'",
-                           &error);
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match for JobRemoved: %s", bus_error_message(&error));
-                dbus_error_free(&error);
+        r = sd_bus_add_fallback_vtable(m->bus, "/org/freedesktop/machine1/machine", "org.freedesktop.machine1.Machine", machine_vtable, machine_object_find, m);
+        if (r < 0) {
+                log_error("Failed to add machine object vtable: %s", strerror(-r));
+                return r;
         }
 
-        dbus_bus_add_match(m->bus,
-                           "type='signal',"
-                           "sender='org.freedesktop.systemd1',"
-                           "interface='org.freedesktop.systemd1.Manager',"
-                           "member='UnitRemoved',"
-                           "path='/org/freedesktop/systemd1'",
-                           &error);
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match for UnitRemoved: %s", bus_error_message(&error));
-                dbus_error_free(&error);
+        r = sd_bus_add_node_enumerator(m->bus, "/org/freedesktop/machine1/machine", machine_node_enumerator, m);
+        if (r < 0) {
+                log_error("Failed to add machine enumerator: %s", strerror(-r));
+                return r;
         }
 
-        dbus_bus_add_match(m->bus,
-                           "type='signal',"
-                           "sender='org.freedesktop.systemd1',"
-                           "interface='org.freedesktop.DBus.Properties',"
-                           "member='PropertiesChanged'",
-                           &error);
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match for PropertiesChanged: %s", bus_error_message(&error));
-                dbus_error_free(&error);
+        r = sd_bus_add_match(m->bus,
+                             "type='signal',"
+                             "sender='org.freedesktop.systemd1',"
+                             "interface='org.freedesktop.systemd1.Manager',"
+                             "member='JobRemoved',"
+                             "path='/org/freedesktop/systemd1'",
+                             match_job_removed,
+                             m);
+        if (r < 0) {
+                log_error("Failed to add match for JobRemoved: %s", strerror(-r));
+                return r;
         }
 
-        dbus_bus_add_match(m->bus,
-                           "type='signal',"
-                           "sender='org.freedesktop.systemd1',"
-                           "interface='org.freedesktop.systemd1.Manager',"
-                           "member='Reloading',"
-                           "path='/org/freedesktop/systemd1'",
-                           &error);
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match for Reloading: %s", bus_error_message(&error));
-                dbus_error_free(&error);
+        r = sd_bus_add_match(m->bus,
+                             "type='signal',"
+                             "sender='org.freedesktop.systemd1',"
+                             "interface='org.freedesktop.systemd1.Manager',"
+                             "member='UnitRemoved',"
+                             "path='/org/freedesktop/systemd1'",
+                             match_unit_removed,
+                             m);
+        if (r < 0) {
+                log_error("Failed to add match for UnitRemoved: %s", strerror(-r));
+                return r;
         }
 
-        r = bus_method_call_with_reply(
+        r = sd_bus_add_match(m->bus,
+                             "type='signal',"
+                             "sender='org.freedesktop.systemd1',"
+                             "interface='org.freedesktop.DBus.Properties',"
+                             "member='PropertiesChanged'",
+                             match_properties_changed,
+                             m);
+        if (r < 0) {
+                log_error("Failed to add match for PropertiesChanged: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_add_match(m->bus,
+                             "type='signal',"
+                             "sender='org.freedesktop.systemd1',"
+                             "interface='org.freedesktop.systemd1.Manager',"
+                             "member='Reloading',"
+                             "path='/org/freedesktop/systemd1'",
+                             match_reloading,
+                             m);
+        if (r < 0) {
+                log_error("Failed to add match for Reloading: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_call_method(
                         m->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "Subscribe",
-                        NULL,
                         &error,
-                        DBUS_TYPE_INVALID);
+                        NULL, NULL);
         if (r < 0) {
-                log_error("Failed to enable subscription: %s", bus_error(&error, r));
-                dbus_error_free(&error);
+                log_error("Failed to enable subscription: %s", bus_error_message(&error, r));
+                return r;
         }
 
-        r = dbus_bus_request_name(m->bus, "org.freedesktop.machine1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error);
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to register name on bus: %s", bus_error_message(&error));
-                r = -EIO;
-                goto fail;
+        r = sd_bus_request_name(m->bus, "org.freedesktop.machine1", SD_BUS_NAME_DO_NOT_QUEUE);
+        if (r < 0) {
+                log_error("Failed to register name: %s", strerror(-r));
+                return r;
         }
 
-        if (r != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)  {
+        if (r != SD_BUS_NAME_PRIMARY_OWNER)  {
                 log_error("Failed to acquire name.");
-                r = -EEXIST;
-                goto fail;
+                return -EEXIST;
         }
 
-        m->bus_fd = bus_loop_open(m->bus);
-        if (m->bus_fd < 0) {
-                r = m->bus_fd;
-                goto fail;
+        r = sd_bus_attach_event(m->bus, m->event, 0);
+        if (r < 0) {
+                log_error("Failed to attach bus to event loop: %s", strerror(-r));
+                return r;
         }
-
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->bus_fd, &ev) < 0)
-                goto fail;
 
         return 0;
-
-fail:
-        dbus_error_free(&error);
-
-        return r;
 }
 
 void manager_gc(Manager *m, bool drop_not_started) {
@@ -260,16 +292,11 @@ void manager_gc(Manager *m, bool drop_not_started) {
 }
 
 int manager_startup(Manager *m) {
-        int r;
         Machine *machine;
         Iterator i;
+        int r;
 
         assert(m);
-        assert(m->epoll_fd <= 0);
-
-        m->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-        if (m->epoll_fd < 0)
-                return -errno;
 
         /* Connect to the bus */
         r = manager_connect_bus(m);
@@ -284,46 +311,28 @@ int manager_startup(Manager *m) {
 
         /* And start everything */
         HASHMAP_FOREACH(machine, m->machines, i)
-                machine_start(machine, NULL);
+                machine_start(machine, NULL, NULL);
 
         return 0;
 }
 
 int manager_run(Manager *m) {
+        int r;
+
         assert(m);
 
         for (;;) {
-                struct epoll_event event;
-                int n;
+                r = sd_event_get_state(m->event);
+                if (r < 0)
+                        return r;
+                if (r == SD_EVENT_FINISHED)
+                        return 0;
 
                 manager_gc(m, true);
 
-                if (dbus_connection_dispatch(m->bus) != DBUS_DISPATCH_COMPLETE)
-                        continue;
-
-                manager_gc(m, true);
-
-                n = epoll_wait(m->epoll_fd, &event, 1, -1);
-                if (n < 0) {
-                        if (errno == EINTR || errno == EAGAIN)
-                                continue;
-
-                        log_error("epoll() failed: %m");
-                        return -errno;
-                }
-
-                if (n == 0)
-                        continue;
-
-                switch (event.data.u32) {
-
-                case FD_BUS:
-                        bus_loop_dispatch(m->bus_fd);
-                        break;
-
-                default:
-                        assert_not_reached("Unknown fd");
-                }
+                r = sd_event_run(m->event, (uint64_t) -1);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -348,9 +357,9 @@ int main(int argc, char *argv[]) {
 
         /* Always create the directories people can create inotify
          * watches in. Note that some applications might check for the
-         * existence of /run/systemd/seats/ to determine whether
-         * machined is available, so please always make sure this check
-         * stays in. */
+         * existence of /run/systemd/machines/ to determine whether
+         * machined is available, so please always make sure this
+         * check stays in. */
         mkdir_label("/run/systemd/machines", 0755);
 
         m = manager_new();

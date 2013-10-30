@@ -3709,15 +3709,14 @@ libsystemd_machine_core_la_SOURCES = \
 	src/machine/machine-dbus.c
 
 libsystemd_machine_core_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
+	$(AM_CFLAGS)
 
 libsystemd_machine_core_la_LIBADD = \
 	libsystemd-label.la \
 	libsystemd-audit.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-dbus.la \
+	libsystemd-bus.la \
 	libsystemd-id128-internal.la \
 	libudev.la
 
@@ -3743,8 +3742,7 @@ test_machine_tables_SOURCES = \
 	src/machine/test-machine-tables.c
 
 test_machine_tables_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
+	$(AM_CFLAGS)
 
 test_machine_tables_LDADD = \
 	libsystemd-machine-core.la

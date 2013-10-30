@@ -73,7 +73,7 @@ struct Machine {
         bool in_gc_queue:1;
         bool started:1;
 
-        DBusMessage *create_message;
+        sd_bus_message *create_message;
 
         LIST_FIELDS(Machine, gc_queue);
 };
@@ -82,22 +82,21 @@ Machine* machine_new(Manager *manager, const char *name);
 void machine_free(Machine *m);
 int machine_check_gc(Machine *m, bool drop_not_started);
 void machine_add_to_gc_queue(Machine *m);
-int machine_start(Machine *m, DBusMessageIter *iter);
+int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error);
 int machine_stop(Machine *m);
 int machine_save(Machine *m);
 int machine_load(Machine *m);
 int machine_kill(Machine *m, KillWho who, int signo);
 
-char *machine_bus_path(Machine *s);
-
 MachineState machine_get_state(Machine *u);
 
-extern const DBusObjectPathVTable bus_machine_vtable;
+extern const sd_bus_vtable machine_vtable[];
+
+char *machine_bus_path(Machine *s);
+int machine_object_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata);
 
 int machine_send_signal(Machine *m, bool new_machine);
-int machine_send_changed(Machine *m, const char *properties);
-
-int machine_send_create_reply(Machine *m, DBusError *error);
+int machine_send_create_reply(Machine *m, sd_bus_error *error);
 
 const char* machine_class_to_string(MachineClass t) _const_;
 MachineClass machine_class_from_string(const char *s) _pure_;

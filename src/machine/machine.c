@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <systemd/sd-messages.h>
+#include "sd-messages.h"
 
 #include "util.h"
 #include "mkdir.h"
@@ -32,8 +32,9 @@
 #include "fileio.h"
 #include "special.h"
 #include "unit-name.h"
-#include "dbus-common.h"
 #include "machine.h"
+#include "bus-util.h"
+#include "bus-error.h"
 
 Machine* machine_new(Manager *manager, const char *name) {
         Machine *m;
@@ -84,8 +85,7 @@ void machine_free(Machine *m) {
 
         hashmap_remove(m->manager->machines, m->name);
 
-        if (m->create_message)
-                dbus_message_unref(m->create_message);
+        sd_bus_message_unref(m->create_message);
 
         free(m->name);
         free(m->state_file);
@@ -217,19 +217,14 @@ int machine_load(Machine *m) {
         return r;
 }
 
-static int machine_start_scope(Machine *m, DBusMessageIter *iter) {
-        _cleanup_free_ char *description = NULL;
-        DBusError error;
-        char *job;
+static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         int r = 0;
 
         assert(m);
 
-        dbus_error_init(&error);
-
         if (!m->scope) {
                 _cleanup_free_ char *escaped = NULL;
-                char *scope;
+                char *scope, *description, *job;
 
                 escaped = unit_name_escape(m->name);
                 if (!escaped)
@@ -239,13 +234,11 @@ static int machine_start_scope(Machine *m, DBusMessageIter *iter) {
                 if (!scope)
                         return log_oom();
 
-                description = strappend(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
+                description = strappenda(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
 
-                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, iter, &error, &job);
+                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
                 if (r < 0) {
-                        log_error("Failed to start machine scope: %s", bus_error(&error, r));
-                        dbus_error_free(&error);
-
+                        log_error("Failed to start machine scope: %s", bus_error_message(error, r));
                         free(scope);
                         return r;
                 } else {
@@ -262,7 +255,7 @@ static int machine_start_scope(Machine *m, DBusMessageIter *iter) {
         return r;
 }
 
-int machine_start(Machine *m, DBusMessageIter *iter) {
+int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         int r;
 
         assert(m);
@@ -271,7 +264,7 @@ int machine_start(Machine *m, DBusMessageIter *iter) {
                 return 0;
 
         /* Create cgroup */
-        r = machine_start_scope(m, iter);
+        r = machine_start_scope(m, properties, error);
         if (r < 0)
                 return r;
 
@@ -296,21 +289,18 @@ int machine_start(Machine *m, DBusMessageIter *iter) {
 }
 
 static int machine_stop_scope(Machine *m) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
         assert(m);
-
-        dbus_error_init(&error);
 
         if (!m->scope)
                 return 0;
 
         r = manager_stop_unit(m->manager, m->scope, &error, &job);
         if (r < 0) {
-                log_error("Failed to stop machine scope: %s", bus_error(&error, r));
-                dbus_error_free(&error);
+                log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
                 return r;
         }
 
@@ -352,15 +342,15 @@ int machine_check_gc(Machine *m, bool drop_not_started) {
         assert(m);
 
         if (drop_not_started && !m->started)
-                return 0;
+                return false;
 
-        if (m->scope_job)
-                return 1;
+        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+                return true;
 
-        if (m->scope)
-                return manager_unit_is_active(m->manager, m->scope) != 0;
+        if (m->scope && manager_unit_is_active(m->manager, m->scope))
+                return true;
 
-        return 0;
+        return false;
 }
 
 void machine_add_to_gc_queue(Machine *m) {
