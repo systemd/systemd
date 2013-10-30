@@ -98,7 +98,6 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
         while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
-
                 get_process_comm(pid, &comm);
                 u = uid_to_name(uid);
 
@@ -221,10 +220,9 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        int r;
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int fd = -1;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int r;
 
         log_parse_environment();
         log_open();
@@ -248,15 +246,14 @@ int main(int argc, char *argv[]) {
                 }
 
         } else {
-                char *w = NULL;
+                _cleanup_close_ int fd = -1;
+                _cleanup_free_ char *w = NULL;
                 pid_t pid;
 
                 if (!arg_who)
                         arg_who = w = strv_join(argv + optind, " ");
 
                 fd = inhibit(bus, &error);
-                free(w);
-
                 if (fd < 0) {
                         log_error("Failed to inhibit: %s", bus_error_message(&error, -r));
                         return EXIT_FAILURE;
@@ -279,11 +276,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 r = wait_for_terminate_and_warn(argv[optind], pid);
-                close(fd);
-                if (r < 0)
-                        return EXIT_FAILURE;
-                else
-                        return r;
+                return r < 0 ? EXIT_FAILURE : r;
         }
 
         return 0;

@@ -44,8 +44,8 @@ static bool arg_force = false;
 static bool arg_show_progress = false;
 
 static void start_target(const char *target) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
 
         assert(target);
@@ -67,15 +67,10 @@ static void start_target(const char *target) {
                                &error,
                                NULL,
                                "sss", "basic.target", target, "replace");
-        if (r < 0) {
 
-                /* Don't print a warning if we aren't called during
-                 * startup */
-                if (!sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
-                        log_error("Failed to start unit: %s", bus_error_message(&error, -r));
-        }
-
-        return;
+        /* Don't print a warning if we aren't called during startup */
+        if (r < 0 && !sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
+                log_error("Failed to start unit: %s", bus_error_message(&error, -r));
 }
 
 static int parse_proc_cmdline(void) {

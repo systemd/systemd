@@ -1295,8 +1295,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        int r;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int r;
 
         setlocale(LC_ALL, "");
         setlocale(LC_NUMERIC, "C"); /* we want to format/parse floats in C style */
@@ -1308,9 +1308,9 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         if (arg_scope == UNIT_FILE_SYSTEM)
-            r = sd_bus_open_system(&bus);
+                r = sd_bus_open_system(&bus);
         else
-            r = sd_bus_open_user(&bus);
+                r = sd_bus_open_user(&bus);
 
         if (r < 0) {
                 log_error("Failed to connect to bus: %s", strerror(-r));
