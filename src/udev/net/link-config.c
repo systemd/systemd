@@ -74,6 +74,9 @@ int link_config_ctx_new(link_config_ctx **ret) {
         ctx->link_dirs = strv_new("/etc/systemd/network",
                                   "/run/systemd/network",
                                   "/usr/lib/systemd/network",
+#ifdef HAVE_SPLIT_USR
+                                  "/lib/systemd/network",
+#endif
                                   NULL);
         if (!ctx->link_dirs) {
                 log_error("failed to build link config directory array");
