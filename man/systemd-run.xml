@@ -113,6 +113,27 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+              <term><option>-H</option></term>
+              <term><option>--host=</option></term>
+
+              <listitem><para>Execute operation
+              remotely. Specify a hostname, or
+              username and hostname separated by <literal>@</literal>,
+              to connect to. This will use SSH to
+              talk to the remote machine manager
+              instance.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+              <term><option>-M</option></term>
+              <term><option>--machine=</option></term>
+
+              <listitem><para>Execute operation on a
+              local container. Specify a container
+              name to connect to.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--scope</option></term>
 
         <listitem>
@@ -212,7 +233,8 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -594,3 +594,38 @@ int bus_generic_print_property(const char *name, sd_bus_message *property, bool 
 
         return 0;
 }
+
+int bus_open_transport(BusTransport transport, const char *host, bool user, sd_bus **bus) {
+        int r;
+
+        assert(transport >= 0);
+        assert(transport < _BUS_TRANSPORT_MAX);
+        assert(bus);
+
+        assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
+        assert_return(transport == BUS_TRANSPORT_LOCAL || !user, -ENOTSUP);
+
+        switch (transport) {
+
+        case BUS_TRANSPORT_LOCAL:
+                if (user)
+                        r = sd_bus_open_user(bus);
+                else
+                        r = sd_bus_open_system(bus);
+
+                break;
+
+        case BUS_TRANSPORT_REMOTE:
+                r = sd_bus_open_system_remote(host, bus);
+                break;
+
+        case BUS_TRANSPORT_CONTAINER:
+                r = sd_bus_open_system_container(host, bus);
+                break;
+
+        default:
+                assert_not_reached("Hmm, unknown transport type.");
+        }
+
+        return r;
+}

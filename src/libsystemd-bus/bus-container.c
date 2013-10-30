@@ -44,6 +44,8 @@ int bus_container_connect(sd_bus *b) {
                 return -ENOMEM;
 
         r = parse_env_file(p, NEWLINE, "LEADER", &s, "CLASS", &class, NULL);
+        if (r == -ENOENT)
+                return -EHOSTDOWN;
         if (r < 0)
                 return r;
         if (!s)

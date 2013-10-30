@@ -30,12 +30,14 @@
 #include "path-util.h"
 
 static bool arg_scope = false;
-static bool arg_user = false;
 static bool arg_remain_after_exit = false;
 static const char *arg_unit = NULL;
 static const char *arg_description = NULL;
 static const char *arg_slice = NULL;
 static bool arg_send_sighup = false;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+static char *arg_host = NULL;
+static bool arg_user = false;
 
 static int help(void) {
 
@@ -44,6 +46,8 @@ static int help(void) {
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "     --user               Run as user unit\n"
+               "  -H --host=[USER@]HOST  Operate on remote host\n"
+               "  -M --machine=CONTAINER Operate on local container\n"
                "     --scope              Run this as scope rather than service\n"
                "     --unit=UNIT          Run under the specified unit name\n"
                "     --description=TEXT   Description for unit\n"
@@ -77,6 +81,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "slice",             required_argument, NULL, ARG_SLICE       },
                 { "remain-after-exit", no_argument,       NULL, 'r'             },
                 { "send-sighup",       no_argument,       NULL, ARG_SEND_SIGHUP },
+                { "host",              required_argument, NULL, 'H'             },
+                { "machine",           required_argument, NULL, 'M'             },
                 { NULL,                0,                 NULL, 0               },
         };
 
@@ -85,7 +91,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hr", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hrH:M:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -126,6 +132,16 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_remain_after_exit = true;
                         break;
 
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
+                        break;
+
+                case 'M':
+                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_host = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -137,6 +153,16 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (optind >= argc) {
                 log_error("Command line to execute required.");
+                return -EINVAL;
+        }
+
+        if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL) {
+                log_error("Execution in user context is not supported on non-local systems.");
+                return -EINVAL;
+        }
+
+        if (arg_scope && arg_transport != BUS_TRANSPORT_LOCAL) {
+                log_error("Scope execution is not supported on non-local systems.");
                 return -EINVAL;
         }
 
@@ -351,12 +377,9 @@ int main(int argc, char* argv[]) {
                 arg_description = description;
         }
 
-        if (arg_user)
-                r = sd_bus_open_user(&bus);
-        else
-                r = sd_bus_open_system(&bus);
+        r = bus_open_transport(arg_transport, arg_host, arg_user, &bus);
         if (r < 0) {
-                log_error("Failed to create new bus connection: %s", strerror(-r));
+                log_error("Failed to create bus connection: %s", strerror(-r));
                 goto fail;
         }
 

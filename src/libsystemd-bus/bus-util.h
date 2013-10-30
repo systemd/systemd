@@ -27,6 +27,14 @@
 #include "time-util.h"
 #include "util.h"
 
+typedef enum BusTransport {
+        BUS_TRANSPORT_LOCAL,
+        BUS_TRANSPORT_REMOTE,
+        BUS_TRANSPORT_CONTAINER,
+        _BUS_TRANSPORT_MAX,
+        _BUS_TRANSPORT_INVALID = -1
+} BusTransport;
+
 int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name);
 
 int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout);
@@ -38,6 +46,8 @@ int bus_verify_polkit_async(sd_bus *bus, Hashmap **registry, sd_bus_message *m, 
 void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry);
 
 int bus_open_system_systemd(sd_bus **_bus);
+
+int bus_open_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
 int bus_generic_print_property(const char *name, sd_bus_message *property, bool all);
 

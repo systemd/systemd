@@ -27,7 +27,6 @@
 #include <locale.h>
 
 #include "sd-bus.h"
-
 #include "log.h"
 #include "util.h"
 #include "macro.h"
@@ -46,12 +45,8 @@ static bool arg_full = false;
 static bool arg_no_pager = false;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
-static enum transport {
-        TRANSPORT_LOCAL,
-        TRANSPORT_REMOTE,
-        TRANSPORT_CONTAINER
-} arg_transport = TRANSPORT_LOCAL;
 static bool arg_ask_password = true;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 
 static void pager_open_if_enabled(void) {
@@ -126,7 +121,7 @@ static int show_scope_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         assert(bus);
         assert(unit);
 
-        if (arg_transport == TRANSPORT_REMOTE)
+        if (arg_transport == BUS_TRANSPORT_REMOTE)
                 return 0;
 
         path = unit_dbus_path_from_name(unit);
@@ -628,12 +623,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'H':
-                        arg_transport = TRANSPORT_REMOTE;
+                        arg_transport = BUS_TRANSPORT_REMOTE;
                         arg_host = optarg;
                         break;
 
                 case 'M':
-                        arg_transport = TRANSPORT_CONTAINER;
+                        arg_transport = BUS_TRANSPORT_CONTAINER;
                         arg_host = optarg;
                         break;
 
@@ -749,16 +744,9 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        if (arg_transport == TRANSPORT_LOCAL)
-                r = sd_bus_open_system(&bus);
-        else if (arg_transport == TRANSPORT_REMOTE)
-                r = sd_bus_open_system_remote(arg_host, &bus);
-        else if (arg_transport == TRANSPORT_CONTAINER)
-                r = sd_bus_open_system_container(arg_host, &bus);
-        else
-                assert_not_reached("Uh, invalid transport...");
+        r = bus_open_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
-                log_error("Failed to connect to machined: %s", strerror(-r));
+                log_error("Failed to create bus connection: %s", strerror(-r));
                 ret = EXIT_FAILURE;
                 goto finish;
         }
