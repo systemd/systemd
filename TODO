@@ -717,8 +717,6 @@ Features:
    - document initcall_debug
    - kernel cmdline "bootchart" option for simplicity?
 
-* systemd-run is missing zsh completion scripts
-
 * udev-link-config:
    - Make sure ID_PATH is always exported and complete for
      network devices where possible, so we can safely rely

@@ -1,0 +1,31 @@
+#compdef systemd-run
+
+__systemctl() {
+        local -a _modes
+        _modes=("--user" "--system")
+        systemctl ${words:*_modes} --full --no-legend --no-pager "$@" 2>/dev/null
+}
+
+__get_slices () {
+        __systemctl list-units --all -t slice \
+        | { while read -r a b; do echo $a; done; };
+}
+
+__slices () {
+        local -a _slices
+        _slices=(${(fo)"$(__get_slices)"})
+        typeset -U _slices
+        _describe 'slices' _slices
+}
+
+_arguments \
+        {-h,--help}'[Show help message]' \
+        '--version[Show package version]' \
+        '--user[Run as user unit]' \
+        '--scope[Run this as scope rather than service]' \
+        '--unit=[Run under the specified unit name]:unit name' \
+        '--description=[Description for unit]:description' \
+        '--slice=[Run in the specified slice]:slices:__slices' \
+        {-r,--remain-after-exit}'[Leave service around until explicitly stopped]' \
+        '--send-sighup[Send SIGHUP when terminating]' \
+        '*::command:_command'
