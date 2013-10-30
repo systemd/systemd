@@ -769,7 +769,7 @@ static int rename_netif(struct udev_event *event)
                 log_error("error changing net interface name %s to %s: %s",
                           oldname, name, strerror(-r));
         else
-                log_info("renamed network interface %s to %s", oldname, name);
+                print_kmsg("renamed network interface %s to %s", oldname, name);
 
         return r;
 }
