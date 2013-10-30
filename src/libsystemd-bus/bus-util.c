@@ -539,7 +539,7 @@ int bus_generic_print_property(const char *name, sd_bus_message *property, bool 
                                 printf("%s=", name);
 
 
-                                while(sd_bus_message_read_basic(property, SD_BUS_TYPE_STRING, &str)) {
+                                while(sd_bus_message_read_basic(property, SD_BUS_TYPE_STRING, &str) > 0) {
                                         printf("%s%s", space ? " " : "", str);
 
                                         space = true;
