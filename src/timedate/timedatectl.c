@@ -191,7 +191,6 @@ static void print_status_info(StatusInfo *i) {
 }
 
 static int get_timedate_property_bool(sd_bus *bus, const char *name, bool *target) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r, b;
 
@@ -215,7 +214,6 @@ static int get_timedate_property_bool(sd_bus *bus, const char *name, bool *targe
 }
 
 static int get_timedate_property_usec(sd_bus *bus, const char *name, usec_t *target) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
