@@ -101,7 +101,7 @@ int sd_session_is_active(const char *session);
 /* Get state from session. Possible states: online, active, closing
  * (This function is a more generic version of
  * sd_session_is_active().) */
-int sd_session_get_state(const char *sessio, char **state);
+int sd_session_get_state(const char *session, char **state);
 
 /* Determine user id of session */
 int sd_session_get_uid(const char *session, uid_t *uid);
