@@ -248,9 +248,6 @@ static char** get_ntp_services(void) {
                             "/run/systemd/ntp-units.d",
                             "/usr/local/lib/systemd/ntp-units.d",
                             "/usr/lib/systemd/ntp-units.d",
-#ifdef HAVE_SPLIT_USR
-                            "/lib/systemd/ntp-units.d",
-#endif
                             NULL);
         if (k < 0)
                 return NULL;
