@@ -18,10 +18,27 @@ __slices () {
         _describe 'slices' _slices
 }
 
+__get_machines () {
+        machinectl --full --no-pager list | {while read -r a b; do echo $a; done;};
+}
+
+__machines () {
+        local -a _machines
+        _machines=("${(fo)$(__get_machines)}")
+        typeset -U _machines
+        if [[ -n "$_machines" ]]; then
+                _describe 'machines' _machines
+        else
+                _message 'no machines'
+        fi
+}
+
 _arguments \
         {-h,--help}'[Show help message]' \
         '--version[Show package version]' \
         '--user[Run as user unit]' \
+        {-H+,--host=}'[Operate on remote host]:[user@]host:_sd_hosts_or_user_at_host' \
+        {-M+,--machine=}'[Operate on local container]:machines:__machines' \
         '--scope[Run this as scope rather than service]' \
         '--unit=[Run under the specified unit name]:unit name' \
         '--description=[Description for unit]:description' \
