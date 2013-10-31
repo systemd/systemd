@@ -60,6 +60,9 @@ int detect_vm(const char **id) {
                 /* http://msdn.microsoft.com/en-us/library/ff542428.aspx */
                 "Microsoft Hv\0"          "microsoft\0";
 
+        static __thread int cached_found = -1;
+        static __thread const char *cached_id = NULL;
+
         uint32_t eax, ecx;
         union {
                 uint32_t sig32[3];
@@ -69,6 +72,15 @@ int detect_vm(const char **id) {
         const char *j, *k;
         bool hypervisor;
         _cleanup_free_ char *hvtype = NULL;
+        const char *_id = NULL;
+
+        if (_likely_(cached_found >= 0)) {
+
+                if (id)
+                        *id = cached_id;
+
+                return cached_found;
+        }
 
         /* Try high-level hypervisor sysfs file first:
          *
@@ -76,10 +88,9 @@ int detect_vm(const char **id) {
         r = read_one_line_file("/sys/hypervisor/type", &hvtype);
         if (r >= 0) {
                 if (streq(hvtype, "xen")) {
-                        if (id)
-                                *id = "xen";
-
-                        return 1;
+                        _id = "xen";
+                        r = 1;
+                        goto finish;
                 }
         } else if (r != -ENOENT)
                 return r;
@@ -125,17 +136,14 @@ int detect_vm(const char **id) {
 
                 NULSTR_FOREACH_PAIR(j, k, cpuid_vendor_table)
                         if (streq(sig.text, j)) {
-
-                                if (id)
-                                        *id = k;
-
-                                return 1;
+                                _id = k;
+                                r = 1;
+                                goto finish;
                         }
         }
 
         for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
                 _cleanup_free_ char *s = NULL;
-                const char *found = NULL;
 
                 r = read_one_line_file(dmi_vendors[i], &s);
                 if (r < 0) {
@@ -146,22 +154,17 @@ int detect_vm(const char **id) {
                 }
 
                 NULSTR_FOREACH_PAIR(j, k, dmi_vendor_table)
-                        if (startswith(s, j))
-                                found = k;
-
-                if (found) {
-                        if (id)
-                                *id = found;
-
-                        return 1;
-                }
+                        if (startswith(s, j)) {
+                                _id = k;
+                                r = 1;
+                                goto finish;
+                        }
         }
 
         if (hypervisor || hvtype) {
-                if (id)
-                        *id = "other";
-
-                return 1;
+                _id = "other";
+                r = 1;
+                goto finish;
         }
 
 #endif
@@ -171,16 +174,39 @@ int detect_vm(const char **id) {
         if (r < 0)
                 return r;
         if (strstr(cpuinfo_contents, "\nvendor_id\t: User Mode Linux\n")) {
-                *id = "uml";
-                return 1;
+                _id = "uml";
+                r = 1;
+                goto finish;
         }
 
-        return 0;
+        r = 0;
+
+finish:
+        cached_found = r;
+
+        cached_id = _id;
+        if (id)
+                *id = _id;
+
+        return r;
 }
 
 int detect_container(const char **id) {
+
+        static __thread int cached_found = -1;
+        static __thread const char *cached_id = NULL;
+
         _cleanup_free_ char *e = NULL;
+        const char *_id = NULL;
         int r;
+
+        if (_likely_(cached_found >= 0)) {
+
+                if (id)
+                        *id = cached_id;
+
+                return cached_found;
+        }
 
         /* Unfortunately many of these operations require root access
          * in one way or another */
@@ -189,95 +215,61 @@ int detect_container(const char **id) {
         if (r < 0)
                 return r;
         if (r > 0) {
-
-                if (id)
-                        *id = "chroot";
-
-                return 1;
+                _id = "chroot";
+                goto finish;
         }
 
         /* /proc/vz exists in container and outside of the container,
          * /proc/bc only outside of the container. */
         if (access("/proc/vz", F_OK) >= 0 &&
             access("/proc/bc", F_OK) < 0) {
-
-                if (id)
-                        *id = "openvz";
-
-                return 1;
+                _id = "openvz";
+                r = 1;
+                goto finish;
         }
 
         r = getenv_for_pid(1, "container", &e);
-        if (r <= 0)
+        if (r < 0)
                 return r;
+        if (r == 0)
+                goto finish;
 
         /* We only recognize a selected few here, since we want to
          * enforce a redacted namespace */
-        if (streq(e, "lxc")) {
-                if (id)
-                        *id = "lxc";
-        } else if (streq(e, "lxc-libvirt")) {
-                if (id)
-                        *id = "lxc-libvirt";
-        } else if (streq(e, "systemd-nspawn")) {
-                if (id)
-                        *id = "systemd-nspawn";
-        } else {
-                if (id)
-                        *id = "other";
-        }
+        if (streq(e, "lxc"))
+                _id ="lxc";
+        else if (streq(e, "lxc-libvirt"))
+                _id = "lxc-libvirt";
+        else if (streq(e, "systemd-nspawn"))
+                _id = "systemd-nspawn";
+        else
+                _id = "other";
+
+finish:
+        cached_found = r;
+
+        cached_id = _id;
+        if (id)
+                *id = _id;
 
         return r;
 }
 
 /* Returns a short identifier for the various VM/container implementations */
 Virtualization detect_virtualization(const char **id) {
-
-        static __thread Virtualization cached_virt = _VIRTUALIZATION_INVALID;
-        static __thread const char *cached_id = NULL;
-
-        const char *_id;
         int r;
-        Virtualization v;
 
-        if (_likely_(cached_virt >= 0)) {
+        r = detect_container(id);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return VIRTUALIZATION_CONTAINER;
 
-                if (id && cached_virt > 0)
-                        *id = cached_id;
+        r = detect_vm(id);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return VIRTUALIZATION_VM;
 
-                return cached_virt;
-        }
-
-        r = detect_container(&_id);
-        if (r < 0) {
-                v = r;
-                goto finish;
-        } else if (r > 0) {
-                v = VIRTUALIZATION_CONTAINER;
-                goto finish;
-        }
-
-        r = detect_vm(&_id);
-        if (r < 0) {
-                v = r;
-                goto finish;
-        } else if (r > 0) {
-                v = VIRTUALIZATION_VM;
-                goto finish;
-        }
-
-        v = VIRTUALIZATION_NONE;
-
-finish:
-        if (v > 0) {
-                cached_id = _id;
-
-                if (id)
-                        *id = _id;
-        }
-
-        if (v >= 0)
-                cached_virt = v;
-
-        return v;
+        return VIRTUALIZATION_NONE;
 }
