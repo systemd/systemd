@@ -131,10 +131,11 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>debug=</option></term>
+                                <term><option>debug<optional>=</optional></option></term>
 
-                                <listitem><para>Takes a boolean
-                                argument. If yes, the module will log
+                                <listitem><para>Takes an optional
+                                boolean argument. If yes or without
+                                the argument, the module will log
                                 debugging information as it
                                 operates.</para></listitem>
                         </varlistentry>

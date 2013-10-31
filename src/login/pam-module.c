@@ -51,30 +51,26 @@ static int parse_argv(pam_handle_t *handle,
         assert(argc >= 0);
         assert(argc == 0 || argv);
 
-        for (i = 0; i < (unsigned) argc; i++) {
-                int k;
-
+        for (i = 0; i < (unsigned) argc; i++)
                 if (startswith(argv[i], "class=")) {
-
                         if (class)
                                 *class = argv[i] + 6;
 
-                } else if (startswith(argv[i], "debug=")) {
-                        k = parse_boolean(argv[i] + 6);
-
-                        if (k < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to parse debug= argument.");
-                                return k;
-                        }
-
+                } else if (streq(argv[i], "debug")) {
                         if (debug)
+                                *debug = true;
+
+                } else if (startswith(argv[i], "debug=")) {
+                        int k;
+
+                        k = parse_boolean(argv[i] + 6);
+                        if (k < 0)
+                                pam_syslog(handle, LOG_WARNING, "Failed to parse debug= argument, ignoring.");
+                        else if (debug)
                                 *debug = k;
 
-                } else {
+                } else
                         pam_syslog(handle, LOG_WARNING, "Unknown parameter '%s', ignoring", argv[i]);
-                        return 0;
-                }
-        }
 
         return 0;
 }
@@ -226,7 +222,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         pam_get_item(handle, PAM_SERVICE, (const void**) &service);
         if (streq_ptr(service, "systemd-user")) {
-                char *p, *rt = NULL;
+                _cleanup_free_ char *p = NULL, *rt = NULL;
 
                 if (asprintf(&p, "/run/systemd/users/%lu", (unsigned long) pw->pw_uid) < 0) {
                         r = PAM_BUF_ERR;
@@ -236,18 +232,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 r = parse_env_file(p, NEWLINE,
                                    "RUNTIME", &rt,
                                    NULL);
-                free(p);
-
                 if (r < 0 && r != -ENOENT) {
                         r = PAM_SESSION_ERR;
-                        free(rt);
                         goto finish;
                 }
 
                 if (rt)  {
                         r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
-                        free(rt);
-
                         if (r != PAM_SUCCESS) {
                                 pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
                                 goto finish;
