@@ -33,8 +33,9 @@ static const char *arg_dest = "/tmp";
 int main(int argc, char *argv[]) {
         int r = EXIT_SUCCESS;
         sd_id128_t id;
-        _cleanup_free_ char *name = NULL, *what = NULL, *fsck = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *what = NULL, *fsck = NULL;
+        char *name;
+        _cleanup_fclose_ FILE *f = NULL, *f2 = NULL;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -64,12 +65,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        name = strjoin(arg_dest, "/boot.mount", NULL);
-        if (!name) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
-
+        name = strappenda(arg_dest, "/boot.mount");
         f = fopen(name, "wxe");
         if (!f) {
                 log_error("Failed to create mount unit file %s: %m", name);
@@ -103,16 +99,9 @@ int main(int argc, char *argv[]) {
                 "Options=umask=0077\n",
                 fsck, fsck, what);
 
-        free(name);
-        name = strjoin(arg_dest, "/boot.automount", NULL);
-        if (!name) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
-
-        fclose(f);
-        f = fopen(name, "wxe");
-        if (!f) {
+        name = strappenda(arg_dest, "/boot.automount");
+        f2 = fopen(name, "wxe");
+        if (!f2) {
                 log_error("Failed to create automount unit file %s: %m", name);
                 return EXIT_FAILURE;
         }
@@ -121,15 +110,9 @@ int main(int argc, char *argv[]) {
               "[Unit]\n"
               "Description=EFI System Partition Automount\n\n"
               "[Automount]\n"
-              "Where=/boot\n", f);
+              "Where=/boot\n", f2);
 
-        free(name);
-        name = strjoin(arg_dest, "/local-fs.target.wants/boot.automount", NULL);
-        if (!name) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
-
+        name = strappenda(arg_dest, "/local-fs.target.wants/boot.automount");
         mkdir_parents(name, 0755);
 
         if (symlink("../boot.automount", name) < 0) {
@@ -137,5 +120,5 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        return 0;
+        return EXIT_SUCCESS;
 }
