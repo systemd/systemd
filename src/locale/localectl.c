@@ -256,9 +256,8 @@ static int set_locale(sd_bus *bus, char **args, unsigned n) {
                 return r;
 
         r = sd_bus_send_with_reply_and_block(bus, m, 0, &error, NULL);
-
         if (r < 0) {
-                log_error("Failed to issue method call: %s", strerror(-r));
+                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
                 return r;
         }
 
@@ -460,6 +459,7 @@ static int set_vconsole_keymap(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *map, *toggle_map;
+        int r;
 
         assert(bus);
         assert(args);
@@ -474,7 +474,8 @@ static int set_vconsole_keymap(sd_bus *bus, char **args, unsigned n) {
         map = args[1];
         toggle_map = n > 2 ? args[2] : "";
 
-        return sd_bus_call_method(bus,
+        r = sd_bus_call_method(
+                        bus,
                         "org.freedesktop.locale1",
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
@@ -482,6 +483,10 @@ static int set_vconsole_keymap(sd_bus *bus, char **args, unsigned n) {
                         &error,
                         NULL,
                         "ssbb", map, toggle_map, arg_convert, arg_ask_password);
+        if (r < 0)
+                log_error("Failed to set keymap: %s", bus_error_message(&error, -r));
+
+        return r;
 }
 
 static Set *keymaps = NULL;
@@ -561,6 +566,7 @@ static int set_x11_keymap(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *layout, *model, *variant, *options;
+        int r;
 
         assert(bus);
         assert(args);
@@ -577,7 +583,8 @@ static int set_x11_keymap(sd_bus *bus, char **args, unsigned n) {
         variant = n > 3 ? args[3] : "";
         options = n > 4 ? args[4] : "";
 
-        return sd_bus_call_method(bus,
+        r = sd_bus_call_method(
+                        bus,
                         "org.freedesktop.locale1",
                         "/org/freedesktop/locale1",
                         "org.freedesktop.locale1",
@@ -586,6 +593,10 @@ static int set_x11_keymap(sd_bus *bus, char **args, unsigned n) {
                         NULL,
                         "ssssbb", layout, model, variant, options,
                                   arg_convert, arg_ask_password);
+        if (r < 0)
+                log_error("Failed to set keymap: %s", bus_error_message(&error, -r));
+
+        return r;
 }
 
 static int list_x11_keymaps(sd_bus *bus, char **args, unsigned n) {
@@ -701,7 +712,7 @@ static int help(void) {
                "     --no-pager            Do not pipe output into a pager\n"
                "     --no-ask-password     Do not prompt for password\n"
                "  -H --host=[USER@]HOST    Operate on remote host\n"
-               "  -M --machine=CONTAINER Operate on local container\n\n"
+               "  -M --machine=CONTAINER   Operate on local container\n\n"
                "Commands:\n"
                "  status                   Show current locale settings\n"
                "  set-locale LOCALE...     Set system locale\n"
