@@ -409,11 +409,14 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         _cleanup_close_ int nsfd = -1, rootfd = -1;
         _cleanup_free_ char *ns = NULL, *root = NULL;
         _cleanup_close_pipe_ int sock[2] = { -1, -1 };
-        struct msghdr mh;
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control;
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
         struct cmsghdr *cmsg;
         int master = -1, r;
         pid_t child;
@@ -437,11 +440,6 @@ static int openpt_in_namespace(pid_t pid, int flags) {
 
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sock) < 0)
                 return -errno;
-
-        zero(control);
-        zero(mh);
-        mh.msg_control = &control;
-        mh.msg_controllen = sizeof(control);
 
         child = fork();
         if (child < 0)
