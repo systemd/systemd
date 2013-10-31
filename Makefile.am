@@ -417,6 +417,7 @@ nodist_systemunit_DATA = \
 	units/serial-getty@.service \
 	units/console-shell.service \
 	units/console-getty.service \
+	units/container-getty@.service \
 	units/systemd-initctl.service \
 	units/systemd-shutdownd.service \
 	units/systemd-remount-fs.service \
@@ -459,6 +460,7 @@ EXTRA_DIST += \
 	units/serial-getty@.service.m4 \
 	units/console-shell.service.m4.in \
 	units/console-getty.service.m4.in \
+	units/container-getty@.service.m4.in \
 	units/rescue.service.m4.in \
 	units/systemd-initctl.service.in \
 	units/systemd-shutdownd.service.in \
@@ -494,6 +496,7 @@ EXTRA_DIST += \
 CLEANFILES += \
 	units/console-shell.service.m4 \
 	units/console-getty.service.m4 \
+	units/container-getty@.service.m4 \
 	units/rescue.service.m4
 
 if HAVE_SYSV_COMPAT

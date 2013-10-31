@@ -123,10 +123,10 @@
                 see each other. The PID namespace separation of the
                 two containers is complete and the containers will
                 share very few runtime objects except for the
-                underlying file system. It is however possible to
-                enter an existing container, see
-                <link linkend='example-nsenter'>Example 4</link> below.
-                </para>
+                underlying file system. Use
+                <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+                <command>login</command> command to request an
+                additional login prompt in a running container.</para>
 
                 <para><command>systemd-nspawn</command> implements the
                 <ulink
@@ -409,24 +409,6 @@
                 boots an OS in a namespace container in it.</para>
         </refsect1>
 
-        <refsect1 id='example-nsenter'>
-                <title>Example 4</title>
-
-                <para>To enter the container, PID of one of the
-                processes sharing the new namespaces must be used.
-                <command>systemd-nspawn</command> prints the PID
-                (as viewed from the outside) of the launched process,
-                and it can be used to enter the container.</para>
-
-                <programlisting># nsenter -m -u -i -n -p -t $PID</programlisting>
-
-                <para><citerefentry><refentrytitle>nsenter</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                is part of
-                <ulink url="https://github.com/karelzak/util-linux">util-linux</ulink>.
-                Kernel support for entering namespaces was added in
-                Linux 3.8.</para>
-        </refsect1>
-
         <refsect1>
                 <title>Exit status</title>
 
@@ -439,11 +421,11 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>unshare</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

@@ -572,6 +572,10 @@ static inline void umaskp(mode_t *u) {
         umask(*u);
 }
 
+static inline void close_pipep(int (*p)[2]) {
+        close_pipe(*p);
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, fclose);
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, pclose);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DIR*, closedir);
@@ -585,6 +589,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
 #define _cleanup_pclose_ _cleanup_(pclosep)
 #define _cleanup_closedir_ _cleanup_(closedirp)
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
+#define _cleanup_close_pipe_ _cleanup_(close_pipep)
 
 _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b == 0 || a > ((size_t) -1) / b))

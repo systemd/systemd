@@ -72,7 +72,7 @@ int bus_container_connect(sd_bus *b) {
         if (r < 0)
                 return -ENOMEM;
 
-        rootfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        rootfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
         if (rootfd < 0)
                 return -errno;
 
@@ -100,7 +100,6 @@ int bus_container_connect(sd_bus *b) {
 
                 if (chroot(".") < 0)
                         _exit(255);
-
 
                 r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
                 if (r < 0) {

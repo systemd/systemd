@@ -976,11 +976,8 @@ int main(int argc, char *argv[]) {
         _cleanup_close_ int master = -1;
         int n_fd_passed;
         const char *console = NULL;
-        struct termios saved_attr, raw_attr;
         sigset_t mask;
-        bool saved_attr_valid = false;
-        struct winsize ws;
-        int kmsg_socket_pair[2] = { -1, -1 };
+        _cleanup_close_pipe_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
 
         log_parse_environment();
@@ -1075,22 +1072,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_info("Spawning namespace container on %s (console is %s).", arg_directory, console);
-
-        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
-                ioctl(master, TIOCSWINSZ, &ws);
+        log_info("Spawning container %s on %s. Press ^] three times within 1s to abort execution.", arg_machine, arg_directory);
 
         if (unlockpt(master) < 0) {
                 log_error("Failed to unlock tty: %m");
                 goto finish;
-        }
-
-        if (tcgetattr(STDIN_FILENO, &saved_attr) >= 0) {
-                saved_attr_valid = true;
-
-                raw_attr = saved_attr;
-                cfmakeraw(&raw_attr);
-                raw_attr.c_lflag &= ~ECHO;
         }
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
@@ -1106,18 +1092,6 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 siginfo_t status;
-                int pipefd[2], pipefd2[2];
-
-                if (pipe2(pipefd, O_NONBLOCK|O_CLOEXEC) < 0) {
-                        log_error("pipe2(): %m");
-                        goto finish;
-                }
-
-                if (pipe2(pipefd2, O_NONBLOCK|O_CLOEXEC) < 0) {
-                        log_error("pipe2(): %m");
-                        close_pipe(pipefd);
-                        goto finish;
-                }
 
                 pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL);
                 if (pid < 0) {
@@ -1152,20 +1126,8 @@ int main(int argc, char *argv[]) {
                         if (envp[n_env])
                                 n_env ++;
 
-                        /* Wait for the parent process to log our PID */
-                        close_nointr_nofail(pipefd[1]);
-                        fd_wait_for_event(pipefd[0], POLLHUP, -1);
-                        close_nointr_nofail(pipefd[0]);
-
                         close_nointr_nofail(master);
                         master = -1;
-
-                        if (saved_attr_valid) {
-                                if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr) < 0) {
-                                        log_error("Failed to set terminal attributes: %m");
-                                        goto child_fail;
-                                }
-                        }
 
                         close_nointr(STDIN_FILENO);
                         close_nointr(STDOUT_FILENO);
@@ -1205,8 +1167,6 @@ int main(int argc, char *argv[]) {
                                 log_error("PR_SET_PDEATHSIG failed: %m");
                                 goto child_fail;
                         }
-
-                        close_pipe(pipefd2);
 
                         r = register_machine();
                         if (r < 0)
@@ -1416,25 +1376,23 @@ int main(int argc, char *argv[]) {
                         _exit(EXIT_FAILURE);
                 }
 
-                log_info("Init process in the container running as PID %lu.", (unsigned long) pid);
-                close_nointr_nofail(pipefd[0]);
-                close_nointr_nofail(pipefd[1]);
-
-                /* Wait for the child process to establish cgroup hierarchy */
-                close_nointr_nofail(pipefd2[1]);
-                fd_wait_for_event(pipefd2[0], POLLHUP, -1);
-                close_nointr_nofail(pipefd2[0]);
-
                 fdset_free(fds);
                 fds = NULL;
 
-                if (process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3) < 0)
-                        goto finish;
+                k = process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3);
+                if (k < 0) {
+                        r = EXIT_FAILURE;
+                        break;
+                }
 
-                if (saved_attr_valid)
-                        tcsetattr(STDIN_FILENO, TCSANOW, &saved_attr);
+                putc('\n', stdout);
+
+                /* Kill if it is not dead yet anyway */
+                kill(pid, SIGKILL);
 
                 k = wait_for_terminate(pid, &status);
+                pid = 0;
+
                 if (k < 0) {
                         r = EXIT_FAILURE;
                         break;
@@ -1443,40 +1401,35 @@ int main(int argc, char *argv[]) {
                 if (status.si_code == CLD_EXITED) {
                         r = status.si_status;
                         if (status.si_status != 0) {
-                                log_error("Container failed with error code %i.", status.si_status);
+                                log_error("Container %s failed with error code %i.", arg_machine, status.si_status);
                                 break;
                         }
 
-                        log_debug("Container exited successfully.");
+                        log_debug("Container %s exited successfully.", arg_machine);
                         break;
                 } else if (status.si_code == CLD_KILLED &&
                            status.si_status == SIGINT) {
-                        log_info("Container has been shut down.");
+                        log_info("Container %s has been shut down.", arg_machine);
                         r = 0;
                         break;
                 } else if (status.si_code == CLD_KILLED &&
                            status.si_status == SIGHUP) {
-                        log_info("Container is being rebooted.");
+                        log_info("Container %s is being rebooted.", arg_machine);
                         continue;
                 } else if (status.si_code == CLD_KILLED ||
                            status.si_code == CLD_DUMPED) {
 
-                        log_error("Container terminated by signal %s.", signal_to_string(status.si_status));
+                        log_error("Container %s terminated by signal %s.", arg_machine,  signal_to_string(status.si_status));
                         r = EXIT_FAILURE;
                         break;
                 } else {
-                        log_error("Container failed due to unknown reason.");
+                        log_error("Container %s failed due to unknown reason.", arg_machine);
                         r = EXIT_FAILURE;
                         break;
                 }
         }
 
 finish:
-        if (saved_attr_valid)
-                tcsetattr(STDIN_FILENO, TCSANOW, &saved_attr);
-
-        close_pipe(kmsg_socket_pair);
-
         if (pid > 0)
                 kill(pid, SIGKILL);
 

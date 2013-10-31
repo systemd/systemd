@@ -9,6 +9,8 @@
 /systemd-suspend.service
 /console-getty.service
 /console-getty.service.m4
+/container-getty@.service
+/container-getty@.service.m4
 /systemd-journald.service
 /user@.service
 /systemd-logind.service

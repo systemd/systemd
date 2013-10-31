@@ -25,6 +25,8 @@
 #include <getopt.h>
 #include <pwd.h>
 #include <locale.h>
+#include <socket.h>
+#include <fcntl.h>
 
 #include "sd-bus.h"
 #include "log.h"
@@ -38,6 +40,7 @@
 #include "unit-name.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
+#include "ptyfwd.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -515,6 +518,239 @@ static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
+static int openpt_in_namespace(pid_t pid, int flags) {
+        _cleanup_close_ int nsfd = -1, rootfd = -1;
+        _cleanup_free_ char *ns = NULL, *root = NULL;
+        _cleanup_close_pipe_ int sock[2] = { -1, -1 };
+        struct msghdr mh;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control;
+        struct cmsghdr *cmsg;
+        int master, r;
+        pid_t child;
+        siginfo_t si;
+
+        r = asprintf(&ns, "/proc/%lu/ns/mnt", (unsigned long) pid);
+        if (r < 0)
+                return -ENOMEM;
+
+        nsfd = open(ns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (nsfd < 0)
+                return -errno;
+
+        r = asprintf(&root, "/proc/%lu/root", (unsigned long) pid);
+        if (r < 0)
+                return -ENOMEM;
+
+        rootfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (rootfd < 0)
+                return -errno;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sock) < 0)
+                return -errno;
+
+        zero(control);
+        zero(mh);
+        mh.msg_control = &control;
+        mh.msg_controllen = sizeof(control);
+
+        child = fork();
+        if (child < 0)
+                return -errno;
+
+        if (child == 0) {
+                close_nointr_nofail(sock[0]);
+                sock[0] = -1;
+
+                r = setns(nsfd, CLONE_NEWNS);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (fchdir(rootfd) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (chroot(".") < 0)
+                        _exit(EXIT_FAILURE);
+
+                master = posix_openpt(flags);
+                if (master < 0)
+                        _exit(EXIT_FAILURE);
+
+                cmsg = CMSG_FIRSTHDR(&mh);
+                cmsg->cmsg_level = SOL_SOCKET;
+                cmsg->cmsg_type = SCM_RIGHTS;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+                memcpy(CMSG_DATA(cmsg), &master, sizeof(int));
+
+                mh.msg_controllen = cmsg->cmsg_len;
+
+                r = sendmsg(sock[1], &mh, MSG_NOSIGNAL);
+                close_nointr_nofail(master);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        close_nointr_nofail(sock[1]);
+        sock[1] = -1;
+
+        if (recvmsg(sock[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
+                return -errno;
+
+        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+                        int *fds;
+                        unsigned n_fds;
+
+                        fds = (int*) CMSG_DATA(cmsg);
+                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+                        if (n_fds != 1) {
+                                close_many(fds, n_fds);
+                                return -EIO;
+                        }
+
+                        master = fds[0];
+                }
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS || master < 0) {
+
+                if (master >= 0)
+                        close_nointr_nofail(master);
+
+                return r < 0 ? r : -EIO;
+        }
+
+        return master;
+}
+
+static int login_machine(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *reply2 = NULL, *reply3 = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_unref_ sd_bus *container_bus = NULL;
+        _cleanup_close_ int master = -1;
+        _cleanup_free_ char *getty = NULL;
+        const char *path, *pty, *p;
+        uint32_t leader;
+        sigset_t mask;
+        int r;
+
+        assert(bus);
+        assert(args);
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL) {
+                log_error("Login only support on local machines.");
+                return -ENOTSUP;
+        }
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        "/org/freedesktop/machine1",
+                        "org.freedesktop.machine1.Manager",
+                        "GetMachine",
+                        &error,
+                        &reply,
+                        "s", args[1]);
+        if (r < 0) {
+                log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "o", &path);
+        if (r < 0) {
+                log_error("Failed to parse reply: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_get_property(
+                        bus,
+                        "org.freedesktop.machine1",
+                        path,
+                        "org.freedesktop.machine1.Machine",
+                        "Leader",
+                        &error,
+                        &reply2,
+                        "u");
+        if (r < 0) {
+                log_error("Failed to retrieve PID of leader: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply2, "u", &leader);
+        if (r < 0) {
+                log_error("Failed to parse reply: %s", strerror(-r));
+                return r;
+        }
+
+        master = openpt_in_namespace(leader, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
+        if (master < 0) {
+                log_error("Failed to acquire pseudo tty: %s", strerror(-master));
+                return master;
+        }
+
+        pty = ptsname(master);
+        if (!pty) {
+                log_error("Failed to get pty name: %m");
+                return -errno;
+        }
+
+        p = startswith(pty, "/dev/pts/");
+        if (!p) {
+                log_error("Invalid pty name %s.", pty);
+                return -EIO;
+        }
+
+        r = sd_bus_open_system_container(args[1], &container_bus);
+        if (r < 0) {
+                log_error("Failed to get container bus: %s", strerror(-r));
+                return r;
+        }
+
+        getty = strjoin("container-getty@", p, ".service", NULL);
+        if (!getty)
+                return log_oom();
+
+        if (unlockpt(master) < 0) {
+                log_error("Failed to unlock tty: %m");
+                return -errno;
+        }
+
+        r = sd_bus_call_method(container_bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "StartUnit",
+                               &error, &reply3,
+                               "ss", getty, "replace");
+        if (r < 0) {
+                log_error("Failed to start getty service: %s", bus_error_message(&error, r));
+                return r;
+        }
+
+        assert_se(sigemptyset(&mask) == 0);
+        sigset_add_many(&mask, SIGWINCH, SIGTERM, SIGINT, -1);
+        assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
+
+        log_info("Connected to container %s. Press ^] three times within 1s to exit session.", args[1]);
+
+        r = process_pty(master, &mask, 0, 0);
+        if (r < 0) {
+                log_error("Failed to process pseudo tty: %s", strerror(-r));
+                return r;
+        }
+
+        fputc('\n', stdout);
+
+        log_info("Connection to container %s terminated.", args[1]);
+
+        return 0;
+}
+
 static int help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -535,7 +771,8 @@ static int help(void) {
                "  status [NAME...]       Show VM/container status\n"
                "  show [NAME...]         Show properties of one or more VMs/containers\n"
                "  terminate [NAME...]    Terminate one or more VMs/containers\n"
-               "  kill [NAME...]         Send signal to processes of a VM/container\n",
+               "  kill [NAME...]         Send signal to processes of a VM/container\n"
+               "  login [NAME]           Get a login prompt on a container\n",
                program_invocation_short_name);
 
         return 0;
@@ -644,7 +881,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int machinectl_main(sd_bus *bus, int argc, char *argv[], const int r) {
+static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
 
         static const struct {
                 const char* verb;
@@ -661,6 +898,7 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[], const int r) {
                 { "show",                  MORE,   1, show              },
                 { "terminate",             MORE,   2, terminate_machine },
                 { "kill",                  MORE,   2, kill_machine      },
+                { "login",                 MORE,   2, login_machine     },
         };
 
         int left;
@@ -720,11 +958,6 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[], const int r) {
                 assert_not_reached("Unknown comparison operator.");
         }
 
-        if (r < 0) {
-                log_error("Failed to get D-Bus connection: %s", strerror(-r));
-                return -EIO;
-        }
-
         return verbs[i].dispatch(bus, argv + optind, left);
 }
 
@@ -751,7 +984,7 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        r = machinectl_main(bus, argc, argv, r);
+        r = machinectl_main(bus, argc, argv);
         ret = r < 0 ? EXIT_FAILURE : r;
 
 finish:

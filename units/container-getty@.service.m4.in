@@ -6,26 +6,24 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Console Getty
-Documentation=man:agetty(8)
+Description=Container Getty on /dev/pts/%I
+Documentation=man:agetty(8) man:machinectl(1)
 After=systemd-user-sessions.service plymouth-quit-wait.service
 m4_ifdef(`HAVE_SYSV_COMPAT',
 After=rc-local.service
 )m4_dnl
 Before=getty.target
+IgnoreOnIsolate=yes
 
 [Service]
-ExecStart=-/sbin/agetty --noclear --keep-baud console 115200,38400,9600
+ExecStart=-/sbin/agetty --noclear --keep-baud pts/%I 115200,38400,9600
 Type=idle
 Restart=always
 RestartSec=0
-UtmpIdentifier=cons
-TTYPath=/dev/console
+UtmpIdentifier=%I
+TTYPath=/dev/%I
 TTYReset=yes
 TTYVHangup=yes
 KillMode=process
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
-
-[Install]
-WantedBy=getty.target

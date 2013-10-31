@@ -263,6 +263,19 @@
                                 <option>--signal=</option> to select
                                 the signal to send.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><command>login [ID]</command></term>
+
+                                <listitem><para>Open a terminal login
+                                session to a container. This will
+                                create a TTY connection to a specific
+                                container and asks for execution of a
+                                getty on it. Note that this is only
+                                supported for containers running
+                                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                as init system.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
         </refsect1>
