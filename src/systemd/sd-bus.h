@@ -207,6 +207,7 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete);
 
 int sd_bus_call_method(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, sd_bus_message **reply, const char *types, ...);
 int sd_bus_get_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, sd_bus_message **reply, const char *type);
+int sd_bus_get_property_trivial(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char type, void *ptr);
 int sd_bus_set_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, const char *type, ...);
 int sd_bus_reply_method_return(sd_bus *bus, sd_bus_message *call, const char *types, ...);
 int sd_bus_reply_method_error(sd_bus *bus, sd_bus_message *call, const sd_bus_error *e);

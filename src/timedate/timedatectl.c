@@ -193,29 +193,24 @@ static void print_status_info(StatusInfo *i) {
 static int get_timedate_property_bool(sd_bus *bus, const char *name, bool *target) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
+        int r, b;
 
         assert(name);
 
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.timedate1",
-                                "/org/freedesktop/timedate1",
-                                "org.freedesktop.timedate1",
-                                name,
-                                &error,
-                                &reply,
-                                "b");
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.timedate1",
+                        "/org/freedesktop/timedate1",
+                        "org.freedesktop.timedate1",
+                        name,
+                        &error,
+                        'b', &b);
         if (r < 0) {
                 log_error("Failed to get property: %s %s", name, bus_error_message(&error, -r));
                 return r;
         }
 
-        r = sd_bus_message_read(reply, "b", target);
-        if (r < 0) {
-                log_error("Failed to parse reply.");
-                return r;
-        }
-
+        *target = b;
         return 0;
 }
 
@@ -226,22 +221,16 @@ static int get_timedate_property_usec(sd_bus *bus, const char *name, usec_t *tar
 
         assert(name);
 
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.timedate1",
-                                "/org/freedesktop/timedate1",
-                                "org.freedesktop.timedate1",
-                                name,
-                                &error,
-                                &reply,
-                                "t");
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.timedate1",
+                        "/org/freedesktop/timedate1",
+                        "org.freedesktop.timedate1",
+                        name,
+                        &error,
+                        't', target);
         if (r < 0) {
                 log_error("Failed to get property: %s %s", name, bus_error_message(&error, -r));
-                return r;
-        }
-
-        r = sd_bus_message_read(reply, "t", target);
-        if (r < 0) {
-                log_error("Failed to parse reply.");
                 return r;
         }
 
@@ -256,14 +245,15 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
 
         assert(bus);
 
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.timedate1",
-                                "/org/freedesktop/timedate1",
-                                "org.freedesktop.timedate1",
-                                "Timezone",
-                                &error,
-                                &reply,
-                                "s");
+        r = sd_bus_get_property(
+                        bus,
+                        "org.freedesktop.timedate1",
+                        "/org/freedesktop/timedate1",
+                        "org.freedesktop.timedate1",
+                        "Timezone",
+                        &error,
+                        &reply,
+                        "s");
         if (r < 0) {
                 log_error("Failed to get property: Timezone %s", bus_error_message(&error, -r));
                 return r;
@@ -334,7 +324,6 @@ static int set_time(sd_bus *bus, char **args, unsigned n) {
 
 static int set_timezone(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        bool interactive = arg_ask_password;
         int r;
 
         assert(args);
@@ -349,7 +338,7 @@ static int set_timezone(sd_bus *bus, char **args, unsigned n) {
                                "SetTimezone",
                                &error,
                                NULL,
-                               "sb", args[1], interactive);
+                               "sb", args[1], arg_ask_password);
         if (r < 0)
                 log_error("Failed to set timezone: %s", bus_error_message(&error, -r));
 
@@ -358,22 +347,18 @@ static int set_timezone(sd_bus *bus, char **args, unsigned n) {
 
 static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        bool interactive = arg_ask_password, b, q;
-        int r;
+        int r, b;
 
         assert(args);
         assert(n == 2);
 
         polkit_agent_open_if_enabled();
 
-        r = parse_boolean(args[1]);
-        if (r < 0) {
+        b = parse_boolean(args[1]);
+        if (b < 0) {
                 log_error("Failed to parse local RTC setting: %s", args[1]);
-                return r;
+                return b;
         }
-
-        b = r;
-        q = arg_adjust_system_clock;
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.timedate1",
@@ -382,7 +367,7 @@ static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
                                "SetLocalRTC",
                                &error,
                                NULL,
-                               "bbb", b, q, interactive);
+                               "bbb", b, arg_adjust_system_clock, arg_ask_password);
         if (r < 0)
                 log_error("Failed to set local RTC: %s", bus_error_message(&error, -r));
 
@@ -391,21 +376,18 @@ static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
 
 static int set_ntp(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        bool interactive = arg_ask_password, b;
-        int r;
+        int b, r;
 
         assert(args);
         assert(n == 2);
 
         polkit_agent_open_if_enabled();
 
-        r = parse_boolean(args[1]);
-        if (r < 0) {
+        b = parse_boolean(args[1]);
+        if (b < 0) {
                 log_error("Failed to parse NTP setting: %s", args[1]);
-                return r;
+                return b;
         }
-
-        b = r;
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.timedate1",
@@ -414,7 +396,7 @@ static int set_ntp(sd_bus *bus, char **args, unsigned n) {
                                "SetNTP",
                                &error,
                                NULL,
-                               "bb", b, interactive);
+                               "bb", b, arg_ask_password);
         if (r < 0)
                 log_error("Failed to set ntp: %s", bus_error_message(&error, -r));
 

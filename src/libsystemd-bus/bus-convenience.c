@@ -23,6 +23,7 @@
 #include "bus-message.h"
 #include "bus-signature.h"
 #include "bus-util.h"
+#include "bus-type.h"
 
 int sd_bus_emit_signal(
                 sd_bus *bus,
@@ -266,6 +267,41 @@ int sd_bus_get_property(
         }
 
         *reply = rep;
+        return 0;
+}
+
+int sd_bus_get_property_trivial(
+                sd_bus *bus,
+                const char *destination,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_bus_error *error,
+                char type, void *ptr) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL);
+        assert_return(member_name_is_valid(member), -EINVAL);
+        assert_return(bus_type_is_trivial(type), -EINVAL);
+        assert_return(ptr, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'v', CHAR_TO_STR(type));
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_basic(reply, type, ptr);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
