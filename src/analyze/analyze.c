@@ -118,27 +118,20 @@ static void pager_open_if_enabled(void) {
 }
 
 static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                interface,
-                                property,
-                                &error,
-                                &reply,
-                                "t");
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        interface,
+                        property,
+                        &error,
+                        't', val);
 
         if (r < 0) {
                 log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
-                return r;
-        }
-
-        r = sd_bus_message_read(reply, "t", val);
-        if (r < 0) {
-                log_error("Failed to parse reply.");
                 return r;
         }
 
@@ -210,14 +203,15 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         struct unit_times *unit_times = NULL;
         struct unit_info u;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "ListUnits",
-                               &error,
-                               &reply,
-                               "");
+        r = sd_bus_call_method(
+                        bus,
+                       "org.freedesktop.systemd1",
+                       "/org/freedesktop/systemd1",
+                       "org.freedesktop.systemd1.Manager",
+                       "ListUnits",
+                       &error,
+                       &reply,
+                       "");
         if (r < 0) {
             log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
             goto fail;
@@ -821,14 +815,15 @@ static int list_dependencies(sd_bus *bus, const char *name) {
         if (path == NULL)
                 return -EINVAL;
 
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Unit",
-                                "Id",
-                                &error,
-                                &reply,
-                                "s");
+        r = sd_bus_get_property(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Unit",
+                        "Id",
+                        &error,
+                        &reply,
+                        "s");
         if (r < 0) {
                 log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
                 return r;
@@ -1060,14 +1055,15 @@ static int dot(sd_bus *bus, char* patterns[]) {
         int r;
         struct unit_info u;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "ListUnits",
-                               &error,
-                               &reply,
-                               "");
+        r = sd_bus_call_method(
+                        bus,
+                       "org.freedesktop.systemd1",
+                       "/org/freedesktop/systemd1",
+                       "org.freedesktop.systemd1.Manager",
+                       "ListUnits",
+                       &error,
+                       &reply,
+                       "");
         if (r < 0) {
             log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
             return r;
@@ -1112,14 +1108,15 @@ static int dump(sd_bus *bus, char **args) {
 
         pager_open_if_enabled();
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               "org.freedesktop.systemd1.Manager",
-                               "Dump",
-                               &error,
-                               &reply,
-                               "");
+        r = sd_bus_call_method(
+                        bus,
+                       "org.freedesktop.systemd1",
+                       "/org/freedesktop/systemd1",
+                       "org.freedesktop.systemd1.Manager",
+                       "Dump",
+                       &error,
+                       &reply,
+                       "");
         if (r < 0) {
             log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
             return r;
@@ -1150,14 +1147,15 @@ static int set_log_level(sd_bus *bus, char **args) {
 
         value = args[0];
 
-        r = sd_bus_set_property(bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "LogLevel",
-                                &error,
-                                "s",
-                                value);
+        r = sd_bus_set_property(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "LogLevel",
+                        &error,
+                        "s",
+                        value);
         if (r < 0) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
                 return -EIO;
