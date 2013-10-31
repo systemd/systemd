@@ -196,6 +196,41 @@ static int bus_parse_unit_info(sd_bus_message *message, struct unit_info *u) {
         return r;
 }
 
+static int bus_get_unit_property_strv(sd_bus *bus, const char *unit_path, const char *prop, char ***strv) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+        const char *s;
+
+        r = sd_bus_get_property(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        unit_path,
+                        "org.freedesktop.systemd1.Unit",
+                        prop,
+                        &error,
+                        &reply,
+                        "as");
+        if (r < 0) {
+                log_error("Failed to get unit property: %s %s", prop, bus_error_message(&error, -r));
+                return r;
+        }
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
+        if (r < 0)
+            return r;
+
+        while ((r = sd_bus_message_read(reply, "s", &s)) > 0) {
+                r = strv_extend(strv, s);
+                if (r < 0) {
+                        log_oom();
+                        return r;
+                }
+        }
+
+        return r;
+}
+
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -650,11 +685,8 @@ static int list_dependencies_print(const char *name, unsigned int level, unsigne
 
 static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, char ***deps) {
         _cleanup_free_ char *path;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
         int r = 0;
-        const char *s;
         char **ret = NULL;
 
         assert(bus);
@@ -662,36 +694,11 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
         assert(deps);
 
         path = unit_dbus_path_from_name(name);
-        if (path == NULL) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (path == NULL)
+                return -EINVAL;
 
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Unit",
-                                "After",
-                                &error,
-                                &reply,
-                                "as");
-        if (r < 0) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
-                goto finish;
-        }
+        r = bus_get_unit_property_strv(bus, path, "After", &ret);
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
-        if (r < 0)
-            goto finish;
-
-        while ((r = sd_bus_message_read(reply, "s", &s)) > 0) {
-                r = strv_extend(&ret, s);
-                if (r < 0) {
-                        log_oom();
-                        goto finish;
-                }
-        }
-finish:
         if (r < 0)
                 strv_free(ret);
         else
@@ -929,10 +936,7 @@ static int analyze_time(sd_bus *bus) {
 }
 
 static int graph_one_property(sd_bus *bus, const struct unit_info *u, const char* prop, const char *color, char* patterns[]) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **units = NULL;
-        const char *s;
         char **unit;
         int r;
 
@@ -940,29 +944,9 @@ static int graph_one_property(sd_bus *bus, const struct unit_info *u, const char
         assert(prop);
         assert(color);
 
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.systemd1",
-                                u->unit_path,
-                                "org.freedesktop.systemd1.Unit",
-                                prop,
-                                &error,
-                                &reply,
-                                "as");
+        r = bus_get_unit_property_strv(bus, u->unit_path, prop, &units);
         if (r < 0) {
-            log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
             return -r;
-        }
-
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
-        if (r < 0)
-            return -r;
-
-        while ((r = sd_bus_message_read(reply, "s", &s)) > 0) {
-                r = strv_extend(&units, s);
-                if (r < 0) {
-                        log_oom();
-                        return -r;
-                }
         }
 
         STRV_FOREACH(unit, units) {
