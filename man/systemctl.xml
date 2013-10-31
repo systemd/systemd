@@ -63,6 +63,19 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     introspect and control the state of the
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     system and service manager.</para>
+
+    <para>For Unit Commands the <replaceable>NAME</replaceable> represents full name of unit.
+    <programlisting>
+systemctl start foo.service
+    </programlisting>
+    For Unit File Commands the <replaceable>NAME</replaceable> represents full name of the unit file, or absolute path to the unit file.
+    <programlisting>
+systemctl start /path/to/foo.service
+    </programlisting>
+    While working with services/service files, <command>systemctl</command> is able to append .service suffix when it is missing.
+    <programlisting>
+systemctl start foo
+    </programlisting></para>
   </refsect1>
 
   <refsect1>
