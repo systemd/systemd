@@ -126,7 +126,7 @@ static void print_status_info(StatusInfo *i) {
 
                 rtc_sec = (time_t)(i->rtc_time / USEC_PER_SEC);
                 zero(tm);
-                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", gmtime_r(&rtc_sec, &tm)) > 0);
+                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm)) > 0);
                 char_array_0(a);
                 printf("        RTC time: %s\n", a);
         } else
