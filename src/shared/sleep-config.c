@@ -206,7 +206,7 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
                 if (!d)
                         return -ENOMEM;
 
-                if (!streq(type, "partition")) {
+                if (!streq(type, "partition") && !streq(type, "file")) {
                         log_debug("Partition %s has type %s, ignoring.", d, type);
                         continue;
                 }
