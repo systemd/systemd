@@ -477,7 +477,7 @@ static int property_get_rtc_time(
                 sd_bus_error_set_errnof(error, -r, "Failed to read RTC: %s", strerror(-r));
                 return r;
         } else
-                t = (usec_t) mktime(&tm) * USEC_PER_SEC;
+                t = (usec_t) timegm(&tm) * USEC_PER_SEC;
 
         r = sd_bus_message_append(reply, "t", t);
         if (r < 0)

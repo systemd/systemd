@@ -59,7 +59,7 @@ int hwclock_get_time(struct tm *tm) {
                 err = -errno;
 
         /* We don't know daylight saving, so we reset this in order not
-         * to confused mktime(). */
+         * to confuse mktime(). */
         tm->tm_isdst = -1;
 
         close_nointr_nofail(fd);

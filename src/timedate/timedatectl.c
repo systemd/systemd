@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
+  Copyright 2013 Kay Sievers
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -33,7 +34,6 @@
 #include "util.h"
 #include "spawn-polkit-agent.h"
 #include "build.h"
-#include "hwclock.h"
 #include "strv.h"
 #include "pager.h"
 #include "time-dst.h"
@@ -55,7 +55,6 @@ static void pager_open_if_enabled(void) {
 static void polkit_agent_open_if_enabled(void) {
 
         /* Open the polkit agent as a child process if necessary */
-
         if (!arg_ask_password)
                 return;
 
@@ -63,10 +62,15 @@ static void polkit_agent_open_if_enabled(void) {
 }
 
 typedef struct StatusInfo {
+        usec_t time;
         const char *timezone;
-        bool local_rtc;
-        bool ntp;
-        bool can_ntp;
+
+        usec_t rtc_time;
+        bool rtc_local;
+
+        bool ntp_enabled;
+        bool ntp_capable;
+        bool ntp_synced;
 } StatusInfo;
 
 static const char *jump_str(int delta_minutes, char *s, size_t size) {
@@ -86,7 +90,6 @@ static const char *jump_str(int delta_minutes, char *s, size_t size) {
 }
 
 static void print_status_info(StatusInfo *i) {
-        usec_t n;
         char a[FORMAT_TIMESTAMP_MAX];
         char b[FORMAT_TIMESTAMP_MAX];
         char s[32];
@@ -100,14 +103,13 @@ static void print_status_info(StatusInfo *i) {
 
         assert(i);
 
-        /* enforce the values of /etc/localtime */
+        /* Enforce the values of /etc/localtime */
         if (getenv("TZ")) {
                 fprintf(stderr, "Warning: ignoring the TZ variable, reading the system's timezone setting only.\n\n");
                 unsetenv("TZ");
         }
 
-        n = now(CLOCK_REALTIME);
-        sec = (time_t) (n / USEC_PER_SEC);
+        sec = (time_t) (i->time / USEC_PER_SEC);
 
         zero(tm);
         assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) > 0);
@@ -119,16 +121,16 @@ static void print_status_info(StatusInfo *i) {
         char_array_0(a);
         printf("  Universal time: %s\n", a);
 
-        zero(tm);
-        r = hwclock_get_time(&tm);
-        if (r >= 0) {
-                /* Calculate the week-day */
-                mktime(&tm);
+        if (i->rtc_time > 0) {
+                time_t rtc_sec;
 
-                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S", &tm) > 0);
+                rtc_sec = (time_t)(i->rtc_time / USEC_PER_SEC);
+                zero(tm);
+                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", gmtime_r(&rtc_sec, &tm)) > 0);
                 char_array_0(a);
                 printf("        RTC time: %s\n", a);
-        }
+        } else
+                printf("        RTC time: n/a\n");
 
         zero(tm);
         assert_se(strftime(a, sizeof(a), "%Z, %z", localtime_r(&sec, &tm)) > 0);
@@ -137,11 +139,10 @@ static void print_status_info(StatusInfo *i) {
                "     NTP enabled: %s\n"
                "NTP synchronized: %s\n"
                " RTC in local TZ: %s\n",
-               strna(i->timezone),
-               a,
-               i->can_ntp ? yes_no(i->ntp) : "n/a",
-               yes_no(ntp_synced()),
-               yes_no(i->local_rtc));
+               strna(i->timezone), a,
+               i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
+               yes_no(i->ntp_synced),
+               yes_no(i->rtc_local));
 
         r = time_get_dst(sec, "/etc/localtime",
                          &tc, &zc, &is_dstc,
@@ -181,7 +182,7 @@ static void print_status_info(StatusInfo *i) {
                 free(zn);
         }
 
-        if (i->local_rtc)
+        if (i->rtc_local)
                 fputs("\n" ANSI_HIGHLIGHT_ON
                       "Warning: The RTC is configured to maintain time in the local timezone. This\n"
                       "         mode is not fully supported and will create various problems with time\n"
@@ -218,6 +219,35 @@ static int get_timedate_property_bool(sd_bus *bus, const char *name, bool *targe
         return 0;
 }
 
+static int get_timedate_property_usec(sd_bus *bus, const char *name, usec_t *target) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(name);
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.timedate1",
+                                "/org/freedesktop/timedate1",
+                                "org.freedesktop.timedate1",
+                                name,
+                                &error,
+                                &reply,
+                                "t");
+        if (r < 0) {
+                log_error("Failed to get property: %s %s", name, bus_error_message(&error, -r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "t", target);
+        if (r < 0) {
+                log_error("Failed to parse reply.");
+                return r;
+        }
+
+        return 0;
+}
+
 static int show_status(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -243,15 +273,27 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return r;
 
-        r = get_timedate_property_bool(bus, "LocalRTC", &info.local_rtc);
+        r = get_timedate_property_bool(bus, "LocalRTC", &info.rtc_local);
         if (r < 0)
                 return r;
 
-        r = get_timedate_property_bool(bus, "NTP", &info.ntp);
+        r = get_timedate_property_bool(bus, "NTP", &info.ntp_enabled);
         if (r < 0)
                 return r;
 
-        r = get_timedate_property_bool(bus, "CanNTP", &info.can_ntp);
+        r = get_timedate_property_bool(bus, "CanNTP", &info.ntp_capable);
+        if (r < 0)
+                return r;
+
+        r = get_timedate_property_bool(bus, "NTPSynchronized", &info.ntp_synced);
+        if (r < 0)
+                return r;
+
+        r = get_timedate_property_usec(bus, "TimeUSec", &info.time);
+        if (r < 0)
+                return r;
+
+        r = get_timedate_property_usec(bus, "RTCTimeUSec", &info.rtc_time);
         if (r < 0)
                 return r;
 
