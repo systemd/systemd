@@ -156,6 +156,36 @@ static void test_strv_quote_unquote(const char* const *split, const char *quoted
         }
 }
 
+static void test_strv_split(void) {
+        char **s;
+        unsigned i = 0;
+        _cleanup_strv_free_ char **l = NULL;
+        const char str[] = "one,two,three";
+
+        l = strv_split(str, ",");
+
+        assert(l);
+
+        STRV_FOREACH(s, l) {
+                assert_se(streq(*s, input_table_multiple[i++]));
+        }
+}
+
+static void test_strv_split_newlines(void) {
+        unsigned i = 0;
+        char **s;
+        _cleanup_strv_free_ char **l = NULL;
+        const char str[] = "one\ntwo\nthree";
+
+        l = strv_split_newlines(str);
+
+        assert(l);
+
+        STRV_FOREACH(s, l) {
+                assert_se(streq(*s, input_table_multiple[i++]));
+        }
+}
+
 static void test_strv_split_nulstr(void) {
         _cleanup_strv_free_ char **l = NULL;
         const char nulstr[] = "str0\0str1\0str2\0str3\0";
@@ -167,6 +197,22 @@ static void test_strv_split_nulstr(void) {
         assert_se(streq(l[1], "str1"));
         assert_se(streq(l[2], "str2"));
         assert_se(streq(l[3], "str3"));
+}
+
+static void test_strv_remove_prefix(void) {
+        unsigned i = 0;
+        char **s;
+        _cleanup_strv_free_ char **l = NULL;
+
+        l = strv_new("_one", "_two", "_three", NULL);
+        assert(l);
+
+        l = strv_remove_prefix(l, "_");
+        assert(l);
+
+        STRV_FOREACH(s, l) {
+                assert_se(streq(*s, input_table_multiple[i++]));
+        }
 }
 
 static void test_strv_parse_nulstr(void) {
@@ -359,8 +405,11 @@ int main(int argc, char *argv[]) {
         test_strv_quote_unquote(input_table_quotes, QUOTES_STRING);
         test_strv_quote_unquote(input_table_spaces, SPACES_STRING);
 
+        test_strv_split();
+        test_strv_split_newlines();
         test_strv_split_nulstr();
         test_strv_parse_nulstr();
+        test_strv_remove_prefix();
         test_strv_overlap();
         test_strv_sort();
         test_strv_merge();
