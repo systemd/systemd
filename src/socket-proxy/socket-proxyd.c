@@ -129,7 +129,7 @@ static int send_buffer(struct connection *sender) {
          * it does. */
         while (sender->buffer_filled_len > sender->buffer_sent_len) {
                 len = send(receiver->fd, sender->buffer + sender->buffer_sent_len, sender->buffer_filled_len - sender->buffer_sent_len, 0);
-                log_debug("send(%d, ...)=%ld", receiver->fd, len);
+                log_debug("send(%d, ...)=%zd", receiver->fd, len);
                 if (len < 0) {
                         if (errno != EWOULDBLOCK && errno != EAGAIN) {
                                 log_error("Error %d in send to fd=%d: %m", errno, receiver->fd);
@@ -147,7 +147,7 @@ static int send_buffer(struct connection *sender) {
                 sender->buffer_sent_len += len;
         }
 
-        log_debug("send(%d, ...) completed with %lu bytes still buffered.", receiver->fd, sender->buffer_filled_len - sender->buffer_sent_len);
+        log_debug("send(%d, ...) completed with %zd bytes still buffered.", receiver->fd, sender->buffer_filled_len - sender->buffer_sent_len);
 
         /* Detect a would-block state or partial send. */
         if (sender->buffer_filled_len > sender->buffer_sent_len) {
@@ -206,13 +206,13 @@ static int transfer_data_cb(sd_event_source *s, int fd, uint32_t revents, void *
         log_debug("Got event revents=%d from fd=%d (conn %p).", revents, fd, c);
 
         if (revents & EPOLLIN) {
-                log_debug("About to recv up to %lu bytes from fd=%d (%lu/BUFFER_SIZE).", BUFFER_SIZE - c->buffer_filled_len, fd, c->buffer_filled_len);
+                log_debug("About to recv up to %zd bytes from fd=%d (%zd/BUFFER_SIZE).", BUFFER_SIZE - c->buffer_filled_len, fd, c->buffer_filled_len);
 
                 /* Receive until the buffer's full, there's no more data,
                  * or the client/server disconnects. */
                 while (c->buffer_filled_len < BUFFER_SIZE) {
                         len = recv(fd, c->buffer + c->buffer_filled_len, BUFFER_SIZE - c->buffer_filled_len, 0);
-                        log_debug("recv(%d, ...)=%ld", fd, len);
+                        log_debug("recv(%d, ...)=%zd", fd, len);
                         if (len < 0) {
                                 if (errno != EWOULDBLOCK && errno != EAGAIN) {
                                         log_error("Error %d in recv from fd=%d: %m", errno, fd);
@@ -232,9 +232,9 @@ static int transfer_data_cb(sd_event_source *s, int fd, uint32_t revents, void *
                         }
 
                         assert(len > 0);
-                        log_debug("Recording that the buffer got %ld more bytes full.", len);
+                        log_debug("Recording that the buffer got %zd more bytes full.", len);
                         c->buffer_filled_len += len;
-                        log_debug("Buffer now has %ld bytes full.", c->buffer_filled_len);
+                        log_debug("Buffer now has %zd bytes full.", c->buffer_filled_len);
                 }
 
                 /* Try sending the data immediately. */
