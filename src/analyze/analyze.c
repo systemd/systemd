@@ -102,10 +102,10 @@ struct unit_info {
 
 struct unit_times {
         char *name;
-        usec_t ixt;
-        usec_t iet;
-        usec_t axt;
-        usec_t aet;
+        usec_t activating;
+        usec_t activated;
+        usec_t deactivated;
+        usec_t deactivating;
         usec_t time;
 };
 
@@ -144,8 +144,8 @@ static int compare_unit_time(const void *a, const void *b) {
 }
 
 static int compare_unit_start(const void *a, const void *b) {
-        return compare(((struct unit_times *)a)->ixt,
-                       ((struct unit_times *)b)->ixt);
+        return compare(((struct unit_times *)a)->activating,
+                       ((struct unit_times *)b)->activating);
 }
 
 static int get_os_name(char **_n) {
@@ -283,31 +283,31 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                 if (bus_get_uint64_property(bus, u.unit_path,
                                             "org.freedesktop.systemd1.Unit",
                                             "InactiveExitTimestampMonotonic",
-                                            &t->ixt) < 0 ||
+                                            &t->activating) < 0 ||
                     bus_get_uint64_property(bus, u.unit_path,
                                             "org.freedesktop.systemd1.Unit",
                                             "ActiveEnterTimestampMonotonic",
-                                            &t->aet) < 0 ||
+                                            &t->activated) < 0 ||
                     bus_get_uint64_property(bus, u.unit_path,
                                             "org.freedesktop.systemd1.Unit",
                                             "ActiveExitTimestampMonotonic",
-                                            &t->axt) < 0 ||
+                                            &t->deactivating) < 0 ||
                     bus_get_uint64_property(bus, u.unit_path,
                                             "org.freedesktop.systemd1.Unit",
                                             "InactiveEnterTimestampMonotonic",
-                                            &t->iet) < 0) {
+                                            &t->deactivated) < 0) {
                         r = -EIO;
                         goto fail;
                 }
 
-                if (t->aet >= t->ixt)
-                        t->time = t->aet - t->ixt;
-                else if (t->iet >= t->ixt)
-                        t->time = t->iet - t->ixt;
+                if (t->activated >= t->activating)
+                        t->time = t->activated - t->activating;
+                else if (t->deactivated >= t->activating)
+                        t->time = t->deactivated - t->activating;
                 else
                         t->time = 0;
 
-                if (t->ixt == 0)
+                if (t->activating == 0)
                         continue;
 
                 t->name = strdup(u.id);
@@ -511,8 +511,8 @@ static int analyze_plot(sd_bus *bus) {
         for (u = times; u < times + n; u++) {
                 double text_start, text_width;
 
-                if (u->ixt < boot->userspace_time ||
-                    u->ixt > boot->finish_time) {
+                if (u->activating < boot->userspace_time ||
+                    u->activating > boot->finish_time) {
                         free(u->name);
                         u->name = NULL;
                         continue;
@@ -522,19 +522,19 @@ static int analyze_plot(sd_bus *bus) {
                  * increase the svg width so it fits on the right.
                  * TODO: calculate the text width more accurately */
                 text_width = 8.0 * strlen(u->name);
-                text_start = (boot->firmware_time + u->ixt) * SCALE_X;
+                text_start = (boot->firmware_time + u->activating) * SCALE_X;
                 if (text_width > text_start && text_width + text_start > width)
                         width = text_width + text_start;
 
-                if (u->iet > u->ixt && u->iet <= boot->finish_time
-                                && u->aet == 0 && u->axt == 0)
-                        u->aet = u->axt = u->iet;
-                if (u->aet < u->ixt || u->aet > boot->finish_time)
-                        u->aet = boot->finish_time;
-                if (u->axt < u->aet || u->aet > boot->finish_time)
-                        u->axt = boot->finish_time;
-                if (u->iet < u->axt || u->iet > boot->finish_time)
-                        u->iet = boot->finish_time;
+                if (u->deactivated > u->activating && u->deactivated <= boot->finish_time
+                                && u->activated == 0 && u->deactivating == 0)
+                        u->activated = u->deactivating = u->deactivated;
+                if (u->activated < u->activating || u->activated > boot->finish_time)
+                        u->activated = boot->finish_time;
+                if (u->deactivating < u->activated || u->activated > boot->finish_time)
+                        u->deactivating = boot->finish_time;
+                if (u->deactivated < u->deactivating || u->deactivated > boot->finish_time)
+                        u->deactivated = boot->finish_time;
                 m++;
         }
 
@@ -622,17 +622,17 @@ static int analyze_plot(sd_bus *bus) {
                 if (!u->name)
                         continue;
 
-                svg_bar("activating",   u->ixt, u->aet, y);
-                svg_bar("active",       u->aet, u->axt, y);
-                svg_bar("deactivating", u->axt, u->iet, y);
+                svg_bar("activating",   u->activating, u->activated, y);
+                svg_bar("active",       u->activated, u->deactivating, y);
+                svg_bar("deactivating", u->deactivating, u->deactivated, y);
 
                 /* place the text on the left if we have passed the half of the svg width */
-                b = u->ixt * SCALE_X < width / 2;
+                b = u->activating * SCALE_X < width / 2;
                 if (u->time)
-                        svg_text(b, u->ixt, y, "%s (%s)",
+                        svg_text(b, u->activating, y, "%s (%s)",
                                  u->name, format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC));
                 else
-                        svg_text(b, u->ixt, y, "%s", u->name);
+                        svg_text(b, u->activating, y, "%s", u->name);
                 y++;
         }
 
@@ -676,10 +676,10 @@ static int list_dependencies_print(const char *name, unsigned int level, unsigne
         if (times) {
                 if (times->time)
                         printf("%s%s @%s +%s%s", ANSI_HIGHLIGHT_RED_ON, name,
-                               format_timespan(ts, sizeof(ts), times->ixt - boot->userspace_time, USEC_PER_MSEC),
+                               format_timespan(ts, sizeof(ts), times->activating - boot->userspace_time, USEC_PER_MSEC),
                                format_timespan(ts2, sizeof(ts2), times->time, USEC_PER_MSEC), ANSI_HIGHLIGHT_OFF);
-                else if (times->aet > boot->userspace_time)
-                        printf("%s @%s", name, format_timespan(ts, sizeof(ts), times->aet - boot->userspace_time, USEC_PER_MSEC));
+                else if (times->activated > boot->userspace_time)
+                        printf("%s @%s", name, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
                 else
                         printf("%s", name);
         } else printf("%s", name);
@@ -720,10 +720,10 @@ static int list_dependencies_compare(const void *_a, const void *_b) {
 
         times = hashmap_get(unit_times_hashmap, *a);
         if (times)
-                usa = times->aet;
+                usa = times->activated;
         times = hashmap_get(unit_times_hashmap, *b);
         if (times)
-                usb = times->aet;
+                usb = times->activated;
 
         return usb - usa;
 }
@@ -754,11 +754,11 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
                 if (times
-                    && times->aet
-                    && times->aet <= boot->finish_time
-                    && (times->aet >= service_longest
+                    && times->activated
+                    && times->activated <= boot->finish_time
+                    && (times->activated >= service_longest
                         || service_longest == 0)) {
-                        service_longest = times->aet;
+                        service_longest = times->activated;
                         break;
                 }
         }
@@ -768,9 +768,9 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
 
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
-                if (times && times->aet
-                    && times->aet <= boot->finish_time
-                    && (service_longest - times->aet) <= arg_fuzz) {
+                if (times && times->activated
+                    && times->activated <= boot->finish_time
+                    && (service_longest - times->activated) <= arg_fuzz) {
                         to_print++;
                 }
         }
@@ -781,9 +781,9 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
                 if (!times
-                    || !times->aet
-                    || times->aet > boot->finish_time
-                    || service_longest - times->aet > arg_fuzz)
+                    || !times->activated
+                    || times->activated > boot->finish_time
+                    || service_longest - times->activated > arg_fuzz)
                         continue;
 
                 to_print--;
@@ -857,8 +857,8 @@ static int list_dependencies(sd_bus *bus, const char *name) {
                 if (times->time)
                         printf("%s%s +%s%s\n", ANSI_HIGHLIGHT_RED_ON, id,
                                format_timespan(ts, sizeof(ts), times->time, USEC_PER_MSEC), ANSI_HIGHLIGHT_OFF);
-                else if (times->aet > boot->userspace_time)
-                        printf("%s @%s\n", id, format_timespan(ts, sizeof(ts), times->aet - boot->userspace_time, USEC_PER_MSEC));
+                else if (times->activated > boot->userspace_time)
+                        printf("%s @%s\n", id, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
                 else
                         printf("%s\n", id);
         }
