@@ -4741,7 +4741,7 @@ static int systemctl_help(void) {
                "  -f --force          When enabling unit files, override existing symlinks\n"
                "                      When shutting down, execute action immediately\n"
                "     --root=PATH      Enable unit files in the specified root directory\n"
-               "  -n --lines=INTEGER  Numer of journal entries to show\n"
+               "  -n --lines=INTEGER  Number of journal entries to show\n"
                "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
                "                      verbose, export, json, json-pretty, json-sse, cat)\n\n"
                "Unit Commands:\n"
