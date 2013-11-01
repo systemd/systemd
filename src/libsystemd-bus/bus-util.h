@@ -35,6 +35,17 @@ typedef enum BusTransport {
         _BUS_TRANSPORT_INVALID = -1
 } BusTransport;
 
+struct bus_properties_map {
+        const char *type;
+        const char *name;
+        void *ptr;
+};
+
+int bus_map_all_properties(sd_bus *bus,
+                           const char *destination,
+                           const char *path,
+                           const struct bus_properties_map *map);
+
 int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name);
 
 int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout);

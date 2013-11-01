@@ -63,7 +63,7 @@ static void polkit_agent_open_if_enabled(void) {
 
 typedef struct StatusInfo {
         usec_t time;
-        const char *timezone;
+        char *timezone;
 
         usec_t rtc_time;
         bool rtc_local;
@@ -89,7 +89,7 @@ static const char *jump_str(int delta_minutes, char *s, size_t size) {
         return "";
 }
 
-static void print_status_info(StatusInfo *i) {
+static void print_status_info(const StatusInfo *i) {
         char a[FORMAT_TIMESTAMP_MAX];
         char b[FORMAT_TIMESTAMP_MAX];
         char s[32];
@@ -190,103 +190,35 @@ static void print_status_info(StatusInfo *i) {
                       "         RTC in UTC, by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
 }
 
-static int get_timedate_property_bool(sd_bus *bus, const char *name, bool *target) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, b;
-
-        assert(name);
-
-        r = sd_bus_get_property_trivial(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        name,
-                        &error,
-                        'b', &b);
-        if (r < 0) {
-                log_error("Failed to get property: %s %s", name, bus_error_message(&error, -r));
-                return r;
-        }
-
-        *target = b;
-        return 0;
-}
-
-static int get_timedate_property_usec(sd_bus *bus, const char *name, usec_t *target) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-
-        assert(name);
-
-        r = sd_bus_get_property_trivial(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        name,
-                        &error,
-                        't', target);
-        if (r < 0) {
-                log_error("Failed to get property: %s %s", name, bus_error_message(&error, -r));
-                return r;
-        }
-
-        return 0;
-}
-
 static int show_status(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
         StatusInfo info = {};
+        const struct bus_properties_map map[]  = {
+                { "s",  "Timezone",        &info.timezone },
+                { "b",  "LocalRTC",        &info.rtc_local },
+                { "b",  "NTP",             &info.ntp_enabled },
+                { "b",  "CanNTP",          &info.ntp_capable },
+                { "b",  "NTPSynchronized", &info.ntp_synced},
+                { "t",  "TimeUSec",        &info.time },
+                { "t",  "RTCTimeUSec",     &info.rtc_time },
+                {}
+        };
+        int r;
 
         assert(bus);
 
-        r = sd_bus_get_property(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        "Timezone",
-                        &error,
-                        &reply,
-                        "s");
-        if (r < 0) {
-                log_error("Failed to get property: Timezone %s", bus_error_message(&error, -r));
-                return r;
-        }
-
-        r = sd_bus_message_read(reply, "s", &info.timezone);
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.timedate1",
+                                   "/org/freedesktop/timedate1",
+                                   map);
         if (r < 0)
-                return r;
-
-        r = get_timedate_property_bool(bus, "LocalRTC", &info.rtc_local);
-        if (r < 0)
-                return r;
-
-        r = get_timedate_property_bool(bus, "NTP", &info.ntp_enabled);
-        if (r < 0)
-                return r;
-
-        r = get_timedate_property_bool(bus, "CanNTP", &info.ntp_capable);
-        if (r < 0)
-                return r;
-
-        r = get_timedate_property_bool(bus, "NTPSynchronized", &info.ntp_synced);
-        if (r < 0)
-                return r;
-
-        r = get_timedate_property_usec(bus, "TimeUSec", &info.time);
-        if (r < 0)
-                return r;
-
-        r = get_timedate_property_usec(bus, "RTCTimeUSec", &info.rtc_time);
-        if (r < 0)
-                return r;
+                goto fail;
 
         print_status_info(&info);
-        return 0;
+
+fail:
+        free(info.timezone);
+        return r;
 }
 
 static int set_time(sd_bus *bus, char **args, unsigned n) {

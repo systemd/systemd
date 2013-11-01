@@ -102,124 +102,29 @@ static void print_status_info(StatusInfo *i) {
                 printf("     X11 Options: %s\n", i->x11_options);
 }
 
-static int status_read_property(const char *name, sd_bus_message *property, StatusInfo *i) {
-        char type;
-        const char *contents;
-        int r;
-
-        assert(name);
-        assert(property);
-
-        r = sd_bus_message_peek_type(property, &type, &contents);
-        if (r < 0) {
-                log_error("Could not determine type of message: %s", strerror(-r));
-                return r;
-        }
-
-        switch (type) {
-
-        case SD_BUS_TYPE_STRING: {
-                const char *s;
-
-                sd_bus_message_read_basic(property, type, &s);
-                if (isempty(s))
-                        break;
-
-                if (streq(name, "VConsoleKeymap"))
-                        i->vconsole_keymap = s;
-                else if (streq(name, "VConsoleKeymapToggle"))
-                        i->vconsole_keymap_toggle = s;
-                else if (streq(name, "X11Layout"))
-                        i->x11_layout = s;
-                else if (streq(name, "X11Model"))
-                        i->x11_model = s;
-                else if (streq(name, "X11Variant"))
-                        i->x11_variant = s;
-                else if (streq(name, "X11Options"))
-                        i->x11_options = s;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_ARRAY: {
-                _cleanup_strv_free_ char **l = NULL;
-
-                if (!streq(contents, "s"))
-                        break;
-
-                if (!streq(name, "Locale"))
-                        break;
-
-                r = bus_message_read_strv_extend(property, &l);
-                if (r < 0)
-                        break;
-
-                strv_free(i->locale);
-                i->locale = l;
-                l = NULL;
-
-                break;
-        }
-        }
-
-        return r;
-}
-
 static int show_status(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
         StatusInfo info = {};
+        const struct bus_properties_map map[]  = {
+                { "s",  "VConsoleKeymap",       &info.vconsole_keymap },
+                { "s",  "VConsoleKeymap",       &info.vconsole_keymap },
+                { "s",  "VConsoleKeymapToggle", &info.vconsole_keymap_toggle},
+                { "s",  "X11Layout",            &info.x11_layout },
+                { "s",  "X11Model",             &info.x11_model },
+                { "s",  "X11Variant",           &info.x11_variant },
+                { "s",  "X11Options",           &info.x11_options },
+                { "as", "Locale",               &info.locale },
+                {}
+        };
+        int r;
 
-        assert(args);
+        assert(bus);
 
-        r = sd_bus_call_method( bus,
-                        "org.freedesktop.locale1",
-                        "/org/freedesktop/locale1",
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &error,
-                        &reply,
-                        "s", "");
-        if (r < 0) {
-                log_error("Could not get properties: %s", bus_error_message(&error, -r));
-                return r;
-        }
-
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.locale1",
+                                   "/org/freedesktop/locale1",
+                                   map);
         if (r < 0)
                 goto fail;
-
-        while ((r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
-                const char *name;
-                const char *contents;
-
-                r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &name);
-                if (r < 0)
-                        goto fail;
-
-                r = sd_bus_message_peek_type(reply, NULL, &contents);
-                if (r < 0)
-                        goto fail;
-
-                r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_VARIANT, contents);
-                if (r < 0)
-                        goto fail;
-
-                r = status_read_property(name, reply, &info);
-                if (r < 0) {
-                        log_error("Failed to parse reply.");
-                        return r;
-                }
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        goto fail;
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        goto fail;
-        }
 
         print_status_info(&info);
 
