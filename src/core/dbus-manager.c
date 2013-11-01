@@ -466,7 +466,7 @@ static int bus_manager_append_progress(DBusMessageIter *i, const char *property,
 
 static int bus_manager_append_virt(DBusMessageIter *i, const char *property, void *data) {
         Manager *m = data;
-        const char *id = "";
+        const char *id = NULL;
 
         assert(i);
         assert(property);
@@ -474,6 +474,8 @@ static int bus_manager_append_virt(DBusMessageIter *i, const char *property, voi
 
         detect_virtualization(&id);
 
+        if (!id)
+                id = "";
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &id))
                 return -ENOMEM;
 
