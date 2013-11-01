@@ -528,7 +528,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
         } control;
         struct cmsghdr *cmsg;
-        int master, r;
+        int master = -1, r;
         pid_t child;
         siginfo_t si;
 
