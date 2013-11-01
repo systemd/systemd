@@ -509,7 +509,7 @@ static int analyze_plot(sd_bus *bus) {
                 m++;
 
         for (u = times; u < times + n; u++) {
-                double len;
+                double text_start, text_width;
 
                 if (u->ixt < boot->userspace_time ||
                     u->ixt > boot->finish_time) {
@@ -517,10 +517,14 @@ static int analyze_plot(sd_bus *bus) {
                         u->name = NULL;
                         continue;
                 }
-                len = ((boot->firmware_time + u->ixt) * SCALE_X)
-                        + (10.0 * strlen(u->name));
-                if (len > width)
-                        width = len;
+
+                /* If the text cannot fit on the left side then
+                 * increase the svg width so it fits on the right.
+                 * TODO: calculate the text width more accurately */
+                text_width = 8.0 * strlen(u->name);
+                text_start = (boot->firmware_time + u->ixt) * SCALE_X;
+                if (text_width > text_start && text_width + text_start > width)
+                        width = text_width + text_start;
 
                 if (u->iet > u->ixt && u->iet <= boot->finish_time
                                 && u->aet == 0 && u->axt == 0)
@@ -608,7 +612,7 @@ static int analyze_plot(sd_bus *bus) {
         svg_bar("active", boot->userspace_time, boot->finish_time, y);
         svg_bar("generators", boot->generators_start_time, boot->generators_finish_time, y);
         svg_bar("unitsload", boot->unitsload_start_time, boot->unitsload_finish_time, y);
-        svg_text("left", boot->userspace_time, y, "systemd");
+        svg_text(true, boot->userspace_time, y, "systemd");
         y++;
 
         for (u = times; u < times + n; u++) {
@@ -622,7 +626,8 @@ static int analyze_plot(sd_bus *bus) {
                 svg_bar("active",       u->aet, u->axt, y);
                 svg_bar("deactivating", u->axt, u->iet, y);
 
-                b = u->ixt * SCALE_X > width * 2 / 3;
+                /* place the text on the left if we have passed the half of the svg width */
+                b = u->ixt * SCALE_X < width / 2;
                 if (u->time)
                         svg_text(b, u->ixt, y, "%s (%s)",
                                  u->name, format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC));
@@ -634,19 +639,19 @@ static int analyze_plot(sd_bus *bus) {
         /* Legend */
         y++;
         svg_bar("activating", 0, 300000, y);
-        svg_text("right", 400000, y, "Activating");
+        svg_text(true, 400000, y, "Activating");
         y++;
         svg_bar("active", 0, 300000, y);
-        svg_text("right", 400000, y, "Active");
+        svg_text(true, 400000, y, "Active");
         y++;
         svg_bar("deactivating", 0, 300000, y);
-        svg_text("right", 400000, y, "Deactivating");
+        svg_text(true, 400000, y, "Deactivating");
         y++;
         svg_bar("generators", 0, 300000, y);
-        svg_text("right", 400000, y, "Generators");
+        svg_text(true, 400000, y, "Generators");
         y++;
         svg_bar("unitsload", 0, 300000, y);
-        svg_text("right", 400000, y, "Loading unit files");
+        svg_text(true, 400000, y, "Loading unit files");
         y++;
 
         svg("</g>\n\n");
