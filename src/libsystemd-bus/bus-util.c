@@ -656,7 +656,7 @@ int bus_map_all_properties(sd_bus *bus,
                                 break;
 
                         for (i = 0; map[i].type; i++) {
-                                const char **p;
+                                char **p;
 
                                 if (!streq(map[i].type, "s"))
                                         continue;
@@ -664,6 +664,7 @@ int bus_map_all_properties(sd_bus *bus,
                                         continue;
 
                                 p = map[i].ptr;
+                                free(*p);
                                 *p = strdup(s);
                                 if (!*p) {
                                         r = -ENOMEM;
