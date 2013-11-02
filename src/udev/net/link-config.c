@@ -38,6 +38,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "rtnl-util.h"
+#include "net-util.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);
@@ -213,7 +214,6 @@ int link_config_load(link_config_ctx *ctx) {
 
         link_configs_free(ctx);
 
-
         if (!enable_name_policy()) {
                 ctx->enable_name_policy = false;
                 log_info("Network interface NamePolicy= disabled on kernel commandline, ignoring.");
@@ -241,58 +241,22 @@ bool link_config_should_reload(link_config_ctx *ctx) {
         return paths_check_timestamp(ctx->link_dirs, &ctx->link_dirs_ts_usec, false);
 }
 
-static bool match_config(link_config *match, struct udev_device *device) {
-        const char *property;
-
-        if (match->match_mac) {
-                property = udev_device_get_sysattr_value(device, "address");
-                if (!property || memcmp(match->match_mac, ether_aton(property), ETH_ALEN)) {
-                        log_debug("Device MAC address (%s) did not match MACAddress=%s",
-                                  property, ether_ntoa(match->match_mac));
-                        return 0;
-                }
-        }
-
-        if (match->match_path) {
-                property = udev_device_get_property_value(device, "ID_PATH");
-                if (!streq_ptr(match->match_path, property)) {
-                        log_debug("Device's persistent path (%s) did not match Path=%s",
-                                  property, match->match_path);
-                        return 0;
-                }
-        }
-
-        if (match->match_driver) {
-                property = udev_device_get_driver(device);
-                if (!streq_ptr(match->match_driver, property)) {
-                        log_debug("Device driver (%s) did not match Driver=%s",
-                                  property, match->match_driver);
-                        return 0;
-                }
-        }
-
-        if (match->match_type) {
-                property = udev_device_get_devtype(device);
-                if (!streq_ptr(match->match_type, property)) {
-                        log_debug("Device type (%s) did not match Type=%s",
-                                  property, match->match_type);
-                        return 0;
-                }
-        }
-
-        return 1;
-}
-
 int link_config_get(link_config_ctx *ctx, struct udev_device *device, link_config **ret) {
         link_config *link;
 
         LIST_FOREACH(links, link, ctx->links) {
-                if (match_config(link, device)) {
-                        log_debug("Config file %s applies to device %s", link->filename, udev_device_get_sysname(device));
+                if (net_match_config(link->match_mac, link->match_path,
+                                     link->match_driver, link->match_type,
+                                     NULL, device)) {
+                        log_debug("Config file %s applies to device %s",
+                                  link->filename,
+                                  udev_device_get_sysname(device));
                         *ret = link;
                         return 0;
                 }
         }
+
+        *ret = NULL;
 
         return -ENOENT;
 }
@@ -479,3 +443,21 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
 
         return 0;
 }
+
+static const char* const mac_policy_table[] = {
+        [MACPOLICY_PERSISTENT] = "persistent",
+        [MACPOLICY_RANDOM] = "random"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy, "Failed to parse MAC address policy");
+
+static const char* const name_policy_table[] = {
+        [NAMEPOLICY_ONBOARD] = "onboard",
+        [NAMEPOLICY_SLOT] = "slot",
+        [NAMEPOLICY_PATH] = "path",
+        [NAMEPOLICY_MAC] = "mac"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
+DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy, _NAMEPOLICY_INVALID, "Failed to parse interface name policy");

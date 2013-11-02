@@ -750,7 +750,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/ima-util.c \
 	src/shared/ima-util.h \
 	src/shared/ptyfwd.c \
-	src/shared/ptyfwd.h
+	src/shared/ptyfwd.h \
+	src/shared/net-util.c \
+	src/shared/net-util.h
 
 #-------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -2329,7 +2331,6 @@ libudev_core_la_SOURCES = \
 	src/udev/udev-builtin-usb_id.c \
 	src/udev/net/link-config.h \
 	src/udev/net/link-config.c \
-	src/udev/net/link-config-parse.c \
 	src/udev/net/ethtool-util.h \
 	src/udev/net/ethtool-util.c
 

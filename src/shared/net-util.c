@@ -22,29 +22,69 @@
 #include <netinet/ether.h>
 #include <net/if.h>
 
-#include "link-config.h"
-
+#include "net-util.h"
+#include "log.h"
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
 
-static const char* const mac_policy_table[] = {
-        [MACPOLICY_PERSISTENT] = "persistent",
-        [MACPOLICY_RANDOM] = "random"
-};
+bool net_match_config(const struct ether_addr *match_mac,
+                      const char *match_path,
+                      const char *match_driver,
+                      const char *match_type,
+                      const char *match_name,
+                      struct udev_device *device) {
+        const char *property;
 
-DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy, "Failed to parse MAC address policy");
+        assert(device);
 
-static const char* const name_policy_table[] = {
-        [NAMEPOLICY_ONBOARD] = "onboard",
-        [NAMEPOLICY_SLOT] = "slot",
-        [NAMEPOLICY_PATH] = "path",
-        [NAMEPOLICY_MAC] = "mac"
-};
+        if (match_mac) {
+                property = udev_device_get_sysattr_value(device, "address");
+                if (!property || memcmp(match_mac, ether_aton(property), ETH_ALEN)) {
+                        log_debug("Interface MAC address (%s) did not match MACAddress=%s",
+                                  property, ether_ntoa(match_mac));
+                        return 0;
+                }
+        }
 
-DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
-DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy, _NAMEPOLICY_INVALID, "Failed to parse interface name policy");
+        if (match_path) {
+                property = udev_device_get_property_value(device, "ID_PATH");
+                if (!streq_ptr(match_path, property)) {
+                        log_debug("Interface persistent path (%s) did not match Path=%s",
+                                  property, match_path);
+                        return 0;
+                }
+        }
+
+        if (match_driver) {
+                property = udev_device_get_driver(device);
+                if (!streq_ptr(match_driver, property)) {
+                        log_debug("Interface device driver (%s) did not match Driver=%s",
+                                  property, match_driver);
+                        return 0;
+                }
+        }
+
+        if (match_type) {
+                property = udev_device_get_devtype(device);
+                if (!streq_ptr(match_type, property)) {
+                        log_debug("Interface type (%s) did not match Type=%s",
+                                  property, match_type);
+                        return 0;
+                }
+        }
+
+        if (match_name) {
+                property = udev_device_get_sysname(device);
+                if (!streq_ptr(match_name, property)) {
+                        log_debug("Interface name (%s) did not match Name=%s",
+                                  property, match_name);
+                        return 0;
+                }
+        }
+
+        return 1;
+}
 
 int config_parse_ifname(const char *unit,
                         const char *filename,
