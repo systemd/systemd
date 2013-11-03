@@ -2232,6 +2232,7 @@ dist_udevrules_DATA += \
 	rules/99-systemd.rules \
 	rules/42-usb-hid-pm.rules \
 	rules/50-udev-default.rules \
+	rules/60-drm.rules \
 	rules/60-keyboard.rules \
 	rules/60-persistent-storage-tape.rules \
 	rules/60-persistent-serial.rules \
