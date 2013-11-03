@@ -60,7 +60,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-run</command> may be used create and start
+    <para><command>systemd-run</command> may be used to create and start
     a transient <filename>.service</filename> or a
     <filename>.scope</filename> unit and run the specified
     <replaceable>COMMAND</replaceable> in it.</para>
