@@ -32,6 +32,7 @@
 #include <sys/un.h>
 
 #include "udev.h"
+#include "util.h"
 
 static int verbose;
 static int dry_run;
@@ -111,8 +112,14 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                 char buf[UTIL_PATH_SIZE];
 
                 option = getopt_long(argc, argv, "vng:o:t:hc:p:s:S:a:A:y:b:", options, NULL);
-                if (option == -1)
+                if (option == -1) {
+                        if (optind < argc) {
+                                fprintf(stderr, "Extraneous argument: '%s'\n", argv[optind]);
+                                rc = 1;
+                                goto exit;
+                        }
                         break;
+                }
 
                 switch (option) {
                 case 'v':
@@ -133,7 +140,13 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                         }
                         break;
                 case 'c':
-                        action = optarg;
+                        if (!nulstr_contains("add\0" "remove\0" "change\0", optarg)) {
+                                log_error("unknown action '%s'\n", optarg);
+                                rc = 2;
+                                goto exit;
+                        } else {
+                                action = optarg;
+                        }
                         break;
                 case 's':
                         udev_enumerate_add_match_subsystem(udev_enumerate, optarg);
