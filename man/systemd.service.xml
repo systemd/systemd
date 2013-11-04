@@ -524,7 +524,8 @@
                                 Takes a unit-less value in seconds, or a
                                 time span value such as "5min
                                 20s". Pass 0 to disable the timeout
-                                logic. Defaults to 90s, except when
+                                logic. Defaults to <varname>TimeoutStartSec=</varname> in
+                                manager configuration file, except when
                                 <varname>Type=oneshot</varname> is
                                 used in which case the timeout
                                 is disabled by default.
@@ -545,7 +546,8 @@
                                 Takes a unit-less value in seconds, or a
                                 time span value such as "5min
                                 20s". Pass 0 to disable the timeout
-                                logic. Defaults to 90s.
+                                logic. Defaults to <varname>TimeoutStartSec=</varname> in
+                                manager configuration file.
                                 </para></listitem>
                         </varlistentry>
 

@@ -70,7 +70,7 @@ static void device_init(Unit *u) {
          * indefinitely for plugged in devices, something which cannot
          * happen for the other units since their operations time out
          * anyway. */
-        UNIT(d)->job_timeout = DEFAULT_TIMEOUT_USEC;
+        UNIT(d)->job_timeout = u->manager->default_timeout_start_usec;
 
         UNIT(d)->ignore_on_isolate = true;
         UNIT(d)->ignore_on_snapshot = true;

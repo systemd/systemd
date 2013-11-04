@@ -124,9 +124,9 @@ static void service_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        s->timeout_start_usec = DEFAULT_TIMEOUT_USEC;
-        s->timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
-        s->restart_usec = DEFAULT_RESTART_USEC;
+        s->timeout_start_usec = u->manager->default_timeout_start_usec;
+        s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
+        s->restart_usec = u->manager->default_restart_usec;
         s->type = _SERVICE_TYPE_INVALID;
 
         watch_init(&s->watchdog_watch);

@@ -46,7 +46,7 @@ static void scope_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        s->timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
+        s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
 
         watch_init(&s->timer_watch);
 

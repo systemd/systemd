@@ -61,7 +61,6 @@
                 otherwise <filename>user.conf</filename>. These
                 configuration files contain a few settings controlling
                 basic manager operations.</para>
-
         </refsect1>
 
         <refsect1>
@@ -92,6 +91,29 @@
                                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 for details about these command line
                                 arguments.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DefaultTimeoutStartSec=</varname></term>
+                                <term><varname>DefaultTimeoutStopSec=</varname></term>
+                                <term><varname>DefaultRestartSec=</varname></term>
+
+                                <listitem><para>Configures the default
+                                time-outs for starting and stopping of
+                                units, as well as the default time to
+                                sleep between automatic restarts of a
+                                units, as configured per-unit in
+                                <varname>TimeoutStartSec=</varname>,
+                                <varname>TimeoutStopSec=</varname> and
+                                <varname>RestartSec=</varname> (for
+                                service units see
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details on the per-unit
+                                settings). For non-service units
+                                <varname>DefaultTimeoutStartSec=</varname>
+                                sets the default
+                                <varname>TimeoutSec=</varname> value.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>

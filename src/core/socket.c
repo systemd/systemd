@@ -74,7 +74,7 @@ static void socket_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         s->backlog = SOMAXCONN;
-        s->timeout_usec = DEFAULT_TIMEOUT_USEC;
+        s->timeout_usec = u->manager->default_timeout_start_usec;
         s->directory_mode = 0755;
         s->socket_mode = 0666;
 

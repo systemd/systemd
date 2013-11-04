@@ -131,7 +131,7 @@ static void mount_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        m->timeout_usec = DEFAULT_TIMEOUT_USEC;
+        m->timeout_usec = u->manager->default_timeout_start_usec;
         m->directory_mode = 0755;
 
         exec_context_init(&m->exec_context);

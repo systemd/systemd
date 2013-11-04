@@ -86,7 +86,7 @@ static void swap_init(Unit *u) {
         assert(s);
         assert(UNIT(s)->load_state == UNIT_STUB);
 
-        s->timeout_usec = DEFAULT_TIMEOUT_USEC;
+        s->timeout_usec = u->manager->default_timeout_start_usec;
 
         exec_context_init(&s->exec_context);
         s->exec_context.std_output = u->manager->default_std_output;

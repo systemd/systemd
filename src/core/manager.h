@@ -230,6 +230,9 @@ struct Manager {
 
         ExecOutput default_std_output, default_std_error;
 
+        usec_t default_restart_usec, default_timeout_start_usec,
+                default_timeout_stop_usec;
+
         struct rlimit *rlimit[RLIMIT_NLIMITS];
 
         /* non-zero if we are reloading or reexecuting, */
