@@ -35,6 +35,7 @@
 #include <sys/types.h>
 
 #include "udev.h"
+#include "util.h"
 
 static int adm_settle(struct udev *udev, int argc, char *argv[])
 {
@@ -59,11 +60,15 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
 
         for (;;) {
                 int option;
-                int seconds;
 
                 option = getopt_long(argc, argv, "s:e:t:E:qh", options, NULL);
-                if (option == -1)
+                if (option == -1) {
+                        if (optind < argc) {
+                                fprintf(stderr, "Extraneous argument: '%s'\n", argv[optind]);
+                                exit(EXIT_FAILURE);
+                        }
                         break;
+                }
 
                 switch (option) {
                 case 's':
@@ -72,12 +77,15 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                 case 'e':
                         end = strtoull(optarg, NULL, 0);
                         break;
-                case 't':
-                        seconds = atoi(optarg);
-                        if (seconds >= 0)
-                                timeout = seconds;
-                        else
-                                fprintf(stderr, "invalid timeout value\n");
+                case 't': {
+                        int r;
+
+                        r = safe_atou(optarg, &timeout);
+                        if (r < 0) {
+                                fprintf(stderr, "Invalid timeout value '%s': %s\n",
+                                        optarg, strerror(-r));
+                                exit(EXIT_FAILURE);
+                        };
                         break;
                 case 'q':
                         quiet = 1;
