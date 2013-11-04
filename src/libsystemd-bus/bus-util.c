@@ -789,3 +789,33 @@ int bus_open_transport(BusTransport transport, const char *host, bool user, sd_b
 
         return r;
 }
+
+int bus_property_get_bool(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        int b = *(bool*) userdata;
+
+        return sd_bus_message_append_basic(reply, 'b', &b);
+}
+
+int bus_property_get_uid(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        assert_cc(sizeof(uint32_t) == sizeof(uid_t));
+        assert_cc(sizeof(uint32_t) == sizeof(gid_t));
+        assert_cc(sizeof(uint32_t) == sizeof(pid_t));
+
+        return sd_bus_message_append_basic(reply, 'u', userdata);
+}

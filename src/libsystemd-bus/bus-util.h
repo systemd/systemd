@@ -62,6 +62,12 @@ int bus_open_transport(BusTransport transport, const char *host, bool user, sd_b
 
 int bus_generic_print_property(const char *name, sd_bus_message *property, bool all);
 
+int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
+int bus_property_get_uid(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
+
+#define bus_property_get_gid bus_property_get_uid
+#define bus_property_get_pid bus_property_get_uid
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
 
