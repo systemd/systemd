@@ -415,11 +415,14 @@ Features:
 
 * timer units:
   - configurable jitter for timer events
+  - Adjust timers to be triggered at the same time as sd-event timers
   - timer events with system resume
   - timer units should get the ability to trigger when:
     o CLOCK_REALTIME makes jumps (TFD_TIMER_CANCEL_ON_SET)
     o DST changes
   - Support 2012-02~4 as syntax for specifying the fourth to last day of the month.
+  - Modulate timer frequency based on battery state
+  - anacron-like feature
 
 * update the kernel's TZ (sys_tz) when DST changes
 
