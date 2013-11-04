@@ -289,14 +289,16 @@ static bool output_show_unit(const struct unit_info *u) {
 }
 
 static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
-        unsigned id_len, max_id_len, active_len, sub_len, job_len, desc_len, n_shown = 0;
+        unsigned id_len, max_id_len, load_len, active_len, sub_len, job_len, desc_len;
+        unsigned n_shown = 0;
         const struct unit_info *u;
         int job_count = 0;
 
-        max_id_len = sizeof("UNIT")-1;
-        active_len = sizeof("ACTIVE")-1;
-        sub_len = sizeof("SUB")-1;
-        job_len = sizeof("JOB")-1;
+        max_id_len = strlen("UNIT");
+        load_len = strlen("LOAD");
+        active_len = strlen("ACTIVE");
+        sub_len = strlen("SUB");
+        job_len = strlen("JOB");
         desc_len = 0;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
@@ -304,6 +306,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         continue;
 
                 max_id_len = MAX(max_id_len, strlen(u->id));
+                load_len = MAX(load_len, strlen(u->load_state));
                 active_len = MAX(active_len, strlen(u->active_state));
                 sub_len = MAX(sub_len, strlen(u->sub_state));
                 if (u->job_id != 0) {
@@ -346,7 +349,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         continue;
 
                 if (!n_shown && !arg_no_legend) {
-                        printf("%-*s %-6s %-*s %-*s ", id_len, "UNIT", "LOAD",
+                        printf("%-*s %-*s %-*s %-*s ", id_len, "UNIT", load_len, "LOAD",
                                active_len, "ACTIVE", sub_len, "SUB");
                         if (job_count)
                                 printf("%-*s ", job_len, "JOB");
@@ -373,9 +376,9 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
                 e = arg_full ? NULL : ellipsize(u->id, id_len, 33);
 
-                printf("%s%-*s%s %s%-6s%s %s%-*s %-*s%s %-*s",
+                printf("%s%-*s%s %s%-*s%s %s%-*s %-*s%s %-*s",
                        on, id_len, e ? e : u->id, off,
-                       on_loaded, u->load_state, off_loaded,
+                       on_loaded, load_len, u->load_state, off_loaded,
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
                        job_count ? job_len + 1 : 0, u->job_id ? u->job_type : "");
