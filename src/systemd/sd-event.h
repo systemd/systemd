@@ -53,6 +53,13 @@ enum {
         SD_EVENT_FINISHED
 };
 
+enum {
+        /* And everything inbetween and outside is good too */
+        SD_PRIORITY_IMPORTANT = -100,
+        SD_PRIORITY_NORMAL = 0,
+        SD_PRIORITY_IDLE = 100
+};
+
 typedef int (*sd_io_handler_t)(sd_event_source *s, int fd, uint32_t revents, void *userdata);
 typedef int (*sd_time_handler_t)(sd_event_source *s, uint64_t usec, void *userdata);
 typedef int (*sd_signal_handler_t)(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata);
