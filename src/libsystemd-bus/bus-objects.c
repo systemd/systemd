@@ -312,7 +312,6 @@ static int invoke_property_get(
                 sd_bus_error *error,
                 void *userdata) {
 
-        int r;
         const void *p;
 
         assert(bus);
@@ -326,6 +325,9 @@ static int invoke_property_get(
                 return v->x.property.get(bus, path, interface, property, m, error, userdata);
 
         /* Automatic handling if no callback is defined. */
+
+        if (streq(v->x.property.signature, "as"))
+                return sd_bus_message_append_strv(m, *(char***) userdata);
 
         assert(signature_is_single(v->x.property.signature, false));
         assert(bus_type_is_basic(v->x.property.signature[0]));
@@ -347,11 +349,7 @@ static int invoke_property_get(
                 break;
         }
 
-        r = sd_bus_message_append_basic(m, v->x.property.signature[0], p);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_bus_message_append_basic(m, v->x.property.signature[0], p);
 }
 
 static int invoke_property_set(
@@ -1587,7 +1585,7 @@ static int add_object_vtable_internal(
 
                         if (!member_name_is_valid(v->x.property.member) ||
                             !signature_is_single(v->x.property.signature, false) ||
-                            !(v->x.property.get || bus_type_is_basic(v->x.property.signature[0])) ||
+                            !(v->x.property.get || bus_type_is_basic(v->x.property.signature[0]) || streq(v->x.property.signature, "as")) ||
                             v->flags & SD_BUS_VTABLE_METHOD_NO_REPLY ||
                             (v->flags & SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY && !(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE))) {
                                 r = -EINVAL;
