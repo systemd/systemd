@@ -47,13 +47,13 @@ Manager *manager_new(void) {
         m->machines = hashmap_new(string_hash_func, string_compare_func);
         m->machine_units = hashmap_new(string_hash_func, string_compare_func);
 
-        r = sd_event_new(&m->event);
-        if (r < 0) {
+        if (!m->machines || !m->machine_units) {
                 manager_free(m);
                 return NULL;
         }
 
-        if (!m->machines || !m->machine_units) {
+        r = sd_event_new(&m->event);
+        if (r < 0) {
                 manager_free(m);
                 return NULL;
         }
@@ -284,7 +284,7 @@ void manager_gc(Manager *m, bool drop_not_started) {
                 LIST_REMOVE(gc_queue, m->machine_gc_queue, machine);
                 machine->in_gc_queue = false;
 
-                if (machine_check_gc(machine, drop_not_started) == 0) {
+                if (!machine_check_gc(machine, drop_not_started)) {
                         machine_stop(machine);
                         machine_free(machine);
                 }

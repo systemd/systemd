@@ -335,9 +335,9 @@ const sd_bus_vtable manager_vtable[] = {
 };
 
 int machine_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
         Machine *machine = NULL;
         Manager *m = userdata;
-        char **l = NULL;
         Iterator i;
         int r;
 
@@ -360,6 +360,8 @@ int machine_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *
         }
 
         *nodes = l;
+        l = NULL;
+
         return 1;
 }
 
@@ -456,6 +458,8 @@ int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
 int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata) {
         Manager *m = userdata;
+        Machine *machine;
+        Iterator i;
         int b, r;
 
         assert(bus);
@@ -466,16 +470,14 @@ int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata) {
                 return 0;
         }
 
+        if (b)
+                return 0;
+
         /* systemd finished reloading, let's recheck all our machines */
-        if (!b) {
-                Machine *machine;
-                Iterator i;
+        log_debug("System manager has been reloaded, rechecking machines...");
 
-                log_debug("System manager has been reloaded, rechecking machines...");
-
-                HASHMAP_FOREACH(machine, m->machines, i)
-                        machine_add_to_gc_queue(machine);
-        }
+        HASHMAP_FOREACH(machine, m->machines, i)
+                machine_add_to_gc_queue(machine);
 
         return 0;
 }
@@ -507,7 +509,7 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "ss", scope, "fail");
+        r = sd_bus_message_append(m, "ss", strempty(scope), "fail");
         if (r < 0)
                 return r;
 
@@ -620,23 +622,18 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
 }
 
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        int r;
-
         assert(manager);
         assert(unit);
 
-        r = sd_bus_call_method(
+        return sd_bus_call_method(
                         manager->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "KillUnit",
                         error,
-                        &reply,
+                        NULL,
                         "ssi", unit, who == KILL_LEADER ? "main" : "all", signo);
-
-        return r;
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit) {

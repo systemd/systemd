@@ -48,7 +48,6 @@ Manager *manager_new(void);
 void manager_free(Manager *m);
 
 int manager_add_machine(Manager *m, const char *name, Machine **_machine);
-
 int manager_enumerate_machines(Manager *m);
 
 int manager_startup(Manager *m);

@@ -338,7 +338,7 @@ int machine_stop(Machine *m) {
         return r;
 }
 
-int machine_check_gc(Machine *m, bool drop_not_started) {
+bool machine_check_gc(Machine *m, bool drop_not_started) {
         assert(m);
 
         if (drop_not_started && !m->started)

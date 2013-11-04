@@ -210,12 +210,12 @@ int machine_send_create_reply(Machine *m, sd_bus_error *error) {
         c = m->create_message;
         m->create_message = NULL;
 
+        if (error)
+                return sd_bus_reply_method_error(m->manager->bus, c, error);
+
         /* Update the machine state file before we notify the client
          * about the result. */
         machine_save(m);
-
-        if (error)
-                return sd_bus_reply_method_error(m->manager->bus, c, error);
 
         p = machine_bus_path(m);
         if (!p)
