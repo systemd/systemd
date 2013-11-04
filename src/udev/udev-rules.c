@@ -1704,6 +1704,9 @@ struct udev_rules *udev_rules_unref(struct udev_rules *rules)
 
 bool udev_rules_check_timestamp(struct udev_rules *rules)
 {
+        if (!rules)
+                return false;
+
         return paths_check_timestamp(rules->dirs, &rules->dirs_ts_usec, true);
 }
 
