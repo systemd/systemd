@@ -88,7 +88,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
                         continue;
 
                 /* KEYBOARD_KEY_<hex scan code>=<key identifier string> */
-                scancode = strtol(key + 13, &endptr, 16);
+                scancode = strtoul(key + 13, &endptr, 16);
                 if (endptr[0] != '\0') {
                         log_error("Error, unable to parse scan code from '%s'\n", key);
                         continue;
