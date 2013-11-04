@@ -54,6 +54,43 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert(sd_rtnl_send_with_reply_and_block(rtnl, message, 0, NULL) == 0);
 }
 
+static void test_route(void) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req;
+        uint32_t addr = htonl(INADDR_LOOPBACK);
+        uint32_t index = 2;
+        uint16_t type;
+        void *data;
+        int r;
+
+        r = sd_rtnl_message_route_new(RTM_NEWROUTE, AF_INET, 0, 0, 0,
+                                      RT_TABLE_MAIN, RT_SCOPE_UNIVERSE, RTPROT_BOOT,
+                                      RTN_UNICAST, 0, &req);
+        if (r < 0) {
+                log_error("Could not create RTM_NEWROUTE message: %s", strerror(-r));
+                return;
+        }
+
+        r = sd_rtnl_message_append(req, RTA_GATEWAY, &addr);
+        if (r < 0) {
+                log_error("Could not append RTA_GATEWAY attribute: %s", strerror(-r));
+                return;
+        }
+
+        r = sd_rtnl_message_append(req, RTA_OIF, &index);
+        if (r < 0) {
+                log_error("Could not append RTA_OIF attribute: %s", strerror(-r));
+                return;
+        }
+
+        assert(sd_rtnl_message_read(req, &type, &data) > 0);
+        assert(type == RTA_GATEWAY);
+        assert(*(uint32_t *) data == addr);
+
+        assert(sd_rtnl_message_read(req, &type, &data) > 0);
+        assert(type == RTA_OIF);
+        assert(*(uint32_t *) data == index);
+}
+
 static void test_multiple(void) {
         sd_rtnl *rtnl1, *rtnl2;
 
@@ -75,6 +112,8 @@ int main(void) {
         unsigned int *mtu_reply;
 
         test_multiple();
+
+        test_route();
 
         assert(sd_rtnl_open(0, &rtnl) >= 0);
         assert(rtnl);
@@ -115,17 +154,17 @@ int main(void) {
         assert(sd_rtnl_message_read(m, &type, data) == 0);
 
         assert(sd_rtnl_send_with_reply_and_block(rtnl, m, -1, &r) >= 0);
-        while (sd_rtnl_message_read(r, &type, &data)) {
+        while (sd_rtnl_message_read(r, &type, &data) > 0) {
                 switch (type) {
 //                        case IFLA_MTU:
 //                                assert(*(unsigned int *) data == 65536);
-//                                break;;
+//                                break;
 //                        case IFLA_QDISC:
 //                                assert(streq((char *) data, "noqueue"));
-//                                break;;
+//                                break;
                         case IFLA_IFNAME:
                                 assert(streq((char *) data, "lo"));
-                                break;;
+                                break;
                 }
         }
 

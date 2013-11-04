@@ -67,6 +67,42 @@ static int message_new(sd_rtnl_message **ret, size_t initial_size) {
         return 0;
 }
 
+int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
+                              unsigned char rtm_dst_len, unsigned char rtm_src_len,
+                              unsigned char rtm_tos, unsigned char rtm_table,
+                              unsigned char rtm_scope, unsigned char rtm_protocol,
+                              unsigned char rtm_type, unsigned rtm_flags, sd_rtnl_message **ret) {
+        struct rtmsg *rtm;
+        int r;
+
+        assert_return(nlmsg_type == RTM_NEWROUTE || nlmsg_type == RTM_DELROUTE ||
+                      nlmsg_type == RTM_GETROUTE, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = message_new(ret, NLMSG_SPACE(sizeof(struct rtmsg)));
+        if (r < 0)
+                return r;
+
+        (*ret)->hdr->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+        (*ret)->hdr->nlmsg_type = nlmsg_type;
+        if (nlmsg_type == RTM_NEWROUTE)
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
+
+        rtm = NLMSG_DATA((*ret)->hdr);
+
+        rtm->rtm_family = rtm_family;
+        rtm->rtm_dst_len = rtm_dst_len;
+        rtm->rtm_src_len = rtm_src_len;
+        rtm->rtm_tos = rtm_tos;
+        rtm->rtm_table = rtm_table;
+        rtm->rtm_protocol = rtm_protocol;
+        rtm->rtm_scope = rtm_scope;
+        rtm->rtm_type = rtm_type;
+        rtm->rtm_flags = rtm_flags;
+
+        return 0;
+}
+
 int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, unsigned int type, unsigned int flags, sd_rtnl_message **ret) {
         struct ifinfomsg *ifi;
         int r;
@@ -189,6 +225,7 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
 int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *data) {
         uint16_t rtm_type;
         struct ifaddrmsg *ifa;
+        struct rtmsg *rtm;
 
         assert_return(m, -EINVAL);
         assert_return(data, -EINVAL);
@@ -204,9 +241,9 @@ int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *
                                 case IFLA_QDISC:
                                         return add_rtattr(m, type, data, strlen(data) + 1);
                                 case IFLA_MTU:
-                                        return add_rtattr(m, type, data, sizeof(unsigned int));
+                                        return add_rtattr(m, type, data, sizeof(uint32_t));
                                 case IFLA_LINK:
-                                        return add_rtattr(m, type, data, sizeof(int));
+                                        return add_rtattr(m, type, data, sizeof(uint32_t));
                                 case IFLA_STATS:
                                         return add_rtattr(m, type, data, sizeof(struct rtnl_link_stats));
                                 case IFLA_ADDRESS:
@@ -234,6 +271,30 @@ int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *
                                                 default:
                                                         return -EINVAL;
                                         }
+                                default:
+                                        return -ENOTSUP;
+                        }
+                case RTM_NEWROUTE:
+                case RTM_DELROUTE:
+                case RTM_GETROUTE:
+                        switch (type) {
+                                case RTA_DST:
+                                case RTA_SRC:
+                                case RTA_GATEWAY:
+                                        rtm = NLMSG_DATA(m->hdr);
+                                        switch (rtm->rtm_family) {
+                                                case AF_INET:
+                                                        return add_rtattr(m, type, data, sizeof(struct in_addr));
+                                                case AF_INET6:
+                                                        return add_rtattr(m, type, data, sizeof(struct in6_addr));
+                                                default:
+                                                        return -EINVAL;
+                                        }
+                                case RTA_TABLE:
+                                case RTA_PRIORITY:
+                                case RTA_IIF:
+                                case RTA_OIF:
+                                        return add_rtattr(m, type, data, sizeof(uint32_t));
                                 default:
                                         return -ENOTSUP;
                         }
@@ -275,7 +336,7 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
                                 m->next_rta = IFLA_RTA(ifi);
                                 m->remaining_size = IFLA_PAYLOAD(m->hdr);
                         }
-                        break;;
+                        break;
                 case RTM_NEWADDR:
                 case RTM_DELADDR:
                 case RTM_GETADDR:
@@ -283,9 +344,19 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
                                 struct ifaddrmsg *ifa = NLMSG_DATA(m->hdr);
 
                                 m->next_rta = IFA_RTA(ifa);
-                                m->remaining_size = IFLA_PAYLOAD(m->hdr);
+                                m->remaining_size = IFA_PAYLOAD(m->hdr);
                         }
-                        break;;
+                        break;
+                case RTM_NEWROUTE:
+                case RTM_DELROUTE:
+                case RTM_GETROUTE:
+                        if (!m->next_rta) {
+                                struct rtmesg *rtm = NLMSG_DATA(m->hdr);
+
+                                m->next_rta = RTM_RTA(rtm);
+                                m->remaining_size = RTM_PAYLOAD(m->hdr);
+                        }
+                        break;
                 default:
                         return -ENOTSUP;
         }
@@ -415,22 +486,22 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
                         case NLMSG_ERROR:
                                 if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
                                         k = -EIO;
-                                break;;
+                                break;
                         case RTM_NEWLINK:
                         case RTM_DELLINK:
                         case RTM_GETLINK:
                                 if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct ifinfomsg)))
                                         k = -EIO;
-                                break;;
+                                break;
                         case RTM_NEWADDR:
                         case RTM_DELADDR:
                         case RTM_GETADDR:
                                 if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct ifaddrmsg)))
                                         k = -EIO;
-                                break;;
+                                break;
                         case NLMSG_NOOP:
                                 k = 0;
-                                break;;
+                                break;
                         default:
                                 k = 0; /* ignoring message of unknown type */
                 }

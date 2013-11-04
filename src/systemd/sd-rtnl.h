@@ -38,8 +38,16 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *nl);
 int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl, sd_rtnl_message *message, uint64_t timeout, sd_rtnl_message **reply);
 
 /* messages */
-int sd_rtnl_message_link_new(uint16_t msg_type, int index, unsigned int type, unsigned int flags, sd_rtnl_message **ret);
-int sd_rtnl_message_addr_new(uint16_t msg_type, int index, unsigned char family, unsigned char prefixlen, unsigned char flags, unsigned char scope, sd_rtnl_message **ret);
+int sd_rtnl_message_link_new(uint16_t msg_type, int index, unsigned int type,
+                             unsigned int flags, sd_rtnl_message **ret);
+int sd_rtnl_message_addr_new(uint16_t msg_type, int index, unsigned char family,
+                             unsigned char prefixlen, unsigned char flags,
+                             unsigned char scope, sd_rtnl_message **ret);
+int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
+                              unsigned char rtm_dst_len, unsigned char rtm_src_len,
+                              unsigned char rtm_tos, unsigned char rtm_table,
+                              unsigned char rtm_scope, unsigned char rtm_protocol,
+                              unsigned char rtm_type, unsigned flags, sd_rtnl_message **ret);
 sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m);
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
 
