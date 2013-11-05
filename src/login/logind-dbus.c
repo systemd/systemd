@@ -371,7 +371,7 @@ static int method_list_seats(sd_bus *bus, sd_bus_message *message, void *userdat
                 if (!p)
                         return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
 
-                r = sd_bus_message_append(reply, "so", seat->id, p);
+                r = sd_bus_message_append(reply, "(so)", seat->id, p);
                 if (r < 0)
                         return sd_bus_reply_method_errno(bus, message, r, NULL);
         }
