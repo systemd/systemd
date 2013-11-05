@@ -352,6 +352,8 @@ def get_catalog(mid):
 def _make_line(field, value):
         if isinstance(value, bytes):
                 return field.encode('utf-8') + b'=' + value
+        elif isinstance(value, int):
+                return field + '=' + str(value)
         else:
                 return field + '=' + value
 
