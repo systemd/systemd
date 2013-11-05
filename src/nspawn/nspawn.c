@@ -224,6 +224,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'S':
                         arg_slice = strdup(optarg);
+                        if (!arg_slice)
+                                return log_oom();
+
                         break;
 
                 case 'M':
@@ -315,11 +318,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = strv_extend(x, a);
                         if (r < 0)
-                                return r;
+                                return log_oom();
 
                         r = strv_extend(x, b);
                         if (r < 0)
-                                return r;
+                                return log_oom();
 
                         break;
                 }
