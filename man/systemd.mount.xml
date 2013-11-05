@@ -261,7 +261,7 @@
                                 a time span value such as "5min
                                 20s". Pass 0 to disable the timeout
                                 logic. Default value is setted up in manager configuration
-                                file via <term><varname>DefaultTimeoutStart=</varname></term>.</para></listitem>
+                                file via <varname>DefaultTimeoutStart=</varname>.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
