@@ -4486,7 +4486,7 @@ int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
         assert(l);
 
         r = sd_bus_message_enter_container(m, 'a', "s");
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         for (;;) {
@@ -4508,6 +4508,24 @@ int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
                 return r;
 
         return 0;
+}
+
+int sd_bus_message_read_strv(sd_bus_message *m, char ***l) {
+        char **strv = NULL;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(l, -EINVAL);
+
+        r = bus_message_read_strv_extend(m, &strv);
+        if (r <= 0) {
+                strv_free(strv);
+                return r;
+        }
+
+        *l = strv;
+        return 1;
 }
 
 const char* bus_message_get_arg(sd_bus_message *m, unsigned i) {
