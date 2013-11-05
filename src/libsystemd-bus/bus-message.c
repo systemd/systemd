@@ -2366,6 +2366,15 @@ static int buffer_peek(const void *p, uint32_t sz, size_t *rindex, size_t align,
         return 1;
 }
 
+static bool message_end_of_signature(sd_bus_message *m) {
+        struct bus_container *c;
+
+        assert(m);
+
+        c = message_get_container(m);
+        return !c->signature || c->signature[c->index] == 0;
+}
+
 static bool message_end_of_array(sd_bus_message *m, size_t index) {
         struct bus_container *c;
 
@@ -2376,6 +2385,22 @@ static bool message_end_of_array(sd_bus_message *m, size_t index) {
                 return false;
 
         return index >= c->begin + BUS_MESSAGE_BSWAP32(m, *c->array_size);
+}
+
+int sd_bus_message_at_end(sd_bus_message *m, int complete) {
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+
+        if (complete && m->n_containers > 0)
+                return false;
+
+        if (message_end_of_signature(m))
+                return true;
+
+        if (message_end_of_array(m, m->rindex))
+                return true;
+
+        return false;
 }
 
 static struct bus_body_part* find_part(sd_bus_message *m, size_t index, size_t sz, void **p) {
@@ -2524,14 +2549,13 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
         assert_return(m->sealed, -EPERM);
         assert_return(bus_type_is_basic(type), -EINVAL);
 
-        c = message_get_container(m);
-
-        if (!c->signature || c->signature[c->index] == 0)
+        if (message_end_of_signature(m))
                 return -ENXIO;
 
         if (message_end_of_array(m, m->rindex))
                 return 0;
 
+        c = message_get_container(m);
         if (c->signature[c->index] != type)
                 return -ENXIO;
 
@@ -2901,13 +2925,13 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
                 return -ENOMEM;
         m->containers = w;
 
-        c = message_get_container(m);
-
-        if (!c->signature || c->signature[c->index] == 0)
+        if (message_end_of_signature(m))
                 return -ENXIO;
 
         if (message_end_of_array(m, m->rindex))
                 return 0;
+
+        c = message_get_container(m);
 
         signature = strdup(contents);
         if (!signature)
@@ -2999,13 +3023,13 @@ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **content
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
 
-        c = message_get_container(m);
-
-        if (!c->signature || c->signature[c->index] == 0)
+        if (message_end_of_signature(m))
                 goto eof;
 
         if (message_end_of_array(m, m->rindex))
                 goto eof;
+
+        c = message_get_container(m);
 
         if (bus_type_is_basic(c->signature[c->index])) {
                 if (contents)
@@ -3106,7 +3130,7 @@ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **content
 
 eof:
         if (type)
-                *type = c->enclosing;
+                *type = 0;
         if (contents)
                 *contents = NULL;
         return 0;
