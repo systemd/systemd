@@ -360,6 +360,9 @@ static int property_get_chassis(
         else
                 name = c->data[PROP_CHASSIS];
 
+        if(!name)
+                name = "";
+
         r = sd_bus_message_append(reply, "s", name);
         if (r < 0)
                 return r;
