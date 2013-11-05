@@ -172,12 +172,12 @@ static int show_scope_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
 }
 
 typedef struct MachineStatusInfo {
-        const char *name;
+        char *name;
         sd_id128_t id;
-        const char *class;
-        const char *service;
-        const char *scope;
-        const char *root_directory;
+        char *class;
+        char *service;
+        char *scope;
+        char *root_directory;
         pid_t leader;
         usec_t timestamp;
 } MachineStatusInfo;
@@ -233,201 +233,87 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         }
 }
 
-static int status_property_machine(const char *name, sd_bus_message *property, MachineStatusInfo *i) {
-        char type;
-        const char *contents;
+static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_line) {
+        MachineStatusInfo info = {};
+        static const struct bus_properties_map map[]  = {
+                { "Name",          "s",  NULL,          offsetof(MachineStatusInfo, name) },
+                { "Class",         "s",  NULL,          offsetof(MachineStatusInfo, class) },
+                { "Service",       "s",  NULL,          offsetof(MachineStatusInfo, service) },
+                { "Scope",         "s",  NULL,          offsetof(MachineStatusInfo, scope) },
+                { "RootDirectory", "s",  NULL,          offsetof(MachineStatusInfo, root_directory) },
+                { "Leader",        "u",  NULL,          offsetof(MachineStatusInfo, leader) },
+                { "Timestamp",     "t",  NULL,          offsetof(MachineStatusInfo, timestamp) },
+                { "Id",            "ay", bus_map_id128, offsetof(MachineStatusInfo, id) },
+                {}
+        };
         int r;
-
-        assert(name);
-        assert(property);
-        assert(i);
-
-        r = sd_bus_message_peek_type(property, &type, &contents);
-        if (r < 0) {
-                log_error("Could not determine type of message: %s", strerror(-r));
-                return r;
-        }
-
-        switch (type) {
-
-        case SD_BUS_TYPE_STRING: {
-                const char *s;
-
-                sd_bus_message_read_basic(property, type, &s);
-
-                if (!isempty(s)) {
-                        if (streq(name, "Name"))
-                                i->name = s;
-                        else if (streq(name, "Class"))
-                                i->class = s;
-                        else if (streq(name, "Service"))
-                                i->service = s;
-                        else if (streq(name, "Scope"))
-                                i->scope = s;
-                        else if (streq(name, "RootDirectory"))
-                                i->root_directory = s;
-                }
-                break;
-        }
-
-        case SD_BUS_TYPE_UINT32: {
-                uint32_t u;
-
-                sd_bus_message_read_basic(property, type, &u);
-
-                if (streq(name, "Leader"))
-                        i->leader = (pid_t) u;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_UINT64: {
-                uint64_t u;
-
-                sd_bus_message_read_basic(property, type, &u);
-
-                if (streq(name, "Timestamp"))
-                        i->timestamp = (usec_t) u;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_ARRAY: {
-                if (streq(contents, "y") && streq(name, "Id")) {
-                        const void *v;
-                        size_t n;
-
-                        sd_bus_message_read_array(property, SD_BUS_TYPE_BYTE, &v, &n);
-                        if (n == 0)
-                                i->id = SD_ID128_NULL;
-                        else if (n == 16)
-                                memcpy(&i->id, v, n);
-                }
-
-                break;
-        }
-        }
-
-        return 0;
-}
-
-static int print_property(const char *name, sd_bus_message *reply) {
-        assert(name);
-        assert(reply);
-
-        if (arg_property && !strv_find(arg_property, name))
-                return 0;
-
-        if (bus_generic_print_property(name, reply, arg_all) > 0)
-                return 0;
-
-        if (arg_all)
-                printf("%s=[unprintable]\n", name);
-
-        return 0;
-}
-
-static int show_one(const char *verb, sd_bus *bus, const char *path, bool show_properties, bool *new_line) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-        MachineStatusInfo machine_info = {};
 
         assert(path);
         assert(new_line);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.machine1",
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &error,
-                        &reply,
-                        "s", "");
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.machine1",
+                                   path,
+                                   map,
+                                   &info);
         if (r < 0) {
-                log_error("Could not get properties: %s", bus_error_message(&error, -r));
+                log_error("Could not get properties: %s", strerror(-r));
                 return r;
         }
 
+        if (*new_line)
+                printf("\n");
+        *new_line = true;
+
+        print_machine_status_info(bus, &info);
+
+        free(info.name);
+        free(info.class);
+        free(info.service);
+        free(info.scope);
+        free(info.root_directory);
+
+        return r;
+}
+
+static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
+        int r;
 
         if (*new_line)
                 printf("\n");
 
         *new_line = true;
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
+        r = bus_print_all_properties(bus, path, arg_property, arg_all);
         if (r < 0)
-                goto fail;
+                log_error("Could not get properties: %s", strerror(-r));
 
-        while ((r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
-                const char *name;
-                const char *contents;
-
-                r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_STRING, &name);
-                if (r < 0)
-                        goto fail;
-
-                r = sd_bus_message_peek_type(reply, NULL, &contents);
-                if (r < 0)
-                        goto fail;
-
-                r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_VARIANT, contents);
-                if (r < 0)
-                        goto fail;
-
-                if (show_properties)
-                        r = print_property(name, reply);
-                else
-                        r = status_property_machine(name, reply, &machine_info);
-                if (r < 0)
-                        goto fail;
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        goto fail;
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        goto fail;
-        }
-        if (r < 0)
-                goto fail;
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                goto fail;
-
-        if (!show_properties)
-                print_machine_status_info(bus, &machine_info);
-
-        return 0;
-
-fail:
-        log_error("Failed to parse reply: %s", strerror(-r));
         return r;
 }
 
 static int show(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, ret = 0;
+        int r = 0;
         unsigned i;
-        bool show_properties, new_line = false;
+        bool properties, new_line = false;
 
         assert(bus);
         assert(args);
 
-        show_properties = !strstr(args[0], "status");
+        properties = !strstr(args[0], "status");
 
         pager_open_if_enabled();
 
-        if (show_properties && n <= 1) {
+        if (properties && n <= 1) {
 
-                /* If no argument is specified inspect the manager
+                /* If no argument is specified, inspect the manager
                  * itself */
-
-                return show_one(args[0], bus, "/org/freedesktop/machine1", show_properties, &new_line);
+                r = show_properties(bus, "/org/freedesktop/machine1", &new_line);
+                if (r < 0) {
+                        log_error("Failed to query properties: %s", strerror(-r));
+                        return r;
+                }
         }
 
         for (i = 1; i < n; i++) {
@@ -450,15 +336,16 @@ static int show(sd_bus *bus, char **args, unsigned n) {
                 r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0) {
                         log_error("Failed to parse reply: %s", strerror(-r));
-                        return r;
+                        break;
                 }
 
-                r = show_one(args[0], bus, path, show_properties, &new_line);
-                if (r != 0)
-                        ret = r;
+                if (properties)
+                        r = show_properties(bus, path, &new_line);
+                else
+                        r = show_info(args[0], bus, path, &new_line);
         }
 
-        return ret;
+        return r;
 }
 
 static int kill_machine(sd_bus *bus, char **args, unsigned n) {

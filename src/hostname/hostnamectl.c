@@ -142,12 +142,12 @@ static int show_one_name(sd_bus *bus, const char* attr) {
 
 static int show_all_names(sd_bus *bus) {
         StatusInfo info = {};
-        const struct bus_properties_map map[]  = {
-                { "s",  "Hostname",       &info.hostname },
-                { "s",  "StaticHostname", &info.static_hostname },
-                { "s",  "PrettyHostname", &info.pretty_hostname },
-                { "s",  "IconName",       &info.icon_name },
-                { "s",  "Chassis",        &info.chassis },
+        static const struct bus_properties_map map[]  = {
+                { "Hostname",       "s", NULL, offsetof(StatusInfo, hostname) },
+                { "StaticHostname", "s", NULL, offsetof(StatusInfo, static_hostname) },
+                { "PrettyHostname", "s", NULL, offsetof(StatusInfo, pretty_hostname) },
+                { "IconName",       "s", NULL, offsetof(StatusInfo, icon_name) },
+                { "Chassis",        "s", NULL, offsetof(StatusInfo, chassis) },
                 {}
         };
         int r;
@@ -155,7 +155,8 @@ static int show_all_names(sd_bus *bus) {
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.hostname1",
                                    "/org/freedesktop/hostname1",
-                                   map);
+                                   map,
+                                   &info);
         if (r < 0)
                 goto fail;
 

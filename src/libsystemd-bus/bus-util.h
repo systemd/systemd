@@ -35,16 +35,22 @@ typedef enum BusTransport {
         _BUS_TRANSPORT_INVALID = -1
 } BusTransport;
 
+typedef int (*bus_property_set_t) (sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
+
 struct bus_properties_map {
-        const char *type;
-        const char *name;
-        void *ptr;
+        const char *member;
+        const char *signature;
+        bus_property_set_t set;
+        size_t offset;
 };
+
+int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
 
 int bus_map_all_properties(sd_bus *bus,
                            const char *destination,
                            const char *path,
-                           const struct bus_properties_map *map);
+                           const struct bus_properties_map *map,
+                           void *userdata);
 
 int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name);
 
@@ -60,7 +66,8 @@ int bus_open_system_systemd(sd_bus **_bus);
 
 int bus_open_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
-int bus_generic_print_property(const char *name, sd_bus_message *property, bool all);
+int bus_print_property(const char *name, sd_bus_message *property, bool all);
+int bus_print_all_properties(sd_bus *bus, const char *path, char **filter, bool all);
 
 int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
 int bus_property_get_uid(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);

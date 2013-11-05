@@ -104,15 +104,15 @@ static void print_status_info(StatusInfo *i) {
 
 static int show_status(sd_bus *bus, char **args, unsigned n) {
         StatusInfo info = {};
-        const struct bus_properties_map map[]  = {
-                { "s",  "VConsoleKeymap",       &info.vconsole_keymap },
-                { "s",  "VConsoleKeymap",       &info.vconsole_keymap },
-                { "s",  "VConsoleKeymapToggle", &info.vconsole_keymap_toggle},
-                { "s",  "X11Layout",            &info.x11_layout },
-                { "s",  "X11Model",             &info.x11_model },
-                { "s",  "X11Variant",           &info.x11_variant },
-                { "s",  "X11Options",           &info.x11_options },
-                { "as", "Locale",               &info.locale },
+        static const struct bus_properties_map map[]  = {
+                { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
+                { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
+                { "VConsoleKeymapToggle", "s",  NULL, offsetof(StatusInfo, vconsole_keymap_toggle) },
+                { "X11Layout",            "s",  NULL, offsetof(StatusInfo, x11_layout) },
+                { "X11Model",             "s",  NULL, offsetof(StatusInfo, x11_model) },
+                { "X11Variant",           "s",  NULL, offsetof(StatusInfo, x11_variant) },
+                { "X11Options",           "s",  NULL, offsetof(StatusInfo, x11_options) },
+                { "Locale",               "as", NULL, offsetof(StatusInfo, locale) },
                 {}
         };
         int r;
@@ -122,7 +122,8 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.locale1",
                                    "/org/freedesktop/locale1",
-                                   map);
+                                   map,
+                                   &info);
         if (r < 0)
                 goto fail;
 

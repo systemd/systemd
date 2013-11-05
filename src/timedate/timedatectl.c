@@ -193,14 +193,14 @@ static void print_status_info(const StatusInfo *i) {
 static int show_status(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         StatusInfo info = {};
-        const struct bus_properties_map map[]  = {
-                { "s",  "Timezone",        &info.timezone },
-                { "b",  "LocalRTC",        &info.rtc_local },
-                { "b",  "NTP",             &info.ntp_enabled },
-                { "b",  "CanNTP",          &info.ntp_capable },
-                { "b",  "NTPSynchronized", &info.ntp_synced},
-                { "t",  "TimeUSec",        &info.time },
-                { "t",  "RTCTimeUSec",     &info.rtc_time },
+        static const struct bus_properties_map map[]  = {
+                { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone) },
+                { "LocalRTC",        "b", NULL, offsetof(StatusInfo, rtc_local) },
+                { "NTP",             "b", NULL, offsetof(StatusInfo, ntp_enabled) },
+                { "CanNTP",          "b", NULL, offsetof(StatusInfo, ntp_capable) },
+                { "NTPSynchronized", "b", NULL, offsetof(StatusInfo, ntp_synced) },
+                { "TimeUSec",        "t", NULL, offsetof(StatusInfo, time) },
+                { "RTCTimeUSec",     "t", NULL, offsetof(StatusInfo, rtc_time) },
                 {}
         };
         int r;
@@ -210,7 +210,8 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.timedate1",
                                    "/org/freedesktop/timedate1",
-                                   map);
+                                   map,
+                                   &info);
         if (r < 0)
                 goto fail;
 
