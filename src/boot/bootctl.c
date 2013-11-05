@@ -34,7 +34,7 @@
 
 static int help(void) {
         printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "Query or change firmware and boot mananger settings.\n\n"
+               "Query or change firmware and boot manager settings.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "Commands:\n"
