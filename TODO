@@ -134,8 +134,6 @@ Features:
 
 * load .d/*.conf dropins for device units
 
-* add a fixed dbus path for "my own unit", "my own session", ... to PID1, logind, ...
-
 * service_coldplug() appears to reinstall the wrong stop timeout watch.
 
 * transient units: allow creating auxiliary units with the same call
@@ -337,7 +335,6 @@ Features:
   - logind: non-local X11 server handling
   - logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
   - pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
-  - logind: GetSessionByPID() should accept 0 as PID value
   - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
