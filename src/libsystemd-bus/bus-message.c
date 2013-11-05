@@ -2642,16 +2642,14 @@ static bool validate_object_path(const char *s, size_t l) {
 
 int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
         struct bus_container *c;
-        int r;
         void *q;
+        int r;
 
         if (!m)
                 return -EINVAL;
         if (!m->sealed)
                 return -EPERM;
         if (!bus_type_is_basic(type))
-                return -EINVAL;
-        if (!p)
                 return -EINVAL;
 
         c = message_get_container(m);
@@ -2693,7 +2691,9 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                 }
 
                 m->rindex = rindex;
-                *(const char**) p = q;
+                if (p)
+                        *(const char**) p = q;
+
                 break;
         }
 
@@ -2717,7 +2717,9 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         return -EBADMSG;
 
                 m->rindex = rindex;
-                *(const char**) p = q;
+
+                if (p)
+                        *(const char**) p = q;
                 break;
         }
 
@@ -2737,27 +2739,32 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                 switch (type) {
 
                 case SD_BUS_TYPE_BYTE:
-                        *(uint8_t*) p = *(uint8_t*) q;
+                        if (p)
+                                *(uint8_t*) p = *(uint8_t*) q;
                         break;
 
                 case SD_BUS_TYPE_BOOLEAN:
-                        *(unsigned*) p = !!*(uint32_t*) q;
+                        if (p)
+                                *(unsigned*) p = !!*(uint32_t*) q;
                         break;
 
                 case SD_BUS_TYPE_INT16:
                 case SD_BUS_TYPE_UINT16:
-                        *(uint16_t*) p = BUS_MESSAGE_BSWAP16(m, *(uint16_t*) q);
+                        if (p)
+                                *(uint16_t*) p = BUS_MESSAGE_BSWAP16(m, *(uint16_t*) q);
                         break;
 
                 case SD_BUS_TYPE_INT32:
                 case SD_BUS_TYPE_UINT32:
-                        *(uint32_t*) p = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
+                        if (p)
+                                *(uint32_t*) p = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
                         break;
 
                 case SD_BUS_TYPE_INT64:
                 case SD_BUS_TYPE_UINT64:
                 case SD_BUS_TYPE_DOUBLE:
-                        *(uint64_t*) p = BUS_MESSAGE_BSWAP64(m, *(uint64_t*) q);
+                        if (p)
+                                *(uint64_t*) p = BUS_MESSAGE_BSWAP64(m, *(uint64_t*) q);
                         break;
 
                 case SD_BUS_TYPE_UNIX_FD: {
@@ -2767,7 +2774,8 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         if (j >= m->n_fds)
                                 return -EBADMSG;
 
-                        *(int*) p = m->fds[j];
+                        if (p)
+                                *(int*) p = m->fds[j];
                         break;
                 }
 
