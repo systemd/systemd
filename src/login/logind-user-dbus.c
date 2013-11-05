@@ -236,11 +236,7 @@ const sd_bus_vtable user_vtable[] = {
 };
 
 int user_object_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
-
-        _cleanup_free_ char *e = NULL;
         Manager *m = userdata;
-        unsigned long lu;
-        const char *p;
         User *user;
         int r;
 
@@ -250,17 +246,37 @@ int user_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(found);
         assert(m);
 
-        p = startswith(path, "/org/freedesktop/login1/user/_");
-        if (!p)
-                return 0;
+        if (streq(path, "/org/freedesktop/login1/user/self")) {
+                sd_bus_message *message;
+                pid_t pid;
 
-        r = safe_atolu(p, &lu);
-        if (r < 0)
-                return 0;
+                message = sd_bus_get_current(bus);
+                if (!message)
+                        return 0;
 
-        user = hashmap_get(m->users, ULONG_TO_PTR(lu));
-        if (!user)
-                return 0;
+                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                if (r < 0)
+                        return 0;
+
+                r = manager_get_user_by_pid(m, pid, &user);
+                if (r <= 0)
+                        return 0;
+        } else {
+                unsigned long lu;
+                const char *p;
+
+                p = startswith(path, "/org/freedesktop/login1/user/_");
+                if (!p)
+                        return 0;
+
+                r = safe_atolu(p, &lu);
+                if (r < 0)
+                        return 0;
+
+                user = hashmap_get(m->users, ULONG_TO_PTR(lu));
+                if (!user)
+                        return 0;
+        }
 
         *found = user;
         return 1;

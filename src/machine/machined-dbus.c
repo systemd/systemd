@@ -342,37 +342,6 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int machine_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
-        Machine *machine = NULL;
-        Manager *m = userdata;
-        Iterator i;
-        int r;
-
-        assert(bus);
-        assert(path);
-        assert(nodes);
-
-        HASHMAP_FOREACH(machine, m->machines, i) {
-                char *p;
-
-                p = machine_bus_path(machine);
-                if (!p)
-                        return -ENOMEM;
-
-                r = strv_push(&l, p);
-                if (r < 0) {
-                        free(p);
-                        return r;
-                }
-        }
-
-        *nodes = l;
-        l = NULL;
-
-        return 1;
-}
-
 int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
         const char *path, *result, *unit;
         Manager *m = userdata;

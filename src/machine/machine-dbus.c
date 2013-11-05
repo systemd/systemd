@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "bus-util.h"
+#include "strv.h"
 #include "machine.h"
 
 static int property_get_id(
@@ -142,10 +143,9 @@ const sd_bus_vtable machine_vtable[] = {
 };
 
 int machine_object_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
-        _cleanup_free_ char *e = NULL;
         Manager *m = userdata;
         Machine *machine;
-        const char *p;
+        int r;
 
         assert(bus);
         assert(path);
@@ -153,17 +153,37 @@ int machine_object_find(sd_bus *bus, const char *path, const char *interface, vo
         assert(found);
         assert(m);
 
-        p = startswith(path, "/org/freedesktop/machine1/machine/");
-        if (!p)
-                return 0;
+        if (streq(path, "/org/freedesktop/machine1/machine/self")) {
+                sd_bus_message *message;
+                pid_t pid;
 
-        e = bus_path_unescape(p);
-        if (!e)
-                return -ENOMEM;
+                message = sd_bus_get_current(bus);
+                if (!message)
+                        return 0;
 
-        machine = hashmap_get(m->machines, e);
-        if (!machine)
-                return 0;
+                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                if (r < 0)
+                        return 0;
+
+                r = manager_get_machine_by_pid(m, pid, &machine);
+                if (r <= 0)
+                        return 0;
+        } else {
+                _cleanup_free_ char *e = NULL;
+                const char *p;
+
+                p = startswith(path, "/org/freedesktop/machine1/machine/");
+                if (!p)
+                        return 0;
+
+                e = bus_path_unescape(p);
+                if (!e)
+                        return -ENOMEM;
+
+                machine = hashmap_get(m->machines, e);
+                if (!machine)
+                        return 0;
+        }
 
         *found = machine;
         return 1;
@@ -179,6 +199,37 @@ char *machine_bus_path(Machine *m) {
                 return NULL;
 
         return strappend("/org/freedesktop/machine1/machine/", e);
+}
+
+int machine_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        Machine *machine = NULL;
+        Manager *m = userdata;
+        Iterator i;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(nodes);
+
+        HASHMAP_FOREACH(machine, m->machines, i) {
+                char *p;
+
+                p = machine_bus_path(machine);
+                if (!p)
+                        return -ENOMEM;
+
+                r = strv_push(&l, p);
+                if (r < 0) {
+                        free(p);
+                        return r;
+                }
+        }
+
+        *nodes = l;
+        l = NULL;
+
+        return 1;
 }
 
 int machine_send_signal(Machine *m, bool new_machine) {

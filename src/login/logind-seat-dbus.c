@@ -254,10 +254,9 @@ const sd_bus_vtable seat_vtable[] = {
 };
 
 int seat_object_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
-        _cleanup_free_ char *e = NULL;
         Manager *m = userdata;
         Seat *seat;
-        const char *p;
+        int r;
 
         assert(bus);
         assert(path);
@@ -265,17 +264,43 @@ int seat_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(found);
         assert(m);
 
-        p = startswith(path, "/org/freedesktop/login1/seat/");
-        if (!p)
-                return 0;
+        if (streq(path, "/org/freedesktop/login1/seat/self")) {
+                sd_bus_message *message;
+                Session *session;
+                pid_t pid;
 
-        e = bus_path_unescape(p);
-        if (!e)
-                return -ENOMEM;
+                message = sd_bus_get_current(bus);
+                if (!message)
+                        return 0;
 
-        seat = hashmap_get(m->seats, e);
-        if (!seat)
-                return 0;
+                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                if (r < 0)
+                        return 0;
+
+                r = manager_get_session_by_pid(m, pid, &session);
+                if (r <= 0)
+                        return 0;
+
+                if (!session->seat)
+                        return 0;
+
+                seat = session->seat;
+        } else {
+                _cleanup_free_ char *e = NULL;
+                const char *p;
+
+                p = startswith(path, "/org/freedesktop/login1/seat/");
+                if (!p)
+                        return 0;
+
+                e = bus_path_unescape(p);
+                if (!e)
+                        return -ENOMEM;
+
+                seat = hashmap_get(m->seats, e);
+                if (!seat)
+                        return 0;
+        }
 
         *found = seat;
         return 1;
