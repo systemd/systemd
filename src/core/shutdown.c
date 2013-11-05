@@ -46,6 +46,7 @@
 #include "virt.h"
 #include "watchdog.h"
 #include "killall.h"
+#include "cgroup-util.h"
 
 #define FINALIZE_ATTEMPTS 50
 
@@ -131,12 +132,12 @@ static int pivot_to_new_root(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_free_ char *line = NULL;
-        int cmd, r;
-        unsigned retries;
         bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
         bool in_container, use_watchdog = false;
+        _cleanup_free_ char *line = NULL, *cgroup = NULL;
         char *arguments[3];
+        unsigned retries;
+        int cmd, r;
 
         /* suppress shutdown status output if 'quiet' is used  */
         r = read_one_line_file("/proc/cmdline", &line);
@@ -186,6 +187,8 @@ int main(int argc, char *argv[]) {
                 goto error;
         }
 
+        cg_get_root_path(&cgroup);
+
         use_watchdog = !!getenv("WATCHDOG_USEC");
 
         /* lock us into memory */
@@ -209,6 +212,13 @@ int main(int argc, char *argv[]) {
 
                 if (use_watchdog)
                         watchdog_ping();
+
+                /* Let's trim the cgroup tree on each iteration so
+                   that we leave an empty cgroup tree around, so that
+                   container managers get a nice notify event when we
+                   are down */
+                if (cgroup)
+                        cg_trim(SYSTEMD_CGROUP_CONTROLLER, cgroup, false);
 
                 if (need_umount) {
                         log_info("Unmounting file systems.");
