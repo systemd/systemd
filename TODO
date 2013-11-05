@@ -223,7 +223,7 @@ Features:
 * test/:
   - add 'set -e' to scripts in test/
   - make stuff in test/ work with separate output dir
-  - remove all the duplicated code in test/
+  - qemu wrapper script: http://www.spinics.net/lists/kvm/msg72389.html
 
 * systemctl delete x.snapshot leaves no trace in logs (at least at default level).
 
