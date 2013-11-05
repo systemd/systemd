@@ -3520,9 +3520,6 @@ SYSTEM_UNIT_ALIASES += \
 hostnamectl_SOURCES = \
 	src/hostname/hostnamectl.c
 
-hostnamectl_CFLAGS = \
-	$(AM_CFLAGS)
-
 hostnamectl_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la \
@@ -3773,9 +3770,6 @@ systemd_logind_SOURCES = \
 nodist_systemd_logind_SOURCES = \
 	src/login/logind-gperf.c
 
-systemd_logind_CFLAGS = \
-	$(libsystemd_logind_core_la_CFLAGS)
-
 systemd_logind_LDADD = \
 	libsystemd-logind-core.la \
 	$(libsystemd_logind_core_la_LIBADD)
@@ -3805,9 +3799,6 @@ libsystemd_logind_core_la_SOURCES = \
 	src/login/logind-acl.h \
 	src/login/login-shared.c \
 	src/login/login-shared.h
-
-libsystemd_logind_core_la_CFLAGS = \
-	$(AM_CFLAGS)
 
 libsystemd_logind_core_la_LIBADD = \
 	libsystemd-label.la \
