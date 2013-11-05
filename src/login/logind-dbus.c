@@ -1369,7 +1369,7 @@ static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
                                   "org.freedesktop.login1.Manager",
                                   signal_name[w],
                                   "b",
-                                  &active);
+                                  active);
 }
 
 int bus_manager_shutdown_or_sleep_now_or_later(
