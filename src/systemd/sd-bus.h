@@ -101,6 +101,8 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
 
+sd_bus_message* sd_bus_get_current(sd_bus *bus);
+
 int sd_bus_attach_event(sd_bus *bus, sd_event *e, int priority);
 int sd_bus_detach_event(sd_bus *bus);
 

@@ -247,6 +247,8 @@ struct sd_bus {
         sd_event_source *time_event_source;
         sd_event_source *quit_event_source;
         sd_event *event;
+
+        sd_bus_message *current;
 };
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))

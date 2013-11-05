@@ -1931,6 +1931,7 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
+        bus->current = m;
         bus->iteration_counter++;
 
         log_debug("Got message sender=%s object=%s interface=%s member=%s",
@@ -1941,25 +1942,29 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
 
         r = process_hello(bus, m);
         if (r != 0)
-                return r;
+                goto finish;
 
         r = process_reply(bus, m);
         if (r != 0)
-                return r;
+                goto finish;
 
         r = process_filter(bus, m);
         if (r != 0)
-                return r;
+                goto finish;
 
         r = process_match(bus, m);
         if (r != 0)
-                return r;
+                goto finish;
 
         r = process_builtin(bus, m);
         if (r != 0)
-                return r;
+                goto finish;
 
-        return bus_process_object(bus, m);
+        r = bus_process_object(bus, m);
+
+finish:
+        bus->current = NULL;
+        return r;
 }
 
 static int process_running(sd_bus *bus, sd_bus_message **ret) {
@@ -2421,4 +2426,10 @@ int sd_bus_detach_event(sd_bus *bus) {
                 bus->event = sd_event_unref(bus->event);
 
         return 0;
+}
+
+sd_bus_message* sd_bus_get_current(sd_bus *bus) {
+        assert_return(bus, NULL);
+
+        return bus->current;
 }
