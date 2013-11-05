@@ -25,13 +25,13 @@
 
 #include "util.h"
 #include "mkdir.h"
-#include "cgroup-util.h"
 #include "hashmap.h"
 #include "strv.h"
 #include "fileio.h"
 #include "special.h"
 #include "unit-name.h"
-#include "dbus-common.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "logind-user.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
@@ -329,15 +329,13 @@ static int user_mkdir_runtime_path(User *u) {
 }
 
 static int user_start_slice(User *u) {
-        DBusError error;
         char *job;
         int r;
 
         assert(u);
 
-        dbus_error_init(&error);
-
         if (!u->slice) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 char lu[DECIMAL_STR_MAX(unsigned long) + 1], *slice;
                 sprintf(lu, "%lu", (unsigned long) u->uid);
 
@@ -347,9 +345,7 @@ static int user_start_slice(User *u) {
 
                 r = manager_start_unit(u->manager, slice, &error, &job);
                 if (r < 0) {
-                        log_error("Failed to start user slice: %s", bus_error(&error, r));
-                        dbus_error_free(&error);
-
+                        log_error("Failed to start user slice: %s", bus_error_message(&error, r));
                         free(slice);
                 } else {
                         u->slice = slice;
@@ -366,13 +362,11 @@ static int user_start_slice(User *u) {
 }
 
 static int user_start_service(User *u) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
         assert(u);
-
-        dbus_error_init(&error);
 
         if (!u->service) {
                 char lu[DECIMAL_STR_MAX(unsigned long) + 1], *service;
@@ -384,9 +378,7 @@ static int user_start_service(User *u) {
 
                 r = manager_start_unit(u->manager, service, &error, &job);
                 if (r < 0) {
-                        log_error("Failed to start user service: %s", bus_error(&error, r));
-                        dbus_error_free(&error);
-
+                        log_error("Failed to start user service: %s", bus_error_message(&error, r));
                         free(service);
                 } else {
                         u->service = service;
@@ -441,21 +433,18 @@ int user_start(User *u) {
 }
 
 static int user_stop_slice(User *u) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
         assert(u);
-
-        dbus_error_init(&error);
 
         if (!u->slice)
                 return 0;
 
         r = manager_stop_unit(u->manager, u->slice, &error, &job);
         if (r < 0) {
-                log_error("Failed to stop user slice: %s", bus_error(&error, r));
-                dbus_error_free(&error);
+                log_error("Failed to stop user slice: %s", bus_error_message(&error, r));
                 return r;
         }
 
@@ -466,21 +455,18 @@ static int user_stop_slice(User *u) {
 }
 
 static int user_stop_service(User *u) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
         assert(u);
-
-        dbus_error_init(&error);
 
         if (!u->service)
                 return 0;
 
         r = manager_stop_unit(u->manager, u->service, &error, &job);
         if (r < 0) {
-                log_error("Failed to stop user service: %s", bus_error(&error, r));
-                dbus_error_free(&error);
+                log_error("Failed to stop user service: %s", bus_error_message(&error, r));
                 return r;
         }
 
@@ -602,40 +588,43 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
 }
 
 static int user_check_linger_file(User *u) {
-        char *p;
-        int r;
+        _cleanup_free_ char *cc = NULL;
+        char *p = NULL;
 
-        if (asprintf(&p, "/var/lib/systemd/linger/%s", u->name) < 0)
+        cc = cescape(u->name);
+        if (!cc)
                 return -ENOMEM;
 
-        r = access(p, F_OK) >= 0;
-        free(p);
+        p = strappenda("/var/lib/systemd/linger/", cc);
 
-        return r;
+        return access(p, F_OK) >= 0;
 }
 
-int user_check_gc(User *u, bool drop_not_started) {
+bool user_check_gc(User *u, bool drop_not_started) {
         assert(u);
 
         if (drop_not_started && !u->started)
-                return 0;
+                return false;
 
         if (u->sessions)
-                return 1;
+                return true;
 
         if (user_check_linger_file(u) > 0)
-                return 1;
+                return true;
 
-        if (u->slice_job || u->service_job)
-                return 1;
+        if (u->slice_job && manager_job_is_active(u->manager, u->slice_job))
+                return true;
+
+        if (u->service_job && manager_job_is_active(u->manager, u->service_job))
+                return true;
 
         if (u->slice && manager_unit_is_active(u->manager, u->slice) != 0)
-                return 1;
+                return true;
 
         if (u->service && manager_unit_is_active(u->manager, u->service) != 0)
-                return 1;
+                return true;
 
-        return 0;
+        return false;
 }
 
 void user_add_to_gc_queue(User *u) {

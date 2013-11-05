@@ -52,6 +52,8 @@ typedef enum InhibitMode {
 struct Inhibitor {
         Manager *manager;
 
+        sd_event_source *event_source;
+
         char *id;
         char *state_file;
 

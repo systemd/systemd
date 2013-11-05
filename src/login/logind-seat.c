@@ -27,8 +27,8 @@
 #include <linux/vt.h>
 #include <string.h>
 
-#include "systemd/sd-id128.h"
-#include "systemd/sd-messages.h"
+#include "sd-id128.h"
+#include "sd-messages.h"
 #include "logind-seat.h"
 #include "logind-acl.h"
 #include "util.h"
@@ -84,9 +84,9 @@ void seat_free(Seat *s) {
 }
 
 int seat_save(Seat *s) {
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
-        FILE *f;
-        char *temp_path;
 
         assert(s);
 
@@ -151,9 +151,6 @@ int seat_save(Seat *s) {
                 unlink(temp_path);
         }
 
-        fclose(f);
-        free(temp_path);
-
 finish:
         if (r < 0)
                 log_error("Failed to save seat data for %s: %s", s->id, strerror(-r));
@@ -170,8 +167,8 @@ int seat_load(Seat *s) {
 }
 
 static int vt_allocate(int vtnr) {
-        int fd, r;
-        char *p;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
 
         assert(vtnr >= 1);
 
@@ -179,14 +176,10 @@ static int vt_allocate(int vtnr) {
                 return -ENOMEM;
 
         fd = open_terminal(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        free(p);
+        if (fd < 0)
+                return -errno;
 
-        r = fd < 0 ? -errno : 0;
-
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        return r;
+        return 0;
 }
 
 int seat_preallocate_vts(Seat *s) {
@@ -248,18 +241,18 @@ int seat_set_active(Seat *s, Session *session) {
 
         if (old_active) {
                 session_device_pause_all(old_active);
-                session_send_changed(old_active, "Active\0");
+                session_send_changed(old_active, "Active", NULL);
         }
 
         seat_apply_acls(s, old_active);
 
         if (session && session->started) {
-                session_send_changed(session, "Active\0");
+                session_send_changed(session, "Active", NULL);
                 session_device_resume_all(session);
         }
 
         if (!session || session->started)
-                seat_send_changed(s, "ActiveSession\0");
+                seat_send_changed(s, "ActiveSession", NULL);
 
         seat_save(s);
 
@@ -417,7 +410,7 @@ int seat_attach_session(Seat *s, Session *session) {
         session->seat = s;
         LIST_PREPEND(sessions_by_seat, s->sessions, session);
 
-        seat_send_changed(s, "Sessions\0");
+        seat_send_changed(s, "Sessions", NULL);
 
         /* On seats with VTs, the VT logic defines which session is active. On
          * seats without VTs, we automatically activate the first session. */
@@ -515,14 +508,14 @@ int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
         return idle_hint;
 }
 
-int seat_check_gc(Seat *s, bool drop_not_started) {
+bool seat_check_gc(Seat *s, bool drop_not_started) {
         assert(s);
 
         if (drop_not_started && !s->started)
-                return 0;
+                return false;
 
         if (seat_is_seat0(s))
-                return 1;
+                return true;
 
         return seat_has_master_device(s);
 }

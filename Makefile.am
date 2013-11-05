@@ -3811,16 +3811,15 @@ libsystemd_logind_core_la_SOURCES = \
 	src/login/login-shared.h
 
 libsystemd_logind_core_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
+	$(AM_CFLAGS)
 
 libsystemd_logind_core_la_LIBADD = \
 	libsystemd-label.la \
 	libsystemd-audit.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-dbus.la \
 	libsystemd-id128-internal.la \
+	libsystemd-bus.la \
 	libudev.la
 
 if HAVE_ACL

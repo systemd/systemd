@@ -75,13 +75,16 @@ int seat_start(Seat *s);
 int seat_stop(Seat *s);
 int seat_stop_sessions(Seat *s);
 
-int seat_check_gc(Seat *s, bool drop_not_started);
+bool seat_check_gc(Seat *s, bool drop_not_started);
 void seat_add_to_gc_queue(Seat *s);
 
 bool seat_name_is_valid(const char *name);
+
+extern const sd_bus_vtable seat_vtable[];
+
+int seat_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata);
+int seat_object_find(sd_bus *bus, const char *path, const char *interface, void **found, void *seatdata);
 char *seat_bus_path(Seat *s);
 
-extern const DBusObjectPathVTable bus_seat_vtable;
-
 int seat_send_signal(Seat *s, bool new_seat);
-int seat_send_changed(Seat *s, const char *properties);
+int seat_send_changed(Seat *s, const char *properties, ...) _sentinel_;

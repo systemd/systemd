@@ -20,15 +20,15 @@
 ***/
 
 #include <assert.h>
-#include <sys/acl.h>
-#include <acl/libacl.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/acl.h>
+#include <acl/libacl.h>
 
-#include "logind-acl.h"
 #include "util.h"
 #include "acl-util.h"
 #include "set.h"
+#include "logind-acl.h"
 
 static int flush_acl(acl_t acl) {
         acl_entry_t i;
@@ -190,9 +190,8 @@ int devnode_acl_all(struct udev *udev,
         assert(udev);
 
         nodes = set_new(string_hash_func, string_compare_func);
-        if (!nodes) {
+        if (!nodes)
                 return -ENOMEM;
-        }
 
         e = udev_enumerate_new(udev);
         if (!e) {

@@ -24,381 +24,448 @@
 #include <unistd.h>
 #include <pwd.h>
 
-#include "logind.h"
-#include "dbus-common.h"
+#include "sd-id128.h"
+#include "sd-messages.h"
 #include "strv.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "polkit.h"
 #include "special.h"
 #include "sleep-config.h"
-#include "systemd/sd-id128.h"
-#include "systemd/sd-messages.h"
 #include "fileio-label.h"
 #include "label.h"
 #include "utf8.h"
 #include "unit-name.h"
-#include "bus-errors.h"
 #include "virt.h"
+#include "audit.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "logind.h"
 
-#define BUS_MANAGER_INTERFACE                                           \
-        " <interface name=\"org.freedesktop.login1.Manager\">\n"        \
-        "  <method name=\"GetSession\">\n"                              \
-        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "   <arg name=\"session\" type=\"o\" direction=\"out\"/>\n"     \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetSessionByPID\">\n"                         \
-        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"          \
-        "   <arg name=\"session\" type=\"o\" direction=\"out\"/>\n"     \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetUser\">\n"                                 \
-        "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
-        "   <arg name=\"user\" type=\"o\" direction=\"out\"/>\n"        \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetUserByPID\">\n"                            \
-        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"          \
-        "   <arg name=\"user\" type=\"o\" direction=\"out\"/>\n"        \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetSeat\">\n"                                 \
-        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "   <arg name=\"seat\" type=\"o\" direction=\"out\"/>\n"        \
-        "  </method>\n"                                                 \
-        "  <method name=\"ListSessions\">\n"                            \
-        "   <arg name=\"sessions\" type=\"a(susso)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"ListUsers\">\n"                               \
-        "   <arg name=\"users\" type=\"a(uso)\" direction=\"out\"/>\n"  \
-        "  </method>\n"                                                 \
-        "  <method name=\"ListSeats\">\n"                               \
-        "   <arg name=\"seats\" type=\"a(so)\" direction=\"out\"/>\n"   \
-        "  </method>\n"                                                 \
-        "  <method name=\"CreateSession\">\n"                           \
-        "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
-        "   <arg name=\"leader\" type=\"u\" direction=\"in\"/>\n"       \
-        "   <arg name=\"service\" type=\"s\" direction=\"in\"/>\n"      \
-        "   <arg name=\"type\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"class\" type=\"s\" direction=\"in\"/>\n"        \
-        "   <arg name=\"seat\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"vtnr\" type=\"u\" direction=\"in\"/>\n"         \
-        "   <arg name=\"tty\" type=\"s\" direction=\"in\"/>\n"          \
-        "   <arg name=\"display\" type=\"s\" direction=\"in\"/>\n"      \
-        "   <arg name=\"remote\" type=\"b\" direction=\"in\"/>\n"       \
-        "   <arg name=\"remote_user\" type=\"s\" direction=\"in\"/>\n"  \
-        "   <arg name=\"remote_host\" type=\"s\" direction=\"in\"/>\n"  \
-        "   <arg name=\"scope_properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
-        "   <arg name=\"id\" type=\"s\" direction=\"out\"/>\n"          \
-        "   <arg name=\"path\" type=\"o\" direction=\"out\"/>\n"        \
-        "   <arg name=\"runtime_path\" type=\"o\" direction=\"out\"/>\n" \
-        "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
-        "   <arg name=\"seat\" type=\"s\" direction=\"out\"/>\n"        \
-        "   <arg name=\"vtnr\" type=\"u\" direction=\"out\"/>\n"        \
-        "   <arg name=\"existing\" type=\"b\" direction=\"out\"/>\n"    \
-        "  </method>\n"                                                 \
-        "  <method name=\"ReleaseSession\">\n"                          \
-        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "  </method>\n"                                                 \
-        "  <method name=\"ActivateSession\">\n"                         \
-        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "  </method>\n"                                                 \
-        "  <method name=\"ActivateSessionOnSeat\">\n"                   \
-        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "   <arg name=\"seat\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"LockSession\">\n"                             \
-        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnlockSession\">\n"                           \
-        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "  </method>\n"                                                 \
-        "  <method name=\"LockSessions\"/>\n"                           \
-        "  <method name=\"UnlockSessions\"/>\n"                         \
-        "  <method name=\"KillSession\">\n"                             \
-        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
-        "   <arg name=\"signal\" type=\"s\" direction=\"in\"/>\n"       \
-        "  </method>\n"                                                 \
-        "  <method name=\"KillUser\">\n"                                \
-        "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
-        "   <arg name=\"signal\" type=\"s\" direction=\"in\"/>\n"       \
-        "  </method>\n"                                                 \
-        "  <method name=\"TerminateSession\">\n"                        \
-        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "  </method>\n"                                                 \
-        "  <method name=\"TerminateUser\">\n"                           \
-        "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
-        "  </method>\n"                                                 \
-        "  <method name=\"TerminateSeat\">\n"                           \
-        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetUserLinger\">\n"                           \
-        "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
-        "   <arg name=\"b\" type=\"b\" direction=\"in\"/>\n"            \
-        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
-        "  </method>\n"                                                 \
-        "  <method name=\"AttachDevice\">\n"                            \
-        "   <arg name=\"seat\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"sysfs\" type=\"s\" direction=\"in\"/>\n"        \
-        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
-        "  </method>\n"                                                 \
-        "  <method name=\"FlushDevices\">\n"                            \
-        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
-        "  </method>\n"                                                 \
-        "  <method name=\"PowerOff\">\n"                                \
-        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
-        "  </method>\n"                                                 \
-        "  <method name=\"Reboot\">\n"                                  \
-        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
-        "  </method>\n"                                                 \
-        "  <method name=\"Suspend\">\n"                                 \
-        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
-        "  </method>\n"                                                 \
-        "  <method name=\"Hibernate\">\n"                               \
-        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
-        "  </method>\n"                                                 \
-        "  <method name=\"HybridSleep\">\n"                             \
-        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
-        "  </method>\n"                                                 \
-        "  <method name=\"CanPowerOff\">\n"                             \
-        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
-        "  </method>\n"                                                 \
-        "  <method name=\"CanReboot\">\n"                               \
-        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
-        "  </method>\n"                                                 \
-        "  <method name=\"CanSuspend\">\n"                              \
-        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
-        "  </method>\n"                                                 \
-        "  <method name=\"CanHibernate\">\n"                            \
-        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
-        "  </method>\n"                                                 \
-        "  <method name=\"CanHybridSleep\">\n"                          \
-        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
-        "  </method>\n"                                                 \
-        "  <method name=\"Inhibit\">\n"                                 \
-        "   <arg name=\"what\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
-        "   <arg name=\"why\" type=\"s\" direction=\"in\"/>\n"          \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
-        "  </method>\n"                                                 \
-        "  <method name=\"ListInhibitors\">\n"                          \
-        "   <arg name=\"inhibitors\" type=\"a(ssssuu)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <signal name=\"SessionNew\">\n"                              \
-        "   <arg name=\"id\" type=\"s\"/>\n"                            \
-        "   <arg name=\"path\" type=\"o\"/>\n"                          \
-        "  </signal>\n"                                                 \
-        "  <signal name=\"SessionRemoved\">\n"                          \
-        "   <arg name=\"id\" type=\"s\"/>\n"                            \
-        "   <arg name=\"path\" type=\"o\"/>\n"                          \
-        "  </signal>\n"                                                 \
-        "  <signal name=\"UserNew\">\n"                                 \
-        "   <arg name=\"uid\" type=\"u\"/>\n"                           \
-        "   <arg name=\"path\" type=\"o\"/>\n"                          \
-        "  </signal>\n"                                                 \
-        "  <signal name=\"UserRemoved\">\n"                             \
-        "   <arg name=\"uid\" type=\"u\"/>\n"                           \
-        "   <arg name=\"path\" type=\"o\"/>\n"                          \
-        "  </signal>\n"                                                 \
-        "  <signal name=\"SeatNew\">\n"                                 \
-        "   <arg name=\"id\" type=\"s\"/>\n"                            \
-        "   <arg name=\"path\" type=\"o\"/>\n"                          \
-        "  </signal>\n"                                                 \
-        "  <signal name=\"SeatRemoved\">\n"                             \
-        "   <arg name=\"id\" type=\"s\"/>\n"                            \
-        "   <arg name=\"path\" type=\"o\"/>\n"                          \
-        "  </signal>\n"                                                 \
-        "  <signal name=\"PrepareForShutdown\">\n"                      \
-        "   <arg name=\"active\" type=\"b\"/>\n"                        \
-        "  </signal>\n"                                                 \
-        "  <signal name=\"PrepareForSleep\">\n"                         \
-        "   <arg name=\"active\" type=\"b\"/>\n"                        \
-        "  </signal>\n"                                                 \
-        "  <property name=\"NAutoVTs\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"KillOnlyUsers\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"KillExcludeUsers\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"KillUserProcesses\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
-        "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"IdleSinceHintMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"BlockInhibited\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"DelayInhibited\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"InhibitDelayMaxUSec\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"HandlePowerKey\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"HandleSuspendKey\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"HandleHibernateKey\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"HandleLidSwitch\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"IdleAction\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"IdleActionUSec\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"PreparingForShutdown\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"PreparingForSleep\" type=\"b\" access=\"read\"/>\n" \
-        " </interface>\n"
+static int property_get_idle_hint(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-#define INTROSPECTION_BEGIN                                             \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        BUS_MANAGER_INTERFACE                                           \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_PEER_INTERFACE                                              \
-        BUS_INTROSPECTABLE_INTERFACE
+        Manager *m = userdata;
 
-#define INTROSPECTION_END                                               \
-        "</node>\n"
-
-#define INTERFACES_LIST                              \
-        BUS_GENERIC_INTERFACES_LIST                  \
-        "org.freedesktop.login1.Manager\0"
-
-static int bus_manager_append_idle_hint(DBusMessageIter *i, const char *property, void *data) {
-        Manager *m = data;
-        dbus_bool_t b;
-
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(m);
 
-        b = manager_get_idle_hint(m, NULL) > 0;
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "b", manager_get_idle_hint(m, NULL) > 0);
 }
 
-static int bus_manager_append_idle_hint_since(DBusMessageIter *i, const char *property, void *data) {
-        Manager *m = data;
-        dual_timestamp t;
-        uint64_t u;
+static int property_get_idle_since_hint(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
+        Manager *m = userdata;
+        dual_timestamp t;
+
+        assert(bus);
+        assert(reply);
         assert(m);
 
         manager_get_idle_hint(m, &t);
-        u = streq(property, "IdleSinceHint") ? t.realtime : t.monotonic;
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, &u))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "t", streq(property, "IdleSinceHint") ? t.realtime : t.monotonic);
 }
 
-static int bus_manager_append_inhibited(DBusMessageIter *i, const char *property, void *data) {
-        Manager *m = data;
+static int property_get_inhibited(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        Manager *m = userdata;
         InhibitWhat w;
-        const char *p;
+
+        assert(bus);
+        assert(reply);
+        assert(m);
 
         w = manager_inhibit_what(m, streq(property, "BlockInhibited") ? INHIBIT_BLOCK : INHIBIT_DELAY);
-        p = inhibit_what_to_string(w);
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &p))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "s", inhibit_what_to_string(w));
 }
 
-static int bus_manager_append_preparing(DBusMessageIter *i, const char *property, void *data) {
-        Manager *m = data;
-        dbus_bool_t b;
+static int property_get_preparing(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
+        Manager *m = userdata;
+        bool b;
+
+        assert(bus);
+        assert(reply);
+        assert(m);
 
         if (streq(property, "PreparingForShutdown"))
                 b = !!(m->action_what & INHIBIT_SHUTDOWN);
         else
                 b = !!(m->action_what & INHIBIT_SLEEP);
 
-        dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b);
-        return 0;
+        return sd_bus_message_append(reply, "b", b);
 }
 
-static int bus_manager_create_session(Manager *m, DBusMessage *message) {
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_handle_action, handle_action, HandleAction);
 
-        const char *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *service;
+static int method_get_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        Manager *m = userdata;
+        const char *name;
+        Session *session;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        session = hashmap_get(m->sessions, name);
+        if (!session)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+
+        p = session_bus_path(session);
+        if (!p)
+                return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "o", p);
+}
+
+static int method_get_session_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        Session *session = NULL;
+        Manager *m = userdata;
+        uint32_t pid;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "u", &pid);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = manager_get_session_by_pid(m, pid, &session);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+        if (!session)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SESSION_FOR_PID, "PID %lu does not belong to any known session", (unsigned long) pid);
+
+        p = session_bus_path(session);
+        if (!p)
+                return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "o", p);
+}
+
+static int method_get_user(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        Manager *m = userdata;
+        uint32_t uid;
+        User *user;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "u", &uid);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+        if (!user)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
+
+        p = user_bus_path(user);
+        if (!p)
+                return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "o", p);
+}
+
+static int method_get_user_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        Manager *m = userdata;
+        User *user = NULL;
+        uint32_t pid;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "u", &pid);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = manager_get_user_by_pid(m, pid, &user);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+        if (!user)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_USER_FOR_PID, "PID %lu does not belong to any known or logged in user", (unsigned long) pid);
+
+        p = user_bus_path(user);
+        if (!p)
+                return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "o", p);
+}
+
+static int method_get_seat(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *p = NULL;
+        Manager *m = userdata;
+        const char *name;
+        Seat *seat;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        seat = hashmap_get(m->seats, name);
+        if (!seat)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
+
+        p = seat_bus_path(seat);
+        if (!p)
+                return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "o", p);
+}
+
+static int method_list_sessions(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        Session *session;
+        Iterator i;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_new_method_return(bus, message, &reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = sd_bus_message_open_container(reply, 'a', "(susso)");
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        HASHMAP_FOREACH(session, m->sessions, i) {
+                _cleanup_free_ char *p = NULL;
+
+                p = session_bus_path(session);
+                if (!p)
+                        return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+
+                r = sd_bus_message_append(reply, "(susso)",
+                                          session->id,
+                                          (uint32_t) session->user->uid,
+                                          session->user->name,
+                                          session->seat ? session->seat->id : "",
+                                          p);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+static int method_list_users(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        User *user;
+        Iterator i;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_new_method_return(bus, message, &reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = sd_bus_message_open_container(reply, 'a', "(uso)");
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        HASHMAP_FOREACH(user, m->users, i) {
+                _cleanup_free_ char *p = NULL;
+
+                p = user_bus_path(user);
+                if (!p)
+                        return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+
+                r = sd_bus_message_append(reply, "(uso)",
+                                          (uint32_t) user->uid,
+                                          user->name,
+                                          p);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+static int method_list_seats(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        Seat *seat;
+        Iterator i;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_new_method_return(bus, message, &reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = sd_bus_message_open_container(reply, 'a', "(so)");
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        HASHMAP_FOREACH(seat, m->seats, i) {
+                _cleanup_free_ char *p = NULL;
+
+                p = seat_bus_path(seat);
+                if (!p)
+                        return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+
+                r = sd_bus_message_append(reply, "so", seat->id, p);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+static int method_list_inhibitors(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        Inhibitor *inhibitor;
+        Iterator i;
+        int r;
+
+        r = sd_bus_message_new_method_return(bus, message, &reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssssuu)");
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
+
+                r = sd_bus_message_append(reply, "ssssuu",
+                                          strempty(inhibit_what_to_string(inhibitor->what)),
+                                          strempty(inhibitor->who),
+                                          strempty(inhibitor->why),
+                                          strempty(inhibit_mode_to_string(inhibitor->mode)),
+                                          (uint32_t) inhibitor->uid,
+                                          (uint32_t) inhibitor->pid);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+static int method_create_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host;
         uint32_t uid, leader, audit_id = 0;
         _cleanup_free_ char *id = NULL;
         Session *session = NULL;
+        Manager *m = userdata;
         User *user = NULL;
         Seat *seat = NULL;
-        DBusMessageIter iter;
-        dbus_bool_t remote;
+        int remote;
         uint32_t vtnr = 0;
         SessionType t;
         SessionClass c;
-        bool b;
         int r;
 
-        assert(m);
+        assert(bus);
         assert(message);
+        assert(m);
 
-        if (!dbus_message_iter_init(message, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT32)
-                return -EINVAL;
+        r = sd_bus_message_read(message, "uussssussbss", &uid, &leader, &service, &type, &class, &cseat, &vtnr, &tty, &display, &remote, &remote_user, &remote_host);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
 
-        dbus_message_iter_get_basic(&iter, &uid);
+        if (leader == 1)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT32)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &leader);
-
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &service);
-
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &type);
         if (isempty(type))
                 t = _SESSION_TYPE_INVALID;
         else {
                 t = session_type_from_string(type);
                 if (t < 0)
-                        return -EINVAL;
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid session type %s", type);
         }
 
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &class);
         if (isempty(class))
                 c = _SESSION_CLASS_INVALID;
         else {
                 c = session_class_from_string(class);
                 if (c < 0)
-                        return -EINVAL;
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid session class %s", class);
         }
-
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &cseat);
 
         if (isempty(cseat))
                 seat = NULL;
         else {
                 seat = hashmap_get(m->seats, cseat);
                 if (!seat)
-                        return -ENOENT;
+                        return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", seat);
         }
-
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_UINT32)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &vtnr);
-
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &tty);
 
         if (tty_is_vc(tty)) {
                 int v;
@@ -406,47 +473,41 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
                 if (!seat)
                         seat = m->seat0;
                 else if (seat != m->seat0)
-                        return -EINVAL;
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "TTY %s is virtual console but seat %s is not seat0", tty, seat);
 
                 v = vtnr_from_tty(tty);
-
                 if (v <= 0)
-                        return v < 0 ? v : -EINVAL;
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Cannot determine VT number from virtual console TTY %s", tty);
 
                 if (vtnr <= 0)
                         vtnr = (uint32_t) v;
                 else if (vtnr != (uint32_t) v)
-                        return -EINVAL;
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Specified TTY and VT number do not match");
+
         } else if (tty_is_console(tty)) {
 
                 if (!seat)
                         seat = m->seat0;
                 else if (seat != m->seat0)
-                        return -EINVAL;
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Console TTY specified but seat is not seat0");
 
                 if (vtnr != 0)
-                        return -EINVAL;
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Console TTY specified but VT number is not 0");
         }
 
         if (seat) {
                 if (seat_has_vts(seat)) {
                         if (vtnr > 63)
-                                return -EINVAL;
+                                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "VT number out of range");
                 } else {
                         if (vtnr != 0)
-                                return -EINVAL;
+                                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Seat has no VTs but VT number not 0");
                 }
         }
 
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &display);
-
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BOOLEAN)
-                return -EINVAL;
+        r = sd_bus_message_enter_container(message, 'a', "(sv)");
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
 
         if (t == _SESSION_TYPE_INVALID) {
                 if (!isempty(display))
@@ -464,90 +525,48 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
                         c = SESSION_BACKGROUND;
         }
 
-        dbus_message_iter_get_basic(&iter, &remote);
-
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &remote_user);
-
-        if (!dbus_message_iter_next(&iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-                return -EINVAL;
-
-        dbus_message_iter_get_basic(&iter, &remote_host);
-
         if (leader <= 0) {
-                leader = bus_get_unix_process_id(m->bus, dbus_message_get_sender(message), NULL);
-                if (leader == 0)
-                        return -EINVAL;
+                assert_cc(sizeof(uint32_t) == sizeof(pid_t));
+
+                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), (pid_t*) &leader);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(bus, message, r, NULL);
         }
 
         manager_get_session_by_pid(m, leader, &session);
         if (session) {
-                _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
                 _cleanup_free_ char *path = NULL;
                 _cleanup_close_ int fifo_fd = -1;
-                dbus_bool_t exists;
 
                 /* Session already exists, client is probably
                  * something like "su" which changes uid but is still
                  * the same session */
 
                 fifo_fd = session_create_fifo(session);
-                if (fifo_fd < 0) {
-                        r = fifo_fd;
-                        goto fail;
-                }
+                if (fifo_fd < 0)
+                        return sd_bus_reply_method_errno(bus, message, fifo_fd, NULL);
 
                 path = session_bus_path(session);
-                if (!path) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!path)
+                        return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
 
-                reply = dbus_message_new_method_return(message);
-                if (!reply) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                cseat = session->seat ? session->seat->id : "";
-                vtnr = session->vtnr;
-                exists = true;
-
-                b = dbus_message_append_args(
-                                reply,
-                                DBUS_TYPE_STRING, &session->id,
-                                DBUS_TYPE_OBJECT_PATH, &path,
-                                DBUS_TYPE_STRING, &session->user->runtime_path,
-                                DBUS_TYPE_UNIX_FD, &fifo_fd,
-                                DBUS_TYPE_STRING, &cseat,
-                                DBUS_TYPE_UINT32, &vtnr,
-                                DBUS_TYPE_BOOLEAN, &exists,
-                                DBUS_TYPE_INVALID);
-                if (!b) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                if (!dbus_connection_send(m->bus, reply, NULL)) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                return 0;
+                return sd_bus_reply_method_return(
+                                bus, message, "soshsub",
+                                session->id,
+                                path,
+                                session->user->runtime_path,
+                                fifo_fd,
+                                session->seat ? session->seat->id : "",
+                                (uint32_t) session->vtnr,
+                                true);
         }
 
         audit_session_from_pid(leader, &audit_id);
         if (audit_id > 0) {
                 /* Keep our session IDs and the audit session IDs in sync */
 
-                if (asprintf(&id, "%lu", (unsigned long) audit_id) < 0) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (asprintf(&id, "%lu", (unsigned long) audit_id) < 0)
+                        return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
 
                 /* Wut? There's already a session by this name and we
                  * didn't find it above? Weird, then let's not trust
@@ -567,21 +586,23 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
                         free(id);
                         id = NULL;
 
-                        if (asprintf(&id, "c%lu", ++m->session_counter) < 0) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
+                        if (asprintf(&id, "c%lu", ++m->session_counter) < 0)
+                                return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
 
                 } while (hashmap_get(m->sessions, id));
         }
 
         r = manager_add_user_by_uid(m, uid, &user);
-        if (r < 0)
+        if (r < 0) {
+                r = sd_bus_reply_method_errno(bus, message, r, NULL);
                 goto fail;
+        }
 
         r = manager_add_session(m, id, &session);
-        if (r < 0)
+        if (r < 0) {
+                r = sd_bus_reply_method_errno(bus, message, r, NULL);
                 goto fail;
+        }
 
         session_set_user(session, user);
 
@@ -595,7 +616,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
         if (!isempty(tty)) {
                 session->tty = strdup(tty);
                 if (!session->tty) {
-                        r = -ENOMEM;
+                        r = sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
                         goto fail;
                 }
         }
@@ -603,7 +624,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
         if (!isempty(display)) {
                 session->display = strdup(display);
                 if (!session->display) {
-                        r = -ENOMEM;
+                        r = sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
                         goto fail;
                 }
         }
@@ -611,7 +632,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
         if (!isempty(remote_user)) {
                 session->remote_user = strdup(remote_user);
                 if (!session->remote_user) {
-                        r = -ENOMEM;
+                        r = sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
                         goto fail;
                 }
         }
@@ -619,7 +640,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
         if (!isempty(remote_host)) {
                 session->remote_host = strdup(remote_host);
                 if (!session->remote_host) {
-                        r = -ENOMEM;
+                        r = sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
                         goto fail;
                 }
         }
@@ -627,28 +648,32 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message) {
         if (!isempty(service)) {
                 session->service = strdup(service);
                 if (!session->service) {
-                        r = -ENOMEM;
+                        r = sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
                         goto fail;
                 }
         }
 
         if (seat) {
                 r = seat_attach_session(seat, session);
-                if (r < 0)
+                if (r < 0) {
+                        r = sd_bus_reply_method_errno(bus, message, r, NULL);
                         goto fail;
+                }
         }
 
         r = session_start(session);
-        if (r < 0)
+        if (r < 0) {
+                r = sd_bus_reply_method_errno(bus, message, r, NULL);
                 goto fail;
+        }
 
-        session->create_message = dbus_message_ref(message);
+        session->create_message = sd_bus_message_ref(message);
 
         /* Now, let's wait until the slice unit and stuff got
          * created. We send the reply back from
          * session_send_create_reply().*/
 
-        return 0;
+        return 1;
 
 fail:
         if (session)
@@ -660,156 +685,349 @@ fail:
         return r;
 }
 
-static int bus_manager_inhibit(
-                Manager *m,
-                DBusConnection *connection,
-                DBusMessage *message,
-                DBusError *error,
-                DBusMessage **_reply) {
+static int method_release_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        Session *session;
+        const char *name;
+        int r;
 
-        Inhibitor *i = NULL;
-        char *id = NULL;
-        const char *who, *why, *what, *mode;
-        pid_t pid;
-        InhibitWhat w;
-        InhibitMode mm;
-        unsigned long ul;
-        int r, fifo_fd = -1;
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-
-        assert(m);
-        assert(connection);
+        assert(bus);
         assert(message);
-        assert(error);
-        assert(_reply);
+        assert(m);
 
-        if (!dbus_message_get_args(
-                            message,
-                            error,
-                            DBUS_TYPE_STRING, &what,
-                            DBUS_TYPE_STRING, &who,
-                            DBUS_TYPE_STRING, &why,
-                            DBUS_TYPE_STRING, &mode,
-                            DBUS_TYPE_INVALID)) {
-                r = -EIO;
-                goto fail;
-        }
-
-        w = inhibit_what_from_string(what);
-        if (w <= 0) {
-                r = -EINVAL;
-                goto fail;
-        }
-
-        mm = inhibit_mode_from_string(mode);
-        if (mm < 0) {
-                r = -EINVAL;
-                goto fail;
-        }
-
-        /* Delay is only supported for shutdown/sleep */
-        if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP))) {
-                r = -EINVAL;
-                goto fail;
-        }
-
-        /* Don't allow taking delay locks while we are already
-         * executing the operation. We shouldn't create the impression
-         * that the lock was successful if the machine is about to go
-         * down/suspend any moment. */
-        if (m->action_what & w) {
-                r = -EALREADY;
-                goto fail;
-        }
-
-        r = verify_polkit(connection, message,
-                          w == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
-                          w == INHIBIT_SLEEP                ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
-                          w == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
-                          w == INHIBIT_HANDLE_POWER_KEY     ? "org.freedesktop.login1.inhibit-handle-power-key" :
-                          w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
-                          w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
-                                                              "org.freedesktop.login1.inhibit-handle-lid-switch",
-                          false, NULL, error);
+        r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                goto fail;
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
 
-        ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
-        if (ul == (unsigned long) -1) {
-                r = -EIO;
-                goto fail;
-        }
+        session = hashmap_get(m->sessions, name);
+        if (!session)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
-        pid = bus_get_unix_process_id(connection, dbus_message_get_sender(message), error);
-        if (pid <= 0) {
-                r = -EIO;
-                goto fail;
-        }
+        /* We use the FIFO to detect stray sessions where the process
+           invoking PAM dies abnormally. We need to make sure that
+           that process is not killed if at the clean end of the
+           session it closes the FIFO. Hence, with this call
+           explicitly turn off the FIFO logic, so that the PAM code
+           can finish clean up on its own */
+        session_remove_fifo(session);
+        session_save(session);
+        user_save(session->user);
 
-        do {
-                free(id);
-                id = NULL;
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
 
-                if (asprintf(&id, "%lu", ++m->inhibit_counter) < 0) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        } while (hashmap_get(m->inhibitors, id));
+static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        Session *session;
+        const char *name;
+        int r;
 
-        r = manager_add_inhibitor(m, id, &i);
-        free(id);
+        assert(bus);
+        assert(message);
+        assert(m);
 
+        r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                goto fail;
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
 
-        i->what = w;
-        i->mode = mm;
-        i->pid = pid;
-        i->uid = (uid_t) ul;
-        i->why = strdup(why);
-        i->who = strdup(who);
+        session = hashmap_get(m->sessions, name);
+        if (!session)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
-        if (!i->why || !i->who) {
-                r = -ENOMEM;
-                goto fail;
+        r = session_activate(session);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_activate_session_on_seat(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        const char *session_name, *seat_name;
+        Manager *m = userdata;
+        Session *session;
+        Seat *seat;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        /* Same as ActivateSession() but refuses to work if
+         * the seat doesn't match */
+
+        r = sd_bus_message_read(message, "ss", &session_name, &seat_name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        session = hashmap_get(m->sessions, session_name);
+        if (!session)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", session_name);
+
+        seat = hashmap_get(m->seats, seat_name);
+        if (!seat)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", seat_name);
+
+        if (session->seat != seat)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", session_name, seat_name);
+
+        r = session_activate(session);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_lock_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        Session *session;
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        session = hashmap_get(m->sessions, name);
+        if (!session)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+
+        r = session_send_lock(session, streq(sd_bus_message_get_member(message), "LockSession"));
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_lock_sessions(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = session_send_lock_all(m, streq(sd_bus_message_get_member(message), "LockSessions"));
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_kill_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        const char *name, *swho;
+        Manager *m = userdata;
+        Session *session;
+        int32_t signo;
+        KillWho who;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "ssi", &name, &swho, &signo);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        if (isempty(swho))
+                who = KILL_ALL;
+        else {
+                who = kill_who_from_string(swho);
+                if (who < 0)
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
         }
 
-        fifo_fd = inhibitor_create_fifo(i);
-        if (fifo_fd < 0) {
-                r = fifo_fd;
-                goto fail;
+        if (signo <= 0 || signo >= _NSIG)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
+
+        session = hashmap_get(m->sessions, name);
+        if (!session)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+
+        r = session_kill(session, who, signo);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_kill_user(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        uint32_t uid;
+        int32_t signo;
+        User *user;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "ui", &uid, &signo);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        if (signo <= 0 || signo >= _NSIG)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
+
+        user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+        if (!user)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
+
+        r = user_kill(user, signo);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_terminate_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        const char *name;
+        Session *session;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        session = hashmap_get(m->sessions, name);
+        if (!session)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+
+        r = session_stop(session);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_terminate_user(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        uint32_t uid;
+        User *user;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "u", &uid);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+        if (!user)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
+
+        r = user_stop(user);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_terminate_seat(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        const char *name;
+        Seat *seat;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        seat = hashmap_get(m->seats, name);
+        if (!seat)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
+
+        r = seat_stop_sessions(seat);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *cc = NULL;
+        Manager *m = userdata;
+        int b, r;
+        struct passwd *pw;
+        const char *path;
+        uint32_t uid;
+        int interactive;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "ubb", &uid, &b, &interactive);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        errno = 0;
+        pw = getpwuid(uid);
+        if (!pw)
+                return sd_bus_reply_method_errno(bus, message, errno ? errno : ENOENT, NULL);
+
+        r = bus_verify_polkit_async(bus,
+                                    &m->polkit_registry,
+                                    message,
+                                    "org.freedesktop.login1.set-user-linger",
+                                    interactive,
+                                    &error,
+                                    method_set_user_linger, m);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        mkdir_p_label("/var/lib/systemd", 0755);
+
+        r = mkdir_safe_label("/var/lib/systemd/linger", 0755, 0, 0);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        cc = cescape(pw->pw_name);
+        if (!cc)
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+        path = strappenda("/var/lib/systemd/linger/", cc);
+        if (b) {
+                User *u;
+
+                r = touch(path);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+                if (manager_add_user_by_uid(m, uid, &u) >= 0)
+                        user_start(u);
+
+        } else {
+                User *u;
+
+                r = unlink(path);
+                if (r < 0 && errno != ENOENT)
+                        return sd_bus_reply_method_errno(bus, message, errno, NULL);
+
+                u = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
+                if (u)
+                        user_add_to_gc_queue(u);
         }
 
-        reply = dbus_message_new_method_return(message);
-        if (!reply) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        if (!dbus_message_append_args(
-                            reply,
-                            DBUS_TYPE_UNIX_FD, &fifo_fd,
-                            DBUS_TYPE_INVALID)) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        close_nointr_nofail(fifo_fd);
-        *_reply = reply;
-        reply = NULL;
-
-        inhibitor_start(i);
-
-        return 0;
-
-fail:
-        if (i)
-                inhibitor_free(i);
-
-        if (fifo_fd >= 0)
-                close_nointr_nofail(fifo_fd);
-
-        return r;
+        return sd_bus_reply_method_return(bus, message, NULL);
 }
 
 static int trigger_device(Manager *m, struct udev_device *d) {
@@ -839,7 +1057,7 @@ static int trigger_device(Manager *m, struct udev_device *d) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                char *t;
+                _cleanup_free_ char *t = NULL;
                 const char *p;
 
                 p = udev_list_entry_get_name(item);
@@ -851,7 +1069,6 @@ static int trigger_device(Manager *m, struct udev_device *d) {
                 }
 
                 write_string_file(t, "change");
-                free(t);
         }
 
         r = 0;
@@ -864,9 +1081,9 @@ finish:
 }
 
 static int attach_device(Manager *m, const char *seat, const char *sysfs) {
-        struct udev_device *d;
         _cleanup_free_ char *rule = NULL, *file = NULL;
         const char *id_for_seat;
+        struct udev_device *d;
         int r;
 
         assert(m);
@@ -944,6 +1161,77 @@ static int flush_devices(Manager *m) {
         return trigger_device(m, NULL);
 }
 
+static int method_attach_device(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *sysfs, *seat;
+        Manager *m = userdata;
+        int interactive, r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "ssb", &seat, &sysfs, &interactive);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        if (!path_startswith(sysfs, "/sys"))
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not in /sys", sysfs);
+
+        if (!seat_name_is_valid(seat))
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Seat %s is not valid", seat);
+
+        r = bus_verify_polkit_async(bus,
+                                    &m->polkit_registry,
+                                    message,
+                                    "org.freedesktop.login1.attach-device",
+                                    interactive,
+                                    &error,
+                                    method_attach_device, m);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = attach_device(m, seat, sysfs);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_flush_devices(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        Manager *m = userdata;
+        int interactive, r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "b", &interactive);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = bus_verify_polkit_async(bus,
+                                    &m->polkit_registry,
+                                    message,
+                                    "org.freedesktop.login1.flush-devices",
+                                    interactive,
+                                    &error,
+                                    method_flush_devices, m);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = flush_devices(m);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
 static int have_multiple_sessions(
                 Manager *m,
                 uid_t uid) {
@@ -1003,12 +1291,12 @@ static int execute_shutdown_or_sleep(
                 Manager *m,
                 InhibitWhat w,
                 const char *unit_name,
-                DBusError *error) {
+                sd_bus_error *error) {
 
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *mode = "replace-irreversibly", *p;
-        int r;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        const char *p;
         char *c;
+        int r;
 
         assert(m);
         assert(w >= 0);
@@ -1017,26 +1305,21 @@ static int execute_shutdown_or_sleep(
 
         bus_manager_log_shutdown(m, w, unit_name);
 
-        r = bus_method_call_with_reply(
+        r = sd_bus_call_method(
                         m->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "StartUnit",
-                        &reply,
                         error,
-                        DBUS_TYPE_STRING, &unit_name,
-                        DBUS_TYPE_STRING, &mode,
-                        DBUS_TYPE_INVALID);
+                        &reply,
+                        "ss", unit_name, "replace-irreversibly");
         if (r < 0)
                 return r;
 
-        if (!dbus_message_get_args(
-                            reply,
-                            error,
-                            DBUS_TYPE_OBJECT_PATH, &p,
-                            DBUS_TYPE_INVALID))
-                return -EINVAL;
+        r = sd_bus_message_read(reply, "o", &p);
+        if (r < 0)
+                return r;
 
         c = strdup(p);
         if (!c)
@@ -1067,145 +1350,33 @@ static int delay_shutdown_or_sleep(
         return 0;
 }
 
-static int bus_manager_can_shutdown_or_sleep(
-                Manager *m,
-                DBusConnection *connection,
-                DBusMessage *message,
-                InhibitWhat w,
-                const char *action,
-                const char *action_multiple_sessions,
-                const char *action_ignore_inhibit,
-                const char *sleep_verb,
-                DBusError *error,
-                DBusMessage **_reply) {
-
-        bool multiple_sessions, challenge, blocked, b;
-        const char *result = NULL;
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        int r;
-        unsigned long ul;
-
-        assert(m);
-        assert(connection);
-        assert(message);
-        assert(w >= 0);
-        assert(w <= _INHIBIT_WHAT_MAX);
-        assert(action);
-        assert(action_multiple_sessions);
-        assert(action_ignore_inhibit);
-        assert(error);
-        assert(_reply);
-
-        if (sleep_verb) {
-                r = can_sleep(sleep_verb);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        result = "na";
-                        goto finish;
-                }
-        }
-
-        ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
-        if (ul == (unsigned long) -1)
-                return -EIO;
-
-        r = have_multiple_sessions(m, (uid_t) ul);
-        if (r < 0)
-                return r;
-
-        multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, (uid_t) ul);
-
-        if (multiple_sessions) {
-                r = verify_polkit(connection, message, action_multiple_sessions, false, &challenge, error);
-                if (r < 0)
-                        return r;
-
-                if (r > 0)
-                        result = "yes";
-                else if (challenge)
-                        result = "challenge";
-                else
-                        result = "no";
-        }
-
-        if (blocked) {
-                r = verify_polkit(connection, message, action_ignore_inhibit, false, &challenge, error);
-                if (r < 0)
-                        return r;
-
-                if (r > 0 && !result)
-                        result = "yes";
-                else if (challenge && (!result || streq(result, "yes")))
-                        result = "challenge";
-                else
-                        result = "no";
-        }
-
-        if (!multiple_sessions && !blocked) {
-                /* If neither inhibit nor multiple sessions
-                 * apply then just check the normal policy */
-
-                r = verify_polkit(connection, message, action, false, &challenge, error);
-                if (r < 0)
-                        return r;
-
-                if (r > 0)
-                        result = "yes";
-                else if (challenge)
-                        result = "challenge";
-                else
-                        result = "no";
-        }
-
-finish:
-        reply = dbus_message_new_method_return(message);
-        if (!reply)
-                return -ENOMEM;
-
-        b = dbus_message_append_args(
-                        reply,
-                        DBUS_TYPE_STRING, &result,
-                        DBUS_TYPE_INVALID);
-        if (!b)
-                return -ENOMEM;
-
-        *_reply = reply;
-        reply = NULL;
-        return 0;
-}
-
 static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
+
         static const char * const signal_name[_INHIBIT_WHAT_MAX] = {
                 [INHIBIT_SHUTDOWN] = "PrepareForShutdown",
                 [INHIBIT_SLEEP] = "PrepareForSleep"
         };
 
-        dbus_bool_t active = _active;
-        _cleanup_dbus_message_unref_ DBusMessage *message = NULL;
+        int active = _active;
 
         assert(m);
         assert(w >= 0);
         assert(w < _INHIBIT_WHAT_MAX);
         assert(signal_name[w]);
 
-        message = dbus_message_new_signal("/org/freedesktop/login1", "org.freedesktop.login1.Manager", signal_name[w]);
-        if (!message)
-                return -ENOMEM;
-
-        if (!dbus_message_append_args(message, DBUS_TYPE_BOOLEAN, &active, DBUS_TYPE_INVALID) ||
-            !dbus_connection_send(m->bus, message, NULL))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_emit_signal(m->bus,
+                                  "/org/freedesktop/login1",
+                                  "org.freedesktop.login1.Manager",
+                                  signal_name[w],
+                                  "b",
+                                  &active);
 }
 
 int bus_manager_shutdown_or_sleep_now_or_later(
                 Manager *m,
                 const char *unit_name,
                 InhibitWhat w,
-                DBusError *error) {
+                sd_bus_error *error) {
 
         bool delayed;
         int r;
@@ -1235,27 +1406,23 @@ int bus_manager_shutdown_or_sleep_now_or_later(
         return r;
 }
 
-static int bus_manager_do_shutdown_or_sleep(
+static int method_do_shutdown_or_sleep(
                 Manager *m,
-                DBusConnection *connection,
-                DBusMessage *message,
+                sd_bus_message *message,
                 const char *unit_name,
                 InhibitWhat w,
                 const char *action,
                 const char *action_multiple_sessions,
                 const char *action_ignore_inhibit,
                 const char *sleep_verb,
-                DBusError *error,
-                DBusMessage **_reply) {
+                sd_bus_message_handler_t method) {
 
-        dbus_bool_t interactive;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         bool multiple_sessions, blocked;
-        DBusMessage *reply = NULL;
-        int r;
-        unsigned long ul;
+        int interactive, r;
+        uid_t uid;
 
         assert(m);
-        assert(connection);
         assert(message);
         assert(unit_name);
         assert(w >= 0);
@@ -1263,1254 +1430,664 @@ static int bus_manager_do_shutdown_or_sleep(
         assert(action);
         assert(action_multiple_sessions);
         assert(action_ignore_inhibit);
-        assert(error);
-        assert(_reply);
+        assert(method);
+
+        r = sd_bus_message_read(message, "b", &interactive);
+        if (r < 0)
+                return sd_bus_reply_method_errno(m->bus, message, r, NULL);
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->action_what)
-                return -EALREADY;
-
-        if (!dbus_message_get_args(
-                            message,
-                            error,
-                            DBUS_TYPE_BOOLEAN, &interactive,
-                            DBUS_TYPE_INVALID))
-                return -EINVAL;
+                return sd_bus_reply_method_errorf(m->bus, message, BUS_ERROR_OPERATION_IN_PROGRESS, "There's already a shutdown or sleep operation in progress");
 
         if (sleep_verb) {
                 r = can_sleep(sleep_verb);
                 if (r < 0)
-                        return r;
+                        return sd_bus_reply_method_errno(m->bus, message, r, NULL);
 
                 if (r == 0)
-                        return -ENOTSUP;
+                        return sd_bus_reply_method_errorf(m->bus, message, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED, "Sleep verb not supported");
         }
 
-        ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
-        if (ul == (unsigned long) -1)
-                return -EIO;
-
-        r = have_multiple_sessions(m, (uid_t) ul);
+        r = sd_bus_get_owner_uid(m->bus, sd_bus_message_get_sender(message), &uid);
         if (r < 0)
-                return r;
+                return sd_bus_reply_method_errno(m->bus, message, r, NULL);
+
+        r = have_multiple_sessions(m, uid);
+        if (r < 0)
+                return sd_bus_reply_method_errno(m->bus, message, r, NULL);
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, (uid_t) ul);
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid);
 
         if (multiple_sessions) {
-                r = verify_polkit(connection, message, action_multiple_sessions, interactive, NULL, error);
+                r = bus_verify_polkit_async(m->bus, &m->polkit_registry, message,
+                                            action_multiple_sessions, interactive, &error, method, m);
                 if (r < 0)
-                        return r;
+                        return sd_bus_reply_method_errno(m->bus, message, r, &error);
         }
 
         if (blocked) {
-                r = verify_polkit(connection, message, action_ignore_inhibit, interactive, NULL, error);
+                r = bus_verify_polkit_async(m->bus, &m->polkit_registry, message,
+                                            action_ignore_inhibit, interactive, &error, method, m);
                 if (r < 0)
-                        return r;
+                        return sd_bus_reply_method_errno(m->bus, message, r, &error);
         }
 
         if (!multiple_sessions && !blocked) {
-                r = verify_polkit(connection, message, action, interactive, NULL, error);
+                r = bus_verify_polkit_async(m->bus, &m->polkit_registry, message,
+                                            action, interactive, &error, method, m);
                 if (r < 0)
-                        return r;
+                        return sd_bus_reply_method_errno(m->bus, message, r, &error);
         }
 
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, unit_name, w, error);
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, unit_name, w, &error);
         if (r < 0)
-                return r;
+                return sd_bus_reply_method_errno(m->bus, message, r, &error);
 
-        reply = dbus_message_new_method_return(message);
-        if (!reply)
-                return -ENOMEM;
+        return sd_bus_reply_method_return(m->bus, message, NULL);
+}
 
-        *_reply = reply;
+static int method_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_POWEROFF_TARGET,
+                        INHIBIT_SHUTDOWN,
+                        "org.freedesktop.login1.power-off",
+                        "org.freedesktop.login1.power-off-multiple-sessions",
+                        "org.freedesktop.login1.power-off-ignore-inhibit",
+                        NULL,
+                        method_poweroff);
+}
+
+static int method_reboot(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_REBOOT_TARGET,
+                        INHIBIT_SHUTDOWN,
+                        "org.freedesktop.login1.reboot",
+                        "org.freedesktop.login1.reboot-multiple-sessions",
+                        "org.freedesktop.login1.reboot-ignore-inhibit",
+                        NULL,
+                        method_reboot);
+}
+
+static int method_suspend(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_SUSPEND_TARGET,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.suspend",
+                        "org.freedesktop.login1.suspend-multiple-sessions",
+                        "org.freedesktop.login1.suspend-ignore-inhibit",
+                        "suspend",
+                        method_suspend);
+}
+
+static int method_hibernate(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_HIBERNATE_TARGET,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "hibernate",
+                        method_hibernate);
+}
+
+static int method_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_HYBRID_SLEEP_TARGET,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "hybrid-sleep",
+                        method_hybrid_sleep);
+}
+
+static int method_can_shutdown_or_sleep(
+                Manager *m,
+                sd_bus_message *message,
+                InhibitWhat w,
+                const char *action,
+                const char *action_multiple_sessions,
+                const char *action_ignore_inhibit,
+                const char *sleep_verb) {
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        bool multiple_sessions, challenge, blocked;
+        const char *result = NULL;
+        uid_t uid;
+        int r;
+
+        assert(m);
+        assert(message);
+        assert(w >= 0);
+        assert(w <= _INHIBIT_WHAT_MAX);
+        assert(action);
+        assert(action_multiple_sessions);
+        assert(action_ignore_inhibit);
+
+        if (sleep_verb) {
+                r = can_sleep(sleep_verb);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(m->bus, message, r, NULL);
+                if (r == 0)
+                        return sd_bus_reply_method_return(m->bus, message, "s", "na");
+        }
+
+        r = sd_bus_get_owner_uid(m->bus, sd_bus_message_get_sender(message), &uid);
+        if (r < 0)
+                return sd_bus_reply_method_errno(m->bus, message, r, NULL);
+
+        r = have_multiple_sessions(m, uid);
+        if (r < 0)
+                return sd_bus_reply_method_errno(m->bus, message, r, NULL);
+
+        multiple_sessions = r > 0;
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid);
+
+        if (multiple_sessions) {
+                r = bus_verify_polkit(m->bus, message, action_multiple_sessions, false, &challenge, &error);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(m->bus, message, r, &error);
+
+                if (r > 0)
+                        result = "yes";
+                else if (challenge)
+                        result = "challenge";
+                else
+                        result = "no";
+        }
+
+        if (blocked) {
+                r = bus_verify_polkit(m->bus, message, action_ignore_inhibit, false, &challenge, &error);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(m->bus, message, r, &error);
+
+                if (r > 0 && !result)
+                        result = "yes";
+                else if (challenge && (!result || streq(result, "yes")))
+                        result = "challenge";
+                else
+                        result = "no";
+        }
+
+        if (!multiple_sessions && !blocked) {
+                /* If neither inhibit nor multiple sessions
+                 * apply then just check the normal policy */
+
+                r = bus_verify_polkit(m->bus, message, action, false, &challenge, &error);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(m->bus, message, r, &error);
+
+                if (r > 0)
+                        result = "yes";
+                else if (challenge)
+                        result = "challenge";
+                else
+                        result = "no";
+        }
+
+        return sd_bus_reply_method_return(m->bus, message, "s", result);
+}
+
+static int method_can_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        return method_can_shutdown_or_sleep(
+                        m, message,
+                        INHIBIT_SHUTDOWN,
+                        "org.freedesktop.login1.power-off",
+                        "org.freedesktop.login1.power-off-multiple-sessions",
+                        "org.freedesktop.login1.power-off-ignore-inhibit",
+                        NULL);
+}
+
+static int method_can_reboot(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        return method_can_shutdown_or_sleep(
+                        m, message,
+                        INHIBIT_SHUTDOWN,
+                        "org.freedesktop.login1.reboot",
+                        "org.freedesktop.login1.reboot-multiple-sessions",
+                        "org.freedesktop.login1.reboot-ignore-inhibit",
+                        NULL);
+}
+
+static int method_can_suspend(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        return method_can_shutdown_or_sleep(
+                        m, message,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.suspend",
+                        "org.freedesktop.login1.suspend-multiple-sessions",
+                        "org.freedesktop.login1.suspend-ignore-inhibit",
+                        "suspend");
+}
+
+static int method_can_hibernate(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        return method_can_shutdown_or_sleep(
+                        m, message,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "hibernate");
+}
+
+static int method_can_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        return method_can_shutdown_or_sleep(
+                        m, message,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "hybrid-sleep");
+}
+
+static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *who, *why, *what, *mode;
+        _cleanup_free_ char *id = NULL;
+        _cleanup_close_ int fifo_fd = -1;
+        Manager *m = userdata;
+        Inhibitor *i = NULL;
+        InhibitMode mm;
+        InhibitWhat w;
+        pid_t pid;
+        uid_t uid;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "ssss", &what, &who, &why, &mode);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        w = inhibit_what_from_string(what);
+        if (w <= 0)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid what specification %s", what);
+
+        mm = inhibit_mode_from_string(mode);
+        if (mm < 0)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid mode specification %s", mode);
+
+        /* Delay is only supported for shutdown/sleep */
+        if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Delay inhibitors only supported for shutdown and sleep");
+
+        /* Don't allow taking delay locks while we are already
+         * executing the operation. We shouldn't create the impression
+         * that the lock was successful if the machine is about to go
+         * down/suspend any moment. */
+        if (m->action_what & w)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_OPERATION_IN_PROGRESS, "The operation inhibition has been requested for is already running");
+
+        r = bus_verify_polkit_async(bus, &m->polkit_registry, message,
+                                    w == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
+                                    w == INHIBIT_SLEEP                ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
+                                    w == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
+                                    w == INHIBIT_HANDLE_POWER_KEY     ? "org.freedesktop.login1.inhibit-handle-power-key" :
+                                    w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
+                                    w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
+                                                                        "org.freedesktop.login1.inhibit-handle-lid-switch",
+                                    false, &error, method_inhibit, m);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = sd_bus_get_owner_uid(m->bus, sd_bus_message_get_sender(message), &uid);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = sd_bus_get_owner_pid(m->bus, sd_bus_message_get_sender(message), &pid);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        do {
+                free(id);
+                id = NULL;
+
+                if (asprintf(&id, "%lu", ++m->inhibit_counter) < 0)
+                        return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+
+        } while (hashmap_get(m->inhibitors, id));
+
+        r = manager_add_inhibitor(m, id, &i);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        i->what = w;
+        i->mode = mm;
+        i->pid = pid;
+        i->uid = uid;
+        i->why = strdup(why);
+        i->who = strdup(who);
+
+        if (!i->why || !i->who) {
+                r = sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+                goto fail;
+        }
+
+        fifo_fd = inhibitor_create_fifo(i);
+        if (fifo_fd < 0) {
+                r = sd_bus_reply_method_errno(bus, message, fifo_fd, NULL);
+                goto fail;
+        }
+
+        inhibitor_start(i);
+
+        return sd_bus_reply_method_return(bus, message, "h", fifo_fd);
+
+fail:
+        if (i)
+                inhibitor_free(i);
+
+        return r;
+}
+
+const sd_bus_vtable manager_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+
+        SD_BUS_PROPERTY("NAutoVTs", "u", NULL, offsetof(Manager, n_autovts), 0),
+        SD_BUS_PROPERTY("KillOnlyUsers", "as", NULL, offsetof(Manager, kill_only_users), 0),
+        SD_BUS_PROPERTY("KillExcludeUsers", "as", NULL, offsetof(Manager, kill_exclude_users), 0),
+        SD_BUS_PROPERTY("KillUserProcesses", "b", NULL, offsetof(Manager, kill_user_processes), 0),
+        SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("BlockInhibited", "s", property_get_inhibited, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("DelayInhibited", "s", property_get_inhibited, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("InhibitDelayMaxUSec", "t", NULL, offsetof(Manager, inhibit_delay_max), 0),
+        SD_BUS_PROPERTY("HandlePowerKey", "s", property_get_handle_action, offsetof(Manager, handle_power_key), 0),
+        SD_BUS_PROPERTY("HandleSuspendKey", "s", property_get_handle_action, offsetof(Manager, handle_suspend_key), 0),
+        SD_BUS_PROPERTY("HandleHibernateKey", "s", property_get_handle_action, offsetof(Manager, handle_hibernate_key), 0),
+        SD_BUS_PROPERTY("HandleLidSwitch", "s", property_get_handle_action, offsetof(Manager, handle_lid_switch), 0),
+        SD_BUS_PROPERTY("IdleAction", "s", property_get_handle_action, offsetof(Manager, idle_action), 0),
+        SD_BUS_PROPERTY("IdleActionUSec", "t", NULL, offsetof(Manager, idle_action_usec), 0),
+        SD_BUS_PROPERTY("PreparingForShutdown", "b", property_get_preparing, 0, 0),
+        SD_BUS_PROPERTY("PreparingForSleep", "b", property_get_preparing, 0, 0),
+
+        SD_BUS_METHOD("GetSession", "s", "o", method_get_session, 0),
+        SD_BUS_METHOD("GetSessionByPID", "u", "o", method_get_session_by_pid, 0),
+        SD_BUS_METHOD("GetUser", "u", "o", method_get_user, 0),
+        SD_BUS_METHOD("GetUserByPID", "u", "o", method_get_user_by_pid, 0),
+        SD_BUS_METHOD("GetSeat", "s", "o", method_get_seat, 0),
+        SD_BUS_METHOD("ListSessions", NULL, "a(susso)", method_list_sessions, 0),
+        SD_BUS_METHOD("ListUsers", NULL, "a(uso)", method_list_users, 0),
+        SD_BUS_METHOD("ListSeats", NULL, "a(so)", method_list_seats, 0),
+        SD_BUS_METHOD("ListInhibitors", NULL, "a(ssssuu)", method_list_inhibitors, 0),
+        SD_BUS_METHOD("CreateSession", "uussssussbssa(sv)", "soshsub", method_create_session, 0),
+        SD_BUS_METHOD("ReleaseSession", "s", NULL, method_release_session, 0),
+        SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, 0),
+        SD_BUS_METHOD("ActivateSessionOnSeat", "ss", NULL, method_activate_session_on_seat, 0),
+        SD_BUS_METHOD("LockSession", "s", NULL, method_lock_session, 0),
+        SD_BUS_METHOD("UnlockSession", "s", NULL, method_lock_session, 0),
+        SD_BUS_METHOD("LockSessions", NULL, NULL, method_lock_sessions, 0),
+        SD_BUS_METHOD("UnlockSessions", NULL, NULL, method_lock_sessions, 0),
+        SD_BUS_METHOD("KillSession", "ssi", NULL, method_kill_session, 0),
+        SD_BUS_METHOD("KillUser", "ui", NULL, method_kill_user, 0),
+        SD_BUS_METHOD("TerminateSession", "s", NULL, method_terminate_session, 0),
+        SD_BUS_METHOD("TerminateUser", "u", NULL, method_terminate_user, 0),
+        SD_BUS_METHOD("TerminateSeat", "s", NULL, method_terminate_seat, 0),
+        SD_BUS_METHOD("SetUserLinger", "ubb", NULL, method_set_user_linger, 0),
+        SD_BUS_METHOD("AttachDevice", "ssb", NULL, method_attach_device, 0),
+        SD_BUS_METHOD("FlushDevices", "b", NULL, method_flush_devices, 0),
+        SD_BUS_METHOD("PowerOff", "b", NULL, method_poweroff, 0),
+        SD_BUS_METHOD("Reboot", "b", NULL, method_reboot, 0),
+        SD_BUS_METHOD("Suspend", "b", NULL, method_suspend, 0),
+        SD_BUS_METHOD("Hibernate", "b", NULL, method_hibernate, 0),
+        SD_BUS_METHOD("HybridSleep", "b", NULL, method_hybrid_sleep, 0),
+        SD_BUS_METHOD("CanPowerOff", NULL, "s", method_can_poweroff, 0),
+        SD_BUS_METHOD("CanReboot", NULL, "s", method_can_reboot, 0),
+        SD_BUS_METHOD("CanSuspend", NULL, "s", method_can_suspend, 0),
+        SD_BUS_METHOD("CanHibernate", NULL, "s", method_can_hibernate, 0),
+        SD_BUS_METHOD("CanHybridSleep", NULL, "s", method_can_hybrid_sleep, 0),
+        SD_BUS_METHOD("Inhibit", "ssss", "h", method_inhibit, 0),
+
+        SD_BUS_SIGNAL("SessionNew", "so", 0),
+        SD_BUS_SIGNAL("SessionRemoved", "so", 0),
+        SD_BUS_SIGNAL("UserNew", "uo", 0),
+        SD_BUS_SIGNAL("UserRemoved", "uo", 0),
+        SD_BUS_SIGNAL("SeatNew", "so", 0),
+        SD_BUS_SIGNAL("SeatRemoved", "so", 0),
+        SD_BUS_SIGNAL("PrepareForShutdown", "b", 0),
+        SD_BUS_SIGNAL("PrepareForSleep", "b", 0),
+
+        SD_BUS_VTABLE_END
+};
+
+int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        const char *path, *result, *unit;
+        Manager *m = userdata;
+        Session *session;
+        uint32_t id;
+        User *user;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "uoss", &id, &path, &unit, &result);
+        if (r < 0) {
+                log_error("Failed to parse JobRemoved message: %s", strerror(-r));
+                return 0;
+        }
+
+        if (m->action_job && streq(m->action_job, path)) {
+                log_info("Operation finished.");
+
+                /* Tell people that they now may take a lock again */
+                send_prepare_for(m, m->action_what, false);
+
+                free(m->action_job);
+                m->action_job = NULL;
+                m->action_unit = NULL;
+                m->action_what = 0;
+                return 0;
+        }
+
+        session = hashmap_get(m->session_units, unit);
+        if (session) {
+
+                if (streq_ptr(path, session->scope_job)) {
+                        free(session->scope_job);
+                        session->scope_job = NULL;
+                }
+
+                if (session->started) {
+                        if (streq(result, "done"))
+                                session_send_create_reply(session, NULL);
+                        else {
+                                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                                sd_bus_error_setf(&error, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
+                                session_send_create_reply(session, &error);
+                        }
+                } else
+                        session_save(session);
+
+                session_add_to_gc_queue(session);
+        }
+
+        user = hashmap_get(m->user_units, unit);
+        if (user) {
+
+                if (streq_ptr(path, user->service_job)) {
+                        free(user->service_job);
+                        user->service_job = NULL;
+                }
+
+                if (streq_ptr(path, user->slice_job)) {
+                        free(user->slice_job);
+                        user->slice_job = NULL;
+                }
+
+                user_save(user);
+                user_add_to_gc_queue(user);
+        }
+
         return 0;
 }
 
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_handle_action, handle_action, HandleAction);
-
-static const BusProperty bus_login_manager_properties[] = {
-        { "NAutoVTs",               bus_property_append_unsigned,       "u",  offsetof(Manager, n_autovts)           },
-        { "KillOnlyUsers",          bus_property_append_strv,           "as", offsetof(Manager, kill_only_users),    true },
-        { "KillExcludeUsers",       bus_property_append_strv,           "as", offsetof(Manager, kill_exclude_users), true },
-        { "KillUserProcesses",      bus_property_append_bool,           "b",  offsetof(Manager, kill_user_processes) },
-        { "IdleHint",               bus_manager_append_idle_hint,       "b",  0 },
-        { "IdleSinceHint",          bus_manager_append_idle_hint_since, "t",  0 },
-        { "IdleSinceHintMonotonic", bus_manager_append_idle_hint_since, "t",  0 },
-        { "BlockInhibited",         bus_manager_append_inhibited,       "s",  0 },
-        { "DelayInhibited",         bus_manager_append_inhibited,       "s",  0 },
-        { "InhibitDelayMaxUSec",    bus_property_append_usec,           "t",  offsetof(Manager, inhibit_delay_max)   },
-        { "HandlePowerKey",         bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_power_key)    },
-        { "HandleSuspendKey",       bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_suspend_key)  },
-        { "HandleHibernateKey",     bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_hibernate_key)},
-        { "HandleLidSwitch",        bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_lid_switch)   },
-        { "IdleAction",             bus_manager_append_handle_action,   "s",  offsetof(Manager, idle_action)         },
-        { "IdleActionUSec",         bus_property_append_usec,           "t",  offsetof(Manager, idle_action_usec) },
-        { "PreparingForShutdown",   bus_manager_append_preparing,       "b",  0 },
-        { "PreparingForSleep",      bus_manager_append_preparing,       "b",  0 },
-        { NULL, }
-};
-
-static DBusHandlerResult manager_message_handler(
-                DBusConnection *connection,
-                DBusMessage *message,
-                void *userdata) {
-
+int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        const char *path, *unit;
         Manager *m = userdata;
-
-        DBusError error;
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        Session *session;
+        User *user;
         int r;
 
-        assert(connection);
+        assert(bus);
         assert(message);
         assert(m);
 
-        dbus_error_init(&error);
-
-        if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "GetSession")) {
-                const char *name;
-                char *p;
-                Session *session;
-                bool b;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                session = hashmap_get(m->sessions, name);
-                if (!session)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                p = session_bus_path(session);
-                if (!p)
-                        goto oom;
-
-                b = dbus_message_append_args(
-                                reply,
-                                DBUS_TYPE_OBJECT_PATH, &p,
-                                DBUS_TYPE_INVALID);
-                free(p);
-
-                if (!b)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "GetSessionByPID")) {
-                uint32_t pid;
-                char *p;
-                Session *session;
-                bool b;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_UINT32, &pid,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                r = manager_get_session_by_pid(m, pid, &session);
-                if (r <= 0)
-                        return bus_send_error_reply(connection, message, NULL, r < 0 ? r : -ENOENT);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                p = session_bus_path(session);
-                if (!p)
-                        goto oom;
-
-                b = dbus_message_append_args(
-                                reply,
-                                DBUS_TYPE_OBJECT_PATH, &p,
-                                DBUS_TYPE_INVALID);
-                free(p);
-
-                if (!b)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "GetUser")) {
-                uint32_t uid;
-                char *p;
-                User *user;
-                bool b;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_UINT32, &uid,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
-                if (!user)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                p = user_bus_path(user);
-                if (!p)
-                        goto oom;
-
-                b = dbus_message_append_args(
-                                reply,
-                                DBUS_TYPE_OBJECT_PATH, &p,
-                                DBUS_TYPE_INVALID);
-                free(p);
-
-                if (!b)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "GetUserByPID")) {
-                uint32_t pid;
-                char *p;
-                User *user;
-                bool b;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_UINT32, &pid,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                r = manager_get_user_by_pid(m, pid, &user);
-                if (r <= 0)
-                        return bus_send_error_reply(connection, message, NULL, r < 0 ? r : -ENOENT);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                p = user_bus_path(user);
-                if (!p)
-                        goto oom;
-
-                b = dbus_message_append_args(
-                                reply,
-                                DBUS_TYPE_OBJECT_PATH, &p,
-                                DBUS_TYPE_INVALID);
-                free(p);
-
-                if (!b)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "GetSeat")) {
-                const char *name;
-                char *p;
-                Seat *seat;
-                bool b;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                seat = hashmap_get(m->seats, name);
-                if (!seat)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                p = seat_bus_path(seat);
-                if (!p)
-                        goto oom;
-
-                b = dbus_message_append_args(
-                                reply,
-                                DBUS_TYPE_OBJECT_PATH, &p,
-                                DBUS_TYPE_INVALID);
-                free(p);
-
-                if (!b)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListSessions")) {
-                char *p;
-                Session *session;
-                Iterator i;
-                DBusMessageIter iter, sub;
-                const char *empty = "";
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                dbus_message_iter_init_append(reply, &iter);
-
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(susso)", &sub))
-                        goto oom;
-
-                HASHMAP_FOREACH(session, m->sessions, i) {
-                        DBusMessageIter sub2;
-                        uint32_t uid;
-
-                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
-                                goto oom;
-
-                        uid = session->user->uid;
-
-                        p = session_bus_path(session);
-                        if (!p)
-                                goto oom;
-
-                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &session->id) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &uid) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &session->user->name) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, session->seat ? (const char**) &session->seat->id : &empty) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &p)) {
-                                free(p);
-                                goto oom;
-                        }
-
-                        free(p);
-
-                        if (!dbus_message_iter_close_container(&sub, &sub2))
-                                goto oom;
-                }
-
-                if (!dbus_message_iter_close_container(&iter, &sub))
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListUsers")) {
-                User *user;
-                Iterator i;
-                DBusMessageIter iter, sub;
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                dbus_message_iter_init_append(reply, &iter);
-
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(uso)", &sub))
-                        goto oom;
-
-                HASHMAP_FOREACH(user, m->users, i) {
-                        _cleanup_free_ char *p = NULL;
-                        DBusMessageIter sub2;
-                        uint32_t uid;
-
-                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
-                                goto oom;
-
-                        uid = user->uid;
-
-                        p = user_bus_path(user);
-                        if (!p)
-                                goto oom;
-
-                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &uid) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &user->name) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &p)) {
-                                free(p);
-                                goto oom;
-                        }
-
-                        if (!dbus_message_iter_close_container(&sub, &sub2))
-                                goto oom;
-                }
-
-                if (!dbus_message_iter_close_container(&iter, &sub))
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListSeats")) {
-                Seat *seat;
-                Iterator i;
-                DBusMessageIter iter, sub;
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                dbus_message_iter_init_append(reply, &iter);
-
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(so)", &sub))
-                        goto oom;
-
-                HASHMAP_FOREACH(seat, m->seats, i) {
-                        _cleanup_free_ char *p = NULL;
-                        DBusMessageIter sub2;
-
-                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
-                                goto oom;
-
-                        p = seat_bus_path(seat);
-                        if (!p)
-                                goto oom;
-
-                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &seat->id) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &p)) {
-                                free(p);
-                                goto oom;
-                        }
-
-                        if (!dbus_message_iter_close_container(&sub, &sub2))
-                                goto oom;
-                }
-
-                if (!dbus_message_iter_close_container(&iter, &sub))
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListInhibitors")) {
-                Inhibitor *inhibitor;
-                Iterator i;
-                DBusMessageIter iter, sub;
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                dbus_message_iter_init_append(reply, &iter);
-
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ssssuu)", &sub))
-                        goto oom;
-
-                HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
-                        DBusMessageIter sub2;
-                        dbus_uint32_t uid, pid;
-                        const char *what, *who, *why, *mode;
-
-                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
-                                goto oom;
-
-                        what = strempty(inhibit_what_to_string(inhibitor->what));
-                        who = strempty(inhibitor->who);
-                        why = strempty(inhibitor->why);
-                        mode = strempty(inhibit_mode_to_string(inhibitor->mode));
-                        uid = (dbus_uint32_t) inhibitor->uid;
-                        pid = (dbus_uint32_t) inhibitor->pid;
-
-                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &what) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &who) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &why) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &mode) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &uid) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &pid))
-                                goto oom;
-
-                        if (!dbus_message_iter_close_container(&sub, &sub2))
-                                goto oom;
-                }
-
-                if (!dbus_message_iter_close_container(&iter, &sub))
-                        goto oom;
-
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Inhibit")) {
-
-                r = bus_manager_inhibit(m, connection, message, &error, &reply);
-
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CreateSession")) {
-
-                r = bus_manager_create_session(m, message);
-
-                /* Don't delay the work on OOM here, since it might be
-                 * triggered by a low RLIMIT_NOFILE here (since we
-                 * send a dupped fd to the client), and we'd rather
-                 * see this fail quickly then be retried later */
-
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ReleaseSession")) {
-                const char *name;
-                Session *session;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                session = hashmap_get(m->sessions, name);
-                if (!session)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                /* We use the FIFO to detect stray sessions where the
-                process invoking PAM dies abnormally. We need to make
-                sure that that process is not killed if at the clean
-                end of the session it closes the FIFO. Hence, with
-                this call explicitly turn off the FIFO logic, so that
-                the PAM code can finish clean up on its own */
-                session_remove_fifo(session);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ActivateSession")) {
-                const char *name;
-                Session *session;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                session = hashmap_get(m->sessions, name);
-                if (!session)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                r = session_activate(session);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ActivateSessionOnSeat")) {
-                const char *session_name, *seat_name;
-                Session *session;
-                Seat *seat;
-
-                /* Same as ActivateSession() but refuses to work if
-                 * the seat doesn't match */
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &session_name,
-                                    DBUS_TYPE_STRING, &seat_name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                session = hashmap_get(m->sessions, session_name);
-                if (!session)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                seat = hashmap_get(m->seats, seat_name);
-                if (!seat)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                if (session->seat != seat)
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                r = session_activate(session);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "LockSession") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "UnlockSession")) {
-                const char *name;
-                Session *session;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                session = hashmap_get(m->sessions, name);
-                if (!session)
-                        return bus_send_error_reply(connection, message, NULL, -ENOENT);
-
-                if (session_send_lock(session, streq(dbus_message_get_member(message), "LockSession")) < 0)
-                        goto oom;
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "LockSessions") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "UnlockSessions")) {
-
-                r = session_send_lock_all(m, streq(dbus_message_get_member(message), "LockSessions"));
-                if (r < 0)
-                        bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "KillSession")) {
-                const char *swho;
-                int32_t signo;
-                KillWho who;
-                const char *name;
-                Session *session;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_STRING, &swho,
-                                    DBUS_TYPE_INT32, &signo,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                if (isempty(swho))
-                        who = KILL_ALL;
-                else {
-                        who = kill_who_from_string(swho);
-                        if (who < 0)
-                                return bus_send_error_reply(connection, message, &error, -EINVAL);
-                }
-
-                if (signo <= 0 || signo >= _NSIG)
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                session = hashmap_get(m->sessions, name);
-                if (!session)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                r = session_kill(session, who, signo);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "KillUser")) {
-                uint32_t uid;
-                User *user;
-                int32_t signo;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_UINT32, &uid,
-                                    DBUS_TYPE_INT32, &signo,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                if (signo <= 0 || signo >= _NSIG)
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
-                if (!user)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                r = user_kill(user, signo);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "TerminateSession")) {
-                const char *name;
-                Session *session;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                session = hashmap_get(m->sessions, name);
-                if (!session)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                r = session_stop(session);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "TerminateUser")) {
-                uint32_t uid;
-                User *user;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_UINT32, &uid,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
-                if (!user)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                r = user_stop(user);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "TerminateSeat")) {
-                const char *name;
-                Seat *seat;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                seat = hashmap_get(m->seats, name);
-                if (!seat)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-
-                r = seat_stop_sessions(seat);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "SetUserLinger")) {
-                uint32_t uid;
-                struct passwd *pw;
-                dbus_bool_t b, interactive;
-                char *path;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_UINT32, &uid,
-                                    DBUS_TYPE_BOOLEAN, &b,
-                                    DBUS_TYPE_BOOLEAN, &interactive,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                errno = 0;
-                pw = getpwuid(uid);
-                if (!pw)
-                        return bus_send_error_reply(connection, message, NULL, errno ? -errno : -EINVAL);
-
-                r = verify_polkit(connection, message, "org.freedesktop.login1.set-user-linger", interactive, NULL, &error);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                mkdir_p_label("/var/lib/systemd", 0755);
-
-                r = mkdir_safe_label("/var/lib/systemd/linger", 0755, 0, 0);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                path = strappend("/var/lib/systemd/linger/", pw->pw_name);
-                if (!path)
-                        goto oom;
-
-                if (b) {
-                        User *u;
-
-                        r = touch(path);
-                        free(path);
-
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
-
-                        if (manager_add_user_by_uid(m, uid, &u) >= 0)
-                                user_start(u);
-
-                } else {
-                        User *u;
-
-                        r = unlink(path);
-                        free(path);
-
-                        if (r < 0 && errno != ENOENT)
-                                return bus_send_error_reply(connection, message, &error, -errno);
-
-                        u = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
-                        if (u)
-                                user_add_to_gc_queue(u);
-                }
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "AttachDevice")) {
-                const char *sysfs, *seat;
-                dbus_bool_t interactive;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &seat,
-                                    DBUS_TYPE_STRING, &sysfs,
-                                    DBUS_TYPE_BOOLEAN, &interactive,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                if (!path_startswith(sysfs, "/sys") || !seat_name_is_valid(seat))
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                r = verify_polkit(connection, message, "org.freedesktop.login1.attach-device", interactive, NULL, &error);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                r = attach_device(m, seat, sysfs);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "FlushDevices")) {
-                dbus_bool_t interactive;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_BOOLEAN, &interactive,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                r = verify_polkit(connection, message, "org.freedesktop.login1.flush-devices", interactive, NULL, &error);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                r = flush_devices(m);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "PowerOff")) {
-
-                r = bus_manager_do_shutdown_or_sleep(
-                                m, connection, message,
-                                SPECIAL_POWEROFF_TARGET,
-                                INHIBIT_SHUTDOWN,
-                                "org.freedesktop.login1.power-off",
-                                "org.freedesktop.login1.power-off-multiple-sessions",
-                                "org.freedesktop.login1.power-off-ignore-inhibit",
-                                NULL,
-                                &error, &reply);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Reboot")) {
-                r = bus_manager_do_shutdown_or_sleep(
-                                m, connection, message,
-                                SPECIAL_REBOOT_TARGET,
-                                INHIBIT_SHUTDOWN,
-                                "org.freedesktop.login1.reboot",
-                                "org.freedesktop.login1.reboot-multiple-sessions",
-                                "org.freedesktop.login1.reboot-ignore-inhibit",
-                                NULL,
-                                &error, &reply);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Suspend")) {
-                r = bus_manager_do_shutdown_or_sleep(
-                                m, connection, message,
-                                SPECIAL_SUSPEND_TARGET,
-                                INHIBIT_SLEEP,
-                                "org.freedesktop.login1.suspend",
-                                "org.freedesktop.login1.suspend-multiple-sessions",
-                                "org.freedesktop.login1.suspend-ignore-inhibit",
-                                "suspend",
-                                &error, &reply);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Hibernate")) {
-                r = bus_manager_do_shutdown_or_sleep(
-                                m, connection, message,
-                                SPECIAL_HIBERNATE_TARGET,
-                                INHIBIT_SLEEP,
-                                "org.freedesktop.login1.hibernate",
-                                "org.freedesktop.login1.hibernate-multiple-sessions",
-                                "org.freedesktop.login1.hibernate-ignore-inhibit",
-                                "hibernate",
-                                &error, &reply);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "HybridSleep")) {
-                r = bus_manager_do_shutdown_or_sleep(
-                                m, connection, message,
-                                SPECIAL_HYBRID_SLEEP_TARGET,
-                                INHIBIT_SLEEP,
-                                "org.freedesktop.login1.hibernate",
-                                "org.freedesktop.login1.hibernate-multiple-sessions",
-                                "org.freedesktop.login1.hibernate-ignore-inhibit",
-                                "hybrid-sleep",
-                                &error, &reply);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanPowerOff")) {
-
-                r = bus_manager_can_shutdown_or_sleep(
-                                m, connection, message,
-                                INHIBIT_SHUTDOWN,
-                                "org.freedesktop.login1.power-off",
-                                "org.freedesktop.login1.power-off-multiple-sessions",
-                                "org.freedesktop.login1.power-off-ignore-inhibit",
-                                NULL,
-                                &error, &reply);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanReboot")) {
-                r = bus_manager_can_shutdown_or_sleep(
-                                m, connection, message,
-                                INHIBIT_SHUTDOWN,
-                                "org.freedesktop.login1.reboot",
-                                "org.freedesktop.login1.reboot-multiple-sessions",
-                                "org.freedesktop.login1.reboot-ignore-inhibit",
-                                NULL,
-                                &error, &reply);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanSuspend")) {
-                r = bus_manager_can_shutdown_or_sleep(
-                                m, connection, message,
-                                INHIBIT_SLEEP,
-                                "org.freedesktop.login1.suspend",
-                                "org.freedesktop.login1.suspend-multiple-sessions",
-                                "org.freedesktop.login1.suspend-ignore-inhibit",
-                                "suspend",
-                                &error, &reply);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanHibernate")) {
-                r = bus_manager_can_shutdown_or_sleep(
-                                m, connection, message,
-                                INHIBIT_SLEEP,
-                                "org.freedesktop.login1.hibernate",
-                                "org.freedesktop.login1.hibernate-multiple-sessions",
-                                "org.freedesktop.login1.hibernate-ignore-inhibit",
-                                "hibernate",
-                                &error, &reply);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanHybridSleep")) {
-                r = bus_manager_can_shutdown_or_sleep(
-                                m, connection, message,
-                                INHIBIT_SLEEP,
-                                "org.freedesktop.login1.hibernate",
-                                "org.freedesktop.login1.hibernate-multiple-sessions",
-                                "org.freedesktop.login1.hibernate-ignore-inhibit",
-                                "hybrid-sleep",
-                                &error, &reply);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
-                char *introspection = NULL;
-                FILE *f;
-                Iterator i;
-                Session *session;
-                Seat *seat;
-                User *user;
-                size_t size;
-                char *p;
-
-                if (!(reply = dbus_message_new_method_return(message)))
-                        goto oom;
-
-                /* We roll our own introspection code here, instead of
-                 * relying on bus_default_message_handler() because we
-                 * need to generate our introspection string
-                 * dynamically. */
-
-                if (!(f = open_memstream(&introspection, &size)))
-                        goto oom;
-
-                fputs(INTROSPECTION_BEGIN, f);
-
-                HASHMAP_FOREACH(seat, m->seats, i) {
-                        p = bus_path_escape(seat->id);
-
-                        if (p) {
-                                fprintf(f, "<node name=\"seat/%s\"/>", p);
-                                free(p);
-                        }
-                }
-
-                HASHMAP_FOREACH(user, m->users, i)
-                        fprintf(f, "<node name=\"user/_%llu\"/>", (unsigned long long) user->uid);
-
-                HASHMAP_FOREACH(session, m->sessions, i) {
-                        p = bus_path_escape(session->id);
-
-                        if (p) {
-                                fprintf(f, "<node name=\"session/%s\"/>", p);
-                                free(p);
-                        }
-                }
-
-                fputs(INTROSPECTION_END, f);
-
-                if (ferror(f)) {
-                        fclose(f);
-                        free(introspection);
-                        goto oom;
-                }
-
-                fclose(f);
-
-                if (!introspection)
-                        goto oom;
-
-                if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &introspection, DBUS_TYPE_INVALID)) {
-                        free(introspection);
-                        goto oom;
-                }
-
-                free(introspection);
-        } else {
-                const BusBoundProperties bps[] = {
-                        { "org.freedesktop.login1.Manager", bus_login_manager_properties, m },
-                        { NULL, }
-                };
-                return bus_default_message_handler(connection, message, NULL, INTERFACES_LIST, bps);
+        r = sd_bus_message_read(message, "so", &unit, &path);
+        if (r < 0) {
+                log_error("Failed to parse UnitRemoved message: %s", strerror(-r));
+                return 0;
         }
 
-        if (reply) {
-                if (!bus_maybe_send_reply(connection, message, reply))
-                        goto oom;
-        }
+        session = hashmap_get(m->session_units, unit);
+        if (session)
+                session_add_to_gc_queue(session);
 
-        return DBUS_HANDLER_RESULT_HANDLED;
+        user = hashmap_get(m->user_units, unit);
+        if (user)
+                user_add_to_gc_queue(user);
 
-oom:
-        dbus_error_free(&error);
-
-        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+        return 0;
 }
 
-const DBusObjectPathVTable bus_manager_vtable = {
-        .message_function = manager_message_handler
-};
-
-DBusHandlerResult bus_message_filter(
-                DBusConnection *connection,
-                DBusMessage *message,
-                void *userdata) {
-
+int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *unit = NULL;
         Manager *m = userdata;
-        DBusError error;
+        const char *path;
+        Session *session;
+        User *user;
 
-        assert(m);
-        assert(connection);
+        assert(bus);
         assert(message);
+        assert(m);
 
-        dbus_error_init(&error);
+        path = sd_bus_message_get_path(message);
+        if (!path)
+                return 0;
 
-        log_debug("Got message: %s %s %s", strna(dbus_message_get_sender(message)), strna(dbus_message_get_interface(message)), strna(dbus_message_get_member(message)));
+        unit_name_from_dbus_path(path, &unit);
+        if (!unit)
+                return 0;
 
-        if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
-                const char *path, *result, *unit;
-                uint32_t id;
+        session = hashmap_get(m->session_units, unit);
+        if (session)
+                session_add_to_gc_queue(session);
 
-                if (!dbus_message_get_args(message, &error,
-                                           DBUS_TYPE_UINT32, &id,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_STRING, &unit,
-                                           DBUS_TYPE_STRING, &result,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse JobRemoved message: %s", bus_error_message(&error));
-                        goto finish;
-                }
+        user = hashmap_get(m->user_units, unit);
+        if (user)
+                user_add_to_gc_queue(user);
 
-                if (m->action_job && streq(m->action_job, path)) {
-                        log_info("Operation finished.");
-
-                        /* Tell people that they now may take a lock again */
-                        send_prepare_for(m, m->action_what, false);
-
-                        free(m->action_job);
-                        m->action_job = NULL;
-                        m->action_unit = NULL;
-                        m->action_what = 0;
-
-                } else {
-                        Session *s;
-                        User *u;
-
-                        s = hashmap_get(m->session_units, unit);
-                        if (s) {
-                                if (streq_ptr(path, s->scope_job)) {
-                                        free(s->scope_job);
-                                        s->scope_job = NULL;
-
-                                        if (s->started) {
-                                                if (streq(result, "done"))
-                                                        session_send_create_reply(s, NULL);
-                                                else {
-                                                        dbus_set_error(&error, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
-                                                        session_send_create_reply(s, &error);
-                                                }
-                                        } else
-                                                session_save(s);
-                                }
-
-                                session_add_to_gc_queue(s);
-                        }
-
-                        u = hashmap_get(m->user_units, unit);
-                        if (u) {
-                                if (streq_ptr(path, u->service_job)) {
-                                        free(u->service_job);
-                                        u->service_job = NULL;
-                                }
-
-                                if (streq_ptr(path, u->slice_job)) {
-                                        free(u->slice_job);
-                                        u->slice_job = NULL;
-                                }
-
-                                user_save(u);
-                                user_add_to_gc_queue(u);
-                        }
-                }
-
-        } else if (dbus_message_is_signal(message, "org.freedesktop.DBus.Properties", "PropertiesChanged")) {
-
-                _cleanup_free_ char *unit = NULL;
-                const char *path;
-
-                path = dbus_message_get_path(message);
-                if (!path)
-                        goto finish;
-
-                unit_name_from_dbus_path(path, &unit);
-                if (unit) {
-                        Session *s;
-                        User *u;
-
-                        s = hashmap_get(m->session_units, unit);
-                        if (s)
-                                session_add_to_gc_queue(s);
-
-                        u = hashmap_get(m->user_units, unit);
-                        if (u)
-                                user_add_to_gc_queue(u);
-                }
-
-        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "UnitRemoved")) {
-
-                const char *path, *unit;
-                Session *session;
-                User *user;
-
-                if (!dbus_message_get_args(message, &error,
-                                           DBUS_TYPE_STRING, &unit,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse UnitRemoved message: %s", bus_error_message(&error));
-                        goto finish;
-                }
-
-                session = hashmap_get(m->session_units, unit);
-                if (session)
-                         session_add_to_gc_queue(session);
-
-                user = hashmap_get(m->user_units, unit);
-                if (user)
-                        user_add_to_gc_queue(user);
-
-        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "Reloading")) {
-                dbus_bool_t b;
-
-                if (!dbus_message_get_args(message, &error,
-                                           DBUS_TYPE_BOOLEAN, &b,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse Reloading message: %s", bus_error_message(&error));
-                        goto finish;
-                }
-
-                /* systemd finished reloading, let's recheck all our sessions */
-                if (!b) {
-                        Session *session;
-                        Iterator i;
-
-                        log_debug("System manager has been reloaded, rechecking sessions...");
-
-                        HASHMAP_FOREACH(session, m->sessions, i)
-                                session_add_to_gc_queue(session);
-                }
-
-        } else if (dbus_message_is_signal(message, DBUS_INTERFACE_DBUS, "NameOwnerChanged")) {
-                const char *name, *old, *new;
-                char *key;
-
-                if (!dbus_message_get_args(message, &error,
-                                           DBUS_TYPE_STRING, &name,
-                                           DBUS_TYPE_STRING, &old,
-                                           DBUS_TYPE_STRING, &new,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse NameOwnerChanged message: %s", bus_error_message(&error));
-                        goto finish;
-                }
-
-                /* drop all controllers owned by this name */
-                if (*old && !*new && (key = hashmap_remove(m->busnames, old))) {
-                        Session *session;
-                        Iterator i;
-
-                        free(key);
-
-                        HASHMAP_FOREACH(session, m->sessions, i)
-                                if (session_is_controller(session, old))
-                                        session_drop_controller(session);
-                }
-        }
-
-finish:
-        dbus_error_free(&error);
-
-        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+        return 0;
 }
 
-int manager_send_changed(Manager *manager, const char *properties) {
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
+int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        Session *session;
+        Iterator i;
+        int b, r;
+
+        assert(bus);
+
+        r = sd_bus_message_read(message, "b", &b);
+        if (r < 0) {
+                log_error("Failed to parse Reloading message: %s", strerror(-r));
+                return 0;
+        }
+
+        if (b)
+                return 0;
+
+        /* systemd finished reloading, let's recheck all our sessions */
+        log_debug("System manager has been reloaded, rechecking sessions...");
+
+        HASHMAP_FOREACH(session, m->sessions, i)
+                session_add_to_gc_queue(session);
+
+        return 0;
+}
+
+int match_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        const char *name, *old, *new;
+        Manager *m = userdata;
+        Session *session;
+        Iterator i;
+        int r;
+
+
+        char *key;
+
+        r = sd_bus_message_read(message, "sss", &name, &old, &new);
+        if (r < 0) {
+                log_error("Failed to parse NameOwnerChanged message: %s", strerror(-r));
+                return 0;
+        }
+
+        if (isempty(old) || !isempty(new))
+                return 0;
+
+        key = set_remove(m->busnames, (char*) old);
+        if (!key)
+                return 0;
+
+        /* Drop all controllers owned by this name */
+
+        free(key);
+
+        HASHMAP_FOREACH(session, m->sessions, i)
+                if (session_is_controller(session, old))
+                        session_drop_controller(session);
+
+        return 0;
+}
+
+int manager_send_changed(Manager *manager, const char *property, ...) {
+        char **l;
 
         assert(manager);
 
-        m = bus_properties_changed_new("/org/freedesktop/login1",
-                                       "org.freedesktop.login1.Manager",
-                                       properties);
-        if (!m)
-                return -ENOMEM;
+        l = strv_from_stdarg_alloca(property);
 
-        if (!dbus_connection_send(manager->bus, m, NULL))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_emit_properties_changed_strv(
+                        manager->bus,
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        l);
 }
 
 int manager_dispatch_delayed(Manager *manager) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(manager);
@@ -2528,11 +2105,9 @@ int manager_dispatch_delayed(Manager *manager) {
         }
 
         /* Actually do the operation */
-        dbus_error_init(&error);
         r = execute_shutdown_or_sleep(manager, manager->action_what, manager->action_unit, &error);
         if (r < 0) {
-                log_warning("Failed to send delayed message: %s", bus_error(&error, r));
-                dbus_error_free(&error);
+                log_warning("Failed to send delayed message: %s", bus_error_message(&error, r));
 
                 manager->action_unit = NULL;
                 manager->action_what = 0;
@@ -2550,87 +2125,56 @@ int manager_start_scope(
                 const char *description,
                 const char *after,
                 const char *kill_mode,
-                DBusError *error,
+                sd_bus_error *error,
                 char **job) {
 
-        const char *timeout_stop_property = "TimeoutStopUSec", *send_sighup_property = "SendSIGHUP", *pids_property = "PIDs";
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
-        DBusMessageIter iter, sub, sub2, sub3, sub4;
-        uint64_t timeout = 500 * USEC_PER_MSEC;
-        dbus_bool_t send_sighup = true;
-        const char *fail = "fail";
-        uint32_t u;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        int r;
 
         assert(manager);
         assert(scope);
         assert(pid > 1);
 
-        if (!slice)
-                slice = "";
-
-        m = dbus_message_new_method_call(
+        r = sd_bus_message_new_method_call(
+                        manager->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
-        if (!m)
-                return log_oom();
+                        "StartTransientUnit",
+                        &m);
+        if (r < 0)
+                return r;
 
-        dbus_message_iter_init_append(m, &iter);
+        r = sd_bus_message_append(m, "ss", strempty(scope), "fail");
+        if (r < 0)
+                return r;
 
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &scope) ||
-            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &fail) ||
-            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sv)", &sub))
-                return log_oom();
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return r;
 
         if (!isempty(slice)) {
-                const char *slice_property = "Slice";
-
-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &slice_property) ||
-                    !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "s", &sub3) ||
-                    !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, &slice) ||
-                    !dbus_message_iter_close_container(&sub2, &sub3) ||
-                    !dbus_message_iter_close_container(&sub, &sub2))
-                        return log_oom();
+                r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
+                if (r < 0)
+                        return r;
         }
 
         if (!isempty(description)) {
-                const char *description_property = "Description";
-
-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &description_property) ||
-                    !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "s", &sub3) ||
-                    !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, &description) ||
-                    !dbus_message_iter_close_container(&sub2, &sub3) ||
-                    !dbus_message_iter_close_container(&sub, &sub2))
-                        return log_oom();
+                r = sd_bus_message_append(m, "(sv)", "Description", "s", description);
+                if (r < 0)
+                        return r;
         }
 
-        if (!isempty(after)) {
-                const char *after_property = "After";
-
-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &after_property) ||
-                    !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "as", &sub3) ||
-                    !dbus_message_iter_open_container(&sub3, DBUS_TYPE_ARRAY, "s", &sub4) ||
-                    !dbus_message_iter_append_basic(&sub4, DBUS_TYPE_STRING, &after) ||
-                    !dbus_message_iter_close_container(&sub3, &sub4) ||
-                    !dbus_message_iter_close_container(&sub2, &sub3) ||
-                    !dbus_message_iter_close_container(&sub, &sub2))
-                        return log_oom();
+        if (!isempty(description)) {
+                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, after);
+                if (r < 0)
+                        return r;
         }
 
         if (!isempty(kill_mode)) {
-                const char *kill_mode_property = "KillMode";
-
-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &kill_mode_property) ||
-                    !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "s", &sub3) ||
-                    !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, &kill_mode) ||
-                    !dbus_message_iter_close_container(&sub2, &sub3) ||
-                    !dbus_message_iter_close_container(&sub, &sub2))
-                        return log_oom();
+                r = sd_bus_message_append(m, "(sv)", "KillMode", "s", kill_mode);
+                if (r < 0)
+                        return r;
         }
 
         /* cgroup empty notification is not available in containers
@@ -2638,148 +2182,35 @@ int manager_start_scope(
          * stop timeout for sessions, so that we don't wait
          * forever. */
 
-        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &timeout_stop_property) ||
-            !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "t", &sub3) ||
-            !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_UINT64, &timeout) ||
-            !dbus_message_iter_close_container(&sub2, &sub3) ||
-            !dbus_message_iter_close_container(&sub, &sub2))
-                return log_oom();
+        r = sd_bus_message_append(m, "(sv)", "TimeoutStopUSec", "t", 500 * USEC_PER_MSEC);
+        if (r < 0)
+                return r;
 
         /* Make sure that the session shells are terminated with
          * SIGHUP since bash and friends tend to ignore SIGTERM */
-        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &send_sighup_property) ||
-            !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "b", &sub3) ||
-            !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_BOOLEAN, &send_sighup) ||
-            !dbus_message_iter_close_container(&sub2, &sub3) ||
-            !dbus_message_iter_close_container(&sub, &sub2))
-                return log_oom();
-
-        u = pid;
-        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &pids_property) ||
-            !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "au", &sub3) ||
-            !dbus_message_iter_open_container(&sub3, DBUS_TYPE_ARRAY, "u", &sub4) ||
-            !dbus_message_iter_append_basic(&sub4, DBUS_TYPE_UINT32, &u) ||
-            !dbus_message_iter_close_container(&sub3, &sub4) ||
-            !dbus_message_iter_close_container(&sub2, &sub3) ||
-            !dbus_message_iter_close_container(&sub, &sub2))
-                return log_oom();
-
-        if (!dbus_message_iter_close_container(&iter, &sub))
-                return log_oom();
-
-        reply = dbus_connection_send_with_reply_and_block(manager->bus, m, -1, error);
-        if (!reply)
-                return -EIO;
-
-        if (job) {
-                const char *j;
-                char *copy;
-
-                if (!dbus_message_get_args(reply, error, DBUS_TYPE_OBJECT_PATH, &j, DBUS_TYPE_INVALID))
-                        return -EIO;
-
-                copy = strdup(j);
-                if (!copy)
-                        return -ENOMEM;
-
-                *job = copy;
-        }
-
-        return 0;
-}
-
-int manager_start_unit(Manager *manager, const char *unit, DBusError *error, char **job) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *fail = "fail";
-        int r;
-
-        assert(manager);
-        assert(unit);
-
-        r = bus_method_call_with_reply(
-                        manager->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartUnit",
-                        &reply,
-                        error,
-                        DBUS_TYPE_STRING, &unit,
-                        DBUS_TYPE_STRING, &fail,
-                        DBUS_TYPE_INVALID);
-        if (r < 0) {
-                log_error("Failed to start unit %s: %s", unit, bus_error(error, r));
+        r = sd_bus_message_append(m, "(sv)", "SendSIGHUP", "b", true);
+        if (r < 0)
                 return r;
-        }
 
-        if (job) {
-                const char *j;
-                char *copy;
-
-                if (!dbus_message_get_args(reply, error,
-                                           DBUS_TYPE_OBJECT_PATH, &j,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                copy = strdup(j);
-                if (!copy)
-                        return -ENOMEM;
-
-                *job = copy;
-        }
-
-        return 0;
-}
-
-int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char **job) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *fail = "fail";
-        int r;
-
-        assert(manager);
-        assert(unit);
-
-        r = bus_method_call_with_reply(
-                        manager->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StopUnit",
-                        &reply,
-                        error,
-                        DBUS_TYPE_STRING, &unit,
-                        DBUS_TYPE_STRING, &fail,
-                        DBUS_TYPE_INVALID);
-        if (r < 0) {
-                if (dbus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
-                    dbus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
-
-                        if (job)
-                                *job = NULL;
-
-                        dbus_error_free(error);
-                        return 0;
-                }
-
-                log_error("Failed to stop unit %s: %s", unit, bus_error(error, r));
+        r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, pid);
+        if (r < 0)
                 return r;
-        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_send_with_reply_and_block(manager->bus, m, 0, error, &reply);
+        if (r < 0)
+                return r;
 
         if (job) {
                 const char *j;
                 char *copy;
 
-                if (!dbus_message_get_args(reply, error,
-                                           DBUS_TYPE_OBJECT_PATH, &j,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
+                r = sd_bus_message_read(reply, "o", &j);
+                if (r < 0)
+                        return r;
 
                 copy = strdup(j);
                 if (!copy)
@@ -2791,106 +2222,182 @@ int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char
         return 1;
 }
 
-int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *w;
+int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);
         assert(unit);
 
-        w = who == KILL_LEADER ? "process" : "cgroup";
-        assert_cc(sizeof(signo) == sizeof(int32_t));
+        r = sd_bus_call_method(
+                        manager->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit",
+                        error,
+                        &reply,
+                        "ss", unit, "fail");
+        if (r < 0)
+                return r;
 
-        r = bus_method_call_with_reply(
+        if (job) {
+                const char *j;
+                char *copy;
+
+                r = sd_bus_message_read(reply, "o", &j);
+                if (r < 0)
+                        return r;
+
+                copy = strdup(j);
+                if (!copy)
+                        return -ENOMEM;
+
+                *job = copy;
+        }
+
+        return 1;
+}
+
+int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        int r;
+
+        assert(manager);
+        assert(unit);
+
+        r = sd_bus_call_method(
+                        manager->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StopUnit",
+                        error,
+                        &reply,
+                        "ss", unit, "fail");
+        if (r < 0) {
+                if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
+                    sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
+
+                        if (job)
+                                *job = NULL;
+
+                        sd_bus_error_free(error);
+                        return 0;
+                }
+
+                return r;
+        }
+
+        if (job) {
+                const char *j;
+                char *copy;
+
+                r = sd_bus_message_read(reply, "o", &j);
+                if (r < 0)
+                        return r;
+
+                copy = strdup(j);
+                if (!copy)
+                        return -ENOMEM;
+
+                *job = copy;
+        }
+
+        return 1;
+}
+
+int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error) {
+        assert(manager);
+        assert(unit);
+
+        return sd_bus_call_method(
                         manager->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "KillUnit",
-                        &reply,
                         error,
-                        DBUS_TYPE_STRING, &unit,
-                        DBUS_TYPE_STRING, &w,
-                        DBUS_TYPE_INT32, &signo,
-                        DBUS_TYPE_INVALID);
-        if (r < 0) {
-                log_error("Failed to stop unit %s: %s", unit, bus_error(error, r));
-                return r;
-        }
-
-        return 0;
+                        NULL,
+                        "ssi", unit, who == KILL_LEADER ? "main" : "all", signo);
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit) {
-
-        const char *interface = "org.freedesktop.systemd1.Unit";
-        const char *property = "ActiveState";
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
-        DBusMessageIter iter, sub;
         const char *state;
-        DBusError error;
         int r;
 
         assert(manager);
         assert(unit);
 
-        dbus_error_init(&error);
-
         path = unit_dbus_path_from_name(unit);
         if (!path)
                 return -ENOMEM;
 
-        r = bus_method_call_with_reply(
+        r = sd_bus_get_property(
                         manager->bus,
                         "org.freedesktop.systemd1",
                         path,
-                        "org.freedesktop.DBus.Properties",
-                        "Get",
-                        &reply,
+                        "org.freedesktop.systemd1.Unit",
+                        "ActiveState",
                         &error,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_STRING, &property,
-                        DBUS_TYPE_INVALID);
+                        &reply,
+                        "s");
         if (r < 0) {
-                if (dbus_error_has_name(&error, DBUS_ERROR_NO_REPLY) ||
-                    dbus_error_has_name(&error, DBUS_ERROR_DISCONNECTED)) {
-                        /* systemd might have droppped off
-                         * momentarily, let's not make this an
-                         * error */
-
-                        dbus_error_free(&error);
+                /* systemd might have droppped off momentarily, let's
+                 * not make this an error */
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) ||
+                    sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))
                         return true;
-                }
 
-                if (dbus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ||
-                    dbus_error_has_name(&error, BUS_ERROR_LOAD_FAILED)) {
-                        /* If the unit is already unloaded then it's
-                         * not active */
-
-                        dbus_error_free(&error);
+                /* If the unit is already unloaded then it's not
+                 * active */
+                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ||
+                    sd_bus_error_has_name(&error, BUS_ERROR_LOAD_FAILED))
                         return false;
-                }
 
-                log_error("Failed to query ActiveState: %s", bus_error(&error, r));
-                dbus_error_free(&error);
                 return r;
         }
 
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
-                log_error("Failed to parse reply.");
+        r = sd_bus_message_read(reply, "s", &state);
+        if (r < 0)
                 return -EINVAL;
-        }
-
-        dbus_message_iter_recurse(&iter, &sub);
-        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
-                log_error("Failed to parse reply.");
-                return -EINVAL;
-        }
-
-        dbus_message_iter_get_basic(&sub, &state);
 
         return !streq(state, "inactive") && !streq(state, "failed");
+}
+
+int manager_job_is_active(Manager *manager, const char *path) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        int r;
+
+        assert(manager);
+        assert(path);
+
+        r = sd_bus_get_property(
+                        manager->bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Job",
+                        "State",
+                        &error,
+                        &reply,
+                        "s");
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) ||
+                    sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))
+                        return true;
+
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                        return false;
+
+                return r;
+        }
+
+        /* We don't actually care about the state really. The fact
+         * that we could read the job state is enough for us */
+
+        return true;
 }

@@ -21,13 +21,13 @@
 
 #include <unistd.h>
 
-#include <systemd/sd-messages.h>
-
+#include "sd-messages.h"
 #include "conf-parser.h"
 #include "special.h"
-#include "dbus-common.h"
-#include "logind-action.h"
 #include "sleep-config.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "logind-action.h"
 
 int manager_handle_action(
                 Manager *m,
@@ -56,22 +56,32 @@ int manager_handle_action(
                 [HANDLE_HYBRID_SLEEP] = SPECIAL_HYBRID_SLEEP_TARGET
         };
 
-        DBusError error;
-        int r;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         InhibitWhat inhibit_operation;
         bool supported;
+        int r;
 
         assert(m);
-
-        if (m->action_what) {
-                log_debug("Action already in progress, ignoring.");
-                return -EALREADY;
-        }
 
         /* If the key handling is turned off, don't do anything */
         if (handle == HANDLE_IGNORE) {
                 log_debug("Refusing operation, as it is turned off.");
                 return 0;
+        }
+
+        /* If the key handling is inhibited, don't do anything */
+        if (inhibit_key > 0) {
+                if (manager_is_inhibited(m, inhibit_key, INHIBIT_BLOCK, NULL, true, false, 0)) {
+                        log_debug("Refusing operation, %s is inhibited.", inhibit_what_to_string(inhibit_key));
+                        return 0;
+                }
+        }
+
+        /* Locking is handled differently from the rest. */
+        if (handle == HANDLE_LOCK) {
+                log_info("Locking sessions...");
+                session_send_lock_all(m, true);
+                return 1;
         }
 
         if (handle == HANDLE_SUSPEND)
@@ -90,19 +100,9 @@ int manager_handle_action(
                 return -ENOTSUP;
         }
 
-        /* If the key handling is inhibited, don't do anything */
-        if (inhibit_key > 0) {
-                if (manager_is_inhibited(m, inhibit_key, INHIBIT_BLOCK, NULL, true, false, 0)) {
-                        log_debug("Refusing operation, %s is inhibited.", inhibit_what_to_string(inhibit_key));
-                        return 0;
-                }
-        }
-
-        /* Locking is handled differently from the rest. */
-        if (handle == HANDLE_LOCK) {
-                log_info("Locking sessions...");
-                session_send_lock_all(m, true);
-                return 1;
+        if (m->action_what) {
+                log_debug("Action already in progress, ignoring.");
+                return -EALREADY;
         }
 
         inhibit_operation = handle == HANDLE_SUSPEND || handle == HANDLE_HIBERNATE || handle == HANDLE_HYBRID_SLEEP ? INHIBIT_SLEEP : INHIBIT_SHUTDOWN;
@@ -124,11 +124,9 @@ int manager_handle_action(
 
         log_info("%s", message_table[handle]);
 
-        dbus_error_init(&error);
         r = bus_manager_shutdown_or_sleep_now_or_later(m, target_table[handle], inhibit_operation, &error);
         if (r < 0) {
-                log_error("Failed to execute operation: %s", bus_error_message(&error));
-                dbus_error_free(&error);
+                log_error("Failed to execute operation: %s", bus_error_message(&error, r));
                 return r;
         }
 

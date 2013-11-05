@@ -31,6 +31,8 @@ typedef struct Button Button;
 struct Button {
         Manager *manager;
 
+        sd_event_source *event_source;
+
         char *name;
         char *seat;
         int fd;
@@ -41,7 +43,6 @@ struct Button {
 Button* button_new(Manager *m, const char *name);
 void button_free(Button*b);
 int button_open(Button *b);
-int button_process(Button *b);
 int button_recheck(Button *b);
 int button_set_seat(Button *b, const char *sn);
 

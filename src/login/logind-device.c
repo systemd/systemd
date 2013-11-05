@@ -22,8 +22,8 @@
 #include <assert.h>
 #include <string.h>
 
-#include "logind-device.h"
 #include "util.h"
+#include "logind-device.h"
 
 Device* device_new(Manager *m, const char *sysfs, bool master) {
         Device *d;
@@ -68,6 +68,7 @@ void device_free(Device *d) {
 void device_detach(Device *d) {
         Seat *s;
         SessionDevice *sd;
+
         assert(d);
 
         if (!d->seat)
@@ -82,7 +83,7 @@ void device_detach(Device *d) {
 
         if (!seat_has_master_device(s)) {
                 seat_add_to_gc_queue(s);
-                seat_send_changed(s, "CanGraphical\0");
+                seat_send_changed(s, "CanGraphical", NULL);
         }
 }
 
@@ -121,5 +122,5 @@ void device_attach(Device *d, Seat *s) {
         }
 
         if (!had_master && d->master)
-                seat_send_changed(s, "CanGraphical\0");
+                seat_send_changed(s, "CanGraphical", NULL);
 }

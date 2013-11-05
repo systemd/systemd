@@ -27,9 +27,12 @@
 #include <unistd.h>
 #include <linux/vt.h>
 
-#include "logind.h"
-#include "dbus-common.h"
 #include "strv.h"
+#include "cgroup-util.h"
+#include "audit.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "logind.h"
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
         Device *d;
@@ -213,14 +216,14 @@ int manager_watch_busname(Manager *m, const char *name) {
         assert(m);
         assert(name);
 
-        if (hashmap_get(m->busnames, name))
+        if (set_get(m->busnames, (char*) name))
                 return 0;
 
         n = strdup(name);
         if (!n)
                 return -ENOMEM;
 
-        r = hashmap_put(m->busnames, n, n);
+        r = set_put(m->busnames, n);
         if (r < 0) {
                 free(n);
                 return r;
@@ -232,22 +235,16 @@ int manager_watch_busname(Manager *m, const char *name) {
 void manager_drop_busname(Manager *m, const char *name) {
         Session *session;
         Iterator i;
-        char *key;
 
         assert(m);
         assert(name);
-
-        if (!hashmap_get(m->busnames, name))
-                return;
 
         /* keep it if the name still owns a controller */
         HASHMAP_FOREACH(session, m->sessions, i)
                 if (session_is_controller(session, name))
                         return;
 
-        key = hashmap_remove(m->busnames, name);
-        if (key)
-                free(key);
+        free(set_remove(m->busnames, (char*) name));
 }
 
 int manager_process_seat_device(Manager *m, struct udev_device *d) {
@@ -466,9 +463,9 @@ static int vt_is_busy(int vtnr) {
 }
 
 int manager_spawn_autovt(Manager *m, int vtnr) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *name = NULL;
         int r;
-        char *name = NULL;
-        const char *mode = "fail";
 
         assert(m);
         assert(vtnr >= 1);
@@ -489,26 +486,20 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
                         return -EBUSY;
         }
 
-        if (asprintf(&name, "autovt@tty%i.service", vtnr) < 0) {
-                log_error("Could not allocate service name.");
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (asprintf(&name, "autovt@tty%i.service", vtnr) < 0)
+                return log_oom();
 
-        r = bus_method_call_with_reply (
+        r = sd_bus_call_method(
                         m->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "StartUnit",
+                        &error,
                         NULL,
-                        NULL,
-                        DBUS_TYPE_STRING, &name,
-                        DBUS_TYPE_STRING, &mode,
-                        DBUS_TYPE_INVALID);
-
-finish:
-        free(name);
+                        "ss", name, "fail");
+        if (r < 0)
+                log_error("Failed to start %s: %s", name, bus_error_message(&error, r));
 
         return r;
 }

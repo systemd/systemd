@@ -187,7 +187,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type = NULL, *class = NULL, *class_pam = NULL, *cvtnr = NULL;
         DBusError error;
         uint32_t uid, pid;
-        DBusMessageIter iter;
+        DBusMessageIter iter, sub;
         int session_fd = -1;
         DBusConnection *bus = NULL;
         DBusMessage *m = NULL, *reply = NULL;
@@ -371,6 +371,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
         dbus_message_iter_init_append(m, &iter);
+
+        if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sv)", &sub) ||
+            !dbus_message_iter_close_container(&iter, &sub)) {
+                pam_syslog(handle, LOG_ERR, "Could not attach parameters to message.");
+                r = PAM_BUF_ERR;
+                goto finish;
+        }
 
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "Asking logind to create session: "

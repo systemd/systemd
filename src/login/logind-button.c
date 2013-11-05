@@ -26,14 +26,12 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <linux/input.h>
-#include <sys/epoll.h>
 
+#include "sd-messages.h"
 #include "conf-parser.h"
 #include "util.h"
-#include "logind-button.h"
 #include "special.h"
-#include "dbus-common.h"
-#include "sd-messages.h"
+#include "logind-button.h"
 
 Button* button_new(Manager *m, const char *name) {
         Button *b;
@@ -68,10 +66,9 @@ void button_free(Button *b) {
 
         hashmap_remove(b->manager->buttons, b->name);
 
-        if (b->fd >= 0) {
-                hashmap_remove(b->manager->button_fds, INT_TO_PTR(b->fd + 1));
-                assert_se(epoll_ctl(b->manager->epoll_fd, EPOLL_CTL_DEL, b->fd, NULL) == 0);
+        sd_event_source_unref(b->event_source);
 
+        if (b->fd >= 0) {
                 /* If the device has been unplugged close() returns
                  * ENODEV, let's ignore this, hence we don't use
                  * close_nointr_nofail() */
@@ -99,62 +96,6 @@ int button_set_seat(Button *b, const char *sn) {
         return 0;
 }
 
-int button_open(Button *b) {
-        char name[256], *p;
-        struct epoll_event ev;
-        int r;
-
-        assert(b);
-
-        if (b->fd >= 0) {
-                close(b->fd);
-                b->fd = -1;
-        }
-
-        p = strappend("/dev/input/", b->name);
-        if (!p)
-                return log_oom();
-
-        b->fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-        free(p);
-        if (b->fd < 0) {
-                log_warning("Failed to open %s: %m", b->name);
-                return -errno;
-        }
-
-        if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
-                log_error("Failed to get input name: %m");
-                r = -errno;
-                goto fail;
-        }
-
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.u32 = FD_OTHER_BASE + b->fd;
-
-        if (epoll_ctl(b->manager->epoll_fd, EPOLL_CTL_ADD, b->fd, &ev) < 0) {
-                log_error("Failed to add to epoll: %m");
-                r = -errno;
-                goto fail;
-        }
-
-        r = hashmap_put(b->manager->button_fds, INT_TO_PTR(b->fd + 1), b);
-        if (r < 0) {
-                log_error("Failed to add to hash map: %s", strerror(-r));
-                assert_se(epoll_ctl(b->manager->epoll_fd, EPOLL_CTL_DEL, b->fd, NULL) == 0);
-                goto fail;
-        }
-
-        log_info("Watching system buttons on /dev/input/%s (%s)", b->name, name);
-
-        return 0;
-
-fail:
-        close(b->fd);
-        b->fd = -1;
-        return r;
-}
-
 static int button_handle(
                 Button *b,
                 InhibitWhat inhibit_key,
@@ -175,10 +116,13 @@ static int button_handle(
         return r;
 }
 
-int button_process(Button *b) {
+static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Button *b = userdata;
         struct input_event ev;
         ssize_t l;
 
+        assert(s);
+        assert(fd == b->fd);
         assert(b);
 
         l = read(b->fd, &ev, sizeof(ev));
@@ -249,6 +193,47 @@ int button_process(Button *b) {
         }
 
         return 0;
+}
+
+int button_open(Button *b) {
+        char *p, name[256];
+        int r;
+
+        assert(b);
+
+        if (b->fd >= 0) {
+                close(b->fd);
+                b->fd = -1;
+        }
+
+        p = strappenda("/dev/input/", b->name);
+
+        b->fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        if (b->fd < 0) {
+                log_warning("Failed to open %s: %m", b->name);
+                return -errno;
+        }
+
+        if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
+                log_error("Failed to get input name: %m");
+                r = -errno;
+                goto fail;
+        }
+
+        r = sd_event_add_io(b->manager->event, b->fd, EPOLLIN, button_dispatch, b, &b->event_source);
+        if (r < 0) {
+                log_error("Failed to add button event: %s", strerror(-r));
+                goto fail;
+        }
+
+        log_info("Watching system buttons on /dev/input/%s (%s)", b->name, name);
+
+        return 0;
+
+fail:
+        close(b->fd);
+        b->fd = -1;
+        return r;
 }
 
 int button_recheck(Button *b) {

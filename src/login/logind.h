@@ -23,14 +23,14 @@
 
 #include <stdbool.h>
 #include <inttypes.h>
-#include <dbus/dbus.h>
 #include <libudev.h>
 
+#include "sd-event.h"
+#include "sd-bus.h"
 #include "util.h"
-#include "audit.h"
 #include "list.h"
 #include "hashmap.h"
-#include "cgroup-util.h"
+#include "set.h"
 
 typedef struct Manager Manager;
 
@@ -43,7 +43,8 @@ typedef struct Manager Manager;
 #include "logind-action.h"
 
 struct Manager {
-        DBusConnection *bus;
+        sd_event *event;
+        sd_bus *bus;
 
         Hashmap *devices;
         Hashmap *seats;
@@ -51,7 +52,8 @@ struct Manager {
         Hashmap *users;
         Hashmap *inhibitors;
         Hashmap *buttons;
-        Hashmap *busnames;
+
+        Set *busnames;
 
         LIST_HEAD(Seat, seat_gc_queue);
         LIST_HEAD(Session, session_gc_queue);
@@ -60,14 +62,13 @@ struct Manager {
         struct udev *udev;
         struct udev_monitor *udev_seat_monitor, *udev_device_monitor, *udev_vcsa_monitor, *udev_button_monitor;
 
-        int udev_seat_fd;
-        int udev_device_fd;
-        int udev_vcsa_fd;
-        int udev_button_fd;
+        sd_event_source *console_active_event_source;
+        sd_event_source *udev_seat_event_source;
+        sd_event_source *udev_device_event_source;
+        sd_event_source *udev_vcsa_event_source;
+        sd_event_source *udev_button_event_source;
 
         int console_active_fd;
-        int bus_fd;
-        int epoll_fd;
 
         unsigned n_autovts;
 
@@ -85,10 +86,6 @@ struct Manager {
         Hashmap *session_units;
         Hashmap *user_units;
 
-        Hashmap *session_fds;
-        Hashmap *inhibitor_fds;
-        Hashmap *button_fds;
-
         usec_t inhibit_delay_max;
 
         /* If an action is currently being executed or is delayed,
@@ -105,7 +102,7 @@ struct Manager {
         char *action_job;
         usec_t action_timestamp;
 
-        int idle_action_fd; /* the timer_fd */
+        sd_event_source *idle_action_event_source;
         usec_t idle_action_usec;
         usec_t idle_action_not_before_usec;
         HandleAction idle_action;
@@ -119,17 +116,8 @@ struct Manager {
         bool suspend_key_ignore_inhibited;
         bool hibernate_key_ignore_inhibited;
         bool lid_switch_ignore_inhibited;
-};
 
-enum {
-        FD_SEAT_UDEV,
-        FD_DEVICE_UDEV,
-        FD_VCSA_UDEV,
-        FD_BUTTON_UDEV,
-        FD_CONSOLE,
-        FD_BUS,
-        FD_IDLE_ACTION,
-        FD_OTHER_BASE
+        Hashmap *polkit_registry;
 };
 
 Manager *manager_new(void);
@@ -146,12 +134,6 @@ int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor);
 
 int manager_process_seat_device(Manager *m, struct udev_device *d);
 int manager_process_button_device(Manager *m, struct udev_device *d);
-
-int manager_dispatch_seat_udev(Manager *m);
-int manager_dispatch_vcsa_udev(Manager *m);
-int manager_dispatch_button_udev(Manager *m);
-int manager_dispatch_console(Manager *m);
-int manager_dispatch_idle_action(Manager *m);
 
 int manager_enumerate_devices(Manager *m);
 int manager_enumerate_buttons(Manager *m);
@@ -173,21 +155,26 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 int manager_get_user_by_pid(Manager *m, pid_t pid, User **user);
 int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
 
-extern const DBusObjectPathVTable bus_manager_vtable;
+extern const sd_bus_vtable manager_vtable[];
 
-DBusHandlerResult bus_message_filter(DBusConnection *c, DBusMessage *message, void *userdata);
+int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata);
+int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata);
+int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata);
+int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata);
+int match_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata);
 
-int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name, InhibitWhat w, DBusError *error);
+int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name, InhibitWhat w, sd_bus_error *error);
 
-int manager_send_changed(Manager *manager, const char *properties);
+int manager_send_changed(Manager *manager, const char *property, ...) _sentinel_;
 
 int manager_dispatch_delayed(Manager *manager);
 
-int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *kill_mode, DBusError *error, char **job);
-int manager_start_unit(Manager *manager, const char *unit, DBusError *error, char **job);
-int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char **job);
-int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error);
+int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *kill_mode, sd_bus_error *error, char **job);
+int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
+int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
+int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error);
 int manager_unit_is_active(Manager *manager, const char *unit);
+int manager_job_is_active(Manager *manager, const char *path);
 
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, unsigned length);

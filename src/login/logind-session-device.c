@@ -30,10 +30,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "dbus-common.h"
-#include "logind-session-device.h"
 #include "util.h"
 #include "missing.h"
+#include "bus-util.h"
+#include "logind-session-device.h"
 
 enum SessionDeviceNotifications {
         SESSION_DEVICE_RESUME,
@@ -42,11 +42,12 @@ enum SessionDeviceNotifications {
         SESSION_DEVICE_RELEASE,
 };
 
-static void session_device_notify(SessionDevice *sd, enum SessionDeviceNotifications type) {
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
+static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotifications type) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_free_ char *path = NULL;
         const char *t = NULL;
         uint32_t major, minor;
+        int r;
 
         assert(sd);
 
@@ -54,29 +55,29 @@ static void session_device_notify(SessionDevice *sd, enum SessionDeviceNotificat
         minor = minor(sd->dev);
 
         if (!sd->session->controller)
-                return;
+                return 0;
 
         path = session_bus_path(sd->session);
         if (!path)
-                return;
+                return -ENOMEM;
 
-        m = dbus_message_new_signal(path,
-                                    "org.freedesktop.login1.Session",
-                                    (type == SESSION_DEVICE_RESUME) ? "ResumeDevice" : "PauseDevice");
+        r = sd_bus_message_new_signal(
+                        sd->session->manager->bus, path,
+                        "org.freedesktop.login1.Session",
+                        (type == SESSION_DEVICE_RESUME) ? "ResumeDevice" : "PauseDevice",
+                        &m);
         if (!m)
-                return;
+                return r;
 
-        if (!dbus_message_set_destination(m, sd->session->controller))
-                return;
+        r = sd_bus_message_set_destination(m, sd->session->controller);
+        if (r < 0)
+                return r;
 
         switch (type) {
         case SESSION_DEVICE_RESUME:
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_UINT32, &major,
-                                              DBUS_TYPE_UINT32, &minor,
-                                              DBUS_TYPE_UNIX_FD, &sd->fd,
-                                              DBUS_TYPE_INVALID))
-                        return;
+                r = sd_bus_message_append(m, "uuh", major, minor, sd->fd);
+                if (r < 0)
+                        return r;
                 break;
         case SESSION_DEVICE_TRY_PAUSE:
                 t = "pause";
@@ -88,17 +89,16 @@ static void session_device_notify(SessionDevice *sd, enum SessionDeviceNotificat
                 t = "gone";
                 break;
         default:
-                return;
+                return -EINVAL;
         }
 
-        if (t && !dbus_message_append_args(m,
-                                           DBUS_TYPE_UINT32, &major,
-                                           DBUS_TYPE_UINT32, &minor,
-                                           DBUS_TYPE_STRING, &t,
-                                           DBUS_TYPE_INVALID))
-                return;
+        if (t) {
+                r = sd_bus_message_append(m, "uus", major, minor, t);
+                if (r < 0)
+                        return r;
+        }
 
-        dbus_connection_send(sd->session->manager->bus, m, NULL);
+        return sd_bus_send(sd->session->manager->bus, m, NULL);
 }
 
 static int sd_eviocrevoke(int fd) {

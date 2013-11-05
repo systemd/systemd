@@ -22,18 +22,18 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/epoll.h>
 #include <fcntl.h>
 
-#include <systemd/sd-id128.h>
-#include <systemd/sd-messages.h>
-
+#include "sd-id128.h"
+#include "sd-messages.h"
 #include "strv.h"
 #include "util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "fileio.h"
-#include "dbus-common.h"
+#include "audit.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "logind-session.h"
 
 static unsigned devt_hash_func(const void *p) {
@@ -98,6 +98,8 @@ void session_free(Session *s) {
         if (s->in_gc_queue)
                 LIST_REMOVE(gc_queue, s->manager->session_gc_queue, s);
 
+        session_remove_fifo(s);
+
         session_drop_controller(s);
 
         while ((sd = hashmap_first(s->devices)))
@@ -128,8 +130,7 @@ void session_free(Session *s) {
 
         free(s->scope_job);
 
-        if (s->create_message)
-                dbus_message_unref(s->create_message);
+        sd_bus_message_unref(s->create_message);
 
         free(s->tty);
         free(s->display);
@@ -138,7 +139,6 @@ void session_free(Session *s) {
         free(s->service);
 
         hashmap_remove(s->manager->sessions, s->id);
-        session_remove_fifo(s);
 
         free(s->state_file);
         free(s);
@@ -153,8 +153,8 @@ void session_set_user(Session *s, User *u) {
 }
 
 int session_save(Session *s) {
-        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r = 0;
 
         assert(s);
@@ -494,16 +494,14 @@ done:
 }
 
 static int session_start_scope(Session *s) {
-        DBusError error;
         int r;
 
         assert(s);
         assert(s->user);
         assert(s->user->slice);
 
-        dbus_error_init(&error);
-
         if (!s->scope) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *description = NULL;
                 const char *kill_mode;
                 char *scope, *job;
@@ -521,9 +519,7 @@ static int session_start_scope(Session *s) {
                 r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-user-sessions.service", kill_mode, &error, &job);
                 if (r < 0) {
                         log_error("Failed to start session scope %s: %s %s",
-                                  scope, bus_error(&error, r), error.name);
-                        dbus_error_free(&error);
-
+                                  scope, bus_error_message(&error, r), error.name);
                         free(scope);
                         return r;
                 } else {
@@ -589,32 +585,29 @@ int session_start(Session *s) {
                 seat_save(s->seat);
 
                 if (s->seat->active == s)
-                        seat_send_changed(s->seat, "Sessions\0ActiveSession\0");
+                        seat_send_changed(s->seat, "Sessions", "ActiveSession", NULL);
                 else
-                        seat_send_changed(s->seat, "Sessions\0");
+                        seat_send_changed(s->seat, "Sessions", NULL);
         }
 
-        user_send_changed(s->user, "Sessions\0");
+        user_send_changed(s->user, "Sessions", NULL);
 
         return 0;
 }
 
 static int session_stop_scope(Session *s) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
         assert(s);
-
-        dbus_error_init(&error);
 
         if (!s->scope)
                 return 0;
 
         r = manager_stop_unit(s->manager, s->scope, &error, &job);
         if (r < 0) {
-                log_error("Failed to stop session scope: %s", bus_error(&error, r));
-                dbus_error_free(&error);
+                log_error("Failed to stop session scope: %s", bus_error_message(&error, r));
                 return r;
         }
 
@@ -656,6 +649,7 @@ int session_stop(Session *s) {
         r = session_stop_scope(s);
 
         session_save(s);
+        user_save(s->user);
 
         return r;
 }
@@ -698,11 +692,11 @@ int session_finalize(Session *s) {
                 if (s->seat->active == s)
                         seat_set_active(s->seat, NULL);
 
-                seat_send_changed(s->seat, "Sessions\0");
+                seat_send_changed(s->seat, "Sessions", NULL);
                 seat_save(s->seat);
         }
 
-        user_send_changed(s->user, "Sessions\0");
+        user_send_changed(s->user, "Sessions", NULL);
         user_save(s->user);
 
         return r;
@@ -816,26 +810,27 @@ void session_set_idle_hint(Session *s, bool b) {
         s->idle_hint = b;
         dual_timestamp_get(&s->idle_hint_timestamp);
 
-        session_send_changed(s,
-                             "IdleHint\0"
-                             "IdleSinceHint\0"
-                             "IdleSinceHintMonotonic\0");
+        session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
 
         if (s->seat)
-                seat_send_changed(s->seat,
-                                  "IdleHint\0"
-                                  "IdleSinceHint\0"
-                                  "IdleSinceHintMonotonic\0");
+                seat_send_changed(s->seat, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
 
-        user_send_changed(s->user,
-                          "IdleHint\0"
-                          "IdleSinceHint\0"
-                          "IdleSinceHintMonotonic\0");
+        user_send_changed(s->user, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
+        manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
+}
 
-        manager_send_changed(s->manager,
-                             "IdleHint\0"
-                             "IdleSinceHint\0"
-                             "IdleSinceHintMonotonic\0");
+static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        Session *s = userdata;
+
+        assert(s);
+        assert(s->fifo_fd == fd);
+
+        /* EOF on the FIFO means the session died abnormally. */
+
+        session_remove_fifo(s);
+        session_stop(s);
+
+        return 1;
 }
 
 int session_create_fifo(Session *s) {
@@ -858,21 +853,20 @@ int session_create_fifo(Session *s) {
 
         /* Open reading side */
         if (s->fifo_fd < 0) {
-                struct epoll_event ev = {};
-
                 s->fifo_fd = open(s->fifo_path, O_RDONLY|O_CLOEXEC|O_NDELAY);
                 if (s->fifo_fd < 0)
                         return -errno;
 
-                r = hashmap_put(s->manager->session_fds, INT_TO_PTR(s->fifo_fd + 1), s);
+        }
+
+        if (!s->fifo_event_source) {
+                r = sd_event_add_io(s->manager->event, s->fifo_fd, 0, session_dispatch_fifo, s, &s->fifo_event_source);
                 if (r < 0)
                         return r;
 
-                ev.events = 0;
-                ev.data.u32 = FD_OTHER_BASE + s->fifo_fd;
-
-                if (epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_ADD, s->fifo_fd, &ev) < 0)
-                        return -errno;
+                r = sd_event_source_set_priority(s->fifo_event_source, SD_PRIORITY_IDLE);
+                if (r < 0)
+                        return r;
         }
 
         /* Open writing side */
@@ -886,14 +880,12 @@ int session_create_fifo(Session *s) {
 void session_remove_fifo(Session *s) {
         assert(s);
 
+        if (s->fifo_event_source)
+                s->fifo_event_source = sd_event_source_unref(s->fifo_event_source);
+
         if (s->fifo_fd >= 0) {
-                assert_se(hashmap_remove(s->manager->session_fds, INT_TO_PTR(s->fifo_fd + 1)) == s);
-                assert_se(epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_DEL, s->fifo_fd, NULL) == 0);
                 close_nointr_nofail(s->fifo_fd);
                 s->fifo_fd = -1;
-
-                session_save(s);
-                user_save(s->user);
         }
 
         if (s->fifo_path) {
@@ -903,33 +895,33 @@ void session_remove_fifo(Session *s) {
         }
 }
 
-int session_check_gc(Session *s, bool drop_not_started) {
+bool session_check_gc(Session *s, bool drop_not_started) {
         int r;
 
         assert(s);
 
         if (drop_not_started && !s->started)
-                return 0;
+                return false;
 
         if (!s->user)
-                return 0;
+                return false;
 
         if (s->fifo_fd >= 0) {
                 r = pipe_eof(s->fifo_fd);
                 if (r < 0)
-                        return r;
+                        return true;
 
                 if (r == 0)
-                        return 1;
+                        return true;
         }
 
-        if (s->scope_job)
-                return 1;
+        if (s->scope_job && manager_job_is_active(s->manager, s->scope_job))
+                return true;
 
-        if (s->scope)
-                return manager_unit_is_active(s->manager, s->scope) != 0;
+        if (s->scope && manager_unit_is_active(s->manager, s->scope))
+                return true;
 
-        return 0;
+        return false;
 }
 
 void session_add_to_gc_queue(Session *s) {
@@ -969,8 +961,7 @@ int session_kill(Session *s, KillWho who, int signo) {
         return manager_kill_unit(s->manager, s->scope, who, signo, NULL);
 }
 
-bool session_is_controller(Session *s, const char *sender)
-{
+bool session_is_controller(Session *s, const char *sender) {
         assert(s);
 
         return streq_ptr(s->controller, sender);

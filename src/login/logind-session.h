@@ -98,6 +98,8 @@ struct Session {
         int fifo_fd;
         char *fifo_path;
 
+        sd_event_source *fifo_event_source;
+
         bool idle_hint;
         dual_timestamp idle_hint_timestamp;
 
@@ -105,7 +107,7 @@ struct Session {
         bool started:1;
         bool closing:1;
 
-        DBusMessage *create_message;
+        sd_bus_message *create_message;
 
         char *controller;
         Hashmap *devices;
@@ -119,7 +121,7 @@ struct Session {
 Session *session_new(Manager *m, const char *id);
 void session_free(Session *s);
 void session_set_user(Session *s, User *u);
-int session_check_gc(Session *s, bool drop_not_started);
+bool session_check_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
 bool session_is_active(Session *s);
@@ -134,18 +136,19 @@ int session_save(Session *s);
 int session_load(Session *s);
 int session_kill(Session *s, KillWho who, int signo);
 
-char *session_bus_path(Session *s);
-
 SessionState session_get_state(Session *u);
 
-extern const DBusObjectPathVTable bus_session_vtable;
+extern const sd_bus_vtable session_vtable[];
+int session_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata);
+int session_object_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata);
+char *session_bus_path(Session *s);
 
 int session_send_signal(Session *s, bool new_session);
-int session_send_changed(Session *s, const char *properties);
+int session_send_changed(Session *s, const char *properties, ...) _sentinel_;
 int session_send_lock(Session *s, bool lock);
 int session_send_lock_all(Manager *m, bool lock);
 
-int session_send_create_reply(Session *s, DBusError *error);
+int session_send_create_reply(Session *s, sd_bus_error *error);
 
 const char* session_state_to_string(SessionState t) _const_;
 SessionState session_state_from_string(const char *s) _pure_;
