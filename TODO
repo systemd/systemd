@@ -46,6 +46,9 @@ CGroup Rework Completion:
 
 Features:
 
+* "systemctl mask" should find all names by which a unit is accessible
+  (i.e. by scanning for symlinks to it) and link them all to /dev/null
+
 * Automatically configure swap partition to use for hibernation by looking for largest swap partition on the root disk?
 
 * remove NSS usage from PID 1 (notably the specifiers)
