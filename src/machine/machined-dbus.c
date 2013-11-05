@@ -86,16 +86,24 @@ static int method_get_machine_by_pid(sd_bus *bus, sd_bus_message *message, void 
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
         Machine *machine = NULL;
-        uint32_t pid;
+        pid_t pid;
         int r;
 
         assert(bus);
         assert(message);
         assert(m);
 
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
                 return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        if (pid == 0) {
+                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+        }
 
         r = manager_get_machine_by_pid(m, pid, &machine);
         if (r < 0)
