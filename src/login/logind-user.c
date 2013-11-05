@@ -587,7 +587,7 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
         return idle_hint;
 }
 
-static int user_check_linger_file(User *u) {
+int user_check_linger_file(User *u) {
         _cleanup_free_ char *cc = NULL;
         char *p = NULL;
 

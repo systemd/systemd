@@ -79,6 +79,7 @@ int user_get_idle_hint(User *u, dual_timestamp *t);
 int user_save(User *u);
 int user_load(User *u);
 int user_kill(User *u, int signo);
+int user_check_linger_file(User *u);
 
 extern const sd_bus_vtable user_vtable[];
 int user_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata);

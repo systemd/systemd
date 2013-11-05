@@ -151,6 +151,27 @@ static int property_get_idle_since_hint(
         return sd_bus_message_append(reply, "t", k);
 }
 
+static int property_get_linger(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        User *u = userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(u);
+
+        r = user_check_linger_file(u);
+
+        return sd_bus_message_append(reply, "b", r > 0);
+}
+
 static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata) {
         User *u = userdata;
         int r;
@@ -206,6 +227,7 @@ const sd_bus_vtable user_vtable[] = {
         SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Linger", "b", property_get_linger, 0, 0),
 
         SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, 0),
         SD_BUS_METHOD("Kill", "i", NULL, method_kill, 0),
