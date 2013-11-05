@@ -114,9 +114,14 @@ static int add_enumerated_to_set(
                                 continue;
                         }
 
-                        if (!object_path_is_valid(*k) && object_path_startswith(*k, prefix)) {
+                        if (!object_path_is_valid(*k)){
                                 free(*k);
                                 r = -EINVAL;
+                                continue;
+                        }
+
+                        if (!object_path_startswith(*k, prefix)) {
+                                free(*k);
                                 continue;
                         }
 
@@ -153,6 +158,9 @@ static int add_subtree_to_set(
 
         LIST_FOREACH(siblings, i, n->child) {
                 char *t;
+
+                if (!object_path_startswith(i->path, prefix))
+                        continue;
 
                 t = strdup(i->path);
                 if (!t)
