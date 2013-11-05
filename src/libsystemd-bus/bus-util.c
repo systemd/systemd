@@ -178,9 +178,9 @@ int bus_verify_polkit(
                         return r;
                 }
 
-                r = sd_bus_message_read(reply, "(bb)", &authorized, &challenge);
-                if (r < 0)
-                        return r;
+                r = sd_bus_message_enter_container(reply, 'r', "bba{ss}");
+                if (r >= 0)
+                        r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
 
                 if (authorized)
                         return 1;
