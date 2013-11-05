@@ -2982,12 +2982,28 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
         size_t before;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!m->sealed)
-                return -EPERM;
-        if (!contents)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(type != 0 || !contents, -EINVAL);
+
+        if (type == 0 || !contents) {
+                const char *cc;
+                char tt;
+
+                /* Allow entering into anonymous containers */
+                r = sd_bus_message_peek_type(m, &tt, &cc);
+                if (r <= 0)
+                        return r;
+
+                if (type != 0 && type != tt)
+                        return -ENXIO;
+
+                if (contents && !streq(contents, cc))
+                        return -ENXIO;
+
+                type = tt;
+                contents = cc;
+        }
 
         /*
          * We enforce a global limit on container depth, that is much

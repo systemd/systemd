@@ -252,9 +252,28 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_bus_message_verify_type(m, 'b', NULL) > 0);
 
-        r = sd_bus_message_read(m, "ba(ss)", &boolean, 3, &x, &y, &a, &b, &c, &d);
+        r = sd_bus_message_read(m, "b", &boolean);
         assert_se(r > 0);
         assert_se(boolean);
+
+        r = sd_bus_message_enter_container(m, 0, NULL);
+        assert_se(r > 0);
+
+        r = sd_bus_message_read(m, "(ss)", &x, &y);
+        assert_se(r > 0);
+
+        r = sd_bus_message_read(m, "(ss)", &a, &b);
+        assert_se(r > 0);
+
+        r = sd_bus_message_read(m, "(ss)", &c, &d);
+        assert_se(r > 0);
+
+        r = sd_bus_message_read(m, "(ss)", &x, &y);
+        assert_se(r == 0);
+
+        r = sd_bus_message_exit_container(m);
+        assert_se(r >= 0);
+
         assert_se(streq(x, "aaa"));
         assert_se(streq(y, "1"));
         assert_se(streq(a, "bbb"));
