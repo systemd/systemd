@@ -245,9 +245,14 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device, link_confi
         link_config *link;
 
         LIST_FOREACH(links, link, ctx->links) {
+
                 if (net_match_config(link->match_mac, link->match_path,
-                                     link->match_driver, link->match_type,
-                                     NULL, device)) {
+                                     link->match_driver, link->match_type, NULL,
+                                     udev_device_get_sysattr_value(device, "address"),
+                                     udev_device_get_property_value(device, "ID_PATH"),
+                                     udev_device_get_driver(device),
+                                     udev_device_get_devtype(device),
+                                     NULL)) {
                         log_debug("Config file %s applies to device %s",
                                   link->filename,
                                   udev_device_get_sysname(device));

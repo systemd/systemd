@@ -22,15 +22,18 @@
 #pragma once
 
 #include <netinet/ether.h>
-
-#include "udev.h"
+#include <stdbool.h>
 
 bool net_match_config(const struct ether_addr *match_mac,
                       const char *match_path,
                       const char *match_driver,
                       const char *match_type,
                       const char *match_name,
-                      struct udev_device *device);
+                      const char *dev_mac,
+                      const char *dev_path,
+                      const char *dev_driver,
+                      const char *dev_type,
+                      const char *dev_name);
 
 int config_parse_hwaddr(const char *unit, const char *filename, unsigned line,
                         const char *section, const char *lvalue, int ltype,

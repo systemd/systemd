@@ -33,52 +33,48 @@ bool net_match_config(const struct ether_addr *match_mac,
                       const char *match_driver,
                       const char *match_type,
                       const char *match_name,
-                      struct udev_device *device) {
-        const char *property;
-
-        assert(device);
+                      const char *dev_mac,
+                      const char *dev_path,
+                      const char *dev_driver,
+                      const char *dev_type,
+                      const char *dev_name) {
 
         if (match_mac) {
-                property = udev_device_get_sysattr_value(device, "address");
-                if (!property || memcmp(match_mac, ether_aton(property), ETH_ALEN)) {
+                if (!dev_mac || memcmp(match_mac, ether_aton(dev_mac), ETH_ALEN)) {
                         log_debug("Interface MAC address (%s) did not match MACAddress=%s",
-                                  property, ether_ntoa(match_mac));
+                                  dev_mac, ether_ntoa(match_mac));
                         return 0;
                 }
         }
 
         if (match_path) {
-                property = udev_device_get_property_value(device, "ID_PATH");
-                if (!streq_ptr(match_path, property)) {
+                if (!streq_ptr(match_path, dev_path)) {
                         log_debug("Interface persistent path (%s) did not match Path=%s",
-                                  property, match_path);
+                                  dev_path, match_path);
                         return 0;
                 }
         }
 
         if (match_driver) {
-                property = udev_device_get_driver(device);
-                if (!streq_ptr(match_driver, property)) {
+                if (!streq_ptr(match_driver, dev_driver)) {
                         log_debug("Interface device driver (%s) did not match Driver=%s",
-                                  property, match_driver);
+                                  dev_driver, match_driver);
                         return 0;
                 }
         }
 
         if (match_type) {
-                property = udev_device_get_devtype(device);
-                if (!streq_ptr(match_type, property)) {
+                if (!streq_ptr(match_type, dev_type)) {
                         log_debug("Interface type (%s) did not match Type=%s",
-                                  property, match_type);
+                                  dev_type, match_type);
                         return 0;
                 }
         }
 
         if (match_name) {
-                property = udev_device_get_sysname(device);
-                if (!streq_ptr(match_name, property)) {
+                if (!streq_ptr(match_name, dev_name)) {
                         log_debug("Interface name (%s) did not match Name=%s",
-                                  property, match_name);
+                                  dev_name, match_name);
                         return 0;
                 }
         }
