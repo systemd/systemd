@@ -36,7 +36,7 @@
 #include "audit.h"
 #include "macro.h"
 #include "strv.h"
-#include "dbus-common.h"
+#include "bus-util.h"
 #include "def.h"
 #include "socket-util.h"
 #include "fileio.h"
@@ -181,19 +181,17 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         struct passwd *pw;
         bool debug = false;
         const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type = NULL, *class = NULL, *class_pam = NULL, *cvtnr = NULL;
-        DBusError error;
         uint32_t uid, pid;
-        DBusMessageIter iter, sub;
         int session_fd = -1;
-        DBusConnection *bus = NULL;
-        DBusMessage *m = NULL, *reply = NULL;
-        dbus_bool_t remote, existing;
-        int r;
+        bool remote, existing;
         uint32_t vtnr = 0;
+        int r;
+
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
 
         assert(handle);
-
-        dbus_error_init(&error);
 
         if (debug)
                 pam_syslog(handle, LOG_INFO, "pam-systemd initializing");
@@ -224,50 +222,27 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (streq_ptr(service, "systemd-user")) {
                 _cleanup_free_ char *p = NULL, *rt = NULL;
 
-                if (asprintf(&p, "/run/systemd/users/%lu", (unsigned long) pw->pw_uid) < 0) {
-                        r = PAM_BUF_ERR;
-                        goto finish;
-                }
+                if (asprintf(&p, "/run/systemd/users/%lu", (unsigned long) pw->pw_uid) < 0)
+                        return PAM_BUF_ERR;
 
                 r = parse_env_file(p, NEWLINE,
                                    "RUNTIME", &rt,
                                    NULL);
-                if (r < 0 && r != -ENOENT) {
-                        r = PAM_SESSION_ERR;
-                        goto finish;
-                }
+                if (r < 0 && r != -ENOENT)
+                        return PAM_SESSION_ERR;
 
                 if (rt)  {
                         r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
                         if (r != PAM_SUCCESS) {
                                 pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
-                                goto finish;
+                                return r;
                         }
                 }
 
-                r = PAM_SUCCESS;
-                goto finish;
+                return PAM_SUCCESS;
         }
 
-        dbus_connection_set_change_sigpipe(FALSE);
-
-        bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-        if (!bus) {
-                pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", bus_error_message(&error));
-                r = PAM_SESSION_ERR;
-                goto finish;
-        }
-
-        m = dbus_message_new_method_call(
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "CreateSession");
-        if (!m) {
-                pam_syslog(handle, LOG_ERR, "Could not allocate create session message.");
-                r = PAM_BUF_ERR;
-                goto finish;
-        }
+        /* Otherwise, we ask logind to create a session for us */
 
         uid = pw->pw_uid;
         pid = getpid();
@@ -342,32 +317,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 !streq(remote_host, "localhost") &&
                 !streq(remote_host, "localhost.localdomain");
 
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_UINT32, &uid,
-                                      DBUS_TYPE_UINT32, &pid,
-                                      DBUS_TYPE_STRING, &service,
-                                      DBUS_TYPE_STRING, &type,
-                                      DBUS_TYPE_STRING, &class,
-                                      DBUS_TYPE_STRING, &seat,
-                                      DBUS_TYPE_UINT32, &vtnr,
-                                      DBUS_TYPE_STRING, &tty,
-                                      DBUS_TYPE_STRING, &display,
-                                      DBUS_TYPE_BOOLEAN, &remote,
-                                      DBUS_TYPE_STRING, &remote_user,
-                                      DBUS_TYPE_STRING, &remote_host,
-                                      DBUS_TYPE_INVALID)) {
-                pam_syslog(handle, LOG_ERR, "Could not attach parameters to message.");
-                r = PAM_BUF_ERR;
-                goto finish;
-        }
+        /* Talk to logind over the message bug */
 
-        dbus_message_iter_init_append(m, &iter);
-
-        if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sv)", &sub) ||
-            !dbus_message_iter_close_container(&iter, &sub)) {
-                pam_syslog(handle, LOG_ERR, "Could not attach parameters to message.");
-                r = PAM_BUF_ERR;
-                goto finish;
+        r = sd_bus_open_system(&bus);
+        if (r < 0) {
+                pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror(-r));
+                return PAM_SESSION_ERR;
         }
 
         if (debug)
@@ -375,23 +330,47 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                            "uid=%u pid=%u service=%s type=%s class=%s seat=%s vtnr=%u tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
                            uid, pid, service, type, class, seat, vtnr, tty, display, yes_no(remote), remote_user, remote_host);
 
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-                pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error));
-                r = PAM_SESSION_ERR;
-                goto finish;
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "CreateSession",
+                               &error,
+                               &reply,
+                               "uussssussbssa(sv)",
+                               uid,
+                               pid,
+                               service,
+                               type,
+                               class,
+                               seat,
+                               vtnr,
+                               tty,
+                               display,
+                               remote,
+                               remote_user,
+                               remote_host,
+                               0);
+        if (r < 0) {
+                pam_syslog(handle, LOG_ERR, "Failed to communicate with systemd-logind: %s", strerror(-r));
+                if (error.name || error.message)
+                        pam_syslog(handle, LOG_ERR, "systemd-logind returned %s: %s",
+                                   error.name ?: "unknown error",
+                                   error.message ?: "no message");
+                return PAM_SYSTEM_ERR;
         }
 
-        if (!dbus_message_get_args(reply, &error,
-                                   DBUS_TYPE_STRING, &id,
-                                   DBUS_TYPE_OBJECT_PATH, &object_path,
-                                   DBUS_TYPE_STRING, &runtime_path,
-                                   DBUS_TYPE_UNIX_FD, &session_fd,
-                                   DBUS_TYPE_STRING, &seat,
-                                   DBUS_TYPE_UINT32, &vtnr,
-                                   DBUS_TYPE_BOOLEAN, &existing,
-                                   DBUS_TYPE_INVALID)) {
-                pam_syslog(handle, LOG_ERR, "Failed to parse message: %s", bus_error_message(&error));
+        r = sd_bus_message_read(reply,
+                                "soshsub",
+                                &id,
+                                &object_path,
+                                &runtime_path,
+                                &session_fd,
+                                &seat,
+                                &vtnr,
+                                &existing);
+        if (r < 0) {
+                pam_syslog(handle, LOG_ERR, "Failed to parse message: %s", strerror(-r));
                 r = PAM_SESSION_ERR;
                 goto finish;
         }
@@ -436,35 +415,20 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         r = pam_set_data(handle, "systemd.existing", INT_TO_PTR(!!existing), NULL);
         if (r != PAM_SUCCESS) {
                 pam_syslog(handle, LOG_ERR, "Failed to install existing flag.");
-                return r;
+                goto finish;
         }
 
         if (session_fd >= 0) {
                 r = pam_set_data(handle, "systemd.session-fd", INT_TO_PTR(session_fd+1), NULL);
                 if (r != PAM_SUCCESS) {
                         pam_syslog(handle, LOG_ERR, "Failed to install session fd.");
-                        return r;
+                        goto finish;
                 }
         }
 
-        session_fd = -1;
-
-        r = PAM_SUCCESS;
+        return PAM_SUCCESS;
 
 finish:
-        dbus_error_free(&error);
-
-        if (bus) {
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
-        }
-
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
         if (session_fd >= 0)
                 close_nointr_nofail(session_fd);
 
@@ -478,14 +442,13 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         const void *p = NULL, *existing = NULL;
         const char *id;
-        DBusConnection *bus = NULL;
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
         int r;
 
-        assert(handle);
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
 
-        dbus_error_init(&error);
+        assert(handle);
 
         /* Only release session if it wasn't pre-existing when we
          * tried to create it */
@@ -499,35 +462,31 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                  * that it doesn't just go and slaughter us
                  * immediately after closing the fd */
 
-                bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-                if (!bus) {
-                        pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", bus_error_message(&error));
+                r = sd_bus_open_system(&bus);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR,
+                                  "Failed to connect to system bus: %s", strerror(-r));
                         r = PAM_SESSION_ERR;
                         goto finish;
                 }
 
-                m = dbus_message_new_method_call(
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "ReleaseSession");
-                if (!m) {
-                        pam_syslog(handle, LOG_ERR, "Could not allocate release session message.");
-                        r = PAM_BUF_ERR;
-                        goto finish;
-                }
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.login1",
+                                       "/org/freedesktop/login1",
+                                       "org.freedesktop.login1.Manager",
+                                       "ReleaseSession",
+                                       &error,
+                                       NULL,
+                                       "s",
+                                       id);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR,
+                                   "Failed to release session: %s", strerror(-r));
+                        if (error.name || error.message)
+                                pam_syslog(handle, LOG_ERR, "systemd-logind returned %s: %s",
+                                           error.name ?: "unknown error",
+                                           error.message ?: "no message");
 
-                if (!dbus_message_append_args(m,
-                                              DBUS_TYPE_STRING, &id,
-                                              DBUS_TYPE_INVALID)) {
-                        pam_syslog(handle, LOG_ERR, "Could not attach parameters to message.");
-                        r = PAM_BUF_ERR;
-                        goto finish;
-                }
-
-                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-                if (!reply) {
-                        pam_syslog(handle, LOG_ERR, "Failed to release session: %s", bus_error_message(&error));
                         r = PAM_SESSION_ERR;
                         goto finish;
                 }
@@ -539,19 +498,6 @@ finish:
         pam_get_data(handle, "systemd.session-fd", &p);
         if (p)
                 close_nointr(PTR_TO_INT(p) - 1);
-
-        dbus_error_free(&error);
-
-        if (bus) {
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
-        }
-
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         return r;
 }

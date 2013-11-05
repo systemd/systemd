@@ -4010,7 +4010,6 @@ pam_systemd_la_SOURCES = \
 pam_systemd_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(PAM_CFLAGS) \
-	$(DBUS_CFLAGS) \
 	-fvisibility=hidden
 
 pam_systemd_la_LDFLAGS = \
@@ -4023,9 +4022,9 @@ pam_systemd_la_LDFLAGS = \
 
 pam_systemd_la_LIBADD = \
 	libsystemd-audit.la \
-	libsystemd-dbus.la \
+	libsystemd-bus.la \
 	libsystemd-shared.la \
-	libsystemd-daemon-internal.la \
+	libsystemd-daemon.la \
 	$(RT_LIBS) \
 	$(PAM_LIBS)
 
