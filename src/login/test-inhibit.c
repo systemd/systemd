@@ -21,101 +21,75 @@
 
 #include <unistd.h>
 
-#include <dbus/dbus.h>
-
 #include "macro.h"
 #include "util.h"
-#include "dbus-common.h"
+#include "sd-bus.h"
+#include "bus-util.h"
+#include "bus-error.h"
 
-static int inhibit(DBusConnection *bus, const char *what) {
-        DBusMessage *m, *reply;
-        DBusError error;
+static int inhibit(sd_bus *bus, const char *what) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *who = "Test Tool", *reason = "Just because!", *mode = "block";
         int fd;
+        int r;
 
-        dbus_error_init(&error);
-
-        m = dbus_message_new_method_call(
+        r = sd_bus_call_method(bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        "Inhibit");
-        assert(m);
+                        "Inhibit",
+                        &error,
+                        &reply,
+                        "ssss", what, who, reason, mode);
+        assert(r >= 0);
 
-        assert_se(dbus_message_append_args(m,
-                                           DBUS_TYPE_STRING, &what,
-                                           DBUS_TYPE_STRING, &who,
-                                           DBUS_TYPE_STRING, &reason,
-                                           DBUS_TYPE_STRING, &mode,
-                                           DBUS_TYPE_INVALID));
+        r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_UNIX_FD, &fd);
+        assert(r >= 0);
+        assert(fd >= 0);
 
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        assert(reply);
-
-        assert(dbus_message_get_args(reply, &error,
-                                     DBUS_TYPE_UNIX_FD, &fd,
-                                     DBUS_TYPE_INVALID));
-
-        dbus_message_unref(m);
-        dbus_message_unref(reply);
-
-        return fd;
+        return dup(fd);
 }
 
-static void print_inhibitors(DBusConnection *bus) {
-        DBusMessage *m, *reply;
-        DBusError error;
+static void print_inhibitors(sd_bus *bus) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *what, *who, *why, *mode;
+        uint32_t uid, pid;
         unsigned n = 0;
-        DBusMessageIter iter, sub, sub2;
+        int r;
 
-        dbus_error_init(&error);
-
-        m = dbus_message_new_method_call(
+        r = sd_bus_call_method(bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        "ListInhibitors");
-        assert(m);
+                        "ListInhibitors",
+                        &error,
+                        &reply,
+                        "");
+        assert(r >= 0);
 
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        assert(reply);
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
+        assert(r >= 0);
 
-        assert(dbus_message_iter_init(reply, &iter));
-        dbus_message_iter_recurse(&iter, &sub);
-
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *what, *who, *why, *mode;
-                dbus_uint32_t uid, pid;
-
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &what, true) >= 0);
-                assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &who, true) >= 0);
-                assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &why, true) >= 0);
-                assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &mode, true) >= 0);
-                assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &uid, true) >= 0);
-                assert_se(bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, false) >= 0);
-
+        while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
                 printf("what=<%s> who=<%s> why=<%s> mode=<%s> uid=<%lu> pid=<%lu>\n",
                        what, who, why, mode, (unsigned long) uid, (unsigned long) pid);
 
-                dbus_message_iter_next(&sub);
-
                 n++;
         }
+        assert(r >= 0);
 
         printf("%u inhibitors\n", n);
-
-        dbus_message_unref(m);
-        dbus_message_unref(reply);
 }
 
 int main(int argc, char*argv[]) {
-        DBusConnection *bus;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
         int fd1, fd2;
+        int r;
 
-        bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, NULL);
-        assert(bus);
+        r = sd_bus_open_system(&bus);
+        assert(r >= 0);
 
         print_inhibitors(bus);
 

@@ -3895,11 +3895,7 @@ test_inhibit_SOURCES = \
 
 test_inhibit_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-dbus.la
-
-test_inhibit_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
+	libsystemd-bus.la
 
 test_login_tables_SOURCES = \
 	src/login/test-login-tables.c
