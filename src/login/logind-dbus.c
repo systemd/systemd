@@ -400,7 +400,7 @@ static int method_list_inhibitors(sd_bus *bus, sd_bus_message *message, void *us
 
         HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
 
-                r = sd_bus_message_append(reply, "ssssuu",
+                r = sd_bus_message_append(reply, "(ssssuu)",
                                           strempty(inhibit_what_to_string(inhibitor->what)),
                                           strempty(inhibitor->who),
                                           strempty(inhibitor->why),
