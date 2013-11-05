@@ -13,8 +13,6 @@ Bugfixes:
   automount points even when the original .automount file did not exist
   anymore. Only the .mount unit was still around.
 
-* make polkit checks async
-
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
 * When we detect invalid UTF-8, we cannot use it in an error message:
@@ -48,6 +46,8 @@ CGroup Rework Completion:
 
 Features:
 
+* Automatically configure swap partition to use for hibernation by looking for largest swap partition on the root disk?
+
 * remove NSS usage from PID 1 (notably the specifiers)
 
 * socket-proxyd:
@@ -57,8 +57,6 @@ Features:
   - Support starting daemons directly without requiring a shell script; update man pages
 
 * optimize the cgroup propagation bits, especially unit_get_members_mask(), cgroup_context_get_mask()
-
-* sd_bus_message_enter_container() should optionally allow 0 as type and/or NULL as content signature in case the caller wants to enter unknown containers
 
 * "systemctl cat" or "systemctl view" command or or so, that cats the backing unit file of a service, plus its drop-ins and shows them in a pager
 
@@ -155,8 +153,6 @@ Features:
   the hierarchies of child processes
 
 * document logic of auto/noauto and fail/nofail in fstab in systemd.mount or systemd-fstab-generator man page
-
-* we should properly escape ssh hostnames we add into dbus server strings
 
 * something pulls in pcre as shared object dependency into our daemons such as hostnamed.
 
