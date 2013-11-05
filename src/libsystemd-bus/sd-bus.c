@@ -1187,8 +1187,7 @@ void sd_bus_close(sd_bus *bus) {
 }
 
 sd_bus *sd_bus_ref(sd_bus *bus) {
-        if (!bus)
-                return NULL;
+        assert_return(bus, NULL);
 
         assert_se(REFCNT_INC(bus->n_ref) >= 2);
 
@@ -1196,8 +1195,7 @@ sd_bus *sd_bus_ref(sd_bus *bus) {
 }
 
 sd_bus *sd_bus_unref(sd_bus *bus) {
-        if (!bus)
-                return NULL;
+        assert_return(bus, NULL);
 
         if (REFCNT_DEC(bus->n_ref) <= 0)
                 bus_free(bus);

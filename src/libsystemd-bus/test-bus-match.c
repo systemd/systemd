@@ -94,13 +94,13 @@ int main(int argc, char *argv[]) {
         zero(root);
         root.type = BUS_MATCH_ROOT;
 
-        assert_se(match_add(&root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar',", 1) >= 0);
-        assert_se(match_add(&root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar',", 2) >= 0);
-        assert_se(match_add(&root, "arg3='test',sender='foo',type='signal',interface='bar',", 3) >= 0);
-        assert_se(match_add(&root, "arg3='test',sender='foo',type='method_call',interface='bar',", 4) >= 0);
+        assert_se(match_add(&root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1) >= 0);
+        assert_se(match_add(&root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2) >= 0);
+        assert_se(match_add(&root, "arg3='test',sender='foo',type='signal',interface='bar.x',", 3) >= 0);
+        assert_se(match_add(&root, "arg3='test',sender='foo',type='method_call',interface='bar.x',", 4) >= 0);
         assert_se(match_add(&root, "", 5) >= 0);
-        assert_se(match_add(&root, "interface='quux'", 6) >= 0);
-        assert_se(match_add(&root, "interface='bar'", 7) >= 0);
+        assert_se(match_add(&root, "interface='quux.x'", 6) >= 0);
+        assert_se(match_add(&root, "interface='bar.x'", 7) >= 0);
         assert_se(match_add(&root, "member='waldo',path='/foo/bar'", 8) >= 0);
         assert_se(match_add(&root, "path='/foo/bar'", 9) >= 0);
         assert_se(match_add(&root, "path_namespace='/foo'", 10) >= 0);
@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
 
         bus_match_dump(&root, 0);
 
-        assert_se(sd_bus_message_new_signal(NULL, "/foo/bar", "bar", "waldo", &m) >= 0);
+        assert_se(sd_bus_message_new_signal(NULL, "/foo/bar", "bar.x", "waldo", &m) >= 0);
         assert_se(sd_bus_message_append(m, "ssss", "one", "two", "/prefix/three", "prefix.four") >= 0);
         assert_se(bus_message_seal(m, 1) >= 0);
 
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(match_remove(&root, "member='waldo',path='/foo/bar'", 8) > 0);
         assert_se(match_remove(&root, "arg2path='/prefix/',member='waldo'", 13) > 0);
-        assert_se(match_remove(&root, "interface='barxx'", 7) == 0);
+        assert_se(match_remove(&root, "interface='bar.xx'", 7) == 0);
 
         bus_match_dump(&root, 0);
 

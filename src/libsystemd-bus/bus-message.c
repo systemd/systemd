@@ -450,16 +450,11 @@ int sd_bus_message_new_signal(
         sd_bus_message *t;
         int r;
 
-        if (!path)
-                return -EINVAL;
-        if (!interface)
-                return -EINVAL;
-        if (!member)
-                return -EINVAL;
-        if (!m)
-                return -EINVAL;
-        if (bus && bus->state == BUS_UNSET)
-                return -ENOTCONN;
+        assert_return(!bus || bus->state != BUS_UNSET, -ENOTCONN);
+        assert_return(object_path_is_valid(path), -EINVAL);
+        assert_return(interface_name_is_valid(interface), -EINVAL);
+        assert_return(member_name_is_valid(member), -EINVAL);
+        assert_return(m, -EINVAL);
 
         t = message_new(bus, SD_BUS_MESSAGE_SIGNAL);
         if (!t)
@@ -496,18 +491,12 @@ int sd_bus_message_new_method_call(
         sd_bus_message *t;
         int r;
 
-        if (destination && !service_name_is_valid(destination))
-                return -EINVAL;
-        if (!object_path_is_valid(path))
-                return -EINVAL;
-        if (interface && !interface_name_is_valid(interface))
-                return -EINVAL;
-        if (!member_name_is_valid(member))
-                return -EINVAL;
-        if (!m)
-                return -EINVAL;
-        if (bus && bus->state == BUS_UNSET)
-                return -ENOTCONN;
+        assert_return(!bus || bus->state != BUS_UNSET, -ENOTCONN);
+        assert_return(!destination || service_name_is_valid(destination), -EINVAL);
+        assert_return(object_path_is_valid(path), -EINVAL);
+        assert_return(!interface || interface_name_is_valid(interface), -EINVAL);
+        assert_return(member_name_is_valid(member), -EINVAL);
+        assert_return(m, -EINVAL);
 
         t = message_new(bus, SD_BUS_MESSAGE_METHOD_CALL);
         if (!t)
@@ -549,16 +538,11 @@ static int message_new_reply(
         sd_bus_message *t;
         int r;
 
-        if (!call)
-                return -EINVAL;
-        if (!call->sealed)
-                return -EPERM;
-        if (call->header->type != SD_BUS_MESSAGE_METHOD_CALL)
-                return -EINVAL;
-        if (!m)
-                return -EINVAL;
-        if (bus && bus->state == BUS_UNSET)
-                return -ENOTCONN;
+        assert_return(!bus || bus->state != BUS_UNSET, -ENOTCONN);
+        assert_return(call, -EINVAL);
+        assert_return(call->sealed, -EPERM);
+        assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
+        assert_return(m, -EINVAL);
 
         t = message_new(bus, type);
         if (!t)
@@ -604,10 +588,8 @@ int sd_bus_message_new_method_error(
         sd_bus_message *t;
         int r;
 
-        if (!sd_bus_error_is_set(e))
-                return -EINVAL;
-        if (!m)
-                return -EINVAL;
+        assert_return(sd_bus_error_is_set(e), -EINVAL);
+        assert_return(m, -EINVAL);
 
         r = message_new_reply(bus, call, SD_BUS_MESSAGE_METHOD_ERROR, &t);
         if (r < 0)
@@ -743,8 +725,7 @@ fail:
 }
 
 sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
-        if (!m)
-                return NULL;
+        assert_return(m, NULL);
 
         assert(m->n_ref > 0);
         m->n_ref++;
@@ -753,8 +734,7 @@ sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
 }
 
 sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
-        if (!m)
-                return NULL;
+        assert_return(m, NULL);
 
         assert(m->n_ref > 0);
         m->n_ref--;
@@ -766,227 +746,175 @@ sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
 }
 
 int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type) {
-        if (!m)
-                return -EINVAL;
-        if (!type)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(type, -EINVAL);
 
         *type = m->header->type;
         return 0;
 }
 
 int sd_bus_message_get_serial(sd_bus_message *m, uint64_t *serial) {
-        if (!m)
-                return -EINVAL;
-        if (!serial)
-                return -EINVAL;
-        if (m->header->serial == 0)
-                return -ENOENT;
+        assert_return(m, -EINVAL);
+        assert_return(serial, -EINVAL);
+        assert_return(m->header->serial != 0, -ENOENT);
 
         *serial = BUS_MESSAGE_SERIAL(m);
         return 0;
 }
 
 int sd_bus_message_get_reply_serial(sd_bus_message *m, uint64_t *serial) {
-        if (!m)
-                return -EINVAL;
-        if (!serial)
-                return -EINVAL;
-        if (m->reply_serial == 0)
-                return -ENOENT;
+        assert_return(m, -EINVAL);
+        assert_return(serial, -EINVAL);
+        assert_return(m->reply_serial != 0, -ENOENT);
 
         *serial = m->reply_serial;
         return 0;
 }
 
 int sd_bus_message_get_no_reply(sd_bus_message *m) {
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         return m->header->type == SD_BUS_MESSAGE_METHOD_CALL ? !!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED) : 0;
 }
 
 const char *sd_bus_message_get_path(sd_bus_message *m) {
-        if (!m)
-                return NULL;
+        assert_return(m, NULL);
 
         return m->path;
 }
 
 const char *sd_bus_message_get_interface(sd_bus_message *m) {
-        if (!m)
-                return NULL;
+        assert_return(m, NULL);
 
         return m->interface;
 }
 
 const char *sd_bus_message_get_member(sd_bus_message *m) {
-        if (!m)
-                return NULL;
+        assert_return(m, NULL);
 
         return m->member;
 }
 const char *sd_bus_message_get_destination(sd_bus_message *m) {
-        if (!m)
-                return NULL;
+        assert_return(m, NULL);
 
         return m->destination;
 }
 
 const char *sd_bus_message_get_sender(sd_bus_message *m) {
-        if (!m)
-                return NULL;
+        assert_return(m, NULL);
 
         return m->sender;
 }
 
 const sd_bus_error *sd_bus_message_get_error(sd_bus_message *m) {
-        if (!m)
-                return NULL;
-
-        if (!sd_bus_error_is_set(&m->error))
-                return NULL;
+        assert_return(m, NULL);
+        assert_return(sd_bus_error_is_set(&m->error), NULL);
 
         return &m->error;
 }
 
 int sd_bus_message_get_uid(sd_bus_message *m, uid_t *uid) {
-        if (!m)
-                return -EINVAL;
-        if (!uid)
-                return -EINVAL;
-        if (!m->uid_valid)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(uid, -EINVAL);
+        assert_return(m->uid_valid, -ESRCH);
 
         *uid = m->uid;
         return 0;
 }
 
 int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid) {
-        if (!m)
-                return -EINVAL;
-        if (!gid)
-                return -EINVAL;
-        if (!m->gid_valid)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(gid, -EINVAL);
+        assert_return(m->gid_valid, -ESRCH);
 
         *gid = m->gid;
         return 0;
 }
 
 int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid) {
-        if (!m)
-                return -EINVAL;
-        if (!pid)
-                return -EINVAL;
-        if (m->pid <= 0)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(pid, -EINVAL);
+        assert_return(m->pid > 0, -ESRCH);
 
         *pid = m->pid;
         return 0;
 }
 
 int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid) {
-        if (!m)
-                return -EINVAL;
-        if (!tid)
-                return -EINVAL;
-        if (m->tid <= 0)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(tid, -EINVAL);
+        assert_return(m->tid > 0, -ESRCH);
 
         *tid = m->tid;
         return 0;
 }
 
 int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec) {
-        if (!m)
-                return -EINVAL;
-        if (!usec)
-                return -EINVAL;
-        if (m->pid_starttime <= 0)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(usec, -EINVAL);
+        assert_return(m->pid_starttime > 0, -ESRCH);
 
         *usec = m->pid_starttime;
         return 0;
 }
 
 int sd_bus_message_get_selinux_context(sd_bus_message *m, const char **ret) {
-        if (!m)
-                return -EINVAL;
-        if (!m->label)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(m->label, -ESRCH);
 
         *ret = m->label;
         return 0;
 }
 
 int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec) {
-        if (!m)
-                return -EINVAL;
-        if (!usec)
-                return -EINVAL;
-        if (m->monotonic <= 0)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(usec, -EINVAL);
+        assert_return(m->monotonic > 0, -ESRCH);
 
         *usec = m->monotonic;
         return 0;
 }
 
 int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec) {
-        if (!m)
-                return -EINVAL;
-        if (!usec)
-                return -EINVAL;
-        if (m->realtime <= 0)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(usec, -EINVAL);
+        assert_return(m->realtime > 0, -ESRCH);
 
         *usec = m->realtime;
         return 0;
 }
 
 int sd_bus_message_get_comm(sd_bus_message *m, const char **ret) {
-        if (!m)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
-        if (!m->comm)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(m->comm, -ESRCH);
 
         *ret = m->comm;
         return 0;
 }
 
 int sd_bus_message_get_tid_comm(sd_bus_message *m, const char **ret) {
-        if (!m)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
-        if (!m->tid_comm)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(m->tid_comm, -ESRCH);
 
         *ret = m->tid_comm;
         return 0;
 }
 
 int sd_bus_message_get_exe(sd_bus_message *m, const char **ret) {
-        if (!m)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
-        if (!m->exe)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(m->exe, -ESRCH);
 
         *ret = m->exe;
         return 0;
 }
 
 int sd_bus_message_get_cgroup(sd_bus_message *m, const char **ret) {
-        if (!m)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
-        if (!m->cgroup)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(m->cgroup, -ESRCH);
 
         *ret = m->cgroup;
         return 0;
@@ -995,12 +923,9 @@ int sd_bus_message_get_cgroup(sd_bus_message *m, const char **ret) {
 int sd_bus_message_get_unit(sd_bus_message *m, const char **ret) {
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
-        if (!m->cgroup)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(m->cgroup, -ESRCH);
 
         if (!m->unit) {
                 r = cg_path_get_unit(m->cgroup, &m->unit);
@@ -1015,12 +940,9 @@ int sd_bus_message_get_unit(sd_bus_message *m, const char **ret) {
 int sd_bus_message_get_user_unit(sd_bus_message *m, const char **ret) {
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
-        if (!m->cgroup)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(m->cgroup, -ESRCH);
 
         if (!m->user_unit) {
                 r = cg_path_get_user_unit(m->cgroup, &m->user_unit);
@@ -1035,12 +957,9 @@ int sd_bus_message_get_user_unit(sd_bus_message *m, const char **ret) {
 int sd_bus_message_get_session(sd_bus_message *m, const char **ret) {
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
-        if (!m->cgroup)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(m->cgroup, -ESRCH);
 
         if (!m->session) {
                 r = cg_path_get_session(m->cgroup, &m->session);
@@ -1053,12 +972,9 @@ int sd_bus_message_get_session(sd_bus_message *m, const char **ret) {
 }
 
 int sd_bus_message_get_owner_uid(sd_bus_message *m, uid_t *uid) {
-        if (!m)
-                return -EINVAL;
-        if (!uid)
-                return -EINVAL;
-        if (!m->cgroup)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(uid, -EINVAL);
+        assert_return(m->cgroup, -ESRCH);
 
         return cg_path_get_owner_uid(m->cgroup, uid);
 }
@@ -1068,11 +984,8 @@ int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline) {
         const char *p;
         bool first;
 
-        if (!m)
-                return -EINVAL;
-
-        if (!m->cmdline)
-                return -ENOENT;
+        assert_return(m, -EINVAL);
+        assert_return(m->cmdline, -ESRCH);
 
         for (p = m->cmdline, n = 0; p < m->cmdline + m->cmdline_length; p++)
                 if (*p == 0)
@@ -1096,24 +1009,18 @@ int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline) {
 }
 
 int sd_bus_message_get_audit_sessionid(sd_bus_message *m, uint32_t *sessionid) {
-        if (!m)
-                return -EINVAL;
-        if (!sessionid)
-                return -EINVAL;
-        if (!m->audit)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(sessionid, -EINVAL);
+        assert_return(m->audit, -ESRCH);
 
         *sessionid = m->audit->sessionid;
         return 0;
 }
 
 int sd_bus_message_get_audit_loginuid(sd_bus_message *m, uid_t *uid) {
-        if (!m)
-                return -EINVAL;
-        if (!uid)
-                return -EINVAL;
-        if (!m->audit)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(uid, -EINVAL);
+        assert_return(m->audit, -ESRCH);
 
         *uid = m->audit->loginuid;
         return 0;
@@ -1122,12 +1029,9 @@ int sd_bus_message_get_audit_loginuid(sd_bus_message *m, uid_t *uid) {
 int sd_bus_message_has_effective_cap(sd_bus_message *m, int capability) {
         unsigned sz;
 
-        if (!m)
-                return -EINVAL;
-        if (capability < 0)
-                return -EINVAL;
-        if (!m->capability)
-                return -ESRCH;
+        assert_return(m, -EINVAL);
+        assert_return(capability < 0, -EINVAL);
+        assert_return(!m->capability, -ESRCH);
 
         sz = m->capability_size / 4;
         if ((unsigned) capability >= sz*8)
@@ -1137,8 +1041,7 @@ int sd_bus_message_has_effective_cap(sd_bus_message *m, int capability) {
 }
 
 int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member) {
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         if (m->header->type != SD_BUS_MESSAGE_SIGNAL)
                 return 0;
@@ -1153,8 +1056,7 @@ int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const cha
 }
 
 int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member) {
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return 0;
@@ -1169,8 +1071,7 @@ int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, cons
 }
 
 int sd_bus_message_is_method_error(sd_bus_message *m, const char *name) {
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         if (m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return 0;
@@ -1182,12 +1083,9 @@ int sd_bus_message_is_method_error(sd_bus_message *m, const char *name) {
 }
 
 int sd_bus_message_set_no_reply(sd_bus_message *m, int b) {
-        if (!m)
-                return -EINVAL;
-        if (m->sealed)
-                return -EPERM;
-        if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
-                return -EPERM;
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EPERM);
 
         if (b)
                 m->header->flags |= SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
@@ -1419,16 +1317,11 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         uint32_t fdi = 0;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!p)
-                return -EINVAL;
-        if (m->sealed)
-                return -EPERM;
-        if (!bus_type_is_basic(type))
-                return -EINVAL;
-        if (m->poisoned)
-                return -ESTALE;
+        assert_return(m, -EINVAL);
+        assert_return(p, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(bus_type_is_basic(type), -EINVAL);
+        assert_return(!m->poisoned, -ESTALE);
 
         c = message_get_container(m);
 
@@ -1574,14 +1467,10 @@ int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s)
         struct bus_container *c;
         void *a;
 
-        if (!m)
-                return -EINVAL;
-        if (!s)
-                return -EINVAL;
-        if (m->sealed)
-                return -EPERM;
-        if (m->poisoned)
-                return -ESTALE;
+        assert_return(m, -EINVAL);
+        assert_return(s, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->poisoned, -ESTALE);
 
         c = message_get_container(m);
 
@@ -1847,14 +1736,10 @@ int sd_bus_message_open_container(
         size_t before;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (m->sealed)
-                return -EPERM;
-        if (!contents)
-                return -EINVAL;
-        if (m->poisoned)
-                return -ESTALE;
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(contents, -EINVAL);
+        assert_return(!m->poisoned, -ESTALE);
 
         /* Make sure we have space for one more container */
         w = realloc(m->containers, sizeof(struct bus_container) * (m->n_containers + 1));
@@ -1909,14 +1794,10 @@ int sd_bus_message_open_container(
 int sd_bus_message_close_container(sd_bus_message *m) {
         struct bus_container *c;
 
-        if (!m)
-                return -EINVAL;
-        if (m->sealed)
-                return -EPERM;
-        if (m->n_containers <= 0)
-                return -EINVAL;
-        if (m->poisoned)
-                return -ESTALE;
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(m->n_containers > 0, -EINVAL);
+        assert_return(!m->poisoned, -ESTALE);
 
         c = message_get_container(m);
         if (c->enclosing != SD_BUS_TYPE_ARRAY)
@@ -2169,14 +2050,10 @@ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
         va_list ap;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (m->sealed)
-                return -EPERM;
-        if (m->poisoned)
-                return -ESTALE;
-        if (!types)
-                return 0;
+        assert_return(m, -EINVAL);
+        assert_return(types, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->poisoned, -ESTALE);
 
         va_start(ap, types);
         r = bus_message_append_ap(m, types, ap);
@@ -2190,16 +2067,11 @@ int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size,
         void *a;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (m->sealed)
-                return -EPERM;
-        if (!bus_type_is_trivial(type))
-                return -EINVAL;
-        if (!ptr && size > 0)
-                return -EINVAL;
-        if (m->poisoned)
-                return -ESTALE;
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(bus_type_is_trivial(type), -EINVAL);
+        assert_return(ptr || size == 0, -EINVAL);
+        assert_return(!m->poisoned, -ESTALE);
 
         align = bus_type_get_alignment(type);
         sz = bus_type_get_size(type);
@@ -2230,8 +2102,11 @@ int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, s
         int r;
         void *p;
 
-        if (!ptr && size > 0)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(bus_type_is_trivial(type), -EINVAL);
+        assert_return(ptr || size == 0, -EINVAL);
+        assert_return(!m->poisoned, -ESTALE);
 
         r = sd_bus_message_append_array_space(m, type, size, &p);
         if (r < 0)
@@ -2645,12 +2520,9 @@ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
         void *q;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!m->sealed)
-                return -EPERM;
-        if (!bus_type_is_basic(type))
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(bus_type_is_basic(type), -EINVAL);
 
         c = message_get_container(m);
 
@@ -3075,12 +2947,9 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
 int sd_bus_message_exit_container(sd_bus_message *m) {
         struct bus_container *c;
 
-        if (!m)
-                return -EINVAL;
-        if (!m->sealed)
-                return -EPERM;
-        if (m->n_containers <= 0)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(m->n_containers > 0, -EINVAL);
 
         c = message_get_container(m);
         if (c->enclosing == SD_BUS_TYPE_ARRAY) {
@@ -3246,10 +3115,8 @@ eof:
 int sd_bus_message_rewind(sd_bus_message *m, int complete) {
         struct bus_container *c;
 
-        if (!m)
-                return -EINVAL;
-        if (!m->sealed)
-                return -EPERM;
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
 
         if (complete) {
                 message_reset_containers(m);
@@ -3628,18 +3495,12 @@ int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, si
         ssize_t align;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!m->sealed)
-                return -EPERM;
-        if (!bus_type_is_trivial(type))
-                return -EINVAL;
-        if (!ptr)
-                return -EINVAL;
-        if (!size)
-                return -EINVAL;
-        if (BUS_MESSAGE_NEED_BSWAP(m))
-                return -ENOTSUP;
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(bus_type_is_trivial(type), -EINVAL);
+        assert_return(ptr, -EINVAL);
+        assert_return(size, -EINVAL);
+        assert_return(!BUS_MESSAGE_NEED_BSWAP(m), -ENOTSUP);
 
         align = bus_type_get_alignment(type);
         if (align < 0)
@@ -4166,14 +4027,10 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
 }
 
 int sd_bus_message_set_destination(sd_bus_message *m, const char *destination) {
-        if (!m)
-                return -EINVAL;
-        if (!destination)
-                return -EINVAL;
-        if (m->sealed)
-                return -EPERM;
-        if (m->destination)
-                return -EEXIST;
+        assert_return(m, -EINVAL);
+        assert_return(destination, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->destination, -EEXIST);
 
         return message_append_field_string(m, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, destination, &m->destination);
 }
@@ -4605,8 +4462,7 @@ int sd_bus_message_get_errno(sd_bus_message *m) {
 const char* sd_bus_message_get_signature(sd_bus_message *m, int complete) {
         struct bus_container *c;
 
-        if (!m)
-                return NULL;
+        assert_return(m, NULL);
 
         c = complete ? &m->root_container : message_get_container(m);
         return c->signature ?: "";
