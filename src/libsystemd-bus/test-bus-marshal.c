@@ -232,5 +232,35 @@ int main(int argc, char *argv[]) {
         assert_se(first_size == third_size);
         assert_se(memcmp(first, third, third_size) == 0);
 
+        r = sd_bus_message_rewind(m, true);
+        assert_se(r >= 0);
+
+        assert_se(sd_bus_message_verify_type(m, 's', NULL) > 0);
+
+        r = sd_bus_message_skip(m, "sas");
+        assert_se(r > 0);
+
+        assert_se(sd_bus_message_verify_type(m, 's', NULL) > 0);
+
+        r = sd_bus_message_skip(m, "sass");
+        assert_se(r >= 0);
+
+        assert_se(sd_bus_message_verify_type(m, 'a', "{yv}") > 0);
+
+        r = sd_bus_message_skip(m, "a{yv}");
+        assert_se(r >= 0);
+
+        assert_se(sd_bus_message_verify_type(m, 'b', NULL) > 0);
+
+        r = sd_bus_message_read(m, "ba(ss)", &boolean, 3, &x, &y, &a, &b, &c, &d);
+        assert_se(r > 0);
+        assert_se(boolean);
+        assert_se(streq(x, "aaa"));
+        assert_se(streq(y, "1"));
+        assert_se(streq(a, "bbb"));
+        assert_se(streq(b, "2"));
+        assert_se(streq(c, "ccc"));
+        assert_se(streq(d, "3"));
+
         return 0;
 }

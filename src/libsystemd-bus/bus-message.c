@@ -3324,7 +3324,6 @@ static int message_read_ap(
                         r = sd_bus_message_read_basic(m, *t, p);
                         if (r < 0)
                                 return r;
-
                         if (r == 0) {
                                 if (n_loop <= 1)
                                         return 0;
@@ -3453,18 +3452,157 @@ int sd_bus_message_read(sd_bus_message *m, const char *types, ...) {
         va_list ap;
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!m->sealed)
-                return -EPERM;
-        if (!types)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(types, -EINVAL);
 
         va_start(ap, types);
         r = message_read_ap(m, types, ap);
         va_end(ap);
 
         return r;
+}
+
+int sd_bus_message_skip(sd_bus_message *m, const char *types) {
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(types, -EINVAL);
+
+        if (isempty(types))
+                return 0;
+
+        switch (*types) {
+
+        case SD_BUS_TYPE_BYTE:
+        case SD_BUS_TYPE_BOOLEAN:
+        case SD_BUS_TYPE_INT16:
+        case SD_BUS_TYPE_UINT16:
+        case SD_BUS_TYPE_INT32:
+        case SD_BUS_TYPE_UINT32:
+        case SD_BUS_TYPE_INT64:
+        case SD_BUS_TYPE_UINT64:
+        case SD_BUS_TYPE_DOUBLE:
+        case SD_BUS_TYPE_STRING:
+        case SD_BUS_TYPE_OBJECT_PATH:
+        case SD_BUS_TYPE_SIGNATURE:
+        case SD_BUS_TYPE_UNIX_FD:
+
+                r = sd_bus_message_read_basic(m, *types, NULL);
+                if (r <= 0)
+                        return r;
+
+                r = sd_bus_message_skip(m, types + 1);
+                if (r < 0)
+                        return r;
+
+                return 1;
+
+        case SD_BUS_TYPE_ARRAY: {
+                size_t k;
+
+                r = signature_element_length(types + 1, &k);
+                if (r < 0)
+                        return r;
+
+                {
+                        char s[k+1];
+                        memcpy(s, types+1, k);
+                        s[k] = 0;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, s);
+                        if (r <= 0)
+                                return r;
+
+                        for (;;) {
+                                r = sd_bus_message_skip(m, s);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+                        }
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_bus_message_skip(m, types + 1 + k);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        case SD_BUS_TYPE_VARIANT: {
+                const char *contents;
+                char x;
+
+                r = sd_bus_message_peek_type(m, &x, &contents);
+                if (r <= 0)
+                        return r;
+
+                if (x != SD_BUS_TYPE_VARIANT)
+                        return -ENXIO;
+
+                r = sd_bus_message_enter_container(m, SD_BUS_TYPE_VARIANT, contents);
+                if (r <= 0)
+                        return r;
+
+                r = sd_bus_message_skip(m, contents);
+                if (r < 0)
+                        return r;
+                assert(r != 0);
+
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_skip(m, types + 1);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        case SD_BUS_TYPE_STRUCT_BEGIN:
+        case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
+                size_t k;
+
+                r = signature_element_length(types, &k);
+                if (r < 0)
+                        return r;
+
+                {
+                        char s[k-1];
+                        memcpy(s, types+1, k-2);
+                        s[k-2] = 0;
+
+                        r = sd_bus_message_enter_container(m, *types == SD_BUS_TYPE_STRUCT_BEGIN ? SD_BUS_TYPE_STRUCT : SD_BUS_TYPE_DICT_ENTRY, s);
+                        if (r <= 0)
+                                return r;
+
+                        r = sd_bus_message_skip(m, s);
+                        if (r < 0)
+                                return r;
+                        assert(r != 0);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_bus_message_skip(m, types + k);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        default:
+                return -EINVAL;
+        }
 }
 
 int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size) {
