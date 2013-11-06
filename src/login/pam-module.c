@@ -206,14 +206,14 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (parse_argv(handle,
                        argc, argv,
                        &class_pam,
-                       &debug) < 0) {
-                r = PAM_SESSION_ERR;
-                goto finish;
-        }
+                       &debug) < 0)
+                return PAM_SESSION_ERR;
 
         r = get_user_data(handle, &username, &pw);
-        if (r != PAM_SUCCESS)
-                goto finish;
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to get user data.");
+                return r;
+        }
 
         /* Make sure we don't enter a loop by talking to
          * systemd-logind when it is actually waiting for the
@@ -321,6 +321,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 !streq(remote_host, "localhost.localdomain");
 
         /* Talk to logind over the message bus */
+
         r = sd_bus_open_system(&bus);
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror(-r));
@@ -373,8 +374,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                 &existing);
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to parse message: %s", strerror(-r));
-                r = PAM_SESSION_ERR;
-                goto finish;
+                return PAM_SESSION_ERR;
         }
 
         if (debug)
@@ -385,20 +385,20 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         r = pam_misc_setenv(handle, "XDG_SESSION_ID", id, 0);
         if (r != PAM_SUCCESS) {
                 pam_syslog(handle, LOG_ERR, "Failed to set session id.");
-                goto finish;
+                return r;
         }
 
         r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", runtime_path, 0);
         if (r != PAM_SUCCESS) {
                 pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
-                goto finish;
+                return r;
         }
 
         if (!isempty(seat)) {
                 r = pam_misc_setenv(handle, "XDG_SEAT", seat, 0);
                 if (r != PAM_SUCCESS) {
                         pam_syslog(handle, LOG_ERR, "Failed to set seat.");
-                        goto finish;
+                        return r;
                 }
         }
 
@@ -410,31 +410,32 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 r = pam_misc_setenv(handle, "XDG_VTNR", buf, 0);
                 if (r != PAM_SUCCESS) {
                         pam_syslog(handle, LOG_ERR, "Failed to set virtual terminal number.");
-                        goto finish;
+                        return r;
                 }
         }
 
         r = pam_set_data(handle, "systemd.existing", INT_TO_PTR(!!existing), NULL);
         if (r != PAM_SUCCESS) {
                 pam_syslog(handle, LOG_ERR, "Failed to install existing flag.");
-                goto finish;
+                return r;
         }
 
         if (session_fd >= 0) {
+                session_fd = dup(session_fd);
+                if (session_fd < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to dup session fd: %m");
+                        return PAM_SESSION_ERR;
+                }
+
                 r = pam_set_data(handle, "systemd.session-fd", INT_TO_PTR(session_fd+1), NULL);
                 if (r != PAM_SUCCESS) {
                         pam_syslog(handle, LOG_ERR, "Failed to install session fd.");
-                        goto finish;
+                        close_nointr_nofail(session_fd);
+                        return r;
                 }
         }
 
         return PAM_SUCCESS;
-
-finish:
-        if (session_fd >= 0)
-                close_nointr_nofail(session_fd);
-
-        return r;
 }
 
 _public_ PAM_EXTERN int pam_sm_close_session(

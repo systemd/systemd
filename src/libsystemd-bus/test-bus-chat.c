@@ -228,6 +228,8 @@ static int server(sd_bus *bus) {
                                 goto fail;
                         }
 
+                        log_info("Received fd=%d", fd);
+
                         if (write(fd, &x, 1) < 0) {
                                 log_error("Failed to write to fd: %m");
                                 close_nointr_nofail(fd);
@@ -306,6 +308,8 @@ static void* client1(void*p) {
                 r = -errno;
                 goto finish;
         }
+
+        log_info("Sending fd=%d", pp[1]);
 
         r = sd_bus_call_method(
                         bus,
