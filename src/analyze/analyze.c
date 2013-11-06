@@ -218,7 +218,7 @@ static int bus_get_unit_property_strv(sd_bus *bus, const char *unit_path, const 
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
         if (r < 0)
-            return r;
+                return r;
 
         while ((r = sd_bus_message_read(reply, "s", &s)) > 0) {
                 r = strv_extend(strv, s);
@@ -248,19 +248,19 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                        &reply,
                        "");
         if (r < 0) {
-            log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
-            goto fail;
+                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+                goto fail;
         }
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
         if (r < 0)
-            goto fail;
+                goto fail;
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
                 struct unit_times *t;
 
                 if (r < 0)
-                    goto fail;
+                        goto fail;
 
                 if (c >= n_units) {
                         struct unit_times *w;
@@ -950,9 +950,8 @@ static int graph_one_property(sd_bus *bus, const struct unit_info *u, const char
         assert(color);
 
         r = bus_get_unit_property_strv(bus, u->unit_path, prop, &units);
-        if (r < 0) {
-            return -r;
-        }
+        if (r < 0)
+                return -r;
 
         STRV_FOREACH(unit, units) {
                 char **p;
@@ -1107,14 +1106,14 @@ static int dump(sd_bus *bus, char **args) {
                        &reply,
                        "");
         if (r < 0) {
-            log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
-            return r;
+                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+                return r;
         }
 
         r = sd_bus_message_read(reply, "s", &text);
         if (r < 0) {
-            log_error("Failed to parse reply");
-            return r;
+                log_error("Failed to parse reply");
+                return r;
         }
 
         fputs(text, stdout);
