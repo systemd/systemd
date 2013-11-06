@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foomkdirhfoo
-#define foomkdirhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -42,4 +41,3 @@ typedef int (*mkdir_func_t)(const char *pathname, mode_t mode);
 int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, mkdir_func_t _mkdir);
 int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, mkdir_func_t _mkdir);
 int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, mkdir_func_t _mkdir);
-#endif
