@@ -35,6 +35,7 @@
 #include "path-util.h"
 #include "conf-files.h"
 #include "fileio.h"
+#include "build.h"
 
 static char **arg_prefixes = NULL;
 
@@ -205,6 +206,7 @@ static int help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Applies kernel sysctl settings.\n\n"
                "  -h --help             Show this help\n"
+               "     --version          Show package version\n"
                "     --prefix=PATH      Only apply rules that apply to paths with the specified prefix\n",
                program_invocation_short_name);
 
@@ -214,13 +216,15 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
+                ARG_VERSION = 0x100,
                 ARG_PREFIX
         };
 
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "prefix",    required_argument, NULL, ARG_PREFIX    },
-                { NULL,        0,                 NULL, 0             }
+                {}
         };
 
         int c;
@@ -233,7 +237,11 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
+                        return help();
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_PREFIX: {
@@ -258,8 +266,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

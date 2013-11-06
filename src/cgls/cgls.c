@@ -42,7 +42,7 @@ static bool arg_all = false;
 static int arg_full = -1;
 static char* arg_machine = NULL;
 
-static void help(void) {
+static int help(void) {
 
         printf("%s [OPTIONS...] [CGROUP...]\n\n"
                "Recursively show control group contents.\n\n"
@@ -54,6 +54,8 @@ static void help(void) {
                "  -k                  Include kernel threads in output\n"
                "  -M --machine        Show container\n",
                program_invocation_short_name);
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -70,7 +72,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all",       no_argument,       NULL, 'a'          },
                 { "full",      no_argument,       NULL, 'l'          },
                 { "machine",   required_argument, NULL, 'M'          },
-                { NULL,        0,                 NULL, 0            }
+                {}
         };
 
         int c;
@@ -83,8 +85,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -115,8 +116,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

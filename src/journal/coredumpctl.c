@@ -155,7 +155,7 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                 { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND },
                 { "output",       required_argument, NULL, 'o'           },
                 { "field",        required_argument, NULL, 'F'           },
-                { NULL,           0,                 NULL, 0             }
+                {}
         };
 
         assert(argc >= 0);
@@ -163,15 +163,15 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 
         while ((c = getopt_long(argc, argv, "ho:F:", options, NULL)) >= 0)
                 switch(c) {
+
                 case 'h':
-                        help();
                         arg_action = ACTION_NONE;
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
+                        arg_action = ACTION_NONE;
                         puts(PACKAGE_STRING);
                         puts(SYSTEMD_FEATURES);
-                        arg_action = ACTION_NONE;
                         return 0;
 
                 case ARG_NO_PAGER:
@@ -209,8 +209,7 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
 
         if (optind < argc) {

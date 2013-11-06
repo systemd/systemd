@@ -935,21 +935,23 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version", no_argument,       NULL, ARG_VERSION },
                 { "key",     required_argument, NULL, ARG_KEY     },
                 { "cert",    required_argument, NULL, ARG_CERT    },
-                { NULL,      0,                 NULL, 0           }
+                {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+
                 switch(c) {
+
+                case 'h':
+                        return help();
+
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
                         puts(SYSTEMD_FEATURES);
                         return 0;
-
-                case 'h':
-                        return help();
 
                 case ARG_KEY:
                         if (key_pem) {
@@ -981,8 +983,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
 
         if (optind < argc) {

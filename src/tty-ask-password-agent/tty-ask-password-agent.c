@@ -666,7 +666,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "wall",     no_argument, NULL, ARG_WALL     },
                 { "plymouth", no_argument, NULL, ARG_PLYMOUTH },
                 { "console",  no_argument, NULL, ARG_CONSOLE  },
-                { NULL,    0,           NULL, 0               }
+                {}
         };
 
         int c;
@@ -679,8 +679,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -715,8 +714,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

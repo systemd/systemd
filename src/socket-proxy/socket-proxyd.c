@@ -37,6 +37,7 @@
 #include "socket-util.h"
 #include "util.h"
 #include "event-util.h"
+#include "build.h"
 
 #define BUFFER_SIZE 16384
 #define _cleanup_freeaddrinfo_ _cleanup_(freeaddrinfop)
@@ -511,10 +512,6 @@ static int help(void) {
         return 0;
 }
 
-static void version(void) {
-        puts(PACKAGE_STRING " socket-proxyd");
-}
-
 static int parse_argv(int argc, char *argv[], struct proxy *p) {
 
         enum {
@@ -526,7 +523,7 @@ static int parse_argv(int argc, char *argv[], struct proxy *p) {
                 { "help",       no_argument, NULL, 'h'           },
                 { "version",    no_argument, NULL, ARG_VERSION   },
                 { "ignore-env", no_argument, NULL, ARG_IGNORE_ENV},
-                { NULL,         0,           NULL, 0             }
+                {}
         };
 
         int c;
@@ -539,23 +536,22 @@ static int parse_argv(int argc, char *argv[], struct proxy *p) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
-
-                case '?':
-                        return -EINVAL;
+                        return help();
 
                 case ARG_VERSION:
-                        version();
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_IGNORE_ENV:
                         p->ignore_env = true;
                         continue;
 
-                default:
-                        log_error("Unknown option code %c", c);
+                case '?':
                         return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option");
                 }
         }
 

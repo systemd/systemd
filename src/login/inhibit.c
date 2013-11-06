@@ -160,7 +160,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "why",          required_argument, NULL, ARG_WHY          },
                 { "mode",         required_argument, NULL, ARG_MODE         },
                 { "list",         no_argument,       NULL, ARG_LIST         },
-                { NULL,           0,                 NULL, 0                }
+                {}
         };
 
         int c;
@@ -173,8 +173,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -201,9 +200,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_LIST;
                         break;
 
-                default:
-                        log_error("Unknown option code %c", c);
+                case '?':
                         return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option");
                 }
         }
 

@@ -33,6 +33,7 @@
 #include "utf8.h"
 
 static int help(void) {
+
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change firmware and boot manager settings.\n\n"
                "  -h --help              Show this help\n"
@@ -52,20 +53,20 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",                no_argument,       NULL, 'h'                     },
                 { "version",             no_argument,       NULL, ARG_VERSION             },
-                { NULL,                  0,                 NULL, 0                       }
+                {}
         };
 
         int c;
 
         assert(argc >= 0);
         assert(argv);
+
         while ((c = getopt_long(argc, argv, "+hH:P", options, NULL)) >= 0) {
 
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -76,8 +77,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

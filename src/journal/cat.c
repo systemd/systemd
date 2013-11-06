@@ -63,7 +63,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "identifier",   required_argument, NULL, 't'              },
                 { "priority",     required_argument, NULL, 'p'              },
                 { "level-prefix", required_argument, NULL, ARG_LEVEL_PREFIX },
-                { NULL,           0,                 NULL, 0                }
+                {}
         };
 
         int c;
@@ -76,8 +76,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -115,9 +114,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                default:
-                        log_error("Unknown option code %c", c);
+                case '?':
                         return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option");
                 }
         }
 

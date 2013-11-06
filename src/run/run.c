@@ -85,7 +85,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "send-sighup",       no_argument,       NULL, ARG_SEND_SIGHUP },
                 { "host",              required_argument, NULL, 'H'             },
                 { "machine",           required_argument, NULL, 'M'             },
-                { NULL,                0,                 NULL, 0               },
+                {},
         };
 
         int c;
@@ -98,8 +98,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -152,8 +151,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

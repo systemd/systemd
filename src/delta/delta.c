@@ -431,7 +431,7 @@ static int process_suffix_chop(const char *prefixes, const char *suffix, const c
         return -EINVAL;
 }
 
-static void help(void) {
+static int help(void) {
 
         printf("%s [OPTIONS...] [SUFFIX...]\n\n"
                "Find overridden configuration files.\n\n"
@@ -441,6 +441,8 @@ static void help(void) {
                "     --diff[=1|0]     Show a diff when overridden files differ\n"
                "  -t --type=LIST...   Only display a selected set of override types\n",
                program_invocation_short_name);
+
+        return 0;
 }
 
 static int parse_flags(const char *flag_str, int flags) {
@@ -482,7 +484,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER },
                 { "diff",      optional_argument, NULL, ARG_DIFF     },
                 { "type",      required_argument, NULL, 't'          },
-                { NULL,        0,                 NULL, 0            }
+                {}
         };
 
         int c;
@@ -506,9 +508,6 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
 
                 case 't': {
                         int f;
@@ -538,9 +537,11 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
-                default:
-                        log_error("Unknown option code %c", c);
+                case '?':
                         return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option");
                 }
         }
 

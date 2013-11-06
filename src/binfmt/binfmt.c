@@ -34,6 +34,7 @@
 #include "util.h"
 #include "conf-files.h"
 #include "fileio.h"
+#include "build.h"
 
 static const char conf_file_dirs[] =
         "/etc/binfmt.d\0"
@@ -125,7 +126,8 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Registers binary formats.\n\n"
-               "  -h --help             Show this help\n",
+               "  -h --help             Show this help\n"
+               "     --version          Show package version\n",
                program_invocation_short_name);
 
         return 0;
@@ -133,9 +135,14 @@ static int help(void) {
 
 static int parse_argv(int argc, char *argv[]) {
 
+        enum {
+                ARG_VERSION = 0x100,
+        };
+
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
-                { NULL,        0,                 NULL, 0             }
+                { "version",   no_argument,       NULL, ARG_VERSION   },
+                {}
         };
 
         int c;
@@ -148,15 +155,18 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
+                        return help();
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case '?':
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

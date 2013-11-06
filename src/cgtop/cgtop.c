@@ -548,7 +548,7 @@ static int display(Hashmap *a) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
                "Show top control groups by their resource usage.\n\n"
@@ -565,10 +565,8 @@ static void help(void) {
                "  -b --batch          Run in batch mode, accepting no input\n"
                "     --depth=DEPTH    Maximum traversal depth (default: %d)\n",
                program_invocation_short_name, arg_depth);
-}
 
-static void version(void) {
-        puts(PACKAGE_STRING " cgtop");
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -587,7 +585,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "batch",      no_argument,       NULL, 'b'         },
                 { "depth",      required_argument, NULL, ARG_DEPTH   },
                 { "cpu",        optional_argument, NULL, ARG_CPU_TYPE},
-                { NULL,         0,                 NULL, 0           }
+                {}
         };
 
         int c;
@@ -601,11 +599,11 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
-                        version();
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_CPU_TYPE:
@@ -674,8 +672,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

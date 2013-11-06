@@ -52,6 +52,7 @@
 #include "conf-files.h"
 #include "capability.h"
 #include "specifier.h"
+#include "build.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -1266,6 +1267,7 @@ static int help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
                "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
                "     --create               Create marked files/directories\n"
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
@@ -1279,6 +1281,7 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
+                ARG_VERSION = 0x100,
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
@@ -1288,12 +1291,13 @@ static int parse_argv(int argc, char *argv[]) {
 
         static const struct option options[] = {
                 { "help",           no_argument,         NULL, 'h'                },
+                { "version",        no_argument,         NULL, ARG_VERSION        },
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
-                { NULL,             0,                   NULL, 0                  }
+                {}
         };
 
         int c;
@@ -1306,7 +1310,11 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
+                        return help();
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_CREATE:
@@ -1335,8 +1343,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

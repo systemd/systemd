@@ -220,7 +220,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "address",   required_argument, NULL, ARG_ADDRESS   },
                 { "no-unique", no_argument,       NULL, ARG_NO_UNIQUE },
                 { "match",     required_argument, NULL, ARG_MATCH     },
-                { NULL,        0,                 NULL, 0             },
+                {},
         };
 
         int c;
@@ -279,8 +279,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

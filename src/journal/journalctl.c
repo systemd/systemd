@@ -248,7 +248,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "dump-catalog",   no_argument,       NULL, ARG_DUMP_CATALOG   },
                 { "update-catalog", no_argument,       NULL, ARG_UPDATE_CATALOG },
                 { "reverse",        no_argument,       NULL, 'r'                },
-                { NULL,             0,                 NULL, 0                  }
+                {}
         };
 
         int c, r;
@@ -261,8 +261,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -543,9 +542,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
-                case '?':
-                        return -EINVAL;
-
                 case 'F':
                         arg_field = optarg;
                         break;
@@ -570,9 +566,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_reverse = true;
                         break;
 
-                default:
-                        log_error("Unknown option code %c", c);
+                case '?':
                         return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option");
                 }
         }
 

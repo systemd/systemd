@@ -91,6 +91,20 @@
                 <para>The following options are understood:</para>
 
                 <variablelist>
+                        <varlistentry>
+                                <term><option>-h</option></term>
+                                <term><option>--help</option></term>
+
+                                <listitem><para>Prints a short help
+                                text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a short version
+                                string and exits.</para></listitem>
+                        </varlistentry>
 
                         <varlistentry>
                                 <term><option>--create</option></term>
@@ -131,15 +145,6 @@
                                 prefix. This option can be specified
                                 multiple times.</para></listitem>
                         </varlistentry>
-
-
-                        <varlistentry>
-                                <term><option>--help</option></term>
-
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
-                        </varlistentry>
-
                 </variablelist>
 
                 <para>It is possible to combine

@@ -29,6 +29,7 @@
 
 #include "util.h"
 #include "def.h"
+#include "build.h"
 #include "readahead-common.h"
 
 unsigned arg_files_max = 16*1024;
@@ -40,6 +41,7 @@ static int help(void) {
         printf("%s [OPTIONS...] collect [DIRECTORY]\n\n"
                "Collect read-ahead data on early boot.\n\n"
                "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
                "     --max-files=INT        Maximum number of files to read ahead\n"
                "     --file-size-max=BYTES  Maximum size of files to read ahead\n"
                "     --timeout=USEC         Maximum time to spend collecting data\n\n\n",
@@ -48,12 +50,14 @@ static int help(void) {
         printf("%s [OPTIONS...] replay [DIRECTORY]\n\n"
                "Replay collected read-ahead data on early boot.\n\n"
                "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
                "     --file-size-max=BYTES  Maximum size of files to read ahead\n\n\n",
                program_invocation_short_name);
 
         printf("%s [OPTIONS...] analyze [PACK FILE]\n\n"
                "Analyze collected read-ahead data.\n\n"
-               "  -h --help                 Show this help\n",
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n",
                program_invocation_short_name);
 
         return 0;
@@ -62,17 +66,19 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
-                ARG_FILES_MAX = 0x100,
+                ARG_VERSION = 0x100,
+                ARG_FILES_MAX,
                 ARG_FILE_SIZE_MAX,
                 ARG_TIMEOUT
         };
 
         static const struct option options[] = {
                 { "help",          no_argument,       NULL, 'h'                },
+                { "version",       no_argument,       NULL, ARG_VERSION        },
                 { "files-max",     required_argument, NULL, ARG_FILES_MAX      },
                 { "file-size-max", required_argument, NULL, ARG_FILE_SIZE_MAX  },
                 { "timeout",       required_argument, NULL, ARG_TIMEOUT        },
-                { NULL,            0,                 NULL, 0                  }
+                {}
         };
 
         int c;
@@ -85,7 +91,11 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
+                        return help();
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_FILES_MAX:
@@ -119,8 +129,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

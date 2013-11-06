@@ -4961,7 +4961,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "output",              required_argument, NULL, 'o'                     },
                 { "plain",               no_argument,       NULL, ARG_PLAIN               },
                 { "state",               required_argument, NULL, ARG_STATE               },
-                { NULL,                  0,                 NULL, 0                       }
+                {}
         };
 
         int c;
@@ -4974,8 +4974,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        systemctl_help();
-                        return 0;
+                        return systemctl_help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -5221,8 +5220,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code '%c'.", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 
@@ -5252,7 +5250,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 { "wtmp-only", no_argument,       NULL, 'w'         },
                 { "no-wtmp",   no_argument,       NULL, 'd'         },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
-                { NULL,        0,                 NULL, 0           }
+                {}
         };
 
         int c, runlevel;
@@ -5268,8 +5266,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case ARG_HELP:
-                        halt_help();
-                        return 0;
+                        return halt_help();
 
                 case ARG_HALT:
                         arg_action = ACTION_HALT;
@@ -5310,8 +5307,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code '%c'.", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 
@@ -5386,7 +5382,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 { "reboot",    no_argument,       NULL, 'r'         },
                 { "kexec",     no_argument,       NULL, 'K'         }, /* not documented extension */
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
-                { NULL,        0,                 NULL, 0           }
+                {}
         };
 
         int c, r;
@@ -5398,8 +5394,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case ARG_HELP:
-                        shutdown_help();
-                        return 0;
+                        return shutdown_help();
 
                 case 'H':
                         arg_action = ACTION_HALT;
@@ -5446,8 +5441,7 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code '%c'.", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 
@@ -5482,7 +5476,7 @@ static int telinit_parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, ARG_HELP    },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL },
-                { NULL,        0,                 NULL, 0           }
+                {}
         };
 
         static const struct {
@@ -5514,8 +5508,7 @@ static int telinit_parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case ARG_HELP:
-                        telinit_help();
-                        return 0;
+                        return telinit_help();
 
                 case ARG_NO_WALL:
                         arg_no_wall = true;
@@ -5525,8 +5518,7 @@ static int telinit_parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code '%c'.", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 
@@ -5569,7 +5561,7 @@ static int runlevel_parse_argv(int argc, char *argv[]) {
 
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, ARG_HELP    },
-                { NULL,        0,                 NULL, 0           }
+                {}
         };
 
         int c;
@@ -5581,15 +5573,14 @@ static int runlevel_parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case ARG_HELP:
-                        runlevel_help();
+                        return runlevel_help();
                         return 0;
 
                 case '?':
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code '%c'.", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

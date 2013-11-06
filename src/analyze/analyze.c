@@ -1151,7 +1151,7 @@ static int set_log_level(sd_bus *bus, char **args) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
 
         pager_open_if_enabled();
 
@@ -1186,11 +1186,11 @@ static void help(void) {
         /* When updating this list, including descriptions, apply
          * changes to shell-completion/bash/systemd and
          * shell-completion/systemd-zsh-completion.zsh too. */
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        int r;
-
         enum {
                 ARG_VERSION = 0x100,
                 ARG_ORDER,
@@ -1214,18 +1214,20 @@ static int parse_argv(int argc, char *argv[]) {
                 { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN   },
                 { "fuzz",         required_argument, NULL, ARG_FUZZ             },
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER         },
-                { NULL,           0,                 NULL, 0                    }
+                {}
         };
+
+        int r, c;
 
         assert(argc >= 0);
         assert(argv);
 
-        for (;;) {
-                switch (getopt_long(argc, argv, "hH:M:", options, NULL)) {
+        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
+
+                switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -1280,9 +1282,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_host = optarg;
                         break;
 
-                case -1:
-                        return 1;
-
                 case '?':
                         return -EINVAL;
 
@@ -1290,6 +1289,8 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
         }
+
+        return 1;
 }
 
 int main(int argc, char *argv[]) {
