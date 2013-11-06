@@ -1,0 +1,57 @@
+/***
+  This file is part of systemd.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+***/
+
+LIBSYSTEMD_EVENT_209 {
+global:
+        sd_event_new;
+        sd_event_ref;
+        sd_event_unref;
+
+        sd_event_add_io;
+        sd_event_add_monotonic;
+        sd_event_add_realtime;
+        sd_event_add_signal;
+        sd_event_add_child;
+        sd_event_add_defer;
+        sd_event_add_quit;
+
+        sd_event_run;
+        sd_event_loop;
+
+        sd_event_get_state;
+        sd_event_get_quit;
+        sd_event_request_quit;
+        sd_event_get_now_realtime;
+        sd_event_get_now_monotonic;
+        sd_event_get;
+
+        sd_event_source_ref;
+        sd_event_source_unref;
+
+        sd_event_source_set_prepare;
+        sd_event_source_get_pending;
+        sd_event_source_get_priority;
+        sd_event_source_set_priority;
+        sd_event_source_get_enabled;
+        sd_event_source_set_enabled;
+        sd_event_source_get_userdata;
+        sd_event_source_get_io_fd;
+        sd_event_source_get_io_events;
+        sd_event_source_set_io_events;
+        sd_event_source_get_io_revents;
+        sd_event_source_get_time;
+        sd_event_source_set_time;
+        sd_event_source_set_time_accuracy;
+        sd_event_source_get_time_accuracy;
+        sd_event_source_get_signal;
+        sd_event_source_get_child_pid;
+
+local:
+       *;
+};

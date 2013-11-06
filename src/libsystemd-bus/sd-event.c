@@ -330,7 +330,7 @@ static void event_free(sd_event *e) {
         free(e);
 }
 
-int sd_event_new(sd_event** ret) {
+_public_ int sd_event_new(sd_event** ret) {
         sd_event *e;
         int r;
 
@@ -367,7 +367,7 @@ fail:
         return r;
 }
 
-sd_event* sd_event_ref(sd_event *e) {
+_public_ sd_event* sd_event_ref(sd_event *e) {
         assert_return(e, NULL);
 
         assert(e->n_ref >= 1);
@@ -376,7 +376,7 @@ sd_event* sd_event_ref(sd_event *e) {
         return e;
 }
 
-sd_event* sd_event_unref(sd_event *e) {
+_public_ sd_event* sd_event_unref(sd_event *e) {
         assert_return(e, NULL);
 
         assert(e->n_ref >= 1);
@@ -556,7 +556,7 @@ static sd_event_source *source_new(sd_event *e, EventSourceType type) {
         return s;
 }
 
-int sd_event_add_io(
+_public_ int sd_event_add_io(
                 sd_event *e,
                 int fd,
                 uint32_t events,
@@ -712,11 +712,23 @@ fail:
         return r;
 }
 
-int sd_event_add_monotonic(sd_event *e, uint64_t usec, uint64_t accuracy, sd_time_handler_t callback, void *userdata, sd_event_source **ret) {
+_public_ int sd_event_add_monotonic(sd_event *e,
+                                    uint64_t usec,
+                                    uint64_t accuracy,
+                                    sd_time_handler_t callback,
+                                    void *userdata,
+                                    sd_event_source **ret) {
+
         return event_add_time_internal(e, SOURCE_MONOTONIC, &e->monotonic_fd, CLOCK_MONOTONIC, &e->monotonic_earliest, &e->monotonic_latest, usec, accuracy, callback, userdata, ret);
 }
 
-int sd_event_add_realtime(sd_event *e, uint64_t usec, uint64_t accuracy, sd_time_handler_t callback, void *userdata, sd_event_source **ret) {
+_public_ int sd_event_add_realtime(sd_event *e,
+                                   uint64_t usec,
+                                   uint64_t accuracy,
+                                   sd_time_handler_t callback,
+                                   void *userdata,
+                                   sd_event_source **ret) {
+
         return event_add_time_internal(e, SOURCE_REALTIME, &e->realtime_fd, CLOCK_REALTIME, &e->realtime_earliest, &e->monotonic_latest, usec, accuracy, callback, userdata, ret);
 }
 
@@ -752,7 +764,7 @@ static int event_update_signal_fd(sd_event *e) {
         return 0;
 }
 
-int sd_event_add_signal(
+_public_ int sd_event_add_signal(
                 sd_event *e,
                 int sig,
                 sd_signal_handler_t callback,
@@ -801,7 +813,7 @@ int sd_event_add_signal(
         return 0;
 }
 
-int sd_event_add_child(
+_public_ int sd_event_add_child(
                 sd_event *e,
                 pid_t pid,
                 int options,
@@ -862,7 +874,7 @@ int sd_event_add_child(
         return 0;
 }
 
-int sd_event_add_defer(
+_public_ int sd_event_add_defer(
                 sd_event *e,
                 sd_defer_handler_t callback,
                 void *userdata,
@@ -895,7 +907,7 @@ int sd_event_add_defer(
         return 0;
 }
 
-int sd_event_add_quit(
+_public_ int sd_event_add_quit(
                 sd_event *e,
                 sd_quit_handler_t callback,
                 void *userdata,
@@ -935,7 +947,7 @@ int sd_event_add_quit(
         return 0;
 }
 
-sd_event_source* sd_event_source_ref(sd_event_source *s) {
+_public_ sd_event_source* sd_event_source_ref(sd_event_source *s) {
         assert_return(s, NULL);
 
         assert(s->n_ref >= 1);
@@ -944,7 +956,7 @@ sd_event_source* sd_event_source_ref(sd_event_source *s) {
         return s;
 }
 
-sd_event_source* sd_event_source_unref(sd_event_source *s) {
+_public_ sd_event_source* sd_event_source_unref(sd_event_source *s) {
         assert_return(s, NULL);
 
         assert(s->n_ref >= 1);
@@ -956,13 +968,13 @@ sd_event_source* sd_event_source_unref(sd_event_source *s) {
         return NULL;
 }
 
-sd_event *sd_event_get(sd_event_source *s) {
+_public_ sd_event *sd_event_get(sd_event_source *s) {
         assert_return(s, NULL);
 
         return s->event;
 }
 
-int sd_event_source_get_pending(sd_event_source *s) {
+_public_ int sd_event_source_get_pending(sd_event_source *s) {
         assert_return(s, -EINVAL);
         assert_return(s->type != SOURCE_QUIT, -EDOM);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
@@ -971,7 +983,7 @@ int sd_event_source_get_pending(sd_event_source *s) {
         return s->pending;
 }
 
-int sd_event_source_get_io_fd(sd_event_source *s) {
+_public_ int sd_event_source_get_io_fd(sd_event_source *s) {
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_IO, -EDOM);
         assert_return(!event_pid_changed(s->event), -ECHILD);
@@ -979,7 +991,7 @@ int sd_event_source_get_io_fd(sd_event_source *s) {
         return s->io.fd;
 }
 
-int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events) {
+_public_ int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events) {
         assert_return(s, -EINVAL);
         assert_return(events, -EINVAL);
         assert_return(s->type == SOURCE_IO, -EDOM);
@@ -989,7 +1001,7 @@ int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events) {
         return 0;
 }
 
-int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) {
+_public_ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) {
         int r;
 
         assert_return(s, -EINVAL);
@@ -1012,7 +1024,7 @@ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) {
         return 0;
 }
 
-int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents) {
+_public_ int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents) {
         assert_return(s, -EINVAL);
         assert_return(revents, -EINVAL);
         assert_return(s->type == SOURCE_IO, -EDOM);
@@ -1023,7 +1035,7 @@ int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents) {
         return 0;
 }
 
-int sd_event_source_get_signal(sd_event_source *s) {
+_public_ int sd_event_source_get_signal(sd_event_source *s) {
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_SIGNAL, -EDOM);
         assert_return(!event_pid_changed(s->event), -ECHILD);
@@ -1031,14 +1043,14 @@ int sd_event_source_get_signal(sd_event_source *s) {
         return s->signal.sig;
 }
 
-int sd_event_source_get_priority(sd_event_source *s, int *priority) {
+_public_ int sd_event_source_get_priority(sd_event_source *s, int *priority) {
         assert_return(s, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
         return s->priority;
 }
 
-int sd_event_source_set_priority(sd_event_source *s, int priority) {
+_public_ int sd_event_source_set_priority(sd_event_source *s, int priority) {
         assert_return(s, -EINVAL);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
@@ -1060,7 +1072,7 @@ int sd_event_source_set_priority(sd_event_source *s, int priority) {
         return 0;
 }
 
-int sd_event_source_get_enabled(sd_event_source *s, int *m) {
+_public_ int sd_event_source_get_enabled(sd_event_source *s, int *m) {
         assert_return(s, -EINVAL);
         assert_return(m, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
@@ -1069,7 +1081,7 @@ int sd_event_source_get_enabled(sd_event_source *s, int *m) {
         return 0;
 }
 
-int sd_event_source_set_enabled(sd_event_source *s, int m) {
+_public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         int r;
 
         assert_return(s, -EINVAL);
@@ -1201,7 +1213,7 @@ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         return 0;
 }
 
-int sd_event_source_get_time(sd_event_source *s, uint64_t *usec) {
+_public_ int sd_event_source_get_time(sd_event_source *s, uint64_t *usec) {
         assert_return(s, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(s->type == SOURCE_REALTIME || s->type == SOURCE_MONOTONIC, -EDOM);
@@ -1211,7 +1223,7 @@ int sd_event_source_get_time(sd_event_source *s, uint64_t *usec) {
         return 0;
 }
 
-int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
+_public_ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
         assert_return(s, -EINVAL);
         assert_return(usec != (uint64_t) -1, -EINVAL);
         assert_return(s->type == SOURCE_REALTIME || s->type == SOURCE_MONOTONIC, -EDOM);
@@ -1234,7 +1246,7 @@ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
         return 0;
 }
 
-int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
+_public_ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
         assert_return(s, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(s->type == SOURCE_REALTIME || s->type == SOURCE_MONOTONIC, -EDOM);
@@ -1244,7 +1256,7 @@ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec) {
         return 0;
 }
 
-int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec) {
+_public_ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec) {
         assert_return(s, -EINVAL);
         assert_return(usec != (uint64_t) -1, -EINVAL);
         assert_return(s->type == SOURCE_REALTIME || s->type == SOURCE_MONOTONIC, -EDOM);
@@ -1267,7 +1279,7 @@ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec) {
         return 0;
 }
 
-int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid) {
+_public_ int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid) {
         assert_return(s, -EINVAL);
         assert_return(pid, -EINVAL);
         assert_return(s->type == SOURCE_CHILD, -EDOM);
@@ -1277,7 +1289,7 @@ int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid) {
         return 0;
 }
 
-int sd_event_source_set_prepare(sd_event_source *s, sd_prepare_handler_t callback) {
+_public_ int sd_event_source_set_prepare(sd_event_source *s, sd_prepare_handler_t callback) {
         int r;
 
         assert_return(s, -EINVAL);
@@ -1309,7 +1321,7 @@ int sd_event_source_set_prepare(sd_event_source *s, sd_prepare_handler_t callbac
         return 0;
 }
 
-void* sd_event_source_get_userdata(sd_event_source *s) {
+_public_ void* sd_event_source_get_userdata(sd_event_source *s) {
         assert_return(s, NULL);
 
         return s->userdata;
@@ -1702,7 +1714,7 @@ static sd_event_source* event_next_pending(sd_event *e) {
         return p;
 }
 
-int sd_event_run(sd_event *e, uint64_t timeout) {
+_public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         struct epoll_event ev_queue[EPOLL_QUEUE_MAX];
         sd_event_source *p;
         int r, i, m;
@@ -1789,7 +1801,7 @@ finish:
         return r;
 }
 
-int sd_event_loop(sd_event *e) {
+_public_ int sd_event_loop(sd_event *e) {
         int r;
 
         assert_return(e, -EINVAL);
@@ -1811,21 +1823,21 @@ finish:
         return r;
 }
 
-int sd_event_get_state(sd_event *e) {
+_public_ int sd_event_get_state(sd_event *e) {
         assert_return(e, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
 
         return e->state;
 }
 
-int sd_event_get_quit(sd_event *e) {
+_public_ int sd_event_get_quit(sd_event *e) {
         assert_return(e, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
 
         return e->quit_requested;
 }
 
-int sd_event_request_quit(sd_event *e) {
+_public_ int sd_event_request_quit(sd_event *e) {
         assert_return(e, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
@@ -1834,7 +1846,7 @@ int sd_event_request_quit(sd_event *e) {
         return 0;
 }
 
-int sd_event_get_now_realtime(sd_event *e, uint64_t *usec) {
+_public_ int sd_event_get_now_realtime(sd_event *e, uint64_t *usec) {
         assert_return(e, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(dual_timestamp_is_set(&e->timestamp), -ENODATA);
@@ -1844,7 +1856,7 @@ int sd_event_get_now_realtime(sd_event *e, uint64_t *usec) {
         return 0;
 }
 
-int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec) {
+_public_ int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec) {
         assert_return(e, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(dual_timestamp_is_set(&e->timestamp), -ENODATA);
