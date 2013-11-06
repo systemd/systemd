@@ -428,6 +428,8 @@ int path_is_os_tree(const char *path) {
 
 int find_binary(const char *name, char **filename) {
         assert(name);
+        assert(filename);
+
         if (strchr(name, '/')) {
                 char *p;
 
@@ -474,33 +476,37 @@ int find_binary(const char *name, char **filename) {
         }
 }
 
-bool paths_check_timestamp(char **paths, usec_t *timestamp, bool update)
-{
-        unsigned int i;
+bool paths_check_timestamp(char **paths, usec_t *timestamp, bool update) {
         bool changed = false;
+        char **i;
 
         assert(timestamp);
 
         if (paths == NULL)
-                goto out;
+                return false;
 
-        for (i = 0; paths[i]; i++) {
+        STRV_FOREACH(i, paths) {
                 struct stat stats;
+                usec_t u;
 
-                if (stat(paths[i], &stats) < 0)
+                if (stat(*i, &stats) < 0)
                         continue;
+
+                u = timespec_load(&stats.st_mtim);
 
                 /* first check */
-                if (*timestamp >= timespec_load(&stats.st_mtim))
+                if (*timestamp >= u)
                         continue;
 
-                log_debug("timestamp of '%s' changed\n", paths[i]);
-                changed = true;
+                log_debug("timestamp of '%s' changed\n", *i);
 
                 /* update timestamp */
-                if (update)
-                        *timestamp = timespec_load(&stats.st_mtim);
+                if (update) {
+                        *timestamp = u;
+                        changed = true;
+                } else
+                        return true;
         }
-out:
+
         return changed;
 }
