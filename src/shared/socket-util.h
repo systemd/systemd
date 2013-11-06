@@ -99,3 +99,5 @@ int netlink_family_to_string_alloc(int b, char **s);
 int netlink_family_from_string(const char *s);
 
 bool socket_ipv6_is_supported(void);
+
+int getpeername_pretty(int fd, char **ret);

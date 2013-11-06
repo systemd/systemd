@@ -568,6 +568,89 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
         return false;
 }
 
+int getpeername_pretty(int fd, char **ret) {
+
+        union {
+                struct sockaddr sa;
+                struct sockaddr_un un;
+                struct sockaddr_in in;
+                struct sockaddr_in6 in6;
+                struct sockaddr_storage storage;
+        } sa;
+
+        socklen_t salen;
+        char *p;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        salen = sizeof(sa);
+        if (getpeername(fd, &sa.sa, &salen) < 0)
+                return -errno;
+
+        switch (sa.sa.sa_family) {
+
+        case AF_INET: {
+                uint32_t a;
+
+                a = ntohl(sa.in.sin_addr.s_addr);
+
+                if (asprintf(&p,
+                             "%u.%u.%u.%u:%u",
+                             a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
+                             ntohs(sa.in.sin_port)) < 0)
+                        return -ENOMEM;
+
+                break;
+        }
+
+        case AF_INET6: {
+                static const unsigned char ipv4_prefix[] = {
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF
+                };
+
+                if (memcmp(&sa.in6.sin6_addr, ipv4_prefix, sizeof(ipv4_prefix)) == 0) {
+                        const uint8_t *a = sa.in6.sin6_addr.s6_addr+12;
+
+                        if (asprintf(&p,
+                                     "%u.%u.%u.%u:%u",
+                                     a[0], a[1], a[2], a[3],
+                                     ntohs(sa.in6.sin6_port)) < 0)
+                                return -ENOMEM;
+                } else {
+                        char a[INET6_ADDRSTRLEN];
+
+                        if (asprintf(&p,
+                                     "%s:%u",
+                                     inet_ntop(AF_INET6, &sa.in6.sin6_addr, a, sizeof(a)),
+                                     ntohs(sa.in6.sin6_port)) < 0)
+                                return -ENOMEM;
+                }
+
+                break;
+        }
+
+        case AF_UNIX: {
+                struct ucred ucred;
+
+                salen = sizeof(ucred);
+                if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &salen) < 0)
+                        return -errno;
+
+                if (asprintf(&p, "PID %lu/UID %lu", (unsigned long) ucred.pid, (unsigned long) ucred.pid) < 0)
+                        return -ENOMEM;
+
+                break;
+        }
+
+        default:
+                return -ENOTSUP;
+        }
+
+        *ret = p;
+        return 0;
+}
+
 static const char* const netlink_family_table[] = {
         [NETLINK_ROUTE] = "route",
         [NETLINK_FIREWALL] = "firewall",

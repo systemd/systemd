@@ -39,19 +39,17 @@
         </refmeta>
         <refnamediv>
                 <refname>systemd-socket-proxyd</refname>
-                <refpurpose>Inherit a socket. Bidirectionally
-                proxy.</refpurpose>
+                <refpurpose>Bidirectionally proxy local sockets to another (possibly remote) socket.</refpurpose>
         </refnamediv>
         <refsynopsisdiv>
                 <cmdsynopsis>
                         <command>systemd-socket-proxyd</command>
-                        <arg choice="opt" rep="repeat">OPTIONS</arg>
-                        <arg choice="plain"><replaceable>HOSTNAME-OR-IPADDR</replaceable></arg>
-                        <arg choice="plain"><replaceable>PORT-OR-SERVICE</replaceable></arg>
+                        <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
+                        <arg choice="plain"><replaceable>HOST</replaceable>:<replaceable>PORT</replaceable></arg>
                 </cmdsynopsis>
                 <cmdsynopsis>
                         <command>systemd-socket-proxyd</command>
-                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
                         <arg choice="plain"><replaceable>UNIX-DOMAIN-SOCKET-PATH</replaceable>
                         </arg>
                 </cmdsynopsis>
@@ -59,13 +57,20 @@
         <refsect1>
                 <title>Description</title>
                 <para>
-                <command>systemd-socket-proxyd</command> provides a proxy
-                to socket-activate services that do not yet support
-                native socket activation. On behalf of the daemon,
-                the proxy inherits the socket from systemd, accepts
-                each client connection, opens a connection to the server
-                for each client, and then bidirectionally forwards
-                data between the two.</para>
+                <command>systemd-socket-proxyd</command> is a generic
+                socket-activated network socket forwarder proxy daemon
+                for IPV4, IPv6 and UNIX stream sockets. It may be used
+                to bi-directionally forward traffic from a local listening socket to a
+                local or remote destination socket.</para>
+
+                <para>One use of this tool is to provide
+                socket-activation support for services that do not
+                natively support socket activation. On behalf of the
+                service to activate, the proxy inherits the socket
+                from systemd, accepts each client connection, opens a
+                connection to a configured server for each client, and
+                then bidirectionally forwards data between the
+                two.</para>
                 <para>This utility's behavior is similar to
                 <citerefentry><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
                 The main differences for <command>systemd-socket-proxyd</command>
@@ -91,19 +96,6 @@
                                 <listitem>
                                         <para>Prints a version
                                         string and exits.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><option>--ignore-env</option></term>
-                                <listitem>
-                                        <para>Skips verification of
-                                        the expected PID and file
-                                        descriptor numbers. Use this if
-                                        invoked indirectly, for
-                                        example, with a shell script
-                                        rather than with
-                                        <option>ExecStart=/usr/lib/systemd/systemd-socket-proxyd</option>
-                                        </para>
                                 </listitem>
                         </varlistentry>
                 </variablelist>
@@ -205,7 +197,7 @@ while [ ! -f /tmp/nginx.pid ]
   do
      /usr/bin/inotifywait /tmp/nginx.pid
   done
-/usr/bin/systemd-socket-proxyd --ignore-env localhost 8080]]>
+exec /usr/bin/systemd-socket-proxyd localhost 8080]]>
 </programlisting>
                         </example>
                         <example label="nginx configuration">
@@ -232,23 +224,11 @@ $ curl http://localhost:80/]]>
         <refsect1>
                 <title>See Also</title>
                 <para>
-                <citerefentry>
-                        <refentrytitle>
-                        systemd.service</refentrytitle>
-                        <manvolnum>5</manvolnum>
-                </citerefentry>,
-                <citerefentry>
-                        <refentrytitle>
-                        systemd.socket</refentrytitle>
-                        <manvolnum>5</manvolnum>
-                </citerefentry>,
-                <citerefentry>
-                        <refentrytitle>systemctl</refentrytitle>
-                        <manvolnum>1</manvolnum>
-                </citerefentry>,
-                <citerefentry>
-                        <refentrytitle>socat</refentrytitle>
-                        <manvolnum>1</manvolnum>
-                </citerefentry></para>
+                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                </para>
         </refsect1>
 </refentry>
