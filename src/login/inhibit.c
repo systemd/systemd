@@ -27,7 +27,6 @@
 #include <fcntl.h>
 
 #include "sd-bus.h"
-
 #include "bus-util.h"
 #include "bus-error.h"
 #include "util.h"
@@ -228,8 +227,10 @@ int main(int argc, char *argv[]) {
         log_open();
 
         r = parse_argv(argc, argv);
-        if (r <= 0)
+        if (r < 0)
                 return EXIT_FAILURE;
+        if (r == 0)
+                return EXIT_SUCCESS;
 
         r = sd_bus_open_system(&bus);
         if (r < 0) {
