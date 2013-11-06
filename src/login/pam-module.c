@@ -183,7 +183,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type = NULL, *class = NULL, *class_pam = NULL, *cvtnr = NULL;
         uint32_t uid, pid;
         int session_fd = -1;
-        bool remote, existing;
+        bool remote;
+        unsigned existing;
         uint32_t vtnr = 0;
         int r;
 
