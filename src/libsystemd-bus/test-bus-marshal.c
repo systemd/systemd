@@ -27,7 +27,9 @@
 #include <gio/gio.h>
 #endif
 
+#ifdef HAVE_DBUS
 #include <dbus.h>
+#endif
 
 #include "log.h"
 #include "util.h"
@@ -126,6 +128,7 @@ int main(int argc, char *argv[]) {
         }
 #endif
 
+#ifdef HAVE_DBUS
         {
                 DBusMessage *w;
                 DBusError error;
@@ -138,6 +141,7 @@ int main(int argc, char *argv[]) {
                 } else
                         dbus_message_unref(w);
         }
+#endif
 
         m = sd_bus_message_unref(m);
 

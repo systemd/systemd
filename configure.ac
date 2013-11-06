@@ -236,8 +236,10 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at], [], [], [[#include <sys/
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
-PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2])
-
+# ------------------------------------------------------------------------------
+PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2], have_dbus=yes, have_dbus=no])
+AS_IF([test "$have_dbus" = "yes"], [ AC_DEFINE(HAVE_DBUS, [1], [Define if dbus-1 is available]) ])
+AM_CONDITIONAL(HAVE_DBUS, [test "$have_dbus" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_coverage=no
