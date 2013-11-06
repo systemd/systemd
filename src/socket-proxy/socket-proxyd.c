@@ -110,11 +110,11 @@ static int remove_event_from_connection(struct connection *c, uint32_t events) {
         }
 
         if (c->events == 0) {
-            r = sd_event_source_set_enabled(c->w, SD_EVENT_OFF);
-            if (r < 0) {
-                    log_error("Error %d disabling source: %s", r, strerror(-r));
-                    return r;
-            }
+                r = sd_event_source_set_enabled(c->w, SD_EVENT_OFF);
+                if (r < 0) {
+                        log_error("Error %d disabling source: %s", r, strerror(-r));
+                        return r;
+                }
         }
 
         return 0;
@@ -155,11 +155,11 @@ static int send_buffer(struct connection *sender) {
 
                 /* If the buffer is full, disable events coming for recv. */
                 if (sender->buffer_filled_len == BUFFER_SIZE) {
-                    r = remove_event_from_connection(sender, EPOLLIN);
-                    if (r < 0) {
-                            log_error("Error %d disabling EPOLLIN for fd=%d: %s", r, sender->fd, strerror(-r));
-                            return r;
-                    }
+                        r = remove_event_from_connection(sender, EPOLLIN);
+                        if (r < 0) {
+                                log_error("Error %d disabling EPOLLIN for fd=%d: %s", r, sender->fd, strerror(-r));
+                                return r;
+                        }
                 }
 
                 /* Watch for when the recipient can be sent data again. */
@@ -218,8 +218,7 @@ static int transfer_data_cb(sd_event_source *s, int fd, uint32_t revents, void *
                                 if (errno != EWOULDBLOCK && errno != EAGAIN) {
                                         log_error("Error %d in recv from fd=%d: %m", errno, fd);
                                         return -errno;
-                                }
-                                else {
+                                } else {
                                         /* recv() is in a blocking state. */
                                         break;
                                 }
@@ -280,7 +279,7 @@ static int connected_to_server_cb(sd_event_source *s, int fd, uint32_t revents, 
         }
         c_client_to_server->events = EPOLLIN;
 
-goto finish;
+        goto finish;
 
 fail:
         free_connection(c_client_to_server);
