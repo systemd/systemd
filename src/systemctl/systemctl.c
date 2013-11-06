@@ -20,6 +20,8 @@
 ***/
 
 #include <sys/reboot.h>
+#include <linux/reboot.h>
+#include <sys/syscall.h>
 #include <stdio.h>
 #include <getopt.h>
 #include <locale.h>
@@ -4804,7 +4806,7 @@ static int systemctl_help(void) {
                "  emergency                       Enter system emergency mode\n"
                "  halt                            Shut down and halt the system\n"
                "  poweroff                        Shut down and power-off the system\n"
-               "  reboot                          Shut down and reboot the system\n"
+               "  reboot [ARG]                    Shut down and reboot the system\n"
                "  kexec                           Shut down and reboot the system with kexec\n"
                "  exit                            Request user instance exit\n"
                "  switch-root [ROOT] [INIT]       Change to a different root file system\n"
@@ -4818,7 +4820,7 @@ static int systemctl_help(void) {
 
 static int halt_help(void) {
 
-        printf("%s [OPTIONS...]\n\n"
+        printf("%s [OPTIONS...]%s\n\n"
                "%s the system.\n\n"
                "     --help      Show this help\n"
                "     --halt      Halt the machine\n"
@@ -4829,6 +4831,7 @@ static int halt_help(void) {
                "  -d --no-wtmp   Don't write wtmp record\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n",
                program_invocation_short_name,
+               arg_action == ACTION_REBOOT   ? " [ARG]" : "",
                arg_action == ACTION_REBOOT   ? "Reboot" :
                arg_action == ACTION_POWEROFF ? "Power off" :
                                                "Halt");
@@ -5253,7 +5256,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c, runlevel;
+        int c, r, runlevel;
 
         assert(argc >= 0);
         assert(argv);
@@ -5311,7 +5314,14 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (optind < argc) {
+        if (arg_action == ACTION_REBOOT && argc == optind + 1) {
+                r = write_string_file(REBOOT_PARAM_FILE, argv[optind]);
+                if (r < 0) {
+                        log_error("Failed to write reboot param to "
+                                  REBOOT_PARAM_FILE": %s", strerror(-r));
+                        return r;
+                }
+        } else if (optind < argc) {
                 log_error("Too many arguments.");
                 return -EINVAL;
         }
@@ -5944,6 +5954,8 @@ done:
 
 static _noreturn_ void halt_now(enum action a) {
 
+        _cleanup_free_ char *param = NULL;
+
        /* Make sure C-A-D is handled by the kernel from this
          * point on... */
         reboot(RB_ENABLE_CAD);
@@ -5961,8 +5973,14 @@ static _noreturn_ void halt_now(enum action a) {
                 break;
 
         case ACTION_REBOOT:
-                log_info("Rebooting.");
-                reboot(RB_AUTOBOOT);
+                if (read_one_line_file(REBOOT_PARAM_FILE, &param) == 0) {
+                        log_info("Rebooting with arg '%s'.", param);
+                        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
+                                LINUX_REBOOT_CMD_RESTART2, param);
+                } else {
+                        log_info("Rebooting.");
+                        reboot(RB_AUTOBOOT);
+                }
                 break;
 
         default:

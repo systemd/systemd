@@ -47,6 +47,7 @@
 #include "watchdog.h"
 #include "killall.h"
 #include "cgroup-util.h"
+#include "def.h"
 
 #define FINALIZE_ATTEMPTS 50
 
@@ -134,7 +135,7 @@ static int pivot_to_new_root(void) {
 int main(int argc, char *argv[]) {
         bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
         bool in_container, use_watchdog = false;
-        _cleanup_free_ char *line = NULL, *cgroup = NULL;
+        _cleanup_free_ char *line = NULL, *cgroup = NULL, *param = NULL;
         char *arguments[3];
         unsigned retries;
         int cmd, r;
@@ -173,9 +174,11 @@ int main(int argc, char *argv[]) {
 
         in_container = detect_container(NULL) > 0;
 
-        if (streq(argv[1], "reboot"))
+        if (streq(argv[1], "reboot")) {
                 cmd = RB_AUTOBOOT;
-        else if (streq(argv[1], "poweroff"))
+                /* if this fails, that's OK */
+                read_one_line_file(REBOOT_PARAM_FILE, &param);
+        } else if (streq(argv[1], "poweroff"))
                 cmd = RB_POWER_OFF;
         else if (streq(argv[1], "halt"))
                 cmd = RB_HALT_SYSTEM;
@@ -337,7 +340,11 @@ int main(int argc, char *argv[]) {
                 cmd = RB_AUTOBOOT;
         }
 
-        reboot(cmd);
+        if (param)
+                syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
+                        LINUX_REBOOT_CMD_RESTART2, param);
+        else
+                reboot(cmd);
 
         if (errno == EPERM && in_container) {
                 /* If we are in a container, and we lacked

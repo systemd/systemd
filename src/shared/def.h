@@ -38,3 +38,5 @@
 #define LOWERCASE_LETTERS "abcdefghijklmnopqrstuvwxyz"
 #define UPPERCASE_LETTERS "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 #define LETTERS LOWERCASE_LETTERS UPPERCASE_LETTERS
+
+#define REBOOT_PARAM_FILE "/run/systemd/reboot-param"

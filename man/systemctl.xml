@@ -1179,7 +1179,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reboot</command></term>
+          <term><command>reboot <optional><replaceable>arg</replaceable></optional></command></term>
 
           <listitem>
             <para>Shut down and reboot the system. This is mostly
@@ -1192,6 +1192,16 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             specified twice, the operation is immediately executed
             without terminating any processes or unmounting any file
             systems. This may result in data loss.</para>
+
+            <para>If the optional argument
+            <replaceable>arg</replaceable> is given, it will be passed
+            as the optional argument to the
+            <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+            system call. The value is architecture and firmware
+            specific. As an example, <literal>recovery</literal> might
+            be used to trigger system recovery, and
+            <literal>fota</literal> might be used to trigger a
+            <quote>firmware over the air</quote> update.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
