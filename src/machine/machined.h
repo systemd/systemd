@@ -40,6 +40,7 @@ struct Manager {
 
         Hashmap *machines;
         Hashmap *machine_units;
+        Hashmap *machine_leaders;
 
         LIST_HEAD(Machine, machine_gc_queue);
 };

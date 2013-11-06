@@ -46,8 +46,9 @@ Manager *manager_new(void) {
 
         m->machines = hashmap_new(string_hash_func, string_compare_func);
         m->machine_units = hashmap_new(string_hash_func, string_compare_func);
+        m->machine_leaders = hashmap_new(trivial_hash_func, trivial_compare_func);
 
-        if (!m->machines || !m->machine_units) {
+        if (!m->machines || !m->machine_units || !m->machine_leaders) {
                 manager_free(m);
                 return NULL;
         }
@@ -71,6 +72,7 @@ void manager_free(Manager *m) {
 
         hashmap_free(m->machines);
         hashmap_free(m->machine_units);
+        hashmap_free(m->machine_leaders);
 
         sd_bus_unref(m->bus);
         sd_event_unref(m->event);
@@ -108,9 +110,10 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
 
         r = cg_pid_get_unit(pid, &unit);
         if (r < 0)
-                return r;
+                mm = hashmap_get(m->machine_leaders, UINT_TO_PTR(pid));
+        else
+                mm = hashmap_get(m->machine_units, unit);
 
-        mm = hashmap_get(m->machine_units, unit);
         if (!mm)
                 return 0;
 

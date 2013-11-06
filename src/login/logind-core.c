@@ -348,7 +348,7 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
 
         r = cg_pid_get_unit(pid, &unit);
         if (r < 0)
-                return r;
+                return 0;
 
         s = hashmap_get(m->session_units, unit);
         if (!s)
@@ -371,7 +371,7 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
 
         r = cg_pid_get_slice(pid, &unit);
         if (r < 0)
-                return r;
+                return 0;
 
         u = hashmap_get(m->user_units, unit);
         if (!u)

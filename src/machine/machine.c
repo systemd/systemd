@@ -85,6 +85,9 @@ void machine_free(Machine *m) {
 
         hashmap_remove(m->manager->machines, m->name);
 
+        if (m->leader > 0)
+                hashmap_remove_value(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
+
         sd_bus_message_unref(m->create_message);
 
         free(m->name);
@@ -262,6 +265,10 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
 
         if (m->started)
                 return 0;
+
+        r = hashmap_put(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
+        if (r < 0)
+                return r;
 
         /* Create cgroup */
         r = machine_start_scope(m, properties, error);
