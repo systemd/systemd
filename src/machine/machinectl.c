@@ -19,13 +19,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/socket.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <getopt.h>
 #include <pwd.h>
 #include <locale.h>
-#include <socket.h>
 #include <fcntl.h>
 
 #include "sd-bus.h"
