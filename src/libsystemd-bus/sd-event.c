@@ -1614,6 +1614,8 @@ static int source_dispatch(sd_event_source *s) {
                         return r;
         }
 
+        sd_event_source_ref(s);
+
         switch (s->type) {
 
         case SOURCE_IO:
@@ -1644,6 +1646,8 @@ static int source_dispatch(sd_event_source *s) {
                 r = s->quit.callback(s, s->userdata);
                 break;
         }
+
+        sd_event_source_unref(s);
 
         return r;
 }

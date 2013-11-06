@@ -338,7 +338,7 @@ static int connection_enable_event_sources(Connection *c, sd_event *event) {
                 r = 0;
 
         if (r < 0) {
-                log_error("Failed to set up server event source: %s", strerror(-r));
+                log_error("Failed to set up client event source: %s", strerror(-r));
                 return r;
         }
 
@@ -432,6 +432,12 @@ static int add_connection_socket(Context *context, sd_event *event, int fd) {
                         r = sd_event_add_io(event, c->client_fd, EPOLLOUT, connect_cb, c, &c->client_event_source);
                         if (r < 0) {
                                 log_error("Failed to add connection socket: %s", strerror(-r));
+                                goto fail;
+                        }
+
+                        r = sd_event_source_set_enabled(c->client_event_source, SD_EVENT_ONESHOT);
+                        if (r < 0) {
+                                log_error("Failed to enable oneshot event source: %s", strerror(-r));
                                 goto fail;
                         }
                 } else {
