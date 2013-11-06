@@ -55,26 +55,6 @@ static int add_epoll(int epoll_fd, int fd) {
         return r;
 }
 
-static int set_nocloexec(int fd) {
-        int flags;
-
-        flags = fcntl(fd, F_GETFD);
-        if (flags < 0) {
-                log_error("Querying flags for fd:%d: %m", fd);
-                return -errno;
-        }
-
-        if (!(flags & FD_CLOEXEC))
-                return 0;
-
-        if (fcntl(fd, F_SETFD, flags & ~FD_CLOEXEC) < 0) {
-                log_error("Settings flags for fd:%d: %m", fd);
-                return -errno;
-        }
-
-        return 0;
-}
-
 static int print_socket(const char* desc, int fd) {
         int r;
         SocketAddress addr = {
@@ -112,7 +92,7 @@ static int print_socket(const char* desc, int fd) {
 }
 
 static int open_sockets(int *epoll_fd, bool accept) {
-        int n, fd;
+        int n, fd, r;
         int count = 0;
         char **address;
 
@@ -128,11 +108,9 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 log_debug("Received descriptor fd:%d", fd);
                 print_socket("Listening on", fd);
 
-                if (!arg_accept) {
-                        int r = set_nocloexec(fd);
-                        if (r < 0)
-                                return r;
-                }
+                r = fd_cloexec(fd, arg_accept);
+                if (r < 0)
+                        return r;
 
                 count ++;
         }
@@ -160,8 +138,9 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 return -errno;
         }
 
+
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
-                int r = add_epoll(*epoll_fd, fd);
+                r = add_epoll(*epoll_fd, fd);
                 if (r < 0)
                         return r;
         }
