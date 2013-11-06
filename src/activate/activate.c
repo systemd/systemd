@@ -188,7 +188,7 @@ static int launch(char* name, char **argv, char **env, int fds) {
 
         length = strv_length(arg_environ);
         /* PATH, TERM, HOME, USER, LISTEN_FDS, LISTEN_PID, NULL */
-        envp = new(char *, length + 7);
+        envp = new0(char *, length + 7);
 
         STRV_FOREACH(s, arg_environ) {
                 if (strchr(*s, '='))
