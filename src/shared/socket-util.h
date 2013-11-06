@@ -73,6 +73,7 @@ bool socket_address_can_accept(const SocketAddress *a) _pure_;
 
 int socket_address_listen(
                 const SocketAddress *a,
+                int flags,
                 int backlog,
                 SocketAddressBindIPv6Only only,
                 const char *bind_to_device,
@@ -80,15 +81,12 @@ int socket_address_listen(
                 bool transparent,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                const char *label,
-                int *ret);
+                const char *label);
 
 bool socket_address_is(const SocketAddress *a, const char *s, int type);
 bool socket_address_is_netlink(const SocketAddress *a, const char *s);
 
 bool socket_address_matches_fd(const SocketAddress *a, int fd);
-
-int make_socket_fd(const char* address, int flags);
 
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_;
 

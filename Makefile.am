@@ -2859,6 +2859,7 @@ systemd_activate_SOURCES = \
 	src/activate/activate.c
 
 systemd_activate_LDADD = \
+	libsystemd-label.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la
 

@@ -993,46 +993,51 @@ static int socket_open_fds(Socket *s) {
                                 know_label = true;
                         }
 
-                        if ((r = socket_address_listen(
-                                             &p->address,
-                                             s->backlog,
-                                             s->bind_ipv6_only,
-                                             s->bind_to_device,
-                                             s->free_bind,
-                                             s->transparent,
-                                             s->directory_mode,
-                                             s->socket_mode,
-                                             label,
-                                             &p->fd)) < 0)
+                        r = socket_address_listen(
+                                        &p->address,
+                                        SOCK_CLOEXEC|SOCK_NONBLOCK,
+                                        s->backlog,
+                                        s->bind_ipv6_only,
+                                        s->bind_to_device,
+                                        s->free_bind,
+                                        s->transparent,
+                                        s->directory_mode,
+                                        s->socket_mode,
+                                        label);
+                        if (r < 0)
                                 goto rollback;
 
+                        p->fd = r;
                         socket_apply_socket_options(s, p->fd);
 
                 } else  if (p->type == SOCKET_SPECIAL) {
 
-                        if ((r = special_address_create(
-                                             p->path,
-                                             &p->fd)) < 0)
+                        r = special_address_create(
+                                        p->path,
+                                        &p->fd);
+                        if (r < 0)
                                 goto rollback;
 
                 } else  if (p->type == SOCKET_FIFO) {
 
-                        if ((r = fifo_address_create(
-                                             p->path,
-                                             s->directory_mode,
-                                             s->socket_mode,
-                                             &p->fd)) < 0)
+                        r = fifo_address_create(
+                                        p->path,
+                                        s->directory_mode,
+                                        s->socket_mode,
+                                        &p->fd);
+                        if (r < 0)
                                 goto rollback;
 
                         socket_apply_fifo_options(s, p->fd);
                 } else if (p->type == SOCKET_MQUEUE) {
 
-                        if ((r = mq_address_create(
-                                             p->path,
-                                             s->socket_mode,
-                                             s->mq_maxmsg,
-                                             s->mq_msgsize,
-                                             &p->fd)) < 0)
+                        r = mq_address_create(
+                                        p->path,
+                                        s->socket_mode,
+                                        s->mq_maxmsg,
+                                        s->mq_msgsize,
+                                        &p->fd);
+                        if (r < 0)
                                 goto rollback;
                 } else
                         assert_not_reached("Unknown port type");

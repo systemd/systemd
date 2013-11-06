@@ -91,6 +91,35 @@ static int print_socket(const char* desc, int fd) {
         return 0;
 }
 
+static int make_socket_fd(const char* address, int flags) {
+        _cleanup_free_ char *p = NULL;
+        SocketAddress a;
+        int fd, r;
+
+        r = socket_address_parse(&a, address);
+        if (r < 0) {
+                log_error("Failed to parse socket: %s", strerror(-r));
+                return r;
+        }
+
+        fd = socket_address_listen(&a, flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT, NULL, false, false, 0755, 0644, NULL);
+        if (fd < 0) {
+                log_error("Failed to listen: %s", strerror(-r));
+                return fd;
+        }
+
+        r = socket_address_print(&a, &p);
+        if (r < 0) {
+                log_error("socket_address_print(): %s", strerror(-r));
+                close_nointr_nofail(fd);
+                return r;
+        }
+
+        log_info("Listening on %s", p);
+
+        return fd;
+}
+
 static int open_sockets(int *epoll_fd, bool accept) {
         int n, fd, r;
         int count = 0;
@@ -129,6 +158,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
                         return fd;
                 }
 
+                assert(fd == SD_LISTEN_FDS_START + count);
                 count ++;
         }
 
