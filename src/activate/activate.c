@@ -41,54 +41,20 @@ static char** arg_args = NULL;
 static char** arg_environ = NULL;
 
 static int add_epoll(int epoll_fd, int fd) {
+        struct epoll_event ev = {
+                .events = EPOLLIN
+        };
         int r;
-        struct epoll_event ev = {EPOLLIN};
-        ev.data.fd = fd;
 
         assert(epoll_fd >= 0);
         assert(fd >= 0);
 
+        ev.data.fd = fd;
         r = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
         if (r < 0)
-                log_error("Failed to add event on epoll fd:%d for fd:%d: %s",
-                          epoll_fd, fd, strerror(-r));
-        return r;
-}
-
-static int print_socket(const char* desc, int fd) {
-        int r;
-        SocketAddress addr = {
-                .size = sizeof(union sockaddr_union),
-                .type = SOCK_STREAM,
-        };
-        int family;
-
-        r = getsockname(fd, &addr.sockaddr.sa, &addr.size);
-        if (r < 0) {
-                log_warning("Failed to query socket on fd:%d: %m", fd);
-                return 0;
-        }
-
-        family = socket_address_family(&addr);
-        switch(family) {
-        case AF_INET:
-        case AF_INET6: {
-                char* _cleanup_free_ a = NULL;
-                r = socket_address_print(&addr, &a);
-                if (r < 0)
-                        log_warning("socket_address_print(): %s", strerror(-r));
-                else
-                        log_info("%s %s address %s",
-                                 desc,
-                                 family == AF_INET ? "IP" : "IPv6",
-                                 a);
-                break;
-        }
-        default:
-                log_warning("Connection with unknown family %d", family);
-        }
-
-        return 0;
+                log_error("Failed to add event on epoll fd:%d for fd:%d: %m",
+                          epoll_fd, fd);
+        return -errno;
 }
 
 static int make_socket_fd(const char* address, int flags) {
@@ -108,22 +74,13 @@ static int make_socket_fd(const char* address, int flags) {
                 return fd;
         }
 
-        r = socket_address_print(&a, &p);
-        if (r < 0) {
-                log_error("socket_address_print(): %s", strerror(-r));
-                close_nointr_nofail(fd);
-                return r;
-        }
-
-        log_info("Listening on %s", p);
-
         return fd;
 }
 
 static int open_sockets(int *epoll_fd, bool accept) {
+        char **address;
         int n, fd, r;
         int count = 0;
-        char **address;
 
         n = sd_listen_fds(true);
         if (n < 0) {
@@ -131,17 +88,16 @@ static int open_sockets(int *epoll_fd, bool accept) {
                           strerror(-n));
                 return n;
         }
-        log_info("Received %d descriptors", n);
+        if (n > 0) {
+                log_info("Received %i descriptors via the environment.", n);
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
-                log_debug("Received descriptor fd:%d", fd);
-                print_socket("Listening on", fd);
+                for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
+                        r = fd_cloexec(fd, arg_accept);
+                        if (r < 0)
+                                return r;
 
-                r = fd_cloexec(fd, arg_accept);
-                if (r < 0)
-                        return r;
-
-                count ++;
+                        count ++;
+                }
         }
 
         /** Note: we leak some fd's on error here. I doesn't matter
@@ -150,7 +106,6 @@ static int open_sockets(int *epoll_fd, bool accept) {
          */
 
         STRV_FOREACH(address, arg_listen) {
-                log_info("Opening address %s", *address);
 
                 fd = make_socket_fd(*address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
                 if (fd < 0) {
@@ -168,8 +123,12 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 return -errno;
         }
 
-
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
+                _cleanup_free_ char *name = NULL;
+
+                getsockname_pretty(fd, &name);
+                log_info("Listening on %s.", strna(name));
+
                 r = add_epoll(*epoll_fd, fd);
                 if (r < 0)
                         return r;
@@ -179,16 +138,20 @@ static int open_sockets(int *epoll_fd, bool accept) {
 }
 
 static int launch(char* name, char **argv, char **env, int fds) {
-        unsigned n_env = 0, length;
-        _cleanup_strv_free_ char **envp = NULL;
-        char **s;
+
         static const char* tocopy[] = {"TERM=", "PATH=", "USER=", "HOME="};
+        _cleanup_strv_free_ char **envp = NULL;
         _cleanup_free_ char *tmp = NULL;
+        unsigned n_env = 0, length;
+        char **s;
         unsigned i;
 
         length = strv_length(arg_environ);
+
         /* PATH, TERM, HOME, USER, LISTEN_FDS, LISTEN_PID, NULL */
         envp = new0(char *, length + 7);
+        if (!envp)
+                return log_oom();
 
         STRV_FOREACH(s, arg_environ) {
                 if (strchr(*s, '='))
@@ -220,14 +183,15 @@ static int launch(char* name, char **argv, char **env, int fds) {
         log_info("Execing %s (%s)", name, tmp);
         execvpe(name, argv, envp);
         log_error("Failed to execp %s (%s): %m", name, tmp);
+
         return -errno;
 }
 
 static int launch1(const char* child, char** argv, char **env, int fd) {
+        _cleanup_free_ char *tmp = NULL;
         pid_t parent_pid, child_pid;
         int r;
 
-        _cleanup_free_ char *tmp = NULL;
         tmp = strv_join(argv, " ");
         if (!tmp)
                 return log_oom();
@@ -280,22 +244,20 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
 }
 
 static int do_accept(const char* name, char **argv, char **envp, int fd) {
-        SocketAddress addr = {
-                .size = sizeof(union sockaddr_union),
-                .type = SOCK_STREAM,
-        };
-        int fd2, r;
+        _cleanup_free_ char *local = NULL, *peer = NULL;
+        int fd2;
 
-        fd2 = accept(fd, &addr.sockaddr.sa, &addr.size);
+        fd2 = accept(fd, NULL, NULL);
         if (fd2 < 0) {
                 log_error("Failed to accept connection on fd:%d: %m", fd);
                 return fd2;
         }
 
-        print_socket("Connection from", fd2);
+        getsockname_pretty(fd2, &local);
+        getpeername_pretty(fd2, &peer);
+        log_info("Connection from %s to %s", strna(peer), strna(local));
 
-        r = launch1(name, argv, envp, fd2);
-        return r;
+        return launch1(name, argv, envp, fd2);
 }
 
 /* SIGCHLD handler. */
