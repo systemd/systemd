@@ -25,7 +25,7 @@
 #include "bus-util.h"
 #include "bus-type.h"
 
-int sd_bus_emit_signal(
+_public_ int sd_bus_emit_signal(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -56,7 +56,7 @@ int sd_bus_emit_signal(
         return sd_bus_send(bus, m, NULL);
 }
 
-int sd_bus_call_method(
+_public_ int sd_bus_call_method(
                 sd_bus *bus,
                 const char *destination,
                 const char *path,
@@ -90,7 +90,7 @@ int sd_bus_call_method(
         return sd_bus_send_with_reply_and_block(bus, m, 0, error, reply);
 }
 
-int sd_bus_reply_method_return(
+_public_ int sd_bus_reply_method_return(
                 sd_bus *bus,
                 sd_bus_message *call,
                 const char *types, ...) {
@@ -125,7 +125,7 @@ int sd_bus_reply_method_return(
         return sd_bus_send(bus, m, NULL);
 }
 
-int sd_bus_reply_method_error(
+_public_ int sd_bus_reply_method_error(
                 sd_bus *bus,
                 sd_bus_message *call,
                 const sd_bus_error *e) {
@@ -151,7 +151,7 @@ int sd_bus_reply_method_error(
         return sd_bus_send(bus, m, NULL);
 }
 
-int sd_bus_reply_method_errorf(
+_public_ int sd_bus_reply_method_errorf(
                 sd_bus *bus,
                 sd_bus_message *call,
                 const char *name,
@@ -182,7 +182,7 @@ int sd_bus_reply_method_errorf(
         return sd_bus_reply_method_error(bus, call, &error);
 }
 
-int sd_bus_reply_method_errno(
+_public_ int sd_bus_reply_method_errno(
                 sd_bus *bus,
                 sd_bus_message *call,
                 int error,
@@ -208,7 +208,7 @@ int sd_bus_reply_method_errno(
         return sd_bus_reply_method_error(bus, call, &berror);
 }
 
-int sd_bus_reply_method_errnof(
+_public_ int sd_bus_reply_method_errnof(
                 sd_bus *bus,
                 sd_bus_message *call,
                 int error,
@@ -235,7 +235,7 @@ int sd_bus_reply_method_errnof(
         return sd_bus_reply_method_error(bus, call, &berror);
 }
 
-int sd_bus_get_property(
+_public_ int sd_bus_get_property(
                 sd_bus *bus,
                 const char *destination,
                 const char *path,
@@ -270,7 +270,7 @@ int sd_bus_get_property(
         return 0;
 }
 
-int sd_bus_get_property_trivial(
+_public_ int sd_bus_get_property_trivial(
                 sd_bus *bus,
                 const char *destination,
                 const char *path,
@@ -305,7 +305,7 @@ int sd_bus_get_property_trivial(
         return 0;
 }
 
-int sd_bus_set_property(
+_public_ int sd_bus_set_property(
                 sd_bus *bus,
                 const char *destination,
                 const char *path,

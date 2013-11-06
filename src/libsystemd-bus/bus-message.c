@@ -440,7 +440,7 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
         return m;
 }
 
-int sd_bus_message_new_signal(
+_public_ int sd_bus_message_new_signal(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -480,7 +480,7 @@ fail:
         return r;
 }
 
-int sd_bus_message_new_method_call(
+_public_ int sd_bus_message_new_method_call(
                 sd_bus *bus,
                 const char *destination,
                 const char *path,
@@ -571,7 +571,7 @@ fail:
         return r;
 }
 
-int sd_bus_message_new_method_return(
+_public_ int sd_bus_message_new_method_return(
                 sd_bus *bus,
                 sd_bus_message *call,
                 sd_bus_message **m) {
@@ -579,7 +579,7 @@ int sd_bus_message_new_method_return(
         return message_new_reply(bus, call, SD_BUS_MESSAGE_METHOD_RETURN, m);
 }
 
-int sd_bus_message_new_method_error(
+_public_ int sd_bus_message_new_method_error(
                 sd_bus *bus,
                 sd_bus_message *call,
                 const sd_bus_error *e,
@@ -613,7 +613,7 @@ fail:
         return r;
 }
 
-int sd_bus_message_new_method_errorf(
+_public_ int sd_bus_message_new_method_errorf(
                 sd_bus *bus,
                 sd_bus_message *call,
                 sd_bus_message **m,
@@ -638,7 +638,7 @@ int sd_bus_message_new_method_errorf(
         return sd_bus_message_new_method_error(bus, call, &error, m);
 }
 
-int sd_bus_message_new_method_errno(
+_public_ int sd_bus_message_new_method_errno(
                 sd_bus *bus,
                 sd_bus_message *call,
                 int error,
@@ -655,7 +655,7 @@ int sd_bus_message_new_method_errno(
         return sd_bus_message_new_method_error(bus, call, &berror, m);
 }
 
-int sd_bus_message_new_method_errnof(
+_public_ int sd_bus_message_new_method_errnof(
                 sd_bus *bus,
                 sd_bus_message *call,
                 sd_bus_message **m,
@@ -724,7 +724,7 @@ fail:
         return r;
 }
 
-sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
+_public_ sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
         assert_return(m, NULL);
 
         assert(m->n_ref > 0);
@@ -733,7 +733,7 @@ sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
         return m;
 }
 
-sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
+_public_ sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
         assert_return(m, NULL);
 
         assert(m->n_ref > 0);
@@ -745,7 +745,7 @@ sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
         return NULL;
 }
 
-int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type) {
+_public_ int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type) {
         assert_return(m, -EINVAL);
         assert_return(type, -EINVAL);
 
@@ -753,7 +753,7 @@ int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type) {
         return 0;
 }
 
-int sd_bus_message_get_serial(sd_bus_message *m, uint64_t *serial) {
+_public_ int sd_bus_message_get_serial(sd_bus_message *m, uint64_t *serial) {
         assert_return(m, -EINVAL);
         assert_return(serial, -EINVAL);
         assert_return(m->header->serial != 0, -ENOENT);
@@ -762,7 +762,7 @@ int sd_bus_message_get_serial(sd_bus_message *m, uint64_t *serial) {
         return 0;
 }
 
-int sd_bus_message_get_reply_serial(sd_bus_message *m, uint64_t *serial) {
+_public_ int sd_bus_message_get_reply_serial(sd_bus_message *m, uint64_t *serial) {
         assert_return(m, -EINVAL);
         assert_return(serial, -EINVAL);
         assert_return(m->reply_serial != 0, -ENOENT);
@@ -771,49 +771,50 @@ int sd_bus_message_get_reply_serial(sd_bus_message *m, uint64_t *serial) {
         return 0;
 }
 
-int sd_bus_message_get_no_reply(sd_bus_message *m) {
+_public_ int sd_bus_message_get_no_reply(sd_bus_message *m) {
         assert_return(m, -EINVAL);
 
         return m->header->type == SD_BUS_MESSAGE_METHOD_CALL ? !!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED) : 0;
 }
 
-const char *sd_bus_message_get_path(sd_bus_message *m) {
+_public_ const char *sd_bus_message_get_path(sd_bus_message *m) {
         assert_return(m, NULL);
 
         return m->path;
 }
 
-const char *sd_bus_message_get_interface(sd_bus_message *m) {
+_public_ const char *sd_bus_message_get_interface(sd_bus_message *m) {
         assert_return(m, NULL);
 
         return m->interface;
 }
 
-const char *sd_bus_message_get_member(sd_bus_message *m) {
+_public_ const char *sd_bus_message_get_member(sd_bus_message *m) {
         assert_return(m, NULL);
 
         return m->member;
 }
-const char *sd_bus_message_get_destination(sd_bus_message *m) {
+
+_public_ const char *sd_bus_message_get_destination(sd_bus_message *m) {
         assert_return(m, NULL);
 
         return m->destination;
 }
 
-const char *sd_bus_message_get_sender(sd_bus_message *m) {
+_public_ const char *sd_bus_message_get_sender(sd_bus_message *m) {
         assert_return(m, NULL);
 
         return m->sender;
 }
 
-const sd_bus_error *sd_bus_message_get_error(sd_bus_message *m) {
+_public_ const sd_bus_error *sd_bus_message_get_error(sd_bus_message *m) {
         assert_return(m, NULL);
         assert_return(sd_bus_error_is_set(&m->error), NULL);
 
         return &m->error;
 }
 
-int sd_bus_message_get_uid(sd_bus_message *m, uid_t *uid) {
+_public_ int sd_bus_message_get_uid(sd_bus_message *m, uid_t *uid) {
         assert_return(m, -EINVAL);
         assert_return(uid, -EINVAL);
         assert_return(m->uid_valid, -ESRCH);
@@ -822,7 +823,7 @@ int sd_bus_message_get_uid(sd_bus_message *m, uid_t *uid) {
         return 0;
 }
 
-int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid) {
+_public_ int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid) {
         assert_return(m, -EINVAL);
         assert_return(gid, -EINVAL);
         assert_return(m->gid_valid, -ESRCH);
@@ -831,7 +832,7 @@ int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid) {
         return 0;
 }
 
-int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid) {
+_public_ int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid) {
         assert_return(m, -EINVAL);
         assert_return(pid, -EINVAL);
         assert_return(m->pid > 0, -ESRCH);
@@ -840,7 +841,7 @@ int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid) {
         return 0;
 }
 
-int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid) {
+_public_ int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid) {
         assert_return(m, -EINVAL);
         assert_return(tid, -EINVAL);
         assert_return(m->tid > 0, -ESRCH);
@@ -849,7 +850,7 @@ int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid) {
         return 0;
 }
 
-int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec) {
+_public_ int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec) {
         assert_return(m, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(m->pid_starttime > 0, -ESRCH);
@@ -858,7 +859,7 @@ int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec) {
         return 0;
 }
 
-int sd_bus_message_get_selinux_context(sd_bus_message *m, const char **ret) {
+_public_ int sd_bus_message_get_selinux_context(sd_bus_message *m, const char **ret) {
         assert_return(m, -EINVAL);
         assert_return(m->label, -ESRCH);
 
@@ -866,7 +867,7 @@ int sd_bus_message_get_selinux_context(sd_bus_message *m, const char **ret) {
         return 0;
 }
 
-int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec) {
+_public_ int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec) {
         assert_return(m, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(m->monotonic > 0, -ESRCH);
@@ -875,7 +876,7 @@ int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec) {
         return 0;
 }
 
-int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec) {
+_public_ int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec) {
         assert_return(m, -EINVAL);
         assert_return(usec, -EINVAL);
         assert_return(m->realtime > 0, -ESRCH);
@@ -884,7 +885,7 @@ int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec) {
         return 0;
 }
 
-int sd_bus_message_get_comm(sd_bus_message *m, const char **ret) {
+_public_ int sd_bus_message_get_comm(sd_bus_message *m, const char **ret) {
         assert_return(m, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return(m->comm, -ESRCH);
@@ -893,7 +894,7 @@ int sd_bus_message_get_comm(sd_bus_message *m, const char **ret) {
         return 0;
 }
 
-int sd_bus_message_get_tid_comm(sd_bus_message *m, const char **ret) {
+_public_ int sd_bus_message_get_tid_comm(sd_bus_message *m, const char **ret) {
         assert_return(m, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return(m->tid_comm, -ESRCH);
@@ -902,7 +903,7 @@ int sd_bus_message_get_tid_comm(sd_bus_message *m, const char **ret) {
         return 0;
 }
 
-int sd_bus_message_get_exe(sd_bus_message *m, const char **ret) {
+_public_ int sd_bus_message_get_exe(sd_bus_message *m, const char **ret) {
         assert_return(m, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return(m->exe, -ESRCH);
@@ -911,7 +912,7 @@ int sd_bus_message_get_exe(sd_bus_message *m, const char **ret) {
         return 0;
 }
 
-int sd_bus_message_get_cgroup(sd_bus_message *m, const char **ret) {
+_public_ int sd_bus_message_get_cgroup(sd_bus_message *m, const char **ret) {
         assert_return(m, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return(m->cgroup, -ESRCH);
@@ -920,7 +921,7 @@ int sd_bus_message_get_cgroup(sd_bus_message *m, const char **ret) {
         return 0;
 }
 
-int sd_bus_message_get_unit(sd_bus_message *m, const char **ret) {
+_public_ int sd_bus_message_get_unit(sd_bus_message *m, const char **ret) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -937,7 +938,7 @@ int sd_bus_message_get_unit(sd_bus_message *m, const char **ret) {
         return 0;
 }
 
-int sd_bus_message_get_user_unit(sd_bus_message *m, const char **ret) {
+_public_ int sd_bus_message_get_user_unit(sd_bus_message *m, const char **ret) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -954,7 +955,7 @@ int sd_bus_message_get_user_unit(sd_bus_message *m, const char **ret) {
         return 0;
 }
 
-int sd_bus_message_get_session(sd_bus_message *m, const char **ret) {
+_public_ int sd_bus_message_get_session(sd_bus_message *m, const char **ret) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -971,7 +972,7 @@ int sd_bus_message_get_session(sd_bus_message *m, const char **ret) {
         return 0;
 }
 
-int sd_bus_message_get_owner_uid(sd_bus_message *m, uid_t *uid) {
+_public_ int sd_bus_message_get_owner_uid(sd_bus_message *m, uid_t *uid) {
         assert_return(m, -EINVAL);
         assert_return(uid, -EINVAL);
         assert_return(m->cgroup, -ESRCH);
@@ -979,7 +980,7 @@ int sd_bus_message_get_owner_uid(sd_bus_message *m, uid_t *uid) {
         return cg_path_get_owner_uid(m->cgroup, uid);
 }
 
-int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline) {
+_public_ int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline) {
         size_t n, i;
         const char *p;
         bool first;
@@ -1008,7 +1009,7 @@ int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline) {
         return 0;
 }
 
-int sd_bus_message_get_audit_sessionid(sd_bus_message *m, uint32_t *sessionid) {
+_public_ int sd_bus_message_get_audit_sessionid(sd_bus_message *m, uint32_t *sessionid) {
         assert_return(m, -EINVAL);
         assert_return(sessionid, -EINVAL);
         assert_return(m->audit, -ESRCH);
@@ -1017,7 +1018,7 @@ int sd_bus_message_get_audit_sessionid(sd_bus_message *m, uint32_t *sessionid) {
         return 0;
 }
 
-int sd_bus_message_get_audit_loginuid(sd_bus_message *m, uid_t *uid) {
+_public_ int sd_bus_message_get_audit_loginuid(sd_bus_message *m, uid_t *uid) {
         assert_return(m, -EINVAL);
         assert_return(uid, -EINVAL);
         assert_return(m->audit, -ESRCH);
@@ -1026,7 +1027,7 @@ int sd_bus_message_get_audit_loginuid(sd_bus_message *m, uid_t *uid) {
         return 0;
 }
 
-int sd_bus_message_has_effective_cap(sd_bus_message *m, int capability) {
+_public_ int sd_bus_message_has_effective_cap(sd_bus_message *m, int capability) {
         unsigned sz;
 
         assert_return(m, -EINVAL);
@@ -1040,7 +1041,9 @@ int sd_bus_message_has_effective_cap(sd_bus_message *m, int capability) {
         return !!(m->capability[2 * sz + (capability / 8)] & (1 << (capability % 8)));
 }
 
-int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const char *member) {
+_public_ int sd_bus_message_is_signal(sd_bus_message *m,
+                                      const char *interface,
+                                      const char *member) {
         assert_return(m, -EINVAL);
 
         if (m->header->type != SD_BUS_MESSAGE_SIGNAL)
@@ -1055,7 +1058,9 @@ int sd_bus_message_is_signal(sd_bus_message *m, const char *interface, const cha
         return 1;
 }
 
-int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, const char *member) {
+_public_ int sd_bus_message_is_method_call(sd_bus_message *m,
+                                           const char *interface,
+                                           const char *member) {
         assert_return(m, -EINVAL);
 
         if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
@@ -1070,7 +1075,7 @@ int sd_bus_message_is_method_call(sd_bus_message *m, const char *interface, cons
         return 1;
 }
 
-int sd_bus_message_is_method_error(sd_bus_message *m, const char *name) {
+_public_ int sd_bus_message_is_method_error(sd_bus_message *m, const char *name) {
         assert_return(m, -EINVAL);
 
         if (m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
@@ -1082,7 +1087,7 @@ int sd_bus_message_is_method_error(sd_bus_message *m, const char *name) {
         return 1;
 }
 
-int sd_bus_message_set_no_reply(sd_bus_message *m, int b) {
+_public_ int sd_bus_message_set_no_reply(sd_bus_message *m, int b) {
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EPERM);
@@ -1474,11 +1479,11 @@ fail:
         return r;
 }
 
-int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p) {
+_public_ int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p) {
         return message_append_basic(m, type, p, NULL);
 }
 
-int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s) {
+_public_ int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s) {
         struct bus_container *c;
         void *a;
 
@@ -1740,7 +1745,7 @@ static int bus_message_open_dict_entry(
         return 0;
 }
 
-int sd_bus_message_open_container(
+_public_ int sd_bus_message_open_container(
                 sd_bus_message *m,
                 char type,
                 const char *contents) {
@@ -1806,7 +1811,7 @@ int sd_bus_message_open_container(
         return 0;
 }
 
-int sd_bus_message_close_container(sd_bus_message *m) {
+_public_ int sd_bus_message_close_container(sd_bus_message *m) {
         struct bus_container *c;
 
         assert_return(m, -EINVAL);
@@ -2061,7 +2066,7 @@ int bus_message_append_ap(
         return 0;
 }
 
-int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
+_public_ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
         va_list ap;
         int r;
 
@@ -2077,7 +2082,10 @@ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
         return r;
 }
 
-int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size, void **ptr) {
+_public_ int sd_bus_message_append_array_space(sd_bus_message *m,
+                                               char type,
+                                               size_t size,
+                                               void **ptr) {
         ssize_t align, sz;
         void *a;
         int r;
@@ -2113,7 +2121,10 @@ int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size,
         return 0;
 }
 
-int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, size_t size) {
+_public_ int sd_bus_message_append_array(sd_bus_message *m,
+                                         char type,
+                                         const void *ptr,
+                                         size_t size) {
         int r;
         void *p;
 
@@ -2133,7 +2144,9 @@ int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, s
         return 0;
 }
 
-int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, sd_memfd *memfd) {
+_public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
+                                               char type,
+                                               sd_memfd *memfd) {
         _cleanup_close_ int copy_fd = -1;
         struct bus_body_part *part;
         ssize_t align, sz;
@@ -2199,7 +2212,7 @@ int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, sd_memfd *me
         return sd_bus_message_close_container(m);
 }
 
-int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *memfd) {
+_public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *memfd) {
         _cleanup_close_ int copy_fd = -1;
         struct bus_body_part *part;
         struct bus_container *c;
@@ -2275,7 +2288,7 @@ int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *memfd) {
         return 0;
 }
 
-int sd_bus_message_append_strv(sd_bus_message *m, char **l) {
+_public_ int sd_bus_message_append_strv(sd_bus_message *m, char **l) {
         char **i;
         int r;
 
@@ -2555,7 +2568,7 @@ static bool validate_object_path(const char *s, size_t l) {
         return true;
 }
 
-int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
+_public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
         struct bus_container *c;
         void *q;
         int r;
@@ -2886,7 +2899,9 @@ static int bus_message_enter_dict_entry(
         return 1;
 }
 
-int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents) {
+_public_ int sd_bus_message_enter_container(sd_bus_message *m,
+                                            char type,
+                                            const char *contents) {
         struct bus_container *c, *w;
         uint32_t *array_size = NULL;
         char *signature;
@@ -2983,7 +2998,7 @@ int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *con
         return 1;
 }
 
-int sd_bus_message_exit_container(sd_bus_message *m) {
+_public_ int sd_bus_message_exit_container(sd_bus_message *m) {
         struct bus_container *c;
 
         assert_return(m, -EINVAL);
@@ -3031,7 +3046,7 @@ static void message_quit_container(sd_bus_message *m) {
         c->index = c->saved_index;
 }
 
-int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents) {
+_public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents) {
         struct bus_container *c;
         int r;
 
@@ -3151,7 +3166,7 @@ eof:
         return 0;
 }
 
-int sd_bus_message_rewind(sd_bus_message *m, int complete) {
+_public_ int sd_bus_message_rewind(sd_bus_message *m, int complete) {
         struct bus_container *c;
 
         assert_return(m, -EINVAL);
@@ -3370,7 +3385,7 @@ static int message_read_ap(
         return 1;
 }
 
-int sd_bus_message_read(sd_bus_message *m, const char *types, ...) {
+_public_ int sd_bus_message_read(sd_bus_message *m, const char *types, ...) {
         va_list ap;
         int r;
 
@@ -3385,7 +3400,7 @@ int sd_bus_message_read(sd_bus_message *m, const char *types, ...) {
         return r;
 }
 
-int sd_bus_message_skip(sd_bus_message *m, const char *types) {
+_public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
         int r;
 
         assert_return(m, -EINVAL);
@@ -3527,7 +3542,10 @@ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
         }
 }
 
-int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size) {
+_public_ int sd_bus_message_read_array(sd_bus_message *m,
+                                       char type,
+                                       const void **ptr,
+                                       size_t *size) {
         struct bus_container *c;
         void *p;
         size_t sz;
@@ -4065,7 +4083,7 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
         return 0;
 }
 
-int sd_bus_message_set_destination(sd_bus_message *m, const char *destination) {
+_public_ int sd_bus_message_set_destination(sd_bus_message *m, const char *destination) {
         assert_return(m, -EINVAL);
         assert_return(destination, -EINVAL);
         assert_return(!m->sealed, -EPERM);
@@ -4489,7 +4507,7 @@ int bus_header_message_size(struct bus_header *h, size_t *sum) {
         return 0;
 }
 
-int sd_bus_message_get_errno(sd_bus_message *m) {
+_public_ int sd_bus_message_get_errno(sd_bus_message *m) {
         assert_return(m, -EINVAL);
 
         if (m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
@@ -4498,7 +4516,7 @@ int sd_bus_message_get_errno(sd_bus_message *m) {
         return sd_bus_error_get_errno(&m->error);
 }
 
-const char* sd_bus_message_get_signature(sd_bus_message *m, int complete) {
+_public_ const char* sd_bus_message_get_signature(sd_bus_message *m, int complete) {
         struct bus_container *c;
 
         assert_return(m, NULL);
@@ -4507,7 +4525,7 @@ const char* sd_bus_message_get_signature(sd_bus_message *m, int complete) {
         return c->signature ?: "";
 }
 
-int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all) {
+_public_ int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all) {
         bool done_something = false;
         int r;
 
@@ -4586,7 +4604,7 @@ int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all) {
         return done_something;
 }
 
-int sd_bus_message_verify_type(sd_bus_message *m, char type, const char *contents) {
+_public_ int sd_bus_message_verify_type(sd_bus_message *m, char type, const char *contents) {
         const char *c;
         char t;
         int r;

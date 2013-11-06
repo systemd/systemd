@@ -38,7 +38,7 @@ bool bus_error_is_dirty(sd_bus_error *e) {
         return e->name || e->message || e->need_free;
 }
 
-void sd_bus_error_free(sd_bus_error *e) {
+_public_ void sd_bus_error_free(sd_bus_error *e) {
         if (!e)
                 return;
 
@@ -51,7 +51,7 @@ void sd_bus_error_free(sd_bus_error *e) {
         e->need_free = false;
 }
 
-int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message) {
+_public_ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message) {
         char *n, *m = NULL;
 
         if (!e)
@@ -106,7 +106,7 @@ int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_li
         return 0;
 }
 
-int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...) {
+_public_ int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...) {
 
         if (format) {
                 int r;
@@ -122,7 +122,7 @@ int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...
         return sd_bus_error_set(e, name, NULL);
 }
 
-int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
+_public_ int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
         char *x, *y = NULL;
 
         if (!dest)
@@ -150,7 +150,7 @@ int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
         return 0;
 }
 
-int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message) {
+_public_ int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message) {
         if (!e)
                 return 0;
 
@@ -161,21 +161,21 @@ int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *messag
         return 0;
 }
 
-int sd_bus_error_is_set(const sd_bus_error *e) {
+_public_ int sd_bus_error_is_set(const sd_bus_error *e) {
         if (!e)
                 return 0;
 
         return !!e->name;
 }
 
-int sd_bus_error_has_name(const sd_bus_error *e, const char *name) {
+_public_ int sd_bus_error_has_name(const sd_bus_error *e, const char *name) {
         if (!e)
                 return 0;
 
         return streq_ptr(e->name, name);
 }
 
-int sd_bus_error_get_errno(const sd_bus_error* e) {
+_public_ int sd_bus_error_get_errno(const sd_bus_error* e) {
 
         /* Better replce this with a gperf table */
 
@@ -380,7 +380,7 @@ static sd_bus_error map_from_errno(int error) {
         return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_FAILED, "Operation failed");
 }
 
-int sd_bus_error_set_errno(sd_bus_error *e, int error) {
+_public_ int sd_bus_error_set_errno(sd_bus_error *e, int error) {
         sd_bus_error x;
 
         x = map_from_errno(error);
@@ -425,7 +425,7 @@ fallback:
         return bus_error_set_strerror_or_const(e, x.name, error, x.message);
 }
 
-int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) {
+_public_ int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) {
         int r;
 
         if (!e)

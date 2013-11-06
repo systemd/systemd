@@ -59,6 +59,10 @@ LIBSYSTEMD_JOURNAL_CURRENT=11
 LIBSYSTEMD_JOURNAL_REVISION=3
 LIBSYSTEMD_JOURNAL_AGE=11
 
+LIBSYSTEMD_BUS_CURRENT=0
+LIBSYSTEMD_BUS_REVISION=0
+LIBSYSTEMD_BUS_AGE=0
+
 # Dirs of external packages
 dbuspolicydir=@dbuspolicydir@
 dbussessionservicedir=@dbussessionservicedir@
@@ -1477,7 +1481,10 @@ systemd_analyze_CFLAGS = \
 
 systemd_analyze_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon.la \
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
@@ -1488,9 +1495,10 @@ systemd_initctl_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_initctl_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-daemon.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemd_update_utmp_SOURCES = \
@@ -1502,8 +1510,10 @@ systemd_update_utmp_CFLAGS = \
 	$(AUDIT_CFLAGS)
 
 systemd_update_utmp_LDADD = \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
 	libsystemd-shared.la \
-	libsystemd-bus.la \
 	$(AUDIT_LIBS)
 
 # ------------------------------------------------------------------------------
@@ -1656,8 +1666,10 @@ systemd_fsck_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_fsck_LDADD = \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
 	libsystemd-shared.la \
-	libsystemd-bus.la \
 	libudev.la
 
 # ------------------------------------------------------------------------------
@@ -1785,8 +1797,10 @@ systemd_cgroups_agent_SOURCES = \
 	src/cgroups-agent/cgroups-agent.c
 
 systemd_cgroups_agent_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 systemctl_SOURCES = \
@@ -1853,10 +1867,10 @@ systemd_nspawn_SOURCES = \
 systemd_nspawn_LDADD = \
 	libsystemd-label.la \
 	libsystemd-capability.la \
-	libsystemd-shared.la \
-	libsystemd-daemon.la \
+	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
-	libsystemd-bus.la
+	libsystemd-shared.la \
+	libsystemd-daemon.la
 
 # ------------------------------------------------------------------------------
 systemd_run_SOURCES = \
@@ -1865,10 +1879,10 @@ systemd_run_SOURCES = \
 systemd_run_LDADD = \
 	libsystemd-label.la \
 	libsystemd-capability.la \
+	libsystemd-bus-internal.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-id128-internal.la \
-	libsystemd-bus.la
+	libsystemd-id128-internal.la
 
 # ------------------------------------------------------------------------------
 systemd_stdio_bridge_SOURCES = \
@@ -1984,8 +1998,22 @@ libsystemd_bus_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	-pthread
 
-noinst_LTLIBRARIES += \
+libsystemd_bus_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	-version-info $(LIBSYSTEMD_BUS_CURRENT):$(LIBSYSTEMD_BUS_REVISION):$(LIBSYSTEMD_BUS_AGE) \
+	-Wl,--version-script=$(top_srcdir)/src/libsystemd-bus/libsystemd-bus.sym
+
+lib_LTLIBRARIES += \
 	libsystemd-bus.la
+
+libsystemd_bus_internal_la_SOURCES = \
+	$(libsystemd_bus_la_SOURCES)
+
+libsystemd_bus_internal_la_CFLAGS = \
+	$(libsystemd_bus_la_CFLAGS)
+
+noinst_LTLIBRARIES += \
+	libsystemd-bus-internal.la
 
 tests += \
 	test-bus-marshal \
@@ -2009,8 +2037,10 @@ test_bus_marshal_SOURCES = \
 	src/libsystemd-bus/test-bus-marshal.c
 
 test_bus_marshal_LDADD = \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
 	libsystemd-shared.la \
-	libsystemd-bus.la \
+	libsystemd-daemon.la \
 	$(GLIB_LIBS) \
 	$(DBUS_LIBS)
 
@@ -2024,7 +2054,7 @@ test_bus_signature_SOURCES = \
 
 test_bus_signature_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la
 
 test_bus_chat_SOURCES = \
 	src/libsystemd-bus/test-bus-chat.c
@@ -2034,9 +2064,10 @@ test_bus_chat_CFLAGS = \
 	-pthread
 
 test_bus_chat_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la \
-	libsystemd-id128-internal.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 test_bus_server_SOURCES = \
 	src/libsystemd-bus/test-bus-server.c
@@ -2046,9 +2077,10 @@ test_bus_server_CFLAGS = \
 	-pthread
 
 test_bus_server_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la \
-	libsystemd-id128-internal.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 test_bus_objects_SOURCES = \
 	src/libsystemd-bus/test-bus-objects.c
@@ -2058,77 +2090,87 @@ test_bus_objects_CFLAGS = \
 	-pthread
 
 test_bus_objects_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la \
-	libsystemd-id128-internal.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 test_bus_match_SOURCES = \
 	src/libsystemd-bus/test-bus-match.c
 
 test_bus_match_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la \
-	libsystemd-id128-internal.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 test_bus_kernel_SOURCES = \
 	src/libsystemd-bus/test-bus-kernel.c
 
 test_bus_kernel_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la \
-	libsystemd-id128-internal.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 test_bus_kernel_bloom_SOURCES = \
 	src/libsystemd-bus/test-bus-kernel-bloom.c
 
 test_bus_kernel_bloom_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la \
-	libsystemd-id128-internal.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 test_bus_kernel_benchmark_SOURCES = \
 	src/libsystemd-bus/test-bus-kernel-benchmark.c
 
 test_bus_kernel_benchmark_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la \
-	libsystemd-id128-internal.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 test_bus_memfd_SOURCES = \
 	src/libsystemd-bus/test-bus-memfd.c
 
 test_bus_memfd_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la
 
 test_bus_zero_copy_SOURCES = \
 	src/libsystemd-bus/test-bus-zero-copy.c
 
 test_bus_zero_copy_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 test_bus_introspect_SOURCES = \
 	src/libsystemd-bus/test-bus-introspect.c
 
 test_bus_introspect_LDADD = \
 	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la
 
 test_event_SOURCES = \
 	src/libsystemd-bus/test-event.c
 
 test_event_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la \
-	libsystemd-id128-internal.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 busctl_SOURCES = \
 	src/libsystemd-bus/busctl.c
 
 busctl_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC
@@ -3204,12 +3246,12 @@ systemd_socket_proxyd_SOURCES = \
 	src/socket-proxy/socket-proxyd.c
 
 systemd_socket_proxyd_LDADD = \
-	libsystemd-shared.la \
 	libsystemd-logs.la \
+	libsystemd-bus-internal.la \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la \
-	libsystemd-daemon.la \
-	libsystemd-bus.la
+	libsystemd-shared.la \
+	libsystemd-daemon.la
 
 # ------------------------------------------------------------------------------
 if ENABLE_COREDUMP
@@ -3495,9 +3537,10 @@ systemd_hostnamed_SOURCES = \
 
 systemd_hostnamed_LDADD = \
 	libsystemd-label.la \
-	libsystemd-shared.la \
-	libsystemd-daemon.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 rootlibexec_PROGRAMS += \
 	systemd-hostnamed
@@ -3521,9 +3564,10 @@ hostnamectl_SOURCES = \
 	src/hostname/hostnamectl.c
 
 hostnamectl_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la \
-	libsystemd-id128-internal.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 bin_PROGRAMS += \
 	hostnamectl
@@ -3549,9 +3593,10 @@ systemd_localed_SOURCES = \
 
 systemd_localed_LDADD = \
 	libsystemd-label.la \
-	libsystemd-shared.la \
-	libsystemd-daemon.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 nodist_systemunit_DATA += \
 	units/systemd-localed.service
@@ -3584,9 +3629,10 @@ localectl_SOURCES = \
 	src/locale/localectl.c
 
 localectl_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la \
-	libsystemd-id128-internal.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 bin_PROGRAMS += \
 	localectl
@@ -3612,8 +3658,10 @@ systemd_timedated_SOURCES = \
 
 systemd_timedated_LDADD = \
 	libsystemd-label.la \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
 	libsystemd-shared.la \
-	libsystemd-daemon.la \
 	libsystemd-bus.la
 
 rootlibexec_PROGRAMS += \
@@ -3646,8 +3694,10 @@ timedatectl_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 timedatectl_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 bin_PROGRAMS += \
 	timedatectl
@@ -3708,7 +3758,7 @@ libsystemd_machine_core_la_LIBADD = \
 	libsystemd-audit.la \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
-	libsystemd-bus.la \
+	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
 	libudev.la
 
@@ -3723,8 +3773,10 @@ machinectl_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 machinectl_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 rootbin_PROGRAMS += \
 	machinectl
@@ -3806,7 +3858,7 @@ libsystemd_logind_core_la_LIBADD = \
 	libsystemd-shared.la \
 	libsystemd-daemon.la \
 	libsystemd-id128-internal.la \
-	libsystemd-bus.la \
+	libsystemd-bus-internal.la \
 	libudev.la
 
 if HAVE_ACL
@@ -3861,8 +3913,10 @@ systemd_inhibit_CFLAGS = \
 	$(DBUS_CFLAGS)
 
 systemd_inhibit_LDADD = \
-	libsystemd-shared.la \
-	libsystemd-bus.la
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 rootbin_PROGRAMS += \
 	systemd-inhibit

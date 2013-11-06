@@ -35,7 +35,7 @@
 #include "bus-bloom.h"
 #include "bus-util.h"
 
-int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
+_public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         int r;
 
         if (!bus)
@@ -53,7 +53,7 @@ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         return 0;
 }
 
-int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
+_public_ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         uint32_t ret;
         int r;
@@ -111,7 +111,7 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
         }
 }
 
-int sd_bus_release_name(sd_bus *bus, const char *name) {
+_public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         uint32_t ret;
         int r;
@@ -166,7 +166,7 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
         return ret;
 }
 
-int sd_bus_list_names(sd_bus *bus, char ***l) {
+_public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
         _cleanup_bus_message_unref_ sd_bus_message *reply1 = NULL, *reply2 = NULL;
         char **x = NULL;
         int r;
@@ -220,7 +220,7 @@ int sd_bus_list_names(sd_bus *bus, char ***l) {
         return 0;
 }
 
-int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
+_public_ int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         const char *found;
         int r;
@@ -264,7 +264,7 @@ int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
         return 0;
 }
 
-int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
+_public_ int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         uint32_t u;
         int r;
@@ -301,7 +301,7 @@ int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
         return 0;
 }
 
-int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
+_public_ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         uint32_t u;
         int r;
@@ -538,7 +538,7 @@ int bus_remove_match_internal(
         return 0;
 }
 
-int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
+_public_ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         const char *mid;
         int r;

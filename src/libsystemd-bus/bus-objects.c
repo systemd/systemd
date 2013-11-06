@@ -1389,19 +1389,35 @@ static int bus_remove_object(
         return 1;
 }
 
-int sd_bus_add_object(sd_bus *bus, const char *path, sd_bus_message_handler_t callback, void *userdata) {
+_public_ int sd_bus_add_object(sd_bus *bus,
+                               const char *path,
+                               sd_bus_message_handler_t callback,
+                               void *userdata) {
+
         return bus_add_object(bus, false, path, callback, userdata);
 }
 
-int sd_bus_remove_object(sd_bus *bus, const char *path, sd_bus_message_handler_t callback, void *userdata) {
+_public_ int sd_bus_remove_object(sd_bus *bus,
+                                  const char *path,
+                                  sd_bus_message_handler_t callback,
+                                  void *userdata) {
+
         return bus_remove_object(bus, false, path, callback, userdata);
 }
 
-int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handler_t callback, void *userdata) {
+_public_ int sd_bus_add_fallback(sd_bus *bus,
+                                 const char *prefix,
+                                 sd_bus_message_handler_t callback,
+                                 void *userdata) {
+
         return bus_add_object(bus, true, prefix, callback, userdata);
 }
 
-int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handler_t callback, void *userdata) {
+_public_ int sd_bus_remove_fallback(sd_bus *bus,
+                                    const char *prefix,
+                                    sd_bus_message_handler_t callback,
+                                    void *userdata) {
+
         return bus_remove_object(bus, true, prefix, callback, userdata);
 }
 
@@ -1686,7 +1702,7 @@ static int remove_object_vtable_internal(
         return 1;
 }
 
-int sd_bus_add_object_vtable(
+_public_ int sd_bus_add_object_vtable(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -1696,7 +1712,7 @@ int sd_bus_add_object_vtable(
         return add_object_vtable_internal(bus, path, interface, vtable, false, NULL, userdata);
 }
 
-int sd_bus_remove_object_vtable(
+_public_ int sd_bus_remove_object_vtable(
                 sd_bus *bus,
                 const char *path,
                 const char *interface) {
@@ -1704,7 +1720,7 @@ int sd_bus_remove_object_vtable(
         return remove_object_vtable_internal(bus, path, interface, false);
 }
 
-int sd_bus_add_fallback_vtable(
+_public_ int sd_bus_add_fallback_vtable(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -1715,7 +1731,7 @@ int sd_bus_add_fallback_vtable(
         return add_object_vtable_internal(bus, path, interface, vtable, true, find, userdata);
 }
 
-int sd_bus_remove_fallback_vtable(
+_public_ int sd_bus_remove_fallback_vtable(
                 sd_bus *bus,
                 const char *path,
                 const char *interface) {
@@ -1723,7 +1739,7 @@ int sd_bus_remove_fallback_vtable(
         return remove_object_vtable_internal(bus, path, interface, true);
 }
 
-int sd_bus_add_node_enumerator(
+_public_ int sd_bus_add_node_enumerator(
                 sd_bus *bus,
                 const char *path,
                 sd_bus_node_enumerator_t callback,
@@ -1764,7 +1780,7 @@ fail:
         return r;
 }
 
-int sd_bus_remove_node_enumerator(
+_public_ int sd_bus_remove_node_enumerator(
                 sd_bus *bus,
                 const char *path,
                 sd_bus_node_enumerator_t callback,
@@ -1939,7 +1955,7 @@ static int emit_properties_changed_on_interface(
         return 1;
 }
 
-int sd_bus_emit_properties_changed_strv(
+_public_ int sd_bus_emit_properties_changed_strv(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -1981,7 +1997,7 @@ int sd_bus_emit_properties_changed_strv(
         return -ENOENT;
 }
 
-int sd_bus_emit_properties_changed(
+_public_ int sd_bus_emit_properties_changed(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -2097,7 +2113,7 @@ static int interfaces_added_append_one(
         return -ENOENT;
 }
 
-int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **interfaces) {
+_public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **interfaces) {
         BUS_DONT_DESTROY(bus);
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
@@ -2161,7 +2177,7 @@ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **inte
         return sd_bus_send(bus, m, NULL);
 }
 
-int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) {
+_public_ int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) {
         char **interfaces;
 
         assert_return(bus, -EINVAL);
@@ -2174,7 +2190,7 @@ int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *inte
         return sd_bus_emit_interfaces_added_strv(bus, path, interfaces);
 }
 
-int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **interfaces) {
+_public_ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **interfaces) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
@@ -2201,7 +2217,7 @@ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **in
         return sd_bus_send(bus, m, NULL);
 }
 
-int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) {
+_public_ int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) {
         char **interfaces;
 
         assert_return(bus, -EINVAL);
@@ -2214,7 +2230,7 @@ int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *in
         return sd_bus_emit_interfaces_removed_strv(bus, path, interfaces);
 }
 
-int sd_bus_add_object_manager(sd_bus *bus, const char *path) {
+_public_ int sd_bus_add_object_manager(sd_bus *bus, const char *path) {
         struct node *n;
 
         assert_return(bus, -EINVAL);
@@ -2230,7 +2246,7 @@ int sd_bus_add_object_manager(sd_bus *bus, const char *path) {
         return 0;
 }
 
-int sd_bus_remove_object_manager(sd_bus *bus, const char *path) {
+_public_ int sd_bus_remove_object_manager(sd_bus *bus, const char *path) {
         struct node *n;
 
         assert_return(bus, -EINVAL);

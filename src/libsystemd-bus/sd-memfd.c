@@ -34,7 +34,7 @@ struct sd_memfd {
         FILE *f;
 };
 
-int sd_memfd_new(sd_memfd **m) {
+_public_ int sd_memfd_new(sd_memfd **m) {
         _cleanup_close_ int kdbus = -1;
         sd_memfd *n;
         int fd;
@@ -58,7 +58,7 @@ int sd_memfd_new(sd_memfd **m) {
         return 0;
 }
 
-int sd_memfd_make(int fd, sd_memfd **m) {
+_public_ int sd_memfd_make(int fd, sd_memfd **m) {
         sd_memfd *n;
         uint64_t sz;
 
@@ -81,7 +81,7 @@ int sd_memfd_make(int fd, sd_memfd **m) {
         return 0;
 }
 
-void sd_memfd_free(sd_memfd *m) {
+_public_ void sd_memfd_free(sd_memfd *m) {
         if (!m)
                 return;
 
@@ -93,14 +93,14 @@ void sd_memfd_free(sd_memfd *m) {
         free(m);
 }
 
-int sd_memfd_get_fd(sd_memfd *m) {
+_public_ int sd_memfd_get_fd(sd_memfd *m) {
         if (!m)
                 return -EINVAL;
 
         return m->fd;
 }
 
-int sd_memfd_get_file(sd_memfd *m, FILE **f) {
+_public_ int sd_memfd_get_file(sd_memfd *m, FILE **f) {
         if (!m)
                 return -EINVAL;
         if (!f)
@@ -116,7 +116,7 @@ int sd_memfd_get_file(sd_memfd *m, FILE **f) {
         return 0;
 }
 
-int sd_memfd_dup_fd(sd_memfd *m) {
+_public_ int sd_memfd_dup_fd(sd_memfd *m) {
         int fd;
 
         if (!m)
@@ -129,7 +129,7 @@ int sd_memfd_dup_fd(sd_memfd *m) {
         return fd;
 }
 
-int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
+_public_ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
         void *q;
         int sealed;
 
@@ -152,7 +152,7 @@ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
         return 0;
 }
 
-int sd_memfd_set_sealed(sd_memfd *m, int b) {
+_public_ int sd_memfd_set_sealed(sd_memfd *m, int b) {
         int r;
 
         if (!m)
@@ -165,7 +165,7 @@ int sd_memfd_set_sealed(sd_memfd *m, int b) {
         return 0;
 }
 
-int sd_memfd_get_sealed(sd_memfd *m) {
+_public_ int sd_memfd_get_sealed(sd_memfd *m) {
         int r, b;
 
         if (!m)
@@ -178,7 +178,7 @@ int sd_memfd_get_sealed(sd_memfd *m) {
         return !!b;
 }
 
-int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
+_public_ int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
         int r;
 
         if (!m)
@@ -193,7 +193,7 @@ int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
         return r;
 }
 
-int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
+_public_ int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
         int r;
 
         if (!m)
@@ -206,7 +206,7 @@ int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
         return r;
 }
 
-int sd_memfd_new_and_map(sd_memfd **m, size_t sz, void **p) {
+_public_ int sd_memfd_new_and_map(sd_memfd **m, size_t sz, void **p) {
         sd_memfd *n;
         int r;
 

@@ -159,7 +159,7 @@ static void bus_free(sd_bus *b) {
         free(b);
 }
 
-int sd_bus_new(sd_bus **ret) {
+_public_ int sd_bus_new(sd_bus **ret) {
         sd_bus *r;
 
         assert_return(ret, -EINVAL);
@@ -188,7 +188,7 @@ int sd_bus_new(sd_bus **ret) {
         return 0;
 }
 
-int sd_bus_set_address(sd_bus *bus, const char *address) {
+_public_ int sd_bus_set_address(sd_bus *bus, const char *address) {
         char *a;
 
         assert_return(bus, -EINVAL);
@@ -206,7 +206,7 @@ int sd_bus_set_address(sd_bus *bus, const char *address) {
         return 0;
 }
 
-int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
+_public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(input_fd >= 0, -EINVAL);
@@ -218,7 +218,7 @@ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
         return 0;
 }
 
-int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
+_public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
         char *p, **a;
 
         assert_return(bus, -EINVAL);
@@ -246,7 +246,7 @@ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
         return 0;
 }
 
-int sd_bus_set_bus_client(sd_bus *bus, int b) {
+_public_ int sd_bus_set_bus_client(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -255,7 +255,7 @@ int sd_bus_set_bus_client(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_negotiate_fds(sd_bus *bus, int b) {
+_public_ int sd_bus_negotiate_fds(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -264,7 +264,7 @@ int sd_bus_negotiate_fds(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_negotiate_attach_comm(sd_bus *bus, int b) {
+_public_ int sd_bus_negotiate_attach_comm(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -273,7 +273,7 @@ int sd_bus_negotiate_attach_comm(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_negotiate_attach_exe(sd_bus *bus, int b) {
+_public_ int sd_bus_negotiate_attach_exe(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -282,7 +282,7 @@ int sd_bus_negotiate_attach_exe(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_negotiate_attach_cmdline(sd_bus *bus, int b) {
+_public_ int sd_bus_negotiate_attach_cmdline(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -291,7 +291,7 @@ int sd_bus_negotiate_attach_cmdline(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_negotiate_attach_cgroup(sd_bus *bus, int b) {
+_public_ int sd_bus_negotiate_attach_cgroup(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -300,7 +300,7 @@ int sd_bus_negotiate_attach_cgroup(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_negotiate_attach_caps(sd_bus *bus, int b) {
+_public_ int sd_bus_negotiate_attach_caps(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -309,7 +309,7 @@ int sd_bus_negotiate_attach_caps(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_negotiate_attach_selinux_context(sd_bus *bus, int b) {
+_public_ int sd_bus_negotiate_attach_selinux_context(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -318,7 +318,7 @@ int sd_bus_negotiate_attach_selinux_context(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_negotiate_attach_audit(sd_bus *bus, int b) {
+_public_ int sd_bus_negotiate_attach_audit(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -327,7 +327,7 @@ int sd_bus_negotiate_attach_audit(sd_bus *bus, int b) {
         return 0;
 }
 
-int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {
+_public_ int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {
         assert_return(bus, -EINVAL);
         assert_return(b || sd_id128_equal(server_id, SD_ID128_NULL), -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
@@ -338,7 +338,7 @@ int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {
         return 0;
 }
 
-int sd_bus_set_anonymous(sd_bus *bus, int b) {
+_public_ int sd_bus_set_anonymous(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -982,7 +982,7 @@ static int bus_start_fd(sd_bus *b) {
                 return bus_socket_take_fd(b);
 }
 
-int sd_bus_start(sd_bus *bus) {
+_public_ int sd_bus_start(sd_bus *bus) {
         int r;
 
         assert_return(bus, -EINVAL);
@@ -1007,7 +1007,7 @@ int sd_bus_start(sd_bus *bus) {
         return bus_send_hello(bus);
 }
 
-int sd_bus_open_system(sd_bus **ret) {
+_public_ int sd_bus_open_system(sd_bus **ret) {
         const char *e;
         sd_bus *b;
         int r;
@@ -1043,7 +1043,7 @@ fail:
         return r;
 }
 
-int sd_bus_open_user(sd_bus **ret) {
+_public_ int sd_bus_open_user(sd_bus **ret) {
         const char *e;
         sd_bus *b;
         size_t l;
@@ -1092,7 +1092,7 @@ fail:
         return r;
 }
 
-int sd_bus_open_system_remote(const char *host, sd_bus **ret) {
+_public_ int sd_bus_open_system_remote(const char *host, sd_bus **ret) {
         _cleanup_free_ char *e = NULL;
         char *p = NULL;
         sd_bus *bus;
@@ -1128,7 +1128,7 @@ int sd_bus_open_system_remote(const char *host, sd_bus **ret) {
         return 0;
 }
 
-int sd_bus_open_system_container(const char *machine, sd_bus **ret) {
+_public_ int sd_bus_open_system_container(const char *machine, sd_bus **ret) {
         _cleanup_free_ char *e = NULL;
         sd_bus *bus;
         char *p;
@@ -1164,7 +1164,7 @@ int sd_bus_open_system_container(const char *machine, sd_bus **ret) {
         return 0;
 }
 
-void sd_bus_close(sd_bus *bus) {
+_public_ void sd_bus_close(sd_bus *bus) {
         if (!bus)
                 return;
         if (bus->state == BUS_CLOSED)
@@ -1186,7 +1186,7 @@ void sd_bus_close(sd_bus *bus) {
          * freed. */
 }
 
-sd_bus *sd_bus_ref(sd_bus *bus) {
+_public_ sd_bus *sd_bus_ref(sd_bus *bus) {
         assert_return(bus, NULL);
 
         assert_se(REFCNT_INC(bus->n_ref) >= 2);
@@ -1194,7 +1194,7 @@ sd_bus *sd_bus_ref(sd_bus *bus) {
         return bus;
 }
 
-sd_bus *sd_bus_unref(sd_bus *bus) {
+_public_ sd_bus *sd_bus_unref(sd_bus *bus) {
         assert_return(bus, NULL);
 
         if (REFCNT_DEC(bus->n_ref) <= 0)
@@ -1203,7 +1203,7 @@ sd_bus *sd_bus_unref(sd_bus *bus) {
         return NULL;
 }
 
-int sd_bus_is_open(sd_bus *bus) {
+_public_ int sd_bus_is_open(sd_bus *bus) {
 
         assert_return(bus, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -1211,7 +1211,7 @@ int sd_bus_is_open(sd_bus *bus) {
         return BUS_IS_OPEN(bus->state);
 }
 
-int sd_bus_can_send(sd_bus *bus, char type) {
+_public_ int sd_bus_can_send(sd_bus *bus, char type) {
         int r;
 
         assert_return(bus, -EINVAL);
@@ -1232,7 +1232,7 @@ int sd_bus_can_send(sd_bus *bus, char type) {
         return bus_type_is_valid(type);
 }
 
-int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *server_id) {
+_public_ int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *server_id) {
         int r;
 
         assert_return(bus, -EINVAL);
@@ -1339,7 +1339,7 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
         return ret;
 }
 
-int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
+_public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         int r;
 
         assert_return(bus, -EINVAL);
@@ -1440,7 +1440,7 @@ static int timeout_compare(const void *a, const void *b) {
         return 0;
 }
 
-int sd_bus_send_with_reply(
+_public_ int sd_bus_send_with_reply(
                 sd_bus *bus,
                 sd_bus_message *m,
                 sd_bus_message_handler_t callback,
@@ -1506,7 +1506,7 @@ int sd_bus_send_with_reply(
         return r;
 }
 
-int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial) {
+_public_ int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial) {
         struct reply_callback *c;
 
         assert_return(bus, -EINVAL);
@@ -1549,7 +1549,7 @@ int bus_ensure_running(sd_bus *bus) {
         }
 }
 
-int sd_bus_send_with_reply_and_block(
+_public_ int sd_bus_send_with_reply_and_block(
                 sd_bus *bus,
                 sd_bus_message *m,
                 uint64_t usec,
@@ -1671,7 +1671,7 @@ int sd_bus_send_with_reply_and_block(
         }
 }
 
-int sd_bus_get_fd(sd_bus *bus) {
+_public_ int sd_bus_get_fd(sd_bus *bus) {
 
         assert_return(bus, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
@@ -1681,7 +1681,7 @@ int sd_bus_get_fd(sd_bus *bus) {
         return bus->input_fd;
 }
 
-int sd_bus_get_events(sd_bus *bus) {
+_public_ int sd_bus_get_events(sd_bus *bus) {
         int flags = 0;
 
         assert_return(bus, -EINVAL);
@@ -1707,7 +1707,7 @@ int sd_bus_get_events(sd_bus *bus) {
         return flags;
 }
 
-int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
+_public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
         struct reply_callback *c;
 
         assert_return(bus, -EINVAL);
@@ -2021,7 +2021,7 @@ null_message:
         return r;
 }
 
-int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
+_public_ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
         BUS_DONT_DESTROY(bus);
         int r;
 
@@ -2126,7 +2126,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         return r > 0 ? 1 : 0;
 }
 
-int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
+_public_ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
 
         assert_return(bus, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
@@ -2138,7 +2138,7 @@ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
         return bus_poll(bus, false, timeout_usec);
 }
 
-int sd_bus_flush(sd_bus *bus) {
+_public_ int sd_bus_flush(sd_bus *bus) {
         int r;
 
         assert_return(bus, -EINVAL);
@@ -2166,7 +2166,10 @@ int sd_bus_flush(sd_bus *bus) {
         }
 }
 
-int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata) {
+_public_ int sd_bus_add_filter(sd_bus *bus,
+                               sd_bus_message_handler_t callback,
+                               void *userdata) {
+
         struct filter_callback *f;
 
         assert_return(bus, -EINVAL);
@@ -2184,7 +2187,10 @@ int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *user
         return 0;
 }
 
-int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata) {
+_public_ int sd_bus_remove_filter(sd_bus *bus,
+                                  sd_bus_message_handler_t callback,
+                                  void *userdata) {
+
         struct filter_callback *f;
 
         assert_return(bus, -EINVAL);
@@ -2203,7 +2209,11 @@ int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *u
         return 0;
 }
 
-int sd_bus_add_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata) {
+_public_ int sd_bus_add_match(sd_bus *bus,
+                              const char *match,
+                              sd_bus_message_handler_t callback,
+                              void *userdata) {
+
         struct bus_match_component *components = NULL;
         unsigned n_components = 0;
         uint64_t cookie = 0;
@@ -2237,7 +2247,11 @@ finish:
         return r;
 }
 
-int sd_bus_remove_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata) {
+_public_ int sd_bus_remove_match(sd_bus *bus,
+                                 const char *match,
+                                 sd_bus_message_handler_t callback,
+                                 void *userdata) {
+
         struct bus_match_component *components = NULL;
         unsigned n_components = 0;
         int r = 0, q = 0;
@@ -2352,7 +2366,7 @@ static int quit_callback(sd_event_source *event, void *userdata) {
         return 1;
 }
 
-int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
+_public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
         int r;
 
         assert_return(bus, -EINVAL);
@@ -2406,7 +2420,7 @@ fail:
         return r;
 }
 
-int sd_bus_detach_event(sd_bus *bus) {
+_public_ int sd_bus_detach_event(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus->event, -ENXIO);
 

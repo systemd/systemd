@@ -1,0 +1,197 @@
+/***
+  This file is part of systemd.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+***/
+
+LIBSYSTEMD_BUS_209 {
+global:
+        /* Same order as in sd-bus.h should be used */
+
+        /* Connections */
+        sd_bus_open_user;
+        sd_bus_open_system;
+        sd_bus_open_system_remote;
+        sd_bus_open_system_container;
+        sd_bus_new;
+        sd_bus_set_address;
+        sd_bus_set_fd;
+        sd_bus_set_exec;
+        sd_bus_set_bus_client;
+        sd_bus_set_server;
+        sd_bus_set_anonymous;
+        sd_bus_negotiate_fds;
+        sd_bus_negotiate_attach_comm;
+        sd_bus_negotiate_attach_exe;
+        sd_bus_negotiate_attach_cmdline;
+        sd_bus_negotiate_attach_cgroup;
+        sd_bus_negotiate_attach_caps;
+        sd_bus_negotiate_attach_selinux_context;
+        sd_bus_negotiate_attach_audit;
+        sd_bus_start;
+        sd_bus_close;
+        sd_bus_ref;
+        sd_bus_unref;
+        sd_bus_is_open;
+        sd_bus_can_send;
+        sd_bus_get_server_id;
+        sd_bus_send;
+        sd_bus_send_with_reply;
+        sd_bus_send_with_reply_cancel;
+        sd_bus_send_with_reply_and_block;
+        sd_bus_get_fd;
+        sd_bus_get_events;
+        sd_bus_get_timeout;
+        sd_bus_process;
+        sd_bus_wait;
+        sd_bus_flush;
+        sd_bus_get_current;
+        sd_bus_attach_event;
+        sd_bus_detach_event;
+        sd_bus_add_filter;
+        sd_bus_remove_filter;
+        sd_bus_add_match;
+        sd_bus_remove_match;
+        sd_bus_add_object;
+        sd_bus_remove_object;
+        sd_bus_add_fallback;
+        sd_bus_remove_fallback;
+        sd_bus_add_object_vtable;
+        sd_bus_remove_object_vtable;
+        sd_bus_add_fallback_vtable;
+        sd_bus_remove_fallback_vtable;
+        sd_bus_add_node_enumerator;
+        sd_bus_remove_node_enumerator;
+        sd_bus_add_object_manager;
+        sd_bus_remove_object_manager;
+
+        /* Message object */
+        sd_bus_message_new_signal;
+        sd_bus_message_new_method_call;
+        sd_bus_message_new_method_return;
+        sd_bus_message_new_method_error;
+        sd_bus_message_new_method_errorf;
+        sd_bus_message_new_method_errno;
+        sd_bus_message_new_method_errnof;
+        sd_bus_message_ref;
+        sd_bus_message_unref;
+        sd_bus_message_get_type;
+        sd_bus_message_get_serial;
+        sd_bus_message_get_reply_serial;
+        sd_bus_message_get_no_reply;
+        sd_bus_message_get_signature;
+        sd_bus_message_get_path;
+        sd_bus_message_get_interface;
+        sd_bus_message_get_member;
+        sd_bus_message_get_destination;
+        sd_bus_message_get_sender;
+        sd_bus_message_get_error;
+        sd_bus_message_get_errno;
+        sd_bus_message_get_monotonic_timestamp;
+        sd_bus_message_get_realtime_timestamp;
+        sd_bus_message_get_uid;
+        sd_bus_message_get_gid;
+        sd_bus_message_get_pid;
+        sd_bus_message_get_tid;
+        sd_bus_message_get_pid_starttime;
+        sd_bus_message_get_selinux_context;
+        sd_bus_message_get_comm;
+        sd_bus_message_get_tid_comm;
+        sd_bus_message_get_exe;
+        sd_bus_message_get_cgroup;
+        sd_bus_message_get_cmdline;
+        sd_bus_message_get_unit;
+        sd_bus_message_get_user_unit;
+        sd_bus_message_get_session;
+        sd_bus_message_get_owner_uid;
+        sd_bus_message_get_audit_sessionid;
+        sd_bus_message_get_audit_loginuid;
+        sd_bus_message_has_effective_cap;
+        sd_bus_message_is_signal;
+        sd_bus_message_is_method_call;
+        sd_bus_message_is_method_error;
+        sd_bus_message_set_no_reply;
+        sd_bus_message_set_destination;
+        sd_bus_message_append;
+        sd_bus_message_append_basic;
+        sd_bus_message_append_array;
+        sd_bus_message_append_array_space;
+        sd_bus_message_append_array_memfd;
+        sd_bus_message_append_string_space;
+        sd_bus_message_append_string_memfd;
+        sd_bus_message_append_strv;
+        sd_bus_message_open_container;
+        sd_bus_message_close_container;
+        sd_bus_message_copy;
+        sd_bus_message_read;
+        sd_bus_message_read_basic;
+        sd_bus_message_read_array;
+        sd_bus_message_read_strv;
+        sd_bus_message_skip;
+        sd_bus_message_enter_container;
+        sd_bus_message_exit_container;
+        sd_bus_message_peek_type;
+        sd_bus_message_verify_type;
+        sd_bus_message_at_end;
+        sd_bus_message_rewind;
+
+        /* Convenience calls */
+        sd_bus_call_method;
+        sd_bus_get_property;
+        sd_bus_get_property_trivial;
+        sd_bus_set_property;
+        sd_bus_reply_method_return;
+        sd_bus_reply_method_error;
+        sd_bus_reply_method_errorf;
+        sd_bus_reply_method_errno;
+        sd_bus_reply_method_errnof;
+        sd_bus_emit_signal;
+        sd_bus_emit_properties_changed_strv;
+        sd_bus_emit_properties_changed;
+        sd_bus_emit_interfaces_added_strv;
+        sd_bus_emit_interfaces_added;
+        sd_bus_emit_interfaces_removed_strv;
+        sd_bus_emit_interfaces_removed;
+
+        /* Bus management */
+        sd_bus_get_unique_name;
+        sd_bus_request_name;
+        sd_bus_release_name;
+        sd_bus_list_names;
+        sd_bus_get_owner;
+        sd_bus_get_owner_uid;
+        sd_bus_get_owner_pid;
+        sd_bus_get_owner_machine_id;
+
+        /* Error structures */
+        sd_bus_error_free;
+        sd_bus_error_set;
+        sd_bus_error_setf;
+        sd_bus_error_set_const;
+        sd_bus_error_set_errno;
+        sd_bus_error_set_errnof;
+        sd_bus_error_get_errno;
+        sd_bus_error_copy;
+        sd_bus_error_is_set;
+        sd_bus_error_has_name;
+
+        /* mem-fd functions */
+        sd_memfd_new;
+        sd_memfd_make;
+        sd_memfd_new_and_map;
+        sd_memfd_free;
+        sd_memfd_get_fd;
+        sd_memfd_get_file;
+        sd_memfd_dup_fd;
+        sd_memfd_map;
+        sd_memfd_set_sealed;
+        sd_memfd_get_sealed;
+        sd_memfd_get_size;
+        sd_memfd_set_size;
+
+local:
+       *;
+};
