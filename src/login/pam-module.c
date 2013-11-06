@@ -178,19 +178,21 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 int flags,
                 int argc, const char **argv) {
 
-        struct passwd *pw;
-        bool debug = false;
-        const char *username, *id, *object_path, *runtime_path, *service = NULL, *tty = NULL, *display = NULL, *remote_user = NULL, *remote_host = NULL, *seat = NULL, *type = NULL, *class = NULL, *class_pam = NULL, *cvtnr = NULL;
-        uint32_t uid, pid;
-        int session_fd = -1;
-        bool remote;
-        unsigned existing;
-        uint32_t vtnr = 0;
-        int r;
-
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        const char
+                *username, *id, *object_path, *runtime_path,
+                *service = NULL,
+                *tty = NULL, *display = NULL,
+                *remote_user = NULL, *remote_host = NULL,
+                *seat = NULL,
+                *type = NULL, *class = NULL,
+                *class_pam = NULL, *cvtnr = NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int session_fd = -1, existing, r;
+        uint32_t uid, pid, vtnr = 0;
+        bool debug = false, remote;
+        struct passwd *pw;
 
         assert(handle);
 
