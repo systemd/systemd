@@ -33,7 +33,7 @@
 
 union sockaddr_union {
         struct sockaddr sa;
-        struct sockaddr_in in4;
+        struct sockaddr_in in;
         struct sockaddr_in6 in6;
         struct sockaddr_un un;
         struct sockaddr_nl nl;
@@ -92,12 +92,14 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_
 
 const char* socket_address_get_path(const SocketAddress *a);
 
+bool socket_ipv6_is_supported(void);
+
+int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, char **ret);
+int getpeername_pretty(int fd, char **ret);
+int getsockname_pretty(int fd, char **ret);
+
 const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
 
 int netlink_family_to_string_alloc(int b, char **s);
-int netlink_family_from_string(const char *s);
-
-bool socket_ipv6_is_supported(void);
-
-int getpeername_pretty(int fd, char **ret);
+int netlink_family_from_string(const char *s) _pure_;

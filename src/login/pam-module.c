@@ -318,8 +318,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 !streq(remote_host, "localhost") &&
                 !streq(remote_host, "localhost.localdomain");
 
-        /* Talk to logind over the message bug */
-
+        /* Talk to logind over the message bus */
         r = sd_bus_open_system(&bus);
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror(-r));
