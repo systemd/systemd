@@ -1796,7 +1796,7 @@ int manager_loop(Manager *m) {
         manager_check_finished(m);
 
         /* There might still be some zombies hanging around from
-         * before we were exec()'ed. Leat's reap them */
+         * before we were exec()'ed. Let's reap them. */
         r = manager_dispatch_sigchld(m);
         if (r < 0)
                 return r;
