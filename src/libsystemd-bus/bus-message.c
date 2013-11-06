@@ -1347,13 +1347,28 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         switch (type) {
 
         case SD_BUS_TYPE_STRING:
+                /* To make things easy we'll serialize a NULL string
+                 * into the empty string */
+                p = strempty(p);
+
+                /* Fall through... */
         case SD_BUS_TYPE_OBJECT_PATH:
+
+                if (!p) {
+                        r = -EINVAL;
+                        goto fail;
+                }
 
                 align = 4;
                 sz = 4 + strlen(p) + 1;
                 break;
 
         case SD_BUS_TYPE_SIGNATURE:
+
+                if (!p) {
+                        r = -EINVAL;
+                        goto fail;
+                }
 
                 align = 1;
                 sz = 1 + strlen(p) + 1;
