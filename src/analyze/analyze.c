@@ -62,7 +62,6 @@
                 svg("</text>\n");                                       \
         } while(false)
 
-static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static enum dot {
         DEP_ALL,
         DEP_ORDER,
@@ -72,6 +71,9 @@ static char** arg_dot_from_patterns = NULL;
 static char** arg_dot_to_patterns = NULL;
 static usec_t arg_fuzz = 0;
 static bool arg_no_pager = false;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+static char *arg_host = NULL;
+static bool arg_user = false;
 
 struct boot_times {
         usec_t firmware_time;
@@ -1149,34 +1151,36 @@ static int set_log_level(sd_bus *bus, char **args) {
         return 0;
 }
 
-static void analyze_help(void) {
+static void help(void) {
 
         pager_open_if_enabled();
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Process systemd profiling information\n\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
-               "     --system         Connect to system manager\n"
-               "     --user           Connect to user service manager\n"
-               "     --order          When generating a dependency graph, show only order\n"
-               "     --require        When generating a dependency graph, show only requirement\n"
+               "Process systemd profiling information.\n\n"
+               "  -h --help               Show this help\n"
+               "     --version            Show package version\n"
+               "     --system             Connect to system manager\n"
+               "     --user               Connect to user manager\n"
+               "  -H --host=[USER@]HOST   Operate on remote host\n"
+               "  -M --machine=CONTAINER  Operate on local container\n"
+               "     --order              When generating a dependency graph, show only order\n"
+               "     --require            When generating a dependency graph, show only requirement\n"
                "     --from-pattern=GLOB, --to-pattern=GLOB\n"
-               "                      When generating a dependency graph, filter only origins\n"
-               "                      or destinations, respectively\n"
-               "     --fuzz=TIMESPAN  When printing the tree of the critical chain, print also\n"
-               "                      services, which finished TIMESPAN earlier, than the\n"
-               "                      latest in the branch. The unit of TIMESPAN is seconds\n"
-               "                      unless specified with a different unit, i.e. 50ms\n"
-               "     --no-pager       Do not pipe output into a pager\n\n"
+               "                          When generating a dependency graph, filter only origins\n"
+               "                          or destinations, respectively\n"
+               "     --fuzz=TIMESPAN      When printing the tree of the critical chain, print also\n"
+               "                          services, which finished TIMESPAN earlier, than the\n"
+               "                          latest in the branch. The unit of TIMESPAN is seconds\n"
+               "                          unless specified with a different unit, i.e. 50ms\n"
+               "     --no-pager           Do not pipe output into a pager\n\n"
                "Commands:\n"
-               "  time                Print time spent in the kernel before reaching userspace\n"
-               "  blame               Print list of running units ordered by time to init\n"
-               "  critical-chain      Print a tree of the time critical chain of units\n"
-               "  plot                Output SVG graphic showing service initialization\n"
-               "  dot                 Output dependency graph in dot(1) format\n"
-               "  set-log-level LEVEL Set logging threshold for systemd\n"
-               "  dump                Output state serialization of service manager\n",
+               "  time                    Print time spent in the kernel before reaching userspace\n"
+               "  blame                   Print list of running units ordered by time to init\n"
+               "  critical-chain          Print a tree of the time critical chain of units\n"
+               "  plot                    Output SVG graphic showing service initialization\n"
+               "  dot                     Output dependency graph in dot(1) format\n"
+               "  set-log-level LEVEL     Set logging threshold for systemd\n"
+               "  dump                    Output state serialization of service manager\n",
                program_invocation_short_name);
 
         /* When updating this list, including descriptions, apply
@@ -1217,22 +1221,23 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         for (;;) {
-                switch (getopt_long(argc, argv, "h", options, NULL)) {
+                switch (getopt_long(argc, argv, "hH:M:", options, NULL)) {
 
                 case 'h':
-                        analyze_help();
+                        help();
                         return 0;
 
                 case ARG_VERSION:
-                        puts(PACKAGE_STRING "\n" SYSTEMD_FEATURES);
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_USER:
-                        arg_scope = UNIT_FILE_USER;
+                        arg_user = true;
                         break;
 
                 case ARG_SYSTEM:
-                        arg_scope = UNIT_FILE_SYSTEM;
+                        arg_user = false;
                         break;
 
                 case ARG_ORDER:
@@ -1265,6 +1270,16 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_no_pager = true;
                         break;
 
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
+                        break;
+
+                case 'M':
+                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_host = optarg;
+                        break;
+
                 case -1:
                         return 1;
 
@@ -1290,13 +1305,9 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (arg_scope == UNIT_FILE_SYSTEM)
-                r = sd_bus_open_system(&bus);
-        else
-                r = sd_bus_open_user(&bus);
-
+        r = bus_open_transport(arg_transport, arg_host, arg_user, &bus);
         if (r < 0) {
-                log_error("Failed to connect to bus: %s", strerror(-r));
+                log_error("Failed to create bus connection: %s", strerror(-r));
                 goto finish;
         }
 
