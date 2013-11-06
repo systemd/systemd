@@ -34,9 +34,11 @@
 
 static bool arg_no_pager = false;
 static char *arg_address = NULL;
-static bool arg_user = false;
 static bool arg_no_unique = false;
 static char **arg_matches = NULL;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+static char *arg_host = NULL;
+static bool arg_user = false;
 
 static void pager_open_if_enabled(void) {
 
@@ -179,17 +181,19 @@ static int help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Introspect the bus.\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --system            Connect to system bus\n"
-               "     --user              Connect to user bus\n"
-               "     --address=ADDRESS   Connect to bus specified by address\n"
-               "     --no-unique         Only show well-known names\n"
-               "     --match=MATCH       Only show matching messages\n"
-               "     --no-pager          Do not pipe output into a pager\n\n"
+               "  -h --help               Show this help\n"
+               "     --version            Show package version\n"
+               "     --system             Connect to system bus\n"
+               "     --user               Connect to user bus\n"
+               "  -H --host=[USER@]HOST   Operate on remote host\n"
+               "  -M --machine=CONTAINER  Operate on local container\n"
+               "     --address=ADDRESS    Connect to bus specified by address\n"
+               "     --no-unique          Only show well-known names\n"
+               "     --match=MATCH        Only show matching messages\n"
+               "     --no-pager           Do not pipe output into a pager\n\n"
                "Commands:\n"
-               "  list                   List bus names\n"
-               "  monitor [SERVICE...]   Show bus traffic\n",
+               "  list                    List bus names\n"
+               "  monitor [SERVICE...]    Show bus traffic\n",
                program_invocation_short_name);
 
         return 0;
@@ -224,7 +228,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -259,6 +263,16 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_MATCH:
                         if (strv_extend(&arg_matches, optarg) < 0)
                                 return log_oom();
+                        break;
+
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
+                        break;
+
+                case 'M':
+                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_host = optarg;
                         break;
 
                 case '?':
@@ -321,10 +335,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 r = sd_bus_start(bus);
-        } else if (arg_user)
-                r = sd_bus_open_user(&bus);
-        else
-                r = sd_bus_open_system(&bus);
+        } else
+                r = bus_open_transport(arg_transport, arg_host, arg_user, &bus);
 
         if (r < 0) {
                 log_error("Failed to connect to bus: %s", strerror(-r));
@@ -335,6 +347,7 @@ int main(int argc, char *argv[]) {
 
 finish:
         pager_close();
+
         strv_free(arg_matches);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
