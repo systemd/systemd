@@ -33,7 +33,6 @@
 #include "util.h"
 #include "strv.h"
 #include "conf-files.h"
-#include "virt.h"
 #include "fileio.h"
 
 static char **arg_proc_cmdline_modules = NULL;
@@ -78,17 +77,14 @@ static int add_modules(const char *p) {
 static int parse_proc_cmdline(void) {
         _cleanup_free_ char *line = NULL;
         char *w, *state;
-        int r;
         size_t l;
+        int r;
 
-        if (detect_container(NULL) > 0)
-                return 0;
-
-        r = read_one_line_file("/proc/cmdline", &line);
-        if (r < 0) {
+        r = proc_cmdline(&line);
+        if (r < 0)
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+        if (r <= 0)
                 return 0;
-        }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
                 _cleanup_free_ char *word;

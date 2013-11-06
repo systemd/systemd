@@ -770,7 +770,7 @@ void parse_user_at_host(char *arg, char **user, char **host);
 
 int split_pair(const char *s, const char *sep, char **l, char **r);
 
-bool restore_state(void);
+int shall_restore_state(void);
 
 /**
  * Normal qsort requires base to be nonnull. Here were require
@@ -783,3 +783,5 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size,
                 qsort(base, nmemb, size, compar);
         }
 }
+
+int proc_cmdline(char **ret);

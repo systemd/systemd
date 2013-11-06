@@ -27,10 +27,10 @@
 #include <sys/timerfd.h>
 
 #include <libudev.h>
-#include <systemd/sd-journal.h>
-#include <systemd/sd-messages.h>
-#include <systemd/sd-daemon.h>
 
+#include "sd-journal.h"
+#include "sd-messages.h"
+#include "sd-daemon.h"
 #include "fileio.h"
 #include "mkdir.h"
 #include "hashmap.h"
@@ -38,20 +38,19 @@
 #include "socket-util.h"
 #include "cgroup-util.h"
 #include "list.h"
-#include "virt.h"
 #include "missing.h"
 #include "conf-parser.h"
+#include "selinux-util.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "journal-authenticate.h"
-#include "journald-server.h"
 #include "journald-rate-limit.h"
 #include "journald-kmsg.h"
 #include "journald-syslog.h"
 #include "journald-stream.h"
 #include "journald-console.h"
 #include "journald-native.h"
-#include "selinux-util.h"
+#include "journald-server.h"
 
 #ifdef HAVE_ACL
 #include <sys/acl.h>
@@ -1313,17 +1312,14 @@ static int open_signalfd(Server *s) {
 static int server_parse_proc_cmdline(Server *s) {
         _cleanup_free_ char *line = NULL;
         char *w, *state;
-        int r;
         size_t l;
+        int r;
 
-        if (detect_container(NULL) > 0)
-                return 0;
-
-        r = read_one_line_file("/proc/cmdline", &line);
-        if (r < 0) {
+        r = proc_cmdline(&line);
+        if (r < 0)
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+        if (r <= 0)
                 return 0;
-        }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
                 _cleanup_free_ char *word;

@@ -86,14 +86,11 @@ static bool test_kernel_command_line(const char *parameter) {
 
         assert(parameter);
 
-        if (detect_container(NULL) > 0)
-                return false;
-
-        r = read_one_line_file("/proc/cmdline", &line);
-        if (r < 0) {
+        r = proc_cmdline(&line);
+        if (r < 0)
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+        if (r <= 0)
                 return false;
-        }
 
         equal = !!strchr(parameter, '=');
         pl = strlen(parameter);

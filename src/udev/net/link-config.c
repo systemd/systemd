@@ -195,11 +195,11 @@ static bool enable_name_policy(void) {
         int r;
         size_t l;
 
-        r = read_one_line_file("/proc/cmdline", &line);
-        if (r < 0) {
+        r = proc_cmdline(&line);
+        if (r < 0)
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-                return true; /* something is very wrong, let's not make it worse */
-        }
+        if (r <= 0)
+                return true;
 
         FOREACH_WORD_QUOTED(w, l, line, state)
                 if (strneq(w, "net.ifnames=0", l))

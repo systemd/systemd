@@ -5992,24 +5992,36 @@ int split_pair(const char *s, const char *sep, char **l, char **r) {
         return 0;
 }
 
-bool restore_state(void) {
+int shall_restore_state(void) {
         _cleanup_free_ char *line;
         char *w, *state;
-        int r;
         size_t l;
+        int r;
 
-        if (detect_container(NULL) > 0)
-                return true;
-
-        r = read_one_line_file("/proc/cmdline", &line);
-        if (r < 0) {
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-                return true; /* something is very wrong, let's not make it worse */
-        }
+        r = proc_cmdline(&line);
+        if (r < 0)
+                return r;
+        if (r == 0) /* Container ... */
+                return 1;
 
         FOREACH_WORD_QUOTED(w, l, line, state)
-                if (strneq(w, "systemd.restore_state=0", l))
-                        return false;
+                if (l == 23 && memcmp(w, "systemd.restore_state=0", 23))
+                        return 0;
 
-        return true;
+        return 1;
+}
+
+int proc_cmdline(char **ret) {
+        int r;
+
+        if (detect_container(NULL) > 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = read_one_line_file("/proc/cmdline", ret);
+        if (r < 0)
+                return r;
+
+        return 1;
 }

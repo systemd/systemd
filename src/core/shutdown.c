@@ -140,8 +140,8 @@ int main(int argc, char *argv[]) {
         int cmd, r;
 
         /* suppress shutdown status output if 'quiet' is used  */
-        r = read_one_line_file("/proc/cmdline", &line);
-        if (r >= 0) {
+        r = proc_cmdline(&line);
+        if (r > 0) {
                 char *w, *state;
                 size_t l;
 

@@ -691,19 +691,14 @@ static int parse_config_file(void) {
 static int parse_proc_cmdline(void) {
         _cleanup_free_ char *line = NULL;
         char *w, *state;
-        int r;
         size_t l;
+        int r;
 
-        /* Don't read /proc/cmdline if we are in a container, since
-         * that is only relevant for the host system */
-        if (detect_container(NULL) > 0)
-                return 0;
-
-        r = read_one_line_file("/proc/cmdline", &line);
-        if (r < 0) {
+        r = proc_cmdline(&line);
+        if (r < 0)
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+        if (r <= 0)
                 return 0;
-        }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
                 _cleanup_free_ char *word;
@@ -979,11 +974,13 @@ static int parse_argv(int argc, char *argv[]) {
                  * relevant for the container, hence we rely on argv[]
                  * instead. */
 
-                for (a = argv; a < argv + argc; a++)
-                        if ((r = parse_proc_cmdline_word(*a)) < 0) {
+                for (a = argv; a < argv + argc; a++) {
+                        r = parse_proc_cmdline_word(*a);
+                        if (r < 0) {
                                 log_error("Failed on cmdline argument %s: %s", *a, strerror(-r));
                                 return r;
                         }
+                }
         }
 
         return 0;

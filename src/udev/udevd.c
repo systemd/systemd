@@ -857,10 +857,15 @@ static int systemd_fds(struct udev *udev, int *rctrl, int *rnetlink)
  */
 static void kernel_cmdline_options(struct udev *udev)
 {
-        char *line, *w, *state;
+        _cleanup_free_ char *line = NULL;
+        char *w, *state;
         size_t l;
+        int r;
 
-        if (read_one_line_file("/proc/cmdline", &line) < 0)
+        r = proc_cmdline(&line);
+        if (r < 0)
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+        if (r <= 0)
                 return;
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
@@ -890,8 +895,6 @@ static void kernel_cmdline_options(struct udev *udev)
 
                 free(s);
         }
-
-        free(line);
 }
 
 int main(int argc, char *argv[])

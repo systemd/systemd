@@ -35,7 +35,6 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "bus-errors.h"
-#include "virt.h"
 #include "fileio.h"
 #include "udev-util.h"
 
@@ -75,17 +74,14 @@ static void start_target(const char *target) {
 
 static int parse_proc_cmdline(void) {
         char *line, *w, *state;
-        int r;
         size_t l;
+        int r;
 
-        if (detect_container(NULL) > 0)
-                return 0;
-
-        r = read_one_line_file("/proc/cmdline", &line);
-        if (r < 0) {
+        r = proc_cmdline(&line);
+        if (r < 0)
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+        if (r <= 0)
                 return 0;
-        }
 
         FOREACH_WORD_QUOTED(w, l, line, state) {
 

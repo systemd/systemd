@@ -291,7 +291,7 @@ int main(int argc, char *argv[]) {
          * device probing should be complete), so that the validity
          * check at boot time doesn't have to be reliable. */
 
-        if (streq(argv[1], "load") && restore_state()) {
+        if (streq(argv[1], "load") && shall_restore_state()) {
                 _cleanup_free_ char *value = NULL;
 
                 if (!validate_device(udev, device))
