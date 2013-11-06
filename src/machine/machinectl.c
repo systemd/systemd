@@ -849,35 +849,29 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char*argv[]) {
-        int r, ret = EXIT_FAILURE;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int r;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 
         r = parse_argv(argc, argv);
-        if (r < 0)
+        if (r <= 0)
                 goto finish;
-        else if (r == 0) {
-                ret = EXIT_SUCCESS;
-                goto finish;
-        }
 
         r = bus_open_transport(arg_transport, arg_host, false, &bus);
         if (r < 0) {
                 log_error("Failed to create bus connection: %s", strerror(-r));
-                ret = EXIT_FAILURE;
                 goto finish;
         }
 
         r = machinectl_main(bus, argc, argv);
-        ret = r < 0 ? EXIT_FAILURE : r;
 
 finish:
-        strv_free(arg_property);
-
         pager_close();
 
-        return ret;
+        strv_free(arg_property);
+
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -458,8 +458,8 @@ static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        int r;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int r;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
