@@ -1123,7 +1123,6 @@ static int dump(sd_bus *bus, char **args) {
 static int set_log_level(sd_bus *bus, char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-        const char* value;
 
         assert(bus);
         assert(args);
@@ -1133,8 +1132,6 @@ static int set_log_level(sd_bus *bus, char **args) {
                 return -E2BIG;
         }
 
-        value = args[0];
-
         r = sd_bus_set_property(
                         bus,
                         "org.freedesktop.systemd1",
@@ -1143,7 +1140,7 @@ static int set_log_level(sd_bus *bus, char **args) {
                         "LogLevel",
                         &error,
                         "s",
-                        value);
+                        args[0]);
         if (r < 0) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
                 return -EIO;
