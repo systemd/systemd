@@ -67,7 +67,7 @@ int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex dup
 {
         struct ifreq ifr;
         struct ethtool_cmd ecmd;
-        bool need_update;
+        bool need_update = false;
         int r;
 
         if (speed == 0 && duplex == _DUP_INVALID)
@@ -120,7 +120,7 @@ int ethtool_set_speed(int fd, const char *ifname, unsigned int speed, Duplex dup
 int ethtool_set_wol(int fd, const char *ifname, WakeOnLan wol) {
         struct ifreq ifr;
         struct ethtool_wolinfo ecmd;
-        bool need_update;
+        bool need_update = false;
         int r;
 
         if (wol == _WOL_INVALID)
