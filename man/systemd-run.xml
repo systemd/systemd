@@ -113,6 +113,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--system</option></term>
+
+        <listitem>
+          <para>Talk to the service manager of the system. This is the
+          implied default.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
               <term><option>-H</option></term>
               <term><option>--host=</option></term>
 
