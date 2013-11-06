@@ -375,9 +375,8 @@ int main(int argc, char **argv, char **envp) {
         int r, n;
         int epoll_fd = -1;
 
-        log_set_max_level(LOG_DEBUG);
-        log_show_color(true);
         log_parse_environment();
+        log_open();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -391,7 +390,7 @@ int main(int argc, char **argv, char **envp) {
         if (n < 0)
                 return EXIT_FAILURE;
 
-        while (true) {
+        for (;;) {
                 struct epoll_event event;
 
                 r = epoll_wait(epoll_fd, &event, 1, -1);
