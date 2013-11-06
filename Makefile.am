@@ -3268,7 +3268,7 @@ systemd_socket_proxyd_SOURCES = \
 
 systemd_socket_proxyd_LDADD = \
 	libsystemd-logs.la \
-	libsystemd-bus.la \
+	libsystemd-event.la \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-shared.la \
