@@ -1379,6 +1379,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                 break;
 
         case SD_BUS_TYPE_BOOLEAN:
+
                 if (!p) {
                         r = -EINVAL;
                         goto fail;
@@ -1434,6 +1435,11 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         }
 
         default:
+                if (!p) {
+                        r = -EINVAL;
+                        goto fail;
+                }
+
                 align = bus_type_get_alignment(type);
                 sz = bus_type_get_size(type);
                 break;
