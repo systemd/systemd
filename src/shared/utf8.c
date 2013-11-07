@@ -161,7 +161,9 @@ const char *utf8_is_valid(const char *str) {
         assert(str);
 
         for (p = (const uint8_t*) str; *p; ) {
-                int len = utf8_encoded_valid_unichar((const char *)p);
+                int len;
+
+                len = utf8_encoded_valid_unichar((const char *)p);
 
                 if (len < 0)
                         return NULL;

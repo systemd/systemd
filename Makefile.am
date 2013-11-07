@@ -1964,6 +1964,7 @@ libsystemd_bus_la_SOURCES = \
 	src/systemd/sd-bus-protocol.h \
 	src/systemd/sd-bus-vtable.h \
 	src/systemd/sd-memfd.h \
+	src/systemd/sd-utf8.h \
 	src/libsystemd-bus/sd-bus.c \
 	src/libsystemd-bus/bus-control.c \
 	src/libsystemd-bus/bus-control.h \
@@ -1995,7 +1996,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/kdbus.h \
 	src/libsystemd-bus/sd-memfd.c \
 	src/libsystemd-bus/bus-util.c \
-	src/libsystemd-bus/bus-util.h
+	src/libsystemd-bus/bus-util.h \
+	src/libsystemd-bus/sd-utf8.c
 
 libsystemd_bus_la_LIBADD =  \
 	libsystemd-id128-internal.la \
