@@ -628,7 +628,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
         return 0;
 }
 
-int bus_print_all_properties(sd_bus *bus, const char *path, char **filter, bool all) {
+int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, char **filter, bool all) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -637,7 +637,7 @@ int bus_print_all_properties(sd_bus *bus, const char *path, char **filter, bool 
         assert(path);
 
         r = sd_bus_call_method(bus,
-                        "org.freedesktop.machine1",
+                        dest,
                         path,
                         "org.freedesktop.DBus.Properties",
                         "GetAll",
@@ -671,8 +671,14 @@ int bus_print_all_properties(sd_bus *bus, const char *path, char **filter, bool 
                         r = bus_print_property(name, reply, all);
                         if (r < 0)
                                 return r;
-                        if (r == 0 && all)
-                                printf("%s=[unprintable]\n", name);
+                        if (r == 0) {
+                                if (all)
+                                        printf("%s=[unprintable]\n", name);
+                                /* skip what we didn't read */
+                                r = sd_bus_message_skip(reply, contents);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         r = sd_bus_message_exit_container(reply);
                         if (r < 0)
@@ -866,7 +872,7 @@ int bus_map_all_properties(sd_bus *bus,
                                 return r;
 
                         v = (uint8_t *)userdata + prop->offset;
-                                if (map[i].set)
+                        if (map[i].set)
                                 r = prop->set(bus, member, m, &error, v);
                         else
                                 r = map_basic(bus, member, m, &error, v);

@@ -67,7 +67,7 @@ int bus_open_system_systemd(sd_bus **_bus);
 int bus_open_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
 int bus_print_property(const char *name, sd_bus_message *property, bool all);
-int bus_print_all_properties(sd_bus *bus, const char *path, char **filter, bool all);
+int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, char **filter, bool all);
 
 int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
 int bus_property_get_uid(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);

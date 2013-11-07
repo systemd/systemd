@@ -284,7 +284,7 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, path, arg_property, arg_all);
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, arg_property, arg_all);
         if (r < 0)
                 log_error("Could not get properties: %s", strerror(-r));
 
