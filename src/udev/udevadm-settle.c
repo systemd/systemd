@@ -87,6 +87,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                                 exit(EXIT_FAILURE);
                         };
                         break;
+                };
                 case 'q':
                         quiet = 1;
                         break;
