@@ -2430,7 +2430,7 @@ static bool message_end_of_array(sd_bus_message *m, size_t index) {
         return index >= c->begin + BUS_MESSAGE_BSWAP32(m, *c->array_size);
 }
 
-int sd_bus_message_at_end(sd_bus_message *m, int complete) {
+_public_ int sd_bus_message_at_end(sd_bus_message *m, int complete) {
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
 
