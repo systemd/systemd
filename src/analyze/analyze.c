@@ -1085,6 +1085,7 @@ static int dot(sd_bus *bus, char* patterns[]) {
 
         return 0;
 }
+
 static int dump(sd_bus *bus, char **args) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;

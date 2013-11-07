@@ -63,10 +63,6 @@ LIBSYSTEMD_BUS_CURRENT=0
 LIBSYSTEMD_BUS_REVISION=0
 LIBSYSTEMD_BUS_AGE=0
 
-LIBSYSTEMD_EVENT_CURRENT=0
-LIBSYSTEMD_EVENT_REVISION=0
-LIBSYSTEMD_EVENT_AGE=0
-
 # Dirs of external packages
 dbuspolicydir=@dbuspolicydir@
 dbussessionservicedir=@dbussessionservicedir@
@@ -1939,32 +1935,13 @@ EXTRA_DIST += \
 	src/libsystemd-daemon/libsystemd-daemon.sym
 
 # ------------------------------------------------------------------------------
-libsystemd_event_la_SOURCES = \
-	src/libsystemd-bus/sd-event.c \
-	src/systemd/sd-event.h \
-	src/libsystemd-bus/event-util.h
-
-libsystemd_event_la_LDFLAGS = \
-	$(AM_LDFLAGS) \
-	-version-info $(LIBSYSTEMD_EVENT_CURRENT):$(LIBSYSTEMD_EVENT_REVISION):$(LIBSYSTEMD_EVENT_AGE) \
-	-Wl,--version-script=$(top_srcdir)/src/libsystemd-bus/libsystemd-event.sym
-
-EXTRA_DIST += \
-	src/libsystemd-bus/libsystemd-event.sym
-
-lib_LTLIBRARIES += \
-	libsystemd-event.la
-
-libsystemd_event_la_LIBADD =  \
-	libsystemd-id128-internal.la \
-	libsystemd-shared.la
-
 libsystemd_bus_la_SOURCES = \
 	src/systemd/sd-bus.h \
 	src/systemd/sd-bus-protocol.h \
 	src/systemd/sd-bus-vtable.h \
 	src/systemd/sd-memfd.h \
 	src/systemd/sd-utf8.h \
+	src/systemd/sd-event.h \
 	src/libsystemd-bus/sd-bus.c \
 	src/libsystemd-bus/bus-control.c \
 	src/libsystemd-bus/bus-control.h \
@@ -1997,13 +1974,14 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/sd-memfd.c \
 	src/libsystemd-bus/bus-util.c \
 	src/libsystemd-bus/bus-util.h \
-	src/libsystemd-bus/sd-utf8.c
+	src/libsystemd-bus/sd-utf8.c \
+	src/libsystemd-bus/sd-event.c \
+	src/libsystemd-bus/event-util.h
 
 libsystemd_bus_la_LIBADD =  \
 	libsystemd-id128-internal.la \
 	libsystemd-shared.la \
-	libsystemd-daemon.la \
-	libsystemd-event.la
+	libsystemd-daemon.la
 
 libsystemd_bus_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -2021,8 +1999,7 @@ lib_LTLIBRARIES += \
 	libsystemd-bus.la
 
 libsystemd_bus_internal_la_SOURCES = \
-	$(libsystemd_bus_la_SOURCES) \
-	$(libsystemd_event_la_SOURCES)
+	$(libsystemd_bus_la_SOURCES)
 
 libsystemd_bus_internal_la_CFLAGS = \
 	$(libsystemd_bus_la_CFLAGS)
@@ -3263,7 +3240,7 @@ systemd_socket_proxyd_SOURCES = \
 
 systemd_socket_proxyd_LDADD = \
 	libsystemd-logs.la \
-	libsystemd-event.la \
+	libsystemd-bus.la \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-shared.la \
