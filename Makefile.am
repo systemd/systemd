@@ -3847,14 +3847,12 @@ loginctl_SOURCES = \
 	src/login/loginctl.c \
 	src/login/sysfs-show.c
 
-loginctl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 loginctl_LDADD = \
-	libsystemd-dbus.la \
+	libsystemd-bus-internal.la \
 	libudev-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la
 
 rootbin_PROGRAMS += \
 	loginctl
