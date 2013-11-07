@@ -37,6 +37,7 @@
 #include "unit-name.h"
 #include "bus-util.h"
 #include "time-util.h"
+#include "cgroup-util.h"
 #include "machined.h"
 
 static bool valid_machine_name(const char *p) {
