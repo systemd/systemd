@@ -22,15 +22,13 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 const char *sd_utf8_is_valid(const char *s);
 const char *sd_ascii_is_valid(const char *s);
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

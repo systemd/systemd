@@ -23,10 +23,9 @@
 ***/
 
 #include "sd-id128.h"
+#include "_sd-common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+_SD_BEGIN_DECLARATIONS;
 
 /* Hey! If you add a new message here, you *must* also update the
  * message catalog with an appropriate explanation */
@@ -84,8 +83,6 @@ extern "C" {
 
 #define SD_MESSAGE_BOOTCHART        SD_ID128_MAKE(9f,26,aa,56,2c,f4,40,c2,b1,6c,77,3d,04,79,b5,18)
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

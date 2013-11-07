@@ -24,9 +24,9 @@
 
 #include <inttypes.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_rtnl sd_rtnl;
 typedef struct sd_rtnl_message sd_rtnl_message;
@@ -57,8 +57,6 @@ int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type);
 int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *data);
 int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data);
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

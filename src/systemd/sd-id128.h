@@ -25,9 +25,9 @@
 #include <inttypes.h>
 #include <string.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 /* 128 Bit ID APIs. See sd-id128(3) for more information. */
 
@@ -102,8 +102,6 @@ static inline int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
 
 #define SD_ID128_NULL ((sd_id128_t) { .qwords = { 0, 0 }})
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

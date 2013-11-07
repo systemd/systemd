@@ -28,6 +28,8 @@
 #include <inttypes.h>
 #include <signal.h>
 
+#include "_sd-common.h"
+
 /*
   Why is this better than pure epoll?
 
@@ -37,9 +39,7 @@
   - Handles signals and child PIDs
 */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+_SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_event sd_event;
 typedef struct sd_event_source sd_event_source;
@@ -115,8 +115,6 @@ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec);
 int sd_event_source_get_signal(sd_event_source *s);
 int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid);
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

@@ -31,11 +31,9 @@
 #include "sd-id128.h"
 #include "_sd-common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* Journal APIs. See sd-journal(3) for more information. */
+
+_SD_BEGIN_DECLARATIONS;
 
 /* Write to daemon */
 int sd_journal_print(int priority, const char *format, ...) _sd_printf_(2, 3);
@@ -54,11 +52,11 @@ int sd_journal_perror_with_location(const char *file, const char *line, const ch
 /* implicitly add code location to messages sent, if this is enabled */
 #ifndef SD_JOURNAL_SUPPRESS_LOCATION
 
-#define sd_journal_print(priority, ...) sd_journal_print_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_stringify(__LINE__), __func__, __VA_ARGS__)
-#define sd_journal_printv(priority, format, ap) sd_journal_printv_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_stringify(__LINE__), __func__, format, ap)
-#define sd_journal_send(...) sd_journal_send_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_stringify(__LINE__), __func__, __VA_ARGS__)
-#define sd_journal_sendv(iovec, n) sd_journal_sendv_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_stringify(__LINE__), __func__, iovec, n)
-#define sd_journal_perror(message) sd_journal_perror_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_stringify(__LINE__), __func__, message)
+#define sd_journal_print(priority, ...) sd_journal_print_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
+#define sd_journal_printv(priority, format, ap) sd_journal_printv_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, format, ap)
+#define sd_journal_send(...) sd_journal_send_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
+#define sd_journal_sendv(iovec, n) sd_journal_sendv_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, iovec, n)
+#define sd_journal_perror(message) sd_journal_perror_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, message)
 
 #endif
 
@@ -153,8 +151,6 @@ int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **ret);
 #define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \
         for (sd_journal_restart_unique(j); sd_journal_enumerate_unique((j), &(data), &(l)) > 0; )
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

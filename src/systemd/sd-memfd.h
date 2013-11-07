@@ -26,9 +26,9 @@
 #include <sys/types.h>
 #include <stdio.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "_sd-common.h"
+
+_SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_memfd sd_memfd;
 
@@ -51,8 +51,6 @@ int sd_memfd_get_sealed(sd_memfd *m);
 int sd_memfd_get_size(sd_memfd *m, uint64_t *sz);
 int sd_memfd_set_size(sd_memfd *m, uint64_t sz);
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

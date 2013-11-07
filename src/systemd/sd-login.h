@@ -25,9 +25,7 @@
 #include <sys/types.h>
 #include <inttypes.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "_sd-common.h"
 
 /*
  * A few points:
@@ -48,6 +46,8 @@ extern "C" {
  *
  * See sd-login(3) for more information.
  */
+
+_SD_BEGIN_DECLARATIONS;
 
 /* Get session from PID. Note that 'shared' processes of a user are
  * not attached to a session, but only attached to a user. This will
@@ -182,8 +182,6 @@ int sd_login_monitor_get_events(sd_login_monitor *m);
 /* Get timeout for poll(), as usec value relative to CLOCK_MONOTONIC's epoch */
 int sd_login_monitor_get_timeout(sd_login_monitor *m, uint64_t *timeout_usec);
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

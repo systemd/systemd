@@ -40,9 +40,31 @@
 #  define _sd_packed_ __attribute__((packed))
 #endif
 
-#ifndef _sd_stringify
-#  define _sd_xstringify(x) #x
-#  define _sd_stringify(x) _sd_xstringify(x)
+#ifndef _SD_STRINGIFY
+#  define _SD_XSTRINGIFY(x) #x
+#  define _SD_STRINGIFY(x) _SD_XSTRINGIFY(x)
+#endif
+
+#ifndef _SD_BEGIN_DECLARATIONS
+#  ifdef __cplusplus
+#    define _SD_BEGIN_DECLARATIONS                              \
+        extern "C" {                                            \
+        struct __useless_struct_to_allow_trailing_semicolon__
+#  else
+#    define _SD_BEGIN_DECLARATIONS                              \
+        struct __useless_struct_to_allow_trailing_semicolon__
+#  endif
+#endif
+
+#ifndef _SD_END_DECLARATIONS
+#  ifdef __cplusplus
+#    define _SD_END_DECLARATIONS                                \
+        }                                                       \
+        struct __useless_struct_to_allow_trailing_semicolon__
+#  else
+#    define _SD_END_DECLARATIONS                                \
+        struct __useless_struct_to_allow_trailing_semicolon__
+#  endif
 #endif
 
 #endif

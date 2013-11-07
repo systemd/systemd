@@ -30,9 +30,7 @@
 #include "sd-memfd.h"
 #include "_sd-common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+_SD_BEGIN_DECLARATIONS;
 
 /* Types */
 
@@ -269,8 +267,6 @@ int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
                 &(x).bytes[8],  &(x).bytes[9],  &(x).bytes[10], &(x).bytes[11], \
                 &(x).bytes[12], &(x).bytes[13], &(x).bytes[14], &(x).bytes[15]
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif
