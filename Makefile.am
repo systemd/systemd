@@ -1949,6 +1949,9 @@ libsystemd_event_la_LDFLAGS = \
 	-version-info $(LIBSYSTEMD_EVENT_CURRENT):$(LIBSYSTEMD_EVENT_REVISION):$(LIBSYSTEMD_EVENT_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-bus/libsystemd-event.sym
 
+EXTRA_DIST += \
+	src/libsystemd-bus/libsystemd-event.sym
+
 lib_LTLIBRARIES += \
 	libsystemd-event.la
 
@@ -2008,6 +2011,9 @@ libsystemd_bus_la_LDFLAGS = \
 	$(AM_LDFLAGS) \
 	-version-info $(LIBSYSTEMD_BUS_CURRENT):$(LIBSYSTEMD_BUS_REVISION):$(LIBSYSTEMD_BUS_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-bus/libsystemd-bus.sym
+
+EXTRA_DIST += \
+	src/libsystemd-bus/libsystemd-bus.sym
 
 lib_LTLIBRARIES += \
 	libsystemd-bus.la
