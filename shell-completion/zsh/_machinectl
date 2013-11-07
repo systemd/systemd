@@ -19,12 +19,7 @@
       case $cmd in
         list) msg="no options" ;;
         *)
-          _machines=( "${(foa)$(machinectl list | awk '{print $1}')}" )
-          if [[ -n "$_machines" ]]; then
-            _describe 'machines' _machines
-          else
-            _message 'no machines'
-          fi
+          _sd_machines
       esac
     else
       _message "no more options"
