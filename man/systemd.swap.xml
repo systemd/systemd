@@ -186,7 +186,7 @@
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min
                                 20s". Pass 0 to disable the timeout
-                                logic. Defaults to <varname>TimeoutStartSec=</varname> in
+                                logic. Defaults to <varname>TimeoutStartSec=</varname> from the
                                 manager configuration file.</para></listitem>
                         </varlistentry>
                 </variablelist>

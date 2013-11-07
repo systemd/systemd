@@ -64,7 +64,7 @@
                 local or remote destination socket.</para>
 
                 <para>One use of this tool is to provide
-                socket-activation support for services that do not
+                socket activation support for services that do not
                 natively support socket activation. On behalf of the
                 service to activate, the proxy inherits the socket
                 from systemd, accepts each client connection, opens a

@@ -126,7 +126,7 @@
                                 remotely. Specify a hostname, or
                                 username and hostname separated by <literal>@</literal>,
                                 to connect to. This will use SSH to
-                                talk to a remote
+                                talk to the remote
                                 system.</para></listitem>
                         </varlistentry>
 

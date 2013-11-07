@@ -101,15 +101,15 @@
                                 <listitem><para>Configures the default
                                 time-outs for starting and stopping of
                                 units, as well as the default time to
-                                sleep between automatic restarts of a
+                                sleep between automatic restarts of
                                 units, as configured per-unit in
                                 <varname>TimeoutStartSec=</varname>,
                                 <varname>TimeoutStopSec=</varname> and
                                 <varname>RestartSec=</varname> (for
-                                service units see
+                                service units, see
                                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details on the per-unit
-                                settings). For non-service units
+                                settings). For non-service units,
                                 <varname>DefaultTimeoutStartSec=</varname>
                                 sets the default
                                 <varname>TimeoutSec=</varname> value.

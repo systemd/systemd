@@ -209,7 +209,7 @@
                                 <term><option>-H</option></term>
                                 <term><option>--host=</option></term>
 
-                                <listitem><para>Execute operation
+                                <listitem><para>Execute the operation
                                 remotely. Specify a hostname, or
                                 username and hostname separated by
                                 <literal>@</literal>, to connect
@@ -222,7 +222,7 @@
                                 <term><option>-M</option></term>
                                 <term><option>--machine=</option></term>
 
-                                <listitem><para>Execute operation on a
+                                <listitem><para>Execute the operation on a
                                 local container. Specify a container
                                 name to connect to.</para></listitem>
                         </varlistentry>
