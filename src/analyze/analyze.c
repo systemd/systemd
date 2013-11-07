@@ -123,6 +123,12 @@ static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *in
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
+        assert(bus);
+        assert(path);
+        assert(interface);
+        assert(property);
+        assert(val);
+
         r = sd_bus_get_property_trivial(
                         bus,
                         "org.freedesktop.systemd1",
@@ -134,6 +140,31 @@ static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *in
 
         if (r < 0) {
                 log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+                return r;
+        }
+
+        return 0;
+}
+
+static int bus_get_unit_property_strv(sd_bus *bus, const char *path, const char *property, char ***strv) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(property);
+        assert(strv);
+
+        r = sd_bus_get_property_strv(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Unit",
+                        property,
+                        &error,
+                        strv);
+        if (r < 0) {
+                log_error("Failed to get unit property %s: %s", property, bus_error_message(&error, -r));
                 return r;
         }
 
@@ -196,44 +227,6 @@ static int bus_parse_unit_info(sd_bus_message *message, struct unit_info *u) {
         return r;
 }
 
-static int bus_get_unit_property_strv(sd_bus *bus, const char *unit_path, const char *prop, char ***strv) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-        const char *s;
-
-        r = sd_bus_get_property(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        unit_path,
-                        "org.freedesktop.systemd1.Unit",
-                        prop,
-                        &error,
-                        &reply,
-                        "as");
-        if (r < 0) {
-                log_error("Failed to get unit property: %s %s", prop, bus_error_message(&error, -r));
-                return r;
-        }
-
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "s");
-        if (r < 0)
-                return r;
-
-        while ((r = sd_bus_message_read(reply, "s", &s)) > 0) {
-                r = strv_extend(strv, s);
-                if (r < 0) {
-                        log_oom();
-                        return r;
-                }
-        }
-
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        return r;
-}
-
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -243,21 +236,22 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
 
         r = sd_bus_call_method(
                         bus,
-                       "org.freedesktop.systemd1",
-                       "/org/freedesktop/systemd1",
-                       "org.freedesktop.systemd1.Manager",
-                       "ListUnits",
-                       &error,
-                       &reply,
-                       "");
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ListUnits",
+                        &error, &reply,
+                        NULL);
         if (r < 0) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+                log_error("Failed to list units: %s", bus_error_message(&error, -r));
                 goto fail;
         }
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
-        if (r < 0)
+        if (r < 0) {
+                bus_log_parse_error(r);
                 goto fail;
+        }
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
                 struct unit_times *t;
@@ -392,7 +386,7 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
 
         if (times.finish_time <= 0) {
                 log_error("Bootup is not yet finished. Please try again later.");
-                return -EAGAIN;
+                return -EINPROGRESS;
         }
 
         if (times.initrd_time)
@@ -659,7 +653,7 @@ static int analyze_plot(sd_bus *bus) {
 
         svg("</g>\n\n");
 
-        svg("</svg>");
+        svg("</svg>\n");
 
         free_unit_times(times, (unsigned) n);
 
@@ -685,17 +679,15 @@ static int list_dependencies_print(const char *name, unsigned int level, unsigne
                         printf("%s @%s", name, format_timespan(ts, sizeof(ts), times->activated - boot->userspace_time, USEC_PER_MSEC));
                 else
                         printf("%s", name);
-        } else printf("%s", name);
+        } else
+                printf("%s", name);
         printf("\n");
 
         return 0;
 }
 
 static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, char ***deps) {
-        _cleanup_free_ char *path;
-
-        int r = 0;
-        char **ret = NULL;
+        _cleanup_free_ char *path = NULL;
 
         assert(bus);
         assert(name);
@@ -703,15 +695,9 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
 
         path = unit_dbus_path_from_name(name);
         if (path == NULL)
-                return -EINVAL;
+                return -ENOMEM;
 
-        r = bus_get_unit_property_strv(bus, path, "After", &ret);
-
-        if (r < 0)
-                strv_free(ret);
-        else
-                *deps = ret;
-        return r;
+        return bus_get_unit_property_strv(bus, path, "After", deps);
 }
 
 static Hashmap *unit_times_hashmap;
@@ -741,7 +727,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
         struct unit_times *times;
         struct boot_times *boot;
 
-        if(strv_extend(units, name))
+        if (strv_extend(units, name))
                 return log_oom();
 
         r = list_dependencies_get_dependencies(bus, name, &deps);
@@ -828,7 +814,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
 
         path = unit_dbus_path_from_name(name);
         if (path == NULL)
-                return -EINVAL;
+                return -ENOMEM;
 
         r = sd_bus_get_property(
                         bus,
@@ -869,9 +855,9 @@ static int list_dependencies(sd_bus *bus, const char *name) {
 
 static int analyze_critical_chain(sd_bus *bus, char *names[]) {
         struct unit_times *times;
-        int n, r;
         unsigned int i;
         Hashmap *h;
+        int n, r;
 
         n = acquire_time_data(bus, &times);
         if (n <= 0)
@@ -952,7 +938,7 @@ static int graph_one_property(sd_bus *bus, const struct unit_info *u, const char
 
         r = bus_get_unit_property_strv(bus, u->unit_path, prop, &units);
         if (r < 0)
-                return -r;
+                return r;
 
         STRV_FOREACH(unit, units) {
                 char **p;
@@ -1054,13 +1040,13 @@ static int dot(sd_bus *bus, char* patterns[]) {
                        &reply,
                        "");
         if (r < 0) {
-            log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
-            return r;
+                log_error("Failed to list units: %s", bus_error_message(&error, -r));
+                return r;
         }
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
         if (r < 0)
-            return r;
+                return bus_log_parse_error(r);
 
         printf("digraph systemd {\n");
 
@@ -1108,7 +1094,7 @@ static int dump(sd_bus *bus, char **args) {
                        &reply,
                        "");
         if (r < 0) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+                log_error("Failed issue method call: %s", bus_error_message(&error, -r));
                 return r;
         }
 
