@@ -84,8 +84,7 @@ static int list_machines(sd_bus *bus, char **args, unsigned n) {
                 return r;
         }
 
-        if (on_tty())
-                printf("%-32s %-9s %-16s\n", "MACHINE", "CONTAINER", "SERVICE");
+        printf("%-32s %-9s %-16s\n", "MACHINE", "CONTAINER", "SERVICE");
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssso)");
         if (r < 0)
@@ -103,8 +102,7 @@ static int list_machines(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (on_tty())
-                printf("\n%u machines listed.\n", k);
+        printf("\n%u machines listed.\n", k);
 
         return 0;
 }
