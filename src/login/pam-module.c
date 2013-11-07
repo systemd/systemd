@@ -403,9 +403,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
         if (vtnr > 0) {
-                char buf[11];
+                char buf[DECIMAL_STR_MAX(vtnr)];
                 snprintf(buf, sizeof(buf), "%u", vtnr);
-                char_array_0(buf);
 
                 r = pam_misc_setenv(handle, "XDG_VTNR", buf, 0);
                 if (r != PAM_SUCCESS) {
@@ -443,13 +442,12 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int flags,
                 int argc, const char **argv) {
 
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
         const void *p = NULL, *existing = NULL;
         const char *id;
         int r;
-
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
 
         assert(handle);
 
