@@ -26,7 +26,13 @@
 
 #include <inttypes.h>
 
-#include "_sd-common.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef _sd_packed_
+#  define _sd_packed_ __attribute__((packed))
+#endif
 
 typedef enum sd_shutdown_mode {
         SD_SHUTDOWN_NONE = 0,
@@ -106,5 +112,9 @@ struct sd_shutdown_command {
  * but the directory may be watched and the file in it read by
  * anybody.
  */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
