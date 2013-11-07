@@ -41,7 +41,7 @@
 int main(int argc, char *argv[]) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *copy = NULL;
         int r, boolean;
-        const char *x, *y, *z, *a, *b, *c, *d;
+        const char *x, *x2, *y, *z, *a, *b, *c, *d;
         uint8_t u, v;
         void *buffer = NULL;
         size_t sz;
@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         r = sd_bus_message_append(m, "s", NULL);
-        assert_se(r < 0);
+        assert_se(r >= 0);
 
         r = sd_bus_message_append(m, "as", 2, "string #1", "string #2");
         assert_se(r >= 0);
@@ -160,9 +160,10 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_bus_message_rewind(m, true) >= 0);
 
-        r = sd_bus_message_read(m, "sas", &x, 2, &y, &z);
+        r = sd_bus_message_read(m, "ssas", &x, &x2, 2, &y, &z);
         assert_se(r > 0);
         assert_se(streq(x, "a string"));
+        assert_se(streq(x2, ""));
         assert_se(streq(y, "string #1"));
         assert_se(streq(z, "string #2"));
 
@@ -241,7 +242,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_bus_message_verify_type(m, 's', NULL) > 0);
 
-        r = sd_bus_message_skip(m, "sas");
+        r = sd_bus_message_skip(m, "ssas");
         assert_se(r > 0);
 
         assert_se(sd_bus_message_verify_type(m, 's', NULL) > 0);

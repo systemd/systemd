@@ -1323,7 +1323,6 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(p, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(bus_type_is_basic(type), -EINVAL);
         assert_return(!m->poisoned, -ESTALE);
@@ -1380,6 +1379,11 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                 break;
 
         case SD_BUS_TYPE_BOOLEAN:
+                if (!p) {
+                        r = -EINVAL;
+                        goto fail;
+                }
+
                 align = sz = 4;
 
                 assert_cc(sizeof(int) == sizeof(uint32_t));
@@ -1390,6 +1394,11 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
 
         case SD_BUS_TYPE_UNIX_FD: {
                 int z, *f;
+
+                if (!p) {
+                        r = -EINVAL;
+                        goto fail;
+                }
 
                 if (!m->allow_fds) {
                         r = -ENOTSUP;
