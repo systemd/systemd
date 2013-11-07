@@ -688,3 +688,44 @@ int manager_job_is_active(Manager *manager, const char *path) {
 
         return true;
 }
+
+int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine) {
+        _cleanup_free_ char *unit = NULL;
+        Machine *mm;
+        int r;
+
+        assert(m);
+        assert(pid >= 1);
+        assert(machine);
+
+        r = cg_pid_get_unit(pid, &unit);
+        if (r < 0)
+                mm = hashmap_get(m->machine_leaders, UINT_TO_PTR(pid));
+        else
+                mm = hashmap_get(m->machine_units, unit);
+
+        if (!mm)
+                return 0;
+
+        *machine = mm;
+        return 1;
+}
+
+int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
+        Machine *machine;
+
+        assert(m);
+        assert(name);
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine) {
+                machine = machine_new(m, name);
+                if (!machine)
+                        return -ENOMEM;
+        }
+
+        if (_machine)
+                *_machine = machine;
+
+        return 0;
+}
