@@ -1506,7 +1506,7 @@ systemd_shutdownd_LDADD = \
 	libsystemd-daemon-internal.la \
 	libsystemd-shared.la
 
-pkginclude_HEADERS += \
+dist_doc_DATA += \
 	src/systemd/sd-shutdown.h
 
 # ------------------------------------------------------------------------------
