@@ -1479,10 +1479,6 @@ endif
 systemd_analyze_SOURCES = \
 	src/analyze/analyze.c
 
-systemd_analyze_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 systemd_analyze_LDADD = \
 	libsystemd-shared.la \
 	libsystemd-bus-internal.la \
@@ -1493,10 +1489,6 @@ systemd_analyze_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_initctl_SOURCES = \
 	src/initctl/initctl.c
-
-systemd_initctl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
 
 systemd_initctl_LDADD = \
 	libsystemd-bus-internal.la \
@@ -1510,7 +1502,6 @@ systemd_update_utmp_SOURCES = \
 
 systemd_update_utmp_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS) \
 	$(AUDIT_CFLAGS)
 
 systemd_update_utmp_LDADD = \
@@ -1664,10 +1655,6 @@ systemd_sleep_LDADD = \
 # ------------------------------------------------------------------------------
 systemd_fsck_SOURCES = \
 	src/fsck/fsck.c
-
-systemd_fsck_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
 
 systemd_fsck_LDADD = \
 	libsystemd-bus-internal.la \
@@ -3710,10 +3697,6 @@ SYSTEM_UNIT_ALIASES += \
 timedatectl_SOURCES = \
 	src/timedate/timedatectl.c
 
-timedatectl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 timedatectl_LDADD = \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
@@ -3788,10 +3771,6 @@ noinst_LTLIBRARIES += \
 
 machinectl_SOURCES = \
 	src/machine/machinectl.c
-
-machinectl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
 
 machinectl_LDADD = \
 	libsystemd-bus-internal.la \
@@ -3929,10 +3908,6 @@ dist_zshcompletion_DATA += \
 systemd_inhibit_SOURCES = \
 	src/login/inhibit.c
 
-systemd_inhibit_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 systemd_inhibit_LDADD = \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
@@ -3965,10 +3940,6 @@ test_inhibit_LDADD = \
 
 test_login_tables_SOURCES = \
 	src/login/test-login-tables.c
-
-test_login_tables_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
 
 test_login_tables_LDADD = \
 	libsystemd-logind-core.la
