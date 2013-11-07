@@ -53,7 +53,6 @@ static char *arg_host = NULL;
 
 static void pager_open_if_enabled(void) {
 
-        /* Cache result before we open the pager */
         if (arg_no_pager)
                 return;
 
@@ -65,6 +64,9 @@ static void polkit_agent_open_if_enabled(void) {
         /* Open the polkit agent as a child process if necessary */
 
         if (!arg_ask_password)
+                return;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return;
 
         polkit_agent_open();
@@ -372,9 +374,9 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                 {}
         };
 
-        SessionStatusInfo i = {};
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
+        SessionStatusInfo i = {};
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
@@ -527,8 +529,8 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
 
         static const struct bus_properties_map map[]  = {
                 { "Id",            "s",     NULL, offsetof(SeatStatusInfo, id) },
-                { "ActiveSession", "(so)",  &prop_map_first_of_struct, offsetof(SeatStatusInfo, active_session) },
-                { "Sessions",      "a(so)", &prop_map_sessions_strv, offsetof(SeatStatusInfo, sessions) },
+                { "ActiveSession", "(so)",  prop_map_first_of_struct, offsetof(SeatStatusInfo, active_session) },
+                { "Sessions",      "a(so)", prop_map_sessions_strv, offsetof(SeatStatusInfo, sessions) },
                 {}
         };
 

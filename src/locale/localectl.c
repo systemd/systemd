@@ -63,6 +63,9 @@ static void polkit_agent_open_if_enabled(void) {
         if (!arg_ask_password)
                 return;
 
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return;
+
         polkit_agent_open();
 }
 

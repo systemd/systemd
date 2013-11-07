@@ -793,7 +793,7 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
         left = argc - optind;
 
         if (left <= 0)
-                /* Special rule: no arguments means "list-sessions" */
+                /* Special rule: no arguments means "list" */
                 i = 0;
         else {
                 if (streq(argv[optind], "help")) {

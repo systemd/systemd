@@ -48,6 +48,18 @@ static bool arg_transient = false;
 static bool arg_pretty = false;
 static bool arg_static = false;
 
+static void polkit_agent_open_if_enabled(void) {
+
+        /* Open the polkit agent as a child process if necessary */
+        if (!arg_ask_password)
+                return;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return;
+
+        polkit_agent_open();
+}
+
 typedef struct StatusInfo {
         char *hostname;
         char *static_hostname;
@@ -192,12 +204,9 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
 
 static int set_simple_string(sd_bus *bus, const char *method, const char *value) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        static bool first=true;
         int r = 0;
 
-        if (first && arg_ask_password)
-                polkit_agent_open();
-        first = false;
+        polkit_agent_open_if_enabled();
 
         r = sd_bus_call_method(
                         bus,
