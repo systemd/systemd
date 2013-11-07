@@ -4424,7 +4424,7 @@ int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
         return 0;
 }
 
-int sd_bus_message_read_strv(sd_bus_message *m, char ***l) {
+_public_ int sd_bus_message_read_strv(sd_bus_message *m, char ***l) {
         char **strv = NULL;
         int r;
 
