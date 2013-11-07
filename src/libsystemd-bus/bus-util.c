@@ -545,33 +545,28 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
 
         case SD_BUS_TYPE_ARRAY:
                 if (streq(contents, "s")) {
-                        bool space = false;
-                        char tp;
-                        const char *cnt;
+                        bool first = true;
+                        const char *str;
 
                         r = sd_bus_message_enter_container(property, SD_BUS_TYPE_ARRAY, contents);
                         if (r < 0)
                                 return r;
 
-                        r = sd_bus_message_peek_type(property, &tp, &cnt);
+                        while((r = sd_bus_message_read_basic(property, SD_BUS_TYPE_STRING, &str)) > 0) {
+                                if (first)
+                                        printf("%s=", name);
+
+                                printf("%s%s", first ? "" : " ", str);
+
+                                first = false;
+                        }
                         if (r < 0)
                                 return r;
 
-                        if (all || cnt) {
-                                const char *str;
-
+                        if (first && all)
                                 printf("%s=", name);
-
-                                while((r = sd_bus_message_read_basic(property, SD_BUS_TYPE_STRING, &str)) >= 0) {
-                                        printf("%s%s", space ? " " : "", str);
-
-                                        space = true;
-                                }
-                                if (r < 0)
-                                        return r;
-
+                        if (!first || all)
                                 puts("");
-                        }
 
                         r = sd_bus_message_exit_container(property);
                         if (r < 0)
