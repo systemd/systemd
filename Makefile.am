@@ -4572,4 +4572,15 @@ install-tree: all
 # Let's run all tests of the test suite, but under valgrind. Let's
 # exclude the one perl script we have in there
 valgrind-tests: $(TESTS)
-	for f in $(TESTS) ; do [ "$$f" == "$${f/.pl/}" ] && libtool --mode=execute valgrind --leak-check=full --error-exitcode=55 $(builddir)/$$f ; done
+	for f in $(TESTS) ; do \
+		[ "$$f" == "$${f/.pl/}" ] && libtool --mode=execute valgrind --leak-check=full --error-exitcode=55 $(builddir)/$$f ; \
+	done
+
+check-api-docs: $(lib_LTLIBRARIES)
+	for symbol in `for f in $(lib_LTLIBRARIES) ; do nm -g --defined-only $(builddir)/.libs/"$${f/.la/.so}" 2>&1 /dev/null | grep " T " | cut -d" " -f3 ; done` ; do \
+		if test -f $(builddir)/man/$$symbol.html ; then \
+			echo "  Symbol $$symbol() is documented." ; \
+		else \
+			echo "‣ Symbol $$symbol() lacks documentation." ; \
+		fi ; \
+	 done
