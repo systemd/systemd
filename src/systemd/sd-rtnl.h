@@ -1,5 +1,8 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
+#ifndef foosdrtnlhfoo
+#define foosdrtnlhfoo
+
 /***
   This file is part of systemd.
 
@@ -18,8 +21,6 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-
-#pragma once
 
 #include <inttypes.h>
 
@@ -51,3 +52,5 @@ sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
 int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type);
 int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *data);
 int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data);
+
+#endif
