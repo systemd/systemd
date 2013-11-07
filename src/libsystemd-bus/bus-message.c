@@ -4238,7 +4238,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 return r;
         }
 
-        fprintf(f, "BEGIN_MESSAGE \"%s\" {\n", strempty(m->root_container.signature));
+        fprintf(f, "MESSAGE \"%s\" {\n", strempty(m->root_container.signature));
 
         for(;;) {
                 _cleanup_free_ char *prefix = NULL;
@@ -4262,6 +4262,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         log_error("Failed to peek type: %s", strerror(-r));
                         return r;
                 }
+
                 if (r == 0) {
                         if (level <= 1)
                                 break;
@@ -4278,15 +4279,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         if (!prefix)
                                 return log_oom();
 
-                        if (type == SD_BUS_TYPE_ARRAY)
-                                fprintf(f, "%s} END_ARRAY \n", prefix);
-                        else if (type == SD_BUS_TYPE_VARIANT)
-                                fprintf(f, "%s} END_VARIANT\n", prefix);
-                        else if (type == SD_BUS_TYPE_STRUCT)
-                                fprintf(f, "%s} END_STRUCT\n", prefix);
-                        else if (type == SD_BUS_TYPE_DICT_ENTRY)
-                                fprintf(f, "%s} END_DICT_ENTRY\n", prefix);
-
+                        fprintf(f, "%s};\n", prefix);
                         continue;
                 }
 
@@ -4302,13 +4295,13 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         }
 
                         if (type == SD_BUS_TYPE_ARRAY)
-                                fprintf(f, "%sBEGIN_ARRAY \"%s\" {\n", prefix, contents);
+                                fprintf(f, "%sARRAY \"%s\" {\n", prefix, contents);
                         else if (type == SD_BUS_TYPE_VARIANT)
-                                fprintf(f, "%sBEGIN_VARIANT \"%s\" {\n", prefix, contents);
+                                fprintf(f, "%sVARIANT \"%s\" {\n", prefix, contents);
                         else if (type == SD_BUS_TYPE_STRUCT)
-                                fprintf(f, "%sBEGIN_STRUCT \"%s\" {\n", prefix, contents);
+                                fprintf(f, "%sSTRUCT \"%s\" {\n", prefix, contents);
                         else if (type == SD_BUS_TYPE_DICT_ENTRY)
-                                fprintf(f, "%sBEGIN_DICT_ENTRY \"%s\" {\n", prefix, contents);
+                                fprintf(f, "%sDICT_ENTRY \"%s\" {\n", prefix, contents);
 
                         level ++;
 
@@ -4326,55 +4319,55 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 switch (type) {
 
                 case SD_BUS_TYPE_BYTE:
-                        fprintf(f, "%sBYTE: %u\n", prefix, basic.u8);
+                        fprintf(f, "%sBYTE %u;\n", prefix, basic.u8);
                         break;
 
                 case SD_BUS_TYPE_BOOLEAN:
-                        fprintf(f, "%sBOOLEAN: %s\n", prefix, yes_no(basic.i));
+                        fprintf(f, "%sBOOLEAN %s;\n", prefix, yes_no(basic.i));
                         break;
 
                 case SD_BUS_TYPE_INT16:
-                        fprintf(f, "%sINT16: %i\n", prefix, basic.s16);
+                        fprintf(f, "%sINT16 %i;\n", prefix, basic.s16);
                         break;
 
                 case SD_BUS_TYPE_UINT16:
-                        fprintf(f, "%sUINT16: %u\n", prefix, basic.u16);
+                        fprintf(f, "%sUINT16 %u;\n", prefix, basic.u16);
                         break;
 
                 case SD_BUS_TYPE_INT32:
-                        fprintf(f, "%sINT32: %i\n", prefix, basic.s32);
+                        fprintf(f, "%sINT32 %i;\n", prefix, basic.s32);
                         break;
 
                 case SD_BUS_TYPE_UINT32:
-                        fprintf(f, "%sUINT32: %u\n", prefix, basic.u32);
+                        fprintf(f, "%sUINT32 %u;\n", prefix, basic.u32);
                         break;
 
                 case SD_BUS_TYPE_INT64:
-                        fprintf(f, "%sINT64: %lli\n", prefix, (long long) basic.s64);
+                        fprintf(f, "%sINT64 %lli;\n", prefix, (long long) basic.s64);
                         break;
 
                 case SD_BUS_TYPE_UINT64:
-                        fprintf(f, "%sUINT64: %llu\n", prefix, (unsigned long long) basic.u64);
+                        fprintf(f, "%sUINT64 %llu;\n", prefix, (unsigned long long) basic.u64);
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:
-                        fprintf(f, "%sDOUBLE: %g\n", prefix, basic.d64);
+                        fprintf(f, "%sDOUBLE %g;\n", prefix, basic.d64);
                         break;
 
                 case SD_BUS_TYPE_STRING:
-                        fprintf(f, "%sSTRING: \"%s\"\n", prefix, basic.string);
+                        fprintf(f, "%sSTRING \"%s\";\n", prefix, basic.string);
                         break;
 
                 case SD_BUS_TYPE_OBJECT_PATH:
-                        fprintf(f, "%sOBJECT_PATH: \"%s\"\n", prefix, basic.string);
+                        fprintf(f, "%sOBJECT_PATH \"%s\";\n", prefix, basic.string);
                         break;
 
                 case SD_BUS_TYPE_SIGNATURE:
-                        fprintf(f, "%sSIGNATURE: \"%s\"\n", prefix, basic.string);
+                        fprintf(f, "%sSIGNATURE \"%s\";\n", prefix, basic.string);
                         break;
 
                 case SD_BUS_TYPE_UNIX_FD:
-                        fprintf(f, "%sUNIX_FD: %i\n", prefix, basic.i);
+                        fprintf(f, "%sUNIX_FD %i;\n", prefix, basic.i);
                         break;
 
                 default:
@@ -4382,7 +4375,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 }
         }
 
-        fprintf(f, "} END_MESSAGE\n");
+        fprintf(f, "};\n");
         return 0;
 }
 
