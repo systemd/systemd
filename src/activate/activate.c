@@ -127,7 +127,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 _cleanup_free_ char *name = NULL;
 
                 getsockname_pretty(fd, &name);
-                log_info("Listening on %s.", strna(name));
+                log_info("Listening on %s as %i.", strna(name), fd);
 
                 r = add_epoll(*epoll_fd, fd);
                 if (r < 0)
@@ -381,6 +381,10 @@ int main(int argc, char **argv, char **envp) {
         n = open_sockets(&epoll_fd, arg_accept);
         if (n < 0)
                 return EXIT_FAILURE;
+        if (n == 0) {
+                log_error("No sockets to listen on specified or passed in.");
+                return EXIT_FAILURE;
+        }
 
         for (;;) {
                 struct epoll_event event;
@@ -394,7 +398,7 @@ int main(int argc, char **argv, char **envp) {
                         return EXIT_FAILURE;
                 }
 
-                log_info("Communication attempt on fd:%d", event.data.fd);
+                log_info("Communication attempt on fd %i.", event.data.fd);
                 if (arg_accept) {
                         r = do_accept(argv[optind], argv + optind, envp,
                                       event.data.fd);
