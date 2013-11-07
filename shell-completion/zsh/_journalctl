@@ -1,11 +1,5 @@
 #compdef journalctl
 
-_outputmodes() {
-    local -a _output_opts
-    _output_opts=(short short-monotonic verbose export json json-pretty json-see cat)
-    _describe -t output 'output mode' _output_opts || compadd "$@"
-}
-
 _list_fields() {
     local -a journal_fields
     journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
@@ -65,7 +59,7 @@ _arguments -s \
     {-n+,--lines=}'[Number of journal entries to show]:integer' \
     '--no-tail[Show all lines, even in follow mode]' \
     {-r,--reverse}'[Reverse output]' \
-    {-o+,--output=}'[Change journal output mode]:output modes:_outputmodes' \
+    {-o+,--output=}'[Change journal output mode]:output modes:_sd_outputmodes' \
     {-x,--catalog}'[Show explanatory texts with each log line]' \
     {-q,--quiet}"[Don't show privilege warning]" \
     {-m,--merge}'[Show entries from all available journals]' \
