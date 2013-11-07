@@ -92,6 +92,9 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_append_array(m, 'i', integer_array, sizeof(integer_array));
         assert_se(r >= 0);
 
+        r = sd_bus_message_append_array(m, 'u', NULL, 0);
+        assert_se(r >= 0);
+
         r = bus_message_seal(m, 4711);
         assert_se(r >= 0);
 
@@ -209,6 +212,10 @@ int main(int argc, char *argv[]) {
         assert_se(r > 0);
         assert_se(sz == sizeof(integer_array));
         assert_se(memcmp(integer_array, return_array, sz) == 0);
+
+        r = sd_bus_message_read_array(m, 'u', (const void**) &return_array, &sz);
+        assert_se(r > 0);
+        assert_se(sz == 0);
 
         r = sd_bus_message_peek_type(m, NULL, NULL);
         assert_se(r == 0);

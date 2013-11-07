@@ -3585,12 +3585,18 @@ _public_ int sd_bus_message_read_array(sd_bus_message *m,
         c = message_get_container(m);
         sz = BUS_MESSAGE_BSWAP32(m, *c->array_size);
 
-        r = message_peek_body(m, &m->rindex, align, sz, &p);
-        if (r < 0)
-                goto fail;
-        if (r == 0) {
-                r = -EBADMSG;
-                goto fail;
+        if (sz == 0)
+                /* Zero length array, let's return some aligned
+                 * pointer that is not NULL */
+                p = (uint8_t*) NULL + align;
+        else {
+                r = message_peek_body(m, &m->rindex, align, sz, &p);
+                if (r < 0)
+                        goto fail;
+                if (r == 0) {
+                        r = -EBADMSG;
+                        goto fail;
+                }
         }
 
         r = sd_bus_message_exit_container(m);
