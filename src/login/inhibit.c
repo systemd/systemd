@@ -92,7 +92,7 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
         if (r < 0)
-                return -EIO;
+                return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
@@ -112,11 +112,11 @@ static int print_inhibitors(sd_bus *bus, sd_bus_error *error) {
                 n++;
         }
         if (r < 0)
-                return -EIO;
+                return bus_log_parse_error(r);
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
-                return -EIO;
+                return bus_log_parse_error(r);
 
         printf("%u inhibitors listed.\n", n);
         return 0;
