@@ -21,10 +21,7 @@
 
 #pragma once
 
-#include <linux/rtnetlink.h>
-#include <linux/netlink.h>
-#include <stdint.h>
-#include <util.h>
+#include <inttypes.h>
 
 typedef struct sd_rtnl sd_rtnl;
 typedef struct sd_rtnl_message sd_rtnl_message;
@@ -54,9 +51,3 @@ sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
 int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type);
 int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *data);
 int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_rtnl*, sd_rtnl_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_rtnl_message*, sd_rtnl_message_unref);
-
-#define _cleanup_sd_rtnl_unref_ _cleanup_(sd_rtnl_unrefp)
-#define _cleanup_sd_rtnl_message_unref_ _cleanup_(sd_rtnl_message_unrefp)

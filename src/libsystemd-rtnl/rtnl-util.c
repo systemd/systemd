@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <linux/rtnetlink.h>
 #include <netinet/ether.h>
 
 #include "sd-rtnl.h"

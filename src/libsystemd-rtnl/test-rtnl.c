@@ -19,12 +19,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <linux/rtnetlink.h>
 #include <netinet/ether.h>
 
 #include "util.h"
 #include "macro.h"
 #include "sd-rtnl.h"
 #include "socket-util.h"
+#include "rtnl-util.h"
 
 static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *message;

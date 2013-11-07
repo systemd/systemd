@@ -23,7 +23,14 @@
 
 #include <netinet/ether.h>
 
+#include "util.h"
 #include "sd-rtnl.h"
 
 int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name);
 int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const struct ether_addr *mac, unsigned mtu);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_rtnl*, sd_rtnl_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_rtnl_message*, sd_rtnl_message_unref);
+
+#define _cleanup_sd_rtnl_unref_ _cleanup_(sd_rtnl_unrefp)
+#define _cleanup_sd_rtnl_message_unref_ _cleanup_(sd_rtnl_message_unrefp)

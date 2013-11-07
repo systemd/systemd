@@ -27,6 +27,7 @@
 
 #include "sd-rtnl.h"
 #include "rtnl-internal.h"
+#include "rtnl-util.h"
 
 static int sd_rtnl_new(sd_rtnl **ret) {
         sd_rtnl *rtnl;

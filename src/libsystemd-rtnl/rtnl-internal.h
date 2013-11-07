@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <linux/netlink.h>
+
 #include "refcnt.h"
 
 struct sd_rtnl {
