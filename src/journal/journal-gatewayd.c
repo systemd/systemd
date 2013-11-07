@@ -742,9 +742,7 @@ static int request_handler_file(
 }
 
 static int get_virtualization(char **v) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
-        const char *t;
         char *b;
         int r;
 
@@ -752,32 +750,22 @@ static int get_virtualization(char **v) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
+        r = sd_bus_get_property_string(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
-                        "org.freedesktop.DBus.Properties",
-                        "Get",
-                        NULL,
-                        &reply,
-                        "ss",
                         "org.freedesktop.systemd1.Manager",
-                        "Virtualization");
+                        "Virtualization",
+                        NULL,
+                        &b);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(reply, "v", "s", &t);
-        if (r < 0)
-                return r;
-
-        if (isempty(t)) {
+        if (isempty(b)) {
+                free(b);
                 *v = NULL;
                 return 0;
         }
-
-        b = strdup(t);
-        if (!b)
-                return -ENOMEM;
 
         *v = b;
         return 1;

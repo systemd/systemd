@@ -47,32 +47,24 @@ typedef struct Context {
 } Context;
 
 static usec_t get_startup_time(Context *c) {
-        usec_t t = 0;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        usec_t t = 0;
         int r;
 
         assert(c);
 
-        r = sd_bus_call_method(
+        r = sd_bus_get_property_trivial(
                         c->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
-                        "org.freedesktop.DBus.Properties",
-                        "Get",
-                        &error,
-                        &reply,
-                        "ss",
                         "org.freedesktop.systemd1.Manager",
-                        "UserspaceTimestamp");
+                        "UserspaceTimestamp",
+                        &error,
+                        't', &t);
         if (r < 0) {
                 log_error("Failed to get timestamp: %s", bus_error_message(&error, -r));
-                return t;
+                return 0;
         }
-
-        r = sd_bus_message_read(reply, "v", "t", &t);
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         return t;
 }
@@ -101,8 +93,9 @@ static int get_current_runlevel(Context *c) {
         assert(c);
 
         for (i = 0; i < ELEMENTSOF(table); i++) {
-                _cleanup_bus_message_unref_ sd_bus_message *reply1 = NULL, *reply2 = NULL;
-                const char *path = NULL, *state;
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_free_ char *state = NULL;
+                const char *path = NULL;
 
                 r = sd_bus_call_method(
                                 c->bus,
@@ -111,37 +104,29 @@ static int get_current_runlevel(Context *c) {
                                 "org.freedesktop.systemd1.Manager",
                                 "LoadUnit",
                                 &error,
-                                &reply1,
+                                &reply,
                                 "s", table[i].special);
                 if (r < 0) {
-                        log_error("Failed to get runlevel: %s", bus_error_message(&error, -r));
-                        if (r == -ENOMEM)
-                                return r;
-                        else
-                                continue;
+                        log_warning("Failed to get runlevel: %s", bus_error_message(&error, -r));
+                        continue;
                 }
 
-                r = sd_bus_message_read(reply1, "o", &path);
+                r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = sd_bus_call_method(
+                r = sd_bus_get_property_string(
                                 c->bus,
                                 "org.freedesktop.systemd1",
                                 path,
-                                "org.freedesktop.DBus.Properties",
-                                "Get",
+                                "org.freedesktop.systemd1.Unit",
+                                "ActiveState",
                                 &error,
-                                &reply2,
-                                "ss", "org.freedesktop.systemd1.Unit", "ActiveState");
+                                &state);
                 if (r < 0) {
-                        log_error("Failed to get state: %s", bus_error_message(&error, -r));
+                        log_warning("Failed to get state: %s", bus_error_message(&error, -r));
                         return r;
                 }
-
-                r = sd_bus_message_read(reply2, "v", "s", &state);
-                if (r < 0)
-                        return bus_log_parse_error(r);
 
                 if (streq(state, "active") || streq(state, "reloading"))
                         return table[i].runlevel;
