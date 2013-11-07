@@ -622,6 +622,7 @@ typedef enum DrawSpecialChar {
         DRAW_TREE_RIGHT,
         DRAW_TREE_SPACE,
         DRAW_TRIANGULAR_BULLET,
+        DRAW_BLACK_CIRCLE,
         _DRAW_SPECIAL_CHAR_MAX
 } DrawSpecialChar;
 const char *draw_special_char(DrawSpecialChar ch);

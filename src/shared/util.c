@@ -5466,6 +5466,7 @@ const char *draw_special_char(DrawSpecialChar ch) {
                         [DRAW_TREE_RIGHT]         = "\342\224\224\342\224\200", /* └─ */
                         [DRAW_TREE_SPACE]         = "  ",                       /*    */
                         [DRAW_TRIANGULAR_BULLET]  = "\342\200\243 ",            /* ‣  */
+                        [DRAW_BLACK_CIRCLE]       = "\342\227\217 ",            /* ●  */
                 },
                 /* ASCII fallback */ {
                         [DRAW_TREE_VERT]          = "| ",
@@ -5473,6 +5474,7 @@ const char *draw_special_char(DrawSpecialChar ch) {
                         [DRAW_TREE_RIGHT]         = "`-",
                         [DRAW_TREE_SPACE]         = "  ",
                         [DRAW_TRIANGULAR_BULLET]  = "> ",
+                        [DRAW_BLACK_CIRCLE]       = "* ",
                 }
         };
 

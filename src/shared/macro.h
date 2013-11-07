@@ -278,11 +278,9 @@ do {                                                                    \
  */
 #define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
 
-
 /* Returns the number of chars needed to format variables of the
  * specified type as a decimal string. Adds in extra space for a
  * negative '-' prefix. */
-
 #define DECIMAL_STR_MAX(type)                                           \
         (1+(sizeof(type) <= 1 ? 3 :                                     \
             sizeof(type) <= 2 ? 5 :                                     \
