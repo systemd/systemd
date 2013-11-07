@@ -1992,7 +1992,11 @@ libsystemd_bus_la_LDFLAGS = \
 	-version-info $(LIBSYSTEMD_BUS_CURRENT):$(LIBSYSTEMD_BUS_REVISION):$(LIBSYSTEMD_BUS_AGE) \
 	-Wl,--version-script=$(top_srcdir)/src/libsystemd-bus/libsystemd-bus.sym
 
+pkgconfiglib_DATA += \
+	src/libsystemd-bus/libsystemd-bus.pc
+
 EXTRA_DIST += \
+	src/libsystemd-bus/libsystemd-bus.pc.in \
 	src/libsystemd-bus/libsystemd-bus.sym
 
 lib_LTLIBRARIES += \
