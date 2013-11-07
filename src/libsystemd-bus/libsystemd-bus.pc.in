@@ -14,5 +14,6 @@ Name: systemd
 Description: systemd Bus and Event Loop Library
 URL: @PACKAGE_URL@
 Version: @PACKAGE_VERSION@
+Requires: libsystemd-id128 = @PACKAGE_VERSION@
 Libs: -L${libdir} -lsystemd-bus
 Cflags: -I${includedir}
