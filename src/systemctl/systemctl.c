@@ -1258,12 +1258,11 @@ static void list_jobs_print(struct job_info* jobs, size_t n) {
                         shorten = true;
                 }
 
-                if (on_tty())
-                        printf("%*s %-*s %-*s %-*s\n",
-                               l0, "JOB",
-                               l1, "UNIT",
-                               l2, "TYPE",
-                               l3, "STATE");
+                printf("%*s %-*s %-*s %-*s\n",
+                       l0, "JOB",
+                       l1, "UNIT",
+                       l2, "TYPE",
+                       l3, "STATE");
 
                 for (i = 0, j = jobs; i < n; i++, j++) {
                         _cleanup_free_ char *e = NULL;
@@ -1286,8 +1285,7 @@ static void list_jobs_print(struct job_info* jobs, size_t n) {
         on = ansi_highlight();
         off = ansi_highlight_off();
 
-        if (on_tty())
-                printf("\n%s%zu jobs listed%s.\n", on, n, off);
+        printf("\n%s%zu jobs listed%s.\n", on, n, off);
 }
 
 static int list_jobs(DBusConnection *bus, char **args) {
