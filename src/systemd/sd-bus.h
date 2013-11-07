@@ -197,7 +197,7 @@ int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all);
 int sd_bus_message_read(sd_bus_message *m, const char *types, ...);
 int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p);
 int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size);
-int sd_bus_message_read_strv(sd_bus_message *m, char ***l);
+int sd_bus_message_read_strv(sd_bus_message *m, char ***l); /* free the result! */
 int sd_bus_message_skip(sd_bus_message *m, const char *types);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_exit_container(sd_bus_message *m);
@@ -211,6 +211,8 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete);
 int sd_bus_call_method(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, sd_bus_message **reply, const char *types, ...);
 int sd_bus_get_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, sd_bus_message **reply, const char *type);
 int sd_bus_get_property_trivial(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char type, void *ptr);
+int sd_bus_get_property_string(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char **ret); /* free the result! */
+int sd_bus_get_property_strv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char ***ret); /* free the result! */
 int sd_bus_set_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, const char *type, ...);
 int sd_bus_reply_method_return(sd_bus *bus, sd_bus_message *call, const char *types, ...);
 int sd_bus_reply_method_error(sd_bus *bus, sd_bus_message *call, const sd_bus_error *e);
@@ -234,7 +236,7 @@ int sd_bus_get_unique_name(sd_bus *bus, const char **unique);
 int sd_bus_request_name(sd_bus *bus, const char *name, int flags);
 int sd_bus_release_name(sd_bus *bus, const char *name);
 int sd_bus_list_names(sd_bus *bus, char ***l);
-int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner);
+int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner); /* free the result! */
 int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid);
 int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid);
 int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);

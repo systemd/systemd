@@ -305,6 +305,81 @@ _public_ int sd_bus_get_property_trivial(
         return 0;
 }
 
+_public_ int sd_bus_get_property_string(
+                sd_bus *bus,
+                const char *destination,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_bus_error *error,
+                char **ret) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        const char *s;
+        char *n;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL);
+        assert_return(member_name_is_valid(member), -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'v', "s");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_basic(reply, 's', &s);
+        if (r < 0)
+                return r;
+
+        n = strdup(s);
+        if (!n)
+                return -ENOMEM;
+
+        *ret = n;
+        return 0;
+}
+
+_public_ int sd_bus_get_property_strv(
+                sd_bus *bus,
+                const char *destination,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_bus_error *error,
+                char ***ret) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL);
+        assert_return(member_name_is_valid(member), -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'v', NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_strv(reply, ret);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 _public_ int sd_bus_set_property(
                 sd_bus *bus,
                 const char *destination,

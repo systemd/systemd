@@ -142,6 +142,8 @@ global:
         sd_bus_call_method;
         sd_bus_get_property;
         sd_bus_get_property_trivial;
+        sd_bus_get_property_string;
+        sd_bus_get_property_strv;
         sd_bus_set_property;
         sd_bus_reply_method_return;
         sd_bus_reply_method_error;
