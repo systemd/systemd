@@ -523,7 +523,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         Context *c = userdata;
         const char *z;
-        unsigned interactive;
+        int interactive;
         char *t;
         int r;
 
@@ -587,7 +587,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
 static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        unsigned lrtc, fix_system, interactive;
+        int lrtc, fix_system, interactive;
         Context *c = userdata;
         struct timespec ts;
         int r;
@@ -671,7 +671,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata) 
 
 static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        unsigned relative, interactive;
+        int relative, interactive;
         Context *c = userdata;
         int64_t utc;
         struct timespec ts;
@@ -737,7 +737,7 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
 static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        unsigned ntp, interactive;
+        int ntp, interactive;
         Context *c = userdata;
         int r;
 
@@ -745,7 +745,7 @@ static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata) {
         if (r < 0)
                 return sd_bus_reply_method_errno(bus, m, r, NULL);
 
-        if (ntp == c->use_ntp)
+        if ((bool)ntp == c->use_ntp)
                 return sd_bus_reply_method_return(bus, m, NULL);
 
         r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-ntp", interactive, &error, method_set_ntp, c);

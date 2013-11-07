@@ -2669,7 +2669,7 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
 
                 case SD_BUS_TYPE_BOOLEAN:
                         if (p)
-                                *(unsigned*) p = !!*(uint32_t*) q;
+                                *(int*) p = !!*(uint32_t*) q;
                         break;
 
                 case SD_BUS_TYPE_INT16:

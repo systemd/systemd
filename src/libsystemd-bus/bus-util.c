@@ -151,7 +151,7 @@ int bus_verify_polkit(
 #ifdef ENABLE_POLKIT
         else {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                unsigned authorized = false, challenge = false;
+                int authorized = false, challenge = false;
 
                 r = sd_bus_call_method(
                                 bus,
@@ -270,7 +270,7 @@ int bus_verify_polkit_async(
 #ifdef ENABLE_POLKIT
         q = hashmap_remove(*registry, m);
         if (q) {
-                unsigned authorized, challenge;
+                int authorized, challenge;
 
                 /* This is the second invocation of this function, and
                  * there's already a response from polkit, let's

@@ -908,7 +908,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
         Context *c = userdata;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *keymap, *keymap_toggle;
-        unsigned convert, interactive;
+        int convert, interactive;
         int r;
 
         r = sd_bus_message_read(m, "ssbb", &keymap, &keymap_toggle, &convert, &interactive);
@@ -971,7 +971,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
         Context *c = userdata;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *layout, *model, *variant, *options;
-        unsigned convert, interactive;
+        int convert, interactive;
         int r;
 
         r = sd_bus_message_read(m, "ssssbb", &layout, &model, &variant, &options, &convert, &interactive);
