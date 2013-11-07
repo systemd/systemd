@@ -66,9 +66,9 @@ MANPAGES += \
 	man/systemd-nspawn.1 \
 	man/systemd-remount-fs.service.8 \
 	man/systemd-run.1 \
-	man/systemd-socket-proxyd.1 \
 	man/systemd-shutdownd.service.8 \
 	man/systemd-sleep.conf.5 \
+	man/systemd-socket-proxyd.1 \
 	man/systemd-suspend.service.8 \
 	man/systemd-sysctl.service.8 \
 	man/systemd-system-update-generator.8 \
@@ -139,6 +139,7 @@ MANPAGES_ALIAS += \
 	man/sd_is_socket.3 \
 	man/sd_is_socket_inet.3 \
 	man/sd_is_socket_unix.3 \
+	man/sd_is_special.3 \
 	man/sd_journal.3 \
 	man/sd_journal_add_conjunction.3 \
 	man/sd_journal_add_disjunction.3 \
@@ -239,6 +240,7 @@ man/sd_is_mq.3: man/sd_is_fifo.3
 man/sd_is_socket.3: man/sd_is_fifo.3
 man/sd_is_socket_inet.3: man/sd_is_fifo.3
 man/sd_is_socket_unix.3: man/sd_is_fifo.3
+man/sd_is_special.3: man/sd_is_fifo.3
 man/sd_journal.3: man/sd_journal_open.3
 man/sd_journal_add_conjunction.3: man/sd_journal_add_match.3
 man/sd_journal_add_disjunction.3: man/sd_journal_add_match.3
@@ -409,6 +411,9 @@ man/sd_is_socket_inet.html: man/sd_is_fifo.html
 	$(html-alias)
 
 man/sd_is_socket_unix.html: man/sd_is_fifo.html
+	$(html-alias)
+
+man/sd_is_special.html: man/sd_is_fifo.html
 	$(html-alias)
 
 man/sd_journal.html: man/sd_journal_open.html
@@ -856,7 +861,9 @@ MANPAGES_ALIAS += \
 	man/sd_pid_get_slice.3 \
 	man/sd_pid_get_unit.3 \
 	man/sd_pid_get_user_unit.3 \
+	man/sd_seat_can_graphical.3 \
 	man/sd_seat_can_multi_session.3 \
+	man/sd_seat_can_tty.3 \
 	man/sd_seat_get_sessions.3 \
 	man/sd_session_get_class.3 \
 	man/sd_session_get_display.3 \
@@ -885,7 +892,9 @@ man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
 man/sd_pid_get_slice.3: man/sd_pid_get_session.3
 man/sd_pid_get_unit.3: man/sd_pid_get_session.3
 man/sd_pid_get_user_unit.3: man/sd_pid_get_session.3
+man/sd_seat_can_graphical.3: man/sd_seat_get_active.3
 man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
+man/sd_seat_can_tty.3: man/sd_seat_get_active.3
 man/sd_seat_get_sessions.3: man/sd_seat_get_active.3
 man/sd_session_get_class.3: man/sd_session_is_active.3
 man/sd_session_get_display.3: man/sd_session_is_active.3
@@ -942,7 +951,13 @@ man/sd_pid_get_unit.html: man/sd_pid_get_session.html
 man/sd_pid_get_user_unit.html: man/sd_pid_get_session.html
 	$(html-alias)
 
+man/sd_seat_can_graphical.html: man/sd_seat_get_active.html
+	$(html-alias)
+
 man/sd_seat_can_multi_session.html: man/sd_seat_get_active.html
+	$(html-alias)
+
+man/sd_seat_can_tty.html: man/sd_seat_get_active.html
 	$(html-alias)
 
 man/sd_seat_get_sessions.html: man/sd_seat_get_active.html

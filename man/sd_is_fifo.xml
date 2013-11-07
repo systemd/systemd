@@ -48,6 +48,7 @@
                 <refname>sd_is_socket_inet</refname>
                 <refname>sd_is_socket_unix</refname>
                 <refname>sd_is_mq</refname>
+                <refname>sd_is_special</refname>
                 <refpurpose>Check the type of a file descriptor</refpurpose>
         </refnamediv>
 
@@ -89,6 +90,12 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_is_mq</function></funcdef>
+                                <paramdef>int <parameter>fd</parameter></paramdef>
+                                <paramdef>const char *<parameter>path</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_is_special</function></funcdef>
                                 <paramdef>int <parameter>fd</parameter></paramdef>
                                 <paramdef>const char *<parameter>path</parameter></paramdef>
                         </funcprototype>
@@ -153,6 +160,16 @@
                 <parameter>path</parameter> parameter is not
                 <constant>NULL</constant>, it is checked whether the
                 message queue is bound to the specified name.</para>
+
+                <para><function>sd_is_special()</function> may be
+                called to check whether the specified file descriptor
+                refers to a special file. If the
+                <parameter>path</parameter> parameter is not
+                <constant>NULL</constant>, it is checked whether file
+                descriptor is bound to the specified file
+                name. Special files in this context are character
+                device nodes and files in <filename>/proc</filename>
+                or <filename>/sys</filename>.</para>
         </refsect1>
 
         <refsect1>

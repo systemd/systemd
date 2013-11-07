@@ -4576,7 +4576,7 @@ valgrind-tests: $(TESTS)
 		[ "$$f" == "$${f/.pl/}" ] && libtool --mode=execute valgrind --leak-check=full --error-exitcode=55 $(builddir)/$$f ; \
 	done
 
-check-api-docs: $(lib_LTLIBRARIES)
+check-api-docs: $(lib_LTLIBRARIES) man
 	for symbol in `for f in $(lib_LTLIBRARIES) ; do nm -g --defined-only $(builddir)/.libs/"$${f/.la/.so}" 2>&1 /dev/null | grep " T " | cut -d" " -f3 ; done` ; do \
 		if test -f $(builddir)/man/$$symbol.html ; then \
 			echo "  Symbol $$symbol() is documented." ; \

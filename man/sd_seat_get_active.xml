@@ -46,6 +46,8 @@
                 <refname>sd_seat_get_active</refname>
                 <refname>sd_seat_get_sessions</refname>
                 <refname>sd_seat_can_multi_session</refname>
+                <refname>sd_seat_can_tty</refname>
+                <refname>sd_seat_can_graphical</refname>
                 <refpurpose>Determine state of a specific seat</refpurpose>
         </refnamediv>
 
