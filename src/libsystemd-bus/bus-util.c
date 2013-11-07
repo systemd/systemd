@@ -958,3 +958,27 @@ int bus_log_parse_error(int r) {
         log_error("Failed to parse message: %s", strerror(-r));
         return r;
 }
+
+int bus_log_create_error(int r) {
+        log_error("Failed to create message: %s", strerror(-r));
+        return r;
+}
+
+int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
+        assert(message);
+        assert(u);
+
+        return sd_bus_message_read(
+                        message,
+                        "(ssssssouso)",
+                        &u->id,
+                        &u->description,
+                        &u->load_state,
+                        &u->active_state,
+                        &u->sub_state,
+                        &u->following,
+                        &u->unit_path,
+                        &u->job_id,
+                        &u->job_type,
+                        &u->job_path);
+}

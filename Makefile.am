@@ -1783,14 +1783,10 @@ systemd_cgroups_agent_LDADD = \
 systemctl_SOURCES = \
 	src/systemctl/systemctl.c
 
-systemctl_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 systemctl_LDADD = \
 	libsystemd-units.la \
 	libsystemd-label.la \
-	libsystemd-dbus.la \
+	libsystemd-bus-internal.la \
 	libsystemd-logs.la \
 	libsystemd-login-internal.la \
 	libsystemd-journal-internal.la \

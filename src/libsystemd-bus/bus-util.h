@@ -76,6 +76,22 @@ int bus_property_get_uid(sd_bus *bus, const char *path, const char *interface, c
 #define bus_property_get_pid bus_property_get_uid
 
 int bus_log_parse_error(int r);
+int bus_log_create_error(int r);
+
+typedef struct UnitInfo {
+        const char *id;
+        const char *description;
+        const char *load_state;
+        const char *active_state;
+        const char *sub_state;
+        const char *following;
+        const char *unit_path;
+        uint32_t job_id;
+        const char *job_type;
+        const char *job_path;
+} UnitInfo;
+
+int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);

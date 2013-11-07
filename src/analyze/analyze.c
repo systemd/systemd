@@ -89,19 +89,6 @@ struct boot_times {
         usec_t unitsload_finish_time;
 };
 
-struct unit_info {
-        const char *id;
-        const char *description;
-        const char *load_state;
-        const char *active_state;
-        const char *sub_state;
-        const char *following;
-        const char *unit_path;
-        uint32_t job_id;
-        const char *job_type;
-        const char *job_path;
-};
-
 struct unit_times {
         char *name;
         usec_t activating;
@@ -205,34 +192,13 @@ static void free_unit_times(struct unit_times *t, unsigned n) {
         free(t);
 }
 
-static int bus_parse_unit_info(sd_bus_message *message, struct unit_info *u) {
-        int r = 0;
-
-        assert(message);
-        assert(u);
-
-        r = sd_bus_message_read(message, "(ssssssouso)", &u->id,
-                                                         &u->description,
-                                                         &u->load_state,
-                                                         &u->active_state,
-                                                         &u->sub_state,
-                                                         &u->following,
-                                                         &u->unit_path,
-                                                         &u->job_id,
-                                                         &u->job_type,
-                                                         &u->job_path);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        return r;
-}
-
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, c = 0, n_units = 0;
+        int r, c = 0;
         struct unit_times *unit_times = NULL;
-        struct unit_info u;
+        size_t size = 0;
+        UnitInfo u;
 
         r = sd_bus_call_method(
                         bus,
@@ -256,22 +222,11 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
                 struct unit_times *t;
 
-                if (r < 0)
+                if (!GREEDY_REALLOC(unit_times, size, c+1)) {
+                        r = log_oom();
                         goto fail;
-
-                if (c >= n_units) {
-                        struct unit_times *w;
-
-                        n_units = MAX(2*c, 16);
-                        w = realloc(unit_times, sizeof(struct unit_times) * n_units);
-
-                        if (!w) {
-                                r = log_oom();
-                                goto fail;
-                        }
-
-                        unit_times = w;
                 }
+
                 t = unit_times+c;
                 t->name = NULL;
 
@@ -313,6 +268,10 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                         goto fail;
                 }
                 c++;
+        }
+        if (r < 0) {
+                bus_log_parse_error(r);
+                goto fail;
         }
 
         *out = unit_times;
@@ -927,7 +886,7 @@ static int analyze_time(sd_bus *bus) {
         return 0;
 }
 
-static int graph_one_property(sd_bus *bus, const struct unit_info *u, const char* prop, const char *color, char* patterns[]) {
+static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, const char *color, char* patterns[]) {
         _cleanup_strv_free_ char **units = NULL;
         char **unit;
         int r;
@@ -988,7 +947,7 @@ static int graph_one_property(sd_bus *bus, const struct unit_info *u, const char
         return 0;
 }
 
-static int graph_one(sd_bus *bus, const struct unit_info *u, char *patterns[]) {
+static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[]) {
         int r;
 
         assert(bus);
@@ -1028,7 +987,7 @@ static int dot(sd_bus *bus, char* patterns[]) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-        struct unit_info u;
+        UnitInfo u;
 
         r = sd_bus_call_method(
                         bus,
@@ -1051,10 +1010,13 @@ static int dot(sd_bus *bus, char* patterns[]) {
         printf("digraph systemd {\n");
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
+
                 r = graph_one(bus, &u, patterns);
                 if (r < 0)
                         return r;
         }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         printf("}\n");
 
