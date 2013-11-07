@@ -63,14 +63,6 @@ typedef struct Connection {
         sd_event_source *server_event_source, *client_event_source;
 } Connection;
 
-union sockaddr_any {
-        struct sockaddr sa;
-        struct sockaddr_un un;
-        struct sockaddr_in in;
-        struct sockaddr_in6 in6;
-        struct sockaddr_storage storage;
-};
-
 static const char *arg_remote_host = NULL;
 
 static void connection_free(Connection *c) {
@@ -106,7 +98,7 @@ static void context_free(Context *context) {
         set_free(context->connections);
 }
 
-static int get_remote_sockaddr(union sockaddr_any *sa, socklen_t *salen) {
+static int get_remote_sockaddr(union sockaddr_union *sa, socklen_t *salen) {
         int r;
 
         assert(sa);
@@ -117,7 +109,7 @@ static int get_remote_sockaddr(union sockaddr_any *sa, socklen_t *salen) {
                 strncpy(sa->un.sun_path, arg_remote_host, sizeof(sa->un.sun_path)-1);
                 sa->un.sun_path[sizeof(sa->un.sun_path)-1] = 0;
 
-                *salen = offsetof(union sockaddr_any, un.sun_path) + strlen(sa->un.sun_path);
+                *salen = offsetof(union sockaddr_union, un.sun_path) + strlen(sa->un.sun_path);
 
         } else if (arg_remote_host[0] == '@') {
                 sa->un.sun_family = AF_UNIX;
@@ -125,7 +117,7 @@ static int get_remote_sockaddr(union sockaddr_any *sa, socklen_t *salen) {
                 strncpy(sa->un.sun_path+1, arg_remote_host+1, sizeof(sa->un.sun_path)-2);
                 sa->un.sun_path[sizeof(sa->un.sun_path)-1] = 0;
 
-                *salen = offsetof(union sockaddr_any, un.sun_path) + 1 + strlen(sa->un.sun_path + 1);
+                *salen = offsetof(union sockaddr_union, un.sun_path) + 1 + strlen(sa->un.sun_path + 1);
 
         } else {
                 _cleanup_freeaddrinfo_ struct addrinfo *result = NULL;
@@ -154,7 +146,7 @@ static int get_remote_sockaddr(union sockaddr_any *sa, socklen_t *salen) {
                 }
 
                 assert(result);
-                if (result->ai_addrlen > sizeof(union sockaddr_any)) {
+                if (result->ai_addrlen > sizeof(union sockaddr_union)) {
                         log_error("Address too long.");
                         return -E2BIG;
                 }
@@ -388,7 +380,7 @@ fail:
 }
 
 static int add_connection_socket(Context *context, sd_event *event, int fd) {
-        union sockaddr_any sa = {};
+        union sockaddr_union sa = {};
         socklen_t salen;
         Connection *c;
         int r;
