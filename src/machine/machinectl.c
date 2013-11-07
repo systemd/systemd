@@ -226,7 +226,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
 }
 
 static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_line) {
-        MachineStatusInfo info = {};
+
         static const struct bus_properties_map map[]  = {
                 { "Name",          "s",  NULL,          offsetof(MachineStatusInfo, name) },
                 { "Class",         "s",  NULL,          offsetof(MachineStatusInfo, class) },
@@ -238,6 +238,8 @@ static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_
                 { "Id",            "ay", bus_map_id128, offsetof(MachineStatusInfo, id) },
                 {}
         };
+
+        MachineStatusInfo info = {};
         int r;
 
         assert(path);
@@ -602,6 +604,8 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
                 log_error("Failed to start getty service: %s", bus_error_message(&error, r));
                 return r;
         }
+
+        container_bus = sd_bus_unref(container_bus);
 
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask, SIGWINCH, SIGTERM, SIGINT, -1);
