@@ -1,7 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooutf8hfoo
-#define fooutf8hfoo
+#ifndef foosdutf8hfoo
+#define foosdutf8hfoo
 
 /***
   This file is part of systemd.
@@ -22,7 +22,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 const char *sd_utf8_is_valid(const char *s);
 const char *sd_ascii_is_valid(const char *s);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

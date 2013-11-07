@@ -22,6 +22,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct sd_bus_vtable sd_bus_vtable;
 
 #include "sd-bus.h"
@@ -123,5 +127,9 @@ struct sd_bus_vtable {
         {                                                               \
                 .type = _SD_BUS_VTABLE_END,                             \
         }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
