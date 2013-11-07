@@ -46,6 +46,8 @@ CGroup Rework Completion:
 
 Features:
 
+* tmpfiles: to make sure we don't delete unpacked tarballs with old timestamps right-away never delete stuff that is inside a directory with a new mtime
+
 * "systemctl mask" should find all names by which a unit is accessible
   (i.e. by scanning for symlinks to it) and link them all to /dev/null
 
