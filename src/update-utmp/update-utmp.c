@@ -71,9 +71,8 @@ static usec_t get_startup_time(Context *c) {
         }
 
         r = sd_bus_message_read(reply, "v", "t", &t);
-        if (r < 0) {
-                log_error("Failed to parse reply: %s", strerror(-r));
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         return t;
 }
@@ -123,10 +122,8 @@ static int get_current_runlevel(Context *c) {
                 }
 
                 r = sd_bus_message_read(reply1, "o", &path);
-                if (r < 0) {
-                        log_error("Failed to parse reply: %s", strerror(-r));
-                        return -EIO;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
                 r = sd_bus_call_method(
                                 c->bus,
@@ -143,10 +140,8 @@ static int get_current_runlevel(Context *c) {
                 }
 
                 r = sd_bus_message_read(reply2, "v", "s", &state);
-                if (r < 0) {
-                        log_error("Failed to parse reply: %s", strerror(-r));
-                        return -EIO;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
                 if (streq(state, "active") || streq(state, "reloading"))
                         return table[i].runlevel;

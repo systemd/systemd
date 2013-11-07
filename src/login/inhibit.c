@@ -62,7 +62,7 @@ static int inhibit(sd_bus *bus, sd_bus_error *error) {
 
         r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_UNIX_FD, &fd);
         if (r < 0)
-                return -EIO;
+                return r;
 
         r = dup(fd);
         if (r < 0)

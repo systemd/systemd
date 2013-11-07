@@ -953,3 +953,8 @@ int bus_property_get_uid(
 
         return sd_bus_message_append_basic(reply, 'u', userdata);
 }
+
+int bus_log_parse_error(int r) {
+        log_error("Failed to parse message: %s", strerror(-r));
+        return r;
+}

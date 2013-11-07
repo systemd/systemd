@@ -145,7 +145,7 @@ static int show_one_name(sd_bus *bus, const char* attr) {
 
         r = sd_bus_message_read(reply, "s", &s);
         if (r < 0)
-                return r;
+                return bus_log_parse_error(r);
 
         printf("%s\n", s);
 

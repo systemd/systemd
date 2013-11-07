@@ -75,6 +75,8 @@ int bus_property_get_uid(sd_bus *bus, const char *path, const char *interface, c
 #define bus_property_get_gid bus_property_get_uid
 #define bus_property_get_pid bus_property_get_uid
 
+int bus_log_parse_error(int r);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
 

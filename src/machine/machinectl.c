@@ -89,7 +89,7 @@ static int list_machines(sd_bus *bus, char **args, unsigned n) {
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssso)");
         if (r < 0)
-                goto fail;
+                return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_read(reply, "(ssso)", &name, &class, &service, &object)) > 0) {
                 printf("%-32s %-9s %-16s\n", name, class, service);
@@ -97,20 +97,16 @@ static int list_machines(sd_bus *bus, char **args, unsigned n) {
                 k++;
         }
         if (r < 0)
-                goto fail;
+                return bus_log_parse_error(r);
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
-                goto fail;
+                return bus_log_parse_error(r);
 
         if (on_tty())
                 printf("\n%u machines listed.\n", k);
 
         return 0;
-
-fail:
-        log_error("Failed to parse reply: %s", strerror(-r));
-        return r;
 }
 
 static int show_scope_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
@@ -146,10 +142,8 @@ static int show_scope_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         }
 
         r = sd_bus_message_read(reply, "s", &cgroup);
-        if (r < 0) {
-                log_error("Failed to parse reply: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         if (isempty(cgroup))
                 return 0;
@@ -334,10 +328,8 @@ static int show(sd_bus *bus, char **args, unsigned n) {
                 }
 
                 r = sd_bus_message_read(reply, "o", &path);
-                if (r < 0) {
-                        log_error("Failed to parse reply: %s", strerror(-r));
-                        break;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
                 if (properties)
                         r = show_properties(bus, path, &new_line);
@@ -547,10 +539,8 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         }
 
         r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0) {
-                log_error("Failed to parse reply: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         r = sd_bus_get_property(
                         bus,
@@ -567,10 +557,8 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         }
 
         r = sd_bus_message_read(reply2, "u", &leader);
-        if (r < 0) {
-                log_error("Failed to parse reply: %s", strerror(-r));
-                return r;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         master = openpt_in_namespace(leader, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
         if (master < 0) {

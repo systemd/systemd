@@ -990,10 +990,8 @@ static int terminate_machine(pid_t pid) {
         }
 
         r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0) {
-                log_error("Failed to parse GetMachineByPID() reply: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         r = sd_bus_call_method(
                         bus,

@@ -72,11 +72,6 @@ static void polkit_agent_open_if_enabled(void) {
         polkit_agent_open();
 }
 
-static int log_parse_error(int r) {
-        log_error("Failed to parse message: %s", strerror(-r));
-        return r;
-}
-
 static int list_sessions(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -102,7 +97,7 @@ static int list_sessions(sd_bus *bus, char **args, unsigned n) {
 
         r = sd_bus_message_enter_container(reply, 'a', "(susso)");
         if (r < 0)
-                return log_parse_error(r);
+                return bus_log_parse_error(r);
 
         printf("%10s %10s %-16s %-16s\n", "SESSION", "UID", "USER", "SEAT");
 
@@ -111,7 +106,7 @@ static int list_sessions(sd_bus *bus, char **args, unsigned n) {
                 k++;
         }
         if (r < 0)
-                return log_parse_error(r);
+                return bus_log_parse_error(r);
 
         printf("\n%u sessions listed.\n", k);
 
@@ -143,7 +138,7 @@ static int list_users(sd_bus *bus, char **args, unsigned n) {
 
         r = sd_bus_message_enter_container(reply, 'a', "(uso)");
         if (r < 0)
-                return log_parse_error(r);
+                return bus_log_parse_error(r);
 
         printf("%10s %-16s\n", "UID", "USER");
 
@@ -152,7 +147,7 @@ static int list_users(sd_bus *bus, char **args, unsigned n) {
                 k++;
         }
         if (r < 0)
-                return log_parse_error(r);
+                return bus_log_parse_error(r);
 
         printf("\n%u users listed.\n", k);
 
@@ -183,7 +178,7 @@ static int list_seats(sd_bus *bus, char **args, unsigned n) {
 
         r = sd_bus_message_enter_container(reply, 'a', "(so)");
         if (r < 0)
-                return log_parse_error(r);
+                return bus_log_parse_error(r);
 
         printf("%-16s\n", "SEAT");
 
@@ -192,7 +187,7 @@ static int list_seats(sd_bus *bus, char **args, unsigned n) {
                 k++;
         }
         if (r < 0)
-                return log_parse_error(r);
+                return bus_log_parse_error(r);
 
         printf("\n%u seats listed.\n", k);
 
@@ -622,7 +617,7 @@ static int show_session(sd_bus *bus, char **args, unsigned n) {
 
                 r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0)
-                        return log_parse_error(r);
+                        return bus_log_parse_error(r);
 
                 if (show_properties)
                         r = bus_print_all_properties(bus, "org.freedesktop.login1", path, NULL, arg_all);
@@ -689,7 +684,7 @@ static int show_user(sd_bus *bus, char **args, unsigned n) {
 
                 r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0)
-                        return log_parse_error(r);
+                        return bus_log_parse_error(r);
 
                 if (show_properties)
                         r = bus_print_all_properties(bus, "org.freedesktop.login1", path, NULL, arg_all);
@@ -749,7 +744,7 @@ static int show_seat(sd_bus *bus, char **args, unsigned n) {
 
                 r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0)
-                        return log_parse_error(r);
+                        return bus_log_parse_error(r);
 
                 if (show_properties)
                         r = bus_print_all_properties(bus, "org.freedesktop.login1", path, NULL, arg_all);

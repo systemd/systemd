@@ -190,10 +190,8 @@ static int bus_parse_unit_info(sd_bus_message *message, struct unit_info *u) {
                                                          &u->job_id,
                                                          &u->job_type,
                                                          &u->job_path);
-        if (r < 0) {
-                log_error("Failed to parse message as unit_info.");
-                return -EIO;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         return r;
 }
@@ -229,6 +227,9 @@ static int bus_get_unit_property_strv(sd_bus *bus, const char *unit_path, const 
                         return r;
                 }
         }
+
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         return r;
 }
@@ -839,15 +840,13 @@ static int list_dependencies(sd_bus *bus, const char *name) {
                         &reply,
                         "s");
         if (r < 0) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error, -r));
+                log_error("Failed to get ID: %s", bus_error_message(&error, -r));
                 return r;
         }
 
         r = sd_bus_message_read(reply, "s", &id);
-        if (r < 0) {
-                log_error("Failed to parse reply.");
-                return r;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         times = hashmap_get(unit_times_hashmap, id);
 
@@ -1114,10 +1113,8 @@ static int dump(sd_bus *bus, char **args) {
         }
 
         r = sd_bus_message_read(reply, "s", &text);
-        if (r < 0) {
-                log_error("Failed to parse reply");
-                return r;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         fputs(text, stdout);
         return 0;
