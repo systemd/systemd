@@ -184,27 +184,6 @@ char *ascii_is_valid(const char *str) {
         return (char*) str;
 }
 
-char *ascii_filter(const char *str) {
-        const char *s;
-        char *r, *d;
-        size_t l;
-
-        assert(str);
-
-        l = strlen(str);
-        r = malloc(l + 1);
-        if (!r)
-                return NULL;
-
-        for (s = str, d = r; *s; s++)
-                if ((unsigned char) *s < 128)
-                        *(d++) = *s;
-
-        *d = 0;
-
-        return r;
-}
-
 char *utf16_to_utf8(const void *s, size_t length) {
         char *r;
         const uint8_t *f;

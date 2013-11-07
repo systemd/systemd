@@ -30,8 +30,6 @@ char *ascii_is_valid(const char *s) _pure_;
 
 bool utf8_is_printable(const char* str, size_t length) _pure_;
 
-char *ascii_filter(const char *s);
-
 char *utf16_to_utf8(const void *s, size_t length);
 
 int utf8_encoded_valid_unichar(const char *str);

@@ -41,22 +41,6 @@ static void test_ascii_is_valid(void) {
         assert_se(!ascii_is_valid("\341\204"));
 }
 
-static void test_ascii_filter(void) {
-        char *f;
-
-        f = ascii_filter("alsdjf\t\vbarr\nba z");
-        assert_se(streq(f, "alsdjf\t\vbarr\nba z"));
-        free(f);
-
-        f = ascii_filter("\342\204\242");
-        assert_se(streq(f, ""));
-        free(f);
-
-        f = ascii_filter("foo\341\204bar");
-        assert_se(streq(f, "foobar"));
-        free(f);
-}
-
 static void test_utf8_encoded_valid_unichar(void) {
         assert_se(utf8_encoded_valid_unichar("\342\204\242") == 3);
         assert_se(utf8_encoded_valid_unichar("\302\256") == 2);
@@ -70,7 +54,6 @@ int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
         test_ascii_is_valid();
-        test_ascii_filter();
         test_utf8_encoded_valid_unichar();
 
         return 0;
