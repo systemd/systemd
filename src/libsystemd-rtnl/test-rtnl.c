@@ -137,7 +137,7 @@ int main(void) {
         assert(sd_rtnl_message_get_type(r, &type) >= 0);
         assert(type == RTM_NEWLINK);
 
-        assert(sd_rtnl_message_read(m, &type, data) == 0);
+        assert(sd_rtnl_message_read(m, &type, &data) == 0);
         assert((r = sd_rtnl_message_unref(r)) == NULL);
 
         assert(sd_rtnl_send_with_reply_and_block(rtnl, m, -1, &r) == -EPERM);
@@ -153,7 +153,7 @@ int main(void) {
         assert(type == IFLA_MTU);
         assert(*mtu_reply == 0);
 
-        assert(sd_rtnl_message_read(m, &type, data) == 0);
+        assert(sd_rtnl_message_read(m, &type, &data) == 0);
 
         assert(sd_rtnl_send_with_reply_and_block(rtnl, m, -1, &r) >= 0);
         while (sd_rtnl_message_read(r, &type, &data) > 0) {
