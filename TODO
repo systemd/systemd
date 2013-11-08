@@ -1,4 +1,5 @@
 Bugfixes:
+* check :no-sender logic after PID conversion
 
 * enabling an instance unit creates a pointless link, and
   the unit will be started with getty@getty.service:

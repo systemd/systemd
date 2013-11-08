@@ -271,6 +271,7 @@ struct sd_bus {
 
 bool interface_name_is_valid(const char *p);
 bool service_name_is_valid(const char *p);
+bool sender_name_is_valid(const char *p);
 bool member_name_is_valid(const char *p);
 bool object_path_is_valid(const char *p);
 char *object_path_startswith(const char *a, const char *b);
