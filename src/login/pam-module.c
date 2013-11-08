@@ -40,6 +40,7 @@
 #include "def.h"
 #include "socket-util.h"
 #include "fileio.h"
+#include "bus-error.h"
 
 static int parse_argv(pam_handle_t *handle,
                       int argc, const char **argv,
@@ -355,11 +356,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                remote_host,
                                0);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to communicate with systemd-logind: %s", strerror(-r));
-                if (error.name || error.message)
-                        pam_syslog(handle, LOG_ERR, "systemd-logind returned %s: %s",
-                                   error.name ?: "unknown error",
-                                   error.message ?: "no message");
+                pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
                 return PAM_SYSTEM_ERR;
         }
 
@@ -482,11 +479,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                                        id);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR,
-                                   "Failed to release session: %s", strerror(-r));
-                        if (error.name || error.message)
-                                pam_syslog(handle, LOG_ERR, "systemd-logind returned %s: %s",
-                                           error.name ?: "unknown error",
-                                           error.message ?: "no message");
+                                   "Failed to release session: %s", bus_error_message(&error, r));
 
                         r = PAM_SESSION_ERR;
                         goto finish;

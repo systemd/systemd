@@ -178,6 +178,10 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
+        assert(bus);
+        assert(name);
+        assert(ret);
+
         log_info("Running as unit %s.", name);
 
         r = sd_bus_message_new_method_call(
@@ -226,6 +230,9 @@ static int message_start_transient_unit_new(sd_bus *bus, const char *name, sd_bu
 static int message_start_transient_unit_send(sd_bus *bus, sd_bus_message *m, sd_bus_error *error, sd_bus_message **reply) {
         int r;
 
+        assert(bus);
+        assert(m);
+
         r = sd_bus_message_close_container(m);
         if (r < 0)
                 return r;
@@ -238,7 +245,7 @@ static int start_transient_service(
                 char **argv,
                 sd_bus_error *error) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_free_ char *name = NULL;
         char **i;
         int r;
@@ -316,7 +323,7 @@ static int start_transient_service(
         if (r < 0)
                 return r;
 
-        return  message_start_transient_unit_send(bus, m, error, &reply);
+        return message_start_transient_unit_send(bus, m, error, NULL);
 }
 
 static int start_transient_scope(
@@ -324,9 +331,11 @@ static int start_transient_scope(
                 char **argv,
                 sd_bus_error *error) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_free_ char *name = NULL;
         int r;
+
+        assert(bus);
 
         if (arg_unit)
                 name = unit_name_mangle_with_suffix(arg_unit, ".scope");
@@ -343,7 +352,7 @@ static int start_transient_scope(
         if (r < 0)
                 return r;
 
-        r = message_start_transient_unit_send(bus, m, error, &reply);
+        r = message_start_transient_unit_send(bus, m, error, NULL);
         if (r < 0)
                 return r;
 
@@ -353,7 +362,7 @@ static int start_transient_scope(
 }
 
 int main(int argc, char* argv[]) {
-        sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         _cleanup_free_ char *description = NULL, *command = NULL;
         int r;
@@ -392,11 +401,8 @@ int main(int argc, char* argv[]) {
                 r = start_transient_scope(bus, argv + optind, &error);
         else
                 r = start_transient_service(bus, argv + optind, &error);
-        if (r < 0) {
-                log_error("Failed start transient unit: %s", error.message ? error.message : strerror(-r));
-                sd_bus_error_free(&error);
-                goto finish;
-        }
+        if (r < 0)
+                log_error("Failed start transient unit: %s", bus_error_message(&error, r));
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
