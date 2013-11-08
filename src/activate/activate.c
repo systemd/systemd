@@ -262,6 +262,8 @@ static int do_accept(const char* name, char **argv, char **envp, int fd) {
 
 /* SIGCHLD handler. */
 static void sigchld_hdl(int sig, siginfo_t *t, void *data) {
+        PROTECT_ERRNO;
+
         log_info("Child %d died with code %d", t->si_pid, t->si_status);
         /* Wait for a dead child. */
         waitpid(t->si_pid, NULL, 0);
