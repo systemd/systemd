@@ -154,15 +154,15 @@ static int set_locale(sd_bus *bus, char **args, unsigned n) {
                         "org.freedesktop.locale1",
                         "SetLocale", &m);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append_strv(m, args + 1);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_append(m, "b", arg_ask_password);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_send_with_reply_and_block(bus, m, 0, &error, NULL);
         if (r < 0) {

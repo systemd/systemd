@@ -28,6 +28,7 @@
 #include "build.h"
 #include "unit-name.h"
 #include "path-util.h"
+#include "bus-error.h"
 
 static bool arg_scope = false;
 static bool arg_remain_after_exit = false;

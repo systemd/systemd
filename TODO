@@ -50,7 +50,9 @@ Features:
 
 * add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
 
-* wait filter, unify dispatch table in systemctl_main() and friends, convert all to bus_log_create_error()
+* systemctl: rework wait filter to not require match callback
+
+* unify dispatch table in systemctl_main() and friends
 
 * bus: access policy as vtable flag
 
