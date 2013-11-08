@@ -46,6 +46,12 @@ CGroup Rework Completion:
 
 Features:
 
+* add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
+
+* direct connections to PID 1/XDG_RUNTIME_DIR, wait filter, reboot() filter unification, unify dispatch table in systemctl_main() and friends, convert all to bus_log_create_error()
+
+* bus: access policy as vtable flag
+
 * journalctl: support -M to read journal of containers and determine journal directory from root directory of container
 
 * tmpfiles: to make sure we don't delete unpacked tarballs with old timestamps right-away never delete stuff that is inside a directory with a new mtime
