@@ -532,7 +532,7 @@ static int get_triggered_units(
 static int get_listening(
                 sd_bus *bus,
                 const char* unit_path,
-                char*** listen,
+                char*** listening,
                 unsigned *c) {
 
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -560,11 +560,11 @@ static int get_listening(
 
         while ((r = sd_bus_message_read(reply, "(ss)", &type, &path)) > 0) {
 
-                r = strv_extend(listen, type);
+                r = strv_extend(listening, type);
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extend(listen, path);
+                r = strv_extend(listening, path);
                 if (r < 0)
                         return log_oom();
 
@@ -687,7 +687,7 @@ static int list_sockets(sd_bus *bus, char **args) {
         cu = (unsigned) r;
 
         for (u = unit_infos; u < unit_infos + cu; u++) {
-                _cleanup_strv_free_ char **listen = NULL, **triggered = NULL;
+                _cleanup_strv_free_ char **listening = NULL, **triggered = NULL;
                 unsigned c = 0, i;
 
                 if (!output_show_unit(u))
@@ -700,7 +700,7 @@ static int list_sockets(sd_bus *bus, char **args) {
                 if (r < 0)
                         goto cleanup;
 
-                r = get_listening(bus, u->unit_path, &listen, &c);
+                r = get_listening(bus, u->unit_path, &listening, &c);
                 if (r < 0)
                         goto cleanup;
 
@@ -712,16 +712,16 @@ static int list_sockets(sd_bus *bus, char **args) {
                 for (i = 0; i < c; i++)
                         socket_infos[cs + i] = (struct socket_info) {
                                 .id = u->id,
-                                .type = listen[i*2],
-                                .path = listen[i*2 + 1],
+                                .type = listening[i*2],
+                                .path = listening[i*2 + 1],
                                 .triggered = triggered,
                                 .own_triggered = i==0,
                         };
 
                 /* from this point on we will cleanup those socket_infos */
                 cs += c;
-                free(listen);
-                listen = triggered = NULL; /* avoid cleanup */
+                free(listening);
+                listening = triggered = NULL; /* avoid cleanup */
         }
 
         qsort_safe(socket_infos, cs, sizeof(struct socket_info),
