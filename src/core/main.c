@@ -93,6 +93,8 @@ static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 static usec_t arg_default_restart_usec = DEFAULT_RESTART_USEC;
 static usec_t arg_default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;
 static usec_t arg_default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
+static usec_t arg_default_start_limit_interval = DEFAULT_START_LIMIT_INTERVAL;
+static unsigned arg_default_start_limit_burst = DEFAULT_START_LIMIT_BURST;
 static usec_t arg_runtime_watchdog = 0;
 static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
 static char **arg_default_environment = NULL;
@@ -642,6 +644,8 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultTimeoutStartSec", config_parse_sec,         0, &arg_default_timeout_start_usec },
                 { "Manager", "DefaultTimeoutStopSec", config_parse_sec,          0, &arg_default_timeout_stop_usec  },
                 { "Manager", "DefaultRestartSec",     config_parse_sec,          0, &arg_default_restart_usec  },
+                { "Manager", "DefaultStartLimitInterval", config_parse_sec,      0, &arg_default_start_limit_interval },
+                { "Manager", "DefaultStartLimitBurst", config_parse_unsigned,    0, &arg_default_start_limit_burst },
                 { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
                 { "Manager", "RuntimeWatchdogSec",    config_parse_sec,          0, &arg_runtime_watchdog    },
                 { "Manager", "ShutdownWatchdogSec",   config_parse_sec,          0, &arg_shutdown_watchdog   },
@@ -1530,6 +1534,8 @@ int main(int argc, char *argv[]) {
         m->default_restart_usec = arg_default_restart_usec;
         m->default_timeout_start_usec = arg_default_timeout_start_usec;
         m->default_timeout_stop_usec = arg_default_timeout_stop_usec;
+        m->default_start_limit_interval = arg_default_start_limit_interval;
+        m->default_start_limit_burst = arg_default_start_limit_burst;
         m->runtime_watchdog = arg_runtime_watchdog;
         m->shutdown_watchdog = arg_shutdown_watchdog;
         m->userspace_timestamp = userspace_timestamp;

@@ -233,6 +233,9 @@ struct Manager {
         usec_t default_restart_usec, default_timeout_start_usec,
                 default_timeout_stop_usec;
 
+        usec_t default_start_limit_interval;
+        unsigned default_start_limit_burst;
+
         struct rlimit *rlimit[RLIMIT_NLIMITS];
 
         /* non-zero if we are reloading or reexecuting, */

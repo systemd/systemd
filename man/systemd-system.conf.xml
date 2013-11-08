@@ -115,6 +115,19 @@
                                 <varname>TimeoutSec=</varname> value.
                                 </para></listitem>
                         </varlistentry>
+                        <varlistentry>
+                                <term><varname>DefaultStartLimitInterval=</varname></term>
+                                <term><varname>DefaultStartLimitBurst=</varname></term>
+
+                                <listitem><para>Configure the default start rate
+                                limiting, as configured per-service by
+                                <varname>StartLimitInterval=</varname> and
+                                <varname>StartLimitBurst=</varname>. See
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details on the per-service
+                                settings).
+                                </para></listitem>
+                        </varlistentry>
 
                         <varlistentry>
                                 <term><varname>CPUAffinity=</varname></term>

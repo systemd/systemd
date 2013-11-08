@@ -863,12 +863,15 @@
                                 these two options, this rate limiting
                                 may be modified. Use
                                 <varname>StartLimitInterval=</varname>
-                                to configure the checking interval
-                                (defaults to 10s, set to 0 to disable
+                                to configure the checking interval (defaults to
+                                <varname>DefaultStartLimitInterval=</varname> in
+                                manager configuration file, set to 0 to disable
                                 any kind of rate limiting). Use
                                 <varname>StartLimitBurst=</varname> to
                                 configure how many starts per interval
-                                are allowed (defaults to 5). These
+                                are allowed (defaults to
+                                <varname>DefaultStartLimitBurst=</varname> in
+                                manager configuration file). These
                                 configuration options are particularly
                                 useful in conjunction with
                                 <varname>Restart=</varname>, however

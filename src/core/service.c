@@ -143,7 +143,9 @@ static void service_init(Unit *u) {
         kill_context_init(&s->kill_context);
         cgroup_context_init(&s->cgroup_context);
 
-        RATELIMIT_INIT(s->start_limit, 10*USEC_PER_SEC, 5);
+        RATELIMIT_INIT(s->start_limit,
+                       u->manager->default_start_limit_interval,
+                       u->manager->default_start_limit_burst);
 
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 }
