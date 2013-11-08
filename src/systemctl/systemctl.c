@@ -155,6 +155,9 @@ static void ask_password_agent_open_if_enabled(void) {
         if (arg_scope != UNIT_FILE_SYSTEM)
                 return;
 
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return;
+
         ask_password_agent_open();
 }
 
@@ -319,18 +322,23 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
         if (!arg_full && original_stdout_is_tty) {
                 unsigned basic_len;
+
                 id_len = MIN(max_id_len, 25u);
                 basic_len = 5 + id_len + 5 + active_len + sub_len;
+
                 if (job_count)
                         basic_len += job_len + 1;
+
                 if (basic_len < (unsigned) columns()) {
                         unsigned extra_len, incr;
                         extra_len = columns() - basic_len;
+
                         /* Either UNIT already got 25, or is fully satisfied.
                          * Grant up to 25 to DESC now. */
                         incr = MIN(extra_len, 25u);
                         desc_len += incr;
                         extra_len -= incr;
+
                         /* split the remaining space between UNIT and DESC,
                          * but do not give UNIT more than it needs. */
                         if (extra_len > 0) {
@@ -351,10 +359,15 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         continue;
 
                 if (!n_shown && !arg_no_legend) {
-                        printf("%-*s %-*s %-*s %-*s ", id_len, "UNIT", load_len, "LOAD",
-                               active_len, "ACTIVE", sub_len, "SUB");
+                        printf("%-*s %-*s %-*s %-*s ",
+                               id_len, "UNIT",
+                               load_len, "LOAD",
+                               active_len, "ACTIVE",
+                               sub_len, "SUB");
+
                         if (job_count)
                                 printf("%-*s ", job_len, "JOB");
+
                         if (!arg_full && arg_no_pager)
                                 printf("%.*s\n", desc_len, "DESCRIPTION");
                         else
@@ -384,6 +397,7 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
                        job_count ? job_len + 1 : 0, u->job_id ? u->job_type : "");
+
                 if (desc_len > 0)
                         printf("%.*s\n", desc_len, u->description);
                 else
@@ -582,9 +596,12 @@ struct socket_info {
 };
 
 static int socket_info_compare(struct socket_info *a, struct socket_info *b) {
-        int o = strcmp(a->path, b->path);
+        int o;
+
+        o = strcmp(a->path, b->path);
         if (o == 0)
                 o = strcmp(a->type, b->type);
+
         return o;
 }
 
@@ -597,8 +614,8 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         const char *on, *off;
 
         for (s = socket_infos; s < socket_infos + cs; s++) {
-                char **a;
                 unsigned tmp = 0;
+                char **a;
 
                 socklen = MAX(socklen, strlen(s->id));
                 if (arg_show_types)
@@ -670,14 +687,13 @@ static int list_sockets(sd_bus *bus, char **args) {
         cu = (unsigned) r;
 
         for (u = unit_infos; u < unit_infos + cu; u++) {
-                const char *dot;
                 _cleanup_strv_free_ char **listen = NULL, **triggered = NULL;
                 unsigned c = 0, i;
 
                 if (!output_show_unit(u))
                         continue;
 
-                if ((dot = strrchr(u->id, '.')) && !streq(dot+1, "socket"))
+                if (!endswith(u->id, ".socket"))
                         continue;
 
                 r = get_triggered_units(bus, u->unit_path, &triggered);
@@ -756,6 +772,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 
         max_id_len = sizeof("UNIT FILE")-1;
         state_cols = sizeof("STATE")-1;
+
         for (u = units; u < units + c; u++) {
                 if (!output_show_unit_file(u))
                         continue;
@@ -766,6 +783,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 
         if (!arg_full) {
                 unsigned basic_cols;
+
                 id_cols = MIN(max_id_len, 25u);
                 basic_cols = 1 + id_cols + state_cols;
                 if (basic_cols < (unsigned) columns())
@@ -774,7 +792,9 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 id_cols = max_id_len;
 
         if (!arg_no_legend)
-                printf("%-*s %-*s\n", id_cols, "UNIT FILE", state_cols, "STATE");
+                printf("%-*s %-*s\n",
+                       id_cols, "UNIT FILE",
+                       state_cols, "STATE");
 
         for (u = units; u < units + c; u++) {
                 _cleanup_free_ char *e = NULL;
@@ -901,12 +921,13 @@ static int list_unit_files(sd_bus *bus, char **args) {
 }
 
 static int list_dependencies_print(const char *name, int level, unsigned int branches, bool last) {
-        int i;
         _cleanup_free_ char *n = NULL;
-        size_t len = 0;
         size_t max_len = MAX(columns(),20u);
+        size_t len = 0;
+        int i;
 
         if (!arg_plain) {
+
                 for (i = level - 1; i >= 0; i--) {
                         len += 2;
                         if(len > max_len - 3 && !arg_full) {
@@ -916,14 +937,16 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
                         printf("%s", draw_special_char(branches & (1 << i) ? DRAW_TREE_VERT : DRAW_TREE_SPACE));
                 }
                 len += 2;
+
                 if(len > max_len - 3 && !arg_full) {
                         printf("%s...\n",max_len % 2 ? "" : " ");
                         return 0;
                 }
+
                 printf("%s", draw_special_char(last ? DRAW_TREE_RIGHT : DRAW_TREE_BRANCH));
         }
 
-        if(arg_full){
+        if (arg_full){
                 printf("%s\n", name);
                 return 0;
         }
@@ -1031,10 +1054,12 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
 
 static int list_dependencies_compare(const void *_a, const void *_b) {
         const char **a = (const char**) _a, **b = (const char**) _b;
+
         if (unit_name_to_type(*a) == UNIT_TARGET && unit_name_to_type(*b) != UNIT_TARGET)
                 return 1;
         if (unit_name_to_type(*a) != UNIT_TARGET && unit_name_to_type(*b) == UNIT_TARGET)
                 return -1;
+
         return strcasecmp(*a, *b);
 }
 
@@ -1048,6 +1073,10 @@ static int list_dependencies_one(
         _cleanup_strv_free_ char **deps = NULL, **u;
         char **c;
         int r = 0;
+
+        assert(bus);
+        assert(name);
+        assert(units);
 
         u = strv_append(*units, name);
         if (!u)
@@ -1676,10 +1705,8 @@ static int start_unit_one(
                         return log_oom();
 
                 r = set_consume(s, p);
-                if (r < 0) {
-                        log_error("Failed to add path to set.");
-                        return r;
-                }
+                if (r < 0)
+                        return log_oom();
         }
 
         return 0;
@@ -1742,8 +1769,7 @@ static int start_unit(sd_bus *bus, char **args) {
                         streq(args[0], "reload-or-restart")     ? "ReloadOrRestartUnit" :
 
                         streq(args[0], "reload-or-try-restart") ||
-                        streq(args[0], "condreload") ||
-
+                        streq(args[0], "condreload")            ||
                         streq(args[0], "force-reload")          ? "ReloadOrTryRestartUnit" :
                                                                   "StartUnit";
                 action = verb_to_action(args[0]);
@@ -1752,7 +1778,6 @@ static int start_unit(sd_bus *bus, char **args) {
                        action_table[action].mode ?: arg_job_mode;
 
                 one_name = action_table[action].target;
-
         } else {
                 assert(arg_action < ELEMENTSOF(action_table));
                 assert(action_table[arg_action].target);
@@ -2556,11 +2581,11 @@ static void show_unit_help(UnitStatusInfo *i) {
         STRV_FOREACH(p, i->documentation) {
 
                 if (startswith(*p, "man:")) {
-                        size_t k;
-                        char *e = NULL;
-                        _cleanup_free_ char *page = NULL, *section = NULL;
                         const char *args[4] = { "man", NULL, NULL, NULL };
+                        _cleanup_free_ char *page = NULL, *section = NULL;
+                        char *e = NULL;
                         pid_t pid;
+                        size_t k;
 
                         k = strlen(*p);
 
@@ -4268,9 +4293,10 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
                         UnitFileState state;
 
                         state = unit_file_get_state(arg_scope, arg_root, *name);
-
-                        if (state < 0)
+                        if (state < 0) {
+                                log_error("Failed to get unit file state for %s: %s", *name, strerror(-state));
                                 return state;
+                        }
 
                         if (state == UNIT_FILE_ENABLED ||
                             state == UNIT_FILE_ENABLED_RUNTIME ||
@@ -4651,7 +4677,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         /* Make sure that if the empty property list
                            was specified, we won't show any properties. */
                         if (isempty(optarg) && !arg_properties) {
-                                arg_properties = strv_new(NULL, NULL);
+                                arg_properties = new0(char*, 1);
                                 if (!arg_properties)
                                         return log_oom();
                         } else {
@@ -5291,18 +5317,21 @@ _pure_ static int action_to_runlevel(void) {
 }
 
 static int talk_initctl(void) {
-        struct init_request request = {};
-        int r;
+
+        struct init_request request = {
+                .magic = INIT_MAGIC,
+                .sleeptime  = 0,
+                .cmd = INIT_CMD_RUNLVL
+        };
+
         _cleanup_close_ int fd = -1;
         char rl;
+        int r;
 
         rl = action_to_runlevel();
         if (!rl)
                 return 0;
 
-        request.magic = INIT_MAGIC;
-        request.sleeptime = 0;
-        request.cmd = INIT_CMD_RUNLVL;
         request.runlevel = rl;
 
         fd = open(INIT_FIFO, O_WRONLY|O_NDELAY|O_CLOEXEC|O_NOCTTY);
@@ -5491,22 +5520,24 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], const int r) {
 }
 
 static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const char *message) {
-        _cleanup_close_ int fd;
+
         struct sd_shutdown_command c = {
                 .usec = t,
                 .mode = mode,
                 .dry_run = dry_run,
                 .warn_wall = warn,
         };
+
         union sockaddr_union sockaddr = {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/shutdownd",
         };
-        struct iovec iovec[2] = {
-                {.iov_base = (char*) &c,
+
+        struct iovec iovec[2] = {{
+                 .iov_base = (char*) &c,
                  .iov_len = offsetof(struct sd_shutdown_command, wall_message),
-                }
-        };
+        }};
+
         struct msghdr msghdr = {
                 .msg_name = &sockaddr,
                 .msg_namelen = offsetof(struct sockaddr_un, sun_path)
@@ -5514,6 +5545,8 @@ static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const ch
                 .msg_iov = iovec,
                 .msg_iovlen = 1,
         };
+
+        _cleanup_close_ int fd;
 
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
@@ -5592,6 +5625,7 @@ static _noreturn_ void halt_now(enum action a) {
                 break;
 
         case ACTION_REBOOT:
+
                 if (read_one_line_file(REBOOT_PARAM_FILE, &param) == 0) {
                         log_info("Rebooting with arg '%s'.", param);
                         syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
@@ -5639,6 +5673,9 @@ static int halt_main(sd_bus *bus) {
                 _cleanup_free_ char *m;
 
                 m = strv_join(arg_wall, " ");
+                if (!m)
+                        return log_oom();
+
                 r = send_shutdownd(arg_when,
                                    arg_action == ACTION_HALT     ? 'H' :
                                    arg_action == ACTION_POWEROFF ? 'P' :
