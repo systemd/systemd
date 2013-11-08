@@ -253,8 +253,8 @@ struct sd_bus {
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
 
-#define BUS_WQUEUE_MAX 128
-#define BUS_RQUEUE_MAX 128
+#define BUS_WQUEUE_MAX 1024
+#define BUS_RQUEUE_MAX 64*1024
 
 #define BUS_MESSAGE_SIZE_MAX (64*1024*1024)
 #define BUS_AUTH_SIZE_MAX (64*1024)
