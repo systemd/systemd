@@ -23,7 +23,7 @@
 #include "udev.h"
 #include "log.h"
 
-link_config_ctx *ctx;
+static link_config_ctx *ctx = NULL;
 
 static int builtin_net_setup_link(struct udev_device *dev, int argc, char **argv, bool test) {
         const char *name;

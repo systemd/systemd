@@ -279,37 +279,6 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool si
         return ret;
 }
 
-int cg_kill_recursive_and_wait(const char *controller, const char *path, bool rem) {
-        unsigned i;
-
-        assert(path);
-
-        /* This safely kills all processes; first it sends a SIGTERM,
-         * then checks 8 times after 200ms whether the group is now
-         * empty, then kills everything that is left with SIGKILL and
-         * finally checks 5 times after 200ms each whether the group
-         * is finally empty. */
-
-        for (i = 0; i < 15; i++) {
-                int sig, r;
-
-                if (i <= 0)
-                        sig = SIGTERM;
-                else if (i == 9)
-                        sig = SIGKILL;
-                else
-                        sig = 0;
-
-                r = cg_kill_recursive(controller, path, sig, true, true, rem, NULL);
-                if (r <= 0)
-                        return r;
-
-                usleep(200 * USEC_PER_MSEC);
-        }
-
-        return 0;
-}
-
 int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self) {
         bool done = false;
         _cleanup_set_free_ Set *s = NULL;
@@ -941,19 +910,6 @@ int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
         return !found;
 }
 
-int cg_is_empty_by_spec(const char *spec, bool ignore_self) {
-        _cleanup_free_ char *controller = NULL, *path = NULL;
-        int r;
-
-        assert(spec);
-
-        r = cg_split_spec(spec, &controller, &path);
-        if (r < 0)
-                return r;
-
-        return cg_is_empty(controller, path, ignore_self);
-}
-
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self) {
         _cleanup_closedir_ DIR *d = NULL;
         char *fn;
@@ -1080,33 +1036,6 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
         return 0;
 }
 
-int cg_join_spec(const char *controller, const char *path, char **spec) {
-        char *s;
-
-        assert(path);
-
-        if (!controller)
-                controller = "systemd";
-        else {
-                if (!cg_controller_is_valid(controller, true))
-                        return -EINVAL;
-
-                controller = normalize_controller(controller);
-        }
-
-        if (!path_is_absolute(path))
-                return -EINVAL;
-
-        s = strjoin(controller, ":", path, NULL);
-        if (!s)
-                return -ENOMEM;
-
-        path_kill_slashes(s + strlen(controller) + 1);
-
-        *spec = s;
-        return 0;
-}
-
 int cg_mangle_path(const char *path, char **result) {
         _cleanup_free_ char *c = NULL, *p = NULL;
         char *t;
@@ -1151,43 +1080,6 @@ int cg_get_root_path(char **path) {
 
         *path = p;
         return 0;
-}
-
-char **cg_shorten_controllers(char **controllers) {
-        char **f, **t;
-
-        if (!controllers)
-                return controllers;
-
-        for (f = controllers, t = controllers; *f; f++) {
-                const char *p;
-                int r;
-
-                p = normalize_controller(*f);
-
-                if (streq(p, "systemd")) {
-                        free(*f);
-                        continue;
-                }
-
-                if (!cg_controller_is_valid(p, true)) {
-                        log_warning("Controller %s is not valid, removing from controllers list.", p);
-                        free(*f);
-                        continue;
-                }
-
-                r = check_hierarchy(p);
-                if (r < 0) {
-                        log_debug("Controller %s is not available, removing from controllers list.", p);
-                        free(*f);
-                        continue;
-                }
-
-                *(t++) = *f;
-        }
-
-        *t = NULL;
-        return strv_uniq(controllers);
 }
 
 int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup) {
@@ -1527,35 +1419,6 @@ int cg_pid_get_slice(pid_t pid, char **slice) {
                 return r;
 
         return cg_path_get_slice(cgroup, slice);
-}
-
-int cg_controller_from_attr(const char *attr, char **controller) {
-        const char *dot;
-        char *c;
-
-        assert(attr);
-        assert(controller);
-
-        if (!filename_is_safe(attr))
-                return -EINVAL;
-
-        dot = strchr(attr, '.');
-        if (!dot) {
-                *controller = NULL;
-                return 0;
-        }
-
-        c = strndup(attr, dot - attr);
-        if (!c)
-                return -ENOMEM;
-
-        if (!cg_controller_is_valid(c, false)) {
-                free(c);
-                return -EINVAL;
-        }
-
-        *controller = c;
-        return 1;
 }
 
 char *cg_escape(const char *p) {

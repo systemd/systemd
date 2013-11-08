@@ -111,7 +111,6 @@ int journal_file_open(
                 JournalFile **ret);
 
 int journal_file_set_offline(JournalFile *f);
-int journal_file_set_online(JournalFile *f);
 void journal_file_close(JournalFile *j);
 
 int journal_file_open_reliably(

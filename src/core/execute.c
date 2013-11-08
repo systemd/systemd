@@ -155,7 +155,7 @@ _pure_ static const char *tty_path(const ExecContext *context) {
         return "/dev/console";
 }
 
-void exec_context_tty_reset(const ExecContext *context) {
+static void exec_context_tty_reset(const ExecContext *context) {
         assert(context);
 
         if (context->tty_vhangup)

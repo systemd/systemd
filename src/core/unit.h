@@ -545,7 +545,6 @@ int set_unit_path(const char *p);
 char *unit_dbus_path(Unit *u);
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
-int unit_get_related_unit(Unit *u, const char *type, Unit **_found);
 
 bool unit_can_serialize(Unit *u) _pure_;
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
@@ -580,8 +579,6 @@ int unit_following_set(Unit *u, Set **s);
 void unit_start_on_failure(Unit *u);
 void unit_trigger_notify(Unit *u);
 
-bool unit_condition_test(Unit *u);
-
 UnitFileState unit_get_unit_file_state(Unit *u);
 
 Unit* unit_ref_set(UnitRef *ref, Unit *u);
@@ -589,8 +586,6 @@ void unit_ref_unset(UnitRef *ref);
 
 #define UNIT_DEREF(ref) ((ref).unit)
 #define UNIT_ISSET(ref) (!!(ref).unit)
-
-int unit_add_mount_links(Unit *u);
 
 int unit_exec_context_defaults(Unit *u, ExecContext *c);
 

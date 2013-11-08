@@ -517,37 +517,6 @@ int config_parse_bool(const char* unit,
         return 0;
 }
 
-int config_parse_tristate(const char *unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
-
-        int k;
-        int *b = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        /* Tristates are like booleans, but can also take the 'default' value, i.e. "-1" */
-
-        k = parse_boolean(rvalue);
-        if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -k,
-                           "Failed to parse boolean value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *b = !!k;
-        return 0;
-}
-
 int config_parse_string(const char *unit,
                         const char *filename,
                         unsigned line,

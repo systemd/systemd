@@ -54,18 +54,7 @@ Device* device_new(Manager *m, const char *sysfs, bool master) {
         return d;
 }
 
-void device_free(Device *d) {
-        assert(d);
-
-        device_detach(d);
-
-        hashmap_remove(d->manager->devices, d->sysfs);
-
-        free(d->sysfs);
-        free(d);
-}
-
-void device_detach(Device *d) {
+static void device_detach(Device *d) {
         Seat *s;
         SessionDevice *sd;
 
@@ -85,6 +74,17 @@ void device_detach(Device *d) {
                 seat_add_to_gc_queue(s);
                 seat_send_changed(s, "CanGraphical", NULL);
         }
+}
+
+void device_free(Device *d) {
+        assert(d);
+
+        device_detach(d);
+
+        hashmap_remove(d->manager->devices, d->sysfs);
+
+        free(d->sysfs);
+        free(d);
 }
 
 void device_attach(Device *d, Seat *s) {

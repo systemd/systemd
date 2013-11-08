@@ -206,8 +206,6 @@ void job_type_collapse(JobType *t, Unit *u);
 
 int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u);
 
-bool job_is_runnable(Job *j);
-
 void job_add_to_run_queue(Job *j);
 void job_add_to_dbus_queue(Job *j);
 

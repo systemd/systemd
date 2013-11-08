@@ -25,6 +25,5 @@
 
 #define BLOOM_SIZE 64
 
-void bloom_add_data(uint64_t filter[BLOOM_SIZE/8], const void *data, size_t n);
 void bloom_add_pair(uint64_t filter[BLOOM_SIZE/8], const char *a, const char *b);
 void bloom_add_prefixes(uint64_t filter[BLOOM_SIZE/8], const char *a, const char *b, char sep);

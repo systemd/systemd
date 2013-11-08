@@ -2924,11 +2924,13 @@ int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid) {
          * first change the access mode and only then hand out
          * ownership to avoid a window where access is too open. */
 
-        if (fchmod(fd, mode) < 0)
-                return -errno;
+        if (mode != (mode_t) -1)
+                if (fchmod(fd, mode) < 0)
+                        return -errno;
 
-        if (fchown(fd, uid, gid) < 0)
-                return -errno;
+        if (uid != (uid_t) -1 || gid != (gid_t) -1)
+                if (fchown(fd, uid, gid) < 0)
+                        return -errno;
 
         return 0;
 }
@@ -3040,13 +3042,14 @@ int status_printf(const char *status, bool ellipse, bool ephemeral, const char *
 }
 
 int status_welcome(void) {
-        int r;
         _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
+        int r;
 
         r = parse_env_file("/etc/os-release", NEWLINE,
                            "PRETTY_NAME", &pretty_name,
                            "ANSI_COLOR", &ansi_color,
                            NULL);
+
         if (r < 0 && r != -ENOENT)
                 log_warning("Failed to read /etc/os-release: %s", strerror(-r));
 
@@ -3700,8 +3703,7 @@ char *resolve_dev_console(char **active) {
 }
 
 bool tty_is_vc_resolve(const char *tty) {
-        char *active = NULL;
-        bool b;
+        _cleanup_free_ char *active = NULL;
 
         assert(tty);
 
@@ -3714,10 +3716,7 @@ bool tty_is_vc_resolve(const char *tty) {
                         return false;
         }
 
-        b = tty_is_vc(tty);
-        free(active);
-
-        return b;
+        return tty_is_vc(tty);
 }
 
 const char *default_term_for_tty(const char *tty) {

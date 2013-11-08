@@ -135,13 +135,6 @@ int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor);
 int manager_process_seat_device(Manager *m, struct udev_device *d);
 int manager_process_button_device(Manager *m, struct udev_device *d);
 
-int manager_enumerate_devices(Manager *m);
-int manager_enumerate_buttons(Manager *m);
-int manager_enumerate_seats(Manager *m);
-int manager_enumerate_sessions(Manager *m);
-int manager_enumerate_users(Manager *m);
-int manager_enumerate_inhibitors(Manager *m);
-
 int manager_startup(Manager *m);
 int manager_run(Manager *m);
 int manager_spawn_autovt(Manager *m, int vtnr);

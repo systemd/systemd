@@ -946,6 +946,44 @@ static int unit_add_default_dependencies(Unit *u) {
         return 0;
 }
 
+static int unit_add_mount_links(Unit *u) {
+        char **i;
+        int r;
+
+        assert(u);
+
+        STRV_FOREACH(i, u->requires_mounts_for) {
+                char prefix[strlen(*i) + 1];
+
+                PATH_FOREACH_PREFIX_MORE(prefix, *i) {
+                        Unit *m;
+
+                        r = manager_get_unit_by_path(u->manager, prefix, ".mount", &m);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+                        if (m == u)
+                                continue;
+
+                        if (m->load_state != UNIT_LOADED)
+                                continue;
+
+                        r = unit_add_dependency(u, UNIT_AFTER, m, true);
+                        if (r < 0)
+                                return r;
+
+                        if (m->fragment_path) {
+                                r = unit_add_dependency(u, UNIT_REQUIRES, m, true);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        }
+
+        return 0;
+}
+
 int unit_load(Unit *u) {
         int r;
 
@@ -1015,7 +1053,7 @@ fail:
         return r;
 }
 
-bool unit_condition_test(Unit *u) {
+static bool unit_condition_test(Unit *u) {
         assert(u);
 
         dual_timestamp_get(&u->condition_timestamp);
@@ -2118,28 +2156,6 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
         return r;
 }
 
-int unit_get_related_unit(Unit *u, const char *type, Unit **_found) {
-        _cleanup_free_ char *t = NULL;
-        Unit *found;
-
-        assert(u);
-        assert(type);
-        assert(_found);
-
-        t = unit_name_change_suffix(u->id, type);
-        if (!t)
-                return -ENOMEM;
-
-        assert(!unit_has_name(u, t));
-
-        found = manager_get_unit(u->manager, t);
-        if (!found)
-                return -ENOENT;
-
-        *_found = found;
-        return 0;
-}
-
 int unit_watch_bus_name(Unit *u, const char *name) {
         assert(u);
         assert(name);
@@ -2682,44 +2698,6 @@ void unit_ref_unset(UnitRef *ref) {
 
         LIST_REMOVE(refs, ref->unit->refs, ref);
         ref->unit = NULL;
-}
-
-int unit_add_mount_links(Unit *u) {
-        char **i;
-        int r;
-
-        assert(u);
-
-        STRV_FOREACH(i, u->requires_mounts_for) {
-                char prefix[strlen(*i) + 1];
-
-                PATH_FOREACH_PREFIX_MORE(prefix, *i) {
-                        Unit *m;
-
-                        r = manager_get_unit_by_path(u->manager, prefix, ".mount", &m);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                continue;
-                        if (m == u)
-                                continue;
-
-                        if (m->load_state != UNIT_LOADED)
-                                continue;
-
-                        r = unit_add_dependency(u, UNIT_AFTER, m, true);
-                        if (r < 0)
-                                return r;
-
-                        if (m->fragment_path) {
-                                r = unit_add_dependency(u, UNIT_REQUIRES, m, true);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-        }
-
-        return 0;
 }
 
 int unit_exec_context_defaults(Unit *u, ExecContext *c) {

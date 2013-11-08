@@ -194,7 +194,6 @@ void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c, bool reloading_or_reexecuting);
 void exec_context_tmp_dirs_done(ExecContext *c);
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
-void exec_context_tty_reset(const ExecContext *context);
 
 int exec_context_load_environment(const ExecContext *c, char ***l);
 

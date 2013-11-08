@@ -28,7 +28,7 @@ static inline void set_bit(uint64_t filter[], unsigned b) {
         filter[b >> 6] |= 1ULL << (b & 63);
 }
 
-void bloom_add_data(uint64_t filter[BLOOM_SIZE/8], const void *data, size_t n) {
+static void bloom_add_data(uint64_t filter[BLOOM_SIZE/8], const void *data, size_t n) {
         uint16_t hash[8];
         unsigned k = 0;
 

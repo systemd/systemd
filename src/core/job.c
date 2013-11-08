@@ -416,7 +416,7 @@ int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u) {
         return 0;
 }
 
-bool job_is_runnable(Job *j) {
+static bool job_is_runnable(Job *j) {
         Iterator i;
         Unit *other;
 

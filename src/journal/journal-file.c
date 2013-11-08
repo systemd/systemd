@@ -68,7 +68,7 @@
 /* How many entries to keep in the entry array chain cache at max */
 #define CHAIN_CACHE_MAX 20
 
-int journal_file_set_online(JournalFile *f) {
+static int journal_file_set_online(JournalFile *f) {
         assert(f);
 
         if (!f->writable)

@@ -800,7 +800,7 @@ int manager_enumerate(Manager *m) {
         return r;
 }
 
-int manager_coldplug(Manager *m) {
+static int manager_coldplug(Manager *m) {
         int r = 0, q;
         Iterator i;
         Unit *u;
@@ -878,6 +878,29 @@ fail:
 
         set_free_free(m->unit_path_cache);
         m->unit_path_cache = NULL;
+}
+
+
+static int manager_distribute_fds(Manager *m, FDSet *fds) {
+        Unit *u;
+        Iterator i;
+        int r;
+
+        assert(m);
+
+        HASHMAP_FOREACH(u, m->units, i) {
+
+                if (fdset_size(fds) <= 0)
+                        break;
+
+                if (UNIT_VTABLE(u)->distribute_fds) {
+                        r = UNIT_VTABLE(u)->distribute_fds(u, fds);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
@@ -1187,7 +1210,7 @@ void manager_clear_jobs(Manager *m) {
                 job_finish_and_invalidate(j, JOB_CANCELED, false);
 }
 
-unsigned manager_dispatch_run_queue(Manager *m) {
+static unsigned manager_dispatch_run_queue(Manager *m) {
         Job *j;
         unsigned n = 0;
 
@@ -1215,7 +1238,7 @@ unsigned manager_dispatch_run_queue(Manager *m) {
         return n;
 }
 
-unsigned manager_dispatch_dbus_queue(Manager *m) {
+static unsigned manager_dispatch_dbus_queue(Manager *m) {
         Job *j;
         Unit *u;
         unsigned n = 0;
@@ -2296,28 +2319,6 @@ finish:
         m->n_reloading --;
 
         return r;
-}
-
-int manager_distribute_fds(Manager *m, FDSet *fds) {
-        Unit *u;
-        Iterator i;
-        int r;
-
-        assert(m);
-
-        HASHMAP_FOREACH(u, m->units, i) {
-
-                if (fdset_size(fds) <= 0)
-                        break;
-
-                if (UNIT_VTABLE(u)->distribute_fds) {
-                        r = UNIT_VTABLE(u)->distribute_fds(u, fds);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        return 0;
 }
 
 int manager_reload(Manager *m) {

@@ -177,7 +177,7 @@ void manager_free(Manager *m) {
         free(m);
 }
 
-int manager_enumerate_devices(Manager *m) {
+static int manager_enumerate_devices(Manager *m) {
         struct udev_list_entry *item = NULL, *first = NULL;
         struct udev_enumerate *e;
         int r;
@@ -226,7 +226,7 @@ finish:
         return r;
 }
 
-int manager_enumerate_buttons(Manager *m) {
+static int manager_enumerate_buttons(Manager *m) {
         struct udev_list_entry *item = NULL, *first = NULL;
         struct udev_enumerate *e;
         int r;
@@ -284,7 +284,7 @@ finish:
         return r;
 }
 
-int manager_enumerate_seats(Manager *m) {
+static int manager_enumerate_seats(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
@@ -357,7 +357,7 @@ static int manager_enumerate_linger_users(Manager *m) {
         return r;
 }
 
-int manager_enumerate_users(Manager *m) {
+static int manager_enumerate_users(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r, k;
@@ -401,7 +401,7 @@ int manager_enumerate_users(Manager *m) {
         return r;
 }
 
-int manager_enumerate_sessions(Manager *m) {
+static int manager_enumerate_sessions(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
@@ -449,7 +449,7 @@ int manager_enumerate_sessions(Manager *m) {
         return r;
 }
 
-int manager_enumerate_inhibitors(Manager *m) {
+static int manager_enumerate_inhibitors(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;

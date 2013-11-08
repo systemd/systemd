@@ -265,7 +265,6 @@ int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **m);
 void manager_free(Manager *m);
 
 int manager_enumerate(Manager *m);
-int manager_coldplug(Manager *m);
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
 
 Job *manager_get_job(Manager *m, uint32_t id);
@@ -288,8 +287,6 @@ void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
 void manager_clear_jobs(Manager *m);
 
 unsigned manager_dispatch_load_queue(Manager *m);
-unsigned manager_dispatch_run_queue(Manager *m);
-unsigned manager_dispatch_dbus_queue(Manager *m);
 
 int manager_environment_add(Manager *m, char **environment);
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
@@ -303,7 +300,6 @@ int manager_open_serialization(Manager *m, FILE **_f);
 
 int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root);
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
-int manager_distribute_fds(Manager *m, FDSet *fds);
 
 int manager_reload(Manager *m);
 
