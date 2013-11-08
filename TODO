@@ -48,7 +48,7 @@ Features:
 
 * add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
 
-* direct connections to PID 1/XDG_RUNTIME_DIR, wait filter, reboot() filter unification, unify dispatch table in systemctl_main() and friends, convert all to bus_log_create_error()
+* wait filter, reboot() filter unification, unify dispatch table in systemctl_main() and friends, convert all to bus_log_create_error()
 
 * bus: access policy as vtable flag
 

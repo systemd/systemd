@@ -5354,7 +5354,7 @@ static int talk_initctl(void) {
         return 1;
 }
 
-static int systemctl_main(sd_bus *bus, int argc, char *argv[], const int r) {
+static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
 
         static const struct {
                 const char* verb;
@@ -5505,14 +5505,14 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], const int r) {
                 if (((!streq(verbs[i].verb, "reboot") &&
                       !streq(verbs[i].verb, "halt") &&
                       !streq(verbs[i].verb, "poweroff")) || arg_force <= 0) && !bus) {
-                        log_error("Failed to get D-Bus connection: %s", strerror (-r));
+                        log_error("Failed to get D-Bus connection: %s", strerror (-bus_error));
                         return -EIO;
                 }
 
         } else {
 
                 if (!bus && !avoid_bus()) {
-                        log_error("Failed to get D-Bus connection: %s", strerror (-r));
+                        log_error("Failed to get D-Bus connection: %s", strerror (-bus_error));
                         return -EIO;
                 }
         }
@@ -5764,13 +5764,11 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        if (!avoid_bus()) {
-                r = bus_open_transport(arg_transport, arg_host, arg_scope != UNIT_FILE_SYSTEM, &bus);
-                if (r < 0) {
-                        log_error("Failed to create bus connection: %s", strerror(-r));
-                        goto finish;
-                }
-        }
+        if (!avoid_bus())
+                r = bus_open_transport_systemd(arg_transport, arg_host, arg_scope != UNIT_FILE_SYSTEM, &bus);
+
+        /* systemctl_main() will print an error message for the bus
+         * connection, but only if it needs to */
 
         switch (arg_action) {
 

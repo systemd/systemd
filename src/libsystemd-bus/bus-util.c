@@ -440,6 +440,46 @@ int bus_open_system_systemd(sd_bus **_bus) {
         return 0;
 }
 
+int bus_open_user_systemd(sd_bus **_bus) {
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_free_ char *p = NULL;
+        const char *e;
+        int r;
+
+        /* If we are supposed to talk to the instance, try via
+         * XDG_RUNTIME_DIR first, then fallback to normal bus
+         * access */
+
+        assert(_bus);
+
+        e = secure_getenv("XDG_RUNTIME_DIR");
+        if (e) {
+                if (asprintf(&p, "unix:path=%s/systemd/private", e) < 0)
+                        return -ENOMEM;
+        }
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_address(bus, p);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        r = bus_check_peercred(bus);
+        if (r < 0)
+                return r;
+
+        *_bus = bus;
+        bus = NULL;
+
+        return 0;
+}
+
 int bus_print_property(const char *name, sd_bus_message *property, bool all) {
         char type;
         const char *contents;
@@ -906,6 +946,41 @@ int bus_open_transport(BusTransport transport, const char *host, bool user, sd_b
                         r = sd_bus_open_user(bus);
                 else
                         r = sd_bus_open_system(bus);
+
+                break;
+
+        case BUS_TRANSPORT_REMOTE:
+                r = sd_bus_open_system_remote(host, bus);
+                break;
+
+        case BUS_TRANSPORT_CONTAINER:
+                r = sd_bus_open_system_container(host, bus);
+                break;
+
+        default:
+                assert_not_reached("Hmm, unknown transport type.");
+        }
+
+        return r;
+}
+
+int bus_open_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus) {
+        int r;
+
+        assert(transport >= 0);
+        assert(transport < _BUS_TRANSPORT_MAX);
+        assert(bus);
+
+        assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
+        assert_return(transport == BUS_TRANSPORT_LOCAL || !user, -ENOTSUP);
+
+        switch (transport) {
+
+        case BUS_TRANSPORT_LOCAL:
+                if (user)
+                        r = bus_open_user_systemd(bus);
+                else
+                        r = bus_open_system_systemd(bus);
 
                 break;
 

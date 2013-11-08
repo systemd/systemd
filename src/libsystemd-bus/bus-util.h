@@ -63,8 +63,10 @@ int bus_verify_polkit_async(sd_bus *bus, Hashmap **registry, sd_bus_message *m, 
 void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry);
 
 int bus_open_system_systemd(sd_bus **_bus);
+int bus_open_user_systemd(sd_bus **_bus);
 
 int bus_open_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
+int bus_open_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
 int bus_print_property(const char *name, sd_bus_message *property, bool all);
 int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, char **filter, bool all);
