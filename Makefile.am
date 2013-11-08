@@ -4587,7 +4587,7 @@ defined: $(ALL_OBJECTS)
 		nm -g --undefined-only `echo $(builddir)/"$$f" | sed -e 's,\([^/]*\).lo$$,.libs/\1.o,'` ; \
 	done | cut -c 20- | cut -d @ -f 1 | sort -u > $(builddir)/undefined
 
-undefined:
+undefined: $(ALL_OBJECTS)
 	$(AM_V_GEN)for f in $(ALL_OBJECTS) ; do \
 		nm -g --defined-only `echo $(builddir)/"$$f" | sed -e 's,\([^/]*\).lo$$,.libs/\1.o,'` ; \
 	done | cut -c 20- | cut -d @ -f 1 | sort -u > $(builddir)/defined
