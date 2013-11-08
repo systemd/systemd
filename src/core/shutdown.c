@@ -135,7 +135,7 @@ static int pivot_to_new_root(void) {
 int main(int argc, char *argv[]) {
         bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
         bool in_container, use_watchdog = false;
-        _cleanup_free_ char *line = NULL, *cgroup = NULL, *param = NULL;
+        _cleanup_free_ char *line = NULL, *cgroup = NULL;
         char *arguments[3];
         unsigned retries;
         int cmd, r;
@@ -174,11 +174,9 @@ int main(int argc, char *argv[]) {
 
         in_container = detect_container(NULL) > 0;
 
-        if (streq(argv[1], "reboot")) {
+        if (streq(argv[1], "reboot"))
                 cmd = RB_AUTOBOOT;
-                /* if this fails, that's OK */
-                read_one_line_file(REBOOT_PARAM_FILE, &param);
-        } else if (streq(argv[1], "poweroff"))
+        else if (streq(argv[1], "poweroff"))
                 cmd = RB_POWER_OFF;
         else if (streq(argv[1], "halt"))
                 cmd = RB_HALT_SYSTEM;
@@ -318,39 +316,69 @@ int main(int argc, char *argv[]) {
         if (!in_container)
                 sync();
 
-        if (cmd == LINUX_REBOOT_CMD_KEXEC) {
+        switch (cmd) {
+
+        case LINUX_REBOOT_CMD_KEXEC:
 
                 if (!in_container) {
                         /* We cheat and exec kexec to avoid doing all its work */
-                        pid_t pid = fork();
+                        pid_t pid;
 
+                        log_info("Rebooting with kexec.");
+
+                        pid = fork();
                         if (pid < 0)
-                                log_error("Could not fork: %m. Falling back to normal reboot.");
-                        else if (pid > 0) {
-                                wait_for_terminate_and_warn("kexec", pid);
-                                log_warning("kexec failed. Falling back to normal reboot.");
-                        } else {
+                                log_error("Failed to fork: %m");
+                        else if (pid == 0) {
+
+                                const char * const args[] = {
+                                        KEXEC, "-e", NULL
+                                };
+
                                 /* Child */
-                                const char *args[3] = { KEXEC, "-e", NULL };
+
                                 execv(args[0], (char * const *) args);
-                                return EXIT_FAILURE;
-                        }
+                                _exit(EXIT_FAILURE);
+                        } else
+                                wait_for_terminate_and_warn("kexec", pid);
                 }
 
                 cmd = RB_AUTOBOOT;
+                /* Fall through */
+
+        case RB_AUTOBOOT:
+
+                if (!in_container) {
+                        _cleanup_free_ char *param = NULL;
+
+                        if (read_one_line_file(REBOOT_PARAM_FILE, &param) >= 0) {
+                                log_info("Rebooting with argument '%s'.", param);
+                                syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
+                                        LINUX_REBOOT_CMD_RESTART2, param);
+                        }
+                }
+
+                log_info("Rebooting.");
+                break;
+
+        case RB_POWER_OFF:
+                log_info("Powering off.");
+                break;
+
+        case RB_HALT_SYSTEM:
+                log_info("Halting system.");
+                break;
+
+        default:
+                assert_not_reached("Unknown magic");
         }
 
-        if (param)
-                syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
-                        LINUX_REBOOT_CMD_RESTART2, param);
-        else
-                reboot(cmd);
-
+        reboot(cmd);
         if (errno == EPERM && in_container) {
                 /* If we are in a container, and we lacked
                  * CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
-                log_error("Exiting container.");
+                log_info("Exiting container.");
                 exit(0);
         }
 

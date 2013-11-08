@@ -77,6 +77,7 @@
 #include "utf8.h"
 #include "gunicode.h"
 #include "virt.h"
+#include "def.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;

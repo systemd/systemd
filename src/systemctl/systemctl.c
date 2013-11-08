@@ -135,7 +135,7 @@ static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
 
 static int daemon_reload(sd_bus *bus, char **args);
-static void halt_now(enum action a);
+static int halt_now(enum action a);
 
 static void pager_open_if_enabled(void) {
 
@@ -2033,7 +2033,7 @@ static int start_special(sd_bus *bus, char **args) {
             (a == ACTION_HALT ||
              a == ACTION_POWEROFF ||
              a == ACTION_REBOOT))
-                halt_now(a);
+                return halt_now(a);
 
         if (arg_force >= 1 &&
             (a == ACTION_HALT ||
@@ -5609,11 +5609,9 @@ done:
         return 0;
 }
 
-static _noreturn_ void halt_now(enum action a) {
+static int halt_now(enum action a) {
 
-        _cleanup_free_ char *param = NULL;
-
-       /* Make sure C-A-D is handled by the kernel from this
+/* Make sure C-A-D is handled by the kernel from this
          * point on... */
         reboot(RB_ENABLE_CAD);
 
@@ -5622,30 +5620,30 @@ static _noreturn_ void halt_now(enum action a) {
         case ACTION_HALT:
                 log_info("Halting.");
                 reboot(RB_HALT_SYSTEM);
-                break;
+                return -errno;
 
         case ACTION_POWEROFF:
                 log_info("Powering off.");
                 reboot(RB_POWER_OFF);
-                break;
+                return -errno;
 
-        case ACTION_REBOOT:
+        case ACTION_REBOOT: {
+                _cleanup_free_ char *param = NULL;
 
-                if (read_one_line_file(REBOOT_PARAM_FILE, &param) == 0) {
-                        log_info("Rebooting with arg '%s'.", param);
+                if (read_one_line_file(REBOOT_PARAM_FILE, &param) >= 0) {
+                        log_info("Rebooting with argument '%s'.", param);
                         syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
                                 LINUX_REBOOT_CMD_RESTART2, param);
-                } else {
-                        log_info("Rebooting.");
-                        reboot(RB_AUTOBOOT);
                 }
-                break;
 
-        default:
-                assert_not_reached("Unknown halt action.");
+                log_info("Rebooting.");
+                reboot(RB_AUTOBOOT);
+                return -errno;
         }
 
-        assert_not_reached("Uh? This shouldn't happen.");
+        default:
+                assert_not_reached("Unknown action.");
+        }
 }
 
 static int halt_main(sd_bus *bus) {
@@ -5717,9 +5715,10 @@ static int halt_main(sd_bus *bus) {
         if (arg_dry)
                 return 0;
 
-        halt_now(arg_action);
-        /* We should never reach this. */
-        return -ENOSYS;
+        r = halt_now(arg_action);
+        log_error("Failed to reboot: %s", strerror(-r));
+
+        return r;
 }
 
 static int runlevel_main(void) {
