@@ -376,23 +376,23 @@ static CGroupControllerMask unit_get_siblings_mask(Unit *u) {
 }
 
 static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
-        char *path = NULL;
+        _cleanup_free_ char *path;
         int r;
-        bool is_in_hash = false;
+        bool was_in_hash = false;
 
         assert(u);
 
         path = unit_default_cgroup_path(u);
         if (!path)
-                return -ENOMEM;
+                return log_oom();
 
         r = hashmap_put(u->manager->cgroup_unit, path, u);
         if (r == 0)
-                is_in_hash = true;
-
-        if (r < 0) {
-                log_error("cgroup %s exists already: %s", path, strerror(-r));
-                free(path);
+                was_in_hash = true;
+        else if (r < 0) {
+                log_error(r == -EEXIST ?
+                          "cgroup %s exists already: %s" : "hashmap_put failed for %s: %s",
+                          path, strerror(-r));
                 return r;
         }
 
@@ -405,13 +405,15 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         if (u->cgroup_path) {
                 r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, path);
                 if (r < 0)
-                        log_error("Failed to migrate cgroup %s: %s", path, strerror(-r));
+                        log_error("Failed to migrate cgroup from %s to %s: %s",
+                                  u->cgroup_path, path, strerror(-r));
         }
 
-        if (!is_in_hash) {
-                /* And remember the new data */
+        if (!was_in_hash) {
+                /* Remember the new data */
                 free(u->cgroup_path);
                 u->cgroup_path = path;
+                path = NULL;
         }
 
         u->cgroup_realized = true;
