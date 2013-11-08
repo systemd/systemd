@@ -4578,3 +4578,23 @@ check-api-docs: $(lib_LTLIBRARIES) man
 			echo "‣ Symbol $$symbol() lacks documentation." ; \
 		fi ; \
 	 done
+
+OBJECT_VARIABLES:=$(filter %_OBJECTS,$(.VARIABLES))
+ALL_OBJECTS:=$(foreach v,$(OBJECT_VARIABLES),$($(v)))
+
+defined: $(ALL_OBJECTS)
+	$(AM_V_GEN)for f in $(ALL_OBJECTS) ; do \
+		nm -g --undefined-only `echo $(builddir)/"$$f" | sed -e 's,\([^/]*\).lo$$,.libs/\1.o,'` ; \
+	done | cut -c 20- | cut -d @ -f 1 | sort -u > $(builddir)/undefined
+
+undefined:
+	$(AM_V_GEN)for f in $(ALL_OBJECTS) ; do \
+		nm -g --defined-only `echo $(builddir)/"$$f" | sed -e 's,\([^/]*\).lo$$,.libs/\1.o,'` ; \
+	done | cut -c 20- | cut -d @ -f 1 | sort -u > $(builddir)/defined
+
+CLEANFILES += \
+	defined \
+	undefined
+
+check-api-unused: defined undefined
+	diff -u undefined defined | grep ^+ | grep -v ^+++ | cut -c2-
