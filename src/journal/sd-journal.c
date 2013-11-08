@@ -1276,7 +1276,7 @@ static void check_network(sd_journal *j, int fd) {
 static bool file_has_type_prefix(const char *prefix, const char *filename) {
         const char *full, *tilded, *atted;
 
-        full = strappend(prefix, ".journal");
+        full = strappenda(prefix, ".journal");
         tilded = strappenda(full, "~");
         atted = strappenda(prefix, "@");
 
