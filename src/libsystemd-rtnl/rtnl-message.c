@@ -187,6 +187,7 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
         uint32_t rta_length, message_length;
         struct nlmsghdr *new_hdr;
         struct rtattr *rta;
+        char *padding;
 
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
@@ -194,10 +195,9 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
         assert_return(data, -EINVAL);
         assert_return(data_length > 0, -EINVAL);
 
-        /* get the size of the new rta attribute (without padding at the end) */
+        /* get the size of the new rta attribute (with padding at the end) */
         rta_length = RTA_LENGTH(data_length);
-        /* get the new message size (with padding between the old message and the new attrib,
-         * but no padding after)
+        /* get the new message size (with padding at the end)
          */
         message_length = m->hdr->nlmsg_len + RTA_ALIGN(rta_length);
 
@@ -218,7 +218,9 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
         /* we don't deal with the case where the user lies about the type and gives us
          * too little data (so don't do that)
          */
-        memcpy(RTA_DATA(rta), data, data_length);
+        padding = mempcpy(RTA_DATA(rta), data, data_length);
+        /* make sure also the padding at the end of the message is initialized */
+        memset(padding, '\0', (unsigned char *) m->hdr + m->hdr->nlmsg_len - (unsigned char *) padding);
 
         return 0;
 }
