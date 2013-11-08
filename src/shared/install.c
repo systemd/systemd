@@ -1618,6 +1618,7 @@ int unit_file_get_default(
 
         STRV_FOREACH(p, paths.unit_path) {
                 _cleanup_free_ char *path = NULL, *tmp = NULL;
+                char *n;
 
                 if (isempty(root_dir))
                         path = strappend(*p, "/default.target");
@@ -1630,13 +1631,14 @@ int unit_file_get_default(
                 r = readlink_malloc(path, &tmp);
                 if (r == -ENOENT)
                         continue;
-                else if (r < 0)
+                if (r < 0)
                         return r;
 
-                *name = strdup(path_get_file_name(tmp));
-                if (!*name)
+                n = strdup(path_get_file_name(tmp));
+                if (!n)
                         return -ENOMEM;
 
+                *name = n;
                 return 0;
         }
 
