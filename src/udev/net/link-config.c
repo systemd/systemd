@@ -202,7 +202,7 @@ static bool enable_name_policy(void) {
                 return true;
 
         FOREACH_WORD_QUOTED(w, l, line, state)
-                if (strneq(w, "net.ifnames=0", l))
+                if (l == sizeof("net.ifnames=0") - 1 && strneq(w, "net.ifnames=0", l))
                         return false;
 
         return true;
