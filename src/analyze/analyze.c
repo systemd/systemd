@@ -1160,6 +1160,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN   },
                 { "fuzz",         required_argument, NULL, ARG_FUZZ             },
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER         },
+                { "host",         required_argument, NULL, 'H'                  },
+                { "machine",      required_argument, NULL, 'M'                  },
                 {}
         };
 

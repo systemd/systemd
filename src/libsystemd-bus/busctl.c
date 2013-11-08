@@ -220,6 +220,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "address",   required_argument, NULL, ARG_ADDRESS   },
                 { "no-unique", no_argument,       NULL, ARG_NO_UNIQUE },
                 { "match",     required_argument, NULL, ARG_MATCH     },
+                { "host",      required_argument, NULL, 'H'           },
+                { "machine",   required_argument, NULL, 'M'           },
                 {},
         };
 
