@@ -2525,7 +2525,7 @@ static void print_status_info(
 
                 printf("   CGroup: %s\n", i->control_group);
 
-                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                if (arg_transport == BUS_TRANSPORT_LOCAL || arg_transport == BUS_TRANSPORT_CONTAINER) {
                         unsigned k = 0;
                         pid_t extra[2];
                         char prefix[] = "           ";
