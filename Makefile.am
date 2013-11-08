@@ -2020,7 +2020,7 @@ tests += \
 	test-bus-objects \
 	test-event
 
-noinst_PROGRAMS += \
+bin_PROGRAMS += \
 	busctl
 
 test_bus_marshal_SOURCES = \
