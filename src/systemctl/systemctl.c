@@ -1204,7 +1204,11 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n) {
 
         pager_open_if_enabled();
 
-        id_len = unit_len = type_len = state_len = 0;
+        id_len = sizeof("JOB")-1;
+        unit_len = sizeof("UNIT")-1;
+        type_len = sizeof("TYPE")-1;
+        state_len = sizeof("STATE")-1;
+
         for (j = jobs; j < jobs + n; j++) {
                 uint32_t id = j->id;
                 assert(j->name && j->type && j->state);
