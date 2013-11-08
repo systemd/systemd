@@ -1936,11 +1936,11 @@ static int check_inhibitors(sd_bus *bus, enum action a) {
                 /* If logind is not around, then there are no inhibitors... */
                 return 0;
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "ssssuu");
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "ssssuu", &what, &who, &why, &mode, &uid, &pid)) > 0) {
+        while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
                 _cleanup_free_ char *comm = NULL, *user = NULL;
                 _cleanup_strv_free_ char **sv = NULL;
 
