@@ -169,11 +169,10 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         link->wol = _WOL_INVALID;
         link->duplex = _DUP_INVALID;
 
-
         r = config_parse(NULL, filename, file, "Match\0Link\0Ethernet\0", config_item_perf_lookup,
                          (void*) link_config_gperf_lookup, false, false, link);
         if (r < 0) {
-                log_warning("Colud not parse config file %s: %s", filename, strerror(-r));
+                log_warning("Could not parse config file %s: %s", filename, strerror(-r));
                 goto failure;
         } else
                 log_debug("Parsed configuration file %s", filename);
