@@ -410,6 +410,18 @@
         </refsect1>
 
         <refsect1>
+                <title>Example 4</title>
+
+                <programlisting># mv ~/arch-tree /var/lib/container/arch
+# systemctl enable systemd-nspawn@arch.service
+# systemctl start systemd-nspawn@arch.service</programlisting>
+
+                <para>This makes the Arch Linux container part of the
+                <filename>multi-user.target</filename> on the host.
+                </para>
+        </refsect1>
+
+        <refsect1>
                 <title>Exit status</title>
 
                 <para>The exit code of the program executed in the

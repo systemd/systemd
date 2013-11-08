@@ -14,4 +14,4 @@ ExecStart=@bindir@/systemd-nspawn -bjD /var/lib/container/%i
 Type=notify
 
 [Install]
-Also=multi-user.target
+WantedBy=multi-user.target
