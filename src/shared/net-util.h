@@ -42,3 +42,5 @@ int config_parse_hwaddr(const char *unit, const char *filename, unsigned line,
 int config_parse_ifname(const char *unit, const char *filename, unsigned line,
                         const char *section, const char *lvalue, int ltype,
                         const char *rvalue, void *data, void *userdata);
+
+int net_parse_inaddr(const char *address, unsigned char *family, void *dst);

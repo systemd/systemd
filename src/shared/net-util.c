@@ -21,6 +21,7 @@
 
 #include <netinet/ether.h>
 #include <net/if.h>
+#include <arpa/inet.h>
 
 #include "net-util.h"
 #include "log.h"
@@ -160,6 +161,33 @@ int config_parse_hwaddr(const char *unit,
 
         free(*hwaddr);
         *hwaddr = n;
+
+        return 0;
+}
+
+int net_parse_inaddr(const char *address, unsigned char *family, void *dst) {
+        int r;
+
+        assert(address);
+        assert(family);
+        assert(dst);
+
+        /* IPv4 */
+        r = inet_pton(AF_INET, address, dst);
+        if (r > 0)
+                *family = AF_INET; /* successfully parsed IPv4 address */
+        else  if (r < 0)
+                return -errno;
+        else {
+                /* not an IPv4 address, so let's try IPv6 */
+                r = inet_pton(AF_INET6, address, dst);
+                if (r > 0)
+                        *family = AF_INET6; /* successfully parsed IPv6 address */
+                else if (r < 0)
+                        return -errno;
+                else
+                        return -EINVAL;
+        }
 
         return 0;
 }
