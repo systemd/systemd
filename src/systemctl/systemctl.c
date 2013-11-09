@@ -2917,8 +2917,11 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
         /* This is a low-level property printer, see
          * print_status_info() for the nicer output */
 
-        if (arg_properties && !strv_find(arg_properties, name))
-                return 0;
+        if (arg_properties && !strv_find(arg_properties, name)) {
+                /* skip what we didn't read */
+                r = sd_bus_message_skip(m, contents);
+                return r;
+        }
 
         switch (contents[0]) {
 
