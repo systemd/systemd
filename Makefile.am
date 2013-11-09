@@ -4636,15 +4636,10 @@ check-api-docs: $(lib_LTLIBRARIES) man
 OBJECT_VARIABLES:=$(filter %_OBJECTS,$(.VARIABLES))
 ALL_OBJECTS:=$(foreach v,$(OBJECT_VARIABLES),$($(v)))
 
-defined: $(ALL_OBJECTS)
+undefined defined: $(ALL_OBJECTS)
 	$(AM_V_GEN)for f in $(ALL_OBJECTS) ; do \
-		nm -g --undefined-only `echo $(builddir)/"$$f" | sed -e 's,\([^/]*\).lo$$,.libs/\1.o,'` ; \
-	done | cut -c 20- | cut -d @ -f 1 | sort -u > $(builddir)/undefined
-
-undefined: $(ALL_OBJECTS)
-	$(AM_V_GEN)for f in $(ALL_OBJECTS) ; do \
-		nm -g --defined-only `echo $(builddir)/"$$f" | sed -e 's,\([^/]*\).lo$$,.libs/\1.o,'` ; \
-	done | cut -c 20- | cut -d @ -f 1 | sort -u > $(builddir)/defined
+		nm -g --$@-only `echo $(builddir)/"$$f" | sed -e 's,\([^/]*\).lo$$,.libs/\1.o,'` ; \
+	done | cut -c 20- | cut -d @ -f 1 | sort -u > $@
 
 CLEANFILES += \
 	defined \
