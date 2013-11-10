@@ -23,13 +23,13 @@
 #include "utf8.h"
 #include "sd-utf8.h"
 
-const char *sd_utf8_is_valid(const char *s) {
+_public_ const char *sd_utf8_is_valid(const char *s) {
         assert_return(s, NULL);
 
         return utf8_is_valid(s);
 }
 
-const char *sd_ascii_is_valid(const char *s) {
+_public_ const char *sd_ascii_is_valid(const char *s) {
         assert_return(s, NULL);
 
         return ascii_is_valid(s);
