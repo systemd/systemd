@@ -3018,7 +3018,7 @@ _public_ int sd_bus_message_exit_container(sd_bus_message *m) {
 
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
-        assert_return(m->n_containers > 0, -EINVAL);
+        assert_return(m->n_containers > 0, -ENOENT);
 
         c = message_get_container(m);
         if (c->enclosing == SD_BUS_TYPE_ARRAY) {

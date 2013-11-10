@@ -3762,7 +3762,7 @@ static int daemon_reload(sd_bus *bus, char **args) {
         else if (r < 0)
                 log_error("Failed to execute operation: %s", bus_error_message(&error, r));
 
-        return r;
+        return r < 0 ? r : 0;
 }
 
 static int reset_failed(sd_bus *bus, char **args) {
