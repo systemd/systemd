@@ -4624,8 +4624,13 @@ valgrind-tests: $(TESTS)
 		[ "$$f" == "$${f/.pl/}" ] && libtool --mode=execute valgrind --leak-check=full --error-exitcode=55 $(builddir)/$$f ; \
 	done
 
-check-api-docs: $(lib_LTLIBRARIES) man
-	for symbol in `for f in $(lib_LTLIBRARIES) ; do nm -g --defined-only $(builddir)/.libs/"$${f/.la/.so}" 2>&1 /dev/null | grep " T " | cut -d" " -f3 ; done` ; do \
+exported: $(lib_LTLIBRARIES)
+	$(AM_V_GEN)for f in $(lib_LTLIBRARIES) ; do \
+		nm -g --defined-only $(builddir)/.libs/"$${f/.la/.so}" 2>&1 /dev/null | grep " T " | cut -d" " -f3 ; \
+	done > $@
+
+check-api-docs: exported man
+	for symbol in `cat exported` ; do \
 		if test -f $(builddir)/man/$$symbol.html ; then \
 			echo "  Symbol $$symbol() is documented." ; \
 		else \
@@ -4645,5 +4650,5 @@ CLEANFILES += \
 	defined \
 	undefined
 
-check-api-unused: defined undefined
-	diff -u undefined defined | grep ^+ | grep -v ^+++ | cut -c2-
+check-api-unused: defined undefined exported
+	( cat exported undefined ) | sort -u  | diff -u - defined | grep ^+ | grep -v ^+++ | cut -c2-
