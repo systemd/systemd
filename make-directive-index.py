@@ -87,6 +87,15 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
+                <title>Network directives</title>
+
+                <para>Directives for configuring network links through the
+                net-setup-link udev builtin.</para>
+
+                <variablelist id='network-directives' />
+        </refsect1>
+
+        <refsect1>
                 <title>Journal fields</title>
 
                 <para>Fields in the journal events with a well known meaning.</para>

@@ -741,6 +741,197 @@
       During runtime only the binary database is used.</para>
   </refsect1>
 
+  <refsect1><title>Network Link Configuration</title>
+      <para>Network link configuration is performed by the <literal>net-setup-link</literal>
+      udev builtin.</para>
+
+      <para>The link files are read from the files located in the
+      system network directory <filename>/usr/lib/systemd/network</filename>,
+      the volatile runtime network directory <filename>/run/systemd/network</filename>
+      and the local administration network directory <filename>/etc/systemd/network</filename>.
+      All link files are collectively sorted and processed in lexical order,
+      regardless of the directories in which they live. However, files with
+      identical filenames replace each other. Files in <filename>/etc</filename>
+      have the highest priority, files in <filename>/run</filename> take precedence
+      over files with the same name in <filename>/lib</filename>. This can be
+      used to override a system-supplied link file with a local file if needed;
+      a symlink in <filename>/etc</filename> with the same name as a link file in
+      <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
+      disables the link file entirely. Link files must have the extension
+      <filename>.link</filename>; other extensions are ignored.</para>
+
+      <para>The link file contains a <literal>[Match]</literal> section, which
+      determines if a given link file may be applied to a given device; and a
+      <literal>[Link]</literal> section specifying how the device should be
+      configured. The first (in lexical order) of the link files that matches
+      a given device is applied.</para>
+
+      <para>A link file is said to match a device if each of the entries in the
+      <literal>[Match]</literal> section matches, or if the section is empty.
+      The following keys are accepted:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>MACAddress</varname></term>
+          <listitem>
+            <para>The hardware address.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Path</varname></term>
+          <listitem>
+            <para>The persistent path, as exposed by the udev property <literal>ID_PATH</literal>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Driver</varname></term>
+          <listitem>
+            <para>The driver currently bound to the device, as exposed by the udev property <literal>DRIVER</literal>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Type</varname></term>
+          <listitem>
+            <para>The device type, as exposed by the udev property <literal>DEVTYPE</literal>.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>The <literal>[Link]</literal> section accepts the following keys:</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>Description</varname></term>
+          <listitem>
+            <para>A description of the device. The <literal>ifalias</literal> is set to this value.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MACAddressPolicy</varname></term>
+          <listitem>
+            <para>The policy by which the MAC address should be set. The available policies are:</para>
+            <variablelist>
+              <varlistentry>
+                <term><literal>persistent</literal></term>
+                <listitem>
+                  <para>If the hardware has a persistent MAC address, as most hardware should, and this is used by
+                  the kernel, nothing is done. Otherwise, a new MAC address is generated which is guaranteed to be
+                  the same on every boot for the given machine and the given device, but which is otherwise random.
+                  </para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>random</literal></term>
+                <listitem>
+                  <para>If the kernel is using a random MAC address, nothing is done. Otherwise, a new address is
+                  randomly generated each time the device appears, typically at boot.</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MACAddress</varname></term>
+          <listitem>
+            <para>The MAC address to use, if no <literal>MACAddressPolicy</literal> is specified.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>NamePolicy</varname></term>
+          <listitem>
+            <para>An ordered, space-separated list of policies by which the interface name should be set.
+            <literal>NamePolicy</literal> may be disabeld by specifying <literal>net.ifnames=0</literal> on the
+            kernel commandline. Each of the policies may fail, and the first successfull one is used. The name
+            is not set directly, but exported to udev as the property <literal>ID_NET_NAME</literal>, which is
+            by default used by an udev rule to set <literal>NAME</literal>. The available policies are:</para>
+            <variablelist>
+              <varlistentry>
+                <term><literal>onboard</literal></term>
+                <listitem>
+                  <para>The name is set based on information given by the firmware for on-board devices, as
+                  exported by the udev property <literal>ID_NET_NAME_ONBOARD</literal>.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>slot</literal></term>
+                <listitem>
+                  <para>The name is set based on information given by the firmware for hot-plug devices, as
+                  exported by the udev property <literal>ID_NET_NAME_SLOT</literal>.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>path</literal></term>
+                <listitem>
+                  <para>The name is set based on the device's physical location, as exported by the udev
+                  property <literal>ID_NET_NAME_PATH</literal>.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>mac</literal></term>
+                <listitem>
+                  <para>The name is set based on the device's persistent MAC address, as exported by the udev
+                  property <literal>ID_NET_NAME_MAC</literal>.</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Name</varname></term>
+          <listitem>
+            <para>The interface name to use in case all the policies specified in <literal>NamePolicy</literal>
+            fail, or in case <literal>NamePolicy</literal> is missing or disabled.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>MTU</varname></term>
+          <listitem>
+            <para>The MTU to set for the device.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SpeedMBytes</varname></term>
+          <listitem>
+            <para>The speed to set for the device.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Duplex</varname></term>
+          <listitem>
+            <para>The duplex mode to set for the device. The accepted values are <literal>half</literal> and
+            <literal>full</literal>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>WakeOnLan</varname></term>
+          <listitem>
+            <para>The Wake-On-Lan policy to set for the device. The supported values are:</para>
+            <variablelist>
+              <varlistentry>
+                <term><literal>phy</literal></term>
+                <listitem>
+                  <para>Wake on PHY activity.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>magic</literal></term>
+                <listitem>
+                  <para>Wake on receipt of magic packet.</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><literal>off</literal></term>
+                <listitem>
+                  <para>Never wake.</para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
   <refsect1>
     <title>See Also</title>
     <para><citerefentry>
