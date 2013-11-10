@@ -1,6 +1,4 @@
 Bugfixes:
-* check :no-sender logic after PID conversion
-
 * enabling an instance unit creates a pointless link, and
   the unit will be started with getty@getty.service:
     $ systemctl enable getty@.service
@@ -35,8 +33,6 @@ Fedora 20:
 
 CGroup Rework Completion:
 
-* introduce "mainpid" for scopes (or maybe not?)
-
 * implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
 
 * implement per-slice CPUFairScheduling=1 switch
@@ -46,6 +42,8 @@ CGroup Rework Completion:
 * introduce high-level settings for RT budget, swappiness
 
 Features:
+
+* check :no-sender logic after PID 1 conversion
 
 * increase journal files by a few MB each time, instead of piecemeal
 

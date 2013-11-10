@@ -170,6 +170,7 @@ bool sender_name_is_valid(const char *p) {
         if (isempty(p))
                 return false;
 
+        /* FIXME: remove after PID 1 bus conversion */
         if (streq(p, ":no-sender"))
                 return true;
 
