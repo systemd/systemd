@@ -32,7 +32,12 @@ static void test_link(struct udev_device *loopback) {
 }
 
 static void test_network_load(Manager *manager) {
-        assert(network_should_reload(manager) == true);
+/*  TODO: should_reload, is false if the config dirs do not exist, so
+ *        so we can't do this test here, move it to a test for paths_check_timestamps
+ *        directly
+ *
+ *        assert(network_should_reload(manager) == true);
+*/
         assert(network_load(manager) >= 0);
         assert(network_should_reload(manager) == false);
 }
