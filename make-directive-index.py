@@ -90,7 +90,8 @@ TEMPLATE = '''\
                 <title>Network directives</title>
 
                 <para>Directives for configuring network links through the
-                net-setup-link udev builtin.</para>
+                net-setup-link udev builtin and networks through
+                systemd-networkd.</para>
 
                 <variablelist id='network-directives' />
         </refsect1>
