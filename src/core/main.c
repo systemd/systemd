@@ -1201,6 +1201,8 @@ int main(int argc, char *argv[]) {
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
         dual_timestamp userspace_timestamp = { 0ULL, 0ULL };
         dual_timestamp kernel_timestamp = { 0ULL, 0ULL };
+        dual_timestamp security_start_timestamp = { 0ULL, 0ULL };
+        dual_timestamp security_finish_timestamp = { 0ULL, 0ULL };
         static char systemd[] = "systemd";
         bool skip_setup = false;
         int j;
@@ -1265,12 +1267,14 @@ int main(int argc, char *argv[]) {
 
                 if (!skip_setup) {
                         mount_setup_early();
+                        dual_timestamp_get(&security_start_timestamp);
                         if (selinux_setup(&loaded_policy) < 0)
                                 goto finish;
                         if (ima_setup() < 0)
                                 goto finish;
                         if (smack_setup() < 0)
                                 goto finish;
+                        dual_timestamp_get(&security_finish_timestamp);
                 }
 
                 if (label_init(NULL) < 0)
@@ -1541,6 +1545,8 @@ int main(int argc, char *argv[]) {
         m->userspace_timestamp = userspace_timestamp;
         m->kernel_timestamp = kernel_timestamp;
         m->initrd_timestamp = initrd_timestamp;
+        m->security_start_timestamp = security_start_timestamp;
+        m->security_finish_timestamp = security_finish_timestamp;
 
         manager_set_default_rlimits(m, arg_default_rlimit);
 

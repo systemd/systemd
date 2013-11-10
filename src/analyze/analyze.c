@@ -83,6 +83,8 @@ struct boot_times {
         usec_t initrd_time;
         usec_t userspace_time;
         usec_t finish_time;
+        usec_t security_start_time;
+        usec_t security_finish_time;
         usec_t generators_start_time;
         usec_t generators_finish_time;
         usec_t unitsload_start_time;
@@ -324,6 +326,16 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
             bus_get_uint64_property(bus,
                                     "/org/freedesktop/systemd1",
                                     "org.freedesktop.systemd1.Manager",
+                                    "SecurityStartTimestampMonotonic",
+                                    &times.security_start_time) < 0 ||
+            bus_get_uint64_property(bus,
+                                    "/org/freedesktop/systemd1",
+                                    "org.freedesktop.systemd1.Manager",
+                                    "SecurityFinishTimestampMonotonic",
+                                    &times.security_finish_time) < 0 ||
+            bus_get_uint64_property(bus,
+                                    "/org/freedesktop/systemd1",
+                                    "org.freedesktop.systemd1.Manager",
                                     "GeneratorsStartTimestampMonotonic",
                                     &times.generators_start_time) < 0 ||
             bus_get_uint64_property(bus,
@@ -523,6 +535,7 @@ static int analyze_plot(sd_bus *bus) {
             "      rect.firmware     { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.loader       { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.userspace    { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
+            "      rect.security     { fill: rgb(144,238,144); fill-opacity: 0.7; }\n"
             "      rect.generators   { fill: rgb(102,204,255); fill-opacity: 0.7; }\n"
             "      rect.unitsload    { fill: rgb( 82,184,255); fill-opacity: 0.7; }\n"
             "      rect.box   { fill: rgb(240,240,240); stroke: rgb(192,192,192); }\n"
@@ -566,6 +579,7 @@ static int analyze_plot(sd_bus *bus) {
                 y++;
         }
         svg_bar("active", boot->userspace_time, boot->finish_time, y);
+        svg_bar("security", boot->security_start_time, boot->security_finish_time, y);
         svg_bar("generators", boot->generators_start_time, boot->generators_finish_time, y);
         svg_bar("unitsload", boot->unitsload_start_time, boot->unitsload_finish_time, y);
         svg_text(true, boot->userspace_time, y, "systemd");
@@ -602,6 +616,9 @@ static int analyze_plot(sd_bus *bus) {
         y++;
         svg_bar("deactivating", 0, 300000, y);
         svg_text(true, 400000, y, "Deactivating");
+        y++;
+        svg_bar("security", 0, 300000, y);
+        svg_text(true, 400000, y, "Setting up security module");
         y++;
         svg_bar("generators", 0, 300000, y);
         svg_text(true, 400000, y, "Generators");

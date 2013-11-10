@@ -271,6 +271,10 @@
         "  <property name=\"UserspaceTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"FinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"FinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"SecurityStartTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"SecurityStartTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"SecurityFinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"SecurityFinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"GeneratorsStartTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"GeneratorsStartTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"GeneratorsFinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
@@ -583,6 +587,10 @@ static const BusProperty bus_manager_properties[] = {
         { "UserspaceTimestampMonotonic", bus_property_append_uint64,     "t",  offsetof(Manager, userspace_timestamp.monotonic) },
         { "FinishTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, finish_timestamp.realtime)     },
         { "FinishTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, finish_timestamp.monotonic)    },
+        { "SecurityStartTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, security_start_timestamp.realtime)     },
+        { "SecurityStartTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, security_start_timestamp.monotonic)    },
+        { "SecurityFinishTimestamp",            bus_property_append_uint64,     "t",  offsetof(Manager, security_finish_timestamp.realtime)    },
+        { "SecurityFinishTimestampMonotonic",   bus_property_append_uint64,     "t",  offsetof(Manager, security_finish_timestamp.monotonic)   },
         { "GeneratorsStartTimestamp",           bus_property_append_uint64,     "t",  offsetof(Manager, generators_start_timestamp.realtime)   },
         { "GeneratorsStartTimestampMonotonic",  bus_property_append_uint64,     "t",  offsetof(Manager, generators_start_timestamp.monotonic)  },
         { "GeneratorsFinishTimestamp",          bus_property_append_uint64,     "t",  offsetof(Manager, generators_finish_timestamp.realtime)  },

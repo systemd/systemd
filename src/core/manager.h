@@ -153,6 +153,8 @@ struct Manager {
         dual_timestamp initrd_timestamp;
         dual_timestamp userspace_timestamp;
         dual_timestamp finish_timestamp;
+        dual_timestamp security_start_timestamp;
+        dual_timestamp security_finish_timestamp;
         dual_timestamp generators_start_timestamp;
         dual_timestamp generators_finish_timestamp;
         dual_timestamp unitsload_start_timestamp;
