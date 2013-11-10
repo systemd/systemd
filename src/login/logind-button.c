@@ -113,7 +113,7 @@ static int button_handle(
                  * execute another one until the lid is opened/closed again */
                 b->lid_close_queued = false;
 
-        return r;
+        return 0;
 }
 
 static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
