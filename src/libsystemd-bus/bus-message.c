@@ -3018,7 +3018,7 @@ _public_ int sd_bus_message_exit_container(sd_bus_message *m) {
 
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
-        assert_return(m->n_containers > 0, -ENOENT);
+        assert_return(m->n_containers > 0, -ENXIO);
 
         c = message_get_container(m);
         if (c->enclosing == SD_BUS_TYPE_ARRAY) {
@@ -3030,7 +3030,7 @@ _public_ int sd_bus_message_exit_container(sd_bus_message *m) {
 
         } else {
                 if (c->signature && c->signature[c->index] != 0)
-                        return -EINVAL;
+                        return -EBUSY;
         }
 
         free(c->signature);
