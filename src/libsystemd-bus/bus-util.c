@@ -25,6 +25,7 @@
 #include "strv.h"
 #include "macro.h"
 #include "def.h"
+#include "missing.h"
 
 #include "sd-event.h"
 #include "sd-bus.h"
