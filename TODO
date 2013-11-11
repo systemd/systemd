@@ -43,6 +43,8 @@ CGroup Rework Completion:
 
 Features:
 
+* be more careful what we export on the bus as (usec_t) 0 and (usec_t) -1
+
 * check :no-sender logic after PID 1 conversion
 
 * increase journal files by a few MB each time, instead of piecemeal

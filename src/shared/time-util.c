@@ -158,7 +158,7 @@ char *format_timestamp(char *buf, size_t l, usec_t t) {
         assert(buf);
         assert(l > 0);
 
-        if (t <= 0)
+        if (t <= 0 || t == (usec_t) -1)
                 return NULL;
 
         sec = (time_t) (t / USEC_PER_SEC);
@@ -176,7 +176,7 @@ char *format_timestamp_us(char *buf, size_t l, usec_t t) {
         assert(buf);
         assert(l > 0);
 
-        if (t <= 0)
+        if (t <= 0 || t == (usec_t) -1)
                 return NULL;
 
         sec = (time_t) (t / USEC_PER_SEC);

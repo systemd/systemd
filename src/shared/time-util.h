@@ -64,7 +64,10 @@ dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
 dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);
 dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u);
 
-#define dual_timestamp_is_set(ts) ((ts)->realtime > 0)
+static inline bool dual_timestamp_is_set(dual_timestamp *ts) {
+        return ((ts->realtime > 0 && ts->realtime != (usec_t) -1) ||
+                (ts->monotonic > 0 && ts->monotonic != (usec_t) -1));
+}
 
 usec_t timespec_load(const struct timespec *ts) _pure_;
 struct timespec *timespec_store(struct timespec *ts, usec_t u);
