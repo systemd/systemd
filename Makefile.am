@@ -4662,23 +4662,24 @@ install-tree: all
 # Let's run all tests of the test suite, but under valgrind. Let's
 # exclude the one perl script we have in there
 valgrind-tests: $(TESTS)
-	for f in $(TESTS) ; do \
-		[ "$$f" == "$${f/.pl/}" ] && libtool --mode=execute valgrind --leak-check=full --error-exitcode=55 $(builddir)/$$f ; \
+	$(AM_V_GEN)for f in $(filter-out %.pl, $^); do \
+		echo "Running $$f"; \
+	        libtool --mode=execute valgrind -q --leak-check=full --max-stackframe=4194400 --error-exitcode=55 $(builddir)/$$f ; \
 	done
 
 exported: $(lib_LTLIBRARIES)
-	$(AM_V_GEN)for f in $(lib_LTLIBRARIES) ; do \
-		nm -g --defined-only $(builddir)/.libs/"$${f/.la/.so}" 2>&1 /dev/null | grep " T " | cut -d" " -f3 ; \
+	$(AM_V_GEN)for f in $(lib_LTLIBRARIES:.la=.so) ; do \
+		nm -g --defined-only $(builddir)/.libs/"$$f" 2>&1 /dev/null | grep " T " | cut -d" " -f3 ; \
 	done > $@
 
 check-api-docs: exported man
-	for symbol in `cat exported` ; do \
+	$(AM_V_GEN)for symbol in `cat exported` ; do \
 		if test -f $(builddir)/man/$$symbol.html ; then \
 			echo "  Symbol $$symbol() is documented." ; \
 		else \
 			echo "‣ Symbol $$symbol() lacks documentation." ; \
 		fi ; \
-	 done
+	done
 
 OBJECT_VARIABLES:=$(filter %_OBJECTS,$(.VARIABLES))
 ALL_OBJECTS:=$(foreach v,$(OBJECT_VARIABLES),$($(v)))
@@ -4694,3 +4695,102 @@ CLEANFILES += \
 
 check-api-unused: defined undefined exported
 	( cat exported undefined ) | sort -u  | diff -u - defined | grep ^+ | grep -v ^+++ | cut -c2-
+
+# Stupid test that everything purported to be exported really is
+
+define generate-sym-test
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_at)echo '#include <stdio.h>' > $@
+	$(AM_V_at)for file in $(notdir $(filter %.h, $^)); do \
+		echo "#include \"$$file\""; \
+	done >> $@
+	$(AM_V_at)echo 'void* functions[] = {' >> $@
+	$(AM_V_GEN)sed -r -n 's/^( +[a-zA-Z0-9_]+);/\1,/p' $< >> $@
+	$(AM_V_at)echo '};' >> $@
+	$(AM_V_at)echo 'int main(void) {' >> $@
+	$(AM_V_at)echo ' unsigned i; for (i=0;i<sizeof(functions)/sizeof(void*);i++) printf("%p\n", functions[i]);' >> $@
+	$(AM_V_at)echo 'return 0; }' >> $@
+endef
+
+test-libsystemd-bus-sym.c: \
+	src/libsystemd-bus/libsystemd-bus.sym \
+	src/systemd/sd-bus.h \
+	src/systemd/sd-utf8.h \
+	Makefile
+	$(generate-sym-test)
+
+test-libsystemd-daemon-sym.c: \
+	src/libsystemd-daemon/libsystemd-daemon.sym \
+	src/systemd/sd-daemon.h \
+	Makefile
+	$(generate-sym-test)
+
+test-libsystemd-id128-sym.c: \
+	src/libsystemd-id128/libsystemd-id128.sym \
+	src/systemd/sd-id128.h \
+	Makefile
+	$(generate-sym-test)
+
+test-libsystemd-journal-sym.c: \
+	src/journal/libsystemd-journal.sym \
+	src/systemd/sd-journal.h \
+	Makefile
+	$(generate-sym-test)
+
+test-libsystemd-login-sym.c: \
+	src/login/libsystemd-login.sym \
+	src/systemd/sd-login.h \
+	Makefile
+	$(generate-sym-test)
+
+test-libudev-sym.c: \
+	src/libudev/libudev.sym \
+	src/udev/udev.h \
+	Makefile
+	$(generate-sym-test)
+
+test_libsystemd_bus_sym_SOURCES = \
+	test-libsystemd-bus-sym.c
+test_libsystemd_bus_sym_LDADD = \
+	libsystemd-bus.la
+
+test_libsystemd_daemon_sym_SOURCES = \
+	test-libsystemd-daemon-sym.c
+test_libsystemd_daemon_sym_LDADD = \
+	libsystemd-daemon.la
+
+test_libsystemd_id128_sym_SOURCES = \
+	test-libsystemd-id128-sym.c
+test_libsystemd_id128_sym_LDADD = \
+	libsystemd-id128.la
+
+test_libsystemd_journal_sym_SOURCES = \
+	test-libsystemd-journal-sym.c
+test_libsystemd_journal_sym_LDADD = \
+	libsystemd-journal.la
+
+test_libsystemd_login_sym_SOURCES = \
+	test-libsystemd-login-sym.c
+test_libsystemd_login_sym_LDADD = \
+	libsystemd-login.la
+
+test_libudev_sym_SOURCES = \
+	test-libudev-sym.c
+test_libudev_sym_LDADD = \
+	libudev.la
+
+BUILT_SOURCES += \
+	$(test_libsystemd_bus_sym_SOURCES) \
+	$(test_libsystemd_daemon_sym_SOURCES) \
+	$(test_libsystemd_id128_sym_SOURCES) \
+	$(test_libsystemd_journal_sym_SOURCES) \
+	$(test_libsystemd_login_sym_SOURCES) \
+	$(test_libudev_sym_SOURCES)
+
+tests += \
+	test-libsystemd-bus-sym \
+	test-libsystemd-daemon-sym \
+	test-libsystemd-id128-sym \
+	test-libsystemd-journal-sym \
+	test-libsystemd-login-sym \
+	test-libudev-sym

@@ -41,9 +41,9 @@ global:
         sd_bus_can_send;
         sd_bus_get_server_id;
         sd_bus_send;
-        sd_bus_send_with_reply;
-        sd_bus_send_with_reply_cancel;
-        sd_bus_send_with_reply_and_block;
+        sd_bus_call;
+        sd_bus_call_async;
+        sd_bus_call_async_cancel;
         sd_bus_get_fd;
         sd_bus_get_events;
         sd_bus_get_timeout;

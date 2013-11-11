@@ -1,6 +1,7 @@
 /Makefile
 /defined
 /undefined
+/exported
 /TAGS
 /accelerometer
 /ata_id
@@ -156,6 +157,8 @@
 /test-utf8
 /test-util
 /test-watchdog
+/test-libsystemd-*-sym*
+/test-libudev-sym*
 /timedatectl
 /udevadm
 /v4l_id
