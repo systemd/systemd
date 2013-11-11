@@ -1637,6 +1637,19 @@ _public_ int sd_bus_call(
 
                                 sd_bus_message_unref(incoming);
                                 return -EIO;
+
+                        } else if (incoming->header->serial == serial &&
+                                   bus->unique_name &&
+                                   incoming->sender &&
+                                   streq(bus->unique_name, incoming->sender)) {
+
+                                /* Our own message? Somebody is trying
+                                 * to send its own client a message,
+                                 * let's not dead-lock, let's fail
+                                 * immediately. */
+
+                                sd_bus_message_unref(incoming);
+                                return -ELOOP;
                         }
 
                         /* There's already guaranteed to be room for
