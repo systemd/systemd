@@ -31,7 +31,7 @@ int manager_new(Manager **ret) {
         if (!m)
                 return -ENOMEM;
 
-        r = sd_event_new(&m->event);
+        r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
 

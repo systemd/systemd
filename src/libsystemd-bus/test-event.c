@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
         assert_se(pipe(b) >= 0);
         assert_se(pipe(d) >= 0);
 
-        assert_se(sd_event_new(&e) >= 0);
+        assert_se(sd_event_default(&e) >= 0);
 
         got_a = false, got_b = false, got_c = false, got_d = 0;
 

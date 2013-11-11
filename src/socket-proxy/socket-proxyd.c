@@ -626,7 +626,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = sd_event_new(&event);
+        r = sd_event_default(&event);
         if (r < 0) {
                 log_error("Failed to allocate event loop: %s", strerror(-r));
                 goto finish;

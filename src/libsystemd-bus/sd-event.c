@@ -23,12 +23,13 @@
 #include <sys/timerfd.h>
 #include <sys/wait.h>
 
+#include "sd-id128.h"
 #include "macro.h"
 #include "prioq.h"
 #include "hashmap.h"
 #include "util.h"
 #include "time-util.h"
-#include "sd-id128.h"
+#include "missing.h"
 
 #include "sd-event.h"
 
@@ -138,6 +139,9 @@ struct sd_event {
 
         bool quit_requested:1;
         bool need_process_child:1;
+
+        pid_t tid;
+        sd_event **default_event_ptr;
 };
 
 static int pending_prioq_compare(const void *a, const void *b) {
@@ -303,6 +307,9 @@ static int quit_prioq_compare(const void *a, const void *b) {
 
 static void event_free(sd_event *e) {
         assert(e);
+
+        if (e->default_event_ptr)
+                *(e->default_event_ptr) = NULL;
 
         if (e->epoll_fd >= 0)
                 close_nointr_nofail(e->epoll_fd);
@@ -1867,5 +1874,40 @@ _public_ int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec) {
         assert_return(!event_pid_changed(e), -ECHILD);
 
         *usec = e->timestamp.monotonic;
+        return 0;
+}
+
+_public_ int sd_event_default(sd_event **ret) {
+
+        static __thread sd_event *default_event = NULL;
+        sd_event *e;
+        int r;
+
+        if (!ret)
+                return !!default_event;
+
+        if (default_event) {
+                *ret = sd_event_ref(default_event);
+                return 0;
+        }
+
+        r = sd_event_new(&e);
+        if (r < 0)
+                return r;
+
+        e->default_event_ptr = &default_event;
+        e->tid = gettid();
+        default_event = e;
+
+        *ret = e;
+        return 1;
+}
+
+_public_ int sd_event_get_tid(sd_event *e, pid_t *tid) {
+        assert_return(e, -EINVAL);
+        assert_return(tid, -EINVAL);
+        assert_return(e->tid != 0, -ENXIO);
+
+        *tid = e->tid;
         return 0;
 }

@@ -72,6 +72,8 @@ typedef int (*sd_defer_handler_t)(sd_event_source *s, void *userdata);
 typedef int (*sd_prepare_handler_t)(sd_event_source *s, void *userdata);
 typedef int (*sd_quit_handler_t)(sd_event_source *s, void *userdata);
 
+int sd_event_default(sd_event **e);
+
 int sd_event_new(sd_event **e);
 sd_event* sd_event_ref(sd_event *e);
 sd_event* sd_event_unref(sd_event *e);
@@ -88,14 +90,16 @@ int sd_event_run(sd_event *e, uint64_t timeout);
 int sd_event_loop(sd_event *e);
 
 int sd_event_get_state(sd_event *e);
+int sd_event_get_tid(sd_event *e, pid_t *tid);
 int sd_event_get_quit(sd_event *e);
 int sd_event_request_quit(sd_event *e);
 int sd_event_get_now_realtime(sd_event *e, uint64_t *usec);
 int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec);
-sd_event *sd_event_get(sd_event_source *s);
 
 sd_event_source* sd_event_source_ref(sd_event_source *s);
 sd_event_source* sd_event_source_unref(sd_event_source *s);
+
+sd_event *sd_event_get(sd_event_source *s);
 
 int sd_event_source_set_prepare(sd_event_source *s, sd_prepare_handler_t callback);
 int sd_event_source_get_pending(sd_event_source *s);

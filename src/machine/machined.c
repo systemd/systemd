@@ -53,7 +53,7 @@ Manager *manager_new(void) {
                 return NULL;
         }
 
-        r = sd_event_new(&m->event);
+        r = sd_event_default(&m->event);
         if (r < 0) {
                 manager_free(m);
                 return NULL;
