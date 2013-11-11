@@ -38,7 +38,9 @@ union sd_id128 {
         uint64_t qwords[2];
 };
 
-char *sd_id128_to_string(sd_id128_t id, char s[33]);
+#define SD_ID128_STRING_MAX 33
+
+char *sd_id128_to_string(sd_id128_t id, char s[SD_ID128_STRING_MAX]);
 
 int sd_id128_from_string(const char *s, sd_id128_t *ret);
 
@@ -61,7 +63,7 @@ int sd_id128_get_boot(sd_id128_t *ret);
 #define SD_ID128_FORMAT_VAL(x) (x).bytes[0], (x).bytes[1], (x).bytes[2], (x).bytes[3], (x).bytes[4], (x).bytes[5], (x).bytes[6], (x).bytes[7], (x).bytes[8], (x).bytes[9], (x).bytes[10], (x).bytes[11], (x).bytes[12], (x).bytes[13], (x).bytes[14], (x).bytes[15]
 
 #define SD_ID128_CONST_STR(x)                                           \
-        ((char[33]) {                                                   \
+        ((char[SD_ID128_STRING_MAX]) {                                  \
                 ((x).bytes[0] >> 4) >= 10 ? 'a' + ((x).bytes[0] >> 4) - 10 : '0' + ((x).bytes[0] >> 4), \
                 ((x).bytes[0] & 15) >= 10 ? 'a' + ((x).bytes[0] & 15) - 10 : '0' + ((x).bytes[0] & 15), \
                 ((x).bytes[1] >> 4) >= 10 ? 'a' + ((x).bytes[1] >> 4) - 10 : '0' + ((x).bytes[1] >> 4), \
@@ -96,7 +98,7 @@ int sd_id128_get_boot(sd_id128_t *ret);
                 ((x).bytes[15] & 15) >= 10 ? 'a' + ((x).bytes[15] & 15) - 10 : '0' + ((x).bytes[15] & 15), \
                 0 })
 
-static inline int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
+_sd_pure_ static inline int sd_id128_equal(sd_id128_t a, sd_id128_t b) {
         return memcmp(&a, &b, 16) == 0;
 }
 
