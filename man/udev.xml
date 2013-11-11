@@ -758,7 +758,7 @@
       used to override a system-supplied link file with a local file if needed;
       a symlink in <filename>/etc</filename> with the same name as a link file in
       <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
-      disables the link file entirely.
+      disables the link file entirely.</para>
 
       <para>The link file contains a <literal>[Match]</literal> section, which
       determines if a given link file may be applied to a given device; and a
