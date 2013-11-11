@@ -24,6 +24,7 @@
 
 #include <inttypes.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 
 #include "sd-id128.h"
 #include "sd-event.h"
@@ -186,8 +187,10 @@ int sd_bus_message_append(sd_bus_message *m, const char *types, ...);
 int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p);
 int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, size_t size);
 int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size, void **ptr);
+int sd_bus_message_append_array_iovec(sd_bus_message *m, char type, const struct iovec *iov, unsigned n);
 int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, sd_memfd *memfd);
 int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s);
+int sd_bus_message_append_string_iovec(sd_bus_message *m, const struct iovec *iov, unsigned n);
 int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd* memfd);
 int sd_bus_message_append_strv(sd_bus_message *m, char **l);
 int sd_bus_message_open_container(sd_bus_message *m, char type, const char *contents);

@@ -1498,7 +1498,11 @@ _public_ int sd_bus_message_append_basic(sd_bus_message *m, char type, const voi
         return message_append_basic(m, type, p, NULL);
 }
 
-_public_ int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s) {
+_public_ int sd_bus_message_append_string_space(
+                sd_bus_message *m,
+                size_t size,
+                char **s) {
+
         struct bus_container *c;
         void *a;
 
@@ -1539,6 +1543,40 @@ _public_ int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, 
 
         if (c->enclosing != SD_BUS_TYPE_ARRAY)
                 c->index++;
+
+        return 0;
+}
+
+_public_ int sd_bus_message_append_string_iovec(
+                sd_bus_message *m,
+                const struct iovec *iov,
+                unsigned n) {
+
+        size_t size;
+        unsigned i;
+        char *p;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(iov || n == 0, -EINVAL);
+        assert_return(!m->poisoned, -ESTALE);
+
+        size = IOVEC_TOTAL_SIZE(iov, n);
+
+        r = sd_bus_message_append_string_space(m, size, &p);
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < n; i++) {
+
+                if (iov[i].iov_base)
+                        memcpy(p, iov[i].iov_base, iov[i].iov_len);
+                else
+                        memset(p, ' ', iov[i].iov_len);
+
+                p += iov[i].iov_len;
+        }
 
         return 0;
 }
@@ -2155,6 +2193,42 @@ _public_ int sd_bus_message_append_array(sd_bus_message *m,
 
         if (size > 0)
                 memcpy(p, ptr, size);
+
+        return 0;
+}
+
+_public_ int sd_bus_message_append_array_iovec(
+                sd_bus_message *m,
+                char type,
+                const struct iovec *iov,
+                unsigned n) {
+
+        size_t size;
+        unsigned i;
+        void *p;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(bus_type_is_trivial(type), -EINVAL);
+        assert_return(iov || n == 0, -EINVAL);
+        assert_return(!m->poisoned, -ESTALE);
+
+        size = IOVEC_TOTAL_SIZE(iov, n);
+
+        r = sd_bus_message_append_array_space(m, type, size, &p);
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < n; i++) {
+
+                if (iov[i].iov_base)
+                        memcpy(p, iov[i].iov_base, iov[i].iov_len);
+                else
+                        memset(p, 0, iov[i].iov_len);
+
+                p = (uint8_t*) p + iov[i].iov_len;
+        }
 
         return 0;
 }
