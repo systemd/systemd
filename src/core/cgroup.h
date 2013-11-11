@@ -113,3 +113,5 @@ int manager_notify_cgroup_empty(Manager *m, const char *group);
 
 const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
 CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
+
+void unit_update_member_masks(Unit *u);

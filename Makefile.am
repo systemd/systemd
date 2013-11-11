@@ -1120,6 +1120,7 @@ tests += \
 	test-calendarspec \
 	test-strip-tab-ansi \
 	test-cgroup-util \
+	test-cgroup-mask \
 	test-prioq \
 	test-fileio \
 	test-time \
@@ -1314,6 +1315,18 @@ test_cgroup_SOURCES = \
 test_cgroup_LDADD = \
 	libsystemd-label.la \
 	libsystemd-shared.la
+
+test_cgroup_mask_SOURCES = \
+	src/test/test-cgroup-mask.c
+
+test_cgroup_mask_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS) \
+	-D"STR(s)=\#s" -D"TEST_DIR=STR($(abs_top_srcdir)/test/)"
+
+test_cgroup_mask_LDADD = \
+	libsystemd-core.la \
+	$(RT_LIBS)
 
 test_cgroup_util_SOURCES = \
 	src/test/test-cgroup-util.c

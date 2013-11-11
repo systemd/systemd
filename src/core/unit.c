@@ -741,7 +741,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tSlice: %s\n"
                 "%s\tCGroup: %s\n"
                 "%s\tCGroup realized: %s\n"
-                "%s\tCGroup mask: 0x%x\n",
+                "%s\tCGroup mask: 0x%x\n"
+                "%s\tCGroup members mask: 0x%x\n",
                 prefix, u->id,
                 prefix, unit_description(u),
                 prefix, strna(u->instance),
@@ -757,7 +758,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(unit_slice_name(u)),
                 prefix, strna(u->cgroup_path),
                 prefix, yes_no(u->cgroup_realized),
-                prefix, u->cgroup_mask);
+                prefix, u->cgroup_mask,
+                prefix, u->cgroup_members_mask);
 
         SET_FOREACH(t, u->names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
@@ -1024,6 +1026,8 @@ int unit_load(Unit *u) {
                         if (r < 0)
                                 goto fail;
                 }
+
+                unit_update_member_masks(u);
 
                 r = unit_add_mount_links(u);
                 if (r < 0)

@@ -104,6 +104,7 @@
 /test-calendarspec
 /test-catalog
 /test-cgroup
+/test-cgroup-mask
 /test-cgroup-util
 /test-daemon
 /test-date

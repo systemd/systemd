@@ -175,6 +175,7 @@ struct Unit {
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
         CGroupControllerMask cgroup_mask;
+        CGroupControllerMask cgroup_members_mask;
 
         UnitRef slice;
 

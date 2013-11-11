@@ -346,21 +346,8 @@ static CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
 }
 
 static CGroupControllerMask unit_get_members_mask(Unit *u) {
-        CGroupControllerMask mask = 0;
-        Unit *m;
-        Iterator i;
-
         assert(u);
-
-        SET_FOREACH(m, u->dependencies[UNIT_BEFORE], i) {
-
-                if (UNIT_DEREF(m->slice) != u)
-                        continue;
-
-                mask |= unit_get_cgroup_mask(m) | unit_get_members_mask(m);
-        }
-
-        return mask;
+        return u->cgroup_members_mask;
 }
 
 static CGroupControllerMask unit_get_siblings_mask(Unit *u) {
@@ -373,6 +360,26 @@ static CGroupControllerMask unit_get_siblings_mask(Unit *u) {
          * controllers, so let's mask out everything else */
         return unit_get_members_mask(UNIT_DEREF(u->slice)) &
                 (CGROUP_CPU|CGROUP_BLKIO|CGROUP_CPUACCT);
+}
+
+static CGroupControllerMask unit_get_target_mask(Unit *u) {
+        CGroupControllerMask mask;
+
+        mask = unit_get_cgroup_mask(u) | unit_get_members_mask(u) | unit_get_siblings_mask(u);
+        mask &= u->manager->cgroup_supported;
+
+        return mask;
+}
+
+/* Recurse from a unit up through its containing slices, propagating
+ * mask bits upward. A unit is also member of itself. */
+void unit_update_member_masks(Unit *u) {
+        u->cgroup_members_mask |= unit_get_cgroup_mask(u);
+        if (UNIT_ISSET(u->slice)) {
+                Unit *s = UNIT_DEREF(u->slice);
+                s->cgroup_members_mask |= u->cgroup_members_mask;
+                unit_update_member_masks(s);
+        }
 }
 
 static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
@@ -422,8 +429,19 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
         return 0;
 }
 
+static bool unit_has_mask_realized(Unit *u, CGroupControllerMask mask) {
+        return u->cgroup_realized && u->cgroup_mask == mask;
+}
+
+/* Check if necessary controllers and attributes for a unit are in place.
+ *
+ * If so, do nothing.
+ * If not, create paths, move processes over, and set attributes.
+ *
+ * Returns 0 on success and < 0 on failure. */
 static int unit_realize_cgroup_now(Unit *u) {
         CGroupControllerMask mask;
+        int r;
 
         assert(u);
 
@@ -432,19 +450,28 @@ static int unit_realize_cgroup_now(Unit *u) {
                 u->in_cgroup_queue = false;
         }
 
-        mask = unit_get_cgroup_mask(u) | unit_get_members_mask(u) | unit_get_siblings_mask(u);
-        mask &= u->manager->cgroup_supported;
+        mask = unit_get_target_mask(u);
 
-        if (u->cgroup_realized &&
-            u->cgroup_mask == mask)
+        /* TODO: Consider skipping this check. It may be redundant. */
+        if (unit_has_mask_realized(u, mask))
                 return 0;
 
         /* First, realize parents */
-        if (UNIT_ISSET(u->slice))
-                unit_realize_cgroup_now(UNIT_DEREF(u->slice));
+        if (UNIT_ISSET(u->slice)) {
+                r = unit_realize_cgroup_now(UNIT_DEREF(u->slice));
+                if (r < 0)
+                        return r;
+        }
 
         /* And then do the real work */
-        return unit_create_cgroups(u, mask);
+        r = unit_create_cgroups(u, mask);
+        if (r < 0)
+                return r;
+
+        /* Finally, apply the necessary attributes. */
+        cgroup_context_apply(unit_get_cgroup_context(u), mask, u->cgroup_path);
+
+        return 0;
 }
 
 static void unit_add_to_cgroup_queue(Unit *u) {
@@ -459,12 +486,14 @@ static void unit_add_to_cgroup_queue(Unit *u) {
 unsigned manager_dispatch_cgroup_queue(Manager *m) {
         Unit *i;
         unsigned n = 0;
+        int r;
 
         while ((i = m->cgroup_queue)) {
                 assert(i->in_cgroup_queue);
 
-                if (unit_realize_cgroup_now(i) >= 0)
-                        cgroup_context_apply(unit_get_cgroup_context(i), i->cgroup_mask, i->cgroup_path);
+                r = unit_realize_cgroup_now(i);
+                if (r < 0)
+                        log_warning("Failed to realize cgroups for queued unit %s: %s", i->id, strerror(-r));
 
                 n++;
         }
@@ -487,7 +516,20 @@ static void unit_queue_siblings(Unit *u) {
                         if (m == u)
                                 continue;
 
+                        /* Skip units that have a dependency on the slice
+                         * but aren't actually in it. */
                         if (UNIT_DEREF(m->slice) != slice)
+                                continue;
+
+                        /* No point in doing cgroup application for units
+                         * without active processes. */
+                        if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(m)))
+                                continue;
+
+                        /* If the unit doesn't need any new controllers
+                         * and has current ones realized, it doesn't need
+                         * any changes. */
+                        if (unit_has_mask_realized(m, unit_get_target_mask(m)))
                                 continue;
 
                         unit_add_to_cgroup_queue(m);
@@ -521,12 +563,8 @@ int unit_realize_cgroup(Unit *u) {
         /* Add all sibling slices to the cgroup queue. */
         unit_queue_siblings(u);
 
-        /* And realize this one now */
+        /* And realize this one now (and apply the values) */
         r = unit_realize_cgroup_now(u);
-
-        /* And apply the values */
-        if (r >= 0)
-                cgroup_context_apply(c, u->cgroup_mask, u->cgroup_path);
 
         return r;
 }
