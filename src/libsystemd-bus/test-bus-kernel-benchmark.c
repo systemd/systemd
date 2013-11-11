@@ -82,7 +82,7 @@ static void transaction(sd_bus *b, size_t sz) {
 
         memset(p, 0x80, sz);
 
-        assert_se(sd_bus_send_with_reply_and_block(b, m, 0, NULL, &reply) >= 0);
+        assert_se(sd_bus_call(b, m, 0, NULL, &reply) >= 0);
 }
 
 static void client_bisect(const char *address) {

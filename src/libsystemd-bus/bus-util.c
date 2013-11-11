@@ -236,7 +236,7 @@ static void async_polkit_query_free(sd_bus *b, AsyncPolkitQuery *q) {
                 return;
 
         if (q->serial >  0 && b)
-                sd_bus_send_with_reply_cancel(b, q->serial);
+                sd_bus_call_async_cancel(b, q->serial);
 
         sd_bus_message_unref(q->request);
         sd_bus_message_unref(q->reply);
@@ -362,7 +362,7 @@ int bus_verify_polkit_async(
                 return r;
         }
 
-        r = sd_bus_send_with_reply(bus, pk, async_polkit_callback, q, 0, &q->serial);
+        r = sd_bus_call_async(bus, pk, async_polkit_callback, q, 0, &q->serial);
         if (r < 0)
                 return r;
 

@@ -437,7 +437,7 @@ static void* client2(void*p) {
                 goto finish;
         }
 
-        r = sd_bus_send_with_reply_and_block(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
                 goto finish;
@@ -469,7 +469,7 @@ static void* client2(void*p) {
         sd_bus_message_unref(reply);
         reply = NULL;
 
-        r = sd_bus_send_with_reply_and_block(bus, m, 200 * USEC_PER_MSEC, &error, &reply);
+        r = sd_bus_call(bus, m, 200 * USEC_PER_MSEC, &error, &reply);
         if (r < 0)
                 log_info("Failed to issue method call: %s", bus_error_message(&error, -r));
         else
@@ -490,7 +490,7 @@ static void* client2(void*p) {
                 goto finish;
         }
 
-        r = sd_bus_send_with_reply(bus, m, quit_callback, &quit, 200 * USEC_PER_MSEC, NULL);
+        r = sd_bus_call_async(bus, m, quit_callback, &quit, 200 * USEC_PER_MSEC, NULL);
         if (r < 0) {
                 log_info("Failed to issue method call: %s", bus_error_message(&error, -r));
                 goto finish;

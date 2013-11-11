@@ -87,7 +87,7 @@ _public_ int sd_bus_call_method(
                         return r;
         }
 
-        return sd_bus_send_with_reply_and_block(bus, m, 0, error, reply);
+        return sd_bus_call(bus, m, 0, error, reply);
 }
 
 _public_ int sd_bus_reply_method_return(
@@ -422,5 +422,5 @@ _public_ int sd_bus_set_property(
         if (r < 0)
                 return r;
 
-        return sd_bus_send_with_reply_and_block(bus, m, 0, error, NULL);
+        return sd_bus_call(bus, m, 0, error, NULL);
 }

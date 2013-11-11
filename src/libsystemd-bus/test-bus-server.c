@@ -151,7 +151,7 @@ static int client(struct context *c) {
                 return r;
         }
 
-        r = sd_bus_send_with_reply_and_block(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
                 return r;

@@ -3845,7 +3845,7 @@ static int set_property(sd_bus *bus, char **args) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_send_with_reply_and_block(bus, m, -1, &error, NULL);
+        r = sd_bus_call(bus, m, 0, &error, NULL);
         if (r < 0) {
                 log_error("Failed to set unit properties on %s: %s", n, bus_error_message(&error, r));
                 return r;
@@ -4132,7 +4132,7 @@ static int set_environment(sd_bus *bus, char **args) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_send_with_reply_and_block(bus, m, -1, &error, NULL);
+        r = sd_bus_call(bus, m, 0, &error, NULL);
         if (r < 0) {
                 log_error("Failed to set environment: %s", bus_error_message(&error, r));
                 return r;
@@ -4443,7 +4443,7 @@ static int enable_unit(sd_bus *bus, char **args) {
                                 return bus_log_create_error(r);
                 }
 
-                r = sd_bus_send_with_reply_and_block(bus, m, -0, &error, &reply);
+                r = sd_bus_call(bus, m, 0, &error, &reply);
                 if (r < 0) {
                         log_error("Failed to execute operation: %s", bus_error_message(&error, r));
                         return r;

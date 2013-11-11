@@ -2216,7 +2216,7 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_send_with_reply_and_block(manager->bus, m, 0, error, &reply);
+        r = sd_bus_call(manager->bus, m, 0, error, &reply);
         if (r < 0)
                 return r;
 

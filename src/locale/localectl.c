@@ -164,7 +164,7 @@ static int set_locale(sd_bus *bus, char **args, unsigned n) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_send_with_reply_and_block(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, 0, &error, NULL);
         if (r < 0) {
                 log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
                 return r;

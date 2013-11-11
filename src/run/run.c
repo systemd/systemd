@@ -237,7 +237,7 @@ static int message_start_transient_unit_send(sd_bus *bus, sd_bus_message *m, sd_
         if (r < 0)
                 return r;
 
-        return sd_bus_send_with_reply_and_block(bus, m, 0, error, reply);
+        return sd_bus_call(bus, m, 0, error, reply);
 }
 
 static int start_transient_service(

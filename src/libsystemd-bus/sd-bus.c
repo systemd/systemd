@@ -396,7 +396,7 @@ static int bus_send_hello(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        return sd_bus_send_with_reply(bus, m, hello_callback, NULL, 0, &bus->hello_serial);
+        return sd_bus_call_async(bus, m, hello_callback, NULL, 0, &bus->hello_serial);
 }
 
 int bus_start_running(sd_bus *bus) {
@@ -1440,7 +1440,7 @@ static int timeout_compare(const void *a, const void *b) {
         return 0;
 }
 
-_public_ int sd_bus_send_with_reply(
+_public_ int sd_bus_call_async(
                 sd_bus *bus,
                 sd_bus_message *m,
                 sd_bus_message_handler_t callback,
@@ -1492,21 +1492,21 @@ _public_ int sd_bus_send_with_reply(
                 r = prioq_put(bus->reply_callbacks_prioq, c, &c->prioq_idx);
                 if (r < 0) {
                         c->timeout = 0;
-                        sd_bus_send_with_reply_cancel(bus, c->serial);
+                        sd_bus_call_async_cancel(bus, c->serial);
                         return r;
                 }
         }
 
         r = sd_bus_send(bus, m, serial);
         if (r < 0) {
-                sd_bus_send_with_reply_cancel(bus, c->serial);
+                sd_bus_call_async_cancel(bus, c->serial);
                 return r;
         }
 
         return r;
 }
 
-_public_ int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial) {
+_public_ int sd_bus_call_async_cancel(sd_bus *bus, uint64_t serial) {
         struct reply_callback *c;
 
         assert_return(bus, -EINVAL);
@@ -1549,7 +1549,7 @@ int bus_ensure_running(sd_bus *bus) {
         }
 }
 
-_public_ int sd_bus_send_with_reply_and_block(
+_public_ int sd_bus_call(
                 sd_bus *bus,
                 sd_bus_message *m,
                 uint64_t usec,
