@@ -37,7 +37,8 @@ int sd_rtnl_open(uint32_t groups, sd_rtnl **nl);
 sd_rtnl *sd_rtnl_ref(sd_rtnl *nl);
 sd_rtnl *sd_rtnl_unref(sd_rtnl *nl);
 
-int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl, sd_rtnl_message *message, uint64_t timeout, sd_rtnl_message **reply);
+int sd_rtnl_call(sd_rtnl *nl, sd_rtnl_message *message, uint64_t timeout,
+                 sd_rtnl_message **reply);
 
 /* messages */
 int sd_rtnl_message_link_new(uint16_t msg_type, int index, unsigned int type,

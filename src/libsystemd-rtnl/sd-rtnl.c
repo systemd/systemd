@@ -107,7 +107,7 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
         return NULL;
 }
 
-int sd_rtnl_send_with_reply_and_block(sd_rtnl *nl,
+int sd_rtnl_call(sd_rtnl *nl,
                 sd_rtnl_message *message,
                 uint64_t usec,
                 sd_rtnl_message **ret) {

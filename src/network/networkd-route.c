@@ -83,7 +83,7 @@ int route_configure(Manager *manager, Route *route, Link *link) {
                 return r;
         }
 
-        r = sd_rtnl_send_with_reply_and_block(manager->rtnl, req, 0, NULL);
+        r = sd_rtnl_call(manager->rtnl, req, 0, NULL);
         if (r < 0) {
                 log_error("Could not configure route: %s", strerror(-r));
                 return r;

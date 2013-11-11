@@ -42,7 +42,7 @@ int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_send_with_reply_and_block(rtnl, message, 0, NULL);
+        r = sd_rtnl_call(rtnl, message, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -81,7 +81,7 @@ int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const struct ether_addr
         }
 
         if  (need_update) {
-                r = sd_rtnl_send_with_reply_and_block(rtnl, message, 0, NULL);
+                r = sd_rtnl_call(rtnl, message, 0, NULL);
                 if (r < 0)
                         return r;
         }

@@ -98,7 +98,7 @@ int address_configure(Manager *manager, Address *address, Link *link) {
                 }
         }
 
-        r = sd_rtnl_send_with_reply_and_block(manager->rtnl, req, 0, NULL);
+        r = sd_rtnl_call(manager->rtnl, req, 0, NULL);
         if (r < 0) {
                 log_error("Could not configure address: %s", strerror(-r));
                 return r != -EEXIST ? r : 0;
