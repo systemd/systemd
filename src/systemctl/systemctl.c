@@ -891,8 +891,9 @@ static int list_timers(sd_bus *bus, char **args) {
         struct timer_info *t;
         const UnitInfo *u;
         size_t size = 0;
-        int n, r, c = 0;
+        int n, c = 0;
         dual_timestamp nw;
+        int r = 0;
 
         pager_open_if_enabled();
 
