@@ -70,11 +70,12 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         STRV_FOREACH(i, l)
                 max_i = MAX(max_i, strlen(*i));
 
-        printf("%-*s %*s %-*s %-*s CONNECTION\n",
-               (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER");
+        printf("%-*s %*s %-*s %-*s %-*s MACHINE\n",
+               (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 20, "CONNECTION");
 
         STRV_FOREACH(i, l) {
                 _cleanup_free_ char *owner = NULL;
+                sd_id128_t mid;
                 pid_t pid;
                 uid_t uid;
 
@@ -111,8 +112,15 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
                 r = sd_bus_get_owner(bus, *i, &owner);
                 if (r >= 0)
-                        printf(" %s\n", owner);
+                        printf(" %-20s", owner);
                 else
+                        printf(" -                   ");
+
+                r = sd_bus_get_owner_machine_id(bus, *i, &mid);
+                if (r >= 0) {
+                        char m[SD_ID128_STRING_MAX];
+                        printf(" %s\n", sd_id128_to_string(mid, m));
+                } else
                         printf(" -\n");
         }
 
