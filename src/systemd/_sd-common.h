@@ -40,6 +40,10 @@
 #  define _sd_packed_ __attribute__((packed))
 #endif
 
+#ifndef _sd_pure_
+#  define _sd_pure_ __attribute__((pure))
+#endif
+
 #ifndef _SD_STRINGIFY
 #  define _SD_XSTRINGIFY(x) #x
 #  define _SD_STRINGIFY(x) _SD_XSTRINGIFY(x)

@@ -26,8 +26,8 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-const char *sd_utf8_is_valid(const char *s);
-const char *sd_ascii_is_valid(const char *s);
+_sd_pure_ const char *sd_utf8_is_valid(const char *s);
+_sd_pure_ const char *sd_ascii_is_valid(const char *s);
 
 _SD_END_DECLARATIONS;
 
