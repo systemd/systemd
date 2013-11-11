@@ -678,7 +678,7 @@ static int list_sockets(sd_bus *bus, char **args) {
         struct socket_info *s;
         unsigned cs = 0;
         size_t size = 0;
-        int r, n;
+        int r = 0, n;
 
         pager_open_if_enabled();
 
