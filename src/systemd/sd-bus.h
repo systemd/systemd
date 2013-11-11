@@ -57,6 +57,9 @@ typedef int (*sd_bus_node_enumerator_t) (sd_bus *bus, const char *path, char ***
 
 /* Connections */
 
+int sd_bus_default_user(sd_bus **ret);
+int sd_bus_default_system(sd_bus **ret);
+
 int sd_bus_open_user(sd_bus **ret);
 int sd_bus_open_system(sd_bus **ret);
 int sd_bus_open_system_remote(const char *host, sd_bus **ret);
@@ -101,6 +104,7 @@ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
 
 sd_bus_message* sd_bus_get_current(sd_bus *bus);
+int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
 
 int sd_bus_attach_event(sd_bus *bus, sd_event *e, int priority);
 int sd_bus_detach_event(sd_bus *bus);

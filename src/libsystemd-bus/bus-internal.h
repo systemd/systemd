@@ -249,6 +249,9 @@ struct sd_bus {
         sd_event *event;
 
         sd_bus_message *current;
+
+        sd_bus **default_bus_ptr;
+        pid_t tid;
 };
 
 #define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))

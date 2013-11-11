@@ -1906,8 +1906,12 @@ _public_ int sd_event_default(sd_event **ret) {
 _public_ int sd_event_get_tid(sd_event *e, pid_t *tid) {
         assert_return(e, -EINVAL);
         assert_return(tid, -EINVAL);
-        assert_return(e->tid != 0, -ENXIO);
+        assert_return(!event_pid_changed(e), -ECHILD);
 
-        *tid = e->tid;
-        return 0;
+        if (e->tid != 0) {
+                *tid = e->tid;
+                return 0;
+        }
+
+        return -ENXIO;
 }

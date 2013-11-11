@@ -12,6 +12,8 @@ global:
         /* Same order as in sd-bus.h should be used */
 
         /* Connections */
+        sd_bus_default_user;
+        sd_bus_default_system;
         sd_bus_open_user;
         sd_bus_open_system;
         sd_bus_open_system_remote;
@@ -49,6 +51,7 @@ global:
         sd_bus_wait;
         sd_bus_flush;
         sd_bus_get_current;
+        sd_bus_get_tid;
         sd_bus_attach_event;
         sd_bus_detach_event;
         sd_bus_add_filter;

@@ -944,9 +944,9 @@ int bus_open_transport(BusTransport transport, const char *host, bool user, sd_b
 
         case BUS_TRANSPORT_LOCAL:
                 if (user)
-                        r = sd_bus_open_user(bus);
+                        r = sd_bus_default_user(bus);
                 else
-                        r = sd_bus_open_system(bus);
+                        r = sd_bus_default_system(bus);
 
                 break;
 

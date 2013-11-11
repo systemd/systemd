@@ -579,7 +579,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         assert(event);
         assert(_bus);
 
-        r = sd_bus_open_system(&bus);
+        r = sd_bus_default_system(&bus);
         if (r < 0) {
                 log_error("Failed to get system bus connection: %s", strerror(-r));
                 return r;

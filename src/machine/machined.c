@@ -129,7 +129,7 @@ static int manager_connect_bus(Manager *m) {
         assert(m);
         assert(!m->bus);
 
-        r = sd_bus_open_system(&m->bus);
+        r = sd_bus_default_system(&m->bus);
         if (r < 0) {
                 log_error("Failed to connect to system bus: %s", strerror(-r));
                 return r;

@@ -2370,16 +2370,21 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
         int r;
 
         assert_return(bus, -EINVAL);
-        assert_return(event, -EINVAL);
         assert_return(!bus->event, -EBUSY);
 
         assert(!bus->input_io_event_source);
         assert(!bus->output_io_event_source);
         assert(!bus->time_event_source);
 
-        bus->event = sd_event_ref(event);
+        if (event)
+                bus->event = sd_event_ref(event);
+        else  {
+                r = sd_event_default(&bus->event);
+                if (r < 0)
+                        return r;
+        }
 
-        r = sd_event_add_io(event, bus->input_fd, 0, io_callback, bus, &bus->input_io_event_source);
+        r = sd_event_add_io(bus->event, bus->input_fd, 0, io_callback, bus, &bus->input_io_event_source);
         if (r < 0)
                 goto fail;
 
@@ -2388,7 +2393,7 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
                 goto fail;
 
         if (bus->output_fd != bus->input_fd) {
-                r = sd_event_add_io(event, bus->output_fd, 0, io_callback, bus, &bus->output_io_event_source);
+                r = sd_event_add_io(bus->event, bus->output_fd, 0, io_callback, bus, &bus->output_io_event_source);
                 if (r < 0)
                         goto fail;
 
@@ -2401,7 +2406,7 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_monotonic(event, 0, 0, time_callback, bus, &bus->time_event_source);
+        r = sd_event_add_monotonic(bus->event, 0, 0, time_callback, bus, &bus->time_event_source);
         if (r < 0)
                 goto fail;
 
@@ -2409,7 +2414,7 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_quit(event, quit_callback, bus, &bus->quit_event_source);
+        r = sd_event_add_quit(bus->event, quit_callback, bus, &bus->quit_event_source);
         if (r < 0)
                 goto fail;
 
@@ -2442,8 +2447,63 @@ _public_ int sd_bus_detach_event(sd_bus *bus) {
         return 0;
 }
 
-sd_bus_message* sd_bus_get_current(sd_bus *bus) {
+_public_ sd_bus_message* sd_bus_get_current(sd_bus *bus) {
         assert_return(bus, NULL);
 
         return bus->current;
+}
+
+static int bus_default(int (*bus_open)(sd_bus **), sd_bus **default_bus, sd_bus **ret) {
+        sd_bus *b = NULL;
+        int r;
+
+        assert(bus_open);
+        assert(default_bus);
+
+        if (!ret)
+                return !!*default_bus;
+
+        if (*default_bus) {
+                *ret = sd_bus_ref(*default_bus);
+                return 0;
+        }
+
+        r = bus_open(&b);
+        if (r < 0)
+                return r;
+
+        b->default_bus_ptr = default_bus;
+        b->tid = gettid();
+        *default_bus = b;
+
+        *ret = b;
+        return 1;
+}
+
+_public_ int sd_bus_default_system(sd_bus **ret) {
+        static __thread sd_bus *default_system_bus = NULL;
+
+        return bus_default(sd_bus_open_system, &default_system_bus, ret);
+}
+
+_public_ int sd_bus_default_user(sd_bus **ret) {
+        static __thread sd_bus *default_user_bus = NULL;
+
+        return bus_default(sd_bus_open_user, &default_user_bus, ret);
+}
+
+_public_ int sd_bus_get_tid(sd_bus *b, pid_t *tid) {
+        assert_return(b, -EINVAL);
+        assert_return(tid, -EINVAL);
+        assert_return(!bus_pid_changed(b), -ECHILD);
+
+        if (b->tid != 0) {
+                *tid = b->tid;
+                return 0;
+        }
+
+        if (b->event)
+                return sd_event_get_tid(b->event, tid);
+
+        return -ENXIO;
 }
