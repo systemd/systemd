@@ -532,13 +532,12 @@ static int get_triggered_units(
 static int get_listening(
                 sd_bus *bus,
                 const char* unit_path,
-                char*** listening,
-                unsigned *c) {
+                char*** listening) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         const char *type, *path;
-        int r;
+        int r, n = 0;
 
         r = sd_bus_get_property(
                         bus,
@@ -568,7 +567,7 @@ static int get_listening(
                 if (r < 0)
                         return log_oom();
 
-                (*c)++;
+                n++;
         }
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -577,7 +576,7 @@ static int get_listening(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return 0;
+        return n;
 }
 
 struct socket_info {
@@ -595,8 +594,11 @@ struct socket_info {
         bool own_triggered;
 };
 
-static int socket_info_compare(struct socket_info *a, struct socket_info *b) {
+static int socket_info_compare(const struct socket_info *a, const struct socket_info *b) {
         int o;
+
+        assert(a);
+        assert(b);
 
         o = strcmp(a->path, b->path);
         if (o == 0)
@@ -674,21 +676,19 @@ static int list_sockets(sd_bus *bus, char **args) {
         struct socket_info *socket_infos = NULL;
         const UnitInfo *u;
         struct socket_info *s;
-        unsigned cu = 0, cs = 0;
+        unsigned cs = 0;
         size_t size = 0;
-        int r;
+        int r, n;
 
         pager_open_if_enabled();
 
-        r = get_unit_list(bus, &reply, &unit_infos);
-        if (r < 0)
-                return r;
+        n = get_unit_list(bus, &reply, &unit_infos);
+        if (n < 0)
+                return n;
 
-        cu = (unsigned) r;
-
-        for (u = unit_infos; u < unit_infos + cu; u++) {
+        for (u = unit_infos; u < unit_infos + n; u++) {
                 _cleanup_strv_free_ char **listening = NULL, **triggered = NULL;
-                unsigned c = 0, i;
+                int i, c;
 
                 if (!output_show_unit(u))
                         continue;
@@ -700,9 +700,11 @@ static int list_sockets(sd_bus *bus, char **args) {
                 if (r < 0)
                         goto cleanup;
 
-                r = get_listening(bus, u->unit_path, &listening, &c);
-                if (r < 0)
+                c = get_listening(bus, u->unit_path, &listening);
+                if (c < 0) {
+                        r = c;
                         goto cleanup;
+                }
 
                 if (!GREEDY_REALLOC(socket_infos, size, cs + c)) {
                         r = log_oom();
@@ -738,6 +740,224 @@ static int list_sockets(sd_bus *bus, char **args) {
                         strv_free(s->triggered);
         }
         free(socket_infos);
+
+        return r;
+}
+
+static int get_next_elapse(
+                sd_bus *bus,
+                const char *path,
+                dual_timestamp *next) {
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        dual_timestamp t;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(next);
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Timer",
+                        "NextElapseUSecMonotonic",
+                        &error,
+                        't',
+                        &t.monotonic);
+        if (r < 0) {
+                log_error("Failed to get next elapsation time: %s", bus_error_message(&error, r));
+                return r;
+        }
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Timer",
+                        "NextElapseUSecRealtime",
+                        &error,
+                        't',
+                        &t.realtime);
+        if (r < 0) {
+                log_error("Failed to get next elapsation time: %s", bus_error_message(&error, r));
+                return r;
+        }
+
+        *next = t;
+        return 0;
+}
+
+struct timer_info {
+        const char* id;
+        usec_t next_elapse;
+        char** triggered;
+};
+
+static int timer_info_compare(const struct timer_info *a, const struct timer_info *b) {
+        assert(a);
+        assert(b);
+
+        if (a->next_elapse < b->next_elapse)
+                return -1;
+        if (a->next_elapse > b->next_elapse)
+                return 1;
+
+        return strcmp(a->id, b->id);
+}
+
+static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
+        struct timer_info *t;
+        unsigned
+                nextlen = sizeof("NEXT") - 1,
+                leftlen = sizeof("LEFT") - 1,
+                unitlen = sizeof("UNIT") - 1,
+                activatelen = sizeof("ACTIVATES") - 1;
+
+        const char *on, *off;
+
+        assert(timer_infos || n == 0);
+
+        for (t = timer_infos; t < timer_infos + n; t++) {
+                unsigned ul = 0;
+                char **a;
+
+                if (t->next_elapse > 0) {
+                        char tstamp[FORMAT_TIMESTAMP_MAX] = "", trel[FORMAT_TIMESTAMP_RELATIVE_MAX] = "";
+
+                        format_timestamp(tstamp, sizeof(tstamp), t->next_elapse);
+                        nextlen = MAX(nextlen, strlen(tstamp) + 1);
+
+                        format_timestamp_relative(trel, sizeof(trel), t->next_elapse);
+                        leftlen = MAX(leftlen, strlen(trel));
+                }
+
+                unitlen = MAX(unitlen, strlen(t->id));
+
+                STRV_FOREACH(a, t->triggered)
+                        ul += strlen(*a) + 2*(a != t->triggered);
+                activatelen = MAX(activatelen, ul);
+        }
+
+        if (n > 0) {
+                if (!arg_no_legend)
+                        printf("%-*s %-*s %-*s %s\n",
+                               nextlen, "NEXT",
+                               leftlen, "LEFT",
+                               unitlen, "UNIT",
+                                        "ACTIVATES");
+
+                for (t = timer_infos; t < timer_infos + n; t++) {
+                        char tstamp[FORMAT_TIMESTAMP_MAX] = "n/a", trel[FORMAT_TIMESTAMP_RELATIVE_MAX] = "n/a";
+                        char **a;
+
+                        format_timestamp(tstamp, sizeof(tstamp), t->next_elapse);
+                        format_timestamp_relative(trel, sizeof(trel), t->next_elapse);
+
+                        printf("%-*s %-*s %-*s",
+                               nextlen, tstamp, leftlen, trel, unitlen, t->id);
+
+                        STRV_FOREACH(a, t->triggered)
+                                printf("%s %s",
+                                       a == t->triggered ? "" : ",", *a);
+                        printf("\n");
+                }
+
+                on = ansi_highlight();
+                off = ansi_highlight_off();
+                if (!arg_no_legend)
+                        printf("\n");
+        } else {
+                on = ansi_highlight_red();
+                off = ansi_highlight_off();
+        }
+
+        if (!arg_no_legend) {
+                printf("%s%u timers listed.%s\n", on, n, off);
+                if (!arg_all)
+                        printf("Pass --all to see loaded but inactive timers, too.\n");
+        }
+
+        return 0;
+}
+
+static int list_timers(sd_bus *bus, char **args) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_free_ struct timer_info *timer_infos = NULL;
+        _cleanup_free_ UnitInfo *unit_infos = NULL;
+        struct timer_info *t;
+        const UnitInfo *u;
+        size_t size = 0;
+        int n, r, c = 0;
+        dual_timestamp nw;
+
+        pager_open_if_enabled();
+
+        n = get_unit_list(bus, &reply, &unit_infos);
+        if (n < 0)
+                return n;
+
+        dual_timestamp_get(&nw);
+
+        for (u = unit_infos; u < unit_infos + n; u++) {
+                _cleanup_strv_free_ char **triggered = NULL;
+                dual_timestamp next;
+                usec_t m;
+
+                if (!output_show_unit(u))
+                        continue;
+
+                if (!endswith(u->id, ".timer"))
+                        continue;
+
+                r = get_triggered_units(bus, u->unit_path, &triggered);
+                if (r < 0)
+                        goto cleanup;
+
+                r = get_next_elapse(bus, u->unit_path, &next);
+                if (r < 0)
+                        goto cleanup;
+
+                if (next.monotonic != (usec_t) -1 && next.monotonic > 0) {
+                        usec_t converted;
+
+                        if (next.monotonic > nw.monotonic)
+                                converted = nw.realtime + (next.monotonic - nw.monotonic);
+                        else
+                                converted = nw.realtime - (nw.monotonic - next.monotonic);
+
+                        if (next.realtime != (usec_t) -1 && next.realtime > 0)
+                                m = MIN(converted, next.realtime);
+                        else
+                                m = converted;
+                } else
+                        m = next.realtime;
+
+                if (!GREEDY_REALLOC(timer_infos, size, c+1)) {
+                        r = log_oom();
+                        goto cleanup;
+                }
+
+                timer_infos[c++] = (struct timer_info) {
+                        .id = u->id,
+                        .next_elapse = m,
+                        .triggered = triggered,
+                };
+
+                triggered = NULL; /* avoid cleanup */
+        }
+
+        qsort_safe(timer_infos, c, sizeof(struct timer_info),
+                   (__compar_fn_t) timer_info_compare);
+
+        output_timers_list(timer_infos, c);
+
+ cleanup:
+        for (t = timer_infos; t < timer_infos + c; t++)
+                strv_free(t->triggered);
 
         return r;
 }
@@ -4404,6 +4624,7 @@ static int systemctl_help(void) {
                "Unit Commands:\n"
                "  list-units                      List loaded units\n"
                "  list-sockets                    List loaded sockets ordered by address\n"
+               "  list-timers                     List loaded timers ordered by next elapse\n"
                "  start [NAME...]                 Start (activate) one or more units\n"
                "  stop [NAME...]                  Stop (deactivate) one or more units\n"
                "  reload [NAME...]                Reload one or more units\n"
@@ -5376,6 +5597,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "list-units",            LESS,  1, list_units        },
                 { "list-unit-files",       EQUAL, 1, list_unit_files   },
                 { "list-sockets",          LESS,  1, list_sockets      },
+                { "list-timers",           LESS,  1, list_timers       },
                 { "list-jobs",             EQUAL, 1, list_jobs         },
                 { "clear-jobs",            EQUAL, 1, daemon_reload     },
                 { "cancel",                MORE,  2, cancel_job        },

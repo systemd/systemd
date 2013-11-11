@@ -555,6 +555,17 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
+          <term><command>list-timers</command></term>
+
+          <listitem>
+            <para>List timer units ordered by the time they elapse next.</para>
+
+            <para>See also the options <option>--all</option> and
+            <option>--failed</option>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>start <replaceable>NAME</replaceable>...</command></term>
 
           <listitem>
