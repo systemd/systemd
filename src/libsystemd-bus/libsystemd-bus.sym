@@ -85,6 +85,7 @@ global:
         sd_bus_message_get_serial;
         sd_bus_message_get_reply_serial;
         sd_bus_message_get_no_reply;
+        sd_bus_message_get_no_auto_start;
         sd_bus_message_get_signature;
         sd_bus_message_get_path;
         sd_bus_message_get_interface;
@@ -117,6 +118,7 @@ global:
         sd_bus_message_is_method_call;
         sd_bus_message_is_method_error;
         sd_bus_message_set_no_reply;
+        sd_bus_message_set_no_auto_start;
         sd_bus_message_set_destination;
         sd_bus_message_append;
         sd_bus_message_append_basic;
