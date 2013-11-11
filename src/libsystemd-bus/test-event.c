@@ -219,6 +219,8 @@ int main(int argc, char *argv[]) {
         sd_event_source_unref(z);
         sd_event_source_unref(q);
 
+        sd_event_source_unref(w);
+
         sd_event_unref(e);
 
         close_pipe(a);
