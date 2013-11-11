@@ -192,55 +192,62 @@ char *format_timestamp_us(char *buf, size_t l, usec_t t) {
 }
 
 char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
+        const char *s;
         usec_t n, d;
 
         n = now(CLOCK_REALTIME);
 
-        if (t <= 0 || t > n || t + USEC_PER_DAY*7 <= t)
+        if (t <= 0 || (t == (usec_t) -1))
                 return NULL;
 
-        d = n - t;
+        if (n > t) {
+                d = n - t;
+                s = "ago";
+        } else {
+                d = t - n;
+                s = "left";
+        }
 
         if (d >= USEC_PER_YEAR)
-                snprintf(buf, l, "%llu years %llu months ago",
+                snprintf(buf, l, "%llu years %llu months %s",
                          (unsigned long long) (d / USEC_PER_YEAR),
-                         (unsigned long long) ((d % USEC_PER_YEAR) / USEC_PER_MONTH));
+                         (unsigned long long) ((d % USEC_PER_YEAR) / USEC_PER_MONTH), s);
         else if (d >= USEC_PER_MONTH)
-                snprintf(buf, l, "%llu months %llu days ago",
+                snprintf(buf, l, "%llu months %llu days %s",
                          (unsigned long long) (d / USEC_PER_MONTH),
-                         (unsigned long long) ((d % USEC_PER_MONTH) / USEC_PER_DAY));
+                         (unsigned long long) ((d % USEC_PER_MONTH) / USEC_PER_DAY), s);
         else if (d >= USEC_PER_WEEK)
-                snprintf(buf, l, "%llu weeks %llu days ago",
+                snprintf(buf, l, "%llu weeks %llu days %s",
                          (unsigned long long) (d / USEC_PER_WEEK),
-                         (unsigned long long) ((d % USEC_PER_WEEK) / USEC_PER_DAY));
+                         (unsigned long long) ((d % USEC_PER_WEEK) / USEC_PER_DAY), s);
         else if (d >= 2*USEC_PER_DAY)
-                snprintf(buf, l, "%llu days ago", (unsigned long long) (d / USEC_PER_DAY));
+                snprintf(buf, l, "%llu days %s", (unsigned long long) (d / USEC_PER_DAY), s);
         else if (d >= 25*USEC_PER_HOUR)
-                snprintf(buf, l, "1 day %lluh ago",
-                         (unsigned long long) ((d - USEC_PER_DAY) / USEC_PER_HOUR));
+                snprintf(buf, l, "1 day %lluh %s",
+                         (unsigned long long) ((d - USEC_PER_DAY) / USEC_PER_HOUR), s);
         else if (d >= 6*USEC_PER_HOUR)
-                snprintf(buf, l, "%lluh ago",
-                         (unsigned long long) (d / USEC_PER_HOUR));
+                snprintf(buf, l, "%lluh %s",
+                         (unsigned long long) (d / USEC_PER_HOUR), s);
         else if (d >= USEC_PER_HOUR)
-                snprintf(buf, l, "%lluh %llumin ago",
+                snprintf(buf, l, "%lluh %llumin %s",
                          (unsigned long long) (d / USEC_PER_HOUR),
-                         (unsigned long long) ((d % USEC_PER_HOUR) / USEC_PER_MINUTE));
+                         (unsigned long long) ((d % USEC_PER_HOUR) / USEC_PER_MINUTE), s);
         else if (d >= 5*USEC_PER_MINUTE)
-                snprintf(buf, l, "%llumin ago",
-                         (unsigned long long) (d / USEC_PER_MINUTE));
+                snprintf(buf, l, "%llumin %s",
+                         (unsigned long long) (d / USEC_PER_MINUTE), s);
         else if (d >= USEC_PER_MINUTE)
-                snprintf(buf, l, "%llumin %llus ago",
+                snprintf(buf, l, "%llumin %llus %s",
                          (unsigned long long) (d / USEC_PER_MINUTE),
-                         (unsigned long long) ((d % USEC_PER_MINUTE) / USEC_PER_SEC));
+                         (unsigned long long) ((d % USEC_PER_MINUTE) / USEC_PER_SEC), s);
         else if (d >= USEC_PER_SEC)
-                snprintf(buf, l, "%llus ago",
-                         (unsigned long long) (d / USEC_PER_SEC));
+                snprintf(buf, l, "%llus %s",
+                         (unsigned long long) (d / USEC_PER_SEC), s);
         else if (d >= USEC_PER_MSEC)
-                snprintf(buf, l, "%llums ago",
-                         (unsigned long long) (d / USEC_PER_MSEC));
+                snprintf(buf, l, "%llums %s",
+                         (unsigned long long) (d / USEC_PER_MSEC), s);
         else if (d > 0)
-                snprintf(buf, l, "%lluus ago",
-                         (unsigned long long) d);
+                snprintf(buf, l, "%lluus %s",
+                         (unsigned long long) d, s);
         else
                 snprintf(buf, l, "now");
 
@@ -476,6 +483,18 @@ int parse_timestamp(const char *t, usec_t *usec) {
                         return -ENOMEM;
 
                 r = parse_sec(z, &minus);
+                if (r < 0)
+                        return r;
+
+                goto finish;
+        } else if (endswith(t, " left")) {
+                _cleanup_free_ char *z;
+
+                z = strndup(t, strlen(t) - 4);
+                if (!z)
+                        return -ENOMEM;
+
+                r = parse_sec(z, &plus);
                 if (r < 0)
                         return r;
 
