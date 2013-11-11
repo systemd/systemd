@@ -30,6 +30,7 @@
 #include "bus-message.h"
 #include "bus-error.h"
 #include "bus-kernel.h"
+#include "bus-dump.h"
 
 #define FIRST_ARRAY 17
 #define SECOND_ARRAY 33

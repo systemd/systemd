@@ -190,7 +190,6 @@ static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
 }
 
 int bus_message_seal(sd_bus_message *m, uint64_t serial);
-int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header);
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 

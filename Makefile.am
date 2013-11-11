@@ -2006,6 +2006,17 @@ libsystemd_bus_internal_la_CFLAGS = \
 noinst_LTLIBRARIES += \
 	libsystemd-bus-internal.la
 
+libsystemd_bus_dump_la_SOURCES = \
+	src/libsystemd-bus/bus-dump.c \
+	src/libsystemd-bus/bus-dump.h
+
+libsystemd_bus_dump_la_CFLAGS = \
+	$(AM_CFLAGS)
+	$(CAP_CFLAGS)
+
+noinst_LTLIBRARIES += \
+	libsystemd-bus-dump.la
+
 tests += \
 	test-bus-marshal \
 	test-bus-signature \
@@ -2032,13 +2043,17 @@ test_bus_marshal_LDADD = \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-shared.la \
+	libsystemd-bus-dump.la \
+	libsystemd-capability.la \
 	$(GLIB_LIBS) \
-	$(DBUS_LIBS)
+	$(DBUS_LIBS) \
+	$(CAP_LIBS)
 
 test_bus_marshal_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(GLIB_CFLAGS) \
-	$(DBUS_CFLAGS)
+	$(DBUS_CFLAGS) \
+	$(CAP_CFLAGS)
 
 test_bus_signature_SOURCES = \
 	src/libsystemd-bus/test-bus-signature.c
@@ -2078,13 +2093,17 @@ test_bus_objects_SOURCES = \
 
 test_bus_objects_CFLAGS = \
 	$(AM_CFLAGS) \
+	$(CAP_CFLAGS) \
 	-pthread
 
 test_bus_objects_LDADD = \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-bus-dump.la \
+	libsystemd-capability.la \
+	$(CAP_LIBS)
 
 test_bus_match_SOURCES = \
 	src/libsystemd-bus/test-bus-match.c
@@ -2102,7 +2121,14 @@ test_bus_kernel_LDADD = \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-bus-dump.la \
+	libsystemd-capability.la \
+	$(CAP_LIBS)
+
+test_bus_kernel_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(CAP_CFLAGS)
 
 test_bus_kernel_bloom_SOURCES = \
 	src/libsystemd-bus/test-bus-kernel-bloom.c
@@ -2136,7 +2162,14 @@ test_bus_zero_copy_LDADD = \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-bus-dump.la \
+	libsystemd-capability.la \
+	$(CAP_LIBS)
+
+test_bus_zero_copy_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(CAP_CFLAGS)
 
 test_bus_introspect_SOURCES = \
 	src/libsystemd-bus/test-bus-introspect.c
@@ -2161,7 +2194,14 @@ busctl_LDADD = \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-bus-dump.la \
+	libsystemd-capability.la \
+	$(CAP_LIBS)
+
+busctl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(CAP_CFLAGS)
 
 # ------------------------------------------------------------------------------
 if ENABLE_GTK_DOC

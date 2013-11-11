@@ -31,6 +31,7 @@
 #include "bus-message.h"
 #include "bus-internal.h"
 #include "bus-util.h"
+#include "bus-dump.h"
 
 static bool arg_no_pager = false;
 static char *arg_address = NULL;
