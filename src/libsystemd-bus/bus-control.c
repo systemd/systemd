@@ -225,14 +225,10 @@ _public_ int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
         const char *found;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!name)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = sd_bus_call_method(
                         bus,
@@ -539,31 +535,33 @@ int bus_remove_match_internal(
 }
 
 _public_ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
         const char *mid;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!name)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(machine, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (streq_ptr(name, bus->unique_name))
                 return sd_id128_get_machine(machine);
 
-        r = sd_bus_call_method(bus,
-                               name,
-                               "/",
-                               "org.freedesktop.DBus.Peer",
-                               "GetMachineId",
-                               NULL,
-                               &reply,
-                               NULL);
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        name,
+                        "/",
+                        "org.freedesktop.DBus.Peer",
+                        "GetMachineId", &m);
+        if (r < 0)
+                return r;
 
+        r = sd_bus_message_set_no_auto_start(m, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(bus, m, 0, NULL, &reply);
         if (r < 0)
                 return r;
 
