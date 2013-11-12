@@ -21,7 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-networkd.service">
+<refentry id="systemd-networkd.service" conditional='ENABLE_NETWORKD'>
 
         <refentryinfo>
                 <title>systemd-networkd.service</title>

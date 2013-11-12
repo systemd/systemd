@@ -62,7 +62,6 @@ MANPAGES += \
 	man/systemd-initctl.service.8 \
 	man/systemd-journald.service.8 \
 	man/systemd-machine-id-setup.1 \
-	man/systemd-networkd.service.8 \
 	man/systemd-notify.1 \
 	man/systemd-nspawn.1 \
 	man/systemd-remount-fs.service.8 \
@@ -187,7 +186,6 @@ MANPAGES_ALIAS += \
 	man/systemd-journald.8 \
 	man/systemd-journald.socket.8 \
 	man/systemd-kexec.service.8 \
-	man/systemd-networkd.8 \
 	man/systemd-poweroff.service.8 \
 	man/systemd-reboot.service.8 \
 	man/systemd-remount-fs.8 \
@@ -289,7 +287,6 @@ man/systemd-initctl.socket.8: man/systemd-initctl.service.8
 man/systemd-journald.8: man/systemd-journald.service.8
 man/systemd-journald.socket.8: man/systemd-journald.service.8
 man/systemd-kexec.service.8: man/systemd-halt.service.8
-man/systemd-networkd.8: man/systemd-networkd.service.8
 man/systemd-poweroff.service.8: man/systemd-halt.service.8
 man/systemd-reboot.service.8: man/systemd-halt.service.8
 man/systemd-remount-fs.8: man/systemd-remount-fs.service.8
@@ -557,9 +554,6 @@ man/systemd-journald.socket.html: man/systemd-journald.service.html
 man/systemd-kexec.service.html: man/systemd-halt.service.html
 	$(html-alias)
 
-man/systemd-networkd.html: man/systemd-networkd.service.html
-	$(html-alias)
-
 man/systemd-poweroff.service.html: man/systemd-halt.service.html
 	$(html-alias)
 
@@ -702,6 +696,17 @@ MANPAGES_ALIAS += \
 	man/systemd-machined.8
 man/systemd-machined.8: man/systemd-machined.service.8
 man/systemd-machined.html: man/systemd-machined.service.html
+	$(html-alias)
+
+endif
+
+if ENABLE_NETWORKD
+MANPAGES += \
+	man/systemd-networkd.service.8
+MANPAGES_ALIAS += \
+	man/systemd-networkd.8
+man/systemd-networkd.8: man/systemd-networkd.service.8
+man/systemd-networkd.html: man/systemd-networkd.service.html
 	$(html-alias)
 
 endif
