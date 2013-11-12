@@ -102,7 +102,7 @@ void udev_list_init(struct udev *udev, struct udev_list *list, bool unique)
 }
 
 /* insert entry into a list as the last element  */
-void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list)
+static void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list)
 {
         /* inserting before the list head make the node the last node in the list */
         udev_list_node_insert_between(&new->node, list->node.prev, &list->node);
@@ -110,7 +110,7 @@ void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list)
 }
 
 /* insert entry into a list, before a given existing entry */
-void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry)
+static void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry)
 {
         udev_list_node_insert_between(&new->node, entry->node.prev, &entry->node);
         new->list = entry->list;

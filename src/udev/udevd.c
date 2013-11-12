@@ -75,7 +75,7 @@ static int exec_delay;
 static sigset_t sigmask_orig;
 static UDEV_LIST(event_list);
 static UDEV_LIST(worker_list);
-char *udev_cgroup;
+static char *udev_cgroup;
 static bool udev_exit;
 
 enum event_state {

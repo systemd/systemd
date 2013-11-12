@@ -129,8 +129,6 @@ void udev_list_cleanup(struct udev_list *list);
 struct udev_list_entry *udev_list_get_entry(struct udev_list *list);
 struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *name, const char *value);
 void udev_list_entry_delete(struct udev_list_entry *entry);
-void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry);
-void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list);
 int udev_list_entry_get_num(struct udev_list_entry *list_entry);
 void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num);
 #define udev_list_entry_foreach_safe(entry, tmp, first) \
