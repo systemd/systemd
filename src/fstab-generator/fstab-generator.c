@@ -146,6 +146,52 @@ static bool mount_in_initrd(struct mntent *me) {
                 streq(me->mnt_dir, "/usr");
 }
 
+static int add_fsck(FILE *f, const char *what, const char *where, const char *type, int passno) {
+        assert(f);
+
+        if (passno == 0)
+                return 0;
+
+        if (type && !streq(type, "auto")) {
+                int r;
+                const char *checker;
+
+                checker = strappenda("/sbin/fsck.", type);
+                r = access(checker, X_OK);
+                if (r < 0) {
+                        log_warning("Checking was requested for %s, but %s cannot be used: %m", what, checker);
+
+                        /* treat missing check as essentially OK */
+                        return errno == ENOENT ? 0 : -errno;
+                }
+        }
+
+        if (streq(where, "/")) {
+                char *lnk;
+
+                lnk = strappenda(arg_dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
+                mkdir_parents_label(lnk, 0755);
+                if (symlink("systemd-fsck-root.service", lnk) < 0) {
+                        log_error("Failed to create symlink %s: %m", lnk);
+                        return -errno;
+                }
+        } else {
+                _cleanup_free_ char *fsck = NULL;
+
+                fsck = unit_name_from_path_instance("systemd-fsck", what, ".service");
+                if (!fsck)
+                        return log_oom();
+
+                fprintf(f,
+                        "Requires=%s\n"
+                        "After=%s\n",
+                        fsck,
+                        fsck);
+        }
+
+        return 0;
+}
+
 static int add_mount(
                 const char *what,
                 const char *where,
@@ -161,6 +207,7 @@ static int add_mount(
                 *name = NULL, *unit = NULL, *lnk = NULL,
                 *automount_name = NULL, *automount_unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(what);
         assert(where);
@@ -208,32 +255,9 @@ static int add_mount(
                         "Before=%s\n",
                         post);
 
-        if (passno > 0) {
-                if (streq(where, "/")) {
-                        lnk = strjoin(arg_dest, "/", SPECIAL_LOCAL_FS_TARGET, ".wants/", "systemd-fsck-root.service", NULL);
-                        if (!lnk)
-                                return log_oom();
-
-                        mkdir_parents_label(lnk, 0755);
-                        if (symlink("systemd-fsck-root.service", lnk) < 0) {
-                                log_error("Failed to create symlink %s: %m", lnk);
-                                return -errno;
-                        }
-                } else {
-                        _cleanup_free_ char *fsck = NULL;
-
-                        fsck = unit_name_from_path_instance("systemd-fsck", what, ".service");
-                        if (!fsck)
-                                return log_oom();
-
-                        fprintf(f,
-                                "Requires=%s\n"
-                                "After=%s\n",
-                                fsck,
-                                fsck);
-                }
-        }
-
+        r = add_fsck(f, what, where, type, passno);
+        if (r < 0)
+                return r;
 
         fprintf(f,
                 "\n"
@@ -259,7 +283,6 @@ static int add_mount(
 
         if (!noauto) {
                 if (post) {
-                        free(lnk);
                         lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
                         if (!lnk)
                                 return log_oom();

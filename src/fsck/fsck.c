@@ -212,10 +212,11 @@ int main(int argc, char *argv[]) {
         siginfo_t status;
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_udev_device_unref_ struct udev_device *udev_device = NULL;
-        const char *device;
+        const char *device, *type;
         bool root_directory;
         int progress_pipe[2] = { -1, -1 };
         char dash_c[2+10+1];
+        struct stat st;
 
         if (argc > 2) {
                 log_error("This program expects one or no arguments.");
@@ -234,11 +235,27 @@ int main(int argc, char *argv[]) {
         if (!arg_force && arg_skip)
                 return 0;
 
+        udev = udev_new();
+        if (!udev) {
+                log_oom();
+                return EXIT_FAILURE;
+        }
+
         if (argc > 1) {
                 device = argv[1];
                 root_directory = false;
+
+                if (stat(device, &st) < 0) {
+                        log_error("Failed to stat '%s': %m", device);
+                        return EXIT_FAILURE;
+                }
+
+                udev_device = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+                if (!udev_device) {
+                        log_error("Failed to detect device %s", device);
+                        return EXIT_FAILURE;
+                }
         } else {
-                struct stat st;
                 struct timespec times[2];
 
                 /* Find root device */
@@ -260,12 +277,6 @@ int main(int argc, char *argv[]) {
                         return EXIT_SUCCESS;
                 }
 
-                udev = udev_new();
-                if (!udev) {
-                        log_oom();
-                        return EXIT_FAILURE;
-                }
-
                 udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev);
                 if (!udev_device) {
                         log_error("Failed to detect root device.");
@@ -279,6 +290,19 @@ int main(int argc, char *argv[]) {
                 }
 
                 root_directory = true;
+        }
+
+        type = udev_device_get_property_value(udev_device, "ID_FS_TYPE");
+        if (type) {
+                const char *checker = strappenda("/sbin/fsck.", type);
+                r = access(checker, X_OK);
+                if (r < 0) {
+                        if (errno == ENOENT) {
+                                log_info("%s doesn't exist, not checking file system.", checker);
+                                return EXIT_SUCCESS;
+                        } else
+                                log_warning("%s cannot be used: %m", checker);
+                }
         }
 
         if (arg_show_progress)
