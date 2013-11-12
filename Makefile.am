@@ -3812,6 +3812,7 @@ EXTRA_DIST += \
 endif
 
 # ------------------------------------------------------------------------------
+if ENABLE_NETWORKD
 rootlibexec_PROGRAMS += \
 	systemd-networkd
 
@@ -3863,6 +3864,7 @@ EXTRA_DIST += \
 
 CLEANFILES += \
 	src/network/networkd-gperf.c
+endif
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOGIND
