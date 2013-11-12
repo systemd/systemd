@@ -14,3 +14,5 @@
    .. autofunction:: _is_socket_unix
    .. autofunction:: _is_socket_inet
    .. autofunction:: _is_mq
+   .. autofunction:: notify
+   .. autofunction:: booted

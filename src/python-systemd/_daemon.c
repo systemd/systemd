@@ -51,7 +51,7 @@ static PyObject* booted(PyObject *self, PyObject *args) {
         assert(args == NULL);
 
         r = sd_booted();
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
