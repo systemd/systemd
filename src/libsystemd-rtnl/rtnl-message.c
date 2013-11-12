@@ -367,7 +367,7 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
         return message_read(m, type, data);
 }
 
-int message_get_serial(sd_rtnl_message *m) {
+uint32_t message_get_serial(sd_rtnl_message *m) {
         assert(m);
 
         return m->hdr->nlmsg_seq;

@@ -35,6 +35,14 @@ struct sd_rtnl {
                 struct sockaddr_nl nl;
         } sockaddr;
 
+        sd_rtnl_message **rqueue;
+        unsigned rqueue_size;
+
+        sd_rtnl_message **wqueue;
+        unsigned wqueue_size;
+
+        bool processing:1;
+
         uint32_t serial;
 
         pid_t original_pid;
@@ -42,8 +50,11 @@ struct sd_rtnl {
 
 #define RTNL_DEFAULT_TIMEOUT ((usec_t) (10 * USEC_PER_SEC))
 
+#define RTNL_WQUEUE_MAX 1024
+#define RTNL_RQUEUE_MAX 64*1024
+
 int message_get_errno(sd_rtnl_message *m);
-int message_get_serial(sd_rtnl_message *m);
+uint32_t message_get_serial(sd_rtnl_message *m);
 int message_seal(sd_rtnl *nl, sd_rtnl_message *m);
 int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
 int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret);

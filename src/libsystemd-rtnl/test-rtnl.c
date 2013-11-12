@@ -53,7 +53,7 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert(type == IFLA_MTU);
         assert(mtu == *(unsigned int *) data);
 
-        assert(sd_rtnl_call(rtnl, message, 0, NULL) == 0);
+        assert(sd_rtnl_call(rtnl, message, 0, NULL) == 1);
 }
 
 static void test_route(void) {
@@ -133,7 +133,7 @@ int main(void) {
 
         assert(sd_rtnl_message_read(m, &type, &data) == 0);
 
-        assert(sd_rtnl_call(rtnl, m, 0, &r) >= 0);
+        assert(sd_rtnl_call(rtnl, m, 0, &r) == 1);
         assert(sd_rtnl_message_get_type(r, &type) >= 0);
         assert(type == RTM_NEWLINK);
 
@@ -155,7 +155,7 @@ int main(void) {
 
         assert(sd_rtnl_message_read(m, &type, &data) == 0);
 
-        assert(sd_rtnl_call(rtnl, m, -1, &r) >= 0);
+        assert(sd_rtnl_call(rtnl, m, -1, &r) == 1);
         while (sd_rtnl_message_read(r, &type, &data) > 0) {
                 switch (type) {
 //                        case IFLA_MTU:
