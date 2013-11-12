@@ -34,6 +34,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "bus-dump.h"
 
 struct context {
         int fds[2];
