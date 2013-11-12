@@ -1881,6 +1881,7 @@ systemd_tty_ask_password_agent_LDADD = \
 
 # ------------------------------------------------------------------------------
 libsystemd_daemon_la_SOURCES = \
+	src/libsystemd-daemon/libsystemd-daemon.sym \
 	src/libsystemd-daemon/sd-daemon.c
 
 libsystemd_daemon_internal_la_SOURCES = \
@@ -1926,11 +1927,11 @@ pkgconfiglib_DATA += \
 	src/libsystemd-daemon/libsystemd-daemon.pc
 
 EXTRA_DIST += \
-	src/libsystemd-daemon/libsystemd-daemon.pc.in \
-	src/libsystemd-daemon/libsystemd-daemon.sym
+	src/libsystemd-daemon/libsystemd-daemon.pc.in
 
 # ------------------------------------------------------------------------------
 libsystemd_bus_la_SOURCES = \
+	src/libsystemd-bus/libsystemd-bus.sym \
 	src/systemd/sd-bus.h \
 	src/systemd/sd-bus-protocol.h \
 	src/systemd/sd-bus-vtable.h \
@@ -1991,8 +1992,7 @@ pkgconfiglib_DATA += \
 	src/libsystemd-bus/libsystemd-bus.pc
 
 EXTRA_DIST += \
-	src/libsystemd-bus/libsystemd-bus.pc.in \
-	src/libsystemd-bus/libsystemd-bus.sym
+	src/libsystemd-bus/libsystemd-bus.pc.in
 
 lib_LTLIBRARIES += \
 	libsystemd-bus.la
@@ -2220,6 +2220,7 @@ lib_LTLIBRARIES += \
 	libudev.la
 
 libudev_la_SOURCES =\
+	src/libudev/libudev.sym \
 	src/libudev/libudev-private.h \
 	src/libudev/libudev.c \
 	src/libudev/libudev-list.c \
@@ -2249,8 +2250,7 @@ pkgconfiglib_DATA += \
 	src/libudev/libudev.pc
 
 EXTRA_DIST += \
-	src/libudev/libudev.pc.in \
-	src/libudev/libudev.sym
+	src/libudev/libudev.pc.in
 
 CLEANFILES += \
 	src/libudev/libudev.pc \
@@ -2802,6 +2802,7 @@ udevlibexec_PROGRAMS += \
 
 # ------------------------------------------------------------------------------
 libsystemd_id128_la_SOURCES = \
+	src/libsystemd-id128/libsystemd-id128.sym \
 	src/libsystemd-id128/sd-id128.c
 
 libsystemd_id128_la_CFLAGS = \
@@ -2853,8 +2854,7 @@ INSTALL_EXEC_HOOKS += libsystemd-id128-install-hook
 UNINSTALL_EXEC_HOOKS += libsystemd-id128-uninstall-hook
 
 EXTRA_DIST += \
-	src/libsystemd-id128/libsystemd-id128.pc.in \
-	src/libsystemd-id128/libsystemd-id128.sym
+	src/libsystemd-id128/libsystemd-id128.pc.in
 
 # ------------------------------------------------------------------------------
 
@@ -2984,6 +2984,7 @@ test_catalog_LDADD = \
 	libsystemd-journal-core.la
 
 libsystemd_journal_la_SOURCES = \
+	src/journal/libsystemd-journal.sym \
 	src/journal/sd-journal.c \
 	src/systemd/sd-journal.h \
 	src/systemd/_sd-common.h \
@@ -3201,7 +3202,6 @@ SYSINIT_TARGET_WANTS += \
 
 EXTRA_DIST += \
 	src/journal/libsystemd-journal.pc.in \
-	src/journal/libsystemd-journal.sym \
 	units/systemd-journald.service.in \
 	units/systemd-journal-flush.service.in \
 	src/journal/journald-gperf.gperf
@@ -4006,6 +4006,7 @@ tests += \
 	test-login-shared
 
 libsystemd_login_la_SOURCES = \
+	src/login/libsystemd-login.sym \
 	src/login/sd-login.c \
 	src/systemd/sd-login.h \
 	src/login/login-shared.c \
@@ -4141,7 +4142,6 @@ polkitpolicy_in_files += \
 EXTRA_DIST += \
 	src/login/logind-gperf.gperf \
 	src/login/libsystemd-login.pc.in \
-	src/login/libsystemd-login.sym \
 	src/login/71-seat.rules.in \
 	src/login/73-seat-late.rules.in \
 	units/systemd-logind.service.in \
