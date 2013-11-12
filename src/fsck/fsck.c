@@ -144,7 +144,7 @@ static double percent(int pass, unsigned long cur, unsigned long max) {
 }
 
 static int process_progress(int fd) {
-        FILE *f, *console;
+        _cleanup_fclose_ FILE *console = NULL, *f = NULL;
         usec_t last = 0;
         bool locked = false;
         int clear = 0;
@@ -156,15 +156,13 @@ static int process_progress(int fd) {
         }
 
         console = fopen("/dev/console", "w");
-        if (!console) {
-                fclose(f);
+        if (!console)
                 return -ENOMEM;
-        }
 
         while (!feof(f)) {
                 int pass, m;
                 unsigned long cur, max;
-                char *device;
+                _cleanup_free_ char *device = NULL;
                 double p;
                 usec_t t;
 
@@ -173,28 +171,22 @@ static int process_progress(int fd) {
 
                 /* Only show one progress counter at max */
                 if (!locked) {
-                        if (flock(fileno(console), LOCK_EX|LOCK_NB) < 0) {
-                                free(device);
+                        if (flock(fileno(console), LOCK_EX|LOCK_NB) < 0)
                                 continue;
-                        }
 
                         locked = true;
                 }
 
                 /* Only update once every 50ms */
                 t = now(CLOCK_MONOTONIC);
-                if (last + 50 * USEC_PER_MSEC > t)  {
-                        free(device);
+                if (last + 50 * USEC_PER_MSEC > t)
                         continue;
-                }
 
                 last = t;
 
                 p = percent(pass, cur, max);
                 fprintf(console, "\r%s: fsck %3.1f%% complete...\r%n", device, p, &m);
                 fflush(console);
-
-                free(device);
 
                 if (m > clear)
                         clear = m;
@@ -210,8 +202,6 @@ static int process_progress(int fd) {
                 fflush(console);
         }
 
-        fclose(f);
-        fclose(console);
         return 0;
 }
 
@@ -255,34 +245,37 @@ int main(int argc, char *argv[]) {
 
                 if (stat("/", &st) < 0) {
                         log_error("Failed to stat() the root directory: %m");
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 /* Virtual root devices don't need an fsck */
                 if (major(st.st_dev) == 0)
-                        return 0;
+                        return EXIT_SUCCESS;
 
                 /* check if we are already writable */
                 times[0] = st.st_atim;
                 times[1] = st.st_mtim;
                 if (utimensat(AT_FDCWD, "/", times, 0) == 0) {
                         log_info("Root directory is writable, skipping check.");
-                        return 0;
+                        return EXIT_SUCCESS;
                 }
 
-                if (!(udev = udev_new())) {
+                udev = udev_new();
+                if (!udev) {
                         log_oom();
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
-                if (!(udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev))) {
+                udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev);
+                if (!udev_device) {
                         log_error("Failed to detect root device.");
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
-                if (!(device = udev_device_get_devnode(udev_device))) {
+                device = udev_device_get_devnode(udev_device);
+                if (!device) {
                         log_error("Failed to detect device node of root directory.");
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 root_directory = true;
@@ -291,7 +284,7 @@ int main(int argc, char *argv[]) {
         if (arg_show_progress)
                 if (pipe(progress_pipe) < 0) {
                         log_error("pipe(): %m");
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
         cmdline[i++] = "/sbin/fsck";
