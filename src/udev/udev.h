@@ -107,7 +107,6 @@ struct udev_ctrl;
 struct udev_ctrl *udev_ctrl_new(struct udev *udev);
 struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd);
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
-struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl);
 struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl);
 int udev_ctrl_cleanup(struct udev_ctrl *uctrl);
 struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl);
@@ -126,7 +125,6 @@ struct udev_ctrl_connection *udev_ctrl_connection_ref(struct udev_ctrl_connectio
 struct udev_ctrl_connection *udev_ctrl_connection_unref(struct udev_ctrl_connection *conn);
 struct udev_ctrl_msg;
 struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn);
-struct udev_ctrl_msg *udev_ctrl_msg_ref(struct udev_ctrl_msg *ctrl_msg);
 struct udev_ctrl_msg *udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_set_log_level(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_stop_exec_queue(struct udev_ctrl_msg *ctrl_msg);

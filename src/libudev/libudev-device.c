@@ -36,6 +36,8 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+static int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
+
 /**
  * SECTION:libudev-device
  * @short_description: kernel sys devices
@@ -1611,7 +1613,7 @@ int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath
         return 0;
 }
 
-int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode)
+static int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode)
 {
         free(udev_device->devnode);
         if (devnode[0] != '/') {

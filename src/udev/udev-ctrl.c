@@ -140,7 +140,7 @@ struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl)
         return uctrl->udev;
 }
 
-struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl)
+static struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl)
 {
         if (uctrl == NULL)
                 return NULL;
@@ -414,14 +414,6 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 err:
         udev_ctrl_msg_unref(uctrl_msg);
         return NULL;
-}
-
-struct udev_ctrl_msg *udev_ctrl_msg_ref(struct udev_ctrl_msg *ctrl_msg)
-{
-        if (ctrl_msg == NULL)
-                return NULL;
-        ctrl_msg->refcount++;
-        return ctrl_msg;
 }
 
 struct udev_ctrl_msg *udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg)
