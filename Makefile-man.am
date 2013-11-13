@@ -651,6 +651,15 @@ MANPAGES_ALIAS += \
 
 endif
 
+if ENABLE_EFI
+MANPAGES += \
+	man/bootctl.1
+MANPAGES_ALIAS += \
+	#
+
+
+endif
+
 if ENABLE_HOSTNAMED
 MANPAGES += \
 	man/hostnamectl.1 \
