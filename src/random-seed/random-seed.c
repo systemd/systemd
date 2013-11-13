@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 
         r = mkdir_parents_label(RANDOM_SEED, 0755);
         if (r < 0) {
-                log_error("Failed to create parent directory of " RANDOM_SEED ": %s", strerror(-r));
+                log_error("Failed to create directory " RANDOM_SEED_DIR ": %s", strerror(-r));
                 goto finish;
         }
 
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
                 if (seed_fd < 0) {
                         seed_fd = open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (seed_fd < 0) {
-                                log_error("Failed to open random seed: %m");
+                                log_error("Failed to open " RANDOM_SEED ": %m");
                                 r = -errno;
                                 goto finish;
                         }
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
                 if (k <= 0) {
 
                         if (r != 0)
-                                log_error("Failed to read seed file: %m");
+                                log_error("Failed to read seed from " RANDOM_SEED ": %m");
 
                         r = k == 0 ? -EIO : (int) k;
 
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
 
                 seed_fd = open(RANDOM_SEED, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
                 if (seed_fd < 0) {
-                        log_error("Failed to open random seed: %m");
+                        log_error("Failed to open " RANDOM_SEED ": %m");
                         r = -errno;
                         goto finish;
                 }
