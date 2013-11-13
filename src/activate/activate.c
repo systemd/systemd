@@ -289,6 +289,8 @@ static int help(void) {
                "  -l --listen=ADDR     Listen for raw connections at ADDR\n"
                "  -a --accept          Spawn separate child for each connection\n"
                "  -h --help            Show this help and exit\n"
+               "  -E --environment=NAME[=VALUE]\n"
+               "                       Pass an environment variable to children\n"
                "  --version            Print version string and exit\n"
                "\n"
                "Note: file descriptors from sd_listen_fds() will be passed through.\n"
