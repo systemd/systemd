@@ -2,6 +2,7 @@
 /defined
 /undefined
 /exported
+/exported-*
 /TAGS
 /accelerometer
 /ata_id

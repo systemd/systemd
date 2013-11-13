@@ -4667,10 +4667,11 @@ valgrind-tests: $(TESTS)
 	        libtool --mode=execute valgrind -q --leak-check=full --max-stackframe=4194400 --error-exitcode=55 $(builddir)/$$f ; \
 	done
 
-exported: $(lib_LTLIBRARIES)
-	$(AM_V_GEN)for f in $(lib_LTLIBRARIES:.la=.so) ; do \
-		nm -g --defined-only $(builddir)/.libs/"$$f" 2>&1 /dev/null | grep " T " | cut -d" " -f3 ; \
-	done > $@
+exported-%: %
+	$(AM_V_GEN)nm -g --defined-only $(builddir)/.libs/$(<:.la=.so) 2>&1 /dev/null | grep " T " | cut -d" " -f3 > $@
+
+exported: $(addprefix exported-, $(lib_LTLIBRARIES))
+	$(AM_V_GEN)cat $^ > $@
 
 check-api-docs: exported man
 	$(AM_V_GEN)for symbol in `cat exported` ; do \
