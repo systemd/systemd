@@ -644,13 +644,13 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         if (error)
                 return sd_bus_reply_method_error(s->manager->bus, c, error);
 
-        /* Update the session state file before we notify the client
-         * about the result. */
-        session_save(s);
-
         fifo_fd = session_create_fifo(s);
         if (fifo_fd < 0)
                 return fifo_fd;
+
+        /* Update the session state file before we notify the client
+         * about the result. */
+        session_save(s);
 
         p = session_bus_path(s);
         if (!p)
