@@ -24,6 +24,17 @@
 #include <linux/netlink.h>
 
 #include "refcnt.h"
+#include "prioq.h"
+
+#include "sd-rtnl.h"
+
+struct reply_callback {
+        sd_rtnl_message_handler_t callback;
+        void *userdata;
+        usec_t timeout;
+        uint64_t serial;
+        unsigned prioq_idx;
+};
 
 struct sd_rtnl {
         RefCount n_ref;
@@ -45,6 +56,9 @@ struct sd_rtnl {
 
         uint32_t serial;
 
+        struct Prioq *reply_callbacks_prioq;
+        Hashmap *reply_callbacks;
+
         pid_t original_pid;
 };
 
@@ -53,8 +67,12 @@ struct sd_rtnl {
 #define RTNL_WQUEUE_MAX 1024
 #define RTNL_RQUEUE_MAX 64*1024
 
-int message_get_errno(sd_rtnl_message *m);
+int message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message **ret);
 uint32_t message_get_serial(sd_rtnl_message *m);
 int message_seal(sd_rtnl *nl, sd_rtnl_message *m);
 int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
 int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret);
+
+/* Make sure callbacks don't destroy the rtnl connection */
+#define RTNL_DONT_DESTROY(rtnl) \
+        _cleanup_sd_rtnl_unref_ sd_rtnl *_dont_destroy_##rtnl = sd_rtnl_ref(rtnl)

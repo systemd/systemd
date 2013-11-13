@@ -24,6 +24,7 @@
 
 #include "macro.h"
 #include "util.h"
+#include "hashmap.h"
 
 #include "sd-rtnl.h"
 #include "rtnl-internal.h"
@@ -117,6 +118,9 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
                 for (i = 0; i < rtnl->wqueue_size; i++)
                         sd_rtnl_message_unref(rtnl->wqueue[i]);
                 free(rtnl->wqueue);
+
+                hashmap_free_free(rtnl->reply_callbacks);
+                prioq_free(rtnl->reply_callbacks_prioq);
 
                 if (rtnl->fd >= 0)
                         close_nointr_nofail(rtnl->fd);
@@ -226,9 +230,64 @@ static int dispatch_wqueue(sd_rtnl *rtnl) {
         return ret;
 }
 
+static int process_timeout(sd_rtnl *rtnl) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+        struct reply_callback *c;
+        usec_t n;
+        int r;
+
+        assert(rtnl);
+
+        c = prioq_peek(rtnl->reply_callbacks_prioq);
+        if (!c)
+                return 0;
+
+        n = now(CLOCK_MONOTONIC);
+        if (c->timeout > n)
+                return 0;
+
+        r = message_new_synthetic_error(-ETIMEDOUT, c->serial, &m);
+        if (r < 0)
+                return r;
+
+        assert_se(prioq_pop(rtnl->reply_callbacks_prioq) == c);
+        hashmap_remove(rtnl->reply_callbacks, &c->serial);
+
+        r = c->callback(rtnl, m, c->userdata);
+        free(c);
+
+        return r < 0 ? r : 1;
+}
+
+static int process_reply(sd_rtnl *rtnl, sd_rtnl_message *m) {
+        struct reply_callback *c;
+        uint64_t serial;
+        int r;
+
+        assert(rtnl);
+        assert(m);
+
+        serial = message_get_serial(m);
+        c = hashmap_remove(rtnl->reply_callbacks, &serial);
+        if (!c)
+                return 0;
+
+        if (c->timeout != 0)
+                prioq_remove(rtnl->reply_callbacks_prioq, c, &c->prioq_idx);
+
+        r = c->callback(rtnl, m, c->userdata);
+        free(c);
+
+        return r;
+}
+
 static int process_running(sd_rtnl *rtnl, sd_rtnl_message **ret) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         int r;
+
+        r = process_timeout(rtnl);
+        if (r != 0)
+                goto null_message;
 
         r = dispatch_wqueue(rtnl);
         if (r != 0)
@@ -238,6 +297,10 @@ static int process_running(sd_rtnl *rtnl, sd_rtnl_message **ret) {
         if (r < 0)
                 return r;
         if (!m)
+                goto null_message;
+
+        r = process_reply(rtnl, m);
+        if (r != 0)
                 goto null_message;
 
         if (ret) {
@@ -255,7 +318,9 @@ null_message:
 
         return r;
 }
+
 int sd_rtnl_process(sd_rtnl *rtnl, sd_rtnl_message **ret) {
+        RTNL_DONT_DESTROY(rtnl);
         int r;
 
         assert_return(rtnl, -EINVAL);
@@ -307,6 +372,105 @@ int sd_rtnl_wait(sd_rtnl *nl, uint64_t timeout_usec) {
         return rtnl_poll(nl, timeout_usec);
 }
 
+static int timeout_compare(const void *a, const void *b) {
+        const struct reply_callback *x = a, *y = b;
+
+        if (x->timeout != 0 && y->timeout == 0)
+                return -1;
+
+        if (x->timeout == 0 && y->timeout != 0)
+                return 1;
+
+        if (x->timeout < y->timeout)
+                return -1;
+
+        if (x->timeout > y->timeout)
+                return 1;
+
+        return 0;
+}
+
+int sd_rtnl_call_async(sd_rtnl *nl,
+                       sd_rtnl_message *m,
+                       sd_rtnl_message_handler_t callback,
+                       void *userdata,
+                       uint64_t usec,
+                       uint32_t *serial) {
+        struct reply_callback *c;
+        uint32_t s;
+        int r, k;
+
+        assert_return(nl, -EINVAL);
+        assert_return(m, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(!rtnl_pid_changed(nl), -ECHILD);
+
+        r = hashmap_ensure_allocated(&nl->reply_callbacks, uint64_hash_func, uint64_compare_func);
+        if (r < 0)
+                return r;
+
+        if (usec != (uint64_t) -1) {
+                r = prioq_ensure_allocated(&nl->reply_callbacks_prioq, timeout_compare);
+                if (r < 0)
+                        return r;
+        }
+
+        c = new0(struct reply_callback, 1);
+        if (!c)
+                return -ENOMEM;
+
+        c->callback = callback;
+        c->userdata = userdata;
+        c->timeout = calc_elapse(usec);
+
+        k = sd_rtnl_send(nl, m, &s);
+        if (k < 0) {
+                free(c);
+                return k;
+        }
+
+        c->serial = s;
+
+        r = hashmap_put(nl->reply_callbacks, &c->serial, c);
+        if (r < 0) {
+                free(c);
+                return r;
+        }
+
+        if (c->timeout != 0) {
+                r = prioq_put(nl->reply_callbacks_prioq, c, &c->prioq_idx);
+                if (r > 0) {
+                        c->timeout = 0;
+                        sd_rtnl_call_async_cancel(nl, c->serial);
+                        return r;
+                }
+        }
+
+        if (serial)
+                *serial = s;
+
+        return k;
+}
+
+int sd_rtnl_call_async_cancel(sd_rtnl *nl, uint32_t serial) {
+        struct reply_callback *c;
+        uint64_t s = serial;
+
+        assert_return(nl, -EINVAL);
+        assert_return(serial != 0, -EINVAL);
+        assert_return(!rtnl_pid_changed(nl), -ECHILD);
+
+        c = hashmap_remove(nl->reply_callbacks, &s);
+        if (!c)
+                return 0;
+
+        if (c->timeout != 0)
+                prioq_remove(nl->reply_callbacks_prioq, c, &c->prioq_idx);
+
+        free(c);
+        return 1;
+}
+
 int sd_rtnl_call(sd_rtnl *nl,
                 sd_rtnl_message *message,
                 uint64_t usec,
@@ -354,7 +518,7 @@ int sd_rtnl_call(sd_rtnl *nl,
                         uint32_t received_serial = message_get_serial(incoming);
 
                         if (received_serial == serial) {
-                                r = message_get_errno(incoming);
+                                r = sd_rtnl_message_get_errno(incoming);
                                 if (r < 0)
                                         return r;
 

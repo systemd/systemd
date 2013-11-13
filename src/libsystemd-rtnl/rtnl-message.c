@@ -68,6 +68,27 @@ static int message_new(sd_rtnl_message **ret, size_t initial_size) {
         return 0;
 }
 
+int message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message **ret) {
+        struct nlmsgerr *err;
+        int r;
+
+        assert(error <= 0);
+
+        r = message_new(ret, NLMSG_SPACE(sizeof(struct nlmsgerr)));
+        if (r < 0)
+                return r;
+
+        (*ret)->hdr->nlmsg_len = NLMSG_LENGTH(sizeof(struct nlmsgerr));
+        (*ret)->hdr->nlmsg_type = NLMSG_ERROR;
+        (*ret)->hdr->nlmsg_seq = serial;
+
+        err = NLMSG_DATA((*ret)->hdr);
+
+        err->error = error;
+
+        return 0;
+}
+
 int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
                               unsigned char rtm_dst_len, unsigned char rtm_src_len,
                               unsigned char rtm_tos, unsigned char rtm_table,
@@ -373,10 +394,10 @@ uint32_t message_get_serial(sd_rtnl_message *m) {
         return m->hdr->nlmsg_seq;
 }
 
-int message_get_errno(sd_rtnl_message *m) {
+int sd_rtnl_message_get_errno(sd_rtnl_message *m) {
         struct nlmsgerr *err;
 
-        assert(m);
+        assert_return(m, -EINVAL);
 
         if (m->hdr->nlmsg_type != NLMSG_ERROR)
                 return 0;

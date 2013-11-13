@@ -31,6 +31,10 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_rtnl sd_rtnl;
 typedef struct sd_rtnl_message sd_rtnl_message;
 
+/* callback */
+
+typedef int (*sd_rtnl_message_handler_t)(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
+
 /* bus */
 int sd_rtnl_open(uint32_t groups, sd_rtnl **nl);
 
@@ -38,6 +42,10 @@ sd_rtnl *sd_rtnl_ref(sd_rtnl *nl);
 sd_rtnl *sd_rtnl_unref(sd_rtnl *nl);
 
 int sd_rtnl_send(sd_rtnl *nl, sd_rtnl_message *message, uint32_t *serial);
+int sd_rtnl_call_async(sd_rtnl *nl, sd_rtnl_message *message,
+                       sd_rtnl_message_handler_t callback,
+                       void *userdata, uint64_t usec, uint32_t *serial);
+int sd_rtnl_call_async_cancel(sd_rtnl *nl, uint32_t serial);
 int sd_rtnl_call(sd_rtnl *nl, sd_rtnl_message *message, uint64_t timeout,
                  sd_rtnl_message **reply);
 
@@ -58,6 +66,7 @@ int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
 sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m);
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
 
+int sd_rtnl_message_get_errno(sd_rtnl_message *m);
 int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type);
 int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *data);
 int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data);

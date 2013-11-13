@@ -103,6 +103,92 @@ static void test_multiple(void) {
         rtnl2 = sd_rtnl_unref(rtnl2);
 }
 
+static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        void *data;
+        uint16_t type;
+        char *ifname = userdata;
+
+        assert(rtnl);
+        assert(m);
+
+        log_info("got link info about %s", ifname);
+        free(ifname);
+
+        while (sd_rtnl_message_read(m, &type, &data) > 0) {
+                switch (type) {
+//                        case IFLA_MTU:
+//                                assert(*(unsigned int *) data == 65536);
+//                                break;
+//                        case IFLA_QDISC:
+//                                assert(streq((char *) data, "noqueue"));
+//                                break;
+                        case IFLA_IFNAME:
+                                assert(streq((char *) data, "lo"));
+                                break;
+                }
+        }
+
+        return 1;
+}
+
+static int pipe_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        int *counter = userdata;
+
+        (*counter) --;
+
+        log_info("got reply, %d left in pipe", *counter);
+
+        return sd_rtnl_message_get_errno(m);
+}
+
+static void test_async(void) {
+        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL, *r = NULL;
+        int if_loopback;
+        uint32_t serial;
+        char *ifname;
+
+        ifname = strdup("lo");
+
+        assert(sd_rtnl_open(0, &rtnl) >= 0);
+
+        if_loopback = (int) if_nametoindex("lo");
+        assert(if_loopback > 0);
+
+        assert(sd_rtnl_message_link_new(RTM_GETLINK, if_loopback, 0, 0, &m) >= 0);
+
+        assert(sd_rtnl_call_async(rtnl, m, &link_handler, ifname, 0, &serial) >= 0);
+
+        assert(sd_rtnl_wait(rtnl, 0) >= 0);
+        assert(sd_rtnl_process(rtnl, &r) >= 0);
+}
+
+static void test_pipe(void) {
+        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m1 = NULL, *m2 = NULL;
+        int counter = 0;
+        int if_loopback;
+
+        assert(sd_rtnl_open(0, &rtnl) >= 0);
+
+        if_loopback = (int) if_nametoindex("lo");
+        assert(if_loopback > 0);
+
+        assert(sd_rtnl_message_link_new(RTM_GETLINK, if_loopback, 0, 0, &m1) >= 0);
+        assert(sd_rtnl_message_link_new(RTM_GETLINK, if_loopback, 0, 0, &m2) >= 0);
+
+        counter ++;
+        assert(sd_rtnl_call_async(rtnl, m1, &pipe_handler, &counter, 0, NULL) >= 0);
+
+        counter ++;
+        assert(sd_rtnl_call_async(rtnl, m2, &pipe_handler, &counter, 0, NULL) >= 0);
+
+        while (counter > 0) {
+                assert(sd_rtnl_wait(rtnl, 0) >= 0);
+                assert(sd_rtnl_process(rtnl, NULL) >= 0);
+        }
+}
+
 int main(void) {
         sd_rtnl *rtnl;
         sd_rtnl_message *m;
@@ -116,6 +202,10 @@ int main(void) {
         test_multiple();
 
         test_route();
+
+        test_async();
+
+        test_pipe();
 
         assert(sd_rtnl_open(0, &rtnl) >= 0);
         assert(rtnl);
