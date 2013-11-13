@@ -117,6 +117,13 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
                         _a < _b ? _a : _b;      \
                 })
 
+#define LESS_BY(A,B)                            \
+        __extension__ ({                        \
+                        typeof(A) _A = (A);     \
+                        typeof(B) _B = (B);     \
+                        _A > _B ? _A - _B : 0;  \
+                })
+
 #ifndef CLAMP
 #define CLAMP(x, low, high)                                             \
         __extension__ ({                                                \

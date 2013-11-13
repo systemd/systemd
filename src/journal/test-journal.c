@@ -126,7 +126,7 @@ static void test_non_empty(void) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, 0, NULL);
+                journal_directory_vacuum(".", 3000000, 0, NULL);
 
                 assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
         }
@@ -165,7 +165,7 @@ static void test_empty(void) {
         if (arg_keep)
                 log_info("Not removing %s", t);
         else {
-                journal_directory_vacuum(".", 3000000, 0, 0, NULL);
+                journal_directory_vacuum(".", 3000000, 0, NULL);
 
                 assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
         }

@@ -150,7 +150,6 @@ static int journal_file_empty(int dir_fd, const char *name) {
 int journal_directory_vacuum(
                 const char *directory,
                 uint64_t max_use,
-                uint64_t min_free,
                 usec_t max_retention_usec,
                 usec_t *oldest_usec) {
 
@@ -164,7 +163,7 @@ int journal_directory_vacuum(
 
         assert(directory);
 
-        if (max_use <= 0 && min_free <= 0 && max_retention_usec <= 0)
+        if (max_use <= 0 && max_retention_usec <= 0)
                 return 0;
 
         if (max_retention_usec > 0) {
@@ -309,8 +308,7 @@ int journal_directory_vacuum(
                 }
 
                 if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) &&
-                    (max_use <= 0 || sum <= max_use) &&
-                    (min_free <= 0 || (uint64_t) ss.f_bavail * (uint64_t) ss.f_bsize >= min_free))
+                    (max_use <= 0 || sum <= max_use))
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {

@@ -23,4 +23,4 @@
 
 #include <inttypes.h>
 
-int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free, usec_t max_retention_usec, usec_t *oldest_usec);
+int journal_directory_vacuum(const char *directory, uint64_t max_use, usec_t max_retention_usec, usec_t *oldest_usec);

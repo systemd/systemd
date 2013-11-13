@@ -158,9 +158,18 @@ static uint64_t available_space(Server *s, bool verbose) {
         }
 
         ss_avail = ss.f_bsize * ss.f_bavail;
-        avail = ss_avail > m->keep_free ? ss_avail - m->keep_free : 0;
 
-        s->cached_available_space = MIN(m->max_use, avail) > sum ? MIN(m->max_use, avail) - sum : 0;
+        /* If we reached a high mark, we will always allow this much
+         * again, unless usage goes above max_use. This watermark
+         * value is cached so that we don't give up space on pressure,
+         * but hover below the maximum usage. */
+
+        if (m->use < sum)
+                m->use = sum;
+
+        avail = LESS_BY(ss_avail, m->keep_free);
+
+        s->cached_available_space = LESS_BY(MIN(m->max_use, avail), sum);
         s->cached_available_space_timestamp = ts;
 
         if (verbose) {
@@ -168,13 +177,14 @@ static uint64_t available_space(Server *s, bool verbose) {
                         fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX];
 
                 server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
-                                      "%s journal is using %s (max %s, leaving %s of free %s, current limit %s).",
+                                      "%s journal is using %s (max allowed %s, "
+                                      "trying to leave %s free of %s available → current limit %s).",
                                       s->system_journal ? "Permanent" : "Runtime",
                                       format_bytes(fb1, sizeof(fb1), sum),
                                       format_bytes(fb2, sizeof(fb2), m->max_use),
                                       format_bytes(fb3, sizeof(fb3), m->keep_free),
                                       format_bytes(fb4, sizeof(fb4), ss_avail),
-                                      format_bytes(fb5, sizeof(fb5), MIN(m->max_use, avail)));
+                                      format_bytes(fb5, sizeof(fb5), s->cached_available_space + sum));
         }
 
         return s->cached_available_space;
@@ -379,7 +389,7 @@ void server_vacuum(Server *s) {
         if (s->system_journal) {
                 char *p = strappenda("/var/log/journal/", ids);
 
-                r = journal_directory_vacuum(p, s->system_metrics.max_use, s->system_metrics.keep_free, s->max_retention_usec, &s->oldest_file_usec);
+                r = journal_directory_vacuum(p, s->system_metrics.max_use, s->max_retention_usec, &s->oldest_file_usec);
                 if (r < 0 && r != -ENOENT)
                         log_error("Failed to vacuum %s: %s", p, strerror(-r));
         }
@@ -387,7 +397,7 @@ void server_vacuum(Server *s) {
         if (s->runtime_journal) {
                 char *p = strappenda("/run/log/journal/", ids);
 
-                r = journal_directory_vacuum(p, s->runtime_metrics.max_use, s->runtime_metrics.keep_free, s->max_retention_usec, &s->oldest_file_usec);
+                r = journal_directory_vacuum(p, s->runtime_metrics.max_use, s->max_retention_usec, &s->oldest_file_usec);
                 if (r < 0 && r != -ENOENT)
                         log_error("Failed to vacuum %s: %s", p, strerror(-r));
         }

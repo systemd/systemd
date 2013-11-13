@@ -250,20 +250,35 @@
                                 <para><varname>SystemMaxUse=</varname>
                                 and <varname>RuntimeMaxUse=</varname>
                                 control how much disk space the
-                                journal may use up at
-                                maximum. Defaults to 10% of the size
-                                of the respective file
-                                system. <varname>SystemKeepFree=</varname>
-                                and
+                                journal may use up at maximum.
+                                <varname>SystemKeepFree=</varname> and
                                 <varname>RuntimeKeepFree=</varname>
                                 control how much disk space
-                                systemd-journald shall always leave
-                                free for other uses. Defaults to 15%
-                                of the size of the respective file
-                                system. systemd-journald will respect
-                                both limits, i.e. use the smaller of
-                                the two values.
-                                <varname>SystemMaxFileSize=</varname>
+                                systemd-journald shall leave free for
+                                other uses.
+                                <command>systemd-journald</command>
+                                will respect both limits and use the
+                                smaller of the two values.</para>
+
+                                <para>The first pair defaults to 10%
+                                and the second to 15% of the size of
+                                the respective file system. If the
+                                file system is nearly full and either
+                                <varname>SystemKeepFree=</varname> or
+                                <varname>RuntimeKeepFree=</varname> is
+                                violated when systemd-journald is
+                                started, the value will be raised to
+                                percentage that is actually free. This
+                                means that if before there was enough
+                                free space and journal files were
+                                created, and subsequently something
+                                else causes the file system to fill
+                                up, journald will stop using more
+                                space, but it'll will not removing
+                                existing files to go reduce footprint
+                                either.</para>
+
+                                <para><varname>SystemMaxFileSize=</varname>
                                 and
                                 <varname>RuntimeMaxFileSize=</varname>
                                 control how large individual journal

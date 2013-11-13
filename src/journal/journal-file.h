@@ -37,6 +37,7 @@
 
 typedef struct JournalMetrics {
         uint64_t max_use;
+        uint64_t use;
         uint64_t max_size;
         uint64_t min_size;
         uint64_t keep_free;
