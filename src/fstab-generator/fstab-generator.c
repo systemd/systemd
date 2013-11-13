@@ -183,7 +183,7 @@ static int add_fsck(FILE *f, const char *what, const char *where, const char *ty
                         return log_oom();
 
                 fprintf(f,
-                        "Requires=%s\n"
+                        "RequiresOverridable=%s\n"
                         "After=%s\n",
                         fsck,
                         fsck);
