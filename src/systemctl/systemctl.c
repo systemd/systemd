@@ -1445,11 +1445,12 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n) {
                 shorten = true;
         }
 
-        printf("%*s %-*s %-*s %-*s\n",
-               id_len, "JOB",
-               unit_len, "UNIT",
-               type_len, "TYPE",
-               state_len, "STATE");
+        if (!arg_no_legend)
+                printf("%*s %-*s %-*s %-*s\n",
+                       id_len, "JOB",
+                       unit_len, "UNIT",
+                       type_len, "TYPE",
+                       state_len, "STATE");
 
         for (j = jobs; j < jobs + n; j++) {
                 _cleanup_free_ char *e = NULL;
@@ -1468,10 +1469,12 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n) {
                        on, state_len, j->state, off);
         }
 
-        on = ansi_highlight();
-        off = ansi_highlight_off();
+        if (!arg_no_legend) {
+                on = ansi_highlight();
+                off = ansi_highlight_off();
 
-        printf("\n%s%u jobs listed%s.\n", on, n, off);
+                printf("\n%s%u jobs listed%s.\n", on, n, off);
+        }
 }
 
 static int list_jobs(sd_bus *bus, char **args) {
