@@ -19,12 +19,29 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/socket.h>
 
+#include "fileio.h"
 #include "journald-server.h"
 #include "journald-console.h"
+
+static bool prefix_timestamp(void) {
+
+        static int cached_printk_time = -1;
+
+        if (_unlikely_(cached_printk_time < 0)) {
+                _cleanup_free_ char *p = NULL;
+
+                cached_printk_time =
+                        read_one_line_file("/sys/module/printk/parameters/time", &p) >= 0
+                        && parse_boolean(p) > 0;
+        }
+
+        return cached_printk_time;
+}
 
 void server_forward_console(
                 Server *s,
@@ -33,8 +50,10 @@ void server_forward_console(
                 const char *message,
                 struct ucred *ucred) {
 
-        struct iovec iovec[4];
+        struct iovec iovec[5];
         char header_pid[16];
+        struct timespec ts;
+        char tbuf[4 + DECIMAL_STR_MAX(ts.tv_sec) + DECIMAL_STR_MAX(ts.tv_nsec)-3 + 1];
         int n = 0, fd;
         char *ident_buf = NULL;
         const char *tty;
@@ -45,7 +64,16 @@ void server_forward_console(
         if (LOG_PRI(priority) > s->max_level_console)
                 return;
 
-        /* First: identifier and PID */
+        /* First: timestamp */
+        if (prefix_timestamp()) {
+                assert_se(clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
+                snprintf(tbuf, sizeof(tbuf), "[%5llu.%06llu] ",
+                         (unsigned long long) ts.tv_sec,
+                         (unsigned long long) ts.tv_nsec / 1000);
+                IOVEC_SET_STRING(iovec[n++], tbuf);
+        }
+
+        /* Second: identifier and PID */
         if (ucred) {
                 if (!identifier) {
                         get_process_comm(ucred->pid, &ident_buf);
@@ -64,7 +92,7 @@ void server_forward_console(
                 IOVEC_SET_STRING(iovec[n++], ": ");
         }
 
-        /* Third: message */
+        /* Fourth: message */
         IOVEC_SET_STRING(iovec[n++], message);
         IOVEC_SET_STRING(iovec[n++], "\n");
 
