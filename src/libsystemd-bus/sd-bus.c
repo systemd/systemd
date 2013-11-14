@@ -2299,7 +2299,7 @@ bool bus_pid_changed(sd_bus *bus) {
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        void *bus = userdata;
+        sd_bus *bus = userdata;
         int r;
 
         assert(bus);
@@ -2312,7 +2312,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
 }
 
 static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
-        void *bus = userdata;
+        sd_bus *bus = userdata;
         int r;
 
         assert(bus);
