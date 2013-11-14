@@ -87,6 +87,17 @@ struct Route {
         LIST_FIELDS(Route, routes);
 };
 
+typedef enum LinkState {
+        LINK_STATE_SET_ADDRESSES,
+        LINK_STATE_ADDRESSES_SET,
+        LINK_STATE_SET_ROUTES,
+        LINK_STATE_ROUTES_SET,
+        LINK_STATE_CONFIGURED,
+        LINK_STATE_FAILED,
+        _LINK_STATE_MAX,
+        _LINK_STATE_INVALID = -1
+} LinkState;
+
 struct Link {
         Manager *manager;
 
@@ -96,6 +107,10 @@ struct Link {
         unsigned flags;
 
         Network *network;
+
+        LinkState state;
+
+        unsigned rtnl_messages;
 };
 
 struct Manager {
@@ -120,6 +135,8 @@ void manager_free(Manager *m);
 int manager_udev_enumerate_links(Manager *m);
 int manager_udev_listen(Manager *m);
 
+int manager_rtnl_listen(Manager *m);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
 
@@ -141,7 +158,7 @@ const struct ConfigPerfItem* network_gperf_lookup(const char *key, unsigned leng
 /* Route */
 int route_new(Network *network, Route **ret);
 void route_free(Route *route);
-int route_configure(Manager *manager, Route *route, Link *link);
+int route_configure(Route *route, Link *link, sd_rtnl_message_handler_t callback);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Route*, route_free);
 #define _cleanup_route_free_ _cleanup_(route_freep)
@@ -153,7 +170,7 @@ int config_parse_gateway(const char *unit, const char *filename, unsigned line,
 /* Address */
 int address_new(Network *network, Address **ret);
 void address_free(Address *address);
-int address_configure(Manager *manager, Address *address, Link *link);
+int address_configure(Address *address, Link *link, sd_rtnl_message_handler_t callback);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 #define _cleanup_address_free_ _cleanup_(address_freep)
@@ -167,7 +184,7 @@ int config_parse_address(const char *unit, const char *filename, unsigned line,
 int link_new(Manager *manager, struct udev_device *device, Link **ret);
 void link_free(Link *link);
 int link_add(Manager *manager, struct udev_device *device);
-int link_up(Manager *manager, Link *link);
+int link_configure(Link *link);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 #define _cleanup_link_free_ _cleanup_(link_freep)

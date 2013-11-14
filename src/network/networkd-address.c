@@ -55,9 +55,12 @@ void address_free(Address *address) {
         free(address);
 }
 
-int address_configure(Manager *manager, Address *address, Link *link) {
+int address_configure(Address *address, Link *link,
+                      sd_rtnl_message_handler_t callback) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
+
+        assert(link->manager);
 
         r = sd_rtnl_message_addr_new(RTM_NEWADDR, link->ifindex,
                         address->family, address->prefixlen,
@@ -97,13 +100,13 @@ int address_configure(Manager *manager, Address *address, Link *link) {
                 }
         }
 
-        r = sd_rtnl_call(manager->rtnl, req, 0, NULL);
+        r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0) {
-                log_error("Could not configure address: %s", strerror(-r));
-                return r != -EEXIST ? r : 0;
+                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                return r;
         }
 
-        log_info("Configured interface address");
+        link->rtnl_messages ++;
 
         return 0;
 }

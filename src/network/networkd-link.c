@@ -50,6 +50,7 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         memcpy(&link->mac.ether_addr_octet[0], ether_aton(mac), ETH_ALEN);
         link->ifindex = ifindex;
         link->manager = manager;
+        link->state = _LINK_STATE_INVALID;
 
         r = hashmap_put(manager->links, &ifindex, link);
         if (r < 0)
@@ -103,9 +104,168 @@ int link_add(Manager *m, struct udev_device *device) {
         return 0;
 }
 
-int link_up(Manager *manager, Link *link) {
+static int link_enter_configured(Link *link) {
+        log_info("Link configured successfully.");
+
+        link->state = LINK_STATE_CONFIGURED;
+
+        return 0;
+}
+
+static int link_enter_failed(Link *link) {
+        log_warning("Could not configure link.");
+
+        link->state = LINK_STATE_FAILED;
+
+        return 0;
+}
+
+static bool link_is_up(Link *link) {
+        return link->flags & IFF_UP;
+}
+
+static int link_enter_routes_set(Link *link) {
+        log_info("Routes set for link %d", link->ifindex);
+
+        if (link_is_up(link))
+                return link_enter_configured(link);
+
+        link->state = LINK_STATE_ROUTES_SET;
+
+        return 0;
+}
+
+static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(link->rtnl_messages > 0);
+        assert(link->state == LINK_STATE_SET_ROUTES || link->state == LINK_STATE_FAILED);
+
+        link->rtnl_messages --;
+
+        if (link->state == LINK_STATE_FAILED)
+                return 1;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_warning("Could not set route on interface %d: %s",
+                            link->ifindex, strerror(-r));
+                return link_enter_failed(link);
+        }
+
+        if (link->rtnl_messages == 0)
+                return link_enter_routes_set(link);
+
+        return 1;
+}
+
+static int link_enter_set_routes(Link *link) {
+        Route *route;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->rtnl_messages == 0);
+        assert(link->state == LINK_STATE_ADDRESSES_SET);
+
+        link->state = LINK_STATE_SET_ROUTES;
+
+        if (!link->network->routes)
+                return link_enter_routes_set(link);
+
+        LIST_FOREACH(routes, route, link->network->routes) {
+                r = route_configure(route, link, &route_handler);
+                if (r < 0)
+                        link_enter_failed(link);
+        }
+
+        return 0;
+}
+
+static int link_enter_addresses_set(Link *link) {
+        log_info("Addresses set for link %d", link->ifindex);
+
+        link->state = LINK_STATE_ADDRESSES_SET;
+
+        return link_enter_set_routes(link);
+}
+
+static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(link->rtnl_messages > 0);
+        assert(link->state == LINK_STATE_SET_ADDRESSES || link->state == LINK_STATE_FAILED);
+
+        link->rtnl_messages --;
+
+        if (link->state == LINK_STATE_FAILED)
+                return 1;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0 && r != -EEXIST) {
+                log_warning("Could not set address on interface %d: %s",
+                            link->ifindex, strerror(-r));
+                link_enter_failed(link);
+        }
+
+        if (link->rtnl_messages == 0)
+                link_enter_addresses_set(link);
+
+        return 1;
+}
+
+static int link_enter_set_addresses(Link *link) {
+        Address *address;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->rtnl_messages == 0);
+
+        if (!link->network->addresses)
+                return link_enter_addresses_set(link);
+
+        link->state = LINK_STATE_SET_ADDRESSES;
+
+        LIST_FOREACH(addresses, address, link->network->addresses) {
+                r = address_configure(address, link, &address_handler);
+                if (r < 0)
+                        link_enter_failed(link);
+        }
+
+        return 0;
+}
+
+static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0) {
+                log_warning("Could not bring up interface %d: %s",
+                            link->ifindex, strerror(-r));
+                return link_enter_failed(link);
+        }
+
+        link->flags |= IFF_UP;
+
+        log_info("Link is UP.");
+
+        if (link->state == LINK_STATE_ROUTES_SET)
+                return link_enter_configured(link);
+
+        return 1;
+}
+
+static int link_up(Link *link) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
 
         r = sd_rtnl_message_link_new(RTM_NEWLINK, link->ifindex, 0, IFF_UP, &req);
         if (r < 0) {
@@ -113,13 +273,25 @@ int link_up(Manager *manager, Link *link) {
                 return r;
         }
 
-        r = sd_rtnl_call(manager->rtnl, req, 0, NULL);
+        r = sd_rtnl_call_async(link->manager->rtnl, req, link_handler, link, 0, NULL);
         if (r < 0) {
-                log_error("Could not UP link: %s", strerror(-r));
+                log_error("Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
 
-        log_info("Link is UP");
+        return 0;
+}
+
+int link_configure(Link *link) {
+        int r;
+
+        r = link_up(link);
+        if (r < 0)
+                return link_enter_failed(link);
+
+        r = link_enter_set_addresses(link);
+        if (r < 0)
+                return link_enter_failed(link);
 
         return 0;
 }

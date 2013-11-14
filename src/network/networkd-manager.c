@@ -208,3 +208,13 @@ int manager_udev_listen(Manager *m) {
 
         return 0;
 }
+
+int manager_rtnl_listen(Manager *m) {
+        int r;
+
+        r = sd_rtnl_attach_event(m->rtnl, m->event, 0);
+        if (r < 0)
+                return r;
+
+        return 0;
+}

@@ -71,8 +71,9 @@ int main(void) {
 
         test_link(loopback);
 
-        assert(manager_udev_enumerate_links(manager) >= 0);
         assert(manager_udev_listen(manager) >= 0);
+        assert(manager_udev_enumerate_links(manager) >= 0);
+        assert(manager_rtnl_listen(manager) >= 0);
 
         udev_device_unref(loopback);
         udev_unref(udev);

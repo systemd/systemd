@@ -157,8 +157,6 @@ int network_get(Manager *manager, struct udev_device *device, Network **ret) {
 }
 
 int network_apply(Manager *manager, Network *network, Link *link) {
-        Address *address;
-        Route *route;
         int r;
 
         log_info("Network '%s' being applied to link '%u'",
@@ -166,21 +164,9 @@ int network_apply(Manager *manager, Network *network, Link *link) {
 
         link->network = network;
 
-        LIST_FOREACH(addresses, address, network->addresses) {
-                r = address_configure(manager, address, link);
-                if (r < 0)
-                        return r;
-        }
-
-        r = link_up(manager, link);
+        r = link_configure(link);
         if (r < 0)
                 return r;
-
-        LIST_FOREACH(routes, route, network->routes) {
-                r = route_configure(manager, route, link);
-                if (r < 0)
-                        return r;
-        }
 
         return 0;
 }

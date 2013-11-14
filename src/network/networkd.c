@@ -50,6 +50,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return EXIT_FAILURE;
 
+        r = manager_rtnl_listen(m);
+        if (r < 0)
+                return EXIT_FAILURE;
+
         r = sd_event_loop(m->event);
         if (r < 0)
                 return EXIT_FAILURE;

@@ -54,12 +54,14 @@ void route_free(Route *route) {
         free(route);
 }
 
-int route_configure(Manager *manager, Route *route, Link *link) {
+int route_configure(Route *route, Link *link,
+                    sd_rtnl_message_handler_t callback) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
-        assert(manager);
         assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
         assert(link->ifindex > 0);
         assert(route->family == AF_INET || route->family == AF_INET6);
 
@@ -83,13 +85,13 @@ int route_configure(Manager *manager, Route *route, Link *link) {
                 return r;
         }
 
-        r = sd_rtnl_call(manager->rtnl, req, 0, NULL);
+        r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0) {
-                log_error("Could not configure route: %s", strerror(-r));
+                log_error("Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
 
-        log_info("Configured route");
+        link->rtnl_messages ++;
 
         return 0;
 }
