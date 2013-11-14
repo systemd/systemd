@@ -1519,6 +1519,22 @@ static void service_set_state(Service *s, ServiceState state) {
         if (state == SERVICE_EXITED && UNIT(s)->manager->n_reloading <= 0)
                 unit_destroy_cgroup(UNIT(s));
 
+        /* For remain_after_exit services, let's see if we can "release" the
+         * hold on the console, since unit_notify() only does that in case of
+         * change of state */
+        if (state == SERVICE_EXITED && s->remain_after_exit &&
+            UNIT(s)->manager->n_on_console > 0) {
+                ExecContext *ec = unit_get_exec_context(UNIT(s));
+                if (ec && exec_context_may_touch_console(ec)) {
+                        Manager *m = UNIT(s)->manager;
+
+                        m->n_on_console --;
+                        if (m->n_on_console == 0)
+                                /* unset no_console_output flag, since the console is free */
+                                m->no_console_output = false;
+                }
+        }
+
         if (old_state != state)
                 log_debug_unit(UNIT(s)->id,
                                "%s changed %s -> %s", UNIT(s)->id,

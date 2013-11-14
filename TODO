@@ -21,8 +21,6 @@ Bugfixes:
 
   Cannot add dependency job for unit display-manager.service, ignoring: Unit display-manager.service failed to load: No such file or directory. See system logs and 'systemctl status display-manager.service' for details.
 
-* Substract units in SERVICE_EXITED substate from n_on_console.
-
 Fedora 20:
 
 * external: ps should gain colums for slice and machine
