@@ -24,6 +24,7 @@
 
 #include <inttypes.h>
 
+#include "sd-event.h"
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -49,8 +50,15 @@ int sd_rtnl_call_async_cancel(sd_rtnl *nl, uint32_t serial);
 int sd_rtnl_call(sd_rtnl *nl, sd_rtnl_message *message, uint64_t timeout,
                  sd_rtnl_message **reply);
 
+
+int sd_rtnl_get_events(sd_rtnl *nl);
+int sd_rtnl_get_timeout(sd_rtnl *nl, uint64_t *timeout);
 int sd_rtnl_process(sd_rtnl *nl, sd_rtnl_message **ret);
 int sd_rtnl_wait(sd_rtnl *nl, uint64_t timeout);
+int sd_rtnl_flush(sd_rtnl *nl);
+
+int sd_rtnl_attach_event(sd_rtnl *nl, sd_event *e, int priority);
+int sd_rtnl_detach_event(sd_rtnl *nl);
 
 /* messages */
 int sd_rtnl_message_link_new(uint16_t msg_type, int index, unsigned int type,

@@ -646,6 +646,7 @@ test_rtnl_SOURCES = \
 
 test_rtnl_LDADD = \
 	libsystemd-rtnl.la \
+	libsystemd-bus.la \
 	libsystemd-shared.la
 
 tests += test-rtnl

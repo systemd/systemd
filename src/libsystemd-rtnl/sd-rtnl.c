@@ -344,18 +344,44 @@ static usec_t calc_elapse(uint64_t usec) {
         return now(CLOCK_MONOTONIC) + usec;
 }
 
-static int rtnl_poll(sd_rtnl *nl, uint64_t timeout_usec) {
+static int rtnl_poll(sd_rtnl *rtnl, bool need_more, uint64_t timeout_usec) {
         struct pollfd p[1] = {};
         struct timespec ts;
-        int r;
+        usec_t m = (usec_t) -1;
+        int r, e;
 
-        assert(nl);
+        assert(rtnl);
 
-        p[0].fd = nl->fd;
-        p[0].events = POLLIN;
+        e = sd_rtnl_get_events(rtnl);
+        if (e < 0)
+                return e;
 
-        r = ppoll(p, 1, timeout_usec == (uint64_t) -1 ? NULL :
-                        timespec_store(&ts, timeout_usec), NULL);
+        if (need_more)
+                /* Caller wants more data, and doesn't care about
+                 * what's been read or any other timeouts. */
+                return e |= POLLIN;
+        else {
+                usec_t until;
+                /* Caller wants to process if there is something to
+                 * process, but doesn't care otherwise */
+
+                r = sd_rtnl_get_timeout(rtnl, &until);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        usec_t nw;
+                        nw = now(CLOCK_MONOTONIC);
+                        m = until > nw ? until - nw : 0;
+                }
+        }
+
+        if (timeout_usec != (uint64_t) -1 && (m == (uint64_t) -1 || timeout_usec < m))
+                m = timeout_usec;
+
+        p[0].fd = rtnl->fd;
+        p[0].events = e;
+
+        r = ppoll(p, 1, m == (uint64_t) -1 ? NULL : timespec_store(&ts, m), NULL);
         if (r < 0)
                 return -errno;
 
@@ -369,7 +395,7 @@ int sd_rtnl_wait(sd_rtnl *nl, uint64_t timeout_usec) {
         if (nl->rqueue_size > 0)
                 return 0;
 
-        return rtnl_poll(nl, timeout_usec);
+        return rtnl_poll(nl, false, timeout_usec);
 }
 
 static int timeout_compare(const void *a, const void *b) {
@@ -552,7 +578,7 @@ int sd_rtnl_call(sd_rtnl *nl,
                 } else
                         left = (uint64_t) -1;
 
-                r = rtnl_poll(nl, left);
+                r = rtnl_poll(nl, true, left);
                 if (r < 0)
                         return r;
 
@@ -560,4 +586,201 @@ int sd_rtnl_call(sd_rtnl *nl,
                 if (r < 0)
                         return r;
         }
+}
+
+int sd_rtnl_flush(sd_rtnl *rtnl) {
+        int r;
+
+        assert_return(rtnl, -EINVAL);
+        assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
+
+        if (rtnl->wqueue_size <= 0)
+                return 0;
+
+        for (;;) {
+                r = dispatch_wqueue(rtnl);
+                if (r < 0)
+                        return r;
+
+                if (rtnl->wqueue_size <= 0)
+                        return 0;
+
+                r = rtnl_poll(rtnl, false, (uint64_t) -1);
+                if (r < 0)
+                        return r;
+        }
+}
+
+int sd_rtnl_get_events(sd_rtnl *rtnl) {
+        int flags = 0;
+
+        assert_return(rtnl, -EINVAL);
+        assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
+
+        if (rtnl->rqueue_size <= 0)
+                flags |= POLLIN;
+        if (rtnl->wqueue_size > 0)
+                flags |= POLLOUT;
+
+        return flags;
+}
+
+int sd_rtnl_get_timeout(sd_rtnl *rtnl, uint64_t *timeout_usec) {
+        struct reply_callback *c;
+
+        assert_return(rtnl, -EINVAL);
+        assert_return(timeout_usec, -EINVAL);
+        assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
+
+        if (rtnl->rqueue_size > 0) {
+                *timeout_usec = 0;
+                return 1;
+        }
+
+        c = prioq_peek(rtnl->reply_callbacks_prioq);
+        if (!c) {
+                *timeout_usec = (uint64_t) -1;
+                return 0;
+        }
+
+        *timeout_usec = c->timeout;
+
+        return 1;
+}
+
+static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_rtnl *rtnl = userdata;
+        int r;
+
+        assert(rtnl);
+
+        r = sd_rtnl_process(rtnl, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+        sd_rtnl *rtnl = userdata;
+        int r;
+
+        assert(rtnl);
+
+        r = sd_rtnl_process(rtnl, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int prepare_callback(sd_event_source *s, void *userdata) {
+        sd_rtnl *rtnl = userdata;
+        int r, e;
+        usec_t until;
+
+        assert(s);
+        assert(rtnl);
+
+        e = sd_rtnl_get_events(rtnl);
+        if (e < 0)
+                return e;
+
+        r = sd_event_source_set_io_events(rtnl->io_event_source, e);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_get_timeout(rtnl, &until);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                int j;
+
+                j = sd_event_source_set_time(rtnl->time_event_source, until);
+                if (j < 0)
+                        return j;
+        }
+
+        r = sd_event_source_set_enabled(rtnl->time_event_source, r > 0);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int quit_callback(sd_event_source *event, void *userdata) {
+        sd_rtnl *rtnl = userdata;
+
+        assert(event);
+
+        sd_rtnl_flush(rtnl);
+
+        return 1;
+}
+
+int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
+        int r;
+
+        assert_return(rtnl, -EINVAL);
+        assert_return(!rtnl->event, -EBUSY);
+
+        assert(!rtnl->io_event_source);
+        assert(!rtnl->time_event_source);
+
+        if (event)
+                rtnl->event = sd_event_ref(event);
+        else {
+                r = sd_event_default(&rtnl->event);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_event_add_io(rtnl->event, rtnl->fd, 0, io_callback, rtnl, &rtnl->io_event_source);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(rtnl->io_event_source, priority);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_prepare(rtnl->io_event_source, prepare_callback);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_add_monotonic(rtnl->event, 0, 0, time_callback, rtnl, &rtnl->time_event_source);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(rtnl->time_event_source, priority);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_add_quit(rtnl->event, quit_callback, rtnl, &rtnl->quit_event_source);
+        if (r < 0)
+                goto fail;
+
+        return 0;
+
+fail:
+        sd_rtnl_detach_event(rtnl);
+        return r;
+}
+
+int sd_rtnl_detach_event(sd_rtnl *rtnl) {
+        assert_return(rtnl, -EINVAL);
+        assert_return(rtnl->event, -ENXIO);
+
+        if (rtnl->io_event_source)
+                rtnl->io_event_source = sd_event_source_unref(rtnl->io_event_source);
+
+        if (rtnl->time_event_source)
+                rtnl->time_event_source = sd_event_source_unref(rtnl->time_event_source);
+
+        if (rtnl->quit_event_source)
+                rtnl->quit_event_source = sd_event_source_unref(rtnl->quit_event_source);
+
+        if (rtnl->event)
+                rtnl->event = sd_event_unref(rtnl->event);
+
+        return 0;
 }
