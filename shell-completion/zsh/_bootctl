@@ -1,0 +1,25 @@
+#compdef bootctl
+
+(( $+functions[_bootctl_command] )) || _bootctl_command()
+{
+    local -a _bootctl_cmds
+    _bootctl_cmds=(
+        "status:Show current firmware and boot settings"
+    )
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'bootctl command' _bootctl_cmds || compadd "$@"
+    else
+        local curcontext="$curcontext"
+        cmd="${${_bootctl_cmds[(r)$words[1]:*]%%:*}}"
+        if (( $+functions[_bootctl_$cmd] )); then
+            _bootctl_$cmd
+        else
+            _message "no more options"
+        fi
+    fi
+}
+
+_arguments \
+    {-h,--help}'[Prints a short help text and exits.]' \
+    '--version[Prints a short version string and exits.]' \
+    '*::bootctl command:_bootctl_command'
