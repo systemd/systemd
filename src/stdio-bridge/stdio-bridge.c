@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <sys/poll.h>
 #include <stddef.h>
+#include <getopt.h>
 
 #include "log.h"
 #include "util.h"
@@ -37,25 +38,99 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
+#include "build.h"
+
+#define DEFAULT_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
+
+const char *arg_bus_path = DEFAULT_BUS_PATH;
+
+static int help(void) {
+
+        printf("%s [OPTIONS...]\n\n"
+               "STDIO or socket-activatable proxy to a given DBus endpoint.\n\n"
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n"
+               "     --bus-path=PATH     Path to the kernel bus (default: %s)\n",
+               program_invocation_short_name, DEFAULT_BUS_PATH);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+
+        enum {
+                ARG_VERSION = 0x100,
+        };
+
+        static const struct option options[] = {
+                { "help",            no_argument,       NULL, 'h'     },
+                { "bus-path",        required_argument, NULL, 'p'     },
+                { NULL,              0,                 NULL, 0       }
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        while ((c = getopt_long(argc, argv, "hsup:", options, NULL)) >= 0) {
+
+                switch (c) {
+
+                case 'h':
+                        help();
+                        return 0;
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
+                        return 0;
+
+                case '?':
+                        return -EINVAL;
+
+                case 'p':
+                        arg_bus_path = optarg;
+                        break;
+
+                default:
+                        log_error("Unknown option code %c", c);
+                        return -EINVAL;
+                }
+        }
+
+        return 1;
+}
 
 int main(int argc, char *argv[]) {
         _cleanup_bus_unref_ sd_bus *a = NULL, *b = NULL;
         sd_id128_t server_id;
         bool is_unix;
-        int r;
-
-        if (argc > 1) {
-                log_error("This program takes no argument.");
-                return EXIT_FAILURE;
-        }
+        int r, in_fd, out_fd;
 
         log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         log_parse_environment();
         log_open();
 
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                goto finish;
+
+        r = sd_listen_fds(0);
+        if (r == 0) {
+                in_fd = STDIN_FILENO;
+                out_fd = STDOUT_FILENO;
+        } else if (r == 1) {
+                in_fd = SD_LISTEN_FDS_START;
+                out_fd = SD_LISTEN_FDS_START;
+        } else {
+                log_error("Illegal number of file descriptors passed\n");
+                goto finish;
+        }
+
         is_unix =
-                sd_is_socket(STDIN_FILENO, AF_UNIX, 0, 0) > 0 &&
-                sd_is_socket(STDOUT_FILENO, AF_UNIX, 0, 0) > 0;
+                sd_is_socket(in_fd, AF_UNIX, 0, 0) > 0 &&
+                sd_is_socket(out_fd, AF_UNIX, 0, 0) > 0;
 
         r = sd_bus_new(&a);
         if (r < 0) {
@@ -63,7 +138,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_bus_set_address(a, "unix:path=/run/dbus/system_bus_socket");
+        r = sd_bus_set_address(a, arg_bus_path);
         if (r < 0) {
                 log_error("Failed to set address to connect to: %s", strerror(-r));
                 goto finish;
@@ -93,7 +168,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_bus_set_fd(b, STDIN_FILENO, STDOUT_FILENO);
+        r = sd_bus_set_fd(b, in_fd, out_fd);
         if (r < 0) {
                 log_error("Failed to set fds: %s", strerror(-r));
                 goto finish;
@@ -131,7 +206,7 @@ int main(int argc, char *argv[]) {
 
                 r = sd_bus_process(a, &m);
                 if (r < 0) {
-                        log_error("Failed to process bus: %s", strerror(-r));
+                        log_error("Failed to process bus a: %s", strerror(-r));
                         goto finish;
                 }
 
@@ -148,7 +223,10 @@ int main(int argc, char *argv[]) {
 
                 r = sd_bus_process(b, &m);
                 if (r < 0) {
-                        log_error("Failed to process bus: %s", strerror(-r));
+                        /* treat 'connection reset by peer' as clean exit condition */
+                        if (r == -ECONNRESET)
+                                r = 0;
+
                         goto finish;
                 }
 
