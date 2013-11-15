@@ -180,43 +180,82 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
         if (bus_pid_changed(bus))
                 return -ECHILD;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "ListNames",
-                        NULL,
-                        &reply1,
-                        NULL);
-        if (r < 0)
-                return r;
+        if (bus->is_kernel) {
+                _cleanup_free_ struct kdbus_cmd_names *names = NULL;
+                struct kdbus_cmd_name *name;
+                size_t size;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "ListActivatableNames",
-                        NULL,
-                        &reply2,
-                        NULL);
-        if (r < 0)
-                return r;
+                /* assume 8k size first. If that doesn't suffice, kdbus will tell us
+                 * how big the buffer needs to be.  */
+                size = 8192;
 
-        r = bus_message_read_strv_extend(reply1, &x);
-        if (r < 0) {
-                strv_free(x);
-                return r;
+                for(;;) {
+                        names = realloc(names, size);
+                        if (!names)
+                                return -ENOMEM;
+
+                        names->size = size;
+
+                        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_LIST, names);
+                        if (r < 0) {
+                                if (errno == ENOBUFS && size != names->size) {
+                                        size = names->size;
+                                        continue;
+                                }
+
+                                return -errno;
+                        }
+
+                        break;
+                }
+
+                KDBUS_PART_FOREACH(name, names, names) {
+                        r = strv_extend(&x, name->name);
+                        if (r < 0)
+                                return -ENOMEM;
+                }
+
+                *l = x;
+        } else {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "ListNames",
+                                NULL,
+                                &reply1,
+                                NULL);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "ListActivatableNames",
+                                NULL,
+                                &reply2,
+                                NULL);
+                if (r < 0)
+                        return r;
+
+                r = bus_message_read_strv_extend(reply1, &x);
+                if (r < 0) {
+                        strv_free(x);
+                        return r;
+                }
+
+                r = bus_message_read_strv_extend(reply2, &x);
+                if (r < 0) {
+                        strv_free(x);
+                        return r;
+                }
+
+                *l = strv_uniq(x);
         }
 
-        r = bus_message_read_strv_extend(reply2, &x);
-        if (r < 0) {
-                strv_free(x);
-                return r;
-        }
-
-        *l = strv_uniq(x);
         return 0;
 }
 
