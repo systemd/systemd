@@ -646,7 +646,8 @@ test_rtnl_SOURCES = \
 
 test_rtnl_LDADD = \
 	libsystemd-rtnl.la \
-	libsystemd-bus.la \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
 	libsystemd-shared.la
 
 tests += test-rtnl
@@ -3838,7 +3839,8 @@ nodist_systemd_networkd_SOURCES = \
 
 systemd_networkd_LDADD = \
 	libudev-internal.la \
-	libsystemd-bus.la \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
 	libsystemd-rtnl.la \
 	libsystemd-shared.la
 
@@ -3860,7 +3862,8 @@ test_network_SOURCES = \
 
 test_network_LDADD = \
 	libudev-internal.la \
-	libsystemd-bus.la \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
 	libsystemd-rtnl.la \
 	libsystemd-shared.la
 
