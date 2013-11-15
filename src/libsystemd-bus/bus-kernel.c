@@ -409,7 +409,7 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
         off = (uint8_t *)k - (uint8_t *)bus->kdbus_buffer;
         ioctl(bus->input_fd, KDBUS_CMD_MSG_RELEASE, &off);
 
-        KDBUS_ITEM_FOREACH(d, k) {
+        KDBUS_PART_FOREACH(d, k, items) {
 
                 if (d->type == KDBUS_MSG_FDS)
                         close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
@@ -435,7 +435,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (k->payload_type != KDBUS_PAYLOAD_DBUS1)
                 return 0;
 
-        KDBUS_ITEM_FOREACH(d, k) {
+        KDBUS_PART_FOREACH(d, k, items) {
                 size_t l;
 
                 l = d->size - offsetof(struct kdbus_item, data);
@@ -489,7 +489,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (r < 0)
                 return r;
 
-        KDBUS_ITEM_FOREACH(d, k) {
+        KDBUS_PART_FOREACH(d, k, items) {
                 size_t l;
 
                 l = d->size - offsetof(struct kdbus_item, data);
@@ -685,13 +685,13 @@ int bus_kernel_create(const char *name, char **s) {
 
         l = strlen(name);
         make = alloca0(offsetof(struct kdbus_cmd_bus_make, items) +
-                       KDBUS_ITEM_HEADER_SIZE + sizeof(uint64_t) +
-                       KDBUS_ITEM_HEADER_SIZE + DECIMAL_STR_MAX(uid_t) + 1 + l + 1);
+                       KDBUS_PART_HEADER_SIZE + sizeof(uint64_t) +
+                       KDBUS_PART_HEADER_SIZE + DECIMAL_STR_MAX(uid_t) + 1 + l + 1);
 
         n = make->items;
         n->type = KDBUS_MAKE_NAME;
         sprintf(n->str, "%lu-%s", (unsigned long) getuid(), name);
-        n->size = KDBUS_ITEM_HEADER_SIZE + strlen(n->str) + 1;
+        n->size = KDBUS_PART_HEADER_SIZE + strlen(n->str) + 1;
 
         make->size = offsetof(struct kdbus_cmd_bus_make, items) + n->size;
         make->flags = KDBUS_MAKE_POLICY_OPEN;

@@ -507,7 +507,7 @@ int bus_add_match_internal(
                         item->type = KDBUS_MATCH_BLOOM;
                         memcpy(item->data64, bloom, BLOOM_SIZE);
 
-                        item = KDBUS_ITEM_NEXT(item);
+                        item = KDBUS_PART_NEXT(item);
                 }
 
                 if (sender) {

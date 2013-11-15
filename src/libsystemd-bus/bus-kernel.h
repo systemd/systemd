@@ -23,16 +23,16 @@
 
 #include "sd-bus.h"
 
-#define KDBUS_ITEM_NEXT(item) \
+#define KDBUS_PART_NEXT(item) \
         (typeof(item))(((uint8_t *)item) + ALIGN8((item)->size))
 
-#define KDBUS_ITEM_FOREACH(item, head)                                          \
-        for (item = (head)->items;                                              \
-             (uint8_t *)(item) < (uint8_t *)(head) + (head)->size;              \
-             item = KDBUS_ITEM_NEXT(item))
+#define KDBUS_PART_FOREACH(part, head, first)                           \
+        for (part = (head)->first;                                      \
+             (uint8_t *)(part) < (uint8_t *)(head) + (head)->size;      \
+             part = KDBUS_PART_NEXT(part))
 
-#define KDBUS_ITEM_HEADER_SIZE offsetof(struct kdbus_item, data)
-#define KDBUS_ITEM_SIZE(s) ALIGN8((s) + KDBUS_ITEM_HEADER_SIZE)
+#define KDBUS_PART_HEADER_SIZE offsetof(struct kdbus_item, data)
+#define KDBUS_ITEM_SIZE(s) ALIGN8((s) + KDBUS_PART_HEADER_SIZE)
 
 #define MEMFD_CACHE_MAX 32
 
