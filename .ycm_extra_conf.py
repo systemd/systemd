@@ -11,6 +11,8 @@ flags = [
 '/usr/include/dbus-1.0',
 '-I',
 './src/shared',
+'-I',
+'./src/systemd',
 '-Wall',
 '-Wextra',
 '-Werror',
