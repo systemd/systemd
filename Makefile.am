@@ -4712,16 +4712,13 @@ check-api-unused: defined undefined exported
 
 define generate-sym-test
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_at)echo '#include <stdio.h>' > $@
-	$(AM_V_at)for file in $(notdir $(filter %.h, $^)); do \
-		echo "#include \"$$file\""; \
-	done >> $@
-	$(AM_V_at)echo 'void* functions[] = {' >> $@
-	$(AM_V_GEN)sed -r -n 's/^( +[a-zA-Z0-9_]+);/\1,/p' $< >> $@
-	$(AM_V_at)echo '};' >> $@
-	$(AM_V_at)echo 'int main(void) {' >> $@
-	$(AM_V_at)echo ' unsigned i; for (i=0;i<sizeof(functions)/sizeof(void*);i++) printf("%p\n", functions[i]);' >> $@
-	$(AM_V_at)echo 'return 0; }' >> $@
+	$(AM_V_at)printf '#include <stdio.h>\n' > $@
+	$(AM_V_at)printf '#include "%s"\n' $(notdir $(filter %.h, $^)) >> $@
+	$(AM_V_at)printf 'void* functions[] = {\n' >> $@
+	$(AM_V_GEN)sed -r -n 's/^ +([a-zA-Z0-9_]+);/\1,/p' $< >> $@
+	$(AM_V_at)printf '};\nint main(void) {\n' >> $@
+	$(AM_V_at)printf 'unsigned i; for (i=0;i<sizeof(functions)/sizeof(void*);i++) printf("%%p\\n", functions[i]);\n' >> $@
+	$(AM_V_at)printf 'return 0; }\n' >> $@
 endef
 
 test-libsystemd-bus-sym.c: \
