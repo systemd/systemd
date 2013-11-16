@@ -771,7 +771,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
 
         if (s->reuseport) {
                 int b = s->reuseport;
-                if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &b, sizeof(b)))
+                if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &b, sizeof(b)) < 0)
                         log_warning_unit(UNIT(s)->id, "SO_REUSEPORT failed: %m");
         }
 
