@@ -1475,7 +1475,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 socket_set_state(s, SOCKET_RUNNING);
         } else {
-                char *prefix, *instance = NULL, *name;
+                _cleanup_free_ char *prefix = NULL, *instance = NULL, *name = NULL;
                 Service *service;
 
                 if (s->n_connections >= s->max_connections) {
@@ -1503,14 +1503,11 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 prefix = unit_name_to_prefix(UNIT(s)->id);
                 if (!prefix) {
-                        free(instance);
                         r = -ENOMEM;
                         goto fail;
                 }
 
                 name = unit_name_build(prefix, instance, ".service");
-                free(prefix);
-                free(instance);
 
                 if (!name) {
                         r = -ENOMEM;
@@ -1518,10 +1515,8 @@ static void socket_enter_running(Socket *s, int cfd) {
                 }
 
                 r = unit_add_name(UNIT_DEREF(s->service), name);
-                if (r < 0) {
-                        free(name);
+                if (r < 0)
                         goto fail;
-                }
 
                 service = SERVICE(UNIT_DEREF(s->service));
                 unit_ref_unset(&s->service);
@@ -1530,7 +1525,6 @@ static void socket_enter_running(Socket *s, int cfd) {
                 UNIT(service)->no_gc = false;
 
                 unit_choose_id(UNIT(service), name);
-                free(name);
 
                 r = service_set_socket_fd(service, cfd, s);
                 if (r < 0)
