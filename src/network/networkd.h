@@ -64,6 +64,8 @@ struct Address {
         unsigned char prefixlen;
         char *label;
 
+        struct in_addr netmask;
+
         union {
                 struct in_addr in;
                 struct in6_addr in6;
@@ -89,6 +91,7 @@ struct Link {
         Manager *manager;
 
         int ifindex;
+        struct ether_addr mac;
 
         unsigned flags;
 

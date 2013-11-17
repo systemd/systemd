@@ -78,8 +78,7 @@ int address_configure(Manager *manager, Address *address, Link *link) {
         if (address->family == AF_INET) {
                 struct in_addr broadcast;
 
-                broadcast.s_addr = address->in_addr.in.s_addr |
-                                   htonl(0xfffffffflu >> address->prefixlen);
+                broadcast.s_addr = address->in_addr.in.s_addr | address->netmask.s_addr;
 
                 r = sd_rtnl_message_append(req, IFA_BROADCAST, &broadcast);
                 if (r < 0) {
@@ -147,6 +146,8 @@ int config_parse_address(const char *unit,
                 }
 
                 n->prefixlen = (unsigned char) i;
+                n->netmask.s_addr = htonl(0xfffffffflu >> n->prefixlen);
+
                 address = strndup(rvalue, e - rvalue);
                 if (!address)
                         return log_oom();

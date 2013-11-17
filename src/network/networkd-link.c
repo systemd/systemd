@@ -29,6 +29,7 @@
 int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         _cleanup_link_free_ Link *link = NULL;
         uint64_t ifindex;
+        const char *mac;
         int r;
 
         assert(device);
@@ -42,6 +43,11 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         if (ifindex <= 0)
                 return -EINVAL;
 
+        mac = udev_device_get_sysattr_value(device, "address");
+        if (!mac)
+                return -EINVAL;
+
+        memcpy(&link->mac.ether_addr_octet[0], ether_aton(mac), ETH_ALEN);
         link->ifindex = ifindex;
         link->manager = manager;
 
