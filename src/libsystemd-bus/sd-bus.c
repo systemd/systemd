@@ -264,6 +264,24 @@ _public_ int sd_bus_negotiate_fds(sd_bus *bus, int b) {
         return 0;
 }
 
+_public_ int sd_bus_negotiate_attach_creds(sd_bus *bus, int b) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CREDS, b);
+        return 0;
+}
+
+_public_ int sd_bus_negotiate_attach_names(sd_bus *bus, int b) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_NAMES, b);
+        return 0;
+}
+
 _public_ int sd_bus_negotiate_attach_comm(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);

@@ -237,8 +237,9 @@ enum {
 	KDBUS_HELLO_STARTER		=  1 <<  0,
 	KDBUS_HELLO_ACCEPT_FD		=  1 <<  1,
 
-	/* The following have an effect on directed messages only --
-	 * not for broadcasts */
+	/* subscription for metadata to attach */
+	KDBUS_HELLO_ATTACH_CREDS	=  1 <<  8,
+	KDBUS_HELLO_ATTACH_NAMES	=  1 <<  9,
 	KDBUS_HELLO_ATTACH_COMM		=  1 << 10,
 	KDBUS_HELLO_ATTACH_EXE		=  1 << 11,
 	KDBUS_HELLO_ATTACH_CMDLINE	=  1 << 12,
