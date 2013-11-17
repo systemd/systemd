@@ -1034,6 +1034,13 @@ keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*P75-A:pvr*
  KEYBOARD_KEY_a9=switchvideomode                        # switch display outputs
  KEYBOARD_KEY_d4=wlan                                   # RF Switch Off
 
+# Satellite U940
+keyboard:name:Toshiba*input*device:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSATELLITEU940:pvr*
+ KEYBOARD_KEY_13c=brightnessdown
+ KEYBOARD_KEY_13d=brightnessup
+ KEYBOARD_KEY_13e=switchvideomode
+ KEYBOARD_KEY_13f=f21                                   # Touchpad toggle
+
 ###########################################################
 # VIA
 ###########################################################
