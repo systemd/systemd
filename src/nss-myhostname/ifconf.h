@@ -1,9 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooifconfhfoo
-#define fooifconfhfoo
-
-#include <sys/socket.h>
+#pragma once
 
 /***
   This file is part of systemd.
@@ -27,6 +24,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 #include <assert.h>
+#include <sys/socket.h>
 
 struct address {
         unsigned char family;
@@ -68,6 +66,3 @@ static inline int address_compare(const void *_a, const void *_b) {
 
         return 0;
 }
-
-
-#endif

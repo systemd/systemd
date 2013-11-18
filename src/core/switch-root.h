@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooswitchroothfoo
-#define fooswitchroothfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -23,5 +22,3 @@
 ***/
 
 int switch_root(const char *switch_root);
-
-#endif

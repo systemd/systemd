@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foocapabilityhfoo
-#define foocapabilityhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -29,5 +28,3 @@ unsigned long cap_last_cap(void);
 int have_effective_cap(int value);
 int capability_bounding_set_drop(uint64_t drop, bool right_now);
 int capability_bounding_set_drop_usermode(uint64_t drop);
-
-#endif

@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foohwclockhfoo
-#define foohwclockhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -27,5 +26,3 @@ int hwclock_set_timezone(int *min);
 int hwclock_reset_timezone(void);
 int hwclock_get_time(struct tm *tm);
 int hwclock_set_time(const struct tm *tm);
-
-#endif

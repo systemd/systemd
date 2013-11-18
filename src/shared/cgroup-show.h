@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foocgroupshowhfoo
-#define foocgroupshowhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -32,5 +31,3 @@ int show_cgroup(const char *controller, const char *path, const char *prefix, un
 
 int show_cgroup_and_extra_by_spec(const char *spec, const char *prefix, unsigned n_columns, bool kernel_threads, const pid_t extra_pids[], unsigned n_extra_pids, OutputFlags flags);
 int show_cgroup_and_extra(const char *controller, const char *path, const char *prefix, unsigned n_columns, bool kernel_threads, const pid_t extra_pids[], unsigned n_extra_pids, OutputFlags flags);
-
-#endif

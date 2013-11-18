@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foospawnpolkitagenthfoo
-#define foospawnpolkitagenthfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -24,5 +23,3 @@
 
 int polkit_agent_open(void);
 void polkit_agent_close(void);
-
-#endif

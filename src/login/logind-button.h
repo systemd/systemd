@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologindbuttonhfoo
-#define foologindbuttonhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -45,5 +44,3 @@ void button_free(Button*b);
 int button_open(Button *b);
 int button_recheck(Button *b);
 int button_set_seat(Button *b, const char *sn);
-
-#endif

@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooconffileshfoo
-#define fooconffileshfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -28,5 +27,3 @@
 int conf_files_list(char ***strv, const char *suffix, const char *root, const char *dir, ...);
 int conf_files_list_strv(char ***strv, const char *suffix, const char *root, const char* const* dirs);
 int conf_files_list_nulstr(char ***strv, const char *suffix, const char *root, const char *dirs);
-
-#endif

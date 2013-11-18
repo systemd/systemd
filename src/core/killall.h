@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fookillallhfoo
-#define fookillallhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -23,5 +22,3 @@
 ***/
 
 void broadcast_signal(int sig, bool wait);
-
-#endif

@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooaudithfoo
-#define fooaudithfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -28,5 +27,3 @@
 
 int audit_session_from_pid(pid_t pid, uint32_t *id);
 int audit_loginuid_from_pid(pid_t pid, uid_t *uid);
-
-#endif

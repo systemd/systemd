@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologindinhibithfoo
-#define foologindinhibithfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -93,5 +92,3 @@ InhibitWhat inhibit_what_from_string(const char *s);
 
 const char *inhibit_mode_to_string(InhibitMode k);
 InhibitMode inhibit_mode_from_string(const char *s);
-
-#endif

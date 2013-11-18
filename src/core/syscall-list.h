@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foosyscalllisthfoo
-#define foosyscalllisthfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -40,5 +39,3 @@ const char *syscall_to_name(int id);
 int syscall_from_name(const char *name);
 
 int syscall_max(void);
-
-#endif
