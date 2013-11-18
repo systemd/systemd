@@ -42,6 +42,7 @@
 #include "set.h"
 #include "path-util.h"
 #include "utf8.h"
+#include "def.h"
 
 static bool arg_no_pager = false;
 static bool arg_ask_password = true;
@@ -437,15 +438,14 @@ static int nftw_cb(
 
 static int list_vconsole_keymaps(sd_bus *bus, char **args, unsigned n) {
         _cleanup_strv_free_ char **l = NULL;
+        const char *dir;
 
         keymaps = set_new(string_hash_func, string_compare_func);
         if (!keymaps)
                 return log_oom();
 
-        nftw("/usr/share/keymaps/", nftw_cb, 20, FTW_MOUNT|FTW_PHYS);
-        nftw("/usr/share/kbd/keymaps/", nftw_cb, 20, FTW_MOUNT|FTW_PHYS);
-        nftw("/usr/lib/kbd/keymaps/", nftw_cb, 20, FTW_MOUNT|FTW_PHYS);
-        nftw("/lib/kbd/keymaps/", nftw_cb, 20, FTW_MOUNT|FTW_PHYS);
+        NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS)
+                nftw(dir, nftw_cb, 20, FTW_MOUNT|FTW_PHYS);
 
         l = set_get_strv(keymaps);
         if (!l) {
