@@ -65,7 +65,6 @@
 #include "spawn-polkit-agent.h"
 #include "install.h"
 #include "logs-show.h"
-#include "path-util.h"
 #include "socket-util.h"
 #include "fileio.h"
 #include "bus-util.h"

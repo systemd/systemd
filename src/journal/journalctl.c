@@ -48,7 +48,6 @@
 #include "fileio.h"
 #include "build.h"
 #include "pager.h"
-#include "logs-show.h"
 #include "strv.h"
 #include "journal-internal.h"
 #include "journal-def.h"

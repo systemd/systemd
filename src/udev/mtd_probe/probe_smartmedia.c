@@ -26,7 +26,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include "mtd_probe.h"
 
 static const uint8_t cis_signature[] = {

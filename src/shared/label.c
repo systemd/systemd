@@ -20,7 +20,6 @@
 ***/
 
 #include <errno.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <malloc.h>
 #include <sys/socket.h>

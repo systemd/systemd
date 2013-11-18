@@ -30,7 +30,6 @@
 #include "log.h"
 #include "strv.h"
 #include "util.h"
-#include "strv.h"
 #include "hashmap.h"
 #include "path-util.h"
 #include "conf-files.h"

@@ -31,7 +31,6 @@
 #include <limits.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <inttypes.h>
 #include <stdlib.h>
 
 #include "ifconf.h"
