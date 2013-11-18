@@ -391,7 +391,7 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
 
 static int vconsole_write_data(Context *c) {
         int r;
-        char **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
 
         r = load_env_file("/etc/vconsole.conf", NULL, &l);
         if (r < 0 && r != -ENOENT)
@@ -403,10 +403,8 @@ static int vconsole_write_data(Context *c) {
                 char *s, **u;
 
                 s = strappend("KEYMAP=", c->vc_keymap);
-                if (!s) {
-                        strv_free(l);
+                if (!s)
                         return -ENOMEM;
-                }
 
                 u = strv_env_set(l, s);
                 free(s);
@@ -424,10 +422,8 @@ static int vconsole_write_data(Context *c) {
                 char *s, **u;
 
                 s = strappend("KEYMAP_TOGGLE=", c->vc_keymap_toggle);
-                if (!s) {
-                        strv_free(l);
+                if (!s)
                         return -ENOMEM;
-                }
 
                 u = strv_env_set(l, s);
                 free(s);
@@ -440,8 +436,6 @@ static int vconsole_write_data(Context *c) {
         }
 
         if (strv_isempty(l)) {
-                strv_free(l);
-
                 if (unlink("/etc/vconsole.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
@@ -449,14 +443,12 @@ static int vconsole_write_data(Context *c) {
         }
 
         r = write_env_file_label("/etc/vconsole.conf", l);
-        strv_free(l);
-
         return r;
 }
 
 static int write_data_x11(Context *c) {
-        FILE *f;
-        char *temp_path;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *temp_path = NULL;
         int r;
 
         if (isempty(c->x11_layout) &&
@@ -503,13 +495,9 @@ static int write_data_x11(Context *c) {
                 r = -errno;
                 unlink("/etc/X11/xorg.conf.d/00-keyboard.conf");
                 unlink(temp_path);
+                return r;
         } else
-                r = 0;
-
-        fclose(f);
-        free(temp_path);
-
-        return r;
+                return 0;
 }
 
 static int vconsole_reload(sd_bus *bus) {
@@ -591,7 +579,7 @@ static int vconsole_convert_to_x11(Context *c, sd_bus *bus) {
 
                 context_free_x11(c);
         } else {
-                FILE *f;
+                _cleanup_fclose_ FILE *f = NULL;
                 unsigned n = 0;
 
                 f = fopen(SYSTEMD_KBD_MODEL_MAP, "re");
@@ -599,22 +587,17 @@ static int vconsole_convert_to_x11(Context *c, sd_bus *bus) {
                         return -errno;
 
                 for (;;) {
-                        char **a;
+                        _cleanup_strv_free_ char **a = NULL;
                         int r;
 
                         r = read_next_mapping(f, &n, &a);
-                        if (r < 0) {
-                                fclose(f);
+                        if (r < 0)
                                 return r;
-                        }
-
                         if (r == 0)
                                 break;
 
-                        if (!streq(c->vc_keymap, a[0])) {
-                                strv_free(a);
+                        if (!streq(c->vc_keymap, a[0]))
                                 continue;
-                        }
 
                         if (!streq_ptr(c->x11_layout, strnulldash(a[1])) ||
                             !streq_ptr(c->x11_model, strnulldash(a[2])) ||
@@ -624,20 +607,14 @@ static int vconsole_convert_to_x11(Context *c, sd_bus *bus) {
                                 if (free_and_copy(&c->x11_layout, strnulldash(a[1])) < 0 ||
                                     free_and_copy(&c->x11_model, strnulldash(a[2])) < 0 ||
                                     free_and_copy(&c->x11_variant, strnulldash(a[3])) < 0 ||
-                                    free_and_copy(&c->x11_options, strnulldash(a[4])) < 0) {
-                                        strv_free(a);
-                                        fclose(f);
+                                    free_and_copy(&c->x11_options, strnulldash(a[4])) < 0)
                                         return -ENOMEM;
-                                }
 
                                 modified = true;
                         }
 
-                        strv_free(a);
                         break;
                 }
-
-                fclose(f);
         }
 
         if (modified) {
