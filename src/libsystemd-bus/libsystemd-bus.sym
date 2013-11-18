@@ -26,8 +26,8 @@ global:
         sd_bus_set_server;
         sd_bus_set_anonymous;
         sd_bus_negotiate_fds;
+        sd_bus_negotiate_attach_timestamp;
         sd_bus_negotiate_attach_creds;
-        sd_bus_negotiate_attach_names;
         sd_bus_negotiate_attach_comm;
         sd_bus_negotiate_attach_exe;
         sd_bus_negotiate_attach_cmdline;
