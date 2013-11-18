@@ -23,7 +23,7 @@
 
 static void test_link(struct udev_device *loopback) {
         _cleanup_manager_free_ Manager *manager = NULL;
-        _cleanup_link_free_ Link *link = NULL;
+        Link *link = NULL;
 
         manager_new(&manager);
 

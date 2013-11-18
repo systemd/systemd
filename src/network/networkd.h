@@ -101,7 +101,7 @@ typedef enum LinkState {
 struct Link {
         Manager *manager;
 
-        int ifindex;
+        uint64_t ifindex;
         struct ether_addr mac;
 
         unsigned flags;

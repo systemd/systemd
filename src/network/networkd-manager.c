@@ -73,11 +73,21 @@ int manager_new(Manager **ret) {
 }
 
 void manager_free(Manager *m) {
+        Network *network;
+        Link *link;
+
         udev_monitor_unref(m->udev_monitor);
         udev_unref(m->udev);
         sd_event_source_unref(m->udev_event_source);
         sd_event_unref(m->event);
+
+        while ((network = m->networks))
+                network_free(network);
+
+        while ((link = hashmap_first(m->links)))
+                link_free(link);
         hashmap_free(m->links);
+
         strv_free(m->network_dirs);
         sd_rtnl_unref(m->rtnl);
 

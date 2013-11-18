@@ -56,6 +56,8 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->filename)
                 return log_oom();
 
+        network->manager = manager;
+
         LIST_PREPEND(networks, manager->networks, network);
         network = NULL;
 

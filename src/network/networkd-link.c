@@ -28,7 +28,6 @@
 
 int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         _cleanup_link_free_ Link *link = NULL;
-        uint64_t ifindex;
         const char *mac;
         int r;
 
@@ -39,8 +38,8 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         if (!link)
                 return -ENOMEM;
 
-        ifindex = udev_device_get_ifindex(device);
-        if (ifindex <= 0)
+        link->ifindex = udev_device_get_ifindex(device);
+        if (link->ifindex <= 0)
                 return -EINVAL;
 
         mac = udev_device_get_sysattr_value(device, "address");
@@ -48,11 +47,10 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
                 return -EINVAL;
 
         memcpy(&link->mac.ether_addr_octet[0], ether_aton(mac), ETH_ALEN);
-        link->ifindex = ifindex;
         link->manager = manager;
         link->state = _LINK_STATE_INVALID;
 
-        r = hashmap_put(manager->links, &ifindex, link);
+        r = hashmap_put(manager->links, &link->ifindex, link);
         if (r < 0)
                 return r;
 
@@ -66,9 +64,9 @@ void link_free(Link *link) {
         if (!link)
                 return;
 
-        network_free(link->network);
+        assert(link->manager);
 
-        hashmap_remove(link->manager->links, link);
+        hashmap_remove(link->manager->links, &link->ifindex);
 
         free(link);
 }
@@ -125,7 +123,7 @@ static bool link_is_up(Link *link) {
 }
 
 static int link_enter_routes_set(Link *link) {
-        log_info("Routes set for link %d", link->ifindex);
+        log_info("Routes set for link %u", (unsigned)link->ifindex);
 
         if (link_is_up(link))
                 return link_enter_configured(link);
@@ -149,8 +147,8 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_warning("Could not set route on interface %d: %s",
-                            link->ifindex, strerror(-r));
+                log_warning("Could not set route on interface %u: %s",
+                            (unsigned)link->ifindex, strerror(-r));
                 return link_enter_failed(link);
         }
 
@@ -184,7 +182,7 @@ static int link_enter_set_routes(Link *link) {
 }
 
 static int link_enter_addresses_set(Link *link) {
-        log_info("Addresses set for link %d", link->ifindex);
+        log_info("Addresses set for link %u", (unsigned)link->ifindex);
 
         link->state = LINK_STATE_ADDRESSES_SET;
 
@@ -205,8 +203,8 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_warning("Could not set address on interface %d: %s",
-                            link->ifindex, strerror(-r));
+                log_warning("Could not set address on interface %u: %s",
+                            (unsigned)link->ifindex, strerror(-r));
                 link_enter_failed(link);
         }
 
@@ -244,8 +242,8 @@ static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_warning("Could not bring up interface %d: %s",
-                            link->ifindex, strerror(-r));
+                log_warning("Could not bring up interface %u: %s",
+                            (unsigned)link->ifindex, strerror(-r));
                 return link_enter_failed(link);
         }
 
