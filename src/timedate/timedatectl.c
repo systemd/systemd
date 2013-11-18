@@ -194,7 +194,6 @@ static void print_status_info(const StatusInfo *i) {
 }
 
 static int show_status(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone) },

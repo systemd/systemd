@@ -139,7 +139,6 @@ fail:
 
 static int set_locale(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -365,7 +364,6 @@ static int list_locales(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int set_vconsole_keymap(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *map, *toggle_map;
         int r;
@@ -472,7 +470,6 @@ static int list_vconsole_keymaps(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int set_x11_keymap(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *layout, *model, *variant, *options;
         int r;

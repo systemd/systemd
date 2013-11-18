@@ -440,7 +440,6 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int argc, const char **argv) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         const void *p = NULL, *existing = NULL;
         const char *id;

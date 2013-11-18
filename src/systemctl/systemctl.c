@@ -750,7 +750,6 @@ static int get_next_elapse(
                 dual_timestamp *next) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         dual_timestamp t;
         int r;
 
@@ -2127,7 +2126,6 @@ static int reboot_with_logind(sd_bus *bus, enum action a) {
 
 static int check_inhibitors(sd_bus *bus, enum action a) {
 #ifdef HAVE_LOGIND
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
         const char *what, *who, *why, *mode;
@@ -3542,7 +3540,6 @@ static int show_all(
                 bool *new_line,
                 bool *ellipsized) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         const UnitInfo *u;

@@ -58,7 +58,6 @@ static int add_epoll(int epoll_fd, int fd) {
 }
 
 static int make_socket_fd(const char* address, int flags) {
-        _cleanup_free_ char *p = NULL;
         SocketAddress a;
         int fd, r;
 
