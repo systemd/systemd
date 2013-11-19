@@ -38,6 +38,7 @@
 #include "conf-files.h"
 #include "specifier.h"
 #include "install-printf.h"
+#include "special.h"
 
 typedef struct {
         Hashmap *will_install;
@@ -1560,7 +1561,7 @@ int unit_file_reenable(
 int unit_file_set_default(
                 UnitFileScope scope,
                 const char *root_dir,
-                char *file,
+                const char *file,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -1573,6 +1574,7 @@ int unit_file_set_default(
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
+        assert(file);
 
         if (unit_name_to_type(file) != UNIT_TARGET)
                 return -EINVAL;
@@ -1589,13 +1591,14 @@ int unit_file_set_default(
         if (r < 0)
                 return r;
 
-        i = (InstallInfo*)hashmap_first(c.will_install);
+        assert_se(i = hashmap_first(c.will_install));
 
         r = unit_file_search(&c, i, &paths, root_dir, false);
         if (r < 0)
                 return r;
 
-        path = strappenda(config_path, "/default.target");
+        path = strappenda(config_path, "/" SPECIAL_DEFAULT_TARGET);
+
         r = create_symlink(i->path, path, true, changes, n_changes);
         if (r < 0)
                 return r;
@@ -1612,6 +1615,10 @@ int unit_file_get_default(
         char **p;
         int r;
 
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+        assert(name);
+
         r = lookup_paths_init_from_scope(&paths, scope);
         if (r < 0)
                 return r;
@@ -1621,9 +1628,9 @@ int unit_file_get_default(
                 char *n;
 
                 if (isempty(root_dir))
-                        path = strappend(*p, "/default.target");
+                        path = strappend(*p, "/" SPECIAL_DEFAULT_TARGET);
                 else
-                        path = strjoin(root_dir, "/", *p, "/default.target", NULL);
+                        path = strjoin(root_dir, "/", *p, "/" SPECIAL_DEFAULT_TARGET, NULL);
 
                 if (!path)
                         return -ENOMEM;
