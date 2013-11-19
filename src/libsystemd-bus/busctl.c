@@ -129,6 +129,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 }
 
 static int monitor(sd_bus *bus, char *argv[]) {
+        bool added_something = false;
         char **i;
         int r;
 
@@ -149,10 +150,22 @@ static int monitor(sd_bus *bus, char *argv[]) {
                         log_error("Failed to add match: %s", strerror(-r));
                         return r;
                 }
+
+                added_something = true;
         }
 
         STRV_FOREACH(i, arg_matches) {
                 r = sd_bus_add_match(bus, *i, NULL, NULL);
+                if (r < 0) {
+                        log_error("Failed to add match: %s", strerror(-r));
+                        return r;
+                }
+
+                added_something = true;
+        }
+
+        if (!added_something) {
+                r = sd_bus_add_match(bus, "", NULL, NULL);
                 if (r < 0) {
                         log_error("Failed to add match: %s", strerror(-r));
                         return r;
