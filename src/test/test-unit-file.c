@@ -80,6 +80,7 @@ static void test_config_parse_exec(void) {
         /*         const char *filename, */
         /*         unsigned line, */
         /*         const char *section, */
+        /*         unsigned section_line, */
         /*         const char *lvalue, */
         /*         int ltype, */
         /*         const char *rvalue, */
@@ -90,13 +91,13 @@ static void test_config_parse_exec(void) {
         ExecCommand *c = NULL, *c1;
 
         /* basic test */
-        r = config_parse_exec(NULL, "fake", 1, "section",
+        r = config_parse_exec(NULL, "fake", 1, "section", 1,
                               "LValue", 0, "/RValue r1",
                               &c, NULL);
         assert_se(r >= 0);
         check_execcommand(c, "/RValue", "/RValue", "r1", false);
 
-        r = config_parse_exec(NULL, "fake", 2, "section",
+        r = config_parse_exec(NULL, "fake", 2, "section", 1,
                               "LValue", 0, "/RValue///slashes/// r1",
                               &c, NULL);
        /* test slashes */
@@ -106,7 +107,7 @@ static void test_config_parse_exec(void) {
                           "r1", false);
 
         /* honour_argv0 */
-        r = config_parse_exec(NULL, "fake", 3, "section",
+        r = config_parse_exec(NULL, "fake", 3, "section", 1,
                               "LValue", 0, "@/RValue///slashes2/// argv0 r1",
                               &c, NULL);
         assert_se(r >= 0);
@@ -114,7 +115,7 @@ static void test_config_parse_exec(void) {
         check_execcommand(c1, "/RValue/slashes2", "argv0", "r1", false);
 
         /* ignore && honour_argv0 */
-        r = config_parse_exec(NULL, "fake", 4, "section",
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-@/RValue///slashes3/// argv0a r1",
                               &c, NULL);
         assert_se(r >= 0);
@@ -123,7 +124,7 @@ static void test_config_parse_exec(void) {
                           "/RValue/slashes3", "argv0a", "r1", true);
 
         /* ignore && honour_argv0 */
-        r = config_parse_exec(NULL, "fake", 4, "section",
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "@-/RValue///slashes4/// argv0b r1",
                               &c, NULL);
         assert_se(r >= 0);
@@ -132,21 +133,21 @@ static void test_config_parse_exec(void) {
                           "/RValue/slashes4", "argv0b", "r1", true);
 
         /* ignore && ignore */
-        r = config_parse_exec(NULL, "fake", 4, "section",
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "--/RValue argv0 r1",
                               &c, NULL);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
         /* ignore && ignore */
-        r = config_parse_exec(NULL, "fake", 4, "section",
+        r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-@-/RValue argv0 r1",
                               &c, NULL);
         assert_se(r == 0);
         assert_se(c1->command_next == NULL);
 
         /* semicolon */
-        r = config_parse_exec(NULL, "fake", 5, "section",
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "-@/RValue argv0 r1 ; "
                               "/goo/goo boo",
@@ -161,7 +162,7 @@ static void test_config_parse_exec(void) {
                           "/goo/goo", "/goo/goo", "boo", false);
 
         /* trailing semicolon */
-        r = config_parse_exec(NULL, "fake", 5, "section",
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "-@/RValue argv0 r1 ; ",
                               &c, NULL);
@@ -173,7 +174,7 @@ static void test_config_parse_exec(void) {
         assert_se(c1->command_next == NULL);
 
         /* escaped semicolon */
-        r = config_parse_exec(NULL, "fake", 5, "section",
+        r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0,
                               "/usr/bin/find \\;",
                               &c, NULL);

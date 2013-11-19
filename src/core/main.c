@@ -435,6 +435,7 @@ static int parse_proc_cmdline_word(const char *word) {
                         const char *filename,                         \
                         unsigned line,                                \
                         const char *section,                          \
+                        unsigned section_line,                        \
                         const char *lvalue,                           \
                         int ltype,                                    \
                         const char *rvalue,                           \
@@ -466,6 +467,7 @@ static int config_parse_cpu_affinity2(const char *unit,
                                       const char *filename,
                                       unsigned line,
                                       const char *section,
+                                      unsigned section_line,
                                       const char *lvalue,
                                       int ltype,
                                       const char *rvalue,
@@ -538,6 +540,7 @@ static int config_parse_join_controllers(const char *unit,
                                          const char *filename,
                                          unsigned line,
                                          const char *section,
+                                         unsigned section_line,
                                          const char *lvalue,
                                          int ltype,
                                          const char *rvalue,

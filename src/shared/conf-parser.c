@@ -156,6 +156,7 @@ static int next_assignment(const char *unit,
                            ConfigItemLookup lookup,
                            void *table,
                            const char *section,
+                           unsigned section_line,
                            const char *lvalue,
                            const char *rvalue,
                            bool relaxed,
@@ -178,8 +179,8 @@ static int next_assignment(const char *unit,
 
         if (r > 0) {
                 if (func)
-                        return func(unit, filename, line, section, lvalue, ltype,
-                                    rvalue, data, userdata);
+                        return func(unit, filename, line, section, section_line,
+                                    lvalue, ltype, rvalue, data, userdata);
 
                 return 0;
         }
@@ -202,6 +203,7 @@ static int parse_line(const char* unit,
                       bool relaxed,
                       bool allow_include,
                       char **section,
+                      unsigned *section_line,
                       char *l,
                       void *userdata) {
 
@@ -262,9 +264,11 @@ static int parse_line(const char* unit,
                         free(n);
                         free(*section);
                         *section = NULL;
+                        *section_line = 0;
                 } else {
                         free(*section);
                         *section = n;
+                        *section_line = line;
                 }
 
                 return 0;
@@ -294,6 +298,7 @@ static int parse_line(const char* unit,
                                lookup,
                                table,
                                *section,
+                               *section_line,
                                strstrip(l),
                                strstrip(e),
                                relaxed,
@@ -313,7 +318,7 @@ int config_parse(const char *unit,
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
-        unsigned line = 0;
+        unsigned line = 0, section_line = 0;
         int r;
 
         assert(filename);
@@ -382,6 +387,7 @@ int config_parse(const char *unit,
                                relaxed,
                                allow_include,
                                &section,
+                               &section_line,
                                p,
                                userdata);
                 free(c);
@@ -398,6 +404,7 @@ int config_parse(const char *unit,
                                 const char *filename,                   \
                                 unsigned line,                          \
                                 const char *section,                    \
+                                unsigned section_line,                  \
                                 const char *lvalue,                     \
                                 int ltype,                              \
                                 const char *rvalue,                     \
@@ -434,6 +441,7 @@ int config_parse_bytes_size(const char* unit,
                             const char *filename,
                             unsigned line,
                             const char *section,
+                            unsigned section_line,
                             const char *lvalue,
                             int ltype,
                             const char *rvalue,
@@ -465,6 +473,7 @@ int config_parse_bytes_off(const char* unit,
                            const char *filename,
                            unsigned line,
                            const char *section,
+                           unsigned section_line,
                            const char *lvalue,
                            int ltype,
                            const char *rvalue,
@@ -493,6 +502,7 @@ int config_parse_bool(const char* unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -522,6 +532,7 @@ int config_parse_string(const char *unit,
                         const char *filename,
                         unsigned line,
                         const char *section,
+                        unsigned section_line,
                         const char *lvalue,
                         int ltype,
                         const char *rvalue,
@@ -562,6 +573,7 @@ int config_parse_path(const char *unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -607,6 +619,7 @@ int config_parse_strv(const char *unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -663,6 +676,7 @@ int config_parse_path_strv(const char *unit,
                            const char *filename,
                            unsigned line,
                            const char *section,
+                           unsigned section_line,
                            const char *lvalue,
                            int ltype,
                            const char *rvalue,
@@ -720,6 +734,7 @@ int config_parse_mode(const char *unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -757,6 +772,7 @@ int config_parse_facility(const char *unit,
                           const char *filename,
                           unsigned line,
                           const char *section,
+                          unsigned section_line,
                           const char *lvalue,
                           int ltype,
                           const char *rvalue,
@@ -787,6 +803,7 @@ int config_parse_level(const char *unit,
                        const char *filename,
                        unsigned line,
                        const char *section,
+                       unsigned section_line,
                        const char *lvalue,
                        int ltype,
                        const char *rvalue,
@@ -816,6 +833,7 @@ int config_parse_set_status(const char *unit,
                             const char *filename,
                             unsigned line,
                             const char *section,
+                            unsigned section_line,
                             const char *lvalue,
                             int ltype,
                             const char *rvalue,

@@ -164,8 +164,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Route*, route_free);
 #define _cleanup_route_free_ _cleanup_(route_freep)
 
 int config_parse_gateway(const char *unit, const char *filename, unsigned line,
-                         const char *section, const char *lvalue, int ltype,
-                         const char *rvalue, void *data, void *userdata);
+                         const char *section, unsigned section_line, const char *lvalue,
+                         int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Address */
 int address_new(Network *network, Address **ret);
@@ -176,8 +176,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 #define _cleanup_address_free_ _cleanup_(address_freep)
 
 int config_parse_address(const char *unit, const char *filename, unsigned line,
-                         const char *section, const char *lvalue, int ltype,
-                         const char *rvalue, void *data, void *userdata);
+                         const char *section, unsigned section_line, const char *lvalue,
+                         int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Link */
 

@@ -51,5 +51,5 @@ Duplex duplex_from_string(const char *d) _pure_;
 const char *wol_to_string(WakeOnLan wol) _const_;
 WakeOnLan wol_from_string(const char *wol) _pure_;
 
-int config_parse_duplex(const char *unit, const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_wol(const char *unit, const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_duplex(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_wol(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

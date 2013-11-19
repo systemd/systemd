@@ -86,5 +86,5 @@ MACPolicy mac_policy_from_string(const char *p) _pure_;
 /* gperf lookup function */
 const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, unsigned length);
 
-int config_parse_mac_policy(const char *unit, const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_name_policy(const char *unit, const char *filename, unsigned line, const char *section, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_mac_policy(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_name_policy(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
