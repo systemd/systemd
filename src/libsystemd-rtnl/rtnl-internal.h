@@ -80,4 +80,4 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret);
 
 /* Make sure callbacks don't destroy the rtnl connection */
 #define RTNL_DONT_DESTROY(rtnl) \
-        _cleanup_sd_rtnl_unref_ sd_rtnl *_dont_destroy_##rtnl = sd_rtnl_ref(rtnl)
+        _cleanup_sd_rtnl_unref_ _unused_ sd_rtnl *_dont_destroy_##rtnl = sd_rtnl_ref(rtnl)
