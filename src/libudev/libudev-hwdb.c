@@ -334,14 +334,14 @@ _public_ struct udev_hwdb *udev_hwdb_ref(struct udev_hwdb *hwdb) {
  * Drop a reference of a hwdb context. If the refcount reaches zero,
  * all resources of the hwdb context will be released.
  *
- * Returns: the passed hwdb context if it has still an active reference, or #NULL otherwise.
+ * Returns: #NULL
  **/
 _public_ struct udev_hwdb *udev_hwdb_unref(struct udev_hwdb *hwdb) {
         if (!hwdb)
                 return NULL;
         hwdb->refcount--;
         if (hwdb->refcount > 0)
-                return hwdb;
+                return NULL;
         if (hwdb->map)
                 munmap((void *)hwdb->map, hwdb->st.st_size);
         if (hwdb->f)

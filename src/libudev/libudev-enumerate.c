@@ -122,7 +122,7 @@ _public_ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_e
  * Drop a reference of an enumeration context. If the refcount reaches zero,
  * all resources of the enumeration context will be released.
  *
- * Returns: the passed enumeration context if it has still an active reference, or #NULL otherwise.
+ * Returns: #NULL
  **/
 _public_ struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 {
@@ -132,7 +132,7 @@ _public_ struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev
                 return NULL;
         udev_enumerate->refcount--;
         if (udev_enumerate->refcount > 0)
-                return udev_enumerate;
+                return NULL;
         udev_list_cleanup(&udev_enumerate->sysattr_match_list);
         udev_list_cleanup(&udev_enumerate->sysattr_nomatch_list);
         udev_list_cleanup(&udev_enumerate->subsystem_match_list);

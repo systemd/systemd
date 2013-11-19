@@ -408,7 +408,7 @@ _public_ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor
  * the bound socket will be closed, and the resources of the monitor
  * will be released.
  *
- * Returns: the passed udev monitor if it has still an active reference, or #NULL otherwise.
+ * Returns: #NULL
  **/
 _public_ struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monitor)
 {
@@ -416,7 +416,7 @@ _public_ struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monit
                 return NULL;
         udev_monitor->refcount--;
         if (udev_monitor->refcount > 0)
-                return udev_monitor;
+                return NULL;
         if (udev_monitor->sock >= 0)
                 close(udev_monitor->sock);
         udev_list_cleanup(&udev_monitor->filter_subsystem_list);
