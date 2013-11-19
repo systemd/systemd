@@ -44,8 +44,7 @@
 #include "fileio.h"
 
 int hwclock_get_time(struct tm *tm) {
-        int fd;
-        int err = 0;
+        _cleanup_close_ int fd = -1;
 
         assert(tm);
 
@@ -56,20 +55,17 @@ int hwclock_get_time(struct tm *tm) {
         /* This leaves the timezone fields of struct tm
          * uninitialized! */
         if (ioctl(fd, RTC_RD_TIME, tm) < 0)
-                err = -errno;
+                return -errno;
 
         /* We don't know daylight saving, so we reset this in order not
          * to confuse mktime(). */
         tm->tm_isdst = -1;
 
-        close_nointr_nofail(fd);
-
-        return err;
+        return 0;
 }
 
 int hwclock_set_time(const struct tm *tm) {
-        int fd;
-        int err = 0;
+        _cleanup_close_ int fd = -1;
 
         assert(tm);
 
@@ -78,11 +74,9 @@ int hwclock_set_time(const struct tm *tm) {
                 return -errno;
 
         if (ioctl(fd, RTC_SET_TIME, tm) < 0)
-                err = -errno;
+                return -errno;
 
-        close_nointr_nofail(fd);
-
-        return err;
+        return 0;
 }
 
 int hwclock_is_localtime(void) {
