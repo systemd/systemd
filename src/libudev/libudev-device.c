@@ -536,7 +536,7 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
         f = fopen(dbfile, "re");
         if (f == NULL) {
                 udev_dbg(udev_device->udev, "no db file to read %s: %m\n", dbfile);
-                return -1;
+                return -errno;
         }
         udev_device->is_initialized = true;
 
@@ -593,7 +593,7 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
         strscpyl(filename, sizeof(filename), udev_device->syspath, "/uevent", NULL);
         f = fopen(filename, "re");
         if (f == NULL)
-                return -1;
+                return -errno;
         udev_device->uevent_loaded = true;
 
         while (fgets(line, sizeof(line), f)) {
@@ -1521,13 +1521,13 @@ static int udev_device_sysattr_list_read(struct udev_device *udev_device)
         int num = 0;
 
         if (udev_device == NULL)
-                return -1;
+                return -EINVAL;
         if (udev_device->sysattr_list_read)
                 return 0;
 
         dir = opendir(udev_device_get_syspath(udev_device));
         if (!dir)
-                return -1;
+                return -errno;
 
         for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
                 char path[UTIL_PATH_SIZE];

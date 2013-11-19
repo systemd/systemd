@@ -288,7 +288,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
                         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
                         if (i+1 >= ELEMENTSOF(ins))
-                                return -1;
+                                return -E2BIG;
                 }
 
                 /* nothing matched, drop packet */
@@ -303,7 +303,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
         filter.len = i;
         filter.filter = ins;
         err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
-        return err;
+        return err < 0 ? -errno : 0;
 }
 
 int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender)
@@ -350,7 +350,7 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
                         udev_monitor->snl.nl.nl_pid = snl.nl.nl_pid;
         } else {
                 udev_err(udev_monitor->udev, "bind failed: %m\n");
-                return err;
+                return -errno;
         }
 
         /* enable receiving of sender credentials */
@@ -371,7 +371,7 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 _public_ int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size)
 {
         if (udev_monitor == NULL)
-                return -1;
+                return -EINVAL;
         return setsockopt(udev_monitor->sock, SOL_SOCKET, SO_RCVBUFFORCE, &size, sizeof(size));
 }
 
@@ -381,7 +381,7 @@ int udev_monitor_disconnect(struct udev_monitor *udev_monitor)
 
         err = close(udev_monitor->sock);
         udev_monitor->sock = -1;
-        return err;
+        return err < 0 ? -errno : 0;
 }
 
 /**
@@ -451,7 +451,7 @@ _public_ struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor)
 _public_ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
 {
         if (udev_monitor == NULL)
-                return -1;
+                return -EINVAL;
         return udev_monitor->sock;
 }
 
