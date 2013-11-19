@@ -1271,8 +1271,13 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m) {
         if (m->header->version > b->message_version)
                 return -EPERM;
 
-        if (m->sealed)
+        if (m->sealed) {
+                /* If we copy the same message to multiple
+                 * destinations, avoid using the same serial
+                 * numbers. */
+                b->serial = MAX(b->serial, BUS_MESSAGE_SERIAL(m));
                 return 0;
+        }
 
         return bus_message_seal(m, ++b->serial);
 }
