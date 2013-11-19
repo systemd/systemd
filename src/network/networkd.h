@@ -54,11 +54,15 @@ struct Network {
         LIST_HEAD(Address, addresses);
         LIST_HEAD(Route, routes);
 
+        Hashmap *addresses_by_section;
+        Hashmap *routes_by_section;
+
         LIST_FIELDS(Network, networks);
 };
 
 struct Address {
         Network *network;
+        uint64_t section;
 
         unsigned char family;
         unsigned char prefixlen;
@@ -76,13 +80,20 @@ struct Address {
 
 struct Route {
         Network *network;
+        uint64_t section;
 
         unsigned char family;
+        unsigned char dst_prefixlen;
 
         union {
                 struct in_addr in;
                 struct in6_addr in6;
         } in_addr;
+
+        union {
+                struct in_addr in;
+                struct in6_addr in6;
+        } dst_addr;
 
         LIST_FIELDS(Route, routes);
 };
@@ -156,7 +167,7 @@ int network_apply(Manager *manager, Network *network, Link *link);
 const struct ConfigPerfItem* network_gperf_lookup(const char *key, unsigned length);
 
 /* Route */
-int route_new(Network *network, Route **ret);
+int route_new(Network *network, unsigned section, Route **ret);
 void route_free(Route *route);
 int route_configure(Route *route, Link *link, sd_rtnl_message_handler_t callback);
 
@@ -167,8 +178,12 @@ int config_parse_gateway(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,
                          int ltype, const char *rvalue, void *data, void *userdata);
 
+int config_parse_destination(const char *unit, const char *filename, unsigned line,
+                             const char *section, unsigned section_line, const char *lvalue,
+                             int ltype, const char *rvalue, void *data, void *userdata);
+
 /* Address */
-int address_new(Network *network, Address **ret);
+int address_new(Network *network, unsigned section, Address **ret);
 void address_free(Address *address);
 int address_configure(Address *address, Link *link, sd_rtnl_message_handler_t callback);
 
@@ -178,6 +193,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 int config_parse_address(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,
                          int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_label(const char *unit, const char *filename, unsigned line,
+                       const char *section, unsigned section_line, const char *lvalue,
+                       int ltype, const char *rvalue, void *data, void *userdata);
 
 /* Link */
 

@@ -162,6 +162,23 @@
                                         .</para>
                                 </listitem>
                         </varlistentry>
+                </variablelist>
+
+                <para>The <literal>[Address]</literal> section accepts the following keys:</para>
+
+                <variablelist class='network-directives'>
+                        <varlistentry>
+                                <term><varname>Address</varname></term>
+                                <listitem>
+                                        <para>As in the <literal>[Network]</literal> section.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><varname>Label</varname></term>
+                                <listitem>
+                                        <para>An address label.</para>
+                                </listitem>
+                        </varlistentry>
                </variablelist>
         </refsect1>
 

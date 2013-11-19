@@ -23,3 +23,5 @@ Match.Name,              config_parse_ifname,           0,       offsetof(Networ
 Network.Description,     config_parse_string,           0,       offsetof(Network, description)
 Network.Address,         config_parse_address,          0,       0
 Network.Gateway,         config_parse_gateway,          0,       0
+Address.Address,         config_parse_address,          0,       0
+Address.Label,           config_parse_label,            0,       0

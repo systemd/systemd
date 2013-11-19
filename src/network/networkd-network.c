@@ -45,18 +45,27 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->manager = manager;
 
         LIST_HEAD_INIT(network->addresses);
+        LIST_HEAD_INIT(network->routes);
 
-        r = config_parse(NULL, filename, file, "Match\0Network\0", config_item_perf_lookup,
+        network->addresses_by_section = hashmap_new(uint64_hash_func, uint64_compare_func);
+        if (!network->addresses_by_section)
+                return log_oom();
+
+        network->routes_by_section = hashmap_new(uint64_hash_func, uint64_compare_func);
+        if (!network->routes_by_section)
+                return log_oom();
+
+        network->filename = strdup(filename);
+        if (!network->filename)
+                return log_oom();
+
+        r = config_parse(NULL, filename, file, "Match\0Network\0Address\0Route\0", config_item_perf_lookup,
                         (void*) network_gperf_lookup, false, false, network);
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
                 return r;
         } else
                 log_debug("Parsed configuration file %s", filename);
-
-        network->filename = strdup(filename);
-        if (!network->filename)
-                return log_oom();
 
         LIST_PREPEND(networks, manager->networks, network);
         network = NULL;
@@ -120,6 +129,9 @@ void network_free(Network *network) {
 
         while ((address = network->addresses))
                 address_free(address);
+
+        hashmap_free(network->addresses_by_section);
+        hashmap_free(network->routes_by_section);
 
         LIST_REMOVE(networks, network->manager->networks, network);
 

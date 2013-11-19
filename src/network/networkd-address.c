@@ -28,8 +28,19 @@
 #include "conf-parser.h"
 #include "net-util.h"
 
-int address_new(Network *network, Address **ret) {
+int address_new(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
+
+        if (section) {
+                uint64_t key = section;
+                address = hashmap_get(network->addresses_by_section, &key);
+                if (address) {
+                        *ret = address;
+                        address = NULL;
+
+                        return 0;
+                }
+        }
 
         address = new0(Address, 1);
         if (!address)
@@ -38,6 +49,11 @@ int address_new(Network *network, Address **ret) {
         address->network = network;
 
         LIST_PREPEND(addresses, network->addresses, address);
+
+        if (section) {
+                address->section = section;
+                hashmap_put(network->addresses_by_section, &address->section, address);
+        }
 
         *ret = address;
         address = NULL;
@@ -51,7 +67,10 @@ void address_free(Address *address) {
 
         LIST_REMOVE(addresses, address->network->addresses, address);
 
-        free(address->label);
+        if (address->section)
+                hashmap_remove(address->network->addresses_by_section,
+                               &address->section);
+
         free(address);
 }
 
@@ -121,17 +140,19 @@ int config_parse_address(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+        Network *network = userdata;
         _cleanup_address_free_ Address *n = NULL;
         _cleanup_free_ char *address = NULL;
         const char *e;
         int r;
 
         assert(filename);
+        assert(section);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        r = address_new(userdata, &n);
+        r = address_new(network, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -166,6 +187,57 @@ int config_parse_address(const char *unit,
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Address is invalid, ignoring assignment: %s", address);
                 return 0;
+        }
+
+        n = NULL;
+
+        return 0;
+}
+
+int config_parse_label(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+        _cleanup_address_free_ Address *n = NULL;
+        _cleanup_free_ char *address = NULL;
+        char *label;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = address_new(network, section_line, &n);
+        if (r < 0)
+                return r;
+
+        label = strdup(rvalue);
+        if (!label)
+                return log_oom();
+
+        if (!ascii_is_valid(label) || strlen(label) >= IFNAMSIZ) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Interface label is not ASCII clean or is too"
+                           " long, ignoring assignment: %s", rvalue);
+                free(label);
+                return 0;
+        }
+
+        free(n->label);
+        if (*label)
+                n->label = label;
+        else {
+                free(label);
+                n->label = NULL;
         }
 
         n = NULL;
