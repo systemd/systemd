@@ -150,7 +150,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 
 #define assert_return(expr, r)                    \
         do {                                      \
-                if (!(expr))                      \
+                if (_unlikely_(!(expr)))          \
                         return (r);               \
         } while (false)
 
