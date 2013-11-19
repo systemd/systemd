@@ -24,6 +24,10 @@
 
 /* This is a private header, never even think of including this directly! */
 
+#if __INCLUDE_LEVEL__ <= 1
+#error "Do not include _sd-common.h directly, it is a private header."
+#endif
+
 #ifndef _sd_printf_
 #  if __GNUC__ >= 4
 #    define _sd_printf_(a,b) __attribute__ ((format (printf, a, b)))
