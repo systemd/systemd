@@ -1435,6 +1435,27 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         return 1;
 }
 
+_public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *serial) {
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(m, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (!streq_ptr(m->destination, destination)) {
+
+                if (!destination)
+                        return -EEXIST;
+
+                r = sd_bus_message_set_destination(m, destination);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_send(bus, m, serial);
+}
+
 static usec_t calc_elapse(uint64_t usec) {
         if (usec == (uint64_t) -1)
                 return 0;

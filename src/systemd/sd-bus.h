@@ -94,6 +94,7 @@ int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *peer);
 
 int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial);
+int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *serial);
 int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *error, sd_bus_message **reply);
 int sd_bus_call_async(sd_bus *bus, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec, uint64_t *serial);
 int sd_bus_call_async_cancel(sd_bus *bus, uint64_t serial);
@@ -225,6 +226,7 @@ int sd_bus_get_property_trivial(sd_bus *bus, const char *destination, const char
 int sd_bus_get_property_string(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char **ret); /* free the result! */
 int sd_bus_get_property_strv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char ***ret); /* free the result! */
 int sd_bus_set_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, const char *type, ...);
+
 int sd_bus_reply_method_return(sd_bus *bus, sd_bus_message *call, const char *types, ...);
 int sd_bus_reply_method_error(sd_bus *bus, sd_bus_message *call, const sd_bus_error *e);
 int sd_bus_reply_method_errorf(sd_bus *bus, sd_bus_message *call, const char *name, const char *format, ...) _sd_printf_(4, 0);
