@@ -74,7 +74,7 @@ _public_ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *mes
         e->message = m;
         e->need_free = true;
 
-        return 0;
+        return sd_bus_error_get_errno(e);
 }
 
 int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) {
@@ -103,7 +103,7 @@ int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_li
         e->message = m;
         e->need_free = true;
 
-        return 0;
+        return sd_bus_error_get_errno(e);
 }
 
 _public_ int sd_bus_error_setf(sd_bus_error *e, const char *name, const char *format, ...) {
@@ -147,7 +147,7 @@ _public_ int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
         dest->name = x;
         dest->message = y;
         dest->need_free = true;
-        return 0;
+        return sd_bus_error_get_errno(e);
 }
 
 _public_ int sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *message) {
@@ -158,7 +158,7 @@ _public_ int sd_bus_error_set_const(sd_bus_error *e, const char *name, const cha
         assert_return(name, -EINVAL);
 
         *e = SD_BUS_ERROR_MAKE(name, message);
-        return 0;
+        return sd_bus_error_get_errno(e);
 }
 
 _public_ int sd_bus_error_is_set(const sd_bus_error *e) {
@@ -396,7 +396,7 @@ int bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_lis
                 error = -error;
 
         if (!e)
-                return 0;
+                return -error;
 
         assert_return(!bus_error_is_dirty(e), -EINVAL);
 
@@ -428,8 +428,11 @@ fallback:
 _public_ int sd_bus_error_set_errnof(sd_bus_error *e, int error, const char *format, ...) {
         int r;
 
+        if (error < 0)
+                error = -error;
+
         if (!e)
-                return 0;
+                return -error;
 
         assert_return(!bus_error_is_dirty(e), -EINVAL);
 
