@@ -143,19 +143,9 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         } while (false)
 
 #if defined(static_assert)
-#define assert_cc(expr)                         \
-        do {                                    \
-                static_assert(expr, #expr);     \
-        } while (false)
+#define assert_cc(expr) static_assert(expr, #expr)
 #else
-#define assert_cc(expr)                         \
-        do {                                    \
-                switch (0) {                    \
-                case 0:                         \
-                case !!(expr):                  \
-                        ;                       \
-                }                               \
-        } while (false)
+#define assert_cc(expr) struct _assert_struct_ ## __LINE__ { char x[(expr) ? 0 : -1]; }
 #endif
 
 #define assert_return(expr, r)                    \
