@@ -195,6 +195,7 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
                                 return -ENOMEM;
 
                         names->size = size;
+                        names->flags = KDBUS_NAME_LIST_UNIQUE_NAMES;
 
                         r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_LIST, names);
                         if (r < 0) {
@@ -210,7 +211,14 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
                 }
 
                 KDBUS_PART_FOREACH(name, names, names) {
-                        r = strv_extend(&x, name->name);
+                        char *n;
+
+                        if (name->size > sizeof(*name))
+                                n = name->name;
+                        else
+                                asprintf(&n, ":1.%llu", (unsigned long long) name->id);
+
+                        r = strv_extend(&x, n);
                         if (r < 0)
                                 return -ENOMEM;
                 }
