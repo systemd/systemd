@@ -50,7 +50,5 @@ struct Device {
 
 extern const UnitVTable device_vtable;
 
-void device_fd_event(Manager *m, int events);
-
 const char* device_state_to_string(DeviceState i) _const_;
 DeviceState device_state_from_string(const char *s) _pure_;

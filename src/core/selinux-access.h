@@ -21,42 +21,42 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus.h>
+#include "sd-bus.h"
+#include "bus-error.h"
+#include "bus-util.h"
 
 void selinux_access_free(void);
 
-int selinux_access_check(DBusConnection *connection, DBusMessage *message, const char *path, const char *permission, DBusError *error);
+int selinux_access_check(sd_bus *bus, sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error);
 
 #ifdef HAVE_SELINUX
 
-#define SELINUX_ACCESS_CHECK(connection, message, permission) \
+#define SELINUX_ACCESS_CHECK(bus, message, permission)                  \
         do {                                                            \
-                DBusError _error;                                       \
+                _cleanup_bus_error_free_ sd_bus_error _error = SD_BUS_ERROR_NULL; \
+                sd_bus_message *_m = (message);                         \
+                sd_bus *_b = (bus);                                     \
                 int _r;                                                 \
-                DBusConnection *_c = (connection);                      \
-                DBusMessage *_m = (message);                            \
-                dbus_error_init(&_error);                               \
-                _r = selinux_access_check(_c, _m, NULL, (permission), &_error); \
+                _r = selinux_access_check(_b, _m, NULL, (permission), &_error); \
                 if (_r < 0)                                             \
-                        return bus_send_error_reply(_c, _m, &_error, _r); \
+                        return sd_bus_reply_method_errno(_b, _m, _r, &_error); \
         } while (false)
 
-#define SELINUX_UNIT_ACCESS_CHECK(unit, connection, message, permission) \
+#define SELINUX_UNIT_ACCESS_CHECK(unit, bus, message, permission)       \
         do {                                                            \
-                DBusError _error;                                       \
-                int _r;                                                 \
-                DBusConnection *_c = (connection);                      \
-                DBusMessage *_m = (message);                            \
+                _cleanup_bus_error_free_ sd_bus_error _error = SD_BUS_ERROR_NULL; \
+                sd_bus_message *_m = (message);                         \
+                sd_bus *_b = (bus);                                     \
                 Unit *_u = (unit);                                      \
-                dbus_error_init(&_error);                               \
-                _r = selinux_access_check(_c, _m, _u->source_path ?: _u->fragment_path, (permission), &_error); \
+                int _r;                                                 \
+                _r = selinux_access_check(_b, _m, _u->source_path ?: _u->fragment_path, (permission), &_error); \
                 if (_r < 0)                                             \
-                        return bus_send_error_reply(_c, _m, &_error, _r); \
+                        return sd_bus_reply_method_errno(_b, _m, _r, &_error); \
         } while (false)
 
 #else
 
-#define SELINUX_ACCESS_CHECK(connection, message, permission) do { } while (false)
-#define SELINUX_UNIT_ACCESS_CHECK(unit, connection, message, permission) do { } while (false)
+#define SELINUX_ACCESS_CHECK(bus, message, permission) do { } while (false)
+#define SELINUX_UNIT_ACCESS_CHECK(unit, bus, message, permission) do { } while (false)
 
 #endif

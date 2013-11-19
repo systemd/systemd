@@ -22,320 +22,88 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include "dbus.h"
 #include "log.h"
-#include "dbus-manager.h"
 #include "strv.h"
-#include "bus-errors.h"
 #include "build.h"
-#include "dbus-common.h"
 #include "install.h"
 #include "selinux-access.h"
 #include "watchdog.h"
 #include "hwclock.h"
 #include "path-util.h"
-#include "dbus-unit.h"
 #include "virt.h"
 #include "env-util.h"
+#include "dbus.h"
+#include "dbus-manager.h"
+#include "dbus-unit.h"
+#include "dbus-snapshot.h"
+#include "dbus-client-track.h"
+#include "dbus-execute.h"
+#include "bus-errors.h"
 
-#define BUS_MANAGER_INTERFACE_BEGIN                                     \
-        " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
+static int property_get_version(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-#define BUS_MANAGER_INTERFACE_METHODS                                   \
-        "  <method name=\"GetUnit\">\n"                                 \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetUnitByPID\">\n"                            \
-        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"          \
-        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
-        "  </method>\n"                                                 \
-        "  <method name=\"LoadUnit\">\n"                                \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
-        "  </method>\n"                                                 \
-        "  <method name=\"StartUnit\">\n"                               \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"StartUnitReplace\">\n"                        \
-        "   <arg name=\"old_unit\" type=\"s\" direction=\"in\"/>\n"     \
-        "   <arg name=\"new_unit\" type=\"s\" direction=\"in\"/>\n"     \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"StopUnit\">\n"                                \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"ReloadUnit\">\n"                              \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"RestartUnit\">\n"                             \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"TryRestartUnit\">\n"                          \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"ReloadOrRestartUnit\">\n"                     \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"ReloadOrTryRestartUnit\">\n"                  \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"KillUnit\">\n"                                \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
-        "   <arg name=\"signal\" type=\"i\" direction=\"in\"/>\n"       \
-        "  </method>\n"                                                 \
-        "  <method name=\"ResetFailedUnit\">\n"                         \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetJob\">\n"                                  \
-        "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"CancelJob\">\n"                               \
-        "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
-        "  </method>\n"                                                 \
-        "  <method name=\"ClearJobs\"/>\n"                              \
-        "  <method name=\"ResetFailed\"/>\n"                            \
-        "  <method name=\"ListUnits\">\n"                               \
-        "   <arg name=\"units\" type=\"a(ssssssouso)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"ListJobs\">\n"                                \
-        "   <arg name=\"jobs\" type=\"a(usssoo)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"Subscribe\"/>\n"                              \
-        "  <method name=\"Unsubscribe\"/>\n"                            \
-        "  <method name=\"Dump\">\n"                                    \
-        "   <arg name=\"dump\" type=\"s\" direction=\"out\"/>\n"        \
-        "  </method>\n"                                                 \
-        "  <method name=\"CreateSnapshot\">\n"                          \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"cleanup\" type=\"b\" direction=\"in\"/>\n"      \
-        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
-        "  </method>\n"                                                 \
-        "  <method name=\"RemoveSnapshot\">\n"                          \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"Reload\"/>\n"                                 \
-        "  <method name=\"Reexecute\"/>\n"                              \
-        "  <method name=\"Exit\"/>\n"                                   \
-        "  <method name=\"Reboot\"/>\n"                                 \
-        "  <method name=\"PowerOff\"/>\n"                               \
-        "  <method name=\"Halt\"/>\n"                                   \
-        "  <method name=\"KExec\"/>\n"                                  \
-        "  <method name=\"SwitchRoot\">\n"                              \
-        "   <arg name=\"new_root\" type=\"s\" direction=\"in\"/>\n"     \
-        "   <arg name=\"init\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetEnvironment\">\n"                          \
-        "   <arg name=\"names\" type=\"as\" direction=\"in\"/>\n"       \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetEnvironment\">\n"                        \
-        "   <arg name=\"names\" type=\"as\" direction=\"in\"/>\n"       \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetAndSetEnvironment\">\n"                  \
-        "   <arg name=\"unset\" type=\"as\" direction=\"in\"/>\n"       \
-        "   <arg name=\"set\" type=\"as\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"ListUnitFiles\">\n"                           \
-        "   <arg name=\"files\" type=\"a(ss)\" direction=\"out\"/>\n"   \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetUnitFileState\">\n"                        \
-        "   <arg name=\"file\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"state\" type=\"s\" direction=\"out\"/>\n"       \
-        "  </method>\n"                                                 \
-        "  <method name=\"EnableUnitFiles\">\n"                         \
-        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
-        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
-        "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"carries_install_info\" type=\"b\" direction=\"out\"/>\n" \
-        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"DisableUnitFiles\">\n"                        \
-        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
-        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
-        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"ReenableUnitFiles\">\n"                       \
-        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
-        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
-        "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"carries_install_info\" type=\"b\" direction=\"out\"/>\n" \
-        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"LinkUnitFiles\">\n"                           \
-        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
-        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
-        "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"PresetUnitFiles\">\n"                         \
-        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
-        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
-        "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"carries_install_info\" type=\"b\" direction=\"out\"/>\n" \
-        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"MaskUnitFiles\">\n"                           \
-        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
-        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
-        "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnmaskUnitFiles\">\n"                         \
-        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
-        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
-        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetDefaultTarget\">\n"                        \
-        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
-        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetDefaultTarget\">\n"                        \
-        "   <arg name=\"name\" type=\"s\" direction=\"out\"/>\n"        \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetUnitProperties\">\n"                       \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
-        "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"StartTransientUnit\">\n"                      \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
-        "   <arg name=\"aux\" type=\"a(sa(sv))\" direction=\"in\"/>\n"  \
-        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
-        "  </method>\n"
+        assert(bus);
+        assert(reply);
 
-#define BUS_MANAGER_INTERFACE_SIGNALS                                   \
-        "  <signal name=\"UnitNew\">\n"                                 \
-        "   <arg name=\"id\" type=\"s\"/>\n"                            \
-        "   <arg name=\"unit\" type=\"o\"/>\n"                          \
-        "  </signal>\n"                                                 \
-        "  <signal name=\"UnitRemoved\">\n"                             \
-        "   <arg name=\"id\" type=\"s\"/>\n"                            \
-        "   <arg name=\"unit\" type=\"o\"/>\n"                          \
-        "  </signal>\n"                                                 \
-        "  <signal name=\"JobNew\">\n"                                  \
-        "   <arg name=\"id\" type=\"u\"/>\n"                            \
-        "   <arg name=\"job\" type=\"o\"/>\n"                           \
-        "   <arg name=\"unit\" type=\"s\"/>\n"                          \
-        "  </signal>\n"                                                 \
-        "  <signal name=\"JobRemoved\">\n"                              \
-        "   <arg name=\"id\" type=\"u\"/>\n"                            \
-        "   <arg name=\"job\" type=\"o\"/>\n"                           \
-        "   <arg name=\"unit\" type=\"s\"/>\n"                          \
-        "   <arg name=\"result\" type=\"s\"/>\n"                        \
-        "  </signal>"                                                   \
-        "  <signal name=\"StartupFinished\">\n"                         \
-        "   <arg name=\"firmware\" type=\"t\"/>\n"                      \
-        "   <arg name=\"loader\" type=\"t\"/>\n"                        \
-        "   <arg name=\"kernel\" type=\"t\"/>\n"                        \
-        "   <arg name=\"initrd\" type=\"t\"/>\n"                        \
-        "   <arg name=\"userspace\" type=\"t\"/>\n"                     \
-        "   <arg name=\"total\" type=\"t\"/>\n"                         \
-        "  </signal>"                                                   \
-        "  <signal name=\"UnitFilesChanged\"/>\n"                       \
-        "  <signal name=\"Reloading\">\n"                               \
-        "   <arg name=\"active\" type=\"b\"/>\n"                        \
-        "  </signal>"
+        return sd_bus_message_append(reply, "s", PACKAGE_VERSION);
+}
 
-#define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
-        "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
-        "  <property name=\"Features\" type=\"s\" access=\"read\"/>\n"  \
-        "  <property name=\"Tainted\" type=\"s\" access=\"read\"/>\n"   \
-        "  <property name=\"FirmwareTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"FirmwareTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"LoaderTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"LoaderTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"KernelTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"KernelTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"InitRDTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"InitRDTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"UserspaceTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"UserspaceTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"FinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"FinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"SecurityStartTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"SecurityStartTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"SecurityFinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"SecurityFinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"GeneratorsStartTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"GeneratorsStartTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"GeneratorsFinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"GeneratorsFinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"UnitsLoadStartTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"UnitsLoadStartTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"UnitsLoadFinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"UnitsLoadFinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"LogLevel\" type=\"s\" access=\"readwrite\"/>\n"  \
-        "  <property name=\"LogTarget\" type=\"s\" access=\"readwrite\"/>\n" \
-        "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
-        "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>\n"     \
-        "  <property name=\"NInstalledJobs\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"NFailedJobs\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"Progress\" type=\"d\" access=\"read\"/>\n"  \
-        "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"ShowStatus\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"RuntimeWatchdogUSec\" type=\"t\" access=\"readwrite\"/>\n" \
-        "  <property name=\"ShutdownWatchdogUSec\" type=\"t\" access=\"readwrite\"/>\n" \
-        "  <property name=\"Virtualization\" type=\"s\" access=\"read\"/>\n"
+static int property_get_features(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-#define BUS_MANAGER_INTERFACE_END                                       \
-        " </interface>\n"
+        assert(bus);
+        assert(reply);
 
-#define BUS_MANAGER_INTERFACE                                           \
-        BUS_MANAGER_INTERFACE_BEGIN                                     \
-        BUS_MANAGER_INTERFACE_METHODS                                   \
-        BUS_MANAGER_INTERFACE_SIGNALS                                   \
-        BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
-        BUS_MANAGER_INTERFACE_END
+        return sd_bus_message_append(reply, "s", SYSTEMD_FEATURES);
+}
 
-#define INTROSPECTION_BEGIN                                             \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        BUS_MANAGER_INTERFACE                                           \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_PEER_INTERFACE                                              \
-        BUS_INTROSPECTABLE_INTERFACE
+static int property_get_virtualization(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-#define INTROSPECTION_END                                               \
-        "</node>\n"
+        const char *id = NULL;
 
-#define INTERFACES_LIST                              \
-        BUS_GENERIC_INTERFACES_LIST                  \
-        "org.freedesktop.systemd1.Manager\0"
+        assert(bus);
+        assert(reply);
 
-const char bus_manager_interface[] = BUS_MANAGER_INTERFACE;
+        detect_virtualization(&id);
 
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_exec_output, exec_output, ExecOutput);
+        return sd_bus_message_append(reply, "s", id);
+}
 
-static int bus_manager_append_tainted(DBusMessageIter *i, const char *property, void *data) {
-        const char *t;
-        Manager *m = data;
-        char buf[LINE_MAX] = "", *e = buf, *p = NULL;
+static int property_get_tainted(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
+        char buf[LINE_MAX] = "", *e = buf;
+        _cleanup_free_ char *p = NULL;
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(reply);
         assert(m);
 
         if (m->taint_usr)
@@ -343,8 +111,6 @@ static int bus_manager_append_tainted(DBusMessageIter *i, const char *property, 
 
         if (readlink_malloc("/etc/mtab", &p) < 0)
                 e = stpcpy(e, "mtab-not-symlink:");
-        else
-                free(p);
 
         if (access("/proc/cgroups", F_OK) < 0)
                 e = stpcpy(e, "cgroups-missing:");
@@ -356,105 +122,140 @@ static int bus_manager_append_tainted(DBusMessageIter *i, const char *property, 
         if (e != buf)
                 e[-1] = 0;
 
-        t = buf;
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "s", buf);
 }
 
-static int bus_manager_append_log_target(DBusMessageIter *i, const char *property, void *data) {
-        const char *t;
+static int property_get_log_target(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
 
-        t = log_target_to_string(log_get_target());
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "s", log_target_to_string(log_get_target()));
 }
 
-static int bus_manager_set_log_target(DBusMessageIter *i, const char *property, void *data) {
+static int property_set_log_target(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                sd_bus_error *error,
+                void *userdata) {
+
         const char *t;
+        int r;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(value);
 
-        dbus_message_iter_get_basic(i, &t);
+        r = sd_bus_message_read(value, "s", &t);
+        if (r < 0)
+                return r;
 
         return log_set_target_from_string(t);
 }
 
-static int bus_manager_append_log_level(DBusMessageIter *i, const char *property, void *data) {
+static int property_get_log_level(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
         _cleanup_free_ char *t = NULL;
         int r;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
 
         r = log_level_to_string_alloc(log_get_max_level(), &t);
         if (r < 0)
                 return r;
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
-                r = -ENOMEM;
-
-        return r;
+        return sd_bus_message_append(reply, "s", t);
 }
 
-static int bus_manager_set_log_level(DBusMessageIter *i, const char *property, void *data) {
+static int property_set_log_level(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                sd_bus_error *error,
+                void *userdata) {
+
         const char *t;
+        int r;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(value);
 
-        dbus_message_iter_get_basic(i, &t);
+        r = sd_bus_message_read(value, "s", &t);
+        if (r < 0)
+                return r;
 
         return log_set_max_level_from_string(t);
 }
 
-static int bus_manager_append_n_names(DBusMessageIter *i, const char *property, void *data) {
-        Manager *m = data;
-        uint32_t u;
+static int property_get_n_names(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(reply);
         assert(m);
 
-        u = hashmap_size(m->units);
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT32, &u))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "u", (uint32_t) hashmap_size(m->units));
 }
 
-static int bus_manager_append_n_jobs(DBusMessageIter *i, const char *property, void *data) {
-        Manager *m = data;
-        uint32_t u;
+static int property_get_n_jobs(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(reply);
         assert(m);
 
-        u = hashmap_size(m->jobs);
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT32, &u))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "u", (uint32_t) hashmap_size(m->jobs));
 }
 
-static int bus_manager_append_progress(DBusMessageIter *i, const char *property, void *data) {
+static int property_get_progress(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        Manager *m = userdata;
         double d;
-        Manager *m = data;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(m);
 
         if (dual_timestamp_is_set(&m->finish_timestamp))
@@ -462,1416 +263,1375 @@ static int bus_manager_append_progress(DBusMessageIter *i, const char *property,
         else
                 d = 1.0 - ((double) hashmap_size(m->jobs) / (double) m->n_installed_jobs);
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_DOUBLE, &d))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "d", d);
 }
 
-static int bus_manager_append_virt(DBusMessageIter *i, const char *property, void *data) {
-        Manager *m = data;
-        const char *id = NULL;
+static int property_set_runtime_watchdog(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
-        assert(m);
-
-        detect_virtualization(&id);
-
-        if (!id)
-                id = "";
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &id))
-                return -ENOMEM;
-
-        return 0;
-}
-
-static DBusMessage *message_from_file_changes(
-                DBusMessage *m,
-                UnitFileChange *changes,
-                unsigned n_changes,
-                int carries_install_info) {
-
-        DBusMessageIter iter, sub, sub2;
-        DBusMessage *reply;
-        unsigned i;
-
-        reply = dbus_message_new_method_return(m);
-        if (!reply)
-                return NULL;
-
-        dbus_message_iter_init_append(reply, &iter);
-
-        if (carries_install_info >= 0) {
-                dbus_bool_t b;
-
-                b = !!carries_install_info;
-                if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &b))
-                        goto oom;
-        }
-
-        if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sss)", &sub))
-                goto oom;
-
-        for (i = 0; i < n_changes; i++) {
-                const char *type, *path, *source;
-
-                type = unit_file_change_type_to_string(changes[i].type);
-                path = strempty(changes[i].path);
-                source = strempty(changes[i].source);
-
-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &type) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &path) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &source) ||
-                    !dbus_message_iter_close_container(&sub, &sub2))
-                        goto oom;
-        }
-
-        if (!dbus_message_iter_close_container(&iter, &sub))
-                goto oom;
-
-        return reply;
-
-oom:
-        dbus_message_unref(reply);
-        return NULL;
-}
-
-static int bus_manager_send_unit_files_changed(Manager *m) {
-        DBusMessage *s;
+        usec_t *t = userdata;
         int r;
 
-        s = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "UnitFilesChanged");
-        if (!s)
-                return -ENOMEM;
+        assert(bus);
+        assert(value);
 
-        r = bus_broadcast(m, s);
-        dbus_message_unref(s);
+        assert_cc(sizeof(usec_t) == sizeof(uint64_t));
 
-        return r;
-}
-
-static int bus_manager_set_runtime_watchdog_usec(DBusMessageIter *i, const char *property, void *data) {
-        uint64_t *t = data;
-
-        assert(i);
-        assert(property);
-
-        dbus_message_iter_get_basic(i, t);
+        r = sd_bus_message_read(value, "t", t);
+        if (r < 0)
+                return r;
 
         return watchdog_set_timeout(t);
 }
 
-static const char systemd_property_string[] =
-        PACKAGE_STRING "\0"
-        SYSTEMD_FEATURES;
-
-static const BusProperty bus_systemd_properties[] = {
-        { "Version",       bus_property_append_string,    "s",  0                      },
-        { "Features",      bus_property_append_string,    "s",  sizeof(PACKAGE_STRING) },
-        { NULL, }
-};
-
-static const BusProperty bus_manager_properties[] = {
-        { "Tainted",                     bus_manager_append_tainted,     "s",  0                                                },
-        { "FirmwareTimestamp",           bus_property_append_uint64,     "t",  offsetof(Manager, firmware_timestamp.realtime)   },
-        { "FirmwareTimestampMonotonic",  bus_property_append_uint64,     "t",  offsetof(Manager, firmware_timestamp.monotonic)  },
-        { "LoaderTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, loader_timestamp.realtime)     },
-        { "LoaderTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, loader_timestamp.monotonic)    },
-        { "KernelTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, kernel_timestamp.realtime)     },
-        { "KernelTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, kernel_timestamp.monotonic)    },
-        { "InitRDTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, initrd_timestamp.realtime)     },
-        { "InitRDTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, initrd_timestamp.monotonic)    },
-        { "UserspaceTimestamp",          bus_property_append_uint64,     "t",  offsetof(Manager, userspace_timestamp.realtime)  },
-        { "UserspaceTimestampMonotonic", bus_property_append_uint64,     "t",  offsetof(Manager, userspace_timestamp.monotonic) },
-        { "FinishTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, finish_timestamp.realtime)     },
-        { "FinishTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, finish_timestamp.monotonic)    },
-        { "SecurityStartTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, security_start_timestamp.realtime)     },
-        { "SecurityStartTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, security_start_timestamp.monotonic)    },
-        { "SecurityFinishTimestamp",            bus_property_append_uint64,     "t",  offsetof(Manager, security_finish_timestamp.realtime)    },
-        { "SecurityFinishTimestampMonotonic",   bus_property_append_uint64,     "t",  offsetof(Manager, security_finish_timestamp.monotonic)   },
-        { "GeneratorsStartTimestamp",           bus_property_append_uint64,     "t",  offsetof(Manager, generators_start_timestamp.realtime)   },
-        { "GeneratorsStartTimestampMonotonic",  bus_property_append_uint64,     "t",  offsetof(Manager, generators_start_timestamp.monotonic)  },
-        { "GeneratorsFinishTimestamp",          bus_property_append_uint64,     "t",  offsetof(Manager, generators_finish_timestamp.realtime)  },
-        { "GeneratorsFinishTimestampMonotonic", bus_property_append_uint64,     "t",  offsetof(Manager, generators_finish_timestamp.monotonic) },
-        { "UnitsLoadStartTimestamp",            bus_property_append_uint64,     "t",  offsetof(Manager, unitsload_start_timestamp.realtime)    },
-        { "UnitsLoadStartTimestampMonotonic",   bus_property_append_uint64,     "t",  offsetof(Manager, unitsload_start_timestamp.monotonic)   },
-        { "UnitsLoadFinishTimestamp",           bus_property_append_uint64,     "t",  offsetof(Manager, unitsload_finish_timestamp.realtime)   },
-        { "UnitsLoadFinishTimestampMonotonic",  bus_property_append_uint64,     "t",  offsetof(Manager, unitsload_finish_timestamp.monotonic)  },
-        { "LogLevel",                    bus_manager_append_log_level,   "s",  0,                                               false, bus_manager_set_log_level },
-        { "LogTarget",                   bus_manager_append_log_target,  "s",  0,                                               false, bus_manager_set_log_target },
-        { "NNames",                      bus_manager_append_n_names,     "u",  0                                                },
-        { "NJobs",                       bus_manager_append_n_jobs,      "u",  0                                                },
-        { "NInstalledJobs",              bus_property_append_uint32,     "u",  offsetof(Manager, n_installed_jobs)              },
-        { "NFailedJobs",                 bus_property_append_uint32,     "u",  offsetof(Manager, n_failed_jobs)                 },
-        { "Progress",                    bus_manager_append_progress,    "d",  0                                                },
-        { "Environment",                 bus_property_append_strv,       "as", offsetof(Manager, environment),                  true },
-        { "ConfirmSpawn",                bus_property_append_bool,       "b",  offsetof(Manager, confirm_spawn)                 },
-        { "ShowStatus",                  bus_property_append_bool,       "b",  offsetof(Manager, show_status)                   },
-        { "UnitPath",                    bus_property_append_strv,       "as", offsetof(Manager, lookup_paths.unit_path),       true },
-        { "DefaultStandardOutput",       bus_manager_append_exec_output, "s",  offsetof(Manager, default_std_output)            },
-        { "DefaultStandardError",        bus_manager_append_exec_output, "s",  offsetof(Manager, default_std_error)             },
-        { "RuntimeWatchdogUSec",         bus_property_append_usec,       "t",  offsetof(Manager, runtime_watchdog),             false, bus_manager_set_runtime_watchdog_usec },
-        { "ShutdownWatchdogUSec",        bus_property_append_usec,       "t",  offsetof(Manager, shutdown_watchdog),            false, bus_property_set_usec },
-        { "Virtualization",              bus_manager_append_virt,        "s",  0,                                               },
-        { NULL, }
-};
-
-static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection, DBusMessage *message, void *data) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        _cleanup_free_ char * path = NULL;
-        Manager *m = data;
+static int method_get_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *path = NULL;
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
         int r;
-        DBusError error;
-        JobType job_type = _JOB_TYPE_INVALID;
-        bool reload_if_possible = false;
-        const char *member;
 
-        assert(connection);
+        assert(bus);
         assert(message);
         assert(m);
 
-        dbus_error_init(&error);
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
 
-        member = dbus_message_get_member(message);
+        u = manager_get_unit(m, name);
+        if (!u)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", name);
 
-        if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnit")) {
-                const char *name;
-                Unit *u;
+        SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "status");
 
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+        path = unit_dbus_path(u);
+        if (!path)
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
 
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                path = unit_dbus_path(u);
-                if (!path)
-                        goto oom;
-
-                if (!dbus_message_append_args(
-                                    reply,
-                                    DBUS_TYPE_OBJECT_PATH, &path,
-                                    DBUS_TYPE_INVALID))
-                        goto oom;
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitByPID")) {
-                Unit *u;
-                uint32_t pid;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_UINT32, &pid,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                u = manager_get_unit_by_pid(m, (pid_t) pid);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "No unit for PID %lu is loaded.", (unsigned long) pid);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                path = unit_dbus_path(u);
-                if (!path)
-                        goto oom;
-
-                if (!dbus_message_append_args(
-                                    reply,
-                                    DBUS_TYPE_OBJECT_PATH, &path,
-                                    DBUS_TYPE_INVALID))
-                        goto oom;
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "LoadUnit")) {
-                const char *name;
-                Unit *u;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                r = manager_load_unit(m, name, NULL, &error, &u);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                path = unit_dbus_path(u);
-                if (!path)
-                        goto oom;
-
-                if (!dbus_message_append_args(
-                                    reply,
-                                    DBUS_TYPE_OBJECT_PATH, &path,
-                                    DBUS_TYPE_INVALID))
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnit"))
-                job_type = JOB_START;
-        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnitReplace"))
-                job_type = JOB_START;
-        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StopUnit"))
-                job_type = JOB_STOP;
-        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReloadUnit"))
-                job_type = JOB_RELOAD;
-        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "RestartUnit"))
-                job_type = JOB_RESTART;
-        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "TryRestartUnit"))
-                job_type = JOB_TRY_RESTART;
-        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReloadOrRestartUnit")) {
-                reload_if_possible = true;
-                job_type = JOB_RESTART;
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReloadOrTryRestartUnit")) {
-                reload_if_possible = true;
-                job_type = JOB_TRY_RESTART;
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "KillUnit")) {
-                const char *name, *swho;
-                int32_t signo;
-                Unit *u;
-                KillWho who;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_STRING, &swho,
-                                    DBUS_TYPE_INT32, &signo,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                if (isempty(swho))
-                        who = KILL_ALL;
-                else {
-                        who = kill_who_from_string(swho);
-                        if (who < 0)
-                                return bus_send_error_reply(connection, message, &error, -EINVAL);
-                }
-
-                if (signo <= 0 || signo >= _NSIG)
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
-
-                r = unit_kill(u, who, signo, &error);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetJob")) {
-                uint32_t id;
-                Job *j;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_UINT32, &id,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                j = manager_get_job(m, id);
-                if (!j) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(j->unit, connection, message, "status");
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                path = job_dbus_path(j);
-                if (!path)
-                        goto oom;
-
-                if (!dbus_message_append_args(
-                                    reply,
-                                    DBUS_TYPE_OBJECT_PATH, &path,
-                                    DBUS_TYPE_INVALID))
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "CancelJob")) {
-                uint32_t id;
-                Job *j;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_UINT32, &id,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                j = manager_get_job(m, id);
-                if (!j) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(j->unit, connection, message, "stop");
-                job_finish_and_invalidate(j, JOB_CANCELED, true);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ClearJobs")) {
-
-                SELINUX_ACCESS_CHECK(connection, message, "reboot");
-                manager_clear_jobs(m);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetFailed")) {
-
-                SELINUX_ACCESS_CHECK(connection, message, "reload");
-
-                manager_reset_failed(m);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetFailedUnit")) {
-                const char *name;
-                Unit *u;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "reload");
-
-                unit_reset_failed(u);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListUnits")) {
-                DBusMessageIter iter, sub;
-                Iterator i;
-                Unit *u;
-                const char *k;
-
-                SELINUX_ACCESS_CHECK(connection, message, "status");
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                dbus_message_iter_init_append(reply, &iter);
-
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ssssssouso)", &sub))
-                        goto oom;
-
-                HASHMAP_FOREACH_KEY(u, k, m->units, i) {
-                        char *u_path, *j_path;
-                        const char *description, *load_state, *active_state, *sub_state, *sjob_type, *following;
-                        DBusMessageIter sub2;
-                        uint32_t job_id;
-                        Unit *f;
-
-                        if (k != u->id)
-                                continue;
-
-                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
-                                goto oom;
-
-                        description = unit_description(u);
-                        load_state = unit_load_state_to_string(u->load_state);
-                        active_state = unit_active_state_to_string(unit_active_state(u));
-                        sub_state = unit_sub_state_to_string(u);
-
-                        f = unit_following(u);
-                        following = f ? f->id : "";
-
-                        u_path = unit_dbus_path(u);
-                        if (!u_path)
-                                goto oom;
-
-                        if (u->job) {
-                                job_id = (uint32_t) u->job->id;
-
-                                if (!(j_path = job_dbus_path(u->job))) {
-                                        free(u_path);
-                                        goto oom;
-                                }
-
-                                sjob_type = job_type_to_string(u->job->type);
-                        } else {
-                                job_id = 0;
-                                j_path = u_path;
-                                sjob_type = "";
-                        }
-
-                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &u->id) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &description) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &load_state) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &active_state) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &sub_state) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &following) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &u_path) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &job_id) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &sjob_type) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &j_path)) {
-                                free(u_path);
-                                if (u->job)
-                                        free(j_path);
-                                goto oom;
-                        }
-
-                        free(u_path);
-                        if (u->job)
-                                free(j_path);
-
-                        if (!dbus_message_iter_close_container(&sub, &sub2))
-                                goto oom;
-                }
-
-                if (!dbus_message_iter_close_container(&iter, &sub))
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListJobs")) {
-                DBusMessageIter iter, sub;
-                Iterator i;
-                Job *j;
-
-                SELINUX_ACCESS_CHECK(connection, message, "status");
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                dbus_message_iter_init_append(reply, &iter);
-
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(usssoo)", &sub))
-                        goto oom;
-
-                HASHMAP_FOREACH(j, m->jobs, i) {
-                        char *u_path, *j_path;
-                        const char *state, *type;
-                        uint32_t id;
-                        DBusMessageIter sub2;
-
-                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
-                                goto oom;
-
-                        id = (uint32_t) j->id;
-                        state = job_state_to_string(j->state);
-                        type = job_type_to_string(j->type);
-
-                        j_path = job_dbus_path(j);
-                        if (!j_path)
-                                goto oom;
-
-                        u_path = unit_dbus_path(j->unit);
-                        if (!u_path) {
-                                free(j_path);
-                                goto oom;
-                        }
-
-                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &id) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &j->unit->id) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &type) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &state) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &j_path) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &u_path)) {
-                                free(j_path);
-                                free(u_path);
-                                goto oom;
-                        }
-
-                        free(j_path);
-                        free(u_path);
-
-                        if (!dbus_message_iter_close_container(&sub, &sub2))
-                                goto oom;
-                }
-
-                if (!dbus_message_iter_close_container(&iter, &sub))
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Subscribe")) {
-                char *client;
-                Set *s;
-
-                SELINUX_ACCESS_CHECK(connection, message, "status");
-
-                s = bus_acquire_subscribed(m, connection);
-                if (!s)
-                        goto oom;
-
-                client = strdup(bus_message_get_sender_with_fallback(message));
-                if (!client)
-                        goto oom;
-
-                r = set_consume(s, client);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Unsubscribe")) {
-                char *client;
-
-                SELINUX_ACCESS_CHECK(connection, message, "status");
-
-                client = set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) bus_message_get_sender_with_fallback(message));
-                if (!client) {
-                        dbus_set_error(&error, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                free(client);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Dump")) {
-                FILE *f;
-                char *dump = NULL;
-                size_t size;
-
-                SELINUX_ACCESS_CHECK(connection, message, "status");
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                f = open_memstream(&dump, &size);
-                if (!f)
-                        goto oom;
-
-                manager_dump_units(m, f, NULL);
-                manager_dump_jobs(m, f, NULL);
-
-                if (ferror(f)) {
-                        fclose(f);
-                        free(dump);
-                        goto oom;
-                }
-
-                fclose(f);
-
-                if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &dump, DBUS_TYPE_INVALID)) {
-                        free(dump);
-                        goto oom;
-                }
-
-                free(dump);
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "CreateSnapshot")) {
-                const char *name;
-                dbus_bool_t cleanup;
-                Snapshot *s;
-
-                SELINUX_ACCESS_CHECK(connection, message, "start");
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_BOOLEAN, &cleanup,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                if (isempty(name))
-                        name = NULL;
-
-                r = snapshot_create(m, name, cleanup, &error, &s);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                path = unit_dbus_path(UNIT(s));
-                if (!path)
-                        goto oom;
-
-                if (!dbus_message_append_args(
-                                    reply,
-                                    DBUS_TYPE_OBJECT_PATH, &path,
-                                    DBUS_TYPE_INVALID))
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "RemoveSnapshot")) {
-                const char *name;
-                Unit *u;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s does not exist.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                if (u->type != UNIT_SNAPSHOT) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not a snapshot.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
-                snapshot_remove(SNAPSHOT(u));
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
-                _cleanup_free_ char *introspection = NULL;
-                FILE *f;
-                Iterator i;
-                Unit *u;
-                Job *j;
-                const char *k;
-                size_t size;
-
-                SELINUX_ACCESS_CHECK(connection, message, "status");
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                /* We roll our own introspection code here, instead of
-                 * relying on bus_default_message_handler() because we
-                 * need to generate our introspection string
-                 * dynamically. */
-
-                f = open_memstream(&introspection, &size);
-                if (!f)
-                        goto oom;
-
-                fputs(INTROSPECTION_BEGIN, f);
-
-                HASHMAP_FOREACH_KEY(u, k, m->units, i) {
-                        _cleanup_free_ char *p = NULL;
-
-                        if (k != u->id)
-                                continue;
-
-                        p = bus_path_escape(k);
-                        if (!p) {
-                                fclose(f);
-                                goto oom;
-                        }
-
-                        fprintf(f, "<node name=\"unit/%s\"/>", p);
-                }
-
-                HASHMAP_FOREACH(j, m->jobs, i)
-                        fprintf(f, "<node name=\"job/%lu\"/>", (unsigned long) j->id);
-
-                fputs(INTROSPECTION_END, f);
-
-                if (ferror(f)) {
-                        fclose(f);
-                        goto oom;
-                }
-
-                fclose(f);
-
-                if (!introspection)
-                        goto oom;
-
-                if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &introspection, DBUS_TYPE_INVALID)) {
-                        goto oom;
-                }
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reload")) {
-
-                SELINUX_ACCESS_CHECK(connection, message, "reload");
-
-                assert(!m->queued_message);
-
-                /* Instead of sending the reply back right away, we
-                 * just remember that we need to and then send it
-                 * after the reload is finished. That way the caller
-                 * knows when the reload finished. */
-
-                m->queued_message = dbus_message_new_method_return(message);
-                if (!m->queued_message)
-                        goto oom;
-
-                m->queued_message_connection = connection;
-                m->exit_code = MANAGER_RELOAD;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reexecute")) {
-
-                SELINUX_ACCESS_CHECK(connection, message, "reload");
-
-                /* We don't send a reply back here, the client should
-                 * just wait for us disconnecting. */
-
-                m->exit_code = MANAGER_REEXECUTE;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Exit")) {
-
-                SELINUX_ACCESS_CHECK(connection, message, "halt");
-
-                if (m->running_as == SYSTEMD_SYSTEM) {
-                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
-                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
-                }
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                m->exit_code = MANAGER_EXIT;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reboot")) {
-
-                SELINUX_ACCESS_CHECK(connection, message, "reboot");
-
-                if (m->running_as != SYSTEMD_SYSTEM) {
-                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
-                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
-                }
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                m->exit_code = MANAGER_REBOOT;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "PowerOff")) {
-
-                SELINUX_ACCESS_CHECK(connection, message, "halt");
-
-                if (m->running_as != SYSTEMD_SYSTEM) {
-                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
-                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
-                }
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                m->exit_code = MANAGER_POWEROFF;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Halt")) {
-
-                SELINUX_ACCESS_CHECK(connection, message, "halt");
-
-                if (m->running_as != SYSTEMD_SYSTEM) {
-                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Halting is only supported for system managers.");
-                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
-                }
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                m->exit_code = MANAGER_HALT;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "KExec")) {
-
-                SELINUX_ACCESS_CHECK(connection, message, "reboot");
-
-                if (m->running_as != SYSTEMD_SYSTEM) {
-                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "kexec is only supported for system managers.");
-                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
-                }
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                m->exit_code = MANAGER_KEXEC;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SwitchRoot")) {
-                const char *switch_root, *switch_root_init;
-                char *u, *v;
-                bool good;
-
-                SELINUX_ACCESS_CHECK(connection, message, "reboot");
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &switch_root,
-                                    DBUS_TYPE_STRING, &switch_root_init,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                if (path_equal(switch_root, "/") || !path_is_absolute(switch_root))
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                if (!isempty(switch_root_init) && !path_is_absolute(switch_root_init))
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                if (m->running_as != SYSTEMD_SYSTEM) {
-                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Switching root is only supported for system managers.");
-                        return bus_send_error_reply(connection, message, &error, -ENOTSUP);
-                }
-
-                /* Safety check */
-                if (isempty(switch_root_init)) {
-                        good = path_is_os_tree(switch_root);
-                        if (!good)
-                                log_error("Not switching root: %s does not seem to be an OS tree. /etc/os-release is missing.", switch_root);
-                }
-                else {
-                        _cleanup_free_ char *p = NULL;
-
-                        p = strjoin(switch_root, "/", switch_root_init, NULL);
-                        if (!p)
-                                goto oom;
-
-                        good = access(p, X_OK) >= 0;
-                        if (!good)
-                                log_error("Not switching root: cannot execute new init %s", p);
-                }
-                if (!good)
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                u = strdup(switch_root);
-                if (!u)
-                        goto oom;
-
-                if (!isempty(switch_root_init)) {
-                        v = strdup(switch_root_init);
-                        if (!v) {
-                                free(u);
-                                goto oom;
-                        }
-                } else
-                        v = NULL;
-
-                free(m->switch_root);
-                free(m->switch_root_init);
-                m->switch_root = u;
-                m->switch_root_init = v;
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                m->exit_code = MANAGER_SWITCH_ROOT;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetEnvironment")) {
-                _cleanup_strv_free_ char **l = NULL;
-                char **e = NULL;
-
-                SELINUX_ACCESS_CHECK(connection, message, "reload");
-
-                r = bus_parse_strv(message, &l);
-                if (r == -ENOMEM)
-                        goto oom;
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-                if (!strv_env_is_valid(l))
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                e = strv_env_merge(2, m->environment, l);
-                if (!e)
-                        goto oom;
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply) {
-                        strv_free(e);
-                        goto oom;
-                }
-
-                strv_free(m->environment);
-                m->environment = e;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetEnvironment")) {
-                _cleanup_strv_free_ char **l = NULL;
-                char **e = NULL;
-
-                SELINUX_ACCESS_CHECK(connection, message, "reload");
-
-                r = bus_parse_strv(message, &l);
-                if (r == -ENOMEM)
-                        goto oom;
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-                if (!strv_env_name_or_assignment_is_valid(l))
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                e = strv_env_delete(m->environment, 1, l);
-                if (!e)
-                        goto oom;
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply) {
-                        strv_free(e);
-                        goto oom;
-                }
-
-                strv_free(m->environment);
-                m->environment = e;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetAndSetEnvironment")) {
-                _cleanup_strv_free_ char **l_set = NULL, **l_unset = NULL, **e = NULL;
-                char **f = NULL;
-                DBusMessageIter iter;
-
-                SELINUX_ACCESS_CHECK(connection, message, "reload");
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_parse_strv_iter(&iter, &l_unset);
-                if (r == -ENOMEM)
-                        goto oom;
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-                if (!strv_env_name_or_assignment_is_valid(l_unset))
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                if (!dbus_message_iter_next(&iter))
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                r = bus_parse_strv_iter(&iter, &l_set);
-                if (r == -ENOMEM)
-                        goto oom;
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-                if (!strv_env_is_valid(l_set))
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                e = strv_env_delete(m->environment, 1, l_unset);
-                if (!e)
-                        goto oom;
-
-                f = strv_env_merge(2, e, l_set);
-                if (!f)
-                        goto oom;
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply) {
-                        strv_free(f);
-                        goto oom;
-                }
-
-                strv_free(m->environment);
-                m->environment = f;
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListUnitFiles")) {
-                DBusMessageIter iter, sub, sub2;
-                Hashmap *h;
-                Iterator i;
-                UnitFileList *item;
-
-                SELINUX_ACCESS_CHECK(connection, message, "status");
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                h = hashmap_new(string_hash_func, string_compare_func);
-                if (!h)
-                        goto oom;
-
-                r = unit_file_get_list(m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, h);
-                if (r < 0) {
-                        unit_file_list_free(h);
-                        return bus_send_error_reply(connection, message, NULL, r);
-                }
-
-                dbus_message_iter_init_append(reply, &iter);
-
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ss)", &sub)) {
-                        unit_file_list_free(h);
-                        goto oom;
-                }
-
-                HASHMAP_FOREACH(item, h, i) {
-                        const char *state;
-
-                        state = unit_file_state_to_string(item->state);
-                        assert(state);
-
-                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &item->path) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &state) ||
-                            !dbus_message_iter_close_container(&sub, &sub2)) {
-                                unit_file_list_free(h);
-                                goto oom;
-                        }
-                }
-
-                unit_file_list_free(h);
-
-                if (!dbus_message_iter_close_container(&iter, &sub))
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitFileState")) {
-                const char *name;
-                UnitFileState state;
-                const char *s;
-
-                SELINUX_ACCESS_CHECK(connection, message, "status");
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                state = unit_file_get_state(m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, name);
-                if (state < 0)
-                        return bus_send_error_reply(connection, message, NULL, state);
-
-                s = unit_file_state_to_string(state);
-                assert(s);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                if (!dbus_message_append_args(
-                                    reply,
-                                    DBUS_TYPE_STRING, &s,
-                                    DBUS_TYPE_INVALID))
-                        goto oom;
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "EnableUnitFiles") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReenableUnitFiles") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "LinkUnitFiles") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "PresetUnitFiles") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "MaskUnitFiles") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetDefaultTarget")) {
-
-                char **l = NULL;
-                DBusMessageIter iter;
-                UnitFileScope scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-                UnitFileChange *changes = NULL;
-                unsigned n_changes = 0;
-                dbus_bool_t runtime, force;
-                int carries_install_info = -1;
-
-                SELINUX_ACCESS_CHECK(connection, message, streq(member, "MaskUnitFiles") ? "disable" : "enable");
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_parse_strv_iter(&iter, &l);
-                if (r < 0) {
-                        if (r == -ENOMEM)
-                                goto oom;
-
-                        return bus_send_error_reply(connection, message, NULL, r);
-                }
-
-                if (!dbus_message_iter_next(&iter) ||
-                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &runtime, true) < 0 ||
-                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &force, false) < 0) {
-                        strv_free(l);
-                        return bus_send_error_reply(connection, message, NULL, -EIO);
-                }
-
-                if (streq(member, "EnableUnitFiles")) {
-                        r = unit_file_enable(scope, runtime, NULL, l, force, &changes, &n_changes);
-                        carries_install_info = r;
-                } else if (streq(member, "ReenableUnitFiles")) {
-                        r = unit_file_reenable(scope, runtime, NULL, l, force, &changes, &n_changes);
-                        carries_install_info = r;
-                } else if (streq(member, "LinkUnitFiles"))
-                        r = unit_file_link(scope, runtime, NULL, l, force, &changes, &n_changes);
-                else if (streq(member, "PresetUnitFiles")) {
-                        r = unit_file_preset(scope, runtime, NULL, l, force, &changes, &n_changes);
-                        carries_install_info = r;
-                } else if (streq(member, "MaskUnitFiles"))
-                        r = unit_file_mask(scope, runtime, NULL, l, force, &changes, &n_changes);
-                else if (streq(member, "SetDefaultTarget"))
-                        r = unit_file_set_default(scope, NULL, l[0], &changes, &n_changes);
-                else
-                        assert_not_reached("Uh? Wrong method");
-
-                strv_free(l);
-                bus_manager_send_unit_files_changed(m);
-
-                if (r < 0) {
-                        unit_file_changes_free(changes, n_changes);
-                        return bus_send_error_reply(connection, message, NULL, r);
-                }
-
-                reply = message_from_file_changes(message, changes, n_changes, carries_install_info);
-                unit_file_changes_free(changes, n_changes);
-
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "DisableUnitFiles") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnmaskUnitFiles")) {
-
-                char **l = NULL;
-                DBusMessageIter iter;
-                UnitFileScope scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-                UnitFileChange *changes = NULL;
-                unsigned n_changes = 0;
-                dbus_bool_t runtime;
-
-                SELINUX_ACCESS_CHECK(connection, message, streq(member, "UnmaskUnitFiles") ? "enable" : "disable");
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_parse_strv_iter(&iter, &l);
-                if (r < 0) {
-                        if (r == -ENOMEM)
-                                goto oom;
-
-                        return bus_send_error_reply(connection, message, NULL, r);
-                }
-
-                if (!dbus_message_iter_next(&iter) ||
-                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &runtime, false) < 0) {
-                        strv_free(l);
-                        return bus_send_error_reply(connection, message, NULL, -EIO);
-                }
-
-                if (streq(member, "DisableUnitFiles"))
-                        r = unit_file_disable(scope, runtime, NULL, l, &changes, &n_changes);
-                else if (streq(member, "UnmaskUnitFiles"))
-                        r = unit_file_unmask(scope, runtime, NULL, l, &changes, &n_changes);
-                else
-                        assert_not_reached("Uh? Wrong method");
-
-                strv_free(l);
-                bus_manager_send_unit_files_changed(m);
-
-                if (r < 0) {
-                        unit_file_changes_free(changes, n_changes);
-                        return bus_send_error_reply(connection, message, NULL, r);
-                }
-
-                reply = message_from_file_changes(message, changes, n_changes, -1);
-                unit_file_changes_free(changes, n_changes);
-
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetDefaultTarget")) {
-                UnitFileScope scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
-                _cleanup_free_ char *default_target = NULL;
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                r = unit_file_get_default(scope, NULL, &default_target);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &default_target, DBUS_TYPE_INVALID)) {
-                        goto oom;
-                }
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitProperties")) {
-                DBusMessageIter iter;
-                dbus_bool_t runtime;
-                const char *name;
-                Unit *u;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                if (bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true) < 0 ||
-                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &runtime, true) < 0)
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
-
-                r = bus_unit_set_properties(u, &iter, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, &error);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartTransientUnit")) {
-                const char *name, *smode;
-                DBusMessageIter iter;
-                JobMode mode;
-                UnitType t;
-                Unit *u;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                if (bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true) < 0 ||
-                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &smode, true) < 0)
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                t = unit_name_to_type(name);
-                if (t < 0)
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-                if (!unit_vtable[t]->can_transient) {
-                        dbus_set_error(&error, DBUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.", unit_type_to_string(t));
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-                }
-
-                mode = job_mode_from_string(smode);
-                if (mode < 0) {
-                        dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-                }
-
-                r = manager_load_unit(m, name, NULL, NULL, &u);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
-
-                if (u->load_state != UNIT_NOT_FOUND || set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0) {
-                        dbus_set_error(&error, BUS_ERROR_UNIT_EXISTS, "Unit %s already exists.", name);
-                        return bus_send_error_reply(connection, message, &error, -EEXIST);
-                }
-
-                /* OK, the unit failed to load and is unreferenced,
-                 * now let's fill in the transient data instead */
-                r = unit_make_transient(u);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                /* Set our properties */
-                r = bus_unit_set_properties(u, &iter, UNIT_RUNTIME, false, &error);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                /* And load this stub fully */
-                r = unit_load(u);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                manager_dispatch_load_queue(m);
-
-                /* Finally, start it */
-                return bus_unit_queue_job(connection, message, u, JOB_START, mode, false);
-
-        } else {
-                const BusBoundProperties bps[] = {
-                        { "org.freedesktop.systemd1.Manager", bus_systemd_properties, systemd_property_string },
-                        { "org.freedesktop.systemd1.Manager", bus_manager_properties, m },
-                        { NULL, }
-                };
-
-                SELINUX_ACCESS_CHECK(connection, message, "status");
-
-                return bus_default_message_handler(connection, message, NULL, INTERFACES_LIST, bps);
-        }
-
-        if (job_type != _JOB_TYPE_INVALID) {
-                const char *name, *smode, *old_name = NULL;
-                JobMode mode;
-                Unit *u;
-                dbus_bool_t b;
-
-                if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnitReplace"))
-                        b = dbus_message_get_args(
-                                        message,
-                                        &error,
-                                        DBUS_TYPE_STRING, &old_name,
-                                        DBUS_TYPE_STRING, &name,
-                                        DBUS_TYPE_STRING, &smode,
-                                        DBUS_TYPE_INVALID);
-                else
-                        b = dbus_message_get_args(
-                                        message,
-                                        &error,
-                                        DBUS_TYPE_STRING, &name,
-                                        DBUS_TYPE_STRING, &smode,
-                                        DBUS_TYPE_INVALID);
-                if (!b)
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                if (old_name) {
-                        u = manager_get_unit(m, old_name);
-                        if (!u || !u->job || u->job->type != JOB_START) {
-                                dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
-                                return bus_send_error_reply(connection, message, &error, -ENOENT);
-                        }
-                }
-
-                mode = job_mode_from_string(smode);
-                if (mode < 0) {
-                        dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-                }
-
-                r = manager_load_unit(m, name, NULL, &error, &u);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
-
-                return bus_unit_queue_job(connection, message, u, job_type, mode, reload_if_possible);
-        }
-
-        if (reply)
-                if (!bus_maybe_send_reply(connection, message, reply))
-                        goto oom;
-
-        return DBUS_HANDLER_RESULT_HANDLED;
-
-oom:
-        dbus_error_free(&error);
-
-        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+        return sd_bus_reply_method_return(bus, message, "o", path);
 }
 
-const DBusObjectPathVTable bus_manager_vtable = {
-        .message_function = bus_manager_message_handler
+static int method_get_unit_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *path = NULL;
+        Manager *m = userdata;
+        pid_t pid;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+
+        r = sd_bus_message_read(message, "u", &pid);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        if (pid == 0) {
+                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+        }
+
+        u = manager_get_unit_by_pid(m, pid);
+        if (!u)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_UNIT_FOR_PID, "PID %u does not belong to any loaded unit.", pid);
+
+        SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "status");
+
+        path = unit_dbus_path(u);
+        if (!path)
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "o", path);
+}
+
+static int method_load_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL;
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = manager_load_unit(m, name, NULL, &error, &u);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+
+        SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "status");
+
+        path = unit_dbus_path(u);
+        if (!path)
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "o", path);
+}
+
+static int method_start_unit_generic(sd_bus *bus, sd_bus_message *message, Manager *m, JobType job_type, bool reload_if_possible) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = manager_load_unit(m, name, NULL, &error, &u);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+
+        return bus_unit_method_start_generic(bus, message, u, job_type, reload_if_possible);
+}
+
+static int method_start_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_start_unit_generic(bus, message, userdata, JOB_START, false);
+}
+
+static int method_stop_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_start_unit_generic(bus, message, userdata, JOB_STOP, false);
+}
+
+static int method_reload_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_start_unit_generic(bus, message, userdata, JOB_RELOAD, false);
+}
+
+static int method_restart_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_start_unit_generic(bus, message, userdata, JOB_RESTART, false);
+}
+
+static int method_try_restart_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_start_unit_generic(bus, message, userdata, JOB_TRY_RESTART, false);
+}
+
+static int method_reload_or_restart_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_start_unit_generic(bus, message, userdata, JOB_RESTART, true);
+}
+
+static int method_reload_or_try_restart_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_start_unit_generic(bus, message, userdata, JOB_TRY_RESTART, true);
+}
+
+static int method_start_unit_replace(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        const char *old_name;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &old_name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        u = manager_get_unit(m, old_name);
+        if (!u || !u->job || u->job->type != JOB_START)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
+
+        return method_start_unit_generic(bus, message, m, JOB_START, false);
+}
+
+static int method_kill_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        u = manager_get_unit(m, name);
+        if (!u)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+
+        return bus_unit_method_kill(bus, message, u);
+}
+
+static int method_reset_failed_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        u = manager_get_unit(m, name);
+        if (!u)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+
+        return bus_unit_method_reset_failed(bus, message, u);
+}
+
+static int method_set_unit_properties(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        u = manager_get_unit(m, name);
+        if (!u)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+
+        return bus_unit_method_set_properties(bus, message, u);
+}
+
+static int method_start_transient_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *name, *smode;
+        Manager *m = userdata;
+        JobMode mode;
+        UnitType t;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "ss", &name, &smode);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        t = unit_name_to_type(name);
+        if (t < 0)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit type.");
+
+        if (!unit_vtable[t]->can_transient)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.");
+
+        mode = job_mode_from_string(smode);
+        if (mode < 0)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s is invalid.", smode);
+
+        r = manager_load_unit(m, name, NULL, &error, &u);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+
+        SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "start");
+
+        if (u->load_state != UNIT_NOT_FOUND || set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_UNIT_EXISTS, "Unit %s already exists.", name);
+
+        /* OK, the unit failed to load and is unreferenced, now let's
+         * fill in the transient data instead */
+        r = unit_make_transient(u);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        /* Set our properties */
+        r = bus_unit_set_properties(u, message, UNIT_RUNTIME, false, &error);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+
+        /* And load this stub fully */
+        r = unit_load(u);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+
+        manager_dispatch_load_queue(m);
+
+        /* Finally, start it */
+        return bus_unit_queue_job(bus, message, u, JOB_START, mode, false);
+}
+
+static int method_get_job(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *path = NULL;
+        Manager *m = userdata;
+        uint32_t id;
+        Job *j;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "u", &id);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        j = manager_get_job(m, id);
+        if (!j)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
+
+        SELINUX_UNIT_ACCESS_CHECK(j->unit, bus, message, "status");
+
+        path = job_dbus_path(j);
+        if (!path)
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "o", path);
+}
+
+static int method_cancel_job(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        uint32_t id;
+        Job *j;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "u", &id);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        j = manager_get_job(m, id);
+        if (!j)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
+
+        SELINUX_UNIT_ACCESS_CHECK(j->unit, bus, message, "stop");
+
+        job_finish_and_invalidate(j, JOB_CANCELED, true);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_clear_jobs(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "reboot");
+        manager_clear_jobs(m);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_reset_failed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "reload");
+        manager_reset_failed(m);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_list_units(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        const char *k;
+        Iterator i;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "status");
+
+        r = sd_bus_message_new_method_return(bus, message, &reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssssssouso)");
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        HASHMAP_FOREACH_KEY(u, k, m->units, i) {
+                _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
+                Unit *following;
+
+                if (k != u->id)
+                        continue;
+
+                following = unit_following(u);
+
+                unit_path = unit_dbus_path(u);
+                if (!unit_path)
+                        return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+                if (u->job) {
+                        job_path = job_dbus_path(u->job);
+                        if (!job_path)
+                                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                }
+
+                r = sd_bus_message_append(
+                                reply, "(ssssssouso)",
+                                u->id,
+                                unit_description(u),
+                                unit_load_state_to_string(u->load_state),
+                                unit_active_state_to_string(unit_active_state(u)),
+                                unit_sub_state_to_string(u),
+                                following ? following->id : "",
+                                unit_path,
+                                u->job ? u->job->id : 0,
+                                u->job ? job_type_to_string(u->job->type) : "",
+                                job_path ? job_path : "/");
+                if (r < 0)
+                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+static int method_list_jobs(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        Iterator i;
+        Job *j;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "status");
+
+        r = sd_bus_message_new_method_return(bus, message, &reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = sd_bus_message_open_container(reply, 'a', "(usssoo)");
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        HASHMAP_FOREACH(j, m->jobs, i) {
+                _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
+
+                job_path = job_dbus_path(j);
+                if (!job_path)
+                        return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+                unit_path = unit_dbus_path(j->unit);
+                if (!unit_path)
+                        return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+                r = sd_bus_message_append(
+                                reply, "(usssoo)",
+                                j->id,
+                                job_state_to_string(j->state),
+                                job_type_to_string(j->type),
+                                job_path,
+                                unit_path);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+static int method_subscribe(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "status");
+
+        r = bus_client_track(&m->subscribed, bus, sd_bus_message_get_sender(message));
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+        if (r == 0)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_ALREADY_SUBSCRIBED, "Client is already subscribed.");
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_unsubscribe(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "status");
+
+        r = bus_client_untrack(m->subscribed, bus, sd_bus_message_get_sender(message));
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+        if (r == 0)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_dump(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *dump = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        Manager *m = userdata;
+        size_t size;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "status");
+
+        f = open_memstream(&dump, &size);
+        if (!f)
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+        manager_dump_units(m, f, NULL);
+        manager_dump_jobs(m, f, NULL);
+
+        fflush(f);
+
+        if (ferror(f))
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "s", dump);
+}
+
+static int method_create_snapshot(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL;
+        Manager *m = userdata;
+        const char *name;
+        int cleanup;
+        Snapshot *s;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "start");
+
+        r = sd_bus_message_read(message, "sb", &name, &cleanup);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        if (isempty(name))
+                name = NULL;
+
+        r = snapshot_create(m, name, cleanup, &error, &s);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, &error);
+
+        path = unit_dbus_path(UNIT(s));
+        if (!path)
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "o", path);
+}
+
+static int method_remove_snapshot(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "start");
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        u = manager_get_unit(m, name);
+        if (!u)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s does not exist.", name);
+
+        if (u->type != UNIT_SNAPSHOT)
+                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not a snapshot", name);
+
+        return bus_snapshot_method_remove(bus, message, u);
+}
+
+static int method_reload(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "reload");
+
+        /* Instead of sending the reply back right away, we just
+         * remember that we need to and then send it after the reload
+         * is finished. That way the caller knows when the reload
+         * finished. */
+
+        assert(!m->queued_message);
+        r = sd_bus_message_new_method_return(bus, message, &m->queued_message);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        m->queued_message_bus = sd_bus_ref(bus);
+        m->exit_code = MANAGER_RELOAD;
+
+        return 1;
+}
+
+static int method_reexecute(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "reload");
+
+        /* We don't send a reply back here, the client should
+         * just wait for us disconnecting. */
+
+        m->exit_code = MANAGER_REEXECUTE;
+        return 1;
+}
+
+static int method_exit(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "halt");
+
+        if (m->running_as == SYSTEMD_SYSTEM)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
+
+        m->exit_code = MANAGER_EXIT;
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_reboot(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "reboot");
+
+        if (m->running_as != SYSTEMD_SYSTEM)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
+
+        m->exit_code = MANAGER_REBOOT;
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+
+static int method_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "halt");
+
+        if (m->running_as != SYSTEMD_SYSTEM)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
+
+        m->exit_code = MANAGER_POWEROFF;
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_halt(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "halt");
+
+        if (m->running_as != SYSTEMD_SYSTEM)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "Halt is only supported for system managers.");
+
+        m->exit_code = MANAGER_HALT;
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_kexec(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "reboot");
+
+        if (m->running_as != SYSTEMD_SYSTEM)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "KExec is only supported for system managers.");
+
+        m->exit_code = MANAGER_KEXEC;
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        char *ri = NULL, *rt = NULL;
+        const char *root, *init;
+        Manager *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "reboot");
+
+        if (m->running_as != SYSTEMD_SYSTEM)
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "KExec is only supported for system managers.");
+
+        r = sd_bus_message_read(message, "ss", &root, &init);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        if (path_equal(root, "/") || !path_is_absolute(root))
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid switch root path %s", root);
+
+        /* Safety check */
+        if (isempty(init)) {
+                if (! path_is_os_tree(root))
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Specified switch root path %s does not seem to be an OS tree. /etc/os-release is missing.", root);
+        } else {
+                _cleanup_free_ char *p = NULL;
+
+                if (!path_is_absolute(init))
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid init path %s", init);
+
+                p = strappend(root, init);
+                if (!p)
+                        return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+                if (access(p, X_OK) < 0)
+                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Specified init binary %s does not exist.", p);
+        }
+
+        rt = strdup(root);
+        if (!rt)
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+        if (!isempty(init)) {
+                ri = strdup(init);
+                if (!ri) {
+                        free(ri);
+                        return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                }
+        }
+
+        free(m->switch_root);
+        m->switch_root = rt;
+
+        free(m->switch_root_init);
+        m->switch_root_init = ri;
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_set_environment(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_strv_free_ char **plus = NULL;
+        Manager *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "reload");
+
+        r = sd_bus_message_read_strv(message, &plus);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+        if (!strv_env_is_valid(plus))
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
+
+        r = manager_environment_add(m, NULL, plus);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_unset_environment(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_strv_free_ char **minus = NULL;
+        Manager *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "reload");
+
+        r = sd_bus_message_read_strv(message, &minus);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        if (!strv_env_name_or_assignment_is_valid(minus))
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment variable names or assignments");
+
+        r = manager_environment_add(m, minus, NULL);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_unset_and_set_environment(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_strv_free_ char **minus = NULL, **plus = NULL;
+        Manager *m = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "reload");
+
+        r = sd_bus_message_read_strv(message, &plus);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = sd_bus_message_read_strv(message, &minus);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        if (!strv_env_is_valid(plus))
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
+        if (!strv_env_name_or_assignment_is_valid(minus))
+                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment variable names or assignments");
+
+        r = manager_environment_add(m, minus, plus);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, NULL);
+}
+
+static int method_list_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        UnitFileList *item;
+        Hashmap *h;
+        Iterator i;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "status");
+
+        r = sd_bus_message_new_method_return(bus, message, &reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        h = hashmap_new(string_hash_func, string_compare_func);
+        if (!h)
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+
+        r = unit_file_get_list(m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, h);
+        if (r < 0) {
+                r = sd_bus_reply_method_errno(bus, message, r, NULL);
+                goto fail;
+        }
+
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0) {
+                r = sd_bus_reply_method_errno(bus, message, r, NULL);
+                goto fail;
+        }
+
+        HASHMAP_FOREACH(item, h, i) {
+
+                r = sd_bus_message_append(reply, "(ss)", item->path, unit_file_state_to_string(item->state));
+                if (r < 0) {
+                        r = sd_bus_reply_method_errno(bus, message, r, NULL);
+                        goto fail;
+                }
+        }
+
+        unit_file_list_free(h);
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_send(bus, reply, NULL);
+
+fail:
+        unit_file_list_free(h);
+        return r;
+}
+
+static int method_get_unit_file_state(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        Manager *m = userdata;
+        const char *name;
+        UnitFileState state;
+        UnitFileScope scope;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "status");
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+
+        state = unit_file_get_state(scope, NULL, name);
+        if (state < 0)
+                return sd_bus_reply_method_errno(bus, message, state, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "s", unit_file_state_to_string(state));
+}
+
+static int method_get_default_target(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        _cleanup_free_ char *default_target = NULL;
+        Manager *m = userdata;
+        UnitFileScope scope;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "status");
+
+        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+
+        r = unit_file_get_default(scope, NULL, &default_target);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return sd_bus_reply_method_return(bus, message, "s", default_target);
+}
+
+static int send_unit_files_changed(sd_bus *bus, const char *destination, void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *message = NULL;
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_message_new_signal(bus, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "UnitFilesChanged", &message);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send_to(bus, message, destination, NULL);
+}
+
+static int reply_unit_file_changes_and_free(
+                Manager *m,
+                sd_bus *bus,
+                sd_bus_message *message,
+                int carries_install_info,
+                UnitFileChange *changes,
+                unsigned n_changes) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        unsigned i;
+        int r;
+
+        if (n_changes > 0)
+                bus_manager_foreach_client(m, send_unit_files_changed, NULL);
+
+        r = sd_bus_message_new_method_return(bus, message, &reply);
+        if (r < 0)
+                goto fail;
+
+        if (carries_install_info >= 0) {
+                r = sd_bus_message_append(reply, "b", carries_install_info);
+                if (r < 0)
+                        goto fail;
+        }
+
+        r = sd_bus_message_open_container(reply, 'a', "(sss)");
+        if (r < 0)
+                goto fail;
+
+        for (i = 0; i < n_changes; i++) {
+                r = sd_bus_message_append(
+                                message, "(sss)",
+                                unit_file_change_type_to_string(changes[i].type),
+                                changes[i].path,
+                                changes[i].source);
+                if (r < 0)
+                        goto fail;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                goto fail;
+
+        return sd_bus_send(bus, message, NULL);
+
+fail:
+        unit_file_changes_free(changes, n_changes);
+        return sd_bus_reply_method_errno(bus, message, r, NULL);
+}
+
+static int method_enable_unit_files_generic(
+                sd_bus *bus,
+                sd_bus_message *message,
+                Manager *m, const
+                char *verb,
+                int (*call)(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], bool force, UnitFileChange **changes, unsigned *n_changes),
+                bool carries_install_info) {
+
+        _cleanup_strv_free_ char **l = NULL;
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
+        UnitFileScope scope;
+        int runtime, force, r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, verb);
+
+        r = sd_bus_message_read_strv(message, &l);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = sd_bus_message_read(message, "bb", &runtime, &force);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+
+        r = call(scope, runtime, NULL, l, force, &changes, &n_changes);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return reply_unit_file_changes_and_free(m, bus, message, carries_install_info ? r : -1, changes, n_changes);
+}
+
+static int method_enable_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_enable, true);
+}
+
+static int method_reenable_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_reenable, true);
+}
+
+static int method_link_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_link, false);
+}
+
+static int method_preset_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_enable_unit_files_generic(bus, message, userdata, "enable", unit_file_preset, true);
+}
+
+static int method_mask_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_enable_unit_files_generic(bus, message, userdata, "disable", unit_file_mask, false);
+}
+
+static int method_disable_unit_files_generic(
+                sd_bus *bus,
+                sd_bus_message *message,
+                Manager *m, const
+                char *verb,
+                int (*call)(UnitFileScope scope, bool runtime, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes)) {
+
+        _cleanup_strv_free_ char **l = NULL;
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
+        UnitFileScope scope;
+        int r, runtime;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, verb);
+
+        r = sd_bus_message_read_strv(message, &l);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        r = sd_bus_message_read(message, "b", &runtime);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+
+        r = call(scope, runtime, NULL, l, &changes, &n_changes);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
+}
+
+static int method_disable_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_disable_unit_files_generic(bus, message, userdata, "disable", unit_file_disable);
+}
+
+static int method_unmask_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        return method_disable_unit_files_generic(bus, message, userdata, "enable", unit_file_unmask);
+}
+
+static int method_set_default_target(sd_bus *bus, sd_bus_message *message, void *userdata) {
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
+        Manager *m = userdata;
+        UnitFileScope scope;
+        const char *name;
+        int force, r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        SELINUX_ACCESS_CHECK(bus, message, "enable");
+
+        r = sd_bus_message_read(message, "sb", &name, &force);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+
+        r = unit_file_set_default(scope, NULL, name, force, &changes, &n_changes);
+        if (r < 0)
+                return sd_bus_reply_method_errno(bus, message, r, NULL);
+
+        return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
+}
+
+const sd_bus_vtable bus_manager_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+
+        SD_BUS_PROPERTY("Version", "s", property_get_version, 0, 0),
+        SD_BUS_PROPERTY("Features", "s", property_get_features, 0, 0),
+        SD_BUS_PROPERTY("Virtualization", "s", property_get_virtualization, 0, 0),
+        SD_BUS_PROPERTY("Tainted", "s", property_get_tainted, 0, 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("FirmwareTimestamp", offsetof(Manager, firmware_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("LoaderTimestamp", offsetof(Manager, loader_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("KernelTimestamp", offsetof(Manager, firmware_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("InitRDTimestamp", offsetof(Manager, initrd_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("UserspaceTimestamp", offsetof(Manager, userspace_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("FinishTimestamp", offsetof(Manager, finish_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("SecurityStartTimestamp", offsetof(Manager, security_start_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("SecurityFinishTimestamp", offsetof(Manager, security_finish_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("GeneratorsStartTimestamp", offsetof(Manager, generators_start_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("GeneratorsFinishTimestamp", offsetof(Manager, generators_finish_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("UnitsLoadStartTimestamp", offsetof(Manager, units_load_start_timestamp), 0),
+        BUS_PROPERTY_DUAL_TIMESTAMP("UnitsLoadFinishTimestamp", offsetof(Manager, units_load_finish_timestamp), 0),
+        SD_BUS_WRITABLE_PROPERTY("LogLevel", "s", property_get_log_level, property_set_log_level, 0, 0),
+        SD_BUS_WRITABLE_PROPERTY("LogTarget", "s", property_get_log_target, property_set_log_target, 0, 0),
+        SD_BUS_PROPERTY("NNames", "u", property_get_n_names, 0, 0),
+        SD_BUS_PROPERTY("NJobs", "u", property_get_n_jobs, 0, 0),
+        SD_BUS_PROPERTY("NInstalledJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_installed_jobs), 0),
+        SD_BUS_PROPERTY("NFailedJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_failed_jobs), 0),
+        SD_BUS_PROPERTY("Progress", "d", property_get_progress, 0, 0),
+        SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(Manager, environment), 0),
+        SD_BUS_PROPERTY("ConfirmSpawn", "b", bus_property_get_bool, offsetof(Manager, confirm_spawn), 0),
+        SD_BUS_PROPERTY("ShowStatus", "b", bus_property_get_bool, offsetof(Manager, show_status), 0),
+        SD_BUS_PROPERTY("UnitPath", "as", NULL, offsetof(Manager, lookup_paths.unit_path), 0),
+        SD_BUS_PROPERTY("DefaultStandardOutput", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), 0),
+        SD_BUS_PROPERTY("DefaultStandardError", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), 0),
+        SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogUSec", "t", bus_property_get_usec, property_set_runtime_watchdog, offsetof(Manager, runtime_watchdog), 0),
+        SD_BUS_WRITABLE_PROPERTY("ShutdownWatchdogUSec", "t", bus_property_get_usec, bus_property_set_usec, offsetof(Manager, shutdown_watchdog), 0),
+
+        SD_BUS_METHOD("GetUnit", "s", "o", method_get_unit, 0),
+        SD_BUS_METHOD("GetUnitByPID", "u", "o", method_get_unit_by_pid, 0),
+        SD_BUS_METHOD("LoadUnit", "s", "o", method_load_unit, 0),
+        SD_BUS_METHOD("StartUnit", "ss", "o", method_start_unit, 0),
+        SD_BUS_METHOD("StartUnitReplace", "sss", "o", method_start_unit_replace, 0),
+        SD_BUS_METHOD("StopUnit", "ss", "o", method_stop_unit, 0),
+        SD_BUS_METHOD("ReloadUnit", "ss", "o", method_reload_unit, 0),
+        SD_BUS_METHOD("RestartUnit", "ss", "o", method_restart_unit, 0),
+        SD_BUS_METHOD("TryRestartUnit", "ss", "o", method_try_restart_unit, 0),
+        SD_BUS_METHOD("ReloadOrRestartUnit", "ss", "o", method_reload_or_restart_unit, 0),
+        SD_BUS_METHOD("ReloadOrTryRestartUnit", "ss", "o", method_reload_or_try_restart_unit, 0),
+        SD_BUS_METHOD("KillUnit", "ssi", NULL, method_kill_unit, 0),
+        SD_BUS_METHOD("ResetFailedUnit", "s", NULL, method_reset_failed_unit, 0),
+        SD_BUS_METHOD("SetUnitProperties", "sb", "a(sv)", method_set_unit_properties, 0),
+        SD_BUS_METHOD("StartTransientUnit", "ssa(sv)a(sa(sv))", "o", method_start_transient_unit, 0),
+        SD_BUS_METHOD("GetJob", "u", "o", method_get_job, 0),
+        SD_BUS_METHOD("CancelJob", "u", NULL, method_cancel_job, 0),
+        SD_BUS_METHOD("ClearJobs", NULL, NULL, method_clear_jobs, 0),
+        SD_BUS_METHOD("ResetFailed", NULL, NULL, method_reset_failed, 0),
+        SD_BUS_METHOD("ListUnits", NULL, "a(ssssssouso)", method_list_units, 0),
+        SD_BUS_METHOD("ListJobs", NULL, "a(usssoo)", method_list_jobs, 0),
+        SD_BUS_METHOD("Subscribe", NULL, NULL, method_subscribe, 0),
+        SD_BUS_METHOD("Unsubscribe", NULL, NULL, method_unsubscribe, 0),
+        SD_BUS_METHOD("Dump", NULL, "s", method_dump, 0),
+        SD_BUS_METHOD("CreateSnapshot", "sb", "o", method_create_snapshot, 0),
+        SD_BUS_METHOD("RemoveSnapshot", "s", NULL, method_remove_snapshot, 0),
+        SD_BUS_METHOD("Reload", NULL, NULL, method_reload, 0),
+        SD_BUS_METHOD("Reexecute", NULL, NULL, method_reexecute, 0),
+        SD_BUS_METHOD("Exit", NULL, NULL, method_exit, 0),
+        SD_BUS_METHOD("Reboot", NULL, NULL, method_reboot, 0),
+        SD_BUS_METHOD("PowerOff", NULL, NULL, method_poweroff, 0),
+        SD_BUS_METHOD("Halt", NULL, NULL, method_halt, 0),
+        SD_BUS_METHOD("KExec", NULL, NULL, method_kexec, 0),
+        SD_BUS_METHOD("SwitchRoot", "ss", NULL, method_switch_root, 0),
+        SD_BUS_METHOD("SetEnvironment", "as", NULL, method_set_environment, 0),
+        SD_BUS_METHOD("UnsetEnvironment", "as", NULL, method_unset_environment, 0),
+        SD_BUS_METHOD("UnsetAndSetEnvironment", "asas", NULL, method_unset_and_set_environment, 0),
+        SD_BUS_METHOD("ListUnitFiles", NULL, "a(ss)", method_list_unit_files, 0),
+        SD_BUS_METHOD("GetUnitFileState", "s", "s", method_get_unit_file_state, 0),
+        SD_BUS_METHOD("EnableUnitFiles", "asbb", "ba(sss)", method_enable_unit_files, 0),
+        SD_BUS_METHOD("DisableUnitFiles", "asb", "a(sss)", method_disable_unit_files, 0),
+        SD_BUS_METHOD("ReenableUnitFiles", "asbb", "ba(sss)", method_reenable_unit_files, 0),
+        SD_BUS_METHOD("LinkUnitFiles", "asbb", "a(sss)", method_link_unit_files, 0),
+        SD_BUS_METHOD("PresetUnitFiles", "asbb", "ba(sss)", method_preset_unit_files, 0),
+        SD_BUS_METHOD("MaskUnitFiles", "asbb", "a(sss)", method_mask_unit_files, 0),
+        SD_BUS_METHOD("UnmaskUnitFiles", "asb", "a(sss)", method_unmask_unit_files, 0),
+        SD_BUS_METHOD("SetDefaultTarget", "sb", "a(sss)", method_set_default_target, 0),
+        SD_BUS_METHOD("GetDefaultTarget", NULL, "s", method_get_default_target, 0),
+
+        SD_BUS_SIGNAL("UnitNew", "so", 0),
+        SD_BUS_SIGNAL("UnitRemoved", "so", 0),
+        SD_BUS_SIGNAL("JobNew", "uos", 0),
+        SD_BUS_SIGNAL("JobRemoved", "uoss", 0),
+        SD_BUS_SIGNAL("StartupFinished", "tttttt", 0),
+        SD_BUS_SIGNAL("UnitFilesChanged", NULL, 0),
+        SD_BUS_SIGNAL("Reloading", "b", 0),
+
+        SD_BUS_VTABLE_END
 };
+
+int bus_manager_foreach_client(Manager *m, int (*send_message)(sd_bus *bus, const char *destination, void *userdata), void *userdata) {
+        Iterator i;
+        sd_bus *b;
+        unsigned n;
+        int r;
+
+        n = set_size(m->subscribed);
+        if (n <= 0)
+                return 0;
+        if (n == 1) {
+                BusTrackedClient *d;
+
+                assert_se(d = set_first(m->subscribed));
+                return send_message(d->bus, isempty(d->name) ? NULL : d->name, userdata);
+        }
+
+        /* Send to everybody */
+        SET_FOREACH(b, m->private_buses, i) {
+                r = send_message(b, NULL, userdata);
+                if (r < 0)
+                        return r;
+        }
+
+        if (m->api_bus)
+                return send_message(m->api_bus, NULL, userdata);
+
+        return 0;
+}
+
+static int send_finished(sd_bus *bus, const char *destination, void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *message = NULL;
+        usec_t *times = userdata;
+        int r;
+
+        assert(bus);
+        assert(times);
+
+        r = sd_bus_message_new_signal(bus, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartupFinished", &message);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(message, "tttttt", times[0], times[1], times[2], times[3], times[4], times[5]);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send_to(bus, message, destination, NULL);
+}
+
+int bus_manager_send_finished(
+                Manager *m,
+                usec_t firmware_usec,
+                usec_t loader_usec,
+                usec_t kernel_usec,
+                usec_t initrd_usec,
+                usec_t userspace_usec,
+                usec_t total_usec) {
+
+        assert(m);
+
+        return bus_manager_foreach_client(m, send_finished,
+                        (usec_t[6]) { firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec });
+}
+
+static int send_reloading(sd_bus *bus, const char *destination, void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *message = NULL;
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_message_new_signal(bus, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reloading", &message);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(message, "b", PTR_TO_INT(userdata));
+        if (r < 0)
+                return r;
+
+        return sd_bus_send_to(bus, message, destination, NULL);
+}
+
+int bus_manager_send_reloading(Manager *m, bool active) {
+        assert(m);
+
+        return bus_manager_foreach_client(m, send_reloading, INT_TO_PTR(active));
+}

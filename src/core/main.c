@@ -19,8 +19,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
-
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -34,13 +32,15 @@
 #include <sys/prctl.h>
 #include <sys/mount.h>
 
+#include "sd-daemon.h"
+#include "sd-messages.h"
+#include "sd-bus.h"
 #include "manager.h"
 #include "log.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
 #include "conf-parser.h"
-#include "dbus-common.h"
 #include "missing.h"
 #include "label.h"
 #include "build.h"
@@ -54,20 +54,21 @@
 #include "killall.h"
 #include "env-util.h"
 #include "hwclock.h"
-#include "sd-daemon.h"
-#include "sd-messages.h"
+#include "fileio.h"
+#include "dbus-manager.h"
+#include "bus-error.h"
+#include "bus-util.h"
 
 #include "mount-setup.h"
 #include "loopback-setup.h"
-#ifdef HAVE_KMOD
-#include "kmod-setup.h"
-#endif
 #include "hostname-setup.h"
 #include "machine-id-setup.h"
 #include "selinux-setup.h"
 #include "ima-setup.h"
-#include "fileio.h"
 #include "smack-setup.h"
+#ifdef HAVE_KMOD
+#include "kmod-setup.h"
+#endif
 
 static enum {
         ACTION_RUN,
@@ -1039,7 +1040,7 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
 
         /* Make sure nothing is really destructed when we shut down */
         m->n_reloading ++;
-        bus_broadcast_reloading(m, true);
+        bus_manager_send_reloading(m, true);
 
         fds = fdset_new();
         if (!fds) {
@@ -1442,9 +1443,6 @@ int main(int argc, char *argv[]) {
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
 
-        /* Make sure D-Bus doesn't fiddle with the SIGPIPE handlers */
-        dbus_connection_set_change_sigpipe(FALSE);
-
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
         if (arg_running_as == SYSTEMD_SYSTEM && arg_action == ACTION_RUN)
@@ -1551,7 +1549,7 @@ int main(int argc, char *argv[]) {
         manager_set_default_rlimits(m, arg_default_rlimit);
 
         if (arg_default_environment)
-                manager_environment_add(m, arg_default_environment);
+                manager_environment_add(m, NULL, arg_default_environment);
 
         manager_set_show_status(m, arg_show_status);
 
@@ -1575,19 +1573,16 @@ int main(int argc, char *argv[]) {
         }
 
         if (queue_default_job) {
-                DBusError error;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 Unit *target = NULL;
                 Job *default_unit_job;
-
-                dbus_error_init(&error);
 
                 log_debug("Activating default unit: %s", arg_default_unit);
 
                 r = manager_load_unit(m, arg_default_unit, NULL, &error, &target);
-                if (r < 0) {
-                        log_error("Failed to load default target: %s", bus_error(&error, r));
-                        dbus_error_free(&error);
-                } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND)
+                if (r < 0)
+                        log_error("Failed to load default target: %s", bus_error_message(&error, r));
+                else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND)
                         log_error("Failed to load default target: %s", strerror(-target->load_error));
                 else if (target->load_state == UNIT_MASKED)
                         log_error("Default target masked.");
@@ -1597,8 +1592,7 @@ int main(int argc, char *argv[]) {
 
                         r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
                         if (r < 0) {
-                                log_error("Failed to load rescue target: %s", bus_error(&error, r));
-                                dbus_error_free(&error);
+                                log_error("Failed to load rescue target: %s", bus_error_message(&error, r));
                                 goto finish;
                         } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND) {
                                 log_error("Failed to load rescue target: %s", strerror(-target->load_error));
@@ -1618,18 +1612,15 @@ int main(int argc, char *argv[]) {
 
                 r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, false, &error, &default_unit_job);
                 if (r == -EPERM) {
-                        log_debug("Default target could not be isolated, starting instead: %s", bus_error(&error, r));
-                        dbus_error_free(&error);
+                        log_debug("Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
 
                         r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
                         if (r < 0) {
-                                log_error("Failed to start default target: %s", bus_error(&error, r));
-                                dbus_error_free(&error);
+                                log_error("Failed to start default target: %s", bus_error_message(&error, r));
                                 goto finish;
                         }
                 } else if (r < 0) {
-                        log_error("Failed to isolate default target: %s", bus_error(&error, r));
-                        dbus_error_free(&error);
+                        log_error("Failed to isolate default target: %s", bus_error_message(&error, r));
                         goto finish;
                 }
 
@@ -1725,7 +1716,6 @@ finish:
         free(arg_default_unit);
         free_join_controllers();
 
-        dbus_shutdown();
         label_finish();
 
         if (reexecute) {

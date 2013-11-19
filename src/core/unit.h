@@ -32,6 +32,7 @@ typedef enum UnitDependency UnitDependency;
 typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
+#include "sd-event.h"
 #include "set.h"
 #include "util.h"
 #include "list.h"
@@ -295,6 +296,10 @@ struct UnitVTable {
          * CGroupContext is found, if the unit type has that */
         size_t cgroup_context_offset;
 
+        /* If greater than 0, the offset into the object where
+         * KillContext is found, if the unit type has that */
+        size_t kill_context_offset;
+
         /* The name of the configuration file section with the private settings of this unit*/
         const char *private_section;
 
@@ -327,7 +332,7 @@ struct UnitVTable {
         int (*stop)(Unit *u);
         int (*reload)(Unit *u);
 
-        int (*kill)(Unit *u, KillWho w, int signo, DBusError *error);
+        int (*kill)(Unit *u, KillWho w, int signo, sd_bus_error *error);
 
         bool (*can_reload)(Unit *u);
 
@@ -359,9 +364,8 @@ struct UnitVTable {
         /* Return true when this unit is suitable for snapshotting */
         bool (*check_snapshot)(Unit *u);
 
-        void (*fd_event)(Unit *u, int fd, uint32_t events, Watch *w);
+        /* Invoked on every child that died */
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
-        void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
 
         /* Reset failed state if we are in failed state */
         void (*reset_failed)(Unit *u);
@@ -377,14 +381,8 @@ struct UnitVTable {
          * goes away. */
         void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
 
-        /* Called whenever a bus PID lookup finishes */
-        void (*bus_query_pid_done)(Unit *u, const char *name, pid_t pid);
-
-        /* Called for each message received on the bus */
-        DBusHandlerResult (*bus_message_handler)(Unit *u, DBusConnection *c, DBusMessage *message);
-
         /* Called for each property that is being set */
-        int (*bus_set_property)(Unit *u, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
+        int (*bus_set_property)(Unit *u, const char *name, sd_bus_message *message, UnitSetPropertiesMode mode, sd_bus_error *error);
 
         /* Called after at least one property got changed to apply the necessary change */
         int (*bus_commit_properties)(Unit *u);
@@ -412,14 +410,16 @@ struct UnitVTable {
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
 
-        /* When sending out PropertiesChanged signal, which properties
-         * shall be invalidated? This is a NUL separated list of
-         * strings, to minimize relocations a little. */
-        const char *bus_invalidating_properties;
-
         /* The interface name */
         const char *bus_interface;
 
+        /* The bus vtable */
+        const sd_bus_vtable *bus_vtable;
+
+        /* strv list of changing properties */
+        const char * const * const bus_changing_properties;
+
+        /* The strings to print in status messages */
         UnitStatusMessageFormats status_message_formats;
 
         /* Can units of this type have multiple names? */
@@ -521,19 +521,13 @@ int unit_start(Unit *u);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
-int unit_kill(Unit *u, KillWho w, int signo, DBusError *error);
-int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t control_pid, DBusError *error);
+int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error);
+int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t control_pid, sd_bus_error *error);
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 
-int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w);
-void unit_unwatch_fd(Unit *u, Watch *w);
-
 int unit_watch_pid(Unit *u, pid_t pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
-
-int unit_watch_timer(Unit *u, clockid_t, bool relative, usec_t usec, Watch *w);
-void unit_unwatch_timer(Unit *u, Watch *w);
 
 int unit_watch_bus_name(Unit *u, const char *name);
 void unit_unwatch_bus_name(Unit *u, const char *name);
@@ -590,6 +584,7 @@ void unit_ref_unset(UnitRef *ref);
 int unit_exec_context_defaults(Unit *u, ExecContext *c);
 
 ExecContext *unit_get_exec_context(Unit *u) _pure_;
+KillContext *unit_get_kill_context(Unit *u) _pure_;
 CGroupContext *unit_get_cgroup_context(Unit *u) _pure_;
 
 int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data);

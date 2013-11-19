@@ -295,8 +295,8 @@ unsigned prioq_size(Prioq *q) {
                 return 0;
 
         return q->n_items;
-
 }
+
 bool prioq_isempty(Prioq *q) {
 
         if (!q)

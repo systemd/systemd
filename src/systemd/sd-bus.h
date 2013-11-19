@@ -125,10 +125,10 @@ int sd_bus_add_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handler_
 int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handler_t callback, void *userdata);
 
 int sd_bus_add_object_vtable(sd_bus *bus, const char *path, const char *interface, const sd_bus_vtable *vtable, void *userdata);
-int sd_bus_remove_object_vtable(sd_bus *bus, const char *path, const char *interface);
+int sd_bus_remove_object_vtable(sd_bus *bus, const char *path, const char *interface, const sd_bus_vtable *vtable, void *userdata);
 
 int sd_bus_add_fallback_vtable(sd_bus *bus, const char *path, const char *interface, const sd_bus_vtable *vtable, sd_bus_object_find_t find, void *userdata);
-int sd_bus_remove_fallback_vtable(sd_bus *bus, const char *path, const char *interface);
+int sd_bus_remove_fallback_vtable(sd_bus *bus, const char *path, const char *interface, const sd_bus_vtable *vtable, sd_bus_object_find_t find, void *userdata);
 
 int sd_bus_add_node_enumerator(sd_bus *bus, const char *path, sd_bus_node_enumerator_t callback, void *userdata);
 int sd_bus_remove_node_enumerator(sd_bus *bus, const char *path, sd_bus_node_enumerator_t callback, void *userdata);

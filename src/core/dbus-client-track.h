@@ -5,7 +5,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2010 Lennart Poettering
+  Copyright 2013 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -22,6 +22,21 @@
 ***/
 
 #include "sd-bus.h"
+#include "set.h"
+#include "manager.h"
 
-extern const sd_bus_vtable bus_automount_vtable[];
-extern const char* const bus_automount_changing_properties[];
+typedef struct BusTrackedClient {
+        Set *set;
+        sd_bus *bus;
+        char name[0];
+} BusTrackedClient;
+
+int bus_client_track(Set **s, sd_bus *bus, const char *name);
+
+int bus_client_untrack(Set *s, sd_bus *bus, const char *name);
+int bus_client_untrack_bus(Set *s, sd_bus *bus);
+
+void bus_client_track_free(Set *s);
+
+void bus_client_track_serialize(Manager *m, FILE *f, Set *s);
+int bus_client_track_deserialize_item(Manager *m, Set **s, const char *line);

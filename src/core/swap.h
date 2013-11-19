@@ -96,7 +96,7 @@ struct Swap {
         SwapExecCommand control_command_id;
         pid_t control_pid;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
 
         /* In order to be able to distinguish dependencies on
         different device nodes we might end up creating multiple
@@ -106,9 +106,6 @@ struct Swap {
 };
 
 extern const UnitVTable swap_vtable;
-
-int swap_dispatch_reload(Manager *m);
-int swap_fd_event(Manager *m, int events);
 
 const char* swap_state_to_string(SwapState i) _const_;
 SwapState swap_state_from_string(const char *s) _pure_;

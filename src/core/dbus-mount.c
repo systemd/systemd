@@ -19,67 +19,29 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-
+#include "unit.h"
+#include "mount.h"
 #include "dbus-unit.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
 #include "dbus-cgroup.h"
-#include "dbus-common.h"
-#include "selinux-access.h"
 #include "dbus-mount.h"
+#include "bus-util.h"
 
-#define BUS_MOUNT_INTERFACE                                             \
-        " <interface name=\"org.freedesktop.systemd1.Mount\">\n"        \
-        "  <property name=\"Where\" type=\"s\" access=\"read\"/>\n"     \
-        "  <property name=\"What\" type=\"s\" access=\"read\"/>\n"      \
-        "  <property name=\"Options\" type=\"s\" access=\"read\"/>\n"   \
-        "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
-        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
-        BUS_EXEC_COMMAND_INTERFACE("ExecMount")                         \
-        BUS_EXEC_COMMAND_INTERFACE("ExecUnmount")                       \
-        BUS_EXEC_COMMAND_INTERFACE("ExecRemount")                       \
-        BUS_EXEC_CONTEXT_INTERFACE                                      \
-        BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_CGROUP_CONTEXT_INTERFACE                                    \
-        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
-        " </interface>\n"
+static int property_get_what(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        BUS_UNIT_INTERFACE                                              \
-        BUS_MOUNT_INTERFACE                                             \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_PEER_INTERFACE                                              \
-        BUS_INTROSPECTABLE_INTERFACE                                    \
-        "</node>\n"
-
-#define INTERFACES_LIST                              \
-        BUS_UNIT_INTERFACES_LIST                     \
-        "org.freedesktop.systemd1.Mount\0"
-
-const char bus_mount_interface[] = BUS_MOUNT_INTERFACE;
-
-const char bus_mount_invalidating_properties[] =
-        "What\0"
-        "Options\0"
-        "Type\0"
-        "ExecMount\0"
-        "ExecUnmount\0"
-        "ExecRemount\0"
-        "ControlPID\0"
-        "Result\0";
-
-static int bus_mount_append_what(DBusMessageIter *i, const char *property, void *data) {
-        Mount *m = data;
+        Mount *m = userdata;
         const char *d;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(m);
 
         if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
@@ -89,18 +51,23 @@ static int bus_mount_append_what(DBusMessageIter *i, const char *property, void 
         else
                 d = "";
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "s", d);
 }
 
-static int bus_mount_append_options(DBusMessageIter *i, const char *property, void *data) {
-        Mount *m = data;
+static int property_get_options(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        Mount *m = userdata;
         const char *d;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(m);
 
         if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.options)
@@ -110,18 +77,23 @@ static int bus_mount_append_options(DBusMessageIter *i, const char *property, vo
         else
                 d = "";
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "s", d);
 }
 
-static int bus_mount_append_type(DBusMessageIter *i, const char *property, void *data) {
-        Mount *m = data;
+static int property_get_type(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        Mount *m = userdata;
         const char *d;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(m);
 
         if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.fstype)
@@ -131,66 +103,50 @@ static int bus_mount_append_type(DBusMessageIter *i, const char *property, void 
         else
                 d = "";
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "s", d);
 }
 
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_mount_append_mount_result, mount_result, MountResult);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, mount_result, MountResult);
 
-static const BusProperty bus_mount_properties[] = {
-        { "Where",         bus_property_append_string, "s", offsetof(Mount, where),    true },
-        { "What",          bus_mount_append_what,      "s", 0 },
-        { "Options",       bus_mount_append_options,   "s", 0 },
-        { "Type",          bus_mount_append_type,      "s", 0 },
-        { "TimeoutUSec",   bus_property_append_usec,   "t", offsetof(Mount, timeout_usec)   },
-        BUS_EXEC_COMMAND_PROPERTY("ExecMount",   offsetof(Mount, exec_command[MOUNT_EXEC_MOUNT]),   false),
-        BUS_EXEC_COMMAND_PROPERTY("ExecUnmount", offsetof(Mount, exec_command[MOUNT_EXEC_UNMOUNT]), false),
-        BUS_EXEC_COMMAND_PROPERTY("ExecRemount", offsetof(Mount, exec_command[MOUNT_EXEC_REMOUNT]), false),
-        { "ControlPID",    bus_property_append_pid,    "u", offsetof(Mount, control_pid)    },
-        { "DirectoryMode", bus_property_append_mode,   "u", offsetof(Mount, directory_mode) },
-        { "Result",        bus_mount_append_mount_result, "s", offsetof(Mount, result)      },
-        { NULL, }
+const sd_bus_vtable bus_mount_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("Where", "s", NULL, offsetof(Mount, where), 0),
+        SD_BUS_PROPERTY("What", "s", property_get_what, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Options","s", property_get_options, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Type", "s", property_get_type, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("TimeoutUSec", "t", bus_property_get_usec, offsetof(Mount, timeout_usec), 0),
+        SD_BUS_PROPERTY("ControlPID", "u", bus_property_get_pid, offsetof(Mount, control_pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Mount, directory_mode), 0),
+        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Mount, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        BUS_EXEC_COMMAND_VTABLE("ExecMount", offsetof(Mount, exec_command[MOUNT_EXEC_MOUNT]), 0),
+        BUS_EXEC_COMMAND_VTABLE("ExecUnmount", offsetof(Mount, exec_command[MOUNT_EXEC_UNMOUNT]), 0),
+        BUS_EXEC_COMMAND_VTABLE("ExecRemount", offsetof(Mount, exec_command[MOUNT_EXEC_REMOUNT]), 0),
+        SD_BUS_VTABLE_END
 };
 
-DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-        Mount *m = MOUNT(u);
-
-        const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,           u },
-                { "org.freedesktop.systemd1.Mount", bus_unit_cgroup_properties,    u },
-                { "org.freedesktop.systemd1.Mount", bus_mount_properties,          m },
-                { "org.freedesktop.systemd1.Mount", bus_exec_context_properties,   &m->exec_context },
-                { "org.freedesktop.systemd1.Mount", bus_kill_context_properties,   &m->kill_context },
-                { "org.freedesktop.systemd1.Mount", bus_cgroup_context_properties, &m->cgroup_context },
-                { NULL, }
-        };
-
-        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
-
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps );
-}
+const char * const bus_mount_changing_properties[] = {
+        "What",
+        "Options",
+        "Type",
+        "ControlPID",
+        "Result",
+        NULL
+};
 
 int bus_mount_set_property(
                 Unit *u,
                 const char *name,
-                DBusMessageIter *i,
+                sd_bus_message *message,
                 UnitSetPropertiesMode mode,
-                DBusError *error) {
+                sd_bus_error *error) {
 
         Mount *m = MOUNT(u);
-        int r;
 
+        assert(m);
         assert(name);
-        assert(u);
-        assert(i);
+        assert(message);
 
-        r = bus_cgroup_set_property(u, &m->cgroup_context, name, i, mode, error);
-        if (r != 0)
-                return r;
-
-        return 0;
+        return bus_cgroup_set_property(u, &m->cgroup_context, name, message, mode, error);
 }
 
 int bus_mount_commit_properties(Unit *u) {

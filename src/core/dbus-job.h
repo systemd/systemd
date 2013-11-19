@@ -21,13 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
-
+#include "sd-bus.h"
 #include "job.h"
+
+extern const sd_bus_vtable bus_job_vtable[];
 
 void bus_job_send_change_signal(Job *j);
 void bus_job_send_removed_signal(Job *j);
-
-extern const DBusObjectPathVTable bus_job_vtable;
-
-extern const char bus_job_interface[];

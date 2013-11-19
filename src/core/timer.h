@@ -75,8 +75,8 @@ struct Timer {
 
         TimerState state, deserialized_state;
 
-        Watch monotonic_watch;
-        Watch realtime_watch;
+        sd_event_source *monotonic_event_source;
+        sd_event_source *realtime_event_source;
 
         TimerResult result;
 

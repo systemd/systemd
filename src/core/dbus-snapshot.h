@@ -21,10 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
+#include "sd-bus.h"
 
-#include "unit.h"
+extern const sd_bus_vtable bus_snapshot_vtable[];
 
-DBusHandlerResult bus_snapshot_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
-
-extern const char bus_snapshot_interface[];
+int bus_snapshot_method_remove(sd_bus *bus, sd_bus_message *message, void *userdata);

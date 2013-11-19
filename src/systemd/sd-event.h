@@ -59,18 +59,16 @@ enum {
 
 enum {
         /* And everything inbetween and outside is good too */
-        SD_PRIORITY_IMPORTANT = -100,
-        SD_PRIORITY_NORMAL = 0,
-        SD_PRIORITY_IDLE = 100
+        SD_EVENT_PRIORITY_IMPORTANT = -100,
+        SD_EVENT_PRIORITY_NORMAL = 0,
+        SD_EVENT_PRIORITY_IDLE = 100
 };
 
-typedef int (*sd_io_handler_t)(sd_event_source *s, int fd, uint32_t revents, void *userdata);
-typedef int (*sd_time_handler_t)(sd_event_source *s, uint64_t usec, void *userdata);
-typedef int (*sd_signal_handler_t)(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata);
-typedef int (*sd_child_handler_t)(sd_event_source *s, const siginfo_t *si, void *userdata);
-typedef int (*sd_defer_handler_t)(sd_event_source *s, void *userdata);
-typedef int (*sd_prepare_handler_t)(sd_event_source *s, void *userdata);
-typedef int (*sd_quit_handler_t)(sd_event_source *s, void *userdata);
+typedef int (*sd_event_handler_t)(sd_event_source *s, void *userdata);
+typedef int (*sd_event_io_handler_t)(sd_event_source *s, int fd, uint32_t revents, void *userdata);
+typedef int (*sd_event_time_handler_t)(sd_event_source *s, uint64_t usec, void *userdata);
+typedef int (*sd_event_signal_handler_t)(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata);
+typedef int (*sd_event_child_handler_t)(sd_event_source *s, const siginfo_t *si, void *userdata);
 
 int sd_event_default(sd_event **e);
 
@@ -78,13 +76,13 @@ int sd_event_new(sd_event **e);
 sd_event* sd_event_ref(sd_event *e);
 sd_event* sd_event_unref(sd_event *e);
 
-int sd_event_add_io(sd_event *e, int fd, uint32_t events, sd_io_handler_t callback, void *userdata, sd_event_source **s);
-int sd_event_add_monotonic(sd_event *e, uint64_t usec, uint64_t accuracy, sd_time_handler_t callback, void *userdata, sd_event_source **s);
-int sd_event_add_realtime(sd_event *e, uint64_t usec, uint64_t accuracy, sd_time_handler_t callback, void *userdata, sd_event_source **s);
-int sd_event_add_signal(sd_event *e, int sig, sd_signal_handler_t callback, void *userdata, sd_event_source **s);
-int sd_event_add_child(sd_event *e, pid_t pid, int options, sd_child_handler_t callback, void *userdata, sd_event_source **s);
-int sd_event_add_defer(sd_event *e, sd_defer_handler_t callback, void *userdata, sd_event_source **s);
-int sd_event_add_quit(sd_event *e, sd_quit_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_io(sd_event *e, int fd, uint32_t events, sd_event_io_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_monotonic(sd_event *e, uint64_t usec, uint64_t accuracy, sd_event_time_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_realtime(sd_event *e, uint64_t usec, uint64_t accuracy, sd_event_time_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_signal(sd_event *e, int sig, sd_event_signal_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_child(sd_event *e, pid_t pid, int options, sd_event_child_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_defer(sd_event *e, sd_event_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_quit(sd_event *e, sd_event_handler_t callback, void *userdata, sd_event_source **s);
 
 int sd_event_run(sd_event *e, uint64_t timeout);
 int sd_event_loop(sd_event *e);
@@ -101,7 +99,7 @@ sd_event_source* sd_event_source_unref(sd_event_source *s);
 
 sd_event *sd_event_get(sd_event_source *s);
 
-int sd_event_source_set_prepare(sd_event_source *s, sd_prepare_handler_t callback);
+int sd_event_source_set_prepare(sd_event_source *s, sd_event_handler_t callback);
 int sd_event_source_get_pending(sd_event_source *s);
 int sd_event_source_get_priority(sd_event_source *s, int *priority);
 int sd_event_source_set_priority(sd_event_source *s, int priority);

@@ -49,8 +49,8 @@ struct Automount {
         char *where;
 
         int pipe_fd;
+        sd_event_source *pipe_event_source;
         mode_t directory_mode;
-        Watch pipe_watch;
         dev_t dev_id;
 
         Set *tokens;

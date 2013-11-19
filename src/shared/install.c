@@ -1562,6 +1562,7 @@ int unit_file_set_default(
                 UnitFileScope scope,
                 const char *root_dir,
                 const char *file,
+                bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
 
@@ -1599,7 +1600,7 @@ int unit_file_set_default(
 
         path = strappenda(config_path, "/" SPECIAL_DEFAULT_TARGET);
 
-        r = create_symlink(i->path, path, true, changes, n_changes);
+        r = create_symlink(i->path, path, force, changes, n_changes);
         if (r < 0)
                 return r;
 

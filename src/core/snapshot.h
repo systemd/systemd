@@ -42,7 +42,7 @@ struct Snapshot {
 
 extern const UnitVTable snapshot_vtable;
 
-int snapshot_create(Manager *m, const char *name, bool cleanup, DBusError *e, Snapshot **s);
+int snapshot_create(Manager *m, const char *name, bool cleanup, sd_bus_error *e, Snapshot **s);
 void snapshot_remove(Snapshot *s);
 
 const char* snapshot_state_to_string(SnapshotState i) _const_;

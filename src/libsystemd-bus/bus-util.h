@@ -55,7 +55,8 @@ int bus_map_all_properties(sd_bus *bus,
 int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name);
 
 int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout);
-int bus_property_get_tristate(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
+
+int bus_check_peercred(sd_bus *c);
 
 int bus_verify_polkit(sd_bus *bus, sd_bus_message *m, const char *action, bool interactive, bool *_challenge, sd_bus_error *e);
 
@@ -71,11 +72,48 @@ int bus_open_transport_systemd(BusTransport transport, const char *host, bool us
 int bus_print_property(const char *name, sd_bus_message *property, bool all);
 int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, char **filter, bool all);
 
+int bus_property_get_tristate(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
 int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
-int bus_property_get_uid(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
 
-#define bus_property_get_gid bus_property_get_uid
-#define bus_property_get_pid bus_property_get_uid
+#define bus_property_get_usec ((sd_bus_property_get_t) NULL)
+#define bus_property_set_usec ((sd_bus_property_set_t) NULL)
+
+assert_cc(sizeof(int) == sizeof(int32_t));
+#define bus_property_get_int ((sd_bus_property_get_t) NULL)
+
+assert_cc(sizeof(unsigned) == sizeof(unsigned));
+#define bus_property_get_unsigned ((sd_bus_property_get_t) NULL)
+
+/* On 64bit machines we can use the default serializer for size_t and
+ * friends, otherwise we need to cast this manually */
+#if __SIZEOF_SIZE_T__ == 8
+#define bus_property_get_size ((sd_bus_property_get_t) NULL)
+#else
+int bus_property_get_size(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
+#endif
+
+#if __SIZEOF_LONG__ == 8
+#define bus_property_get_long ((sd_bus_property_get_t) NULL)
+#define bus_property_get_ulong ((sd_bus_property_get_t) NULL)
+#else
+int bus_property_get_long(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
+int bus_property_get_ulong(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
+#endif
+
+/* uid_t and friends on Linux 32 bit. This means we can just use the
+ * default serializer for 32bit unsigned, for serializing it, and map
+ * it to NULL here */
+assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+#define bus_property_get_uid ((sd_bus_property_get_t) NULL)
+
+assert_cc(sizeof(gid_t) == sizeof(uint32_t));
+#define bus_property_get_gid ((sd_bus_property_get_t) NULL)
+
+assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+#define bus_property_get_pid ((sd_bus_property_get_t) NULL)
+
+assert_cc(sizeof(mode_t) == sizeof(uint32_t));
+#define bus_property_get_mode ((sd_bus_property_get_t) NULL)
 
 int bus_log_parse_error(int r);
 int bus_log_create_error(int r);
@@ -129,22 +167,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
         }                                                               \
         struct __useless_struct_to_allow_trailing_semicolon__
 
-#define BUS_ERROR_NO_SUCH_UNIT "org.freedesktop.systemd1.NoSuchUnit"
-#define BUS_ERROR_LOAD_FAILED "org.freedesktop.systemd1.LoadFailed"
-#define BUS_ERROR_JOB_FAILED "org.freedesktop.systemd1.JobFailed"
-
-#define BUS_ERROR_NO_SUCH_MACHINE "org.freedesktop.machine1.NoSuchMachine"
-#define BUS_ERROR_NO_MACHINE_FOR_PID "org.freedesktop.machine1.NoMachineForPID"
-#define BUS_ERROR_MACHINE_EXISTS "org.freedesktop.machine1.MachineExists"
-
-#define BUS_ERROR_NO_SUCH_SESSION "org.freedesktop.login1.NoSuchSession"
-#define BUS_ERROR_NO_SESSION_FOR_PID "org.freedesktop.login1.NoSessionForPID"
-#define BUS_ERROR_NO_SUCH_USER "org.freedesktop.login1.NoSuchUser"
-#define BUS_ERROR_NO_USER_FOR_PID "org.freedesktop.login1.NoUserForPID"
-#define BUS_ERROR_NO_SUCH_SEAT "org.freedesktop.login1.NoSuchSeat"
-#define BUS_ERROR_SESSION_NOT_ON_SEAT "org.freedesktop.login1.SessionNotOnSeat"
-#define BUS_ERROR_NOT_IN_CONTROL "org.freedesktop.login1.NotInControl"
-#define BUS_ERROR_DEVICE_IS_TAKEN "org.freedesktop.login1.DeviceIsTaken"
-#define BUS_ERROR_DEVICE_NOT_TAKEN "org.freedesktop.login1.DeviceNotTaken"
-#define BUS_ERROR_OPERATION_IN_PROGRESS "org.freedesktop.login1.OperationInProgress"
-#define BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED "org.freedesktop.login1.SleepVerbNotSupported"
+#define BUS_PROPERTY_DUAL_TIMESTAMP(name, offset, flags) \
+        SD_BUS_PROPERTY(name, "t", bus_property_get_usec, offset + offsetof(struct dual_timestamp, realtime), flags), \
+        SD_BUS_PROPERTY(name "Monotonic", "t", bus_property_get_usec, offset + offsetof(struct dual_timestamp, monotonic), flags)

@@ -3294,6 +3294,7 @@ _public_ int sd_bus_message_rewind(sd_bus_message *m, int complete) {
 
         return !isempty(c->signature);
 }
+
 static int message_read_ap(
                 sd_bus_message *m,
                 const char *types,

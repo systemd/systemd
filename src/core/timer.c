@@ -26,7 +26,8 @@
 #include "timer.h"
 #include "dbus-timer.h"
 #include "special.h"
-#include "dbus-common.h"
+#include "bus-util.h"
+#include "bus-error.h"
 
 static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_DEAD] = UNIT_INACTIVE,
@@ -36,6 +37,8 @@ static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_FAILED] = UNIT_FAILED
 };
 
+static int timer_dispatch(sd_event_source *s, uint64_t usec, void *userdata);
+
 static void timer_init(Unit *u) {
         Timer *t = TIMER(u);
 
@@ -44,8 +47,6 @@ static void timer_init(Unit *u) {
 
         t->next_elapse_monotonic = (usec_t) -1;
         t->next_elapse_realtime = (usec_t) -1;
-        watch_init(&t->monotonic_watch);
-        watch_init(&t->realtime_watch);
 }
 
 void timer_free_values(Timer *t) {
@@ -70,8 +71,8 @@ static void timer_done(Unit *u) {
 
         timer_free_values(t);
 
-        unit_unwatch_timer(u, &t->monotonic_watch);
-        unit_unwatch_timer(u, &t->realtime_watch);
+        t->monotonic_event_source = sd_event_source_unref(t->monotonic_event_source);
+        t->realtime_event_source = sd_event_source_unref(t->realtime_event_source);
 }
 
 static int timer_verify(Timer *t) {
@@ -189,8 +190,8 @@ static void timer_set_state(Timer *t, TimerState state) {
         t->state = state;
 
         if (state != TIMER_WAITING) {
-                unit_unwatch_timer(UNIT(t), &t->monotonic_watch);
-                unit_unwatch_timer(UNIT(t), &t->realtime_watch);
+                t->monotonic_event_source = sd_event_source_unref(t->monotonic_event_source);
+                t->realtime_event_source = sd_event_source_unref(t->realtime_event_source);
         }
 
         if (state != old_state)
@@ -229,6 +230,7 @@ static void timer_enter_dead(Timer *t, TimerResult f) {
 
         timer_set_state(t, t->result != TIMER_SUCCESS ? TIMER_FAILED : TIMER_DEAD);
 }
+
 
 static void timer_enter_waiting(Timer *t, bool initial) {
         TimerValue *v;
@@ -337,11 +339,24 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                UNIT(t)->id,
                                format_timespan(buf, sizeof(buf), t->next_elapse_monotonic > ts.monotonic ? t->next_elapse_monotonic - ts.monotonic : 0, 0));
 
-                r = unit_watch_timer(UNIT(t), CLOCK_MONOTONIC, false, t->next_elapse_monotonic, &t->monotonic_watch);
+                if (t->monotonic_event_source) {
+                        r = sd_event_source_set_time(t->monotonic_event_source, t->next_elapse_monotonic);
+                        if (r < 0)
+                                goto fail;
+
+                        r = sd_event_source_set_enabled(t->monotonic_event_source, SD_EVENT_ONESHOT);
+                } else
+                        r = sd_event_add_monotonic(UNIT(t)->manager->event, t->next_elapse_monotonic, 0, timer_dispatch, t, &t->monotonic_event_source);
+
                 if (r < 0)
                         goto fail;
-        } else
-                unit_unwatch_timer(UNIT(t), &t->monotonic_watch);
+
+        } else if (t->monotonic_event_source) {
+                r = sd_event_source_set_enabled(t->monotonic_event_source, SD_EVENT_OFF);
+
+                if (r < 0)
+                        goto fail;
+        }
 
         if (found_realtime) {
                 char buf[FORMAT_TIMESTAMP_MAX];
@@ -350,11 +365,24 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                                UNIT(t)->id,
                                format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
 
-                r = unit_watch_timer(UNIT(t), CLOCK_REALTIME, false, t->next_elapse_realtime, &t->realtime_watch);
+                if (t->realtime_event_source) {
+                        r = sd_event_source_set_time(t->realtime_event_source, t->next_elapse_realtime);
+                        if (r < 0)
+                                goto fail;
+
+                        r = sd_event_source_set_enabled(t->realtime_event_source, SD_EVENT_ONESHOT);
+                } else
+                        r = sd_event_add_realtime(UNIT(t)->manager->event, t->next_elapse_realtime, 0, timer_dispatch, t, &t->realtime_event_source);
+
                 if (r < 0)
                         goto fail;
-        } else
-                unit_unwatch_timer(UNIT(t), &t->realtime_watch);
+
+        } else if (t->realtime_event_source) {
+                r = sd_event_source_set_enabled(t->realtime_event_source, SD_EVENT_OFF);
+
+                if (r < 0)
+                        goto fail;
+        }
 
         timer_set_state(t, TIMER_WAITING);
         return;
@@ -367,11 +395,10 @@ fail:
 }
 
 static void timer_enter_running(Timer *t) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(t);
-        dbus_error_init(&error);
 
         /* Don't start job if we are supposed to go down */
         if (unit_stop_pending(UNIT(t)))
@@ -390,10 +417,8 @@ static void timer_enter_running(Timer *t) {
 fail:
         log_warning_unit(UNIT(t)->id,
                          "%s failed to queue unit startup job: %s",
-                         UNIT(t)->id, bus_error(&error, r));
+                         UNIT(t)->id, bus_error_message(&error, r));
         timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
-
-        dbus_error_free(&error);
 }
 
 static int timer_start(Unit *u) {
@@ -476,17 +501,17 @@ _pure_ static const char *timer_sub_state_to_string(Unit *u) {
         return timer_state_to_string(TIMER(u)->state);
 }
 
-static void timer_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
-        Timer *t = TIMER(u);
+static int timer_dispatch(sd_event_source *s, uint64_t usec, void *userdata) {
+        Timer *t = TIMER(userdata);
 
         assert(t);
-        assert(elapsed == 1);
 
         if (t->state != TIMER_WAITING)
-                return;
+                return 0;
 
-        log_debug_unit(u->id, "Timer elapsed on %s", u->id);
+        log_debug_unit(UNIT(t)->id, "Timer elapsed on %s", UNIT(t)->id);
         timer_enter_running(t);
+        return 0;
 }
 
 static void timer_trigger_notify(Unit *u, Unit *other) {
@@ -587,6 +612,7 @@ DEFINE_STRING_TABLE_LOOKUP(timer_result, TimerResult);
 
 const UnitVTable timer_vtable = {
         .object_size = sizeof(Timer),
+
         .sections =
                 "Unit\0"
                 "Timer\0"
@@ -609,14 +635,12 @@ const UnitVTable timer_vtable = {
         .active_state = timer_active_state,
         .sub_state_to_string = timer_sub_state_to_string,
 
-        .timer_event = timer_timer_event,
-
         .trigger_notify = timer_trigger_notify,
 
         .reset_failed = timer_reset_failed,
         .time_change = timer_time_change,
 
         .bus_interface = "org.freedesktop.systemd1.Timer",
-        .bus_message_handler = bus_timer_message_handler,
-        .bus_invalidating_properties =  bus_timer_invalidating_properties
+        .bus_vtable = bus_timer_vtable,
+        .bus_changing_properties = bus_timer_changing_properties,
 };

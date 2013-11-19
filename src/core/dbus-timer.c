@@ -19,173 +19,136 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-
+#include "unit.h"
+#include "timer.h"
 #include "dbus-unit.h"
 #include "dbus-timer.h"
-#include "dbus-execute.h"
-#include "dbus-common.h"
-#include "selinux-access.h"
+#include "bus-util.h"
 
-#define BUS_TIMER_INTERFACE                                             \
-        " <interface name=\"org.freedesktop.systemd1.Timer\">\n"        \
-        "  <property name=\"Unit\" type=\"s\" access=\"read\"/>\n"      \
-        "  <property name=\"TimersMonotonic\" type=\"a(stt)\" access=\"read\"/>\n" \
-        "  <property name=\"TimersCalendar\" type=\"a(sst)\" access=\"read\"/>\n" \
-        "  <property name=\"NextElapseUSecRealtime\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"NextElapseUSecMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
-        " </interface>\n"
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, timer_result, TimerResult);
 
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        BUS_UNIT_INTERFACE                                              \
-        BUS_TIMER_INTERFACE                                             \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_PEER_INTERFACE                                              \
-        BUS_INTROSPECTABLE_INTERFACE                                    \
-        "</node>\n"
+static int property_get_monotonic_timers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-#define INTERFACES_LIST                              \
-        BUS_UNIT_INTERFACES_LIST                     \
-        "org.freedesktop.systemd1.Timer\0"
+        Timer *t = userdata;
+        TimerValue *v;
+        int r;
 
-const char bus_timer_interface[] = BUS_TIMER_INTERFACE;
+        assert(bus);
+        assert(reply);
+        assert(t);
 
-const char bus_timer_invalidating_properties[] =
-        "TimersMonotonic\0"
-        "TimersRealtime\0"
-        "NextElapseUSecRealtime\0"
-        "NextElapseUSecMonotonic\0"
-        "Result\0";
+        r = sd_bus_message_open_container(reply, 'a', "(stt)");
+        if (r < 0)
+                return r;
 
-static int bus_timer_append_monotonic_timers(DBusMessageIter *i, const char *property, void *data) {
-        Timer *p = data;
-        DBusMessageIter sub, sub2;
-        TimerValue *k;
-
-        assert(i);
-        assert(property);
-        assert(p);
-
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(stt)", &sub))
-                return -ENOMEM;
-
-        LIST_FOREACH(value, k, p->values) {
+        LIST_FOREACH(value, v, t->values) {
                 _cleanup_free_ char *buf = NULL;
-                const char *t;
+                const char *s;
                 size_t l;
-                bool b;
 
-                if (k->base == TIMER_CALENDAR)
+                if (v->base == TIMER_CALENDAR)
                         continue;
 
-                t = timer_base_to_string(k->base);
-                assert(endswith(t, "Sec"));
+                s = timer_base_to_string(v->base);
+                assert(endswith(s, "Sec"));
 
                 /* s/Sec/USec/ */
-                l = strlen(t);
+                l = strlen(s);
                 buf = new(char, l+2);
                 if (!buf)
                         return -ENOMEM;
 
-                memcpy(buf, t, l-3);
+                memcpy(buf, s, l-3);
                 memcpy(buf+l-3, "USec", 5);
 
-                b = dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) &&
-                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &buf) &&
-                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &k->value) &&
-                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &k->next_elapse) &&
-                        dbus_message_iter_close_container(&sub, &sub2);
-
-                if (!b)
-                        return -ENOMEM;
+                r = sd_bus_message_append(reply, "(stt)", buf, v->value, v->next_elapse);
+                if (r < 0)
+                        return r;
         }
 
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_close_container(reply);
 }
 
-static int bus_timer_append_calendar_timers(DBusMessageIter *i, const char *property, void *data) {
-        Timer *p = data;
-        DBusMessageIter sub, sub2;
-        TimerValue *k;
+static int property_get_calendar_timers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
-        assert(p);
+        Timer *t = userdata;
+        TimerValue *v;
+        int r;
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sst)", &sub))
-                return -ENOMEM;
+        assert(bus);
+        assert(reply);
+        assert(t);
 
-        LIST_FOREACH(value, k, p->values) {
+        r = sd_bus_message_open_container(reply, 'a', "(sst)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(value, v, t->values) {
                 _cleanup_free_ char *buf = NULL;
-                const char *t;
-                bool b;
-                int j;
 
-                if (k->base != TIMER_CALENDAR)
+                if (v->base != TIMER_CALENDAR)
                         continue;
 
-                t = timer_base_to_string(k->base);
-                j = calendar_spec_to_string(k->calendar_spec, &buf);
-                if (j < 0)
-                        return j;
+                r = calendar_spec_to_string(v->calendar_spec, &buf);
+                if (r < 0)
+                        return r;
 
-                b = dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) &&
-                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &t) &&
-                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &buf) &&
-                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &k->next_elapse) &&
-                        dbus_message_iter_close_container(&sub, &sub2);
-
-                if (!b)
-                        return -ENOMEM;
+                r = sd_bus_message_append(reply, "(sst)", timer_base_to_string(v->base), buf, v->next_elapse);
+                if (r < 0)
+                        return r;
         }
 
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_close_container(reply);
 }
 
-static int bus_timer_append_unit(DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data, *trigger;
-        const char *t;
+static int property_get_unit(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
+        Unit *u = userdata, *trigger;
+
+        assert(bus);
+        assert(reply);
         assert(u);
 
         trigger = UNIT_TRIGGER(u);
-        t = trigger ? trigger->id : "";
 
-        return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
+        return sd_bus_message_append(reply, "s", trigger ? trigger->id : "");
 }
 
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_timer_append_timer_result, timer_result, TimerResult);
-
-static const BusProperty bus_timer_properties[] = {
-        { "Unit",                    bus_timer_append_unit,             "s",      0 },
-        { "TimersMonotonic",         bus_timer_append_monotonic_timers, "a(stt)", 0 },
-        { "TimersCalendar",          bus_timer_append_calendar_timers,  "a(sst)", 0 },
-        { "NextElapseUSecMonotonic", bus_property_append_usec,          "t",      offsetof(Timer, next_elapse_monotonic) },
-        { "NextElapseUSecRealtime",  bus_property_append_usec,          "t",      offsetof(Timer, next_elapse_realtime) },
-        { "Result",                  bus_timer_append_timer_result,     "s",      offsetof(Timer, result) },
-        { NULL, }
+const sd_bus_vtable bus_timer_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("Unit", "s", property_get_unit, 0, 0),
+        SD_BUS_PROPERTY("TimersMonotonic", "a(stt)", property_get_monotonic_timers, 0, 0),
+        SD_BUS_PROPERTY("TimersCalendar", "a(sst)", property_get_calendar_timers, 0, 0),
+        SD_BUS_PROPERTY("NextElapseUSecRealtime", "t", bus_property_get_usec, offsetof(Timer, next_elapse_monotonic), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("NextElapseUSecMonotonic", "t", bus_property_get_usec, offsetof(Timer, next_elapse_realtime), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Timer, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_VTABLE_END
 };
 
-DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-        Timer *t = TIMER(u);
-        const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,  u },
-                { "org.freedesktop.systemd1.Timer", bus_timer_properties, t },
-                { NULL, }
-        };
-
-        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
-
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
-}
+const char* const bus_timer_changing_properties[] = {
+        "NextElapseUSecRealtime",
+        "NextElapseUSecMonotonic",
+        "Result",
+        NULL
+};

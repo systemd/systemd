@@ -958,7 +958,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
                         return r;
                 }
 
-                r = sd_event_source_set_priority(m->idle_action_event_source, SD_PRIORITY_IDLE+10);
+                r = sd_event_source_set_priority(m->idle_action_event_source, SD_EVENT_PRIORITY_IDLE+10);
                 if (r < 0) {
                         log_error("Failed to set idle event source priority: %s", strerror(-r));
                         return r;

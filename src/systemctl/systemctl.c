@@ -70,6 +70,7 @@
 #include "bus-util.h"
 #include "bus-message.h"
 #include "bus-error.h"
+#include "bus-errors.h"
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -194,7 +195,7 @@ static int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) 
                 return EXIT_NOTINSTALLED;
 
         if (sd_bus_error_has_name(error, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE) ||
-            sd_bus_error_has_name(error, BUS_ERROR_NOT_SUPPORTED))
+            sd_bus_error_has_name(error, SD_BUS_ERROR_NOT_SUPPORTED))
                 return EXIT_NOTIMPLEMENTED;
 
         if (sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED))
@@ -1398,6 +1399,100 @@ static int get_default(sd_bus *bus, char **args) {
                 printf("%s\n", path);
 
         return 0;
+}
+
+static void dump_unit_file_changes(const UnitFileChange *changes, unsigned n_changes) {
+        unsigned i;
+
+        assert(changes || n_changes == 0);
+
+        for (i = 0; i < n_changes; i++) {
+                if (changes[i].type == UNIT_FILE_SYMLINK)
+                        log_info("ln -s '%s' '%s'", changes[i].source, changes[i].path);
+                else
+                        log_info("rm '%s'", changes[i].path);
+        }
+}
+
+static int deserialize_and_dump_unit_file_changes(sd_bus_message *m) {
+        const char *type, *path, *source;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sss)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_read(m, "(sss)", &type, &path, &source)) > 0) {
+                if (!arg_quiet) {
+                        if (streq(type, "symlink"))
+                                log_info("ln -s '%s' '%s'", source, path);
+                        else
+                                log_info("rm '%s'", path);
+                }
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
+static int set_default(sd_bus *bus, char **args) {
+        _cleanup_free_ char *unit = NULL;
+        UnitFileChange *changes = NULL;
+        unsigned n_changes = 0;
+        int r;
+
+        unit = unit_name_mangle_with_suffix(args[1], ".target");
+        if (!unit)
+                return log_oom();
+
+        if (!bus || avoid_bus()) {
+                r = unit_file_set_default(arg_scope, arg_root, unit, arg_force, &changes, &n_changes);
+                if (r < 0) {
+                        log_error("Failed to set default target: %s", strerror(-r));
+                        return r;
+                }
+
+                if (!arg_quiet)
+                        dump_unit_file_changes(changes, n_changes);
+
+                r = 0;
+        } else {
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "SetDefaultTarget",
+                                &error,
+                                &reply,
+                                "sb", unit, arg_force);
+                if (r < 0) {
+                        log_error("Failed to set default target: %s", bus_error_message(&error, -r));
+                        return r;
+                }
+
+                r = deserialize_and_dump_unit_file_changes(reply);
+                if (r < 0)
+                        return r;
+
+                /* Try to reload if enabeld */
+                if (!arg_no_reload)
+                        r = daemon_reload(bus, args);
+                else
+                        r = 0;
+        }
+
+        unit_file_changes_free(changes, n_changes);
+
+        return r;
 }
 
 struct job_info {
@@ -4331,12 +4426,10 @@ static int mangle_names(char **original_names, char ***mangled_names) {
 }
 
 static int enable_unit(sd_bus *bus, char **args) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **mangled_names = NULL;
         const char *verb = args[0];
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0, i;
+        unsigned n_changes = 0;
         int carries_install_info = -1;
         int r;
 
@@ -4369,8 +4462,6 @@ static int enable_unit(sd_bus *bus, char **args) {
                         r = unit_file_mask(arg_scope, arg_runtime, arg_root, mangled_names, arg_force, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
                         r = unit_file_unmask(arg_scope, arg_runtime, arg_root, mangled_names, &changes, &n_changes);
-                else if (streq(verb, "set-default"))
-                        r = unit_file_set_default(arg_scope, arg_root, args[1], &changes, &n_changes);
                 else
                         assert_not_reached("Unknown verb");
 
@@ -4379,20 +4470,16 @@ static int enable_unit(sd_bus *bus, char **args) {
                         goto finish;
                 }
 
-                if (!arg_quiet) {
-                        for (i = 0; i < n_changes; i++) {
-                                if (changes[i].type == UNIT_FILE_SYMLINK)
-                                        log_info("ln -s '%s' '%s'", changes[i].source, changes[i].path);
-                                else
-                                        log_info("rm '%s'", changes[i].path);
-                        }
-                }
+                if (!arg_quiet)
+                        dump_unit_file_changes(changes, n_changes);
 
                 r = 0;
         } else {
-                const char *method, *type, *path, *source;
+                _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *m = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 int expect_carries_install_info = false;
                 bool send_force = true;
+                const char *method;
 
                 if (streq(verb, "enable")) {
                         method = "EnableUnitFiles";
@@ -4413,8 +4500,6 @@ static int enable_unit(sd_bus *bus, char **args) {
                 else if (streq(verb, "unmask")) {
                         method = "UnmaskUnitFiles";
                         send_force = false;
-                } else if (streq(verb, "set-default")) {
-                        method = "SetDefaultTarget";
                 } else
                         assert_not_reached("Unknown verb");
 
@@ -4454,24 +4539,9 @@ static int enable_unit(sd_bus *bus, char **args) {
                                 return bus_log_parse_error(r);
                 }
 
-                r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(sss)");
+                r = deserialize_and_dump_unit_file_changes(m);
                 if (r < 0)
-                        return bus_log_parse_error(r);
-
-                while ((r = sd_bus_message_read(reply, "(sss)", &type, &path, &source)) > 0) {
-                        if (!arg_quiet) {
-                                if (streq(type, "symlink"))
-                                        log_info("ln -s '%s' '%s'", source, path);
-                                else
-                                        log_info("rm '%s'", path);
-                        }
-                }
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
+                        return r;
 
                 /* Try to reload if enabeld */
                 if (!arg_no_reload)
@@ -5649,8 +5719,8 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "link",                  MORE,  2, enable_unit       },
                 { "switch-root",           MORE,  2, switch_root       },
                 { "list-dependencies",     LESS,  2, list_dependencies },
-                { "set-default",           EQUAL, 2, enable_unit       },
-                { "get-default",           LESS,  1, get_default       },
+                { "set-default",           EQUAL, 2, set_default       },
+                { "get-default",           EQUAL, 1, get_default       },
                 { "set-property",          MORE,  3, set_property      },
         };
 

@@ -205,6 +205,7 @@ DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState);
 
 const UnitVTable target_vtable = {
         .object_size = sizeof(Target),
+
         .sections =
                 "Unit\0"
                 "Target\0"
@@ -225,7 +226,7 @@ const UnitVTable target_vtable = {
         .sub_state_to_string = target_sub_state_to_string,
 
         .bus_interface = "org.freedesktop.systemd1.Target",
-        .bus_message_handler = bus_target_message_handler,
+        .bus_vtable = bus_target_vtable,
 
         .status_message_formats = {
                 .finished_start_job = {

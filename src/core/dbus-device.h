@@ -21,11 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
-
+#include "sd-bus.h"
 #include "unit.h"
 
-DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
-
-extern const char bus_device_interface[];
-extern const char bus_device_invalidating_properties[];
+extern const sd_bus_vtable bus_device_vtable[];
+extern const char* const bus_device_changing_properties[];

@@ -130,7 +130,7 @@ struct Service {
 
         dual_timestamp watchdog_timestamp;
         usec_t watchdog_usec;
-        Watch watchdog_watch;
+        sd_event_source *watchdog_event_source;
 
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
 
@@ -191,7 +191,7 @@ struct Service {
 
         UnitRef accept_socket;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
         PathSpec *pid_file_pathspec;
 
         NotifyAccess notify_access;

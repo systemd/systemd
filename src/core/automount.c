@@ -35,13 +35,13 @@
 #include "load-fragment.h"
 #include "load-dropin.h"
 #include "unit-name.h"
-#include "dbus-automount.h"
-#include "bus-errors.h"
 #include "special.h"
 #include "label.h"
 #include "mkdir.h"
 #include "path-util.h"
-#include "dbus-common.h"
+#include "dbus-automount.h"
+#include "bus-util.h"
+#include "bus-error.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
@@ -51,6 +51,7 @@ static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
 };
 
 static int open_dev_autofs(Manager *m);
+static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata);
 
 static void automount_init(Unit *u) {
         Automount *a = AUTOMOUNT(u);
@@ -58,11 +59,8 @@ static void automount_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        a->pipe_watch.fd = a->pipe_fd = -1;
-        a->pipe_watch.type = WATCH_INVALID;
-
+        a->pipe_fd = -1;
         a->directory_mode = 0755;
-
         UNIT(a)->ignore_on_isolate = true;
 }
 
@@ -91,7 +89,8 @@ static void unmount_autofs(Automount *a) {
 
         automount_send_ready(a, -EHOSTDOWN);
 
-        unit_unwatch_fd(UNIT(a), &a->pipe_watch);
+        a->pipe_event_source = sd_event_source_unref(a->pipe_event_source);
+
         close_nointr_nofail(a->pipe_fd);
         a->pipe_fd = -1;
 
@@ -257,7 +256,7 @@ static int automount_coldplug(Unit *u) {
 
                         assert(a->pipe_fd >= 0);
 
-                        r = unit_watch_fd(UNIT(a), a->pipe_fd, EPOLLIN, &a->pipe_watch);
+                        r = sd_event_add_io(u->manager->event, a->pipe_fd, EPOLLIN, automount_dispatch_io, u, &a->pipe_event_source);
                         if (r < 0)
                                 return r;
                 }
@@ -532,7 +531,7 @@ static void automount_enter_waiting(Automount *a) {
         close_nointr_nofail(ioctl_fd);
         ioctl_fd = -1;
 
-        r = unit_watch_fd(UNIT(a), p[0], EPOLLIN, &a->pipe_watch);
+        r = sd_event_add_io(UNIT(a)->manager->event, p[0], EPOLLIN, automount_dispatch_io, a, &a->pipe_event_source);
         if (r < 0)
                 goto fail;
 
@@ -558,13 +557,11 @@ fail:
 }
 
 static void automount_enter_runnning(Automount *a) {
-        _cleanup_dbus_error_free_ DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         struct stat st;
         int r;
 
         assert(a);
-
-        dbus_error_init(&error);
 
         /* We don't take mount requests anymore if we are supposed to
          * shut down anyway */
@@ -593,7 +590,7 @@ static void automount_enter_runnning(Automount *a) {
                 if (r < 0) {
                         log_warning_unit(UNIT(a)->id,
                                          "%s failed to queue mount startup job: %s",
-                                         UNIT(a)->id, bus_error(&error, r));
+                                         UNIT(a)->id, bus_error_message(&error, r));
                         goto fail;
                 }
         }
@@ -748,9 +745,9 @@ static bool automount_check_gc(Unit *u) {
         return UNIT_VTABLE(UNIT_TRIGGER(u))->check_gc(UNIT_TRIGGER(u));
 }
 
-static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
-        Automount *a = AUTOMOUNT(u);
+static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata) {
         union autofs_v5_packet_union packet;
+        Automount *a = AUTOMOUNT(userdata);
         ssize_t l;
         int r;
 
@@ -758,13 +755,13 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         assert(fd == a->pipe_fd);
 
         if (events != EPOLLIN) {
-                log_error_unit(u->id, "Got invalid poll event on pipe.");
+                log_error_unit(UNIT(a)->id, "Got invalid poll event on pipe.");
                 goto fail;
         }
 
         l = loop_read(a->pipe_fd, &packet, sizeof(packet), true);
         if (l != sizeof(packet)) {
-                log_error_unit(u->id, "Invalid read from pipe: %s", l < 0 ? strerror(-l) : "short read");
+                log_error_unit(UNIT(a)->id, "Invalid read from pipe: %s", l < 0 ? strerror(-l) : "short read");
                 goto fail;
         }
 
@@ -776,21 +773,21 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                         _cleanup_free_ char *p = NULL;
 
                         get_process_comm(packet.v5_packet.pid, &p);
-                        log_debug_unit(u->id,
+                        log_debug_unit(UNIT(a)->id,
                                        "Got direct mount request on %s, triggered by %lu (%s)",
                                        a->where, (unsigned long) packet.v5_packet.pid, strna(p));
                 } else
-                        log_debug_unit(u->id, "Got direct mount request on %s", a->where);
+                        log_debug_unit(UNIT(a)->id, "Got direct mount request on %s", a->where);
 
                 r = set_ensure_allocated(&a->tokens, trivial_hash_func, trivial_compare_func);
                 if (r < 0) {
-                        log_error_unit(u->id, "Failed to allocate token set.");
+                        log_error_unit(UNIT(a)->id, "Failed to allocate token set.");
                         goto fail;
                 }
 
                 r = set_put(a->tokens, UINT_TO_PTR(packet.v5_packet.wait_queue_token));
                 if (r < 0) {
-                        log_error_unit(u->id, "Failed to remember token: %s", strerror(-r));
+                        log_error_unit(UNIT(a)->id, "Failed to remember token: %s", strerror(-r));
                         goto fail;
                 }
 
@@ -798,14 +795,15 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 break;
 
         default:
-                log_error_unit(u->id, "Received unknown automount request %i", packet.hdr.type);
+                log_error_unit(UNIT(a)->id, "Received unknown automount request %i", packet.hdr.type);
                 break;
         }
 
-        return;
+        return 0;
 
 fail:
         automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
+        return 0;
 }
 
 static void automount_shutdown(Manager *m) {
@@ -844,6 +842,7 @@ DEFINE_STRING_TABLE_LOOKUP(automount_result, AutomountResult);
 
 const UnitVTable automount_vtable = {
         .object_size = sizeof(Automount),
+
         .sections =
                 "Unit\0"
                 "Automount\0"
@@ -871,13 +870,11 @@ const UnitVTable automount_vtable = {
 
         .check_gc = automount_check_gc,
 
-        .fd_event = automount_fd_event,
-
         .reset_failed = automount_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Automount",
-        .bus_message_handler = bus_automount_message_handler,
-        .bus_invalidating_properties = bus_automount_invalidating_properties,
+        .bus_vtable = bus_automount_vtable,
+        .bus_changing_properties = bus_automount_changing_properties,
 
         .shutdown = automount_shutdown,
 

@@ -216,7 +216,7 @@ static int slice_stop(Unit *u) {
         return 0;
 }
 
-static int slice_kill(Unit *u, KillWho who, int signo, DBusError *error) {
+static int slice_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, -1, error);
 }
 
@@ -275,13 +275,13 @@ DEFINE_STRING_TABLE_LOOKUP(slice_state, SliceState);
 
 const UnitVTable slice_vtable = {
         .object_size = sizeof(Slice),
+        .cgroup_context_offset = offsetof(Slice, cgroup_context),
+
         .sections =
                 "Unit\0"
                 "Slice\0"
                 "Install\0",
-
         .private_section = "Slice",
-        .cgroup_context_offset = offsetof(Slice, cgroup_context),
 
         .no_alias = true,
         .no_instances = true,
@@ -306,7 +306,7 @@ const UnitVTable slice_vtable = {
         .sub_state_to_string = slice_sub_state_to_string,
 
         .bus_interface = "org.freedesktop.systemd1.Slice",
-        .bus_message_handler = bus_slice_message_handler,
+        .bus_vtable = bus_slice_vtable,
         .bus_set_property = bus_slice_set_property,
         .bus_commit_properties = bus_slice_commit_properties,
 

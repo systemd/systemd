@@ -57,7 +57,7 @@ struct Scope {
 
         Set *pids;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
 };
 
 extern const UnitVTable scope_vtable;

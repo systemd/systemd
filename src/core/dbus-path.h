@@ -21,12 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
 
-#include "unit.h"
+#include "sd-bus.h"
 
-DBusHandlerResult bus_path_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
-
-extern const char bus_path_interface[];
-
-extern const char bus_path_invalidating_properties[];
+extern const sd_bus_vtable bus_path_vtable[];
+extern const char* const bus_path_changing_properties[];

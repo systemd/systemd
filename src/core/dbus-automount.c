@@ -19,57 +19,23 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-
+#include "unit.h"
+#include "automount.h"
 #include "dbus-unit.h"
 #include "dbus-automount.h"
-#include "dbus-common.h"
-#include "selinux-access.h"
+#include "bus-util.h"
 
-#define BUS_AUTOMOUNT_INTERFACE                                      \
-        " <interface name=\"org.freedesktop.systemd1.Automount\">\n" \
-        "  <property name=\"Where\" type=\"s\" access=\"read\"/>\n"  \
-        "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
-        " </interface>\n"
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, automount_result, AutomountResult);
 
-#define INTROSPECTION                                                \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                    \
-        "<node>\n"                                                   \
-        BUS_UNIT_INTERFACE                                           \
-        BUS_AUTOMOUNT_INTERFACE                                      \
-        BUS_PROPERTIES_INTERFACE                                     \
-        BUS_PEER_INTERFACE                                           \
-        BUS_INTROSPECTABLE_INTERFACE                                 \
-        "</node>\n"
-
-#define INTERFACES_LIST                              \
-        BUS_UNIT_INTERFACES_LIST                     \
-        "org.freedesktop.systemd1.Automount\0"
-
-const char bus_automount_interface[] = BUS_AUTOMOUNT_INTERFACE;
-
-const char bus_automount_invalidating_properties[] =
-        "Result\0";
-
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_automount_append_automount_result, automount_result, AutomountResult);
-
-static const BusProperty bus_automount_properties[] = {
-        { "Where",         bus_property_append_string, "s", offsetof(Automount, where),    true },
-        { "DirectoryMode", bus_property_append_mode,   "u", offsetof(Automount, directory_mode) },
-        { "Result",        bus_automount_append_automount_result, "s", offsetof(Automount, result) },
-        { NULL, }
+const sd_bus_vtable bus_automount_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("Where", "s", NULL, offsetof(Automount, where), 0),
+        SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Automount, directory_mode), 0),
+        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Automount, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_VTABLE_END
 };
 
-DBusHandlerResult bus_automount_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-        Automount *am = AUTOMOUNT(u);
-        const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",      bus_unit_properties,      u  },
-                { "org.freedesktop.systemd1.Automount", bus_automount_properties, am },
-                { NULL, }
-        };
-
-        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
-
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
-}
+const char* const bus_automount_changing_properties[] = {
+        "Result",
+        NULL
+};

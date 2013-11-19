@@ -40,6 +40,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "logind.h"
+#include "bus-errors.h"
 
 static int property_get_idle_hint(
                 sd_bus *bus,
@@ -184,7 +185,7 @@ static int method_get_session_by_pid(sd_bus *bus, sd_bus_message *message, void 
 
         p = session_bus_path(session);
         if (!p)
-                return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
 
         return sd_bus_reply_method_return(bus, message, "o", p);
 }

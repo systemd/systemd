@@ -21,25 +21,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
-
-#include "manager.h"
-#include "dbus-common.h"
+#include "sd-bus.h"
 #include "cgroup.h"
 
-#define BUS_CGROUP_CONTEXT_INTERFACE                                    \
-        "  <property name=\"CPUAccounting\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"CPUShares\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"BlockIOAccounting\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"BlockIOWeight\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"BlockIODeviceWeight\" type=\"a(st)\" access=\"read\"/>\n" \
-        "  <property name=\"BlockIOReadBandwidth=\" type=\"a(st)\" access=\"read\"/>\n" \
-        "  <property name=\"BlockIOWriteBandwidth=\" type=\"a(st)\" access=\"read\"/>\n" \
-        "  <property name=\"MemoryAccounting\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"MemoryLimit\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"DevicePolicy\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"DeviceAllow\" type=\"a(ss)\" access=\"read\"/>\n"
+extern const sd_bus_vtable bus_cgroup_vtable[];
 
-extern const BusProperty bus_cgroup_context_properties[];
-
-int bus_cgroup_set_property(Unit *u, CGroupContext *c, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
+int bus_cgroup_set_property(Unit *u, CGroupContext *c, const char *name, sd_bus_message *message, UnitSetPropertiesMode mode, sd_bus_error *error);

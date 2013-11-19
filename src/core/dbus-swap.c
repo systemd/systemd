@@ -20,125 +20,77 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-
+#include "unit.h"
+#include "swap.h"
 #include "dbus-unit.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
 #include "dbus-cgroup.h"
-#include "dbus-common.h"
-#include "selinux-access.h"
 #include "dbus-swap.h"
+#include "bus-util.h"
 
-#define BUS_SWAP_INTERFACE                                              \
-        " <interface name=\"org.freedesktop.systemd1.Swap\">\n"         \
-        "  <property name=\"What\" type=\"s\" access=\"read\"/>\n"      \
-        "  <property name=\"Priority\" type=\"i\" access=\"read\"/>\n"  \
-        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
-        BUS_EXEC_COMMAND_INTERFACE("ExecActivate")                      \
-        BUS_EXEC_COMMAND_INTERFACE("ExecDeactivate")                    \
-        BUS_EXEC_CONTEXT_INTERFACE                                      \
-        BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_CGROUP_CONTEXT_INTERFACE                                    \
-        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
-        " </interface>\n"
+static int property_get_priority(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        BUS_UNIT_INTERFACE                                              \
-        BUS_SWAP_INTERFACE                                              \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_PEER_INTERFACE                                              \
-        BUS_INTROSPECTABLE_INTERFACE                                    \
-        "</node>\n"
+        Swap *s = SWAP(userdata);
+        int p;
 
-#define INTERFACES_LIST                              \
-        BUS_UNIT_INTERFACES_LIST                     \
-        "org.freedesktop.systemd1.Swap\0"
-
-const char bus_swap_interface[] = BUS_SWAP_INTERFACE;
-
-const char bus_swap_invalidating_properties[] =
-        "What\0"
-        "Priority\0"
-        "ExecActivate\0"
-        "ExecDeactivate\0"
-        "ControlPID\0"
-        "Result\0";
-
-static int bus_swap_append_priority(DBusMessageIter *i, const char *property, void *data) {
-        Swap *s = data;
-        dbus_int32_t j;
-
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(s);
 
         if (s->from_proc_swaps)
-                j = s->parameters_proc_swaps.priority;
+                p = s->parameters_proc_swaps.priority;
         else if (s->from_fragment)
-                j = s->parameters_fragment.priority;
+                p = s->parameters_fragment.priority;
         else
-                j = -1;
+                p = -1;
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT32, &j))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "i", p);
 }
 
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_swap_append_swap_result, swap_result, SwapResult);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, swap_result, SwapResult);
 
-static const BusProperty bus_swap_properties[] = {
-        { "What",       bus_property_append_string, "s", offsetof(Swap, what),  true },
-        { "Priority",   bus_swap_append_priority,   "i", 0 },
-        { "TimeoutUSec",bus_property_append_usec,   "t", offsetof(Swap, timeout_usec)},
-        BUS_EXEC_COMMAND_PROPERTY("ExecActivate",   offsetof(Swap, exec_command[SWAP_EXEC_ACTIVATE]),   false),
-        BUS_EXEC_COMMAND_PROPERTY("ExecDeactivate", offsetof(Swap, exec_command[SWAP_EXEC_DEACTIVATE]), false),
-        { "ControlPID", bus_property_append_pid,    "u", offsetof(Swap, control_pid) },
-        { "Result",     bus_swap_append_swap_result,"s", offsetof(Swap, result)      },
-        { NULL, }
+const sd_bus_vtable bus_swap_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("What", "s", NULL, offsetof(Swap, what), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Priority", "i", property_get_priority, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("TimeoutUSec", "t", bus_property_get_usec, offsetof(Swap, timeout_usec), 0),
+        SD_BUS_PROPERTY("ControlPID", "u", bus_property_get_pid, offsetof(Swap, control_pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Swap, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        BUS_EXEC_COMMAND_VTABLE("ExecActivate", offsetof(Swap, exec_command[SWAP_EXEC_ACTIVATE]), 0),
+        BUS_EXEC_COMMAND_VTABLE("ExecDeactivate", offsetof(Swap, exec_command[SWAP_EXEC_DEACTIVATE]), 0),
+        SD_BUS_VTABLE_END
 };
 
-DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-        Swap *s = SWAP(u);
-        const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit", bus_unit_properties,           u },
-                { "org.freedesktop.systemd1.Swap", bus_unit_cgroup_properties,    u },
-                { "org.freedesktop.systemd1.Swap", bus_swap_properties,           s },
-                { "org.freedesktop.systemd1.Swap", bus_exec_context_properties,   &s->exec_context },
-                { "org.freedesktop.systemd1.Swap", bus_kill_context_properties,   &s->kill_context },
-                { "org.freedesktop.systemd1.Swap", bus_cgroup_context_properties, &s->cgroup_context },
-                { NULL, }
-        };
-
-        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
-
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
-}
+const char* const bus_swap_changing_properties[] = {
+        "What",
+        "Priority",
+        "ControlPID",
+        "Result",
+        NULL
+};
 
 int bus_swap_set_property(
                 Unit *u,
                 const char *name,
-                DBusMessageIter *i,
+                sd_bus_message *message,
                 UnitSetPropertiesMode mode,
-                DBusError *error) {
+                sd_bus_error *error) {
 
         Swap *s = SWAP(u);
-        int r;
 
+        assert(s);
         assert(name);
-        assert(u);
-        assert(i);
+        assert(message);
 
-        r = bus_cgroup_set_property(u, &s->cgroup_context, name, i, mode, error);
-        if (r != 0)
-                return r;
-
-        return 0;
+        return bus_cgroup_set_property(u, &s->cgroup_context, name, message, mode, error);
 }
 
 int bus_swap_commit_properties(Unit *u) {

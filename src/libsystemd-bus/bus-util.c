@@ -383,7 +383,7 @@ void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry) {
 #endif
 }
 
-static int bus_check_peercred(sd_bus *c) {
+int bus_check_peercred(sd_bus *c) {
         struct ucred ucred;
         socklen_t l;
         int fd;
@@ -1014,7 +1014,8 @@ int bus_property_get_bool(
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
 
-int bus_property_get_uid(
+#if __SIZEOF_SIZE_T__ != 8
+int bus_property_get_size(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -1023,12 +1024,41 @@ int bus_property_get_uid(
                 sd_bus_error *error,
                 void *userdata) {
 
-        assert_cc(sizeof(uint32_t) == sizeof(uid_t));
-        assert_cc(sizeof(uint32_t) == sizeof(gid_t));
-        assert_cc(sizeof(uint32_t) == sizeof(pid_t));
+        uint64_t sz = *(size_t*) userdata;
 
-        return sd_bus_message_append_basic(reply, 'u', userdata);
+        return sd_bus_message_append_basic(reply, 't', &sz);
 }
+#endif
+
+#if __SIZEOF_LONG__ != 8
+int bus_property_get_long(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        int64_t l = *(long*) userdata;
+
+        return sd_bus_message_append_basic(reply, 'x', &l);
+}
+
+int bus_property_get_ulong(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        uint64_t ul = *(unsigned long*) userdata;
+
+        return sd_bus_message_append_basic(reply, 't', &ul);
+}
+#endif
 
 int bus_log_parse_error(int r) {
         log_error("Failed to parse message: %s", strerror(-r));

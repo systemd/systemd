@@ -21,17 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
+#include "sd-bus.h"
+#include "unit.h"
+#include "kill.h"
 
-#include "manager.h"
-#include "dbus-common.h"
+extern const sd_bus_vtable bus_kill_vtable[];
 
-#define BUS_KILL_CONTEXT_INTERFACE                                      \
-        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
-        "  <property name=\"KillSignal\" type=\"i\" access=\"read\"/>\n" \
-        "  <property name=\"SendSIGKILL\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SendSIGHUP\" type=\"b\" access=\"read\"/>\n"
-
-extern const BusProperty bus_kill_context_properties[];
-
-int bus_kill_context_set_transient_property(Unit *u, KillContext *c, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
+int bus_kill_context_set_transient_property(Unit *u, KillContext *c, const char *name, sd_bus_message *message, UnitSetPropertiesMode mode, sd_bus_error *error);

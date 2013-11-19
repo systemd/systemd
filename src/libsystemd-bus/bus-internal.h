@@ -119,11 +119,12 @@ enum bus_state {
         BUS_AUTHENTICATING,
         BUS_HELLO,
         BUS_RUNNING,
+        BUS_CLOSING,
         BUS_CLOSED
 };
 
 static inline bool BUS_IS_OPEN(enum bus_state state) {
-        return state > BUS_UNSET && state < BUS_CLOSED;
+        return state > BUS_UNSET && state < BUS_CLOSING;
 }
 
 enum bus_auth {
@@ -155,7 +156,6 @@ struct sd_bus {
         bool anonymous_auth:1;
         bool prefer_readv:1;
         bool prefer_writev:1;
-        bool processing:1;
         bool match_callbacks_modified:1;
         bool filter_callbacks_modified:1;
         bool nodes_modified:1;

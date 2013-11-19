@@ -19,122 +19,50 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-
+#include "unit.h"
+#include "socket.h"
 #include "dbus-unit.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
 #include "dbus-cgroup.h"
-#include "dbus-common.h"
-#include "selinux-access.h"
 #include "dbus-socket.h"
+#include "bus-util.h"
 
-#define BUS_SOCKET_INTERFACE                                            \
-        " <interface name=\"org.freedesktop.systemd1.Socket\">\n"       \
-        "  <property name=\"BindIPv6Only\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"Backlog\" type=\"u\" access=\"read\"/>\n"   \
-        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
-        BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
-        BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
-        BUS_EXEC_COMMAND_INTERFACE("ExecStopPre")                       \
-        BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
-        BUS_EXEC_CONTEXT_INTERFACE                                      \
-        BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_CGROUP_CONTEXT_INTERFACE                                    \
-        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"BindToDevice\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"SocketMode\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"Accept\" type=\"b\" access=\"read\"/>\n"    \
-        "  <property name=\"KeepAlive\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"Priority\" type=\"i\" access=\"read\"/>\n"  \
-        "  <property name=\"ReceiveBuffer\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"SendBuffer\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"IPTOS\" type=\"i\" access=\"read\"/>\n"     \
-        "  <property name=\"IPTTL\" type=\"i\" access=\"read\"/>\n"     \
-        "  <property name=\"PipeSize\" type=\"t\" access=\"read\"/>\n"  \
-        "  <property name=\"FreeBind\" type=\"b\" access=\"read\"/>\n"  \
-        "  <property name=\"Transparent\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"Broadcast\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"PassCredentials\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"PassSecurity\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"Mark\" type=\"i\" access=\"read\"/>\n"      \
-        "  <property name=\"MaxConnections\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"NAccepted\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"NConnections\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"MessageQueueMaxMessages\" type=\"x\" access=\"read\"/>\n" \
-        "  <property name=\"MessageQueueMessageSize\" type=\"x\" access=\"read\"/>\n" \
-        "  <property name=\"Listen\" type=\"a(ss)\" access=\"read\"/>\n"    \
-        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
-        "  <property name=\"ReusePort\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SmackLabel\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"SmackLabelIPIn\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"SmackLabelIPOut\" type=\"s\" access=\"read\"/>\n" \
-        " </interface>\n"                                               \
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, socket_result, SocketResult);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        BUS_UNIT_INTERFACE                                              \
-        BUS_SOCKET_INTERFACE                                            \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_PEER_INTERFACE                                              \
-        BUS_INTROSPECTABLE_INTERFACE                                    \
-        "</node>\n"
+static int property_get_listen(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-#define INTERFACES_LIST                              \
-        BUS_UNIT_INTERFACES_LIST                     \
-        "org.freedesktop.systemd1.Socket\0"
 
-const char bus_socket_interface[] = BUS_SOCKET_INTERFACE;
-
-const char bus_socket_invalidating_properties[] =
-        "ExecStartPre\0"
-        "ExecStartPost\0"
-        "ExecStopPre\0"
-        "ExecStopPost\0"
-        "ControlPID\0"
-        "NAccepted\0"
-        "NConnections\0"
-        "Result\0";
-
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_socket_result, socket_result, SocketResult);
-
-static int bus_socket_append_listen(DBusMessageIter *i, const char *property, void *data) {
-
-        Socket *s = SOCKET(data);
+        Socket *s = SOCKET(userdata);
         SocketPort *p;
-        DBusMessageIter array, stru;
+        int r;
 
-        assert(data);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(s);
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(ss)", &array))
-                return log_oom();
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                return r;
 
         LIST_FOREACH(port, p, s->ports) {
-                const char *type = socket_port_type_to_string(p);
                 _cleanup_free_ char *address = NULL;
                 const char *a;
 
-                if (!dbus_message_iter_open_container(&array, DBUS_TYPE_STRUCT, NULL, &stru))
-                        return log_oom();
-
-                if (!dbus_message_iter_append_basic(&stru, DBUS_TYPE_STRING, &type))
-                        return log_oom();
-
                 switch (p->type) {
                         case SOCKET_SOCKET: {
-                                int r;
-
                                 r = socket_address_print(&p->address, &address);
-                                if (r) {
-                                        log_error("socket_address_print failed: %s", strerror(-r));
+                                if (r)
                                         return r;
-                                }
+
                                 a = address;
                                 break;
                         }
@@ -146,98 +74,80 @@ static int bus_socket_append_listen(DBusMessageIter *i, const char *property, vo
                                 break;
 
                         default:
-                                a = type;
+                                assert_not_reached("Unknown socket type");
                 }
 
-                if (!dbus_message_iter_append_basic(&stru, DBUS_TYPE_STRING, &a))
-                        return -ENOMEM;
-
-                if (!dbus_message_iter_close_container(&array, &stru))
-                        return -ENOMEM;
+                r = sd_bus_message_append(reply, "(ss)", socket_port_type_to_string(p), a);
+                if (r < 0)
+                        return r;
         }
 
-        if (!dbus_message_iter_close_container(i, &array))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_close_container(reply);
 }
 
-static const BusProperty bus_socket_properties[] = {
-        { "BindIPv6Only",   bus_socket_append_bind_ipv6_only,  "s", offsetof(Socket, bind_ipv6_only)  },
-        { "Backlog",        bus_property_append_unsigned,      "u", offsetof(Socket, backlog)         },
-        { "TimeoutUSec",    bus_property_append_usec,          "t", offsetof(Socket, timeout_usec)    },
-        BUS_EXEC_COMMAND_PROPERTY("ExecStartPre",  offsetof(Socket, exec_command[SOCKET_EXEC_START_PRE]),  true ),
-        BUS_EXEC_COMMAND_PROPERTY("ExecStartPost", offsetof(Socket, exec_command[SOCKET_EXEC_START_POST]), true ),
-        BUS_EXEC_COMMAND_PROPERTY("ExecStopPre",   offsetof(Socket, exec_command[SOCKET_EXEC_STOP_PRE]),   true ),
-        BUS_EXEC_COMMAND_PROPERTY("ExecStopPost",  offsetof(Socket, exec_command[SOCKET_EXEC_STOP_POST]),  true ),
-        { "ControlPID",     bus_property_append_pid,           "u", offsetof(Socket, control_pid)     },
-        { "BindToDevice",   bus_property_append_string,        "s", offsetof(Socket, bind_to_device), true },
-        { "DirectoryMode",  bus_property_append_mode,          "u", offsetof(Socket, directory_mode)  },
-        { "SocketMode",     bus_property_append_mode,          "u", offsetof(Socket, socket_mode)     },
-        { "Accept",         bus_property_append_bool,          "b", offsetof(Socket, accept)          },
-        { "KeepAlive",      bus_property_append_bool,          "b", offsetof(Socket, keep_alive)      },
-        { "Priority",       bus_property_append_int,           "i", offsetof(Socket, priority)        },
-        { "ReceiveBuffer",  bus_property_append_size,          "t", offsetof(Socket, receive_buffer)  },
-        { "SendBuffer",     bus_property_append_size,          "t", offsetof(Socket, send_buffer)     },
-        { "IPTOS",          bus_property_append_int,           "i", offsetof(Socket, ip_tos)          },
-        { "IPTTL",          bus_property_append_int,           "i", offsetof(Socket, ip_ttl)          },
-        { "PipeSize",       bus_property_append_size,          "t", offsetof(Socket, pipe_size)       },
-        { "FreeBind",       bus_property_append_bool,          "b", offsetof(Socket, free_bind)       },
-        { "Transparent",    bus_property_append_bool,          "b", offsetof(Socket, transparent)     },
-        { "Broadcast",      bus_property_append_bool,          "b", offsetof(Socket, broadcast)       },
-        { "PassCredentials",bus_property_append_bool,          "b", offsetof(Socket, pass_cred)       },
-        { "PassSecurity",   bus_property_append_bool,          "b", offsetof(Socket, pass_sec)        },
-        { "Listen",         bus_socket_append_listen,      "a(ss)", 0,                                },
-        { "Mark",           bus_property_append_int,           "i", offsetof(Socket, mark)            },
-        { "MaxConnections", bus_property_append_unsigned,      "u", offsetof(Socket, max_connections) },
-        { "NConnections",   bus_property_append_unsigned,      "u", offsetof(Socket, n_connections)   },
-        { "NAccepted",      bus_property_append_unsigned,      "u", offsetof(Socket, n_accepted)      },
-        { "MessageQueueMaxMessages", bus_property_append_long, "x", offsetof(Socket, mq_maxmsg)       },
-        { "MessageQueueMessageSize", bus_property_append_long, "x", offsetof(Socket, mq_msgsize)      },
-        { "Result",         bus_socket_append_socket_result,   "s", offsetof(Socket, result)          },
-        { "ReusePort",      bus_property_append_bool,          "b", offsetof(Socket, reuseport)       },
-        { "SmackLabel",     bus_property_append_string,        "s", offsetof(Socket, smack),          true },
-        { "SmackLabelIPIn", bus_property_append_string,        "s", offsetof(Socket, smack_ip_in),    true },
-        { "SmackLabelIPOut",bus_property_append_string,        "s", offsetof(Socket, smack_ip_out),   true },
-        {}
+const sd_bus_vtable bus_socket_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("BindIPv6Only", "s", property_get_bind_ipv6_only, offsetof(Socket, bind_ipv6_only), 0),
+        SD_BUS_PROPERTY("Backlog", "u", bus_property_get_unsigned, offsetof(Socket, backlog), 0),
+        SD_BUS_PROPERTY("TimeoutUSec", "t", bus_property_get_usec, offsetof(Socket, timeout_usec), 0),
+        SD_BUS_PROPERTY("ControlPID", "u", bus_property_get_pid, offsetof(Socket, control_pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("BindToDevice", "s", NULL, offsetof(Socket, bind_to_device), 0),
+        SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Socket, directory_mode), 0),
+        SD_BUS_PROPERTY("SocketMode", "u", bus_property_get_mode, offsetof(Socket, socket_mode), 0),
+        SD_BUS_PROPERTY("Accept", "b", bus_property_get_bool, offsetof(Socket, accept), 0),
+        SD_BUS_PROPERTY("KeepAlive", "b", bus_property_get_bool, offsetof(Socket, keep_alive), 0),
+        SD_BUS_PROPERTY("Priority", "i", bus_property_get_int, offsetof(Socket, priority), 0),
+        SD_BUS_PROPERTY("ReceiveBuffer", "t", bus_property_get_size, offsetof(Socket, receive_buffer), 0),
+        SD_BUS_PROPERTY("SendBuffer", "t", bus_property_get_size, offsetof(Socket, send_buffer), 0),
+        SD_BUS_PROPERTY("IPTOS", "i", bus_property_get_int, offsetof(Socket, ip_tos), 0),
+        SD_BUS_PROPERTY("IPTTL", "i", bus_property_get_int, offsetof(Socket, ip_ttl), 0),
+        SD_BUS_PROPERTY("PipeSize", "t", bus_property_get_size, offsetof(Socket, pipe_size), 0),
+        SD_BUS_PROPERTY("FreeBind", "b", bus_property_get_bool, offsetof(Socket, free_bind), 0),
+        SD_BUS_PROPERTY("Transparent", "b", bus_property_get_bool, offsetof(Socket, transparent), 0),
+        SD_BUS_PROPERTY("Broadcast", "b", bus_property_get_bool, offsetof(Socket, broadcast), 0),
+        SD_BUS_PROPERTY("PassCredentials", "b", bus_property_get_bool, offsetof(Socket, pass_cred), 0),
+        SD_BUS_PROPERTY("PassSecurity", "b", bus_property_get_bool, offsetof(Socket, pass_sec), 0),
+        SD_BUS_PROPERTY("Listen", "a(ss)", property_get_listen, 0, 0),
+        SD_BUS_PROPERTY("Mark", "i", bus_property_get_int, offsetof(Socket, mark), 0),
+        SD_BUS_PROPERTY("MaxConnections", "u", bus_property_get_unsigned, offsetof(Socket, max_connections), 0),
+        SD_BUS_PROPERTY("NConnections", "u", bus_property_get_unsigned, offsetof(Socket, n_connections), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("NAccepted", "u", bus_property_get_unsigned, offsetof(Socket, n_accepted), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("MessageQueueMaxMessages", "x", bus_property_get_long, offsetof(Socket, mq_maxmsg), 0),
+        SD_BUS_PROPERTY("MessageQueueMessageSize", "x", bus_property_get_long, offsetof(Socket, mq_msgsize), 0),
+        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Socket, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("ReusePort", "b",  bus_property_get_bool, offsetof(Socket, reuse_port), 0),
+        SD_BUS_PROPERTY("SmackLabel", "s", NULL, offsetof(Socket, smack), 0),
+        SD_BUS_PROPERTY("SmackLabelIPIn", "s", NULL, offsetof(Socket, smack_ip_in), 0),
+        SD_BUS_PROPERTY("SmackLabelIPOut", "s", NULL, offsetof(Socket, smack_ip_out), 0),
+        BUS_EXEC_COMMAND_VTABLE("ExecStartPre", offsetof(Socket, exec_command[SOCKET_EXEC_START_PRE]), 0),
+        BUS_EXEC_COMMAND_VTABLE("ExecStartPost", offsetof(Socket, exec_command[SOCKET_EXEC_START_POST]), 0),
+        BUS_EXEC_COMMAND_VTABLE("ExecStopPre", offsetof(Socket, exec_command[SOCKET_EXEC_STOP_PRE]), 0),
+        BUS_EXEC_COMMAND_VTABLE("ExecStopPost", offsetof(Socket, exec_command[SOCKET_EXEC_STOP_POST]), 0),
+        SD_BUS_VTABLE_END
 };
 
-DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-        Socket *s = SOCKET(u);
-        const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",   bus_unit_properties,           u },
-                { "org.freedesktop.systemd1.Socket", bus_unit_cgroup_properties,    u },
-                { "org.freedesktop.systemd1.Socket", bus_socket_properties,         s },
-                { "org.freedesktop.systemd1.Socket", bus_exec_context_properties,   &s->exec_context },
-                { "org.freedesktop.systemd1.Socket", bus_kill_context_properties,   &s->kill_context },
-                { "org.freedesktop.systemd1.Socket", bus_cgroup_context_properties, &s->cgroup_context },
-                {}
-        };
-
-        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
-
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
-}
+const char* const bus_socket_changing_properties[] = {
+        "ControlPID",
+        "NAccepted",
+        "NConnections",
+        "Result",
+        NULL
+};
 
 int bus_socket_set_property(
                 Unit *u,
                 const char *name,
-                DBusMessageIter *i,
+                sd_bus_message *message,
                 UnitSetPropertiesMode mode,
-                DBusError *error) {
+                sd_bus_error *error) {
 
         Socket *s = SOCKET(u);
-        int r;
 
+        assert(s);
         assert(name);
-        assert(u);
-        assert(i);
+        assert(message);
 
-        r = bus_cgroup_set_property(u, &s->cgroup_context, name, i, mode, error);
-        if (r != 0)
-                return r;
-
-        return 0;
+        return bus_cgroup_set_property(u, &s->cgroup_context, name, message, mode, error);
 }
 
 int bus_socket_commit_properties(Unit *u) {

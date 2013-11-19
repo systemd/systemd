@@ -51,7 +51,7 @@ struct sd_event_source {
 
         sd_event *event;
         void *userdata;
-        sd_prepare_handler_t prepare;
+        sd_event_handler_t prepare;
 
         EventSourceType type:4;
         int enabled:3;
@@ -65,34 +65,34 @@ struct sd_event_source {
 
         union {
                 struct {
-                        sd_io_handler_t callback;
+                        sd_event_io_handler_t callback;
                         int fd;
                         uint32_t events;
                         uint32_t revents;
                         bool registered:1;
                 } io;
                 struct {
-                        sd_time_handler_t callback;
+                        sd_event_time_handler_t callback;
                         usec_t next, accuracy;
                         unsigned earliest_index;
                         unsigned latest_index;
                 } time;
                 struct {
-                        sd_signal_handler_t callback;
+                        sd_event_signal_handler_t callback;
                         struct signalfd_siginfo siginfo;
                         int sig;
                 } signal;
                 struct {
-                        sd_child_handler_t callback;
+                        sd_event_child_handler_t callback;
                         siginfo_t siginfo;
                         pid_t pid;
                         int options;
                 } child;
                 struct {
-                        sd_defer_handler_t callback;
+                        sd_event_handler_t callback;
                 } defer;
                 struct {
-                        sd_quit_handler_t callback;
+                        sd_event_handler_t callback;
                         unsigned prioq_index;
                 } quit;
         };
@@ -567,7 +567,7 @@ _public_ int sd_event_add_io(
                 sd_event *e,
                 int fd,
                 uint32_t events,
-                sd_io_handler_t callback,
+                sd_event_io_handler_t callback,
                 void *userdata,
                 sd_event_source **ret) {
 
@@ -655,7 +655,7 @@ static int event_add_time_internal(
                 Prioq **latest,
                 uint64_t usec,
                 uint64_t accuracy,
-                sd_time_handler_t callback,
+                sd_event_time_handler_t callback,
                 void *userdata,
                 sd_event_source **ret) {
 
@@ -722,7 +722,7 @@ fail:
 _public_ int sd_event_add_monotonic(sd_event *e,
                                     uint64_t usec,
                                     uint64_t accuracy,
-                                    sd_time_handler_t callback,
+                                    sd_event_time_handler_t callback,
                                     void *userdata,
                                     sd_event_source **ret) {
 
@@ -732,7 +732,7 @@ _public_ int sd_event_add_monotonic(sd_event *e,
 _public_ int sd_event_add_realtime(sd_event *e,
                                    uint64_t usec,
                                    uint64_t accuracy,
-                                   sd_time_handler_t callback,
+                                   sd_event_time_handler_t callback,
                                    void *userdata,
                                    sd_event_source **ret) {
 
@@ -774,7 +774,7 @@ static int event_update_signal_fd(sd_event *e) {
 _public_ int sd_event_add_signal(
                 sd_event *e,
                 int sig,
-                sd_signal_handler_t callback,
+                sd_event_signal_handler_t callback,
                 void *userdata,
                 sd_event_source **ret) {
 
@@ -824,7 +824,7 @@ _public_ int sd_event_add_child(
                 sd_event *e,
                 pid_t pid,
                 int options,
-                sd_child_handler_t callback,
+                sd_event_child_handler_t callback,
                 void *userdata,
                 sd_event_source **ret) {
 
@@ -883,7 +883,7 @@ _public_ int sd_event_add_child(
 
 _public_ int sd_event_add_defer(
                 sd_event *e,
-                sd_defer_handler_t callback,
+                sd_event_handler_t callback,
                 void *userdata,
                 sd_event_source **ret) {
 
@@ -916,7 +916,7 @@ _public_ int sd_event_add_defer(
 
 _public_ int sd_event_add_quit(
                 sd_event *e,
-                sd_quit_handler_t callback,
+                sd_event_handler_t callback,
                 void *userdata,
                 sd_event_source **ret) {
 
@@ -1297,7 +1297,7 @@ _public_ int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid) {
         return 0;
 }
 
-_public_ int sd_event_source_set_prepare(sd_event_source *s, sd_prepare_handler_t callback) {
+_public_ int sd_event_source_set_prepare(sd_event_source *s, sd_event_handler_t callback) {
         int r;
 
         assert_return(s, -EINVAL);

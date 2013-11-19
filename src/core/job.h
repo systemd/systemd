@@ -27,7 +27,6 @@
 
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
-typedef struct JobBusClient JobBusClient;
 typedef enum JobType JobType;
 typedef enum JobState JobState;
 typedef enum JobMode JobMode;
@@ -102,6 +101,7 @@ enum JobResult {
         _JOB_RESULT_INVALID = -1
 };
 
+#include "sd-event.h"
 #include "manager.h"
 #include "unit.h"
 #include "hashmap.h"
@@ -118,13 +118,6 @@ struct JobDependency {
 
         bool matters;
         bool conflicts;
-};
-
-struct JobBusClient {
-        LIST_FIELDS(JobBusClient, client);
-        /* Note that this bus object is not ref counted here. */
-        DBusConnection *bus;
-        char name[0];
 };
 
 struct Job {
@@ -147,10 +140,11 @@ struct Job {
         JobType type;
         JobState state;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
+        usec_t begin_usec;
 
         /* There can be more than one client, because of job merging. */
-        LIST_HEAD(JobBusClient, bus_client_list);
+        Set *subscribed;
 
         JobResult result;
 
@@ -164,8 +158,6 @@ struct Job {
         bool forgot_bus_clients:1;
         bool irreversible:1;
 };
-
-JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name);
 
 Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
@@ -210,7 +202,6 @@ void job_add_to_run_queue(Job *j);
 void job_add_to_dbus_queue(Job *j);
 
 int job_start_timer(Job *j);
-void job_timer_event(Job *j, uint64_t n_elapsed, Watch *w);
 
 int job_run_and_invalidate(Job *j);
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive);

@@ -48,7 +48,7 @@ int transaction_add_job_and_dependencies(
                 bool conflicts,
                 bool ignore_requirements,
                 bool ignore_order,
-                DBusError *e);
-int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e);
+                sd_bus_error *e);
+int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error *e);
 int transaction_add_isolate_jobs(Transaction *tr, Manager *m);
 void transaction_abort(Transaction *tr);

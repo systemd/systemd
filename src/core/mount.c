@@ -59,6 +59,9 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_FAILED] = UNIT_FAILED
 };
 
+static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
+static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+
 static char* mount_test_option(const char *haystack, const char *needle) {
         struct mntent me = { .mnt_opts = (char*) haystack };
 
@@ -156,11 +159,30 @@ static void mount_init(Unit *u) {
          * already trying to comply its last one. */
         m->exec_context.same_pgrp = true;
 
-        m->timer_watch.type = WATCH_INVALID;
-
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
 
         UNIT(m)->ignore_on_isolate = true;
+}
+
+static int mount_arm_timer(Mount *m) {
+        int r;
+
+        assert(m);
+
+        if (m->timeout_usec <= 0) {
+                m->timer_event_source = sd_event_source_unref(m->timer_event_source);
+                return 0;
+        }
+
+        if (m->timer_event_source) {
+                r = sd_event_source_set_time(m->timer_event_source, now(CLOCK_MONOTONIC) + m->timeout_usec);
+                if (r < 0)
+                        return r;
+
+                return sd_event_source_set_enabled(m->timer_event_source, SD_EVENT_ONESHOT);
+        }
+
+        return sd_event_add_monotonic(UNIT(m)->manager->event, now(CLOCK_MONOTONIC) + m->timeout_usec, 0, mount_dispatch_timer, m, &m->timer_event_source);
 }
 
 static void mount_unwatch_control_pid(Mount *m) {
@@ -201,7 +223,7 @@ static void mount_done(Unit *u) {
 
         mount_unwatch_control_pid(m);
 
-        unit_unwatch_timer(u, &m->timer_watch);
+        m->timer_event_source = sd_event_source_unref(m->timer_event_source);
 }
 
 _pure_ static MountParameters* get_mount_parameters_fragment(Mount *m) {
@@ -626,7 +648,7 @@ static void mount_set_state(Mount *m, MountState state) {
             state != MOUNT_UNMOUNTING_SIGKILL &&
             state != MOUNT_REMOUNTING_SIGTERM &&
             state != MOUNT_REMOUNTING_SIGKILL) {
-                unit_unwatch_timer(UNIT(m), &m->timer_watch);
+                m->timer_event_source = sd_event_source_unref(m->timer_event_source);
                 mount_unwatch_control_pid(m);
                 m->control_command = NULL;
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
@@ -692,7 +714,7 @@ static int mount_coldplug(Unit *u) {
                         if (r < 0)
                                 return r;
 
-                        r = unit_watch_timer(UNIT(m), CLOCK_MONOTONIC, true, m->timeout_usec, &m->timer_watch);
+                        r = mount_arm_timer(m);
                         if (r < 0)
                                 return r;
                 }
@@ -751,7 +773,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
 
         unit_realize_cgroup(UNIT(m));
 
-        r = unit_watch_timer(UNIT(m), CLOCK_MONOTONIC, true, m->timeout_usec, &m->timer_watch);
+        r = mount_arm_timer(m);
         if (r < 0)
                 goto fail;
 
@@ -782,7 +804,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         return 0;
 
 fail:
-        unit_unwatch_timer(UNIT(m), &m->timer_watch);
+        m->timer_event_source = sd_event_source_unref(m->timer_event_source);
 
         return r;
 }
@@ -825,7 +847,7 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
                 goto fail;
 
         if (r > 0) {
-                r = unit_watch_timer(UNIT(m), CLOCK_MONOTONIC, true, m->timeout_usec, &m->timer_watch);
+                r = mount_arm_timer(m);
                 if (r < 0)
                         goto fail;
 
@@ -959,17 +981,11 @@ static void mount_enter_remounting(Mount *m) {
         m->control_command = m->exec_command + MOUNT_EXEC_REMOUNT;
 
         if (m->from_fragment) {
-                char *buf = NULL;
                 const char *o;
 
-                if (m->parameters_fragment.options) {
-                        if (!(buf = strappend("remount,", m->parameters_fragment.options))) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        o = buf;
-                } else
+                if (m->parameters_fragment.options)
+                        o = strappenda("remount,", m->parameters_fragment.options);
+                else
                         o = "remount";
 
                 r = exec_command_set(
@@ -980,8 +996,6 @@ static void mount_enter_remounting(Mount *m) {
                                 "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
                                 "-o", o,
                                 NULL);
-
-                free(buf);
         } else
                 r = -ENOENT;
 
@@ -990,7 +1004,8 @@ static void mount_enter_remounting(Mount *m) {
 
         mount_unwatch_control_pid(m);
 
-        if ((r = mount_spawn(m, m->control_command, &m->control_pid)) < 0)
+        r = mount_spawn(m, m->control_command, &m->control_pid);
+        if (r < 0)
                 goto fail;
 
         mount_set_state(m, MOUNT_REMOUNTING);
@@ -1279,44 +1294,43 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         unit_add_to_dbus_queue(u);
 }
 
-static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
-        Mount *m = MOUNT(u);
+static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
+        Mount *m = MOUNT(userdata);
 
         assert(m);
-        assert(elapsed == 1);
-        assert(w == &m->timer_watch);
+        assert(m->timer_event_source == source);
 
         switch (m->state) {
 
         case MOUNT_MOUNTING:
         case MOUNT_MOUNTING_DONE:
-                log_warning_unit(u->id,
-                                 "%s mounting timed out. Stopping.", u->id);
+                log_warning_unit(UNIT(m)->id,
+                                 "%s mounting timed out. Stopping.", UNIT(m)->id);
                 mount_enter_signal(m, MOUNT_MOUNTING_SIGTERM, MOUNT_FAILURE_TIMEOUT);
                 break;
 
         case MOUNT_REMOUNTING:
-                log_warning_unit(u->id,
-                                 "%s remounting timed out. Stopping.", u->id);
+                log_warning_unit(UNIT(m)->id,
+                                 "%s remounting timed out. Stopping.", UNIT(m)->id);
                 m->reload_result = MOUNT_FAILURE_TIMEOUT;
                 mount_enter_mounted(m, MOUNT_SUCCESS);
                 break;
 
         case MOUNT_UNMOUNTING:
-                log_warning_unit(u->id,
-                                 "%s unmounting timed out. Stopping.", u->id);
+                log_warning_unit(UNIT(m)->id,
+                                 "%s unmounting timed out. Stopping.", UNIT(m)->id);
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, MOUNT_FAILURE_TIMEOUT);
                 break;
 
         case MOUNT_MOUNTING_SIGTERM:
                 if (m->kill_context.send_sigkill) {
-                        log_warning_unit(u->id,
-                                         "%s mounting timed out. Killing.", u->id);
+                        log_warning_unit(UNIT(m)->id,
+                                         "%s mounting timed out. Killing.", UNIT(m)->id);
                         mount_enter_signal(m, MOUNT_MOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
                 } else {
-                        log_warning_unit(u->id,
+                        log_warning_unit(UNIT(m)->id,
                                          "%s mounting timed out. Skipping SIGKILL. Ignoring.",
-                                         u->id);
+                                         UNIT(m)->id);
 
                         if (m->from_proc_self_mountinfo)
                                 mount_enter_mounted(m, MOUNT_FAILURE_TIMEOUT);
@@ -1327,13 +1341,13 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 
         case MOUNT_REMOUNTING_SIGTERM:
                 if (m->kill_context.send_sigkill) {
-                        log_warning_unit(u->id,
-                                         "%s remounting timed out. Killing.", u->id);
+                        log_warning_unit(UNIT(m)->id,
+                                         "%s remounting timed out. Killing.", UNIT(m)->id);
                         mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
                 } else {
-                        log_warning_unit(u->id,
+                        log_warning_unit(UNIT(m)->id,
                                          "%s remounting timed out. Skipping SIGKILL. Ignoring.",
-                                         u->id);
+                                         UNIT(m)->id);
 
                         if (m->from_proc_self_mountinfo)
                                 mount_enter_mounted(m, MOUNT_FAILURE_TIMEOUT);
@@ -1344,13 +1358,13 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 
         case MOUNT_UNMOUNTING_SIGTERM:
                 if (m->kill_context.send_sigkill) {
-                        log_warning_unit(u->id,
-                                         "%s unmounting timed out. Killing.", u->id);
+                        log_warning_unit(UNIT(m)->id,
+                                         "%s unmounting timed out. Killing.", UNIT(m)->id);
                         mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
                 } else {
-                        log_warning_unit(u->id,
+                        log_warning_unit(UNIT(m)->id,
                                          "%s unmounting timed out. Skipping SIGKILL. Ignoring.",
-                                         u->id);
+                                         UNIT(m)->id);
 
                         if (m->from_proc_self_mountinfo)
                                 mount_enter_mounted(m, MOUNT_FAILURE_TIMEOUT);
@@ -1362,9 +1376,9 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         case MOUNT_MOUNTING_SIGKILL:
         case MOUNT_REMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGKILL:
-                log_warning_unit(u->id,
+                log_warning_unit(UNIT(m)->id,
                                  "%s mount process still around after SIGKILL. Ignoring.",
-                                 u->id);
+                                 UNIT(m)->id);
 
                 if (m->from_proc_self_mountinfo)
                         mount_enter_mounted(m, MOUNT_FAILURE_TIMEOUT);
@@ -1375,6 +1389,8 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         default:
                 assert_not_reached("Timeout at wrong time.");
         }
+
+        return 0;
 }
 
 static int mount_add_one(
@@ -1582,6 +1598,8 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 static void mount_shutdown(Manager *m) {
         assert(m);
 
+        m->mount_event_source = sd_event_source_unref(m->mount_event_source);
+
         if (m->proc_self_mountinfo) {
                 fclose(m->proc_self_mountinfo);
                 m->proc_self_mountinfo = NULL;
@@ -1593,20 +1611,13 @@ static int mount_enumerate(Manager *m) {
         assert(m);
 
         if (!m->proc_self_mountinfo) {
-                struct epoll_event ev = {
-                        .events = EPOLLPRI,
-                        .data.ptr = &m->mount_watch,
-                };
-
                 m->proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
                 if (!m->proc_self_mountinfo)
                         return -errno;
 
-                m->mount_watch.type = WATCH_MOUNT;
-                m->mount_watch.fd = fileno(m->proc_self_mountinfo);
-
-                if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->mount_watch.fd, &ev) < 0)
-                        return -errno;
+                r = sd_event_add_io(m->event, fileno(m->proc_self_mountinfo), EPOLLPRI, mount_dispatch_io, m, &m->mount_event_source);
+                if (r < 0)
+                        goto fail;
         }
 
         r = mount_load_proc_self_mountinfo(m, false);
@@ -1620,12 +1631,13 @@ fail:
         return r;
 }
 
-void mount_fd_event(Manager *m, int events) {
+static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        Manager *m = userdata;
         Unit *u;
         int r;
 
         assert(m);
-        assert(events & EPOLLPRI);
+        assert(revents & EPOLLPRI);
 
         /* The manager calls this for every fd event happening on the
          * /proc/self/mountinfo file, which informs us about mounting
@@ -1642,7 +1654,7 @@ void mount_fd_event(Manager *m, int events) {
                         mount->is_mounted = mount->just_mounted = mount->just_changed = false;
                 }
 
-                return;
+                return 0;
         }
 
         manager_dispatch_load_queue(m);
@@ -1696,6 +1708,8 @@ void mount_fd_event(Manager *m, int events) {
                 /* Reset the flags for later calls */
                 mount->is_mounted = mount->just_mounted = mount->just_changed = false;
         }
+
+        return 0;
 }
 
 static void mount_reset_failed(Unit *u) {
@@ -1710,7 +1724,7 @@ static void mount_reset_failed(Unit *u) {
         m->reload_result = MOUNT_SUCCESS;
 }
 
-static int mount_kill(Unit *u, KillWho who, int signo, DBusError *error) {
+static int mount_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, MOUNT(u)->control_pid, error);
 }
 
@@ -1753,15 +1767,15 @@ DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);
 
 const UnitVTable mount_vtable = {
         .object_size = sizeof(Mount),
+        .exec_context_offset = offsetof(Mount, exec_context),
+        .cgroup_context_offset = offsetof(Mount, cgroup_context),
+        .kill_context_offset = offsetof(Mount, kill_context),
 
         .sections =
                 "Unit\0"
                 "Mount\0"
                 "Install\0",
-
         .private_section = "Mount",
-        .exec_context_offset = offsetof(Mount, exec_context),
-        .cgroup_context_offset = offsetof(Mount, cgroup_context),
 
         .no_alias = true,
         .no_instances = true,
@@ -1789,13 +1803,12 @@ const UnitVTable mount_vtable = {
         .check_gc = mount_check_gc,
 
         .sigchld_event = mount_sigchld_event,
-        .timer_event = mount_timer_event,
 
         .reset_failed = mount_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Mount",
-        .bus_message_handler = bus_mount_message_handler,
-        .bus_invalidating_properties =  bus_mount_invalidating_properties,
+        .bus_vtable = bus_mount_vtable,
+        .bus_changing_properties = bus_mount_changing_properties,
         .bus_set_property = bus_mount_set_property,
         .bus_commit_properties = bus_mount_commit_properties,
 

@@ -43,6 +43,53 @@ CGroup Rework Completion:
 
 Features:
 
+* sd-event: allow multiple signal handlers per signal
+
+* timer: expose accuracy as unit setting
+
+* sd-event: do per-minute coalescing of timer events too
+
+* when we detect low battery and no AC on boot, show pretty splash and refuse boot
+
+* move libasyncns into systemd as libsystemd-asyncns
+
+* calendarspec: support value ranges with ".." notation. Example: 2013-4..8-1
+
+* pid1 porting:
+  - restore selinux access control on properties
+
+* sd-bus: when triggering property change events, allow a NULL strv indicate that all properties listed as such are send out as changed
+
+* sd-bus: enforce signatures on response messages
+
+* sd-bus: make message handlers take an sd_bus_error and generate error replies automatically if they are set
+
+* sd-bus: when replying to a bus message we should not need to specify the bus again
+
+* sd-bus: see if we can drop more message validation on the sending side
+
+* sd-bus: introduce sd_bus_creds object and attach it to messages as well as allow querying it for names
+
+* sd-bus: support "const" properties as flag
+
+* sd-bus: add api call to escape bus path components
+
+* sd-event: when a handler returns an error, just turn off its event
+  source, but do not return anything up to the event loop
+  caller. Instead add parameter to sd_event_request_quit() to take
+  retval. This way errors rippling upwards are the option, not the
+  default
+
+* sd-event: child pid handling: first invoke waitid(WNOHANG) and call event handler, only afterwards reap the process
+
+* sd-event: native support for watchdog stuff
+
+* machined, localed: when we try to kill an empty cgroup, generate an ESRCH call over the bus
+
+* sd-bus: SD_BUS_COMMENT() macro for inclusion in vtables, syntax inspired by gdbus
+
+* libsystemd-journal, libsystemd-login, libudev: add calls to easily attach these objects to sd-event event loops
+
 * be more careful what we export on the bus as (usec_t) 0 and (usec_t) -1
 
 * check :no-sender logic after PID 1 conversion

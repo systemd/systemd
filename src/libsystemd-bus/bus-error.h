@@ -21,6 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 #include "sd-bus.h"
 
 bool bus_error_is_dirty(sd_bus_error *e);

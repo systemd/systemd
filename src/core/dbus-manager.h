@@ -21,8 +21,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
+#include "sd-bus.h"
+#include "manager.h"
 
-extern const DBusObjectPathVTable bus_manager_vtable;
+extern const sd_bus_vtable bus_manager_vtable[];
 
-extern const char bus_manager_interface[];
+int bus_manager_foreach_client(Manager *m, int (*send_message)(sd_bus *bus, const char *destination, void *userdata), void *userdata);
+
+int bus_manager_send_finished(Manager *m, usec_t firmware_usec, usec_t loader_usec, usec_t kernel_usec, usec_t initrd_usec, usec_t userspace_usec, usec_t total_usec);
+int bus_manager_send_reloading(Manager *m, bool active);

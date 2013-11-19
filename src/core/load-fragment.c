@@ -45,12 +45,13 @@
 #include "missing.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "dbus-common.h"
 #include "utf8.h"
 #include "path-util.h"
 #include "syscall-list.h"
 #include "env-util.h"
 #include "cgroup.h"
+#include "bus-util.h"
+#include "bus-error.h"
 
 #ifndef HAVE_SYSV_COMPAT
 int config_parse_warn_compat(const char *unit,
@@ -1288,6 +1289,7 @@ int config_parse_path_spec(const char *unit,
         if (!s)
                 return log_oom();
 
+        s->unit = UNIT(p);
         s->path = path_kill_slashes(k);
         k = NULL;
         s->type = b;
@@ -1308,9 +1310,9 @@ int config_parse_socket_service(const char *unit,
                                 void *data,
                                 void *userdata) {
 
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         Socket *s = data;
         int r;
-        DBusError error;
         Unit *x;
         _cleanup_free_ char *p = NULL;
 
@@ -1319,25 +1321,18 @@ int config_parse_socket_service(const char *unit,
         assert(rvalue);
         assert(data);
 
-        dbus_error_init(&error);
-
         r = unit_name_printf(UNIT(s), rvalue, &p);
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to resolve specifiers, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve specifiers, ignoring: %s", rvalue);
 
         if (!endswith(p ?: rvalue, ".service")) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Unit must be of type service, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Unit must be of type service, ignoring: %s", rvalue);
                 return 0;
         }
 
         r = manager_load_unit(UNIT(s)->manager, p ?: rvalue, NULL, &error, &x);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to load unit %s, ignoring: %s",
-                           rvalue, bus_error(&error, r));
-                dbus_error_free(&error);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to load unit %s, ignoring: %s", rvalue, bus_error_message(&error, r));
                 return 0;
         }
 

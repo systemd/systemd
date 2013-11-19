@@ -19,95 +19,54 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-
+#include "unit.h"
+#include "scope.h"
 #include "dbus-unit.h"
-#include "dbus-common.h"
 #include "dbus-cgroup.h"
 #include "dbus-kill.h"
-#include "selinux-access.h"
 #include "dbus-scope.h"
+#include "bus-util.h"
 
-#define BUS_SCOPE_INTERFACE                                             \
-        " <interface name=\"org.freedesktop.systemd1.Scope\">\n"        \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
-        "  <property name=\"TimeoutStopUSec\" type=\"t\" access=\"read\"/>\n" \
-        BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_CGROUP_CONTEXT_INTERFACE                                    \
-        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
-        " </interface>\n"
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, scope_result, ScopeResult);
 
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        BUS_UNIT_INTERFACE                                              \
-        BUS_SCOPE_INTERFACE                                             \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_PEER_INTERFACE                                              \
-        BUS_INTROSPECTABLE_INTERFACE                                    \
-        "</node>\n"
-
-#define INTERFACES_LIST                              \
-        BUS_UNIT_INTERFACES_LIST                     \
-        "org.freedesktop.systemd1.Scope\0"
-
-const char bus_scope_interface[] = BUS_SCOPE_INTERFACE;
-
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_scope_append_scope_result, scope_result, ScopeResult);
-
-static const BusProperty bus_scope_properties[] = {
-        { "TimeoutStopUSec",        bus_property_append_usec,      "t", offsetof(Scope, timeout_stop_usec) },
-        { "Result",                 bus_scope_append_scope_result, "s", offsetof(Scope, result)            },
-        {}
+const sd_bus_vtable bus_scope_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Scope, timeout_stop_usec), 0),
+        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Scope, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_VTABLE_END
 };
 
-DBusHandlerResult bus_scope_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-        Scope *s = SCOPE(u);
-
-        const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,           u },
-                { "org.freedesktop.systemd1.Scope", bus_unit_cgroup_properties,    u },
-                { "org.freedesktop.systemd1.Scope", bus_scope_properties,          s },
-                { "org.freedesktop.systemd1.Scope", bus_cgroup_context_properties, &s->cgroup_context },
-                { "org.freedesktop.systemd1.Scope", bus_kill_context_properties,   &s->kill_context   },
-                {}
-        };
-
-        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
-
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
-}
+const char* const bus_scope_changing_properties[] = {
+        "Result",
+        NULL
+};
 
 static int bus_scope_set_transient_property(
                 Scope *s,
                 const char *name,
-                DBusMessageIter *i,
+                sd_bus_message *message,
                 UnitSetPropertiesMode mode,
-                DBusError *error) {
+                sd_bus_error *error) {
 
         int r;
 
-        assert(name);
         assert(s);
-        assert(i);
+        assert(name);
+        assert(message);
 
         if (streq(name, "PIDs")) {
-                DBusMessageIter sub;
                 unsigned n = 0;
-
-                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_ARRAY ||
-                    dbus_message_iter_get_element_type(i) != DBUS_TYPE_UINT32)
-                        return -EINVAL;
+                uint32_t pid;
 
                 r = set_ensure_allocated(&s->pids, trivial_hash_func, trivial_compare_func);
                 if (r < 0)
                         return r;
 
-                dbus_message_iter_recurse(i, &sub);
-                while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_UINT32) {
-                        uint32_t pid;
+                r = sd_bus_message_enter_container(message, 'a', "u");
+                if (r < 0)
+                        return r;
 
-                        dbus_message_iter_get_basic(&sub, &pid);
+                while ((r = sd_bus_message_read(message, "u", &pid)) > 0) {
 
                         if (pid <= 1)
                                 return -EINVAL;
@@ -118,9 +77,14 @@ static int bus_scope_set_transient_property(
                                         return r;
                         }
 
-                        dbus_message_iter_next(&sub);
                         n++;
                 }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
 
                 if (n <= 0)
                         return -EINVAL;
@@ -129,17 +93,16 @@ static int bus_scope_set_transient_property(
 
         } else if (streq(name, "TimeoutStopUSec")) {
 
-                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_UINT64)
-                        return -EINVAL;
-
                 if (mode != UNIT_CHECK) {
-                        uint64_t t;
+                        r = sd_bus_message_read(message, "t", &s->timeout_stop_usec);
+                        if (r < 0)
+                                return r;
 
-                        dbus_message_iter_get_basic(i, &t);
-
-                        s->timeout_stop_usec = t;
-
-                        unit_write_drop_in_format(UNIT(s), mode, name, "[Scope]\nTimeoutStopSec=%lluus\n", (unsigned long long) t);
+                        unit_write_drop_in_format(UNIT(s), mode, name, "[Scope]\nTimeoutStopSec=%lluus\n", (unsigned long long) s->timeout_stop_usec);
+                } else {
+                        r = sd_bus_message_skip(message, "t");
+                        if (r < 0)
+                                return r;
                 }
 
                 return 1;
@@ -151,29 +114,29 @@ static int bus_scope_set_transient_property(
 int bus_scope_set_property(
                 Unit *u,
                 const char *name,
-                DBusMessageIter *i,
+                sd_bus_message *message,
                 UnitSetPropertiesMode mode,
-                DBusError *error) {
+                sd_bus_error *error) {
 
         Scope *s = SCOPE(u);
         int r;
 
+        assert(s);
         assert(name);
-        assert(u);
-        assert(i);
+        assert(message);
 
-        r = bus_cgroup_set_property(u, &s->cgroup_context, name, i, mode, error);
+        r = bus_cgroup_set_property(u, &s->cgroup_context, name, message, mode, error);
         if (r != 0)
                 return r;
 
         if (u->load_state == UNIT_STUB) {
                 /* While we are created we still accept PIDs */
 
-                r = bus_scope_set_transient_property(s, name, i, mode, error);
+                r = bus_scope_set_transient_property(s, name, message, mode, error);
                 if (r != 0)
                         return r;
 
-                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, i, mode, error);
+                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, mode, error);
                 if (r != 0)
                         return r;
         }

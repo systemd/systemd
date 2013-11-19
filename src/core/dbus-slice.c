@@ -19,70 +19,30 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-
+#include "unit.h"
+#include "slice.h"
 #include "dbus-unit.h"
-#include "dbus-common.h"
 #include "dbus-cgroup.h"
-#include "selinux-access.h"
 #include "dbus-slice.h"
 
-#define BUS_SLICE_INTERFACE                                             \
-        " <interface name=\"org.freedesktop.systemd1.Slice\">\n"        \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
-        BUS_CGROUP_CONTEXT_INTERFACE                                    \
-        " </interface>\n"
-
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        BUS_UNIT_INTERFACE                                              \
-        BUS_SLICE_INTERFACE                                             \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_PEER_INTERFACE                                              \
-        BUS_INTROSPECTABLE_INTERFACE                                    \
-        "</node>\n"
-
-#define INTERFACES_LIST                              \
-        BUS_UNIT_INTERFACES_LIST                     \
-        "org.freedesktop.systemd1.Slice\0"
-
-const char bus_slice_interface[] = BUS_SLICE_INTERFACE;
-
-DBusHandlerResult bus_slice_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-        Slice *s = SLICE(u);
-
-        const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,           u },
-                { "org.freedesktop.systemd1.Slice", bus_unit_cgroup_properties,    u },
-                { "org.freedesktop.systemd1.Slice", bus_cgroup_context_properties, &s->cgroup_context },
-                {}
-        };
-
-        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
-
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
-}
+const sd_bus_vtable bus_slice_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_VTABLE_END
+};
 
 int bus_slice_set_property(
                 Unit *u,
                 const char *name,
-                DBusMessageIter *i,
+                sd_bus_message *message,
                 UnitSetPropertiesMode mode,
-                DBusError *error) {
+                sd_bus_error *error) {
 
         Slice *s = SLICE(u);
-        int r;
 
         assert(name);
         assert(u);
-        assert(i);
 
-        r = bus_cgroup_set_property(u, &s->cgroup_context, name, i, mode, error);
-        if (r != 0)
-                return r;
-
-        return 0;
+        return bus_cgroup_set_property(u, &s->cgroup_context, name, message, mode, error);
 }
 
 int bus_slice_commit_properties(Unit *u) {

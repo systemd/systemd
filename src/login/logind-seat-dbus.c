@@ -25,6 +25,7 @@
 #include "util.h"
 #include "bus-util.h"
 #include "strv.h"
+#include "bus-errors.h"
 #include "logind.h"
 #include "logind-seat.h"
 

@@ -19,59 +19,102 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <dbus/dbus.h>
 #include <sys/prctl.h>
 
-#include "dbus-execute.h"
+#include "bus-util.h"
 #include "missing.h"
 #include "ioprio.h"
 #include "strv.h"
-#include "dbus-common.h"
 #include "syscall-list.h"
 #include "fileio.h"
+#include "execute.h"
+#include "dbus-execute.h"
 
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_input, exec_input, ExecInput);
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_execute_append_output, exec_output, ExecOutput);
+BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_exec_output, exec_output, ExecOutput);
 
-static int bus_execute_append_env_files(DBusMessageIter *i, const char *property, void *data) {
-        char **env_files = data, **j;
-        DBusMessageIter sub, sub2;
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_input, exec_input, ExecInput);
 
-        assert(i);
-        assert(property);
+static int property_get_environment_files(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sb)", &sub))
-                return -ENOMEM;
+        ExecContext *c = userdata;
+        char **j;
+        int r;
 
-        STRV_FOREACH(j, env_files) {
-                dbus_bool_t b = false;
-                char *fn = *j;
+        assert(bus);
+        assert(reply);
+        assert(c);
 
-                if (fn[0] == '-') {
-                        b = true;
-                        fn++;
-                }
+        r = sd_bus_message_open_container(reply, 'a', "(sb)");
+        if (r < 0)
+                return r;
 
-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &fn) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_BOOLEAN, &b) ||
-                    !dbus_message_iter_close_container(&sub, &sub2))
-                        return -ENOMEM;
+        STRV_FOREACH(j, c->environment_files) {
+                const char *fn = *j;
+
+                r = sd_bus_message_append(reply, "(sb)", fn[0] == '-' ? fn + 1 : fn, fn[0] == '-');
+                if (r < 0)
+                        return r;
         }
 
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_close_container(reply);
 }
 
-static int bus_execute_append_oom_score_adjust(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
+static int property_get_rlimit(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        struct rlimit *rl;
+        uint64_t u;
+
+        assert(bus);
+        assert(reply);
+        assert(userdata);
+
+        rl = *(struct rlimit**) userdata;
+        if (rl)
+                u = (uint64_t) rl->rlim_max;
+        else {
+                struct rlimit buf = {};
+                int z;
+
+                z = rlimit_from_string(property);
+                assert(z >= 0);
+
+                getrlimit(z, &buf);
+
+                u = (uint64_t) buf.rlim_max;
+        }
+
+        return sd_bus_message_append(reply, "t", u);
+}
+
+static int property_get_oom_score_adjust(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+
+        ExecContext *c = userdata;
         int32_t n;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(c);
 
         if (c->oom_score_adjust_set)
@@ -80,80 +123,111 @@ static int bus_execute_append_oom_score_adjust(DBusMessageIter *i, const char *p
                 _cleanup_free_ char *t = NULL;
 
                 n = 0;
-                if (read_one_line_file("/proc/self/oom_score_adj", &t) >= 0) {
+                if (read_one_line_file("/proc/self/oom_score_adj", &t) >= 0)
                         safe_atoi(t, &n);
-                }
         }
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT32, &n))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "i", n);
 }
 
-static int bus_execute_append_nice(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
+static int property_get_nice(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+
+        ExecContext *c = userdata;
         int32_t n;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(c);
 
         if (c->nice_set)
                 n = c->nice;
-        else
+        else {
+                errno = 0;
                 n = getpriority(PRIO_PROCESS, 0);
+                if (errno != 0)
+                        n = 0;
+        }
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT32, &n))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "i", n);
 }
 
-static int bus_execute_append_ioprio(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
+static int property_get_ioprio(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+
+        ExecContext *c = userdata;
         int32_t n;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(c);
 
         if (c->ioprio_set)
                 n = c->ioprio;
-        else
+        else {
                 n = ioprio_get(IOPRIO_WHO_PROCESS, 0);
+                if (n < 0)
+                        n = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 4);
+        }
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT32, &n))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "i", n);
 }
 
-static int bus_execute_append_cpu_sched_policy(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
+static int property_get_cpu_sched_policy(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        ExecContext *c = userdata;
         int32_t n;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(c);
 
         if (c->cpu_sched_set)
                 n = c->cpu_sched_policy;
-        else
+        else {
                 n = sched_getscheduler(0);
+                if (n < 0)
+                        n = SCHED_OTHER;
+        }
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT32, &n))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "i", n);
 }
 
-static int bus_execute_append_cpu_sched_priority(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
+static int property_get_cpu_sched_priority(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        ExecContext *c = userdata;
         int32_t n;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(c);
 
         if (c->cpu_sched_set)
@@ -167,44 +241,44 @@ static int bus_execute_append_cpu_sched_priority(DBusMessageIter *i, const char 
                         n = 0;
         }
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT32, &n))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "i", n);
 }
 
-static int bus_execute_append_affinity(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
-        dbus_bool_t b;
-        DBusMessageIter sub;
+static int property_get_cpu_affinity(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
+        ExecContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
         assert(c);
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "y", &sub))
-                return -ENOMEM;
-
         if (c->cpuset)
-                b = dbus_message_iter_append_fixed_array(&sub, DBUS_TYPE_BYTE, &c->cpuset, CPU_ALLOC_SIZE(c->cpuset_ncpus));
+                return sd_bus_message_append_array(reply, 'y', c->cpuset, CPU_ALLOC_SIZE(c->cpuset_ncpus));
         else
-                b = dbus_message_iter_append_fixed_array(&sub, DBUS_TYPE_BYTE, &c->cpuset, 0);
-
-        if (!b)
-                return -ENOMEM;
-
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
+                return sd_bus_message_append_array(reply, 'y', NULL, 0);
 }
 
-static int bus_execute_append_timer_slack_nsec(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
+static int property_get_timer_slack_nsec(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        ExecContext *c = userdata;
         uint64_t u;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(c);
 
         if (c->timer_slack_nsec != (nsec_t) -1)
@@ -212,37 +286,45 @@ static int bus_execute_append_timer_slack_nsec(DBusMessageIter *i, const char *p
         else
                 u = (uint64_t) prctl(PR_GET_TIMERSLACK);
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, &u))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_append(reply, "t", u);
 }
 
-static int bus_execute_append_capability_bs(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
-        uint64_t normal, inverted;
+static int property_get_capability_bounding_set(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
+        ExecContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
         assert(c);
 
         /* We store this negated internally, to match the kernel, but
          * we expose it normalized. */
-
-        normal = *(uint64_t*) data;
-        inverted = ~normal;
-
-        return bus_property_append_uint64(i, property, &inverted);
+        return sd_bus_message_append(reply, "t", ~c->capability_bounding_set_drop);
 }
 
-static int bus_execute_append_capabilities(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
+static int property_get_capabilities(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
+
+        ExecContext *c = userdata;
         char *t = NULL;
         const char *s;
-        dbus_bool_t b;
+        int r;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(c);
 
         if (c->capabilities)
@@ -253,184 +335,150 @@ static int bus_execute_append_capabilities(DBusMessageIter *i, const char *prope
         if (!s)
                 return -ENOMEM;
 
-        b = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &s);
+        r = sd_bus_message_append(reply, "s", s);
 
         if (t)
                 cap_free(t);
 
-        if (!b)
-                return -ENOMEM;
-
-        return 0;
+        return r;
 }
 
-static int bus_execute_append_rlimits(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
-        int r;
-        uint64_t u;
+static int property_get_syscall_filter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
+        ExecContext *c = userdata;
+
+        assert(bus);
+        assert(reply);
         assert(c);
 
-        assert_se((r = rlimit_from_string(property)) >= 0);
-
-        if (c->rlimit[r])
-                u = (uint64_t) c->rlimit[r]->rlim_max;
-        else {
-                struct rlimit rl = {};
-
-                getrlimit(r, &rl);
-
-                u = (uint64_t) rl.rlim_max;
-        }
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, &u))
-                return -ENOMEM;
-
-        return 0;
+        if (c->syscall_filter)
+                return sd_bus_message_append_array(reply, 'u', c->syscall_filter, (syscall_max() + 31) >> 4);
+        else
+                return sd_bus_message_append_array(reply, 'u', NULL, 0);
 }
 
-int bus_execute_append_command(DBusMessageIter *i, const char *property, void *data) {
-        ExecCommand *c = data;
-        DBusMessageIter sub, sub2, sub3;
+const sd_bus_vtable bus_exec_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), 0),
+        SD_BUS_PROPERTY("EnvironmentFiles", "a(sb)", property_get_environment_files, 0, 0),
+        SD_BUS_PROPERTY("UMask", "u", bus_property_get_mode, offsetof(ExecContext, umask), 0),
+        SD_BUS_PROPERTY("LimitCPU", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_CPU]), 0),
+        SD_BUS_PROPERTY("LimitFSIZE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_FSIZE]), 0),
+        SD_BUS_PROPERTY("LimitDATA", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_DATA]), 0),
+        SD_BUS_PROPERTY("LimitSTACK", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_STACK]), 0),
+        SD_BUS_PROPERTY("LimitCORE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_CORE]), 0),
+        SD_BUS_PROPERTY("LimitRSS", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RSS]), 0),
+        SD_BUS_PROPERTY("LimitNOFILE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_NOFILE]), 0),
+        SD_BUS_PROPERTY("LimitAS", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_AS]), 0),
+        SD_BUS_PROPERTY("LimitNPROC", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_NPROC]), 0),
+        SD_BUS_PROPERTY("LimitMEMLOCK", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_MEMLOCK]), 0),
+        SD_BUS_PROPERTY("LimitLOCKS", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_LOCKS]), 0),
+        SD_BUS_PROPERTY("LimitSIGPENDING", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_SIGPENDING]), 0),
+        SD_BUS_PROPERTY("LimitMSGQUEUE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_MSGQUEUE]), 0),
+        SD_BUS_PROPERTY("LimitNICE", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_NICE]), 0),
+        SD_BUS_PROPERTY("LimitRTPRIO", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTPRIO]), 0),
+        SD_BUS_PROPERTY("LimitRTTIME", "t", property_get_rlimit, offsetof(ExecContext, rlimit[RLIMIT_RTTIME]), 0),
+        SD_BUS_PROPERTY("WorkingDirectory", "s", NULL, offsetof(ExecContext, working_directory), 0),
+        SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(ExecContext, root_directory), 0),
+        SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, 0),
+        SD_BUS_PROPERTY("Nice", "i", property_get_nice, 0, 0),
+        SD_BUS_PROPERTY("IOScheduling", "i", property_get_ioprio, 0, 0),
+        SD_BUS_PROPERTY("CPUSchedulingPolicy", "i", property_get_cpu_sched_policy, 0, 0),
+        SD_BUS_PROPERTY("CPUSchedulingPriority", "i", property_get_cpu_sched_priority, 0, 0),
+        SD_BUS_PROPERTY("CPUAffinity", "ay", property_get_cpu_affinity, 0, 0),
+        SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, 0),
+        SD_BUS_PROPERTY("CPUSchedulingResetOnFork", "b", bus_property_get_bool, offsetof(ExecContext, cpu_sched_reset_on_fork), 0),
+        SD_BUS_PROPERTY("NonBlocking", "b", bus_property_get_bool, offsetof(ExecContext, non_blocking), 0),
+        SD_BUS_PROPERTY("StandardInput", "s", property_get_exec_input, offsetof(ExecContext, std_input), 0),
+        SD_BUS_PROPERTY("StandardOutput", "s", bus_property_get_exec_output, offsetof(ExecContext, std_output), 0),
+        SD_BUS_PROPERTY("StandardError", "s", bus_property_get_exec_output, offsetof(ExecContext, std_error), 0),
+        SD_BUS_PROPERTY("TTYPath", "s", NULL, offsetof(ExecContext, tty_path), 0),
+        SD_BUS_PROPERTY("TTYReset", "b", bus_property_get_bool, offsetof(ExecContext, tty_reset), 0),
+        SD_BUS_PROPERTY("TTYVHangup", "b", bus_property_get_bool, offsetof(ExecContext, tty_vhangup), 0),
+        SD_BUS_PROPERTY("TTYVTDisallocate", "b", bus_property_get_bool, offsetof(ExecContext, tty_vt_disallocate), 0),
+        SD_BUS_PROPERTY("SyslogPriority", "i", bus_property_get_int, offsetof(ExecContext, syslog_priority), 0),
+        SD_BUS_PROPERTY("SyslogIdentifier", "s", NULL, offsetof(ExecContext, syslog_identifier), 0),
+        SD_BUS_PROPERTY("SyslogLevelPrefix", "b", bus_property_get_bool, offsetof(ExecContext, syslog_level_prefix), 0),
+        SD_BUS_PROPERTY("Capabilities", "s", property_get_capabilities, 0, 0),
+        SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), 0),
+        SD_BUS_PROPERTY("CapabilityBoundingSet", "t", property_get_capability_bounding_set, 0, 0),
+        SD_BUS_PROPERTY("User", "s", NULL, offsetof(ExecContext, user), 0),
+        SD_BUS_PROPERTY("Group", "s", NULL, offsetof(ExecContext, group), 0),
+        SD_BUS_PROPERTY("SupplementaryGroups", "as", NULL, offsetof(ExecContext, supplementary_groups), 0),
+        SD_BUS_PROPERTY("TCPWrapName", "s", NULL, offsetof(ExecContext, tcpwrap_name), 0),
+        SD_BUS_PROPERTY("PAMName", "s", NULL, offsetof(ExecContext, pam_name), 0),
+        SD_BUS_PROPERTY("ReadWriteDirectories", "as", NULL, offsetof(ExecContext, read_write_dirs), 0),
+        SD_BUS_PROPERTY("ReadOnlyDirectories", "as", NULL, offsetof(ExecContext, read_only_dirs), 0),
+        SD_BUS_PROPERTY("InaccessibleDirectories", "as", NULL, offsetof(ExecContext, inaccessible_dirs), 0),
+        SD_BUS_PROPERTY("MountFlags", "t", bus_property_get_ulong, offsetof(ExecContext, mount_flags), 0),
+        SD_BUS_PROPERTY("PrivateTmp", "b", bus_property_get_bool, offsetof(ExecContext, private_tmp), 0),
+        SD_BUS_PROPERTY("PrivateNetwork", "b", bus_property_get_bool, offsetof(ExecContext, private_network), 0),
+        SD_BUS_PROPERTY("SameProcessGroup", "b", bus_property_get_bool, offsetof(ExecContext, same_pgrp), 0),
+        SD_BUS_PROPERTY("UtmpIdentifier", "s", NULL, offsetof(ExecContext, utmp_id), 0),
+        SD_BUS_PROPERTY("IgnoreSIGPIPE", "b", bus_property_get_bool, offsetof(ExecContext, ignore_sigpipe), 0),
+        SD_BUS_PROPERTY("NoNewPrivileges", "b", bus_property_get_bool, offsetof(ExecContext, no_new_privileges), 0),
+        SD_BUS_PROPERTY("SystemCallFilter", "au", property_get_syscall_filter, 0, 0),
+        SD_BUS_VTABLE_END
+};
 
-        assert(i);
-        assert(property);
+int bus_property_get_exec_command(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sasbttttuii)", &sub))
-                return -ENOMEM;
+        ExecCommand *c = *(ExecCommand**) userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(sasbttttuii)");
+        if (r < 0)
+                return r;
 
         LIST_FOREACH(command, c, c) {
-                char **l;
-                uint32_t pid;
-                int32_t code, status;
-                dbus_bool_t b;
-
                 if (!c->path)
                         continue;
 
-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &c->path) ||
-                    !dbus_message_iter_open_container(&sub2, DBUS_TYPE_ARRAY, "s", &sub3))
-                        return -ENOMEM;
+                r = sd_bus_message_open_container(reply, 'r', "sasbttttuii");
+                if (r < 0)
+                        return r;
 
-                STRV_FOREACH(l, c->argv)
-                        if (!dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, l))
-                                return -ENOMEM;
+                r = sd_bus_message_append(reply, "s", c->path);
+                if (r < 0)
+                        return r;
 
-                pid = (uint32_t) c->exec_status.pid;
-                code = (int32_t) c->exec_status.code;
-                status = (int32_t) c->exec_status.status;
+                r = sd_bus_message_append_strv(reply, c->argv);
+                if (r < 0)
+                        return r;
 
-                b = !!c->ignore;
+                r = sd_bus_message_append(reply, "bttttuii",
+                                          c->ignore,
+                                          c->exec_status.start_timestamp.realtime,
+                                          c->exec_status.start_timestamp.monotonic,
+                                          c->exec_status.exit_timestamp.realtime,
+                                          c->exec_status.exit_timestamp.monotonic,
+                                          (uint32_t) c->exec_status.pid,
+                                          (int32_t) c->exec_status.code,
+                                          (int32_t) c->exec_status.status);
+                if (r < 0)
+                        return r;
 
-                if (!dbus_message_iter_close_container(&sub2, &sub3) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_BOOLEAN, &b) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.start_timestamp.realtime) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.start_timestamp.monotonic) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.exit_timestamp.realtime) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.exit_timestamp.monotonic) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &pid) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_INT32, &code) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_INT32, &status))
-                        return -ENOMEM;
-
-                if (!dbus_message_iter_close_container(&sub, &sub2))
-                        return -ENOMEM;
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
         }
 
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_close_container(reply);
 }
-
-static int bus_execute_append_syscall_filter(DBusMessageIter *i, const char *property, void *data) {
-        ExecContext *c = data;
-        dbus_bool_t b;
-        DBusMessageIter sub;
-
-        assert(i);
-        assert(property);
-        assert(c);
-
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "u", &sub))
-                return -ENOMEM;
-
-        if (c->syscall_filter)
-                b = dbus_message_iter_append_fixed_array(&sub, DBUS_TYPE_UINT32, &c->syscall_filter, (syscall_max() + 31) >> 4);
-        else
-                b = dbus_message_iter_append_fixed_array(&sub, DBUS_TYPE_UINT32, &c->syscall_filter, 0);
-
-        if (!b)
-                return -ENOMEM;
-
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
-}
-
-const BusProperty bus_exec_context_properties[] = {
-        { "Environment",              bus_property_append_strv,             "as", offsetof(ExecContext, environment),            true },
-        { "EnvironmentFiles",         bus_execute_append_env_files,      "a(sb)", offsetof(ExecContext, environment_files),      true },
-        { "UMask",                    bus_property_append_mode,              "u", offsetof(ExecContext, umask)                        },
-        { "LimitCPU",                 bus_execute_append_rlimits,            "t", 0 },
-        { "LimitFSIZE",               bus_execute_append_rlimits,            "t", 0 },
-        { "LimitDATA",                bus_execute_append_rlimits,            "t", 0 },
-        { "LimitSTACK",               bus_execute_append_rlimits,            "t", 0 },
-        { "LimitCORE",                bus_execute_append_rlimits,            "t", 0 },
-        { "LimitRSS",                 bus_execute_append_rlimits,            "t", 0 },
-        { "LimitNOFILE",              bus_execute_append_rlimits,            "t", 0 },
-        { "LimitAS",                  bus_execute_append_rlimits,            "t", 0 },
-        { "LimitNPROC",               bus_execute_append_rlimits,            "t", 0 },
-        { "LimitMEMLOCK",             bus_execute_append_rlimits,            "t", 0 },
-        { "LimitLOCKS",               bus_execute_append_rlimits,            "t", 0 },
-        { "LimitSIGPENDING",          bus_execute_append_rlimits,            "t", 0 },
-        { "LimitMSGQUEUE",            bus_execute_append_rlimits,            "t", 0 },
-        { "LimitNICE",                bus_execute_append_rlimits,            "t", 0 },
-        { "LimitRTPRIO",              bus_execute_append_rlimits,            "t", 0 },
-        { "LimitRTTIME",              bus_execute_append_rlimits,            "t", 0 },
-        { "WorkingDirectory",         bus_property_append_string,            "s", offsetof(ExecContext, working_directory),      true },
-        { "RootDirectory",            bus_property_append_string,            "s", offsetof(ExecContext, root_directory),         true },
-        { "OOMScoreAdjust",           bus_execute_append_oom_score_adjust,   "i", 0 },
-        { "Nice",                     bus_execute_append_nice,               "i", 0 },
-        { "IOScheduling",             bus_execute_append_ioprio,             "i", 0 },
-        { "CPUSchedulingPolicy",      bus_execute_append_cpu_sched_policy,   "i", 0 },
-        { "CPUSchedulingPriority",    bus_execute_append_cpu_sched_priority, "i", 0 },
-        { "CPUAffinity",              bus_execute_append_affinity,          "ay", 0 },
-        { "TimerSlackNSec",           bus_execute_append_timer_slack_nsec,   "t", 0 },
-        { "CPUSchedulingResetOnFork", bus_property_append_bool,              "b", offsetof(ExecContext, cpu_sched_reset_on_fork)      },
-        { "NonBlocking",              bus_property_append_bool,              "b", offsetof(ExecContext, non_blocking)                 },
-        { "StandardInput",            bus_execute_append_input,              "s", offsetof(ExecContext, std_input)                    },
-        { "StandardOutput",           bus_execute_append_output,             "s", offsetof(ExecContext, std_output)                   },
-        { "StandardError",            bus_execute_append_output,             "s", offsetof(ExecContext, std_error)                    },
-        { "TTYPath",                  bus_property_append_string,            "s", offsetof(ExecContext, tty_path),               true },
-        { "TTYReset",                 bus_property_append_bool,              "b", offsetof(ExecContext, tty_reset)                    },
-        { "TTYVHangup",               bus_property_append_bool,              "b", offsetof(ExecContext, tty_vhangup)                  },
-        { "TTYVTDisallocate",         bus_property_append_bool,              "b", offsetof(ExecContext, tty_vt_disallocate)           },
-        { "SyslogPriority",           bus_property_append_int,               "i", offsetof(ExecContext, syslog_priority)              },
-        { "SyslogIdentifier",         bus_property_append_string,            "s", offsetof(ExecContext, syslog_identifier),      true },
-        { "SyslogLevelPrefix",        bus_property_append_bool,              "b", offsetof(ExecContext, syslog_level_prefix)          },
-        { "Capabilities",             bus_execute_append_capabilities,       "s", 0 },
-        { "SecureBits",               bus_property_append_int,               "i", offsetof(ExecContext, secure_bits)                  },
-        { "CapabilityBoundingSet",    bus_execute_append_capability_bs,      "t", offsetof(ExecContext, capability_bounding_set_drop) },
-        { "User",                     bus_property_append_string,            "s", offsetof(ExecContext, user),                   true },
-        { "Group",                    bus_property_append_string,            "s", offsetof(ExecContext, group),                  true },
-        { "SupplementaryGroups",      bus_property_append_strv,             "as", offsetof(ExecContext, supplementary_groups),   true },
-        { "TCPWrapName",              bus_property_append_string,            "s", offsetof(ExecContext, tcpwrap_name),           true },
-        { "PAMName",                  bus_property_append_string,            "s", offsetof(ExecContext, pam_name),               true },
-        { "ReadWriteDirectories",     bus_property_append_strv,             "as", offsetof(ExecContext, read_write_dirs),        true },
-        { "ReadOnlyDirectories",      bus_property_append_strv,             "as", offsetof(ExecContext, read_only_dirs),         true },
-        { "InaccessibleDirectories",  bus_property_append_strv,             "as", offsetof(ExecContext, inaccessible_dirs),      true },
-        { "MountFlags",               bus_property_append_ul,                "t", offsetof(ExecContext, mount_flags)                  },
-        { "PrivateTmp",               bus_property_append_bool,              "b", offsetof(ExecContext, private_tmp)                  },
-        { "PrivateNetwork",           bus_property_append_bool,              "b", offsetof(ExecContext, private_network)              },
-        { "SameProcessGroup",         bus_property_append_bool,              "b", offsetof(ExecContext, same_pgrp)                    },
-        { "UtmpIdentifier",           bus_property_append_string,            "s", offsetof(ExecContext, utmp_id),                true },
-        { "IgnoreSIGPIPE",            bus_property_append_bool,              "b", offsetof(ExecContext, ignore_sigpipe)               },
-        { "NoNewPrivileges",          bus_property_append_bool,              "b", offsetof(ExecContext, no_new_privileges)            },
-        { "SystemCallFilter",         bus_execute_append_syscall_filter,    "au", 0                                                   },
-        {}
-};

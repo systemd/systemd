@@ -662,16 +662,19 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/linux/fanotify.h \
 	src/shared/linux/seccomp.h \
 	src/shared/linux/seccomp-bpf.h \
+	src/shared/ioprio.h \
 	src/shared/missing.h \
 	src/shared/list.h \
 	src/shared/macro.h \
 	src/shared/def.h \
+	src/shared/sparse-endian.h \
+	src/shared/refcnt.h \
+	src/shared/udev-util.h \
+	src/shared/bus-errors.h \
 	src/shared/device-nodes.c \
 	src/shared/device-nodes.h \
-	src/shared/sparse-endian.h \
 	src/shared/util.c \
 	src/shared/util.h \
-	src/shared/udev-util.h \
 	src/shared/virt.c \
 	src/shared/virt.h \
 	src/shared/efivars.c \
@@ -712,7 +715,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/gunicode.h \
 	src/shared/pager.c \
 	src/shared/pager.h \
-	src/shared/ioprio.h \
 	src/shared/socket-util.c \
 	src/shared/socket-util.h \
 	src/shared/conf-files.c \
@@ -748,7 +750,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/acpi-fpdt.c \
 	src/shared/boot-timestamps.h \
 	src/shared/boot-timestamps.c \
-	src/shared/refcnt.h \
 	src/shared/mkdir.c \
 	src/shared/mkdir.h \
 	src/shared/smack-util.c \
@@ -761,21 +762,6 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/ptyfwd.h \
 	src/shared/net-util.c \
 	src/shared/net-util.h
-
-#-------------------------------------------------------------------------------
-noinst_LTLIBRARIES += \
-	libsystemd-dbus.la
-
-libsystemd_dbus_la_SOURCES = \
-	src/shared/dbus-common.c \
-	src/shared/dbus-common.h
-
-libsystemd_dbus_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
-libsystemd_dbus_la_LIBADD = \
-	$(DBUS_LIBS)
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -792,8 +778,7 @@ libsystemd_units_la_SOURCES = \
 	src/shared/specifier.h
 
 libsystemd_units_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
+	$(AM_CFLAGS)
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -953,6 +938,8 @@ libsystemd_core_la_SOURCES = \
 	src/core/dbus-kill.h \
 	src/core/dbus-cgroup.c \
 	src/core/dbus-cgroup.h \
+	src/core/dbus-client-track.c \
+	src/core/dbus-client-track.h \
 	src/core/cgroup.c \
 	src/core/cgroup.h \
 	src/core/selinux-access.c \
@@ -982,7 +969,6 @@ libsystemd_core_la_SOURCES = \
 	src/core/securebits.h \
 	src/core/initreq.h \
 	src/core/special.h \
-	src/core/bus-errors.h \
 	src/core/build.h \
 	src/core/sysfs-show.h \
 	src/core/switch-root.h \
@@ -1010,7 +996,6 @@ nodist_libsystemd_core_la_SOURCES = \
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS) \
 	$(LIBWRAP_CFLAGS) \
 	$(PAM_CFLAGS) \
 	$(AUDIT_CFLAGS) \
@@ -1021,13 +1006,13 @@ libsystemd_core_la_LIBADD = \
 	libsystemd-capability.la \
 	libsystemd-units.la \
 	libsystemd-label.la \
-	libsystemd-dbus.la \
 	libsystemd-audit.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
 	libudev-internal.la \
 	libsystemd-shared.la \
 	libsystemd-rtnl.la \
+	libsystemd-bus-internal.la \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS) \
@@ -1071,10 +1056,6 @@ src/core/syscall-to-name.h: src/core/syscall-list.txt Makefile
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \
 	src/core/main.c
-
-systemd_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
 
 systemd_LDADD = \
 	libsystemd-core.la \
@@ -1166,20 +1147,12 @@ test_device_nodes_LDADD = \
 test_engine_SOURCES = \
 	src/test/test-engine.c
 
-test_engine_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 test_engine_LDADD = \
 	libsystemd-core.la \
 	$(RT_LIBS)
 
 test_job_type_SOURCES = \
 	src/test/test-job-type.c
-
-test_job_type_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
 
 test_job_type_LDADD = \
 	libsystemd-core.la \
@@ -1190,10 +1163,6 @@ test_ns_SOURCES = \
 
 test_ns_LDADD = \
 	libsystemd-core.la
-
-test_ns_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
 
 test_loopback_SOURCES = \
 	src/test/test-loopback.c
@@ -1221,20 +1190,12 @@ endif
 test_unit_name_SOURCES = \
 	src/test/test-unit-name.c
 
-test_unit_name_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 test_unit_name_LDADD = \
 	libsystemd-core.la \
 	$(RT_LIBS)
 
 test_unit_file_SOURCES = \
 	src/test/test-unit-file.c
-
-test_unit_file_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
 
 test_unit_file_LDADD = \
 	libsystemd-core.la \
@@ -1273,10 +1234,6 @@ test_list_LDADD = \
 test_tables_SOURCES = \
 	src/test/test-tables.c \
 	src/shared/test-tables.h
-
-test_tables_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
 
 test_tables_LDADD = \
 	libsystemd-logs.la \
@@ -1401,10 +1358,6 @@ test_strxcpyx_LDADD = \
 test_install_SOURCES = \
 	src/test/test-install.c
 
-test_install_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 test_install_LDADD = \
 	libsystemd-units.la \
 	libsystemd-label.la \
@@ -1422,7 +1375,6 @@ test_sched_prio_SOURCES = \
 
 test_sched_prio_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS) \
 	-D"STR(s)=\#s" -D"TEST_DIR=STR($(abs_top_srcdir)/test/)"
 
 test_sched_prio_LDADD = \
@@ -2800,9 +2752,6 @@ mtd_probe_SOURCES =  \
 	src/udev/mtd_probe/mtd_probe.h \
 	src/udev/mtd_probe/probe_smartmedia.c
 
-mtd_probe_CPPFLAGS = \
-	$(AM_CPPFLAGS)
-
 dist_udevrules_DATA += \
 	rules/75-probe_mtd.rules
 
@@ -3893,7 +3842,6 @@ systemd_logind_LDADD = \
 
 libsystemd_logind_core_la_SOURCES = \
 	src/login/logind-core.c \
-	src/login/logind-dbus.c \
 	src/login/logind-device.c \
 	src/login/logind-device.h \
 	src/login/logind-button.c \
@@ -3910,6 +3858,7 @@ libsystemd_logind_core_la_SOURCES = \
 	src/login/logind-user.h \
 	src/login/logind-inhibit.c \
 	src/login/logind-inhibit.h \
+	src/login/logind-dbus.c \
 	src/login/logind-session-dbus.c \
 	src/login/logind-seat-dbus.c \
 	src/login/logind-user-dbus.c \

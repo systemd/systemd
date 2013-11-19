@@ -52,7 +52,9 @@ int main(int argc, char *argv[]) {
 
         assert_se(introspect_begin(&intro) >= 0);
 
-        assert_se(introspect_write_interface(&intro, "org.foo", vtable) >= 0);
+        fprintf(intro.f, " <interface name=\"org.foo\">\n");
+        assert_se(introspect_write_interface(&intro, vtable) >= 0);
+        fputs(" </interface>\n", intro.f);
 
         fflush(intro.f);
         fputs(intro.introspection, stdout);

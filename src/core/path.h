@@ -46,9 +46,11 @@ typedef enum PathType {
 } PathType;
 
 typedef struct PathSpec {
+        Unit *unit;
+
         char *path;
 
-        Watch watch;
+        sd_event_source *event_source;
 
         LIST_FIELDS(struct PathSpec, spec);
 
@@ -59,8 +61,8 @@ typedef struct PathSpec {
         bool previous_exists;
 } PathSpec;
 
-int path_spec_watch(PathSpec *s, Unit *u);
-void path_spec_unwatch(PathSpec *s, Unit *u);
+int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler);
+void path_spec_unwatch(PathSpec *s);
 int path_spec_fd_event(PathSpec *s, uint32_t events);
 void path_spec_done(PathSpec *s);
 

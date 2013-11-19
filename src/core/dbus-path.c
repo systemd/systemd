@@ -19,104 +19,75 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-
+#include "unit.h"
+#include "path.h"
 #include "dbus-unit.h"
 #include "dbus-path.h"
-#include "dbus-execute.h"
-#include "dbus-common.h"
-#include "selinux-access.h"
+#include "bus-util.h"
 
-#define BUS_PATH_INTERFACE                                              \
-        " <interface name=\"org.freedesktop.systemd1.Path\">\n"         \
-        "  <property name=\"Unit\" type=\"s\" access=\"read\"/>\n"      \
-        "  <property name=\"Paths\" type=\"a(ss)\" access=\"read\"/>\n" \
-        "  <property name=\"MakeDirectory\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
-        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
-        " </interface>\n"
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, path_result, PathResult);
 
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        BUS_UNIT_INTERFACE                                              \
-        BUS_PATH_INTERFACE                                              \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_PEER_INTERFACE                                              \
-        BUS_INTROSPECTABLE_INTERFACE                                    \
-        "</node>\n"
+static int property_get_paths(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-#define INTERFACES_LIST                              \
-        BUS_UNIT_INTERFACES_LIST                     \
-        "org.freedesktop.systemd1.Path\0"
-
-const char bus_path_interface[] = BUS_PATH_INTERFACE;
-
-const char bus_path_invalidating_properties[] =
-        "Result\0";
-
-static int bus_path_append_paths(DBusMessageIter *i, const char *property, void *data) {
-        Path *p = data;
-        DBusMessageIter sub, sub2;
+        Path *p = userdata;
         PathSpec *k;
+        int r;
 
-        assert(i);
-        assert(property);
+        assert(bus);
+        assert(reply);
         assert(p);
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(ss)", &sub))
-                return -ENOMEM;
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                return r;
 
         LIST_FOREACH(spec, k, p->specs) {
-                const char *t = path_type_to_string(k->type);
-
-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &t) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &k->path) ||
-                    !dbus_message_iter_close_container(&sub, &sub2))
-                        return -ENOMEM;
+                r = sd_bus_message_append(reply, "(ss)", path_type_to_string(k->type), k->path);
+                if (r < 0)
+                        return r;
         }
 
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
+        return sd_bus_message_close_container(reply);
 }
 
-static int bus_path_append_unit(DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data, *trigger;
-        const char *t;
+static int property_get_unit(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                sd_bus_error *error,
+                void *userdata) {
 
-        assert(i);
-        assert(property);
-        assert(u);
+        Unit *p = userdata, *trigger;
 
-        trigger = UNIT_TRIGGER(u);
-        t = trigger ? trigger->id : "";
+        assert(bus);
+        assert(reply);
+        assert(p);
 
-        return dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t) ? 0 : -ENOMEM;
+        trigger = UNIT_TRIGGER(p);
+
+        return sd_bus_message_append(reply, "s", trigger ? trigger->id : "");
 }
 
-static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_path_append_path_result, path_result, PathResult);
-
-static const BusProperty bus_path_properties[] = {
-        { "Unit",          bus_path_append_unit,      "s", 0 },
-        { "Paths",         bus_path_append_paths, "a(ss)", 0 },
-        { "MakeDirectory", bus_property_append_bool,  "b", offsetof(Path, make_directory) },
-        { "DirectoryMode", bus_property_append_mode,  "u", offsetof(Path, directory_mode) },
-        { "Result",        bus_path_append_path_result, "s", offsetof(Path, result) },
-        { NULL, }
+const sd_bus_vtable bus_path_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("Unit", "s", property_get_unit, 0, 0),
+        SD_BUS_PROPERTY("Paths", "a(ss)", property_get_paths, 0, 0),
+        SD_BUS_PROPERTY("MakeDirectory", "b", bus_property_get_bool, offsetof(Path, make_directory), 0),
+        SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Path, directory_mode), 0),
+        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Path, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_VTABLE_END
 };
 
-DBusHandlerResult bus_path_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-        Path *p = PATH(u);
-        const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit", bus_unit_properties, u },
-                { "org.freedesktop.systemd1.Path", bus_path_properties, p },
-                { NULL, }
-        };
-
-        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
-
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
-}
+const char* const bus_path_changing_properties[] = {
+        "Result",
+        NULL
+};

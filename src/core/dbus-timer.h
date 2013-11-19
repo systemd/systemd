@@ -21,11 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
+#include "sd-bus.h"
 
-#include "unit.h"
-
-DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
-
-extern const char bus_timer_interface[];
-extern const char bus_timer_invalidating_properties[];
+extern const sd_bus_vtable bus_timer_vtable[];
+extern const char* const bus_timer_changing_properties[];

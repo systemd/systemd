@@ -24,8 +24,9 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <dbus/dbus.h>
 
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "fdset.h"
 #include "cgroup-util.h"
 
@@ -33,8 +34,6 @@
 #define MANAGER_MAX_NAMES 131072 /* 128K */
 
 typedef struct Manager Manager;
-typedef enum WatchType WatchType;
-typedef struct Watch Watch;
 
 typedef enum ManagerExitCode {
         MANAGER_RUNNING,
@@ -50,42 +49,11 @@ typedef enum ManagerExitCode {
         _MANAGER_EXIT_CODE_INVALID = -1
 } ManagerExitCode;
 
-enum WatchType {
-        WATCH_INVALID,
-        WATCH_SIGNAL,
-        WATCH_NOTIFY,
-        WATCH_FD,
-        WATCH_UNIT_TIMER,
-        WATCH_JOB_TIMER,
-        WATCH_MOUNT,
-        WATCH_SWAP,
-        WATCH_UDEV,
-        WATCH_DBUS_WATCH,
-        WATCH_DBUS_TIMEOUT,
-        WATCH_TIME_CHANGE,
-        WATCH_JOBS_IN_PROGRESS,
-        WATCH_IDLE_PIPE,
-};
-
-struct Watch {
-        int fd;
-        WatchType type;
-        union {
-                struct Unit *unit;
-                struct Job *job;
-                DBusWatch *bus_watch;
-                DBusTimeout *bus_timeout;
-        } data;
-        bool fd_is_dupped:1;
-        bool socket_accept:1;
-};
-
 #include "unit.h"
 #include "job.h"
 #include "hashmap.h"
 #include "list.h"
 #include "set.h"
-#include "dbus.h"
 #include "path-lookup.h"
 #include "execute.h"
 #include "unit-name.h"
@@ -125,17 +93,21 @@ struct Manager {
         /* Units that should be realized */
         LIST_HEAD(Unit, cgroup_queue);
 
+        sd_event *event;
+
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
         char *notify_socket;
+        int notify_fd;
+        sd_event_source *notify_event_source;
 
-        Watch notify_watch;
-        Watch signal_watch;
-        Watch time_change_watch;
-        Watch jobs_in_progress_watch;
-        Watch idle_pipe_watch;
+        int signal_fd;
+        sd_event_source *signal_event_source;
 
-        int epoll_fd;
+        int time_change_fd;
+        sd_event_source *time_change_event_source;
+
+        sd_event_source *jobs_in_progress_event_source;
 
         unsigned n_snapshots;
 
@@ -157,8 +129,8 @@ struct Manager {
         dual_timestamp security_finish_timestamp;
         dual_timestamp generators_start_timestamp;
         dual_timestamp generators_finish_timestamp;
-        dual_timestamp unitsload_start_timestamp;
-        dual_timestamp unitsload_finish_timestamp;
+        dual_timestamp units_load_start_timestamp;
+        dual_timestamp units_load_finish_timestamp;
 
         char *generator_unit_path;
         char *generator_unit_path_early;
@@ -167,34 +139,33 @@ struct Manager {
         /* Data specific to the device subsystem */
         struct udev* udev;
         struct udev_monitor* udev_monitor;
-        Watch udev_watch;
+        sd_event_source *udev_event_source;
         Hashmap *devices_by_sysfs;
 
         /* Data specific to the mount subsystem */
         FILE *proc_self_mountinfo;
-        Watch mount_watch;
+        sd_event_source *mount_event_source;
 
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;
+        sd_event_source *swap_event_source;
         Hashmap *swaps_by_proc_swaps;
         bool request_reload;
-        Watch swap_watch;
 
         /* Data specific to the D-Bus subsystem */
-        DBusConnection *api_bus, *system_bus;
-        DBusServer *private_bus;
-        Set *bus_connections, *bus_connections_for_dispatch;
+        sd_bus *api_bus, *system_bus;
+        Set *private_buses;
+        int private_listen_fd;
+        sd_event_source *private_listen_event_source;
+        Set *subscribed;
 
-        DBusMessage *queued_message; /* This is used during reloading:
+        sd_bus_message *queued_message; /* This is used during reloading:
                                       * before the reload we queue the
                                       * reply message here, and
                                       * afterwards we send it */
-        DBusConnection *queued_message_connection; /* The connection to send the queued message on */
+        sd_bus *queued_message_bus; /* The connection to send the queued message on */
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
-        int32_t name_data_slot;
-        int32_t conn_data_slot;
-        int32_t subscribed_data_slot;
 
         bool send_reloading_done;
 
@@ -253,6 +224,7 @@ struct Manager {
 
         /* Type=idle pipes */
         int idle_pipe[4];
+        sd_event_source *idle_pipe_event_source;
 
         char *switch_root;
         char *switch_root_init;
@@ -276,12 +248,12 @@ int manager_get_unit_by_path(Manager *m, const char *path, const char *suffix, U
 
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
-int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret);
-int manager_load_unit(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret);
-int manager_load_unit_from_dbus_path(Manager *m, const char *s, DBusError *e, Unit **_u);
+int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
+int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
+int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u);
 
-int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, DBusError *e, Job **_ret);
-int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool force, DBusError *e, Job **_ret);
+int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, sd_bus_error *e, Job **_ret);
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool force, sd_bus_error *e, Job **_ret);
 
 void manager_dump_units(Manager *s, FILE *f, const char *prefix);
 void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
@@ -290,13 +262,12 @@ void manager_clear_jobs(Manager *m);
 
 unsigned manager_dispatch_load_queue(Manager *m);
 
-int manager_environment_add(Manager *m, char **environment);
+int manager_environment_add(Manager *m, char **minus, char **plus);
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
 
 int manager_loop(Manager *m);
 
 void manager_dispatch_bus_name_owner_changed(Manager *m, const char *name, const char* old_owner, const char *new_owner);
-void manager_dispatch_bus_query_pid_done(Manager *m, const char *name, pid_t pid);
 
 int manager_open_serialization(Manager *m, FILE **_f);
 
@@ -325,5 +296,3 @@ void manager_set_show_status(Manager *m, bool b);
 void manager_status_printf(Manager *m, bool ephemeral, const char *status, const char *format, ...) _printf_(4,5);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
-
-void watch_init(Watch *w);

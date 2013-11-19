@@ -36,6 +36,6 @@ struct introspect {
 int introspect_begin(struct introspect *i);
 int introspect_write_default_interfaces(struct introspect *i, bool object_manager);
 int introspect_write_child_nodes(struct introspect *i, Set *s, const char *prefix);
-int introspect_write_interface(struct introspect *i, const char *interface, const sd_bus_vtable *v);
+int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v);
 int introspect_finish(struct introspect *i, sd_bus *bus, sd_bus_message *m, sd_bus_message **reply);
 void introspect_free(struct introspect *i);

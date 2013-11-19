@@ -29,8 +29,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#include "systemd/sd-id128.h"
-#include "systemd/sd-messages.h"
+#include "sd-id128.h"
+#include "sd-messages.h"
 #include "set.h"
 #include "unit.h"
 #include "macro.h"
@@ -48,6 +48,7 @@
 #include "label.h"
 #include "fileio-label.h"
 #include "bus-errors.h"
+#include "dbus.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -326,7 +327,7 @@ void unit_add_to_dbus_queue(Unit *u) {
                 return;
 
         /* Shortcut things if nobody cares */
-        if (!bus_has_subscriber(u->manager)) {
+        if (set_isempty(u->manager->subscribed)) {
                 u->sent_dbus_new_signal = true;
                 return;
         }
@@ -1658,46 +1659,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         unit_add_to_gc_queue(u);
 }
 
-int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w) {
-        struct epoll_event ev = {
-                .data.ptr = w,
-                .events = events,
-        };
-
-        assert(u);
-        assert(fd >= 0);
-        assert(w);
-        assert(w->type == WATCH_INVALID || (w->type == WATCH_FD && w->fd == fd && w->data.unit == u));
-
-        if (epoll_ctl(u->manager->epoll_fd,
-                      w->type == WATCH_INVALID ? EPOLL_CTL_ADD : EPOLL_CTL_MOD,
-                      fd,
-                      &ev) < 0)
-                return -errno;
-
-        w->fd = fd;
-        w->type = WATCH_FD;
-        w->data.unit = u;
-
-        return 0;
-}
-
-void unit_unwatch_fd(Unit *u, Watch *w) {
-        assert(u);
-        assert(w);
-
-        if (w->type == WATCH_INVALID)
-                return;
-
-        assert(w->type == WATCH_FD);
-        assert(w->data.unit == u);
-        assert_se(epoll_ctl(u->manager->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
-
-        w->fd = -1;
-        w->type = WATCH_INVALID;
-        w->data.unit = NULL;
-}
-
 int unit_watch_pid(Unit *u, pid_t pid) {
         assert(u);
         assert(pid >= 1);
@@ -1713,90 +1674,6 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         assert(pid >= 1);
 
         hashmap_remove_value(u->manager->watch_pids, LONG_TO_PTR(pid), u);
-}
-
-int unit_watch_timer(Unit *u, clockid_t clock_id, bool relative, usec_t usec, Watch *w) {
-        struct itimerspec its = {};
-        int flags, fd;
-        bool ours;
-
-        assert(u);
-        assert(w);
-        assert(w->type == WATCH_INVALID || (w->type == WATCH_UNIT_TIMER && w->data.unit == u));
-
-        /* This will try to reuse the old timer if there is one */
-
-        if (w->type == WATCH_UNIT_TIMER) {
-                assert(w->data.unit == u);
-                assert(w->fd >= 0);
-
-                ours = false;
-                fd = w->fd;
-        } else if (w->type == WATCH_INVALID) {
-
-                ours = true;
-                fd = timerfd_create(clock_id, TFD_NONBLOCK|TFD_CLOEXEC);
-                if (fd < 0)
-                        return -errno;
-        } else
-                assert_not_reached("Invalid watch type");
-
-        if (usec <= 0) {
-                /* Set absolute time in the past, but not 0, since we
-                 * don't want to disarm the timer */
-                its.it_value.tv_sec = 0;
-                its.it_value.tv_nsec = 1;
-
-                flags = TFD_TIMER_ABSTIME;
-        } else {
-                timespec_store(&its.it_value, usec);
-                flags = relative ? 0 : TFD_TIMER_ABSTIME;
-        }
-
-        /* This will also flush the elapse counter */
-        if (timerfd_settime(fd, flags, &its, NULL) < 0)
-                goto fail;
-
-        if (w->type == WATCH_INVALID) {
-                struct epoll_event ev = {
-                        .data.ptr = w,
-                        .events = EPOLLIN,
-                };
-
-                if (epoll_ctl(u->manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
-                        goto fail;
-        }
-
-        w->type = WATCH_UNIT_TIMER;
-        w->fd = fd;
-        w->data.unit = u;
-
-        return 0;
-
-fail:
-        if (ours)
-                close_nointr_nofail(fd);
-
-        return -errno;
-}
-
-void unit_unwatch_timer(Unit *u, Watch *w) {
-        assert(u);
-        assert(w);
-
-        if (w->type == WATCH_INVALID)
-                return;
-
-        assert(w->type == WATCH_UNIT_TIMER);
-        assert(w->data.unit == u);
-        assert(w->fd >= 0);
-
-        assert_se(epoll_ctl(u->manager->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
-        close_nointr_nofail(w->fd);
-
-        w->fd = -1;
-        w->type = WATCH_INVALID;
-        w->data.unit = NULL;
 }
 
 bool unit_job_is_applicable(Unit *u, JobType j) {
@@ -2572,7 +2449,7 @@ bool unit_active_or_pending(Unit *u) {
         return false;
 }
 
-int unit_kill(Unit *u, KillWho w, int signo, DBusError *error) {
+int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {
         assert(u);
         assert(w >= 0 && w < _KILL_WHO_MAX);
         assert(signo > 0);
@@ -2618,23 +2495,23 @@ int unit_kill_common(
                 int signo,
                 pid_t main_pid,
                 pid_t control_pid,
-                DBusError *error) {
+                sd_bus_error *error) {
 
         int r = 0;
 
         if (who == KILL_MAIN && main_pid <= 0) {
                 if (main_pid < 0)
-                        dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
+                        sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
                 else
-                        dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
+                        sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
                 return -ESRCH;
         }
 
         if (who == KILL_CONTROL && control_pid <= 0) {
                 if (control_pid < 0)
-                        dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
+                        sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
                 else
-                        dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
+                        sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
                 return -ESRCH;
         }
 
@@ -2744,6 +2621,17 @@ ExecContext *unit_get_exec_context(Unit *u) {
                 return NULL;
 
         return (ExecContext*) ((uint8_t*) u + offset);
+}
+
+KillContext *unit_get_kill_context(Unit *u) {
+        size_t offset;
+        assert(u);
+
+        offset = UNIT_VTABLE(u)->kill_context_offset;
+        if (offset <= 0)
+                return NULL;
+
+        return (KillContext*) ((uint8_t*) u + offset);
 }
 
 CGroupContext *unit_get_cgroup_context(Unit *u) {

@@ -28,7 +28,7 @@
 #endif
 
 #ifdef HAVE_DBUS
-#include <dbus.h>
+#include <dbus/dbus.h>
 #endif
 
 #include "log.h"

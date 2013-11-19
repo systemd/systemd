@@ -189,7 +189,7 @@ _pure_ static const char *snapshot_sub_state_to_string(Unit *u) {
         return snapshot_state_to_string(SNAPSHOT(u)->state);
 }
 
-int snapshot_create(Manager *m, const char *name, bool cleanup, DBusError *e, Snapshot **_s) {
+int snapshot_create(Manager *m, const char *name, bool cleanup, sd_bus_error *e, Snapshot **_s) {
         _cleanup_free_ char *n = NULL;
         Unit *other, *u = NULL;
         Iterator i;
@@ -200,20 +200,14 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, DBusError *e, Sn
         assert(_s);
 
         if (name) {
-                if (!unit_name_is_valid(name, false)) {
-                        dbus_set_error(e, BUS_ERROR_INVALID_NAME, "Unit name %s is not valid.", name);
-                        return -EINVAL;
-                }
+                if (!unit_name_is_valid(name, false))
+                        return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s is not valid.", name);
 
-                if (unit_name_to_type(name) != UNIT_SNAPSHOT) {
-                        dbus_set_error(e, BUS_ERROR_UNIT_TYPE_MISMATCH, "Unit name %s lacks snapshot suffix.", name);
-                        return -EINVAL;
-                }
+                if (unit_name_to_type(name) != UNIT_SNAPSHOT)
+                        return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s lacks snapshot suffix.", name);
 
-                if (manager_get_unit(m, name)) {
-                        dbus_set_error(e, BUS_ERROR_UNIT_EXISTS, "Snapshot %s exists already.", name);
-                        return -EEXIST;
-                }
+                if (manager_get_unit(m, name))
+                        sd_bus_error_setf(e, BUS_ERROR_UNIT_EXISTS, "Snapshot %s exists already.", name);
 
         } else {
 
@@ -293,8 +287,8 @@ const UnitVTable snapshot_vtable = {
         .no_gc = true,
 
         .init = snapshot_init,
-
         .load = snapshot_load,
+
         .coldplug = snapshot_coldplug,
 
         .dump = snapshot_dump,
@@ -309,5 +303,5 @@ const UnitVTable snapshot_vtable = {
         .sub_state_to_string = snapshot_sub_state_to_string,
 
         .bus_interface = "org.freedesktop.systemd1.Snapshot",
-        .bus_message_handler = bus_snapshot_message_handler
+        .bus_vtable = bus_snapshot_vtable
 };

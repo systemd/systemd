@@ -864,7 +864,7 @@ int session_create_fifo(Session *s) {
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_priority(s->fifo_event_source, SD_PRIORITY_IDLE);
+                r = sd_event_source_set_priority(s->fifo_event_source, SD_EVENT_PRIORITY_IDLE);
                 if (r < 0)
                         return r;
         }

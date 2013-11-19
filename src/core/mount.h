@@ -107,7 +107,7 @@ struct Mount {
         MountExecCommand control_command_id;
         pid_t control_pid;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
 };
 
 extern const UnitVTable mount_vtable;

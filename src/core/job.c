@@ -24,8 +24,8 @@
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
 
-#include "systemd/sd-id128.h"
-#include "systemd/sd-messages.h"
+#include "sd-id128.h"
+#include "sd-messages.h"
 #include "set.h"
 #include "unit.h"
 #include "macro.h"
@@ -37,20 +37,7 @@
 #include "special.h"
 #include "async.h"
 #include "virt.h"
-
-JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name) {
-        JobBusClient *cl;
-        size_t name_len;
-
-        name_len = strlen(name);
-        cl = malloc0(sizeof(JobBusClient) + name_len + 1);
-        if (!cl)
-                return NULL;
-
-        cl->bus = connection;
-        memcpy(cl->name, name, name_len + 1);
-        return cl;
-}
+#include "dbus-client-track.h"
 
 Job* job_new_raw(Unit *unit) {
         Job *j;
@@ -66,7 +53,6 @@ Job* job_new_raw(Unit *unit) {
         j->manager = unit->manager;
         j->unit = unit;
         j->type = _JOB_TYPE_INVALID;
-        j->timer_watch.type = WATCH_INVALID;
 
         return j;
 }
@@ -89,8 +75,6 @@ Job* job_new(Unit *unit, JobType type) {
 }
 
 void job_free(Job *j) {
-        JobBusClient *cl;
-
         assert(j);
         assert(!j->installed);
         assert(!j->transaction_prev);
@@ -104,19 +88,10 @@ void job_free(Job *j) {
         if (j->in_dbus_queue)
                 LIST_REMOVE(dbus_queue, j->manager->dbus_job_queue, j);
 
-        if (j->timer_watch.type != WATCH_INVALID) {
-                assert(j->timer_watch.type == WATCH_JOB_TIMER);
-                assert(j->timer_watch.data.job == j);
-                assert(j->timer_watch.fd >= 0);
+        sd_event_source_unref(j->timer_event_source);
 
-                assert_se(epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_DEL, j->timer_watch.fd, NULL) >= 0);
-                close_nointr_nofail(j->timer_watch.fd);
-        }
+        bus_client_track_free(j->subscribed);
 
-        while ((cl = j->bus_client_list)) {
-                LIST_REMOVE(client, j->bus_client_list, cl);
-                free(cl);
-        }
         free(j);
 }
 
@@ -859,48 +834,32 @@ finish:
         return 0;
 }
 
-int job_start_timer(Job *j) {
-        struct itimerspec its = {};
-        struct epoll_event ev = {
-                .data.ptr = &j->timer_watch,
-                .events = EPOLLIN,
-        };
-        int fd, r;
+static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *userdata) {
+        Job *j = userdata;
 
-        if (j->unit->job_timeout <= 0 ||
-            j->timer_watch.type == WATCH_JOB_TIMER)
+        assert(j);
+        assert(s == j->timer_event_source);
+
+        log_warning_unit(j->unit->id, "Job %s/%s timed out.",
+                         j->unit->id, job_type_to_string(j->type));
+
+        job_finish_and_invalidate(j, JOB_TIMEOUT, true);
+        return 0;
+}
+
+int job_start_timer(Job *j) {
+        int r;
+
+        if (j->unit->job_timeout <= 0 || j->timer_event_source)
                 return 0;
 
-        assert(j->timer_watch.type == WATCH_INVALID);
+        j->begin_usec = now(CLOCK_MONOTONIC);
 
-        if ((fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC)) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        timespec_store(&its.it_value, j->unit->job_timeout);
-
-        if (timerfd_settime(fd, 0, &its, NULL) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        if (epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        j->timer_watch.type = WATCH_JOB_TIMER;
-        j->timer_watch.fd = fd;
-        j->timer_watch.data.job = j;
+        r = sd_event_add_monotonic(j->manager->event, j->begin_usec + j->unit->job_timeout, 0, job_dispatch_timer, j, &j->timer_event_source);
+        if (r < 0)
+                return r;
 
         return 0;
-
-fail:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        return r;
 }
 
 void job_add_to_run_queue(Job *j) {
@@ -940,15 +899,6 @@ char *job_dbus_path(Job *j) {
         return p;
 }
 
-void job_timer_event(Job *j, uint64_t n_elapsed, Watch *w) {
-        assert(j);
-        assert(w == &j->timer_watch);
-
-        log_warning_unit(j->unit->id, "Job %s/%s timed out.",
-                         j->unit->id, job_type_to_string(j->type));
-        job_finish_and_invalidate(j, JOB_TIMEOUT, true);
-}
-
 int job_serialize(Job *j, FILE *f, FDSet *fds) {
         fprintf(f, "job-id=%u\n", j->id);
         fprintf(f, "job-type=%s\n", job_type_to_string(j->type));
@@ -957,16 +907,11 @@ int job_serialize(Job *j, FILE *f, FDSet *fds) {
         fprintf(f, "job-irreversible=%s\n", yes_no(j->irreversible));
         fprintf(f, "job-sent-dbus-new-signal=%s\n", yes_no(j->sent_dbus_new_signal));
         fprintf(f, "job-ignore-order=%s\n", yes_no(j->ignore_order));
-        /* Cannot save bus clients. Just note the fact that we're losing
-         * them. job_send_message() will fallback to broadcasting. */
-        fprintf(f, "job-forgot-bus-clients=%s\n",
-                yes_no(j->forgot_bus_clients || j->bus_client_list));
-        if (j->timer_watch.type == WATCH_JOB_TIMER) {
-                int copy = fdset_put_dup(fds, j->timer_watch.fd);
-                if (copy < 0)
-                        return copy;
-                fprintf(f, "job-timer-watch-fd=%d\n", copy);
-        }
+
+        if (j->begin_usec > 0)
+                fprintf(f, "job-begin=%llu", (unsigned long long) j->begin_usec);
+
+        bus_client_track_serialize(j->manager, f, j->subscribed);
 
         /* End marker */
         fputc('\n', f);
@@ -974,6 +919,8 @@ int job_serialize(Job *j, FILE *f, FDSet *fds) {
 }
 
 int job_deserialize(Job *j, FILE *f, FDSet *fds) {
+        assert(j);
+
         for (;;) {
                 char line[LINE_MAX], *l, *v;
                 size_t k;
@@ -1000,81 +947,101 @@ int job_deserialize(Job *j, FILE *f, FDSet *fds) {
                         v = l+k;
 
                 if (streq(l, "job-id")) {
+
                         if (safe_atou32(v, &j->id) < 0)
                                 log_debug("Failed to parse job id value %s", v);
+
                 } else if (streq(l, "job-type")) {
-                        JobType t = job_type_from_string(v);
+                        JobType t;
+
+                        t = job_type_from_string(v);
                         if (t < 0)
                                 log_debug("Failed to parse job type %s", v);
                         else if (t >= _JOB_TYPE_MAX_IN_TRANSACTION)
                                 log_debug("Cannot deserialize job of type %s", v);
                         else
                                 j->type = t;
+
                 } else if (streq(l, "job-state")) {
-                        JobState s = job_state_from_string(v);
+                        JobState s;
+
+                        s = job_state_from_string(v);
                         if (s < 0)
                                 log_debug("Failed to parse job state %s", v);
                         else
                                 j->state = s;
+
                 } else if (streq(l, "job-override")) {
-                        int b = parse_boolean(v);
+                        int b;
+
+                        b = parse_boolean(v);
                         if (b < 0)
                                 log_debug("Failed to parse job override flag %s", v);
                         else
                                 j->override = j->override || b;
+
                 } else if (streq(l, "job-irreversible")) {
-                        int b = parse_boolean(v);
+                        int b;
+
+                        b = parse_boolean(v);
                         if (b < 0)
                                 log_debug("Failed to parse job irreversible flag %s", v);
                         else
                                 j->irreversible = j->irreversible || b;
+
                 } else if (streq(l, "job-sent-dbus-new-signal")) {
-                        int b = parse_boolean(v);
+                        int b;
+
+                        b = parse_boolean(v);
                         if (b < 0)
                                 log_debug("Failed to parse job sent_dbus_new_signal flag %s", v);
                         else
                                 j->sent_dbus_new_signal = j->sent_dbus_new_signal || b;
+
                 } else if (streq(l, "job-ignore-order")) {
-                        int b = parse_boolean(v);
+                        int b;
+
+                        b = parse_boolean(v);
                         if (b < 0)
                                 log_debug("Failed to parse job ignore_order flag %s", v);
                         else
                                 j->ignore_order = j->ignore_order || b;
-                } else if (streq(l, "job-forgot-bus-clients")) {
-                        int b = parse_boolean(v);
-                        if (b < 0)
-                                log_debug("Failed to parse job forgot_bus_clients flag %s", v);
-                        else
-                                j->forgot_bus_clients = j->forgot_bus_clients || b;
-                } else if (streq(l, "job-timer-watch-fd")) {
-                        int fd;
-                        if (safe_atoi(v, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse job-timer-watch-fd value %s", v);
-                        else {
-                                if (j->timer_watch.type == WATCH_JOB_TIMER)
-                                        close_nointr_nofail(j->timer_watch.fd);
 
-                                j->timer_watch.type = WATCH_JOB_TIMER;
-                                j->timer_watch.fd = fdset_remove(fds, fd);
-                                j->timer_watch.data.job = j;
-                        }
+                } else if (streq(l, "job-begin")) {
+                        unsigned long long ull;
+
+                        if (sscanf(v, "%llu", &ull) != 1)
+                                log_debug("Failed to parse job-begin value %s", v);
+                        else
+                                j->begin_usec = ull;
+
+                } else {
+                        char t[strlen(l) + 1 + strlen(v) + 1];
+
+                        strcpy(stpcpy(stpcpy(t, l), "="), v);
+
+                        if (bus_client_track_deserialize_item(j->manager, &j->subscribed, t) == 0)
+                                log_debug("Unknown deserialization key '%s'", l);
                 }
         }
 }
 
 int job_coldplug(Job *j) {
-        struct epoll_event ev = {
-                .data.ptr = &j->timer_watch,
-                .events = EPOLLIN,
-        };
+        int r;
 
-        if (j->timer_watch.type != WATCH_JOB_TIMER)
+        assert(j);
+
+        if (j->begin_usec <= 0)
                 return 0;
 
-        if (epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_ADD, j->timer_watch.fd, &ev) < 0)
-                return -errno;
+        if (j->timer_event_source)
+                j->timer_event_source = sd_event_source_unref(j->timer_event_source);
 
-        return 0;
+        r = sd_event_add_monotonic(j->manager->event, j->begin_usec + j->unit->job_timeout, 0, job_dispatch_timer, j, &j->timer_event_source);
+        if (r < 0)
+                log_debug("Failed to restart timeout for job: %s", strerror(-r));
+
+        return r;
 }
 
 void job_shutdown_magic(Job *j) {

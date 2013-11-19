@@ -111,12 +111,9 @@ static int introspect_write_arguments(struct introspect *i, const char *signatur
         }
 }
 
-int introspect_write_interface(struct introspect *i, const char *interface, const sd_bus_vtable *v) {
+int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
         assert(i);
-        assert(interface);
         assert(v);
-
-        fprintf(i->f, " <interface name=\"%s\">\n", interface);
 
         for (; v->type != _SD_BUS_VTABLE_END; v++) {
 
@@ -155,7 +152,6 @@ int introspect_write_interface(struct introspect *i, const char *interface, cons
 
         }
 
-        fputs(" </interface>\n", i->f);
         return 0;
 }
 

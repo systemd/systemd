@@ -32,12 +32,11 @@
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
 #endif
-#include <dbus.h>
 
+#include "sd-bus.h"
+#include "bus-util.h"
 #include "util.h"
 #include "log.h"
-#include "bus-errors.h"
-#include "dbus-common.h"
 #include "audit.h"
 #include "selinux-util.h"
 #include "audit-fd.h"
@@ -53,72 +52,59 @@ struct auditstruct {
 };
 
 static int bus_get_selinux_security_context(
-                DBusConnection *connection,
+                sd_bus *bus,
                 const char *name,
-                char **scon,
-                DBusError *error) {
+                sd_bus_error *error,
+                char **ret) {
 
-        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
-        DBusMessageIter iter, sub;
-        const char *bytes;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        const void *p;
+        size_t sz;
         char *b;
-        int nbytes;
+        int r;
 
-        m = dbus_message_new_method_call(
-                        DBUS_SERVICE_DBUS,
-                        DBUS_PATH_DBUS,
-                        DBUS_INTERFACE_DBUS,
-                        "GetConnectionSELinuxSecurityContext");
-        if (!m) {
-                dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
-                return -ENOMEM;
-        }
+        assert(bus);
+        assert(name);
+        assert(ret);
 
-        if (!dbus_message_append_args(
-                            m,
-                            DBUS_TYPE_STRING, &name,
-                            DBUS_TYPE_INVALID)) {
-                dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
-                return -ENOMEM;
-        }
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "GetConnectionSELinuxSecurityContext",
+                        error, &m,
+                        "s", name);
+        if (r < 0)
+                return r;
 
-        reply = dbus_connection_send_with_reply_and_block(connection, m, -1, error);
-        if (!reply)
-                return -EIO;
+        r = sd_bus_message_read_array(m, 'y', &p, &sz);
+        if (r < 0)
+                return r;
 
-        if (dbus_set_error_from_message(error, reply))
-                return -EIO;
-
-        if (!dbus_message_iter_init(reply, &iter))
-                return -EIO;
-
-        if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY)
-                return -EIO;
-
-        dbus_message_iter_recurse(&iter, &sub);
-        dbus_message_iter_get_fixed_array(&sub, &bytes, &nbytes);
-
-        b = strndup(bytes, nbytes);
+        b = strndup(p, sz);
         if (!b)
                 return -ENOMEM;
 
-        *scon = b;
-
+        *ret = b;
         return 0;
 }
 
 static int bus_get_audit_data(
-                DBusConnection *connection,
+                sd_bus *bus,
                 const char *name,
-                struct auditstruct *audit,
-                DBusError *error) {
+                struct auditstruct *audit) {
 
         pid_t pid;
         int r;
 
-        pid = bus_get_unix_process_id(connection, name, error);
-        if (pid <= 0)
-                return -EIO;
+        assert(bus);
+        assert(name);
+        assert(audit);
+
+        r = sd_bus_get_owner_pid(bus, name, &pid);
+        if (r < 0)
+                return r;
 
         r = audit_loginuid_from_pid(pid, &audit->loginuid);
         if (r < 0)
@@ -207,7 +193,7 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
    If you want to cleanup memory you should need to call selinux_access_finish.
 */
 static int access_init(void) {
-        int r;
+        int r = 0;
 
         if (avc_open(NULL, 0)) {
                 log_error("avc_open() failed: %m");
@@ -217,34 +203,33 @@ static int access_init(void) {
         selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) audit_callback);
         selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) log_callback);
 
-        if (security_getenforce() >= 0)
-                return 0;
-
-        r = -errno;
-        avc_destroy();
+        if (security_getenforce() < 0){
+                r = -errno;
+                avc_destroy();
+        }
 
         return r;
 }
 
-static int selinux_access_init(DBusError *error) {
+static int selinux_access_init(sd_bus_error *error) {
         int r;
 
         if (initialized)
                 return 0;
 
-        if (use_selinux()) {
-                r = access_init();
-                if (r < 0) {
-                        dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "Failed to initialize SELinux.");
-                        return r;
-                }
-        }
+        if (!use_selinux())
+                return 0;
+
+        r = access_init();
+        if (r < 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to initialize SELinux.");
 
         initialized = true;
         return 0;
 }
 
 void selinux_access_free(void) {
+
         if (!initialized)
                 return;
 
@@ -253,28 +238,27 @@ void selinux_access_free(void) {
 }
 
 static int get_audit_data(
-                DBusConnection *connection,
-                DBusMessage *message,
-                struct auditstruct *audit,
-                DBusError *error) {
+                sd_bus *bus,
+                sd_bus_message *message,
+                struct auditstruct *audit) {
 
-        const char *sender;
-        int r, fd;
         struct ucred ucred;
-        socklen_t len = sizeof(ucred);
+        const char *sender;
+        socklen_t len;
+        int r, fd;
 
-        sender = dbus_message_get_sender(message);
+        sender = sd_bus_message_get_sender(message);
         if (sender)
-                return bus_get_audit_data(connection, sender, audit, error);
+                return bus_get_audit_data(bus, sender, audit);
 
-        if (!dbus_connection_get_unix_fd(connection, &fd))
-                return -EINVAL;
+        fd = sd_bus_get_fd(bus);
+        if (fd < 0)
+                return fd;
 
+        len = sizeof(ucred);
         r = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len);
-        if (r < 0) {
-                log_error("Failed to determine peer credentials: %m");
+        if (r < 0)
                 return -errno;
-        }
 
         audit->uid = ucred.uid;
         audit->gid = ucred.gid;
@@ -295,40 +279,30 @@ static int get_audit_data(
    connections.  Whether it is on the bus or a local connection.
 */
 static int get_calling_context(
-                DBusConnection *connection,
-                DBusMessage *message,
-                security_context_t *scon,
-                DBusError *error) {
+                sd_bus *bus,
+                sd_bus_message *message,
+                sd_bus_error *error,
+                security_context_t *ret) {
 
         const char *sender;
-        int r;
-        int fd;
+        int r, fd;
 
         /*
            If sender exists then
            if sender is NULL this indicates a local connection.  Grab the fd
            from dbus and do an getpeercon to peers process context
         */
-        sender = dbus_message_get_sender(message);
-        if (sender) {
-                r = bus_get_selinux_security_context(connection, sender, scon, error);
-                if (r >= 0)
-                        return r;
+        sender = sd_bus_message_get_sender(message);
+        if (sender)
+                return bus_get_selinux_security_context(bus, sender, error, ret);
 
-                log_error("bus_get_selinux_security_context failed: %m");
-                return r;
-        }
+        fd = sd_bus_get_fd(bus);
+        if (fd < 0)
+                return fd;
 
-        if (!dbus_connection_get_unix_fd(connection, &fd)) {
-                log_error("bus_connection_get_unix_fd failed %m");
-                return -EINVAL;
-        }
-
-        r = getpeercon(fd, scon);
-        if (r < 0) {
-                log_error("getpeercon failed %m");
+        r = getpeercon(fd, ret);
+        if (r < 0)
                 return -errno;
-        }
 
         return 0;
 }
@@ -340,18 +314,18 @@ static int get_calling_context(
    still be generated if the access would be denied in enforcing mode.
 */
 int selinux_access_check(
-                DBusConnection *connection,
-                DBusMessage *message,
+                sd_bus *bus,
+                sd_bus_message *message,
                 const char *path,
                 const char *permission,
-                DBusError *error) {
+                sd_bus_error *error) {
 
         security_context_t scon = NULL, fcon = NULL;
-        int r = 0;
         const char *tclass = NULL;
         struct auditstruct audit;
+        int r = 0;
 
-        assert(connection);
+        assert(bus);
         assert(message);
         assert(permission);
         assert(error);
@@ -368,43 +342,36 @@ int selinux_access_check(
         audit.cmdline = NULL;
         audit.path = path;
 
-        r = get_calling_context(connection, message, &scon, error);
-        if (r < 0) {
-                log_error("Failed to get caller's security context on: %m");
+        r = get_calling_context(bus, message, error, &scon);
+        if (r < 0)
                 goto finish;
-        }
 
         if (path) {
-                tclass = "service";
-                /* get the file context of the unit file */
+                /* Get the file context of the unit file */
+
                 r = getfilecon(path, &fcon);
                 if (r < 0) {
-                        dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
-                        r = -errno;
-                        log_error("Failed to get security context on %s: %m",path);
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
                         goto finish;
                 }
 
+                tclass = "service";
         } else {
-                tclass = "system";
                 r = getcon(&fcon);
                 if (r < 0) {
-                        dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
-                        r = -errno;
-                        log_error("Failed to get current process context on: %m");
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
                         goto finish;
                 }
+
+                tclass = "system";
         }
 
-        (void) get_audit_data(connection, message, &audit, error);
+        get_audit_data(bus, message, &audit);
 
         errno = 0;
         r = selinux_check_access(scon, fcon, tclass, permission, &audit);
-        if (r < 0) {
-                dbus_set_error(error, DBUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
-                r = -errno;
-                log_error("SELinux policy denies access.");
-        }
+        if (r < 0)
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
 
         log_debug("SELinux access check scon=%s tcon=%s tclass=%s perm=%s path=%s cmdline=%s: %i", scon, fcon, tclass, permission, path, audit.cmdline, r);
 
@@ -414,7 +381,7 @@ finish:
         freecon(fcon);
 
         if (r && security_getenforce() != 1) {
-                dbus_error_init(error);
+                sd_bus_error_free(error);
                 r = 0;
         }
 
@@ -424,11 +391,11 @@ finish:
 #else
 
 int selinux_access_check(
-                DBusConnection *connection,
-                DBusMessage *message,
+                sd_bus *bus,
+                sd_bus_message *message,
                 const char *path,
                 const char *permission,
-                DBusError *error) {
+                sd_bus_error *error) {
 
         return 0;
 }

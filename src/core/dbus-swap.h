@@ -22,14 +22,11 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
-
+#include "sd-bus.h"
 #include "unit.h"
 
-DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
+extern const sd_bus_vtable bus_swap_vtable[];
+extern const char* const bus_swap_changing_properties[];
 
-int bus_swap_set_property(Unit *u, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);
+int bus_swap_set_property(Unit *u, const char *name, sd_bus_message *message, UnitSetPropertiesMode mode, sd_bus_error *error);
 int bus_swap_commit_properties(Unit *u);
-
-extern const char bus_swap_interface[];
-extern const char bus_swap_invalidating_properties[];

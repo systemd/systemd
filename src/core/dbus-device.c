@@ -19,50 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "unit.h"
+#include "device.h"
 #include "dbus-unit.h"
 #include "dbus-device.h"
-#include "dbus-common.h"
-#include "selinux-access.h"
 
-#define BUS_DEVICE_INTERFACE                                            \
-        " <interface name=\"org.freedesktop.systemd1.Device\">\n"       \
-        "  <property name=\"SysFSPath\" type=\"s\" access=\"read\"/>\n" \
-        " </interface>\n"
-
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        BUS_UNIT_INTERFACE                                              \
-        BUS_DEVICE_INTERFACE                                            \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_PEER_INTERFACE                                              \
-        BUS_INTROSPECTABLE_INTERFACE                                    \
-        "</node>\n"
-
-#define INTERFACES_LIST                              \
-        BUS_UNIT_INTERFACES_LIST                     \
-        "org.freedesktop.systemd1.Device\0"
-
-const char bus_device_interface[] = BUS_DEVICE_INTERFACE;
-
-const char bus_device_invalidating_properties[] =
-        "SysFSPath\0";
-
-static const BusProperty bus_device_properties[] = {
-        { "SysFSPath", bus_property_append_string, "s", offsetof(Device, sysfs), true },
-        { NULL, }
+const sd_bus_vtable bus_device_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("SysFSPath", "s", NULL, offsetof(Device, sysfs), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_VTABLE_END
 };
 
-
-DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
-        Device *d = DEVICE(u);
-        const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",   bus_unit_properties,   u },
-                { "org.freedesktop.systemd1.Device", bus_device_properties, d },
-                { NULL, }
-        };
-
-        SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
-
-        return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
-}
+const char* const bus_device_changing_properties[] = {
+        "SysFSPath",
+        NULL
+};
