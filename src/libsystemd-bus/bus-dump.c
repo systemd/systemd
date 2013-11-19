@@ -30,6 +30,20 @@
 #include "bus-type.h"
 #include "bus-dump.h"
 
+static char *indent(unsigned level) {
+        char *p;
+
+        p = new(char, 2 + level + 1);
+        if (!p)
+                return NULL;
+
+        p[0] = p[1] = ' ';
+        memset(p + 2, '\t', level);
+        p[2 + level] = 0;
+
+        return p;
+}
+
 int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
         const char *u = NULL, *uu = NULL, *s = NULL;
         char **cmdline = NULL;
@@ -37,6 +51,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
         int r;
         uid_t owner, audit_loginuid;
         uint32_t audit_sessionid;
+        bool audit_sessionid_is_set = false, audit_loginuid_is_set = false;
 
         assert(m);
 
@@ -45,10 +60,12 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
 
         if (with_header) {
                 fprintf(f,
-                        "%sEndian=%c  Type=%s%s%s  Flags=%u  Version=%u  Serial=%u ",
-                        draw_special_char(DRAW_TRIANGULAR_BULLET),
-                        m->header->endian,
+                        "%s%s%sType=%s%s%s  Endian=%c  Flags=%u  Version=%u  Serial=%u ",
+                        m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
+                        m->header->type == SD_BUS_MESSAGE_METHOD_RETURN ? ansi_highlight_green() :
+                        m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "", draw_special_char(DRAW_TRIANGULAR_BULLET), ansi_highlight_off(),
                         ansi_highlight(), bus_message_type_to_string(m->header->type), ansi_highlight_off(),
+                        m->header->endian,
                         m->header->flags,
                         m->header->version,
                         BUS_MESSAGE_SERIAL(m));
@@ -142,12 +159,16 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 sd_bus_message_get_session(m, &s);
                 if (s)
                         fprintf(f, "  Session=%s", s);
-                if (sd_bus_message_get_audit_loginuid(m, &audit_loginuid) >= 0)
+                if (sd_bus_message_get_audit_loginuid(m, &audit_loginuid) >= 0) {
+                        audit_loginuid_is_set = true;
                         fprintf(f, "  AuditLoginUID=%lu", (unsigned long) audit_loginuid);
-                if (sd_bus_message_get_audit_sessionid(m, &audit_sessionid) >= 0)
+                }
+                if (sd_bus_message_get_audit_sessionid(m, &audit_sessionid) >= 0) {
+                        audit_sessionid_is_set = true;
                         fprintf(f, "  AuditSessionID=%lu", (unsigned long) audit_sessionid);
+                }
 
-                if (u || uu || s || audit_loginuid || audit_sessionid)
+                if (u || uu || s || audit_loginuid_is_set || audit_sessionid_is_set)
                         fputs("\n", f);
 
                 r = sd_bus_message_has_effective_cap(m, 0);
@@ -162,6 +183,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                                 if (r > 0)
                                         fprintf(f, "|%s", cap_to_name(c));
                         }
+                        fputs("\n", f);
                 }
         }
 
@@ -171,7 +193,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 return r;
         }
 
-        fprintf(f, "MESSAGE \"%s\" {\n", strempty(m->root_container.signature));
+        fprintf(f, "  MESSAGE \"%s\" {\n", strempty(m->root_container.signature));
 
         for(;;) {
                 _cleanup_free_ char *prefix = NULL;
@@ -208,7 +230,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
 
                         level--;
 
-                        prefix = strrep("\t", level);
+                        prefix = indent(level);
                         if (!prefix)
                                 return log_oom();
 
@@ -216,7 +238,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         continue;
                 }
 
-                prefix = strrep("\t", level);
+                prefix = indent(level);
                 if (!prefix)
                         return log_oom();
 
@@ -308,6 +330,6 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 }
         }
 
-        fprintf(f, "};\n");
+        fprintf(f, "  };\n\n");
         return 0;
 }
