@@ -1638,10 +1638,14 @@ int unit_file_get_default(
                 r = readlink_malloc(path, &tmp);
                 if (r == -ENOENT)
                         continue;
-                if (r < 0)
+                else if (r == -EINVAL)
+                        /* not a symlink */
+                        n = strdup(SPECIAL_DEFAULT_TARGET);
+                else if (r < 0)
                         return r;
+                else
+                        n = strdup(path_get_file_name(tmp));
 
-                n = strdup(path_get_file_name(tmp));
                 if (!n)
                         return -ENOMEM;
 
