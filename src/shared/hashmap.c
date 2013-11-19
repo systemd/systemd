@@ -66,13 +66,14 @@ static void *first_hashmap_tile = NULL;
 static struct pool *first_entry_pool = NULL;
 static void *first_entry_tile = NULL;
 
-static void* allocate_tile(struct pool **first_pool, void **first_tile, size_t tile_size) {
+static void* allocate_tile(struct pool **first_pool, void **first_tile, size_t tile_size, unsigned at_least) {
         unsigned i;
 
         /* When a tile is released we add it to the list and simply
          * place the next pointer at its offset 0. */
 
         assert(tile_size >= sizeof(void*));
+        assert(at_least > 0);
 
         if (*first_tile) {
                 void *r;
@@ -88,7 +89,7 @@ static void* allocate_tile(struct pool **first_pool, void **first_tile, size_t t
                 struct pool *p;
 
                 n = *first_pool ? (*first_pool)->n_tiles : 0;
-                n = MAX(512U, n * 2);
+                n = MAX(at_least, n * 2);
                 size = PAGE_ALIGN(ALIGN(sizeof(struct pool)) + n*tile_size);
                 n = (size - ALIGN(sizeof(struct pool))) / tile_size;
 
@@ -191,7 +192,7 @@ Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func) {
         size = ALIGN(sizeof(Hashmap)) + INITIAL_N_BUCKETS * sizeof(struct hashmap_entry*);
 
         if (b) {
-                h = allocate_tile(&first_hashmap_pool, &first_hashmap_tile, size);
+                h = allocate_tile(&first_hashmap_pool, &first_hashmap_tile, size, 8);
                 if (!h)
                         return NULL;
 
@@ -476,7 +477,7 @@ int hashmap_put(Hashmap *h, const void *key, void *value) {
                 hash = bucket_hash(h, key);
 
         if (h->from_pool)
-                e = allocate_tile(&first_entry_pool, &first_entry_tile, sizeof(struct hashmap_entry));
+                e = allocate_tile(&first_entry_pool, &first_entry_tile, sizeof(struct hashmap_entry), 64U);
         else
                 e = new(struct hashmap_entry, 1);
 
