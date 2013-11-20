@@ -1027,6 +1027,7 @@ _public_ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) 
         }
 
         s->io.events = events;
+        source_set_pending(s, false);
 
         return 0;
 }
