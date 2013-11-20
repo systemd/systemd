@@ -543,6 +543,14 @@ static int source_set_pending(sd_event_source *s, bool b) {
         } else
                 assert_se(prioq_remove(s->event->pending, s, &s->pending_index));
 
+        if (s->type == SOURCE_REALTIME) {
+                prioq_reshuffle(s->event->realtime_earliest, s, &s->time.earliest_index);
+                prioq_reshuffle(s->event->realtime_latest, s, &s->time.latest_index);
+        } else if (s->type == SOURCE_MONOTONIC) {
+                prioq_reshuffle(s->event->monotonic_earliest, s, &s->time.earliest_index);
+                prioq_reshuffle(s->event->monotonic_latest, s, &s->time.latest_index);
+        }
+
         return 0;
 }
 
@@ -1238,10 +1246,8 @@ _public_ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
-        if (s->time.next == usec)
-                return 0;
-
         s->time.next = usec;
+
         source_set_pending(s, false);
 
         if (s->type == SOURCE_REALTIME) {
@@ -1275,10 +1281,9 @@ _public_ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec
         if (usec == 0)
                 usec = DEFAULT_ACCURACY_USEC;
 
-        if (s->time.accuracy == usec)
-                return 0;
-
         s->time.accuracy = usec;
+
+        source_set_pending(s, false);
 
         if (s->type == SOURCE_REALTIME)
                 prioq_reshuffle(s->event->realtime_latest, s, &s->time.latest_index);
