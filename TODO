@@ -49,8 +49,6 @@ Features:
 
 * timer: expose accuracy as unit setting
 
-* sd-event: do per-minute coalescing of timer events too
-
 * when we detect low battery and no AC on boot, show pretty splash and refuse boot
 
 * move libasyncns into systemd as libsystemd-asyncns

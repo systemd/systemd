@@ -640,15 +640,16 @@ static int event_setup_timer_fd(
         }
 
         /* When we sleep for longer, we try to realign the wakeup to
-           the same time wihtin each second, so that events all across
-           the system can be coalesced into a single CPU
-           wakeup. However, let's take some system-specific randomness
-           for this value, so that in a network of systems with synced
-           clocks timer events are distributed a bit. Here, we
-           calculate a perturbation usec offset from the boot ID. */
+           the same time wihtin each minute/second/250ms, so that
+           events all across the system can be coalesced into a single
+           CPU wakeup. However, let's take some system-specific
+           randomness for this value, so that in a network of systems
+           with synced clocks timer events are distributed a
+           bit. Here, we calculate a perturbation usec offset from the
+           boot ID. */
 
         if (sd_id128_get_boot(&bootid) >= 0)
-                e->perturb = (bootid.qwords[0] ^ bootid.qwords[1]) % USEC_PER_SEC;
+                e->perturb = (bootid.qwords[0] ^ bootid.qwords[1]) % USEC_PER_MINUTE;
 
         *timer_fd = fd;
         return 0;
@@ -1363,13 +1364,24 @@ static usec_t sleep_between(sd_event *e, usec_t a, usec_t b) {
              dispatch as much as possible on the entire system.
 
           We implement this by waking up everywhere at the same time
-          within any given second if we can, synchronised via the
+          within any given minute if we can, synchronised via the
           perturbation value determined from the boot ID. If we can't,
-          then we try to find the same spot in every a 250ms
+          then we try to find the same spot in every 1s and then 250ms
           step. Otherwise, we pick the last possible time to wake up.
         */
 
-        c = (b / USEC_PER_SEC) * USEC_PER_SEC + e->perturb;
+        c = (b / USEC_PER_MINUTE) * USEC_PER_MINUTE + e->perturb;
+        if (c >= b) {
+                if (_unlikely_(c < USEC_PER_MINUTE))
+                        return b;
+
+                c -= USEC_PER_MINUTE;
+        }
+
+        if (c >= a)
+                return c;
+
+        c = (b / USEC_PER_SEC) * USEC_PER_SEC + (e->perturb % USEC_PER_SEC);
         if (c >= b) {
                 if (_unlikely_(c < USEC_PER_SEC))
                         return b;
