@@ -1241,6 +1241,7 @@ _public_ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
                 return 0;
 
         s->time.next = usec;
+        source_set_pending(s, false);
 
         if (s->type == SOURCE_REALTIME) {
                 prioq_reshuffle(s->event->realtime_earliest, s, &s->time.earliest_index);
