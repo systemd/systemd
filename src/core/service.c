@@ -2827,7 +2827,7 @@ _pure_ static bool service_check_snapshot(Unit *u) {
 
         assert(s);
 
-        return !s->got_socket_fd;
+        return (s->socket_fd < 0);
 }
 
 static int service_retry_pid_file(Service *s) {
@@ -3709,7 +3709,6 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
                 return -EAGAIN;
 
         s->socket_fd = fd;
-        s->got_socket_fd = true;
 
         unit_ref_set(&s->accept_socket, UNIT(sock));
 
