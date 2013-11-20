@@ -1412,6 +1412,9 @@ static int event_arm_timer(
         a = prioq_peek(earliest);
         if (!a || a->enabled == SD_EVENT_OFF) {
 
+                if (timer_fd < 0)
+                        return 0;
+
                 if (*next == (usec_t) -1)
                         return 0;
 
