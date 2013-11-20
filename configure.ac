@@ -838,7 +838,7 @@ AC_DEFINE_UNQUOTED(TELINIT, ["$TELINIT"], [Path to telinit])
 
 AC_SUBST(TELINIT)
 
-AC_CHECK_HEADERS_ONCE([valgrind/memcheck.h])
+AC_CHECK_HEADERS_ONCE([valgrind/memcheck.h valgrind/valgrind.h])
 
 # ------------------------------------------------------------------------------
 have_myhostname=no

@@ -32,6 +32,10 @@
 #include <sys/prctl.h>
 #include <sys/mount.h>
 
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif
+
 #include "sd-daemon.h"
 #include "sd-messages.h"
 #include "sd-bus.h"
@@ -1829,6 +1833,15 @@ finish:
 
         if (fds)
                 fdset_free(fds);
+
+#ifdef HAVE_VALGRIND_VALGRIND_H
+        /* If we are PID 1 and running under valgrind, then let's exit
+         * here explicitly. valgrind will only generate nice output on
+         * exit(), not on exec(), hence let's do the former not the
+         * latter here. */
+        if (getpid() == 1 && RUNNING_ON_VALGRIND)
+                return 0;
+#endif
 
         if (shutdown_verb) {
                 const char * command_line[] = {
