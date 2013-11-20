@@ -919,7 +919,7 @@ int bus_map_all_properties(sd_bus *bus,
                 } else {
                         r = sd_bus_message_skip(m, "v");
                         if (r < 0)
-                                return -r;
+                                return r;
                 }
 
                 r = sd_bus_message_exit_container(m);
