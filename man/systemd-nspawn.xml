@@ -304,6 +304,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--drop-capability=</option></term>
+
+                                <listitem><para>Specify one or more
+                                additional capabilities to drop for
+                                the container. This allows running the
+                                container with fewer capabilities than
+                                the default (see above).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--link-journal=</option></term>
 
                                 <listitem><para>Control whether the
