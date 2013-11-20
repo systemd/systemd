@@ -260,6 +260,7 @@ static int parse_line(const char* unit,
                                            "Unknown section '%s'. Ignoring.", n);
 
                         free(n);
+                        free(*section);
                         *section = NULL;
                 } else {
                         free(*section);
