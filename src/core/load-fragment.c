@@ -298,6 +298,7 @@ int config_parse_socket_listen(const char *unit,
         }
 
         p->fd = -1;
+        p->socket = s;
 
         if (s->ports) {
                 LIST_FIND_TAIL(port, s->ports, tail);

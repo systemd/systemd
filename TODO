@@ -43,6 +43,8 @@ CGroup Rework Completion:
 
 Features:
 
+* sd-bus: synthesized messages should get serial number (uint32_t) -1
+
 * sd-event: allow multiple signal handlers per signal
 
 * timer: expose accuracy as unit setting
