@@ -234,7 +234,7 @@ static int earliest_time_prioq_compare(const void *a, const void *b) {
         if (x->time.next < y->time.next)
                 return -1;
         if (x->time.next > y->time.next)
-                return -1;
+                return 1;
 
         /* Stability for the rest */
         if (x < y)
@@ -267,7 +267,7 @@ static int latest_time_prioq_compare(const void *a, const void *b) {
         if (x->time.next + x->time.accuracy < y->time.next + y->time.accuracy)
                 return -1;
         if (x->time.next + x->time.accuracy > y->time.next + y->time.accuracy)
-                return -1;
+                return 1;
 
         /* Stability for the rest */
         if (x < y)
