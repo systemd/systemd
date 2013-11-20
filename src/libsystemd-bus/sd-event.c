@@ -1756,18 +1756,16 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         if (r < 0)
                 goto finish;
 
+        r = event_arm_timer(e, e->monotonic_fd, e->monotonic_earliest, e->monotonic_latest, &e->monotonic_next);
+        if (r < 0)
+                goto finish;
+
+        r = event_arm_timer(e, e->realtime_fd, e->realtime_earliest, e->realtime_latest, &e->realtime_next);
+        if (r < 0)
+                goto finish;
+
         if (event_next_pending(e) || e->need_process_child)
                 timeout = 0;
-
-        if (timeout > 0) {
-                r = event_arm_timer(e, e->monotonic_fd, e->monotonic_earliest, e->monotonic_latest, &e->monotonic_next);
-                if (r < 0)
-                        goto finish;
-
-                r = event_arm_timer(e, e->realtime_fd, e->realtime_earliest, e->realtime_latest, &e->realtime_next);
-                if (r < 0)
-                        goto finish;
-        }
 
         m = epoll_wait(e->epoll_fd, ev_queue, EPOLL_QUEUE_MAX,
                        timeout == (uint64_t) -1 ? -1 : (int) ((timeout + USEC_PER_MSEC - 1) / USEC_PER_MSEC));
