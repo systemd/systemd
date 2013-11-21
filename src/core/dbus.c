@@ -42,6 +42,8 @@
 #include "bus-errors.h"
 #include "strxcpyx.h"
 #include "dbus-client-track.h"
+#include "bus-internal.h"
+#include "selinux-access.h"
 
 #define CONNECTIONS_MAX 512
 
@@ -205,6 +207,67 @@ failed:
                 log_error("Failed to respond with to bus activation request: %s", strerror(-r));
                 return r;
         }
+
+        return 0;
+}
+
+static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        const char *verb, *path;
+        Unit *u = NULL;
+        Job *j;
+        int r;
+
+        assert(bus);
+        assert(message);
+
+        /* Our own method calls are all protected individually with
+         * selinux checks, but the built-in interfaces need to be
+         * protected too. */
+
+        if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "Set"))
+                verb = "reload";
+        else if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", NULL) ||
+                 sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", NULL) ||
+                 sd_bus_message_is_method_call(message, "org.freedesktop.DBus.ObjectManager", NULL) ||
+                 sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Peer", NULL))
+                verb = "status";
+        else
+                return 0;
+
+        path = sd_bus_message_get_path(message);
+
+        if (object_path_startswith("/org/freedesktop/systemd1", path)) {
+
+                r = selinux_access_check(bus, message, verb, error);
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
+
+        if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
+                pid_t pid;
+
+                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                if (r < 0)
+                        return 0;
+
+                u = manager_get_unit_by_pid(m, pid);
+        } else {
+                r = manager_get_job_from_dbus_path(m, path, &j);
+                if (r >= 0)
+                        u = j->unit;
+                else
+                        manager_load_unit_from_dbus_path(m, path, NULL, &u);
+        }
+
+        if (!u)
+                return 0;
+
+        r = selinux_unit_access_check(u, bus, message, verb, error);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -457,6 +520,12 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
 
         assert(m);
         assert(bus);
+
+        r = sd_bus_add_filter(bus, selinux_filter, m);
+        if (r < 0) {
+                log_error("Failed to add SELinux access filter: %s", strerror(-r));
+                return r;
+        }
 
         r = sd_bus_add_object_vtable(bus, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", bus_manager_vtable, m);
         if (r < 0) {

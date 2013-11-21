@@ -1945,7 +1945,7 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         if (r < 0)
                                 return r;
 
-                        r = l->callback(bus, m, &error_buffer, l->userdata);
+                        r = l->callback(bus, m, l->userdata, &error_buffer);
                         r = bus_maybe_reply_error(m, r, &error_buffer);
                         if (r != 0)
                                 return r;
