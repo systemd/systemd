@@ -39,6 +39,29 @@
 #include "bus-util.h"
 #include "bus-dump.h"
 
+static void test_bus_label_escape_one(const char *a, const char *b) {
+        _cleanup_free_ char *t = NULL, *x = NULL, *y = NULL;
+
+        assert_se(t = sd_bus_label_escape(a));
+        assert_se(streq(t, b));
+
+        assert_se(x = sd_bus_label_unescape(t));
+        assert_se(streq(a, x));
+
+        assert_se(y = sd_bus_label_unescape(b));
+        assert_se(streq(a, y));
+}
+
+static void test_bus_label_escape(void) {
+        test_bus_label_escape_one("foo123bar", "foo123bar");
+        test_bus_label_escape_one("foo.bar", "foo_2ebar");
+        test_bus_label_escape_one("foo_2ebar", "foo_5f2ebar");
+        test_bus_label_escape_one("", "_");
+        test_bus_label_escape_one("_", "_5f");
+        test_bus_label_escape_one("1", "_31");
+        test_bus_label_escape_one(":1", "_3a1");
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *copy = NULL;
         int r, boolean;
@@ -293,6 +316,8 @@ int main(int argc, char *argv[]) {
         assert_se(streq(b, "2"));
         assert_se(streq(c, "ccc"));
         assert_se(streq(d, "3"));
+
+        test_bus_label_escape();
 
         return 0;
 }

@@ -237,9 +237,6 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
 
 char *xescape(const char *s, const char *bad);
 
-char *bus_path_escape(const char *s);
-char *bus_path_unescape(const char *s);
-
 char *ascii_strlower(char *path);
 
 bool dirent_is_file(const struct dirent *de) _pure_;

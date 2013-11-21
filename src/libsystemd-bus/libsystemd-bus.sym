@@ -187,6 +187,10 @@ global:
         sd_bus_error_is_set;
         sd_bus_error_has_name;
 
+        /* Escaping */
+        sd_bus_label_escape;
+        sd_bus_label_unescape;
+
         /* sd-memfd functions */
         sd_memfd_new;
         sd_memfd_make;

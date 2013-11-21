@@ -176,7 +176,7 @@ int machine_object_find(sd_bus *bus, const char *path, const char *interface, vo
                 if (!p)
                         return 0;
 
-                e = bus_path_unescape(p);
+                e = sd_bus_label_unescape(p);
                 if (!e)
                         return -ENOMEM;
 
@@ -194,7 +194,7 @@ char *machine_bus_path(Machine *m) {
 
         assert(m);
 
-        e = bus_path_escape(m->name);
+        e = sd_bus_label_escape(m->name);
         if (!e)
                 return NULL;
 

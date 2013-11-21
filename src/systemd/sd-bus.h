@@ -282,6 +282,9 @@ int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
                 &(x).bytes[8],  &(x).bytes[9],  &(x).bytes[10], &(x).bytes[11], \
                 &(x).bytes[12], &(x).bytes[13], &(x).bytes[14], &(x).bytes[15]
 
+char *sd_bus_label_escape(const char *s);
+char *sd_bus_label_unescape(const char *f);
+
 _SD_END_DECLARATIONS;
 
 #endif

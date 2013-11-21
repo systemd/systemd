@@ -72,8 +72,6 @@ Features:
 
 * sd-bus: support "const" properties as flag
 
-* sd-bus: add api call to escape bus path components
-
 * sd-event: when a handler returns an error, just turn off its event
   source, but do not return anything up to the event loop
   caller. Instead add parameter to sd_event_request_quit() to take

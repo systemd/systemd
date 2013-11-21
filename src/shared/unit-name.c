@@ -23,6 +23,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include "sd-bus.h"
 #include "path-util.h"
 #include "util.h"
 #include "unit-name.h"
@@ -459,7 +460,7 @@ char *unit_dbus_path_from_name(const char *name) {
 
         assert(name);
 
-        e = bus_path_escape(name);
+        e = sd_bus_label_escape(name);
         if (!e)
                 return NULL;
 
@@ -474,7 +475,7 @@ int unit_name_from_dbus_path(const char *path, char **name) {
         if (!e)
                 return -EINVAL;
 
-        n = bus_path_unescape(e);
+        n = sd_bus_label_unescape(e);
         if (!n)
                 return -ENOMEM;
 
