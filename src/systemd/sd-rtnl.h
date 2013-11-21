@@ -76,7 +76,13 @@ sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
 
 int sd_rtnl_message_get_errno(sd_rtnl_message *m);
 int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type);
+
+int sd_rtnl_message_link_get_ifindex(sd_rtnl_message *m, int *ifindex);
+
 int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *data);
+int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type);
+int sd_rtnl_message_close_container(sd_rtnl_message *m);
+
 int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data);
 
 _SD_END_DECLARATIONS;

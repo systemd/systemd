@@ -36,6 +36,8 @@ struct sd_rtnl_message {
 
         struct nlmsghdr *hdr;
 
+        struct rtattr *current_container;
+
         struct rtattr *next_rta;
         size_t remaining_size;
 
@@ -131,7 +133,7 @@ int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, unsigned int type, 
 
         assert_return(nlmsg_type == RTM_NEWLINK || nlmsg_type == RTM_DELLINK ||
                       nlmsg_type == RTM_SETLINK || nlmsg_type == RTM_GETLINK, -EINVAL);
-        assert_return(index > 0, -EINVAL);
+        assert_return(nlmsg_type == RTM_NEWLINK || index > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(ret, NLMSG_SPACE(sizeof(struct ifinfomsg)));
@@ -140,6 +142,8 @@ int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, unsigned int type, 
 
         (*ret)->hdr->nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
         (*ret)->hdr->nlmsg_type = nlmsg_type;
+        if (nlmsg_type == RTM_NEWLINK)
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE;
 
         ifi = NLMSG_DATA((*ret)->hdr);
 
@@ -203,6 +207,21 @@ int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type) {
         return 0;
 }
 
+int sd_rtnl_message_link_get_ifindex(sd_rtnl_message *m, int *ifindex) {
+        struct ifinfomsg *ifi;
+
+        assert_return(m, -EINVAL);
+        assert_return(ifindex, -EINVAL);
+        assert_return(m->hdr->nlmsg_type == RTM_NEWLINK || m->hdr->nlmsg_type == RTM_DELLINK ||
+                      m->hdr->nlmsg_type == RTM_GETLINK || m->hdr->nlmsg_type == RTM_SETLINK, -EINVAL);
+
+        ifi = NLMSG_DATA(m->hdr);
+
+        *ifindex = ifi->ifi_index;
+
+        return 0;
+}
+
 /* If successful the updated message will be correctly aligned, if unsuccessful the old message is
    untouched */
 static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data, size_t data_length) {
@@ -211,11 +230,10 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
         struct rtattr *rta;
         char *padding;
 
-        assert_return(m, -EINVAL);
-        assert_return(m->hdr, -EINVAL);
-        assert_return(NLMSG_ALIGN(m->hdr->nlmsg_len) == m->hdr->nlmsg_len, -EINVAL);
-        assert_return(data, -EINVAL);
-        assert_return(data_length > 0, -EINVAL);
+        assert(m);
+        assert(m->hdr);
+        assert(NLMSG_ALIGN(m->hdr->nlmsg_len) == m->hdr->nlmsg_len);
+        assert(!data || data_length > 0);
 
         /* get the size of the new rta attribute (with padding at the end) */
         rta_length = RTA_LENGTH(data_length);
@@ -234,15 +252,28 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
         /* update message size */
         m->hdr->nlmsg_len = message_length;
 
+        /* we are inside a container, extend it */
+        if (m->current_container)
+                m->current_container->rta_len = (unsigned char *) m->hdr +
+                                                m->hdr->nlmsg_len -
+                                                (unsigned char *) m->current_container;
+
         /* fill in the attribute */
         rta->rta_type = type;
         rta->rta_len = rta_length;
-        /* we don't deal with the case where the user lies about the type and gives us
-         * too little data (so don't do that)
-         */
-        padding = mempcpy(RTA_DATA(rta), data, data_length);
-        /* make sure also the padding at the end of the message is initialized */
-        memset(padding, '\0', (unsigned char *) m->hdr + m->hdr->nlmsg_len - (unsigned char *) padding);
+        if (!data) {
+                /* this is a container, set pointer */
+                m->current_container = rta;
+        } else {
+                /* we don't deal with the case where the user lies about the type
+                 * and gives us too little data (so don't do that)
+                */
+                padding = mempcpy(RTA_DATA(rta), data, data_length);
+                /* make sure also the padding at the end of the message is initialized */
+                memset(padding, '\0', (unsigned char *) m->hdr +
+                                      m->hdr->nlmsg_len -
+                                      (unsigned char *) padding);
+        }
 
         return 0;
 }
@@ -256,6 +287,28 @@ int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *
         assert_return(data, -EINVAL);
 
         sd_rtnl_message_get_type(m, &rtm_type);
+
+        if (m->current_container) {
+                switch (rtm_type) {
+                        case RTM_NEWLINK:
+                        case RTM_SETLINK:
+                        case RTM_GETLINK:
+                        case RTM_DELLINK:
+                                switch (m->current_container->rta_type) {
+                                        case IFLA_LINKINFO:
+                                                switch (type) {
+                                                        case IFLA_INFO_KIND:
+                                                                return add_rtattr(m, type, data, strlen(data) + 1);
+                                                        default:
+                                                                return -ENOTSUP;
+                                                }
+                                        default:
+                                                return -ENOTSUP;
+                                }
+                        default:
+                                return -ENOTSUP;
+                }
+        }
 
         switch (rtm_type) {
                 case RTM_NEWLINK:
@@ -329,12 +382,66 @@ int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *
         }
 }
 
-static int message_read(sd_rtnl_message *m, unsigned short *type, void **data) {
+int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
+        uint16_t rtm_type;
+
         assert_return(m, -EINVAL);
-        assert_return(data, -EINVAL);
+        assert_return(!m->current_container, -EINVAL);
+
+        sd_rtnl_message_get_type(m, &rtm_type);
+
+        switch (rtm_type) {
+                case RTM_NEWLINK:
+                case RTM_SETLINK:
+                case RTM_GETLINK:
+                case RTM_DELLINK:
+                        if (type == IFLA_LINKINFO)
+                                return add_rtattr(m, type, NULL, 0);
+                        else
+                                return -ENOTSUP;
+                default:
+                        return -ENOTSUP;
+        }
+
+        return 0;
+}
+
+int sd_rtnl_message_close_container(sd_rtnl_message *m) {
+        assert_return(m, -EINVAL);
+        assert_return(m->current_container, -EINVAL);
+
+        m->current_container = NULL;
+
+        return 0;
+}
+
+static int message_read(sd_rtnl_message *m, unsigned short *type, void **data) {
+        uint16_t rtm_type;
+        int r;
+
+        assert(m);
+        assert(m->next_rta);
+        assert(type);
+        assert(data);
 
         if (!RTA_OK(m->next_rta, m->remaining_size))
                 return 0;
+
+        /* make sure we don't try to read a container
+         * TODO: add support for entering containers for reading */
+        r = sd_rtnl_message_get_type(m, &rtm_type);
+        if (r < 0)
+                return r;
+
+        switch (rtm_type) {
+                case RTM_NEWLINK:
+                case RTM_GETLINK:
+                case RTM_SETLINK:
+                case RTM_DELLINK:
+                        if (m->next_rta->rta_type == IFLA_LINKINFO) {
+                                return -EINVAL;
+                        }
+        }
 
         *data = RTA_DATA(m->next_rta);
         *type = m->next_rta->rta_type;
@@ -346,11 +453,14 @@ static int message_read(sd_rtnl_message *m, unsigned short *type, void **data) {
 
 int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) {
         uint16_t rtm_type;
+        int r;
 
         assert_return(m, -EINVAL);
         assert_return(data, -EINVAL);
 
-        sd_rtnl_message_get_type(m, &rtm_type);
+        r = sd_rtnl_message_get_type(m, &rtm_type);
+        if (r < 0)
+                return r;
 
         switch (rtm_type) {
                 case RTM_NEWLINK:

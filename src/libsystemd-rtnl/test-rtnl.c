@@ -206,6 +206,30 @@ static void test_pipe(int ifindex) {
         }
 }
 
+static void test_container(void) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+        uint16_t type;
+        void *data;
+
+        assert(sd_rtnl_message_link_new(RTM_NEWLINK, 0, 0, 0, &m) >= 0);
+
+        assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO) >= 0);
+        assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO) == -EINVAL);
+        assert(sd_rtnl_message_append(m, IFLA_INFO_KIND, "kind") >= 0);
+        assert(sd_rtnl_message_close_container(m) >= 0);
+        assert(sd_rtnl_message_close_container(m) == -EINVAL);
+
+        assert(sd_rtnl_message_read(m, &type, &data) == -EINVAL);
+
+/* TODO: add support for entering containers
+        assert(sd_rtnl_message_read(m, &type, &data) > 0);
+        assert(type == IFLA_INFO_KIND);
+        assert(streq("kind", (char *) data));
+
+        assert(sd_rtnl_message_read(m, &type, &data) == 0);
+*/
+}
+
 int main(void) {
         sd_rtnl *rtnl;
         sd_rtnl_message *m;
@@ -219,6 +243,8 @@ int main(void) {
         test_multiple();
 
         test_route();
+
+        test_container();
 
         assert(sd_rtnl_open(0, &rtnl) >= 0);
         assert(rtnl);
