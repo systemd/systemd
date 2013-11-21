@@ -4020,7 +4020,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, sender_name_is_valid, &ri, &m->destination);
+                        r = message_peek_field_string(m, service_name_is_valid, &ri, &m->destination);
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_SENDER:
@@ -4031,7 +4031,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         if (!streq(signature, "s"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_string(m, sender_name_is_valid, &ri, &m->sender);
+                        r = message_peek_field_string(m, service_name_is_valid, &ri, &m->sender);
                         break;
 
 
