@@ -202,9 +202,9 @@ void bus_client_track_serialize(Manager *m, FILE *f, Set *s) {
 
         SET_FOREACH(c, s, i) {
                 if (c->bus == m->api_bus)
-                        fprintf(f, "subscribed=%s", isempty(c->name) ? "*" : c->name);
+                        fprintf(f, "subscribed=%s\n", isempty(c->name) ? "*" : c->name);
                 else
-                        fprintf(f, "subscribed=%p %s", c->bus, isempty(c->name) ? "*" : c->name);
+                        fprintf(f, "subscribed=%p %s\n", c->bus, isempty(c->name) ? "*" : c->name);
         }
 }
 
