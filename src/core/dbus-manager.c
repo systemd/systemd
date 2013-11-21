@@ -774,8 +774,9 @@ static int method_list_jobs(sd_bus *bus, sd_bus_message *message, void *userdata
                 r = sd_bus_message_append(
                                 reply, "(usssoo)",
                                 j->id,
-                                job_state_to_string(j->state),
+                                j->unit->id,
                                 job_type_to_string(j->type),
+                                job_state_to_string(j->state),
                                 job_path,
                                 unit_path);
                 if (r < 0)
