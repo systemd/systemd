@@ -1367,7 +1367,7 @@ static int reply_unit_file_changes_and_free(
 
         for (i = 0; i < n_changes; i++) {
                 r = sd_bus_message_append(
-                                message, "(sss)",
+                                reply, "(sss)",
                                 unit_file_change_type_to_string(changes[i].type),
                                 changes[i].path,
                                 changes[i].source);
@@ -1379,7 +1379,7 @@ static int reply_unit_file_changes_and_free(
         if (r < 0)
                 goto fail;
 
-        return sd_bus_send(bus, message, NULL);
+        return sd_bus_send(bus, reply, NULL);
 
 fail:
         unit_file_changes_free(changes, n_changes);
