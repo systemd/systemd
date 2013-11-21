@@ -292,14 +292,11 @@ static int method_callbacks_run(
                 return -EINVAL;
 
         if (!streq(strempty(c->vtable->x.method.signature), signature)) {
-                r = sd_bus_reply_method_errorf(m,
-                                               SD_BUS_ERROR_INVALID_ARGS,
-                                               "Invalid arguments '%s' to call %s:%s, expecting '%s'.",
-                                               signature, c->interface, c->member, strempty(c->vtable->x.method.signature));
-                if (r < 0)
-                        return r;
-
-                return 1;
+                return sd_bus_reply_method_errorf(
+                                m,
+                                SD_BUS_ERROR_INVALID_ARGS,
+                                "Invalid arguments '%s' to call %s.%s(), expecting '%s'.",
+                                signature, c->interface, c->member, strempty(c->vtable->x.method.signature));
         }
 
         if (c->vtable->x.method.handler) {

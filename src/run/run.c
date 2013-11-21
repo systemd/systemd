@@ -237,6 +237,10 @@ static int message_start_transient_unit_send(sd_bus *bus, sd_bus_message *m, sd_
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_append(m, "a(sa(sv))", 0);
+        if (r < 0)
+                return r;
+
         return sd_bus_call(bus, m, 0, error, reply);
 }
 

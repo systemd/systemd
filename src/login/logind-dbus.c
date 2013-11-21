@@ -2216,6 +2216,10 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_append(m, "a(sa(sv))", 0);
+        if (r < 0)
+                return r;
+
         r = sd_bus_call(manager->bus, m, 0, error, &reply);
         if (r < 0)
                 return r;
