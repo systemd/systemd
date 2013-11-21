@@ -42,6 +42,8 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network)
                 return log_oom();
 
+        network->manager = manager;
+
         LIST_HEAD_INIT(network->addresses);
 
         r = config_parse(NULL, filename, file, "Match\0Network\0", config_item_perf_lookup,
@@ -55,8 +57,6 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->filename = strdup(filename);
         if (!network->filename)
                 return log_oom();
-
-        network->manager = manager;
 
         LIST_PREPEND(networks, manager->networks, network);
         network = NULL;

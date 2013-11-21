@@ -39,22 +39,19 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         if (!link)
                 return -ENOMEM;
 
+        link->manager = manager;
+        link->state = _LINK_STATE_INVALID;
+
         link->ifindex = udev_device_get_ifindex(device);
         if (link->ifindex <= 0)
                 return -EINVAL;
 
         mac = udev_device_get_sysattr_value(device, "address");
-        if (!mac)
-                return -EINVAL;
-
-        mac_addr = ether_aton(mac);
-        if (!mac_addr)
-                return -EINVAL;
-
-        memcpy(&link->mac, mac_addr, sizeof(struct ether_addr));
-
-        link->manager = manager;
-        link->state = _LINK_STATE_INVALID;
+        if (mac) {
+                mac_addr = ether_aton(mac);
+                if (mac_addr)
+                        memcpy(&link->mac, mac_addr, sizeof(struct ether_addr));
+        }
 
         r = hashmap_put(manager->links, &link->ifindex, link);
         if (r < 0)
