@@ -194,7 +194,7 @@ failed:
                 return 0;
         }
 
-        r = sd_bus_message_append(reply, "sss", error.name, error.message);
+        r = sd_bus_message_append(reply, "sss", name, error.name, error.message);
         if (r < 0) {
                 bus_log_create_error(r);
                 return 0;
