@@ -43,6 +43,8 @@ CGroup Rework Completion:
 
 Features:
 
+* add API to clone sd_bus_message objects
+
 * sd-bus: synthesized messages should get serial number (uint32_t) -1
 
 * sd-event: allow multiple signal handlers per signal
@@ -61,8 +63,6 @@ Features:
 * sd-bus: when triggering property change events, allow a NULL strv indicate that all properties listed as such are send out as changed
 
 * sd-bus: enforce signatures on response messages
-
-* sd-bus: make message handlers take an sd_bus_error and generate error replies automatically if they are set
 
 * sd-bus: see if we can drop more message validation on the sending side
 

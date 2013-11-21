@@ -33,8 +33,8 @@ static int property_get_blockio_device_weight(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         CGroupContext *c = userdata;
         CGroupBlockIODeviceWeight *w;
@@ -63,8 +63,8 @@ static int property_get_blockio_device_bandwidths(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         CGroupContext *c = userdata;
         CGroupBlockIODeviceBandwidth *b;
@@ -97,8 +97,8 @@ static int property_get_device_allow(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         CGroupContext *c = userdata;
         CGroupDeviceAllow *a;

@@ -71,7 +71,7 @@ int bus_send_queued_message(Manager *m) {
         return 0;
 }
 
-static int signal_agent_released(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int signal_agent_released(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *cgroup;
         int r;
@@ -100,7 +100,7 @@ static int signal_agent_released(sd_bus *bus, sd_bus_message *message, void *use
         return 0;
 }
 
-static int signal_disconnected(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int signal_disconnected(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         assert(bus);
@@ -119,7 +119,7 @@ static int signal_disconnected(sd_bus *bus, sd_bus_message *message, void *userd
         return 0;
 }
 
-static int signal_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int signal_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *name, *old_owner, *new_owner;
         Manager *m = userdata;
         int r;
@@ -142,7 +142,7 @@ static int signal_name_owner_changed(sd_bus *bus, sd_bus_message *message, void 
         return 0;
 }
 
-static int signal_activation_request(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int signal_activation_request(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;

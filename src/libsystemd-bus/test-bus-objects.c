@@ -44,7 +44,7 @@ struct context {
         uint32_t automatic_integer_property;
 };
 
-static int something_handler(sd_bus *bus, sd_bus_message *m, void *userdata) {
+static int something_handler(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         struct context *c = userdata;
         const char *s;
         char *n = NULL;
@@ -67,7 +67,7 @@ static int something_handler(sd_bus *bus, sd_bus_message *m, void *userdata) {
         return 1;
 }
 
-static int exit_handler(sd_bus *bus, sd_bus_message *m, void *userdata) {
+static int exit_handler(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         struct context *c = userdata;
         int r;
 
@@ -81,11 +81,11 @@ static int exit_handler(sd_bus *bus, sd_bus_message *m, void *userdata) {
         return 1;
 }
 
-static int get_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata) {
+static int get_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         struct context *c = userdata;
         int r;
 
-        log_info("property get for %s called", property);
+        log_info("property get for %s called, returning \"%s\".", property, c->something);
 
         r = sd_bus_message_append(reply, "s", c->something);
         assert_se(r >= 0);
@@ -93,7 +93,7 @@ static int get_handler(sd_bus *bus, const char *path, const char *interface, con
         return 1;
 }
 
-static int set_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, sd_bus_error *error, void *userdata) {
+static int set_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error) {
         struct context *c = userdata;
         const char *s;
         char *n;
@@ -113,7 +113,7 @@ static int set_handler(sd_bus *bus, const char *path, const char *interface, con
         return 1;
 }
 
-static int value_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata) {
+static int value_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *s = NULL;
         const char *x;
         int r;
@@ -129,7 +129,7 @@ static int value_handler(sd_bus *bus, const char *path, const char *interface, c
         return 1;
 }
 
-static int notify_test(sd_bus *bus, sd_bus_message *m, void *userdata) {
+static int notify_test(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
         assert_se(sd_bus_emit_properties_changed(bus, m->path, "org.freedesktop.systemd.ValueTest", "Value", NULL) >= 0);
@@ -140,7 +140,7 @@ static int notify_test(sd_bus *bus, sd_bus_message *m, void *userdata) {
         return 1;
 }
 
-static int emit_interfaces_added(sd_bus *bus, sd_bus_message *m, void *userdata) {
+static int emit_interfaces_added(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
         assert_se(sd_bus_emit_interfaces_added(bus, m->path, "org.freedesktop.systemd.test", NULL) >= 0);
@@ -151,7 +151,7 @@ static int emit_interfaces_added(sd_bus *bus, sd_bus_message *m, void *userdata)
         return 1;
 }
 
-static int emit_interfaces_removed(sd_bus *bus, sd_bus_message *m, void *userdata) {
+static int emit_interfaces_removed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int r;
 
         assert_se(sd_bus_emit_interfaces_removed(bus, m->path, "org.freedesktop.systemd.test", NULL) >= 0);
@@ -435,7 +435,7 @@ static int client(struct context *c) {
 }
 
 int main(int argc, char *argv[]) {
-        struct context c;
+        struct context c = {};
         pthread_t s;
         void *p;
         int r, q;

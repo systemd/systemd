@@ -33,8 +33,8 @@ static int property_get_paths(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Path *p = userdata;
         PathSpec *k;
@@ -63,8 +63,8 @@ static int property_get_unit(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *p = userdata, *trigger;
 

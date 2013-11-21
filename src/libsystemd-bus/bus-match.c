@@ -22,6 +22,8 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-match.h"
+#include "bus-error.h"
+#include "bus-util.h"
 
 /* Example:
  *
@@ -272,7 +274,10 @@ int bus_match_run(
 
                 /* Run the callback. And then invoke siblings. */
                 if (node->leaf.callback) {
-                        r = node->leaf.callback(bus, m, node->leaf.userdata);
+                        _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+
+                        r = node->leaf.callback(bus, m, node->leaf.userdata, &error_buffer);
+                        r = bus_maybe_reply_error(m, r, &error_buffer);
                         if (r != 0)
                                 return r;
                 }

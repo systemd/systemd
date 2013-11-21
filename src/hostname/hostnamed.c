@@ -315,13 +315,12 @@ static int property_get_icon_name(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         _cleanup_free_ char *n = NULL;
         Context *c = userdata;
         const char *name;
-        int r;
 
         if (isempty(c->data[PROP_ICON_NAME]))
                 name = n = context_fallback_icon_name(c);
@@ -331,11 +330,7 @@ static int property_get_icon_name(
         if (!name)
                 return -ENOMEM;
 
-        r = sd_bus_message_append(reply, "s", name);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_bus_message_append(reply, "s", name);
 }
 
 static int property_get_chassis(
@@ -344,27 +339,21 @@ static int property_get_chassis(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Context *c = userdata;
         const char *name;
-        int r;
 
         if (isempty(c->data[PROP_CHASSIS]))
                 name = fallback_chassis();
         else
                 name = c->data[PROP_CHASSIS];
 
-        r = sd_bus_message_append(reply, "s", name);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_bus_message_append(reply, "s", name);
 }
 
-static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *name;
         int interactive;
@@ -373,7 +362,7 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, NULL);
+                return r;
 
         if (isempty(name))
                 name = c->data[PROP_STATIC_HOSTNAME];
@@ -382,20 +371,20 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata) {
                 name = "localhost";
 
         if (!hostname_is_valid(name))
-                return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
 
         if (streq_ptr(name, c->data[PROP_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.hostname1.set-hostname", interactive, &error, method_set_hostname, c);
+        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.hostname1.set-hostname", interactive, error, method_set_hostname, c);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, &error);
+                return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         h = strdup(name);
         if (!h)
-                return log_oom();
+                return -ENOMEM;
 
         free(c->data[PROP_HOSTNAME]);
         c->data[PROP_HOSTNAME] = h;
@@ -403,7 +392,7 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata) {
         r = context_write_data_hostname(c);
         if (r < 0) {
                 log_error("Failed to set host name: %s", strerror(-r));
-                return sd_bus_reply_method_errnof(m, r, "Failed to set hostname: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
         }
 
         log_info("Changed host name to '%s'", strna(c->data[PROP_HOSTNAME]));
@@ -413,8 +402,7 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata) {
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *name;
         int interactive;
@@ -422,7 +410,7 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, NULL);
+                return r;
 
         if (isempty(name))
                 name = NULL;
@@ -430,9 +418,9 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.hostname1.set-static-hostname", interactive, &error, method_set_static_hostname, c);
+        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.hostname1.set-static-hostname", interactive, error, method_set_static_hostname, c);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, &error);
+                return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
@@ -443,11 +431,11 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
                 char *h;
 
                 if (!hostname_is_valid(name))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Invalid static hostname '%s'", name);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid static hostname '%s'", name);
 
                 h = strdup(name);
                 if (!h)
-                        return log_oom();
+                        return -ENOMEM;
 
                 free(c->data[PROP_STATIC_HOSTNAME]);
                 c->data[PROP_STATIC_HOSTNAME] = h;
@@ -456,7 +444,7 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
         r = context_write_data_static_hostname(c);
         if (r < 0) {
                 log_error("Failed to write static host name: %s", strerror(-r));
-                return sd_bus_reply_method_errnof(m, r, "Failed to set static hostname: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set static hostname: %s", strerror(-r));
         }
 
         log_info("Changed static host name to '%s'", strna(c->data[PROP_STATIC_HOSTNAME]));
@@ -466,8 +454,7 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop, sd_bus_message_handler_t cb) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop, sd_bus_message_handler_t cb, sd_bus_error *error) {
         int interactive;
         const char *name;
         int r;
@@ -478,7 +465,7 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
 
         r = sd_bus_message_read(m, "sb", &name, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, NULL);
+                return r;
 
         if (isempty(name))
                 name = NULL;
@@ -492,9 +479,9 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
 
         r = bus_verify_polkit_async(bus, &c->polkit_registry, m, prop == PROP_PRETTY_HOSTNAME ?
                           "org.freedesktop.hostname1.set-static-hostname" :
-                          "org.freedesktop.hostname1.set-machine-info", interactive, &error, cb, c);
+                          "org.freedesktop.hostname1.set-machine-info", interactive, error, cb, c);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, &error);
+                return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
@@ -508,16 +495,16 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
                  * name, so better be safe than sorry */
 
                 if (prop == PROP_ICON_NAME && !filename_is_safe(name))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
                 if (prop == PROP_PRETTY_HOSTNAME &&
                     (string_has_cc(name) || chars_intersect(name, "\t")))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);
                 if (prop == PROP_CHASSIS && !valid_chassis(name))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
 
                 h = strdup(name);
                 if (!h)
-                        return log_oom();
+                        return -ENOMEM;
 
                 free(c->data[prop]);
                 c->data[prop] = h;
@@ -526,7 +513,7 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
         r = context_write_data_other(c);
         if (r < 0) {
                 log_error("Failed to write machine info: %s", strerror(-r));
-                return sd_bus_reply_method_errnof(m, r, "Failed to write machine info: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %s", strerror(-r));
         }
 
         log_info("Changed %s to '%s'",
@@ -540,16 +527,16 @@ static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_pretty_hostname(sd_bus *bus, sd_bus_message *m, void *userdata) {
-        return set_machine_info(userdata, bus, m, PROP_PRETTY_HOSTNAME, method_set_pretty_hostname);
+static int method_set_pretty_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, bus, m, PROP_PRETTY_HOSTNAME, method_set_pretty_hostname, error);
 }
 
-static int method_set_icon_name(sd_bus *bus, sd_bus_message *m, void *userdata) {
-        return set_machine_info(userdata, bus, m, PROP_ICON_NAME, method_set_icon_name);
+static int method_set_icon_name(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, bus, m, PROP_ICON_NAME, method_set_icon_name, error);
 }
 
-static int method_set_chassis(sd_bus *bus, sd_bus_message *m, void *userdata) {
-        return set_machine_info(userdata, bus, m, PROP_CHASSIS, method_set_chassis);
+static int method_set_chassis(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, bus, m, PROP_CHASSIS, method_set_chassis, error);
 }
 
 static const sd_bus_vtable hostname_vtable[] = {

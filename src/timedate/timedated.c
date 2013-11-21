@@ -458,8 +458,8 @@ static int property_get_rtc_time(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         struct tm tm;
         usec_t t;
@@ -470,17 +470,12 @@ static int property_get_rtc_time(
         if (r == -EBUSY) {
                 log_warning("/dev/rtc is busy, is somebody keeping it open continously? That's not a good idea... Returning a bogus RTC timestamp.");
                 t = 0;
-        } else if (r < 0) {
-                sd_bus_error_set_errnof(error, -r, "Failed to read RTC: %s", strerror(-r));
-                return r;
-        } else
+        } else if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to read RTC: %s", strerror(-r));
+        else
                 t = (usec_t) timegm(&tm) * USEC_PER_SEC;
 
-        r = sd_bus_message_append(reply, "t", t);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_bus_message_append(reply, "t", t);
 }
 
 static int property_get_time(
@@ -489,16 +484,10 @@ static int property_get_time(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
-        int r;
-
-        r = sd_bus_message_append(reply, "t", now(CLOCK_REALTIME));
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_bus_message_append(reply, "t", now(CLOCK_REALTIME));
 }
 
 static int property_get_ntp_sync(
@@ -507,20 +496,13 @@ static int property_get_ntp_sync(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
-        int r;
-
-        r = sd_bus_message_append(reply, "b", ntp_synced());
-        if (r < 0)
-                return r;
-
-        return 1;
+        return sd_bus_message_append(reply, "b", ntp_synced());
 }
 
-static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *z;
         int interactive;
@@ -533,23 +515,23 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
         r = sd_bus_message_read(m, "sb", &z, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, NULL);
+                return r;
 
         if (!valid_timezone(z))
-                return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Invalid time zone '%s'", z);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid time zone '%s'", z);
 
         if (streq_ptr(z, c->zone))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-timezone", interactive, &error, method_set_timezone, c);
+        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-timezone", interactive, error, method_set_timezone, c);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, &error);
+                return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         t = strdup(z);
         if (!t)
-                return log_oom();
+                return -ENOMEM;
 
         free(c->zone);
         c->zone = t;
@@ -558,7 +540,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
         r = context_write_data_timezone(c);
         if (r < 0) {
                 log_error("Failed to set timezone: %s", strerror(-r));
-                return sd_bus_reply_method_errnof(m, r, "Failed to set timezone: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set timezone: %s", strerror(-r));
         }
 
         /* 2. Tell the kernel our timezone */
@@ -585,8 +567,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata) {
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int lrtc, fix_system, interactive;
         Context *c = userdata;
         struct timespec ts;
@@ -598,14 +579,14 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata) 
 
         r = sd_bus_message_read(m, "bbb", &lrtc, &fix_system, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, NULL);
+                return r;
 
         if (lrtc == c->local_rtc)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-local-rtc", interactive, &error, method_set_local_rtc, c);
+        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-local-rtc", interactive, error, method_set_local_rtc, c);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, &error);
+                return r;
         if (r == 0)
                 return 1;
 
@@ -615,7 +596,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata) 
         r = context_write_data_local_rtc(c);
         if (r < 0) {
                 log_error("Failed to set RTC to local/UTC: %s", strerror(-r));
-                return sd_bus_reply_method_errnof(m, r, "Failed to set RTC to local/UTC: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set RTC to local/UTC: %s", strerror(-r));
         }
 
         /* 2. Tell the kernel our timezone */
@@ -669,8 +650,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata) 
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int relative, interactive;
         Context *c = userdata;
         int64_t utc;
@@ -684,10 +664,10 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
         r = sd_bus_message_read(m, "xbb", &utc, &relative, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, NULL);
+                return r;
 
         if (!relative && utc <= 0)
-                return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Invalid absolute time");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid absolute time");
 
         if (relative && utc == 0)
                 return sd_bus_reply_method_return(m, NULL);
@@ -700,22 +680,22 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
                 if ((utc > 0 && x < n) ||
                     (utc < 0 && x > n))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Time value overflow");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Time value overflow");
 
                 timespec_store(&ts, x);
         } else
                 timespec_store(&ts, (usec_t) utc);
 
-        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-time", interactive, &error, method_set_time, c);
+        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-time", interactive, error, method_set_time, c);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, &error);
+                return r;
         if (r == 0)
                 return 1;
 
         /* Set system clock */
         if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
                 log_error("Failed to set local time: %m");
-                return sd_bus_reply_method_errnof(m, errno, "Failed to set local time: %m");
+                return sd_bus_error_set_errnof(error, errno, "Failed to set local time: %m");
         }
 
         /* Sync down to RTC */
@@ -735,34 +715,33 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata) {
         return sd_bus_reply_method_return(m, NULL);
 }
 
-static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         int ntp, interactive;
         Context *c = userdata;
         int r;
 
         r = sd_bus_message_read(m, "bb", &ntp, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, NULL);
+                return r;
 
         if ((bool)ntp == c->use_ntp)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-ntp", interactive, &error, method_set_ntp, c);
+        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-ntp", interactive, error, method_set_ntp, c);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, &error);
+                return r;
         if (r == 0)
                 return 1;
 
         c->use_ntp = ntp;
 
-        r = context_enable_ntp(c, bus, &error);
+        r = context_enable_ntp(c, bus, error);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, &error);
+                return r;
 
-        r = context_start_ntp(c, bus, &error);
+        r = context_start_ntp(c, bus, error);
         if (r < 0)
-                return sd_bus_reply_method_errno(m, r, &error);
+                return r;
 
         log_info("Set NTP to %s", c->use_ntp ? "enabled" : "disabled");
 

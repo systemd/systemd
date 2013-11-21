@@ -40,8 +40,8 @@ static int property_get_environment_files(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         ExecContext *c = userdata;
         char **j;
@@ -72,8 +72,8 @@ static int property_get_rlimit(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         struct rlimit *rl;
         uint64_t u;
@@ -106,8 +106,8 @@ static int property_get_oom_score_adjust(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
 
         ExecContext *c = userdata;
@@ -136,8 +136,8 @@ static int property_get_nice(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
 
         ExecContext *c = userdata;
@@ -165,8 +165,8 @@ static int property_get_ioprio(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
 
         ExecContext *c = userdata;
@@ -193,8 +193,8 @@ static int property_get_cpu_sched_policy(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         ExecContext *c = userdata;
         int32_t n;
@@ -220,8 +220,8 @@ static int property_get_cpu_sched_priority(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         ExecContext *c = userdata;
         int32_t n;
@@ -250,8 +250,8 @@ static int property_get_cpu_affinity(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         ExecContext *c = userdata;
 
@@ -271,8 +271,8 @@ static int property_get_timer_slack_nsec(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         ExecContext *c = userdata;
         uint64_t u;
@@ -295,8 +295,8 @@ static int property_get_capability_bounding_set(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         ExecContext *c = userdata;
 
@@ -315,8 +315,8 @@ static int property_get_capabilities(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         ExecContext *c = userdata;
         char *t = NULL;
@@ -349,8 +349,8 @@ static int property_get_syscall_filter(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         ExecContext *c = userdata;
 
@@ -434,8 +434,8 @@ int bus_property_get_exec_command(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *ret_error) {
 
         ExecCommand *c = *(ExecCommand**) userdata;
         int r;

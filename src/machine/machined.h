@@ -62,10 +62,10 @@ extern const sd_bus_vtable manager_vtable[];
 
 int machine_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata);
 
-int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata);
-int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata);
-int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata);
-int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata);
+int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, sd_bus_message *more_properties, sd_bus_error *error, char **job);
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);

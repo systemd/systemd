@@ -223,6 +223,8 @@ static int node_callbacks_run(
         assert(found_object);
 
         LIST_FOREACH(callbacks, c, first) {
+                _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+
                 if (bus->nodes_modified)
                         return 0;
 
@@ -240,7 +242,8 @@ static int node_callbacks_run(
                 if (r < 0)
                         return r;
 
-                r = c->callback(bus, m, c->userdata);
+                r = c->callback(bus, m, c->userdata, &error_buffer);
+                r = bus_maybe_reply_error(m, r, &error_buffer);
                 if (r != 0)
                         return r;
         }
@@ -299,8 +302,13 @@ static int method_callbacks_run(
                 return 1;
         }
 
-        if (c->vtable->x.method.handler)
-                return c->vtable->x.method.handler(bus, m, u);
+        if (c->vtable->x.method.handler) {
+                _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+
+                r = c->vtable->x.method.handler(bus, m, u, &error_buffer);
+
+                return bus_maybe_reply_error(m, r, &error_buffer);
+        }
 
         /* If the method callback is NULL, make this a successful NOP */
         r = sd_bus_reply_method_return(m, NULL);
@@ -316,9 +324,9 @@ static int invoke_property_get(
                 const char *path,
                 const char *interface,
                 const char *property,
-                sd_bus_message *m,
-                sd_bus_error *error,
-                void *userdata) {
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
 
         const void *p;
 
@@ -327,15 +335,15 @@ static int invoke_property_get(
         assert(path);
         assert(interface);
         assert(property);
-        assert(m);
+        assert(reply);
 
         if (v->x.property.get)
-                return v->x.property.get(bus, path, interface, property, m, error, userdata);
+                return v->x.property.get(bus, path, interface, property, reply, userdata, error);
 
         /* Automatic handling if no callback is defined. */
 
         if (streq(v->x.property.signature, "as"))
-                return sd_bus_message_append_strv(m, *(char***) userdata);
+                return sd_bus_message_append_strv(reply, *(char***) userdata);
 
         assert(signature_is_single(v->x.property.signature, false));
         assert(bus_type_is_basic(v->x.property.signature[0]));
@@ -357,7 +365,7 @@ static int invoke_property_get(
                 break;
         }
 
-        return sd_bus_message_append_basic(m, v->x.property.signature[0], p);
+        return sd_bus_message_append_basic(reply, v->x.property.signature[0], p);
 }
 
 static int invoke_property_set(
@@ -367,8 +375,8 @@ static int invoke_property_set(
                 const char *interface,
                 const char *property,
                 sd_bus_message *value,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         int r;
 
@@ -380,7 +388,7 @@ static int invoke_property_set(
         assert(value);
 
         if (v->x.property.set)
-                return v->x.property.set(bus, path, interface, property, value, error, userdata);
+                return v->x.property.set(bus, path, interface, property, value, userdata, error);
 
         /*  Automatic handling if no callback is defined. */
 
@@ -428,8 +436,8 @@ static int property_get_set_callbacks_run(
                 bool is_get,
                 bool *found_object) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         void *u;
         int r;
 
@@ -465,17 +473,11 @@ static int property_get_set_callbacks_run(
                 if (r < 0)
                         return r;
 
-                r = invoke_property_get(bus, c->vtable, m->path, c->interface, c->member, reply, &error, u);
+                r = invoke_property_get(bus, c->vtable, m->path, c->interface, c->member, reply, u, &error);
                 if (r < 0)
-                        return r;
-
-                if (sd_bus_error_is_set(&error)) {
-                        r = sd_bus_reply_method_error(m, &error);
-                        if (r < 0)
-                                return r;
-
-                        return 1;
-                }
+                        return sd_bus_reply_method_errno(m, r, &error);
+                if (sd_bus_error_is_set(&error))
+                        return sd_bus_reply_method_error(m, &error);
 
                 if (bus->nodes_modified)
                         return 0;
@@ -486,33 +488,25 @@ static int property_get_set_callbacks_run(
 
         } else {
                 if (c->vtable->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
-                        sd_bus_error_setf(&error, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Property '%s' is not writable.", c->member);
-                else  {
-                        /* Avoid that we call the set routine more
-                         * than once if the processing of this message
-                         * got restarted because the node tree
-                         * changed. */
-                        if (c->last_iteration == bus->iteration_counter)
-                                return 0;
+                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_PROPERTY_READ_ONLY, "Property '%s' is not writable.", c->member);
 
-                        c->last_iteration = bus->iteration_counter;
+                /* Avoid that we call the set routine more than once
+                 * if the processing of this message got restarted
+                 * because the node tree changed. */
+                if (c->last_iteration == bus->iteration_counter)
+                        return 0;
 
-                        r = sd_bus_message_enter_container(m, 'v', c->vtable->x.property.signature);
-                        if (r < 0)
-                                return r;
+                c->last_iteration = bus->iteration_counter;
 
-                        r = invoke_property_set(bus, c->vtable, m->path, c->interface, c->member, m, &error, u);
-                        if (r < 0)
-                                return r;
-                }
+                r = sd_bus_message_enter_container(m, 'v', c->vtable->x.property.signature);
+                if (r < 0)
+                        return r;
 
-                if (sd_bus_error_is_set(&error)) {
-                        r = sd_bus_reply_method_error(m, &error);
-                        if (r < 0)
-                                return r;
-
-                        return 1;
-                }
+                r = invoke_property_set(bus, c->vtable, m->path, c->interface, c->member, m, u, &error);
+                if (r < 0)
+                        return sd_bus_reply_method_errno(m, r, &error);
+                if (sd_bus_error_is_set(&error))
+                        return sd_bus_reply_method_error(m, &error);
 
                 if (bus->nodes_modified)
                         return 0;
@@ -561,11 +555,13 @@ static int vtable_append_all_properties(
                 if (r < 0)
                         return r;
 
-                r = invoke_property_get(bus, v, path, c->interface, v->x.property.member, reply, error, vtable_property_convert_userdata(v, userdata));
-                if (r < 0)
-                        return r;
+                r = invoke_property_get(bus, v, path, c->interface, v->x.property.member, reply, vtable_property_convert_userdata(v, userdata), error);
                 if (sd_bus_error_is_set(error))
                         return 0;
+                if (r < 0) {
+                        sd_bus_error_set_errno(error, r);
+                        return 0;
+                }
                 if (bus->nodes_modified)
                         return 0;
 
@@ -1944,9 +1940,11 @@ static int emit_properties_changed_on_interface(
                         if (r < 0)
                                 return r;
 
-                        r = invoke_property_get(bus, v->vtable, m->path, interface, *property, m, &error, vtable_property_convert_userdata(v->vtable, u));
+                        r = invoke_property_get(bus, v->vtable, m->path, interface, *property, m, vtable_property_convert_userdata(v->vtable, u), &error);
                         if (r < 0)
                                 return r;
+                        if (sd_bus_error_is_set(&error))
+                                return sd_bus_error_get_errno(&error);
                         if (bus->nodes_modified)
                                 return 0;
 

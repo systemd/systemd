@@ -35,8 +35,8 @@ static int property_get_unit(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Job *j = userdata;
@@ -52,14 +52,18 @@ static int property_get_unit(
         return sd_bus_message_append(reply, "(so)", j->unit->id, p);
 }
 
-static int method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Job *j = userdata;
+        int r;
 
         assert(bus);
         assert(message);
         assert(j);
 
-        SELINUX_UNIT_ACCESS_CHECK(j->unit, bus, message, "stop");
+        r = selinux_unit_access_check(j->unit, bus, message, "stop", error);
+        if (r < 0)
+                return r;
+
         job_finish_and_invalidate(j, JOB_CANCELED, true);
 
         return sd_bus_reply_method_return(message, NULL);

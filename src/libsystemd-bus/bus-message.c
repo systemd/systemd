@@ -2133,7 +2133,7 @@ int bus_message_append_ap(
                         return r;
         }
 
-        return 0;
+        return 1;
 }
 
 _public_ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {

@@ -23,11 +23,11 @@
 #include "log.h"
 #include "bus-introspect.h"
 
-static int prop_get(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata) {
+static int prop_get(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         return -EINVAL;
 }
 
-static int prop_set(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata) {
+static int prop_set(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         return -EINVAL;
 }
 

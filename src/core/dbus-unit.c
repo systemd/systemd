@@ -39,8 +39,8 @@ static int property_get_names(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
         Iterator i;
@@ -70,8 +70,8 @@ static int property_get_following(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata, *f;
 
@@ -89,8 +89,8 @@ static int property_get_dependencies(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Set *s = *(Set**) userdata;
         Iterator j;
@@ -119,8 +119,8 @@ static int property_get_description(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
 
@@ -137,8 +137,8 @@ static int property_get_active_state(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
 
@@ -155,8 +155,8 @@ static int property_get_sub_state(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
 
@@ -173,8 +173,8 @@ static int property_get_unit_file_state(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
 
@@ -191,8 +191,8 @@ static int property_get_can_start(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
 
@@ -209,8 +209,8 @@ static int property_get_can_stop(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
 
@@ -230,8 +230,8 @@ static int property_get_can_reload(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
 
@@ -248,8 +248,8 @@ static int property_get_can_isolate(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
 
@@ -266,8 +266,8 @@ static int property_get_job(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Unit *u = userdata;
@@ -292,8 +292,8 @@ static int property_get_need_daemon_reload(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
 
@@ -310,8 +310,8 @@ static int property_get_conditions(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
         Condition *c;
@@ -341,8 +341,8 @@ static int property_get_load_error(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
         Unit *u = userdata;
@@ -357,7 +357,7 @@ static int property_get_load_error(
         return sd_bus_message_append(reply, "(ss)", e.name, e.message);
 }
 
-int bus_unit_method_start_generic(sd_bus *bus, sd_bus_message *message, Unit *u, JobType job_type, bool reload_if_possible) {
+int bus_unit_method_start_generic(sd_bus *bus, sd_bus_message *message, Unit *u, JobType job_type, bool reload_if_possible, sd_bus_error *error) {
         const char *smode;
         JobMode mode;
         int r;
@@ -369,45 +369,44 @@ int bus_unit_method_start_generic(sd_bus *bus, sd_bus_message *message, Unit *u,
 
         r = sd_bus_message_read(message, "s", &smode);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         mode = job_mode_from_string(smode);
         if (mode < 0)
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
 
-        return bus_unit_queue_job(bus, message, u, job_type, mode, reload_if_possible);
+        return bus_unit_queue_job(bus, message, u, job_type, mode, reload_if_possible, error);
 }
 
-static int method_start(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_START, false);
+static int method_start(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(bus, message, userdata, JOB_START, false, error);
 }
 
-static int method_stop(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_STOP, false);
+static int method_stop(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(bus, message, userdata, JOB_STOP, false, error);
 }
 
-static int method_reload(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_RELOAD, false);
+static int method_reload(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(bus, message, userdata, JOB_RELOAD, false, error);
 }
 
-static int method_restart(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_RESTART, false);
+static int method_restart(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(bus, message, userdata, JOB_RESTART, false, error);
 }
 
-static int method_try_restart(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_TRY_RESTART, false);
+static int method_try_restart(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(bus, message, userdata, JOB_TRY_RESTART, false, error);
 }
 
-static int method_reload_or_restart(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_RESTART, true);
+static int method_reload_or_restart(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(bus, message, userdata, JOB_RESTART, true, error);
 }
 
-static int method_reload_or_try_restart(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        return bus_unit_method_start_generic(bus, message, userdata, JOB_TRY_RESTART, true);
+static int method_reload_or_try_restart(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_start_generic(bus, message, userdata, JOB_TRY_RESTART, true, error);
 }
 
-int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Unit *u = userdata;
         const char *swho;
         int32_t signo;
@@ -420,44 +419,48 @@ int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
         r = sd_bus_message_read(message, "si", &swho, &signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (isempty(swho))
                 who = KILL_ALL;
         else {
                 who = kill_who_from_string(swho);
                 if (who < 0)
-                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid who argument %s", swho);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid who argument %s", swho);
         }
 
         if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
 
-        SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "stop");
-
-        r = unit_kill(u, who, signo, &error);
+        r = selinux_unit_access_check(u, bus, message, "stop", error);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, &error);
+                return r;
+
+        r = unit_kill(u, who, signo, error);
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_unit_method_reset_failed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+int bus_unit_method_reset_failed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Unit *u = userdata;
+        int r;
 
         assert(bus);
         assert(message);
         assert(u);
 
-        SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "reload");
+        r = selinux_unit_access_check(u, bus, message, "reload", error);
+        if (r < 0)
+                return r;
 
         unit_reset_failed(u);
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Unit *u = userdata;
         int runtime, r;
 
@@ -467,21 +470,23 @@ int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *u
 
         r = sd_bus_message_read(message, "b", &runtime);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
-        SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "start");
+        r = selinux_unit_access_check(u, bus, message, "start", error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_enter_container(message, 'a', "(sv)");
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
-        r = bus_unit_set_properties(u, message, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, &error);
+        r = bus_unit_set_properties(u, message, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, error);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, &error);
+                return r;
 
         r = sd_bus_message_exit_container(message);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -568,8 +573,8 @@ static int property_get_slice(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata;
 
@@ -728,9 +733,9 @@ int bus_unit_queue_job(
                 Unit *u,
                 JobType type,
                 JobMode mode,
-                bool reload_if_possible) {
+                bool reload_if_possible,
+                sd_bus_error *error) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         Job *j;
         int r;
@@ -748,31 +753,34 @@ int bus_unit_queue_job(
                         type = JOB_RELOAD;
         }
 
-        SELINUX_UNIT_ACCESS_CHECK(u, bus, message,
-                                  (type == JOB_START || type == JOB_RESTART || type == JOB_TRY_RESTART) ? "start" :
-                                  type == JOB_STOP ? "stop" : "reload");
+        r = selinux_unit_access_check(
+                        u, bus, message,
+                        (type == JOB_START || type == JOB_RESTART || type == JOB_TRY_RESTART) ? "start" :
+                        type == JOB_STOP ? "stop" : "reload", error);
+        if (r < 0)
+                return r;
 
         if (type == JOB_STOP &&
             (u->load_state == UNIT_NOT_FOUND || u->load_state == UNIT_ERROR) &&
             unit_active_state(u) == UNIT_INACTIVE)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
 
         if ((type == JOB_START && u->refuse_manual_start) ||
             (type == JOB_STOP && u->refuse_manual_stop) ||
             ((type == JOB_RESTART || type == JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)))
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only.", u->id);
+                return sd_bus_error_setf(error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only.", u->id);
 
-        r = manager_add_job(u->manager, type, u, mode, true, &error, &j);
+        r = manager_add_job(u->manager, type, u, mode, true, error, &j);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, &error);
+                return r;
 
         r = bus_client_track(&j->subscribed, bus, sd_bus_message_get_sender(message));
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         path = job_dbus_path(j);
         if (!path)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, "o", path);
 }

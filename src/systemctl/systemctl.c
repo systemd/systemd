@@ -1711,7 +1711,7 @@ typedef struct WaitData {
         char *result;
 } WaitData;
 
-static int wait_filter(sd_bus *bus, sd_bus_message *m, void *data) {
+static int wait_filter(sd_bus *bus, sd_bus_message *m, void *data, sd_bus_error *error) {
         WaitData *d = data;
 
         assert(bus);
@@ -1764,7 +1764,7 @@ static int wait_filter(sd_bus *bus, sd_bus_message *m, void *data) {
                 }
 #endif
 
-                log_error("Failed to parse message.");
+                bus_log_parse_error(r);
         }
 
         return 0;

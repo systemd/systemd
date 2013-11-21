@@ -35,8 +35,8 @@ static int property_get_active_session(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Seat *s = userdata;
@@ -58,8 +58,8 @@ static int property_get_can_multi_session(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Seat *s = userdata;
 
@@ -76,8 +76,8 @@ static int property_get_can_tty(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Seat *s = userdata;
 
@@ -94,8 +94,8 @@ static int property_get_can_graphical(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Seat *s = userdata;
 
@@ -112,8 +112,8 @@ static int property_get_sessions(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Seat *s = userdata;
         Session *session;
@@ -153,8 +153,8 @@ static int property_get_idle_hint(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Seat *s = userdata;
 
@@ -171,8 +171,8 @@ static int property_get_idle_since_hint(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Seat *s = userdata;
         dual_timestamp t;
@@ -192,7 +192,7 @@ static int property_get_idle_since_hint(
         return sd_bus_message_append(reply, "t", u);
 }
 
-static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         int r;
 
@@ -202,12 +202,12 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
 
         r = seat_stop_sessions(s);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Seat *s = userdata;
         const char *name;
         Session *session;
@@ -219,18 +219,18 @@ static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *u
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         session = hashmap_get(s->manager->sessions, name);
         if (!session)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
         if (session->seat != s)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", name, s->id);
+                return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", name, s->id);
 
         r = session_activate(session);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }

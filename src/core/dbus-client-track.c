@@ -19,6 +19,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "bus-util.h"
 #include "dbus-client-track.h"
 
 static unsigned tracked_client_hash(const void *a) {
@@ -43,7 +44,7 @@ static int tracked_client_compare(const void *a, const void *b) {
         return 0;
 }
 
-static int on_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int on_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         BusTrackedClient *c = userdata;
         const char *name, *old, *new;
         int r;
@@ -53,8 +54,8 @@ static int on_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *use
 
         r = sd_bus_message_read(message, "sss", &name, &old, &new);
         if (r < 0) {
-                log_debug("Failed to parse NameOwnerChanged message.");
-                return 0;
+                bus_log_parse_error(r);
+                return r;
         }
 
         bus_client_untrack(c->set, bus, name);

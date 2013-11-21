@@ -72,8 +72,8 @@ int bus_open_transport_systemd(BusTransport transport, const char *host, bool us
 int bus_print_property(const char *name, sd_bus_message *property, bool all);
 int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, char **filter, bool all);
 
-int bus_property_get_tristate(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
-int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
+int bus_property_get_tristate(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 
 #define bus_property_get_usec ((sd_bus_property_get_t) NULL)
 #define bus_property_set_usec ((sd_bus_property_set_t) NULL)
@@ -89,15 +89,15 @@ assert_cc(sizeof(unsigned) == sizeof(unsigned));
 #if __SIZEOF_SIZE_T__ == 8
 #define bus_property_get_size ((sd_bus_property_get_t) NULL)
 #else
-int bus_property_get_size(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
+int bus_property_get_size(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 #endif
 
 #if __SIZEOF_LONG__ == 8
 #define bus_property_get_long ((sd_bus_property_get_t) NULL)
 #define bus_property_get_ulong ((sd_bus_property_get_t) NULL)
 #else
-int bus_property_get_long(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
-int bus_property_get_ulong(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, sd_bus_error *error, void *userdata);
+int bus_property_get_long(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+int bus_property_get_ulong(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 #endif
 
 /* uid_t and friends on Linux 32 bit. This means we can just use the
@@ -146,8 +146,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
                      const char *interface,                             \
                      const char *property,                              \
                      sd_bus_message *reply,                             \
-                     sd_bus_error *error,                               \
-                     void *userdata) {                                  \
+                     void *userdata,                                    \
+                     sd_bus_error *error) {                             \
                                                                         \
                 const char *value;                                      \
                 type *field = userdata;                                 \
@@ -170,3 +170,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
 #define BUS_PROPERTY_DUAL_TIMESTAMP(name, offset, flags) \
         SD_BUS_PROPERTY(name, "t", bus_property_get_usec, offset + offsetof(struct dual_timestamp, realtime), flags), \
         SD_BUS_PROPERTY(name "Monotonic", "t", bus_property_get_usec, offset + offsetof(struct dual_timestamp, monotonic), flags)
+
+int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);

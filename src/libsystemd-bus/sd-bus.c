@@ -365,7 +365,7 @@ _public_ int sd_bus_set_anonymous(sd_bus *bus, int b) {
         return 0;
 }
 
-static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata) {
+static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         const char *s;
         int r;
 
@@ -1824,6 +1824,7 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
 }
 
 static int process_timeout(sd_bus *bus) {
+        _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message* m = NULL;
         struct reply_callback *c;
         usec_t n;
@@ -1857,12 +1858,13 @@ static int process_timeout(sd_bus *bus) {
         bus->current = m;
         bus->iteration_counter ++;
 
-        r = c->callback(bus, m, c->userdata);
+        r = c->callback(bus, m, c->userdata, &error_buffer);
+        r = bus_maybe_reply_error(m, r, &error_buffer);
         free(c);
 
         bus->current = NULL;
 
-        return r < 0 ? r : 1;
+        return r;
 }
 
 static int process_hello(sd_bus *bus, sd_bus_message *m) {
@@ -1888,6 +1890,7 @@ static int process_hello(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int process_reply(sd_bus *bus, sd_bus_message *m) {
+        _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         struct reply_callback *c;
         int r;
 
@@ -1909,13 +1912,15 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return r;
 
-        r = c->callback(bus, m, c->userdata);
+        r = c->callback(bus, m, c->userdata, &error_buffer);
+        r = bus_maybe_reply_error(m, r, &error_buffer);
         free(c);
 
-        return r < 0 ? r : 1;
+        return r;
 }
 
 static int process_filter(sd_bus *bus, sd_bus_message *m) {
+        _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         struct filter_callback *l;
         int r;
 
@@ -1940,7 +1945,8 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         if (r < 0)
                                 return r;
 
-                        r = l->callback(bus, m, l->userdata);
+                        r = l->callback(bus, m, &error_buffer, l->userdata);
+                        r = bus_maybe_reply_error(m, r, &error_buffer);
                         if (r != 0)
                                 return r;
 
@@ -2123,6 +2129,8 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
 
         c = hashmap_first(bus->reply_callbacks);
         if (c) {
+                _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+
                 /* First, fail all outstanding method calls */
                 r = bus_message_new_synthetic_error(
                                 bus,
@@ -2144,11 +2152,9 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                 bus->current = m;
                 bus->iteration_counter++;
 
-                r = c->callback(bus, m, c->userdata);
+                r = c->callback(bus, m, c->userdata, &error_buffer);
+                r = bus_maybe_reply_error(m, r, &error_buffer);
                 free(c);
-
-                if (r >= 0)
-                        r = 1;
 
                 goto finish;
         }

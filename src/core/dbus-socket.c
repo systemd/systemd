@@ -37,8 +37,8 @@ static int property_get_listen(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
 
         Socket *s = SOCKET(userdata);

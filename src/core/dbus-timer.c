@@ -33,8 +33,8 @@ static int property_get_monotonic_timers(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Timer *t = userdata;
         TimerValue *v;
@@ -82,8 +82,8 @@ static int property_get_calendar_timers(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Timer *t = userdata;
         TimerValue *v;
@@ -121,8 +121,8 @@ static int property_get_unit(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Unit *u = userdata, *trigger;
 

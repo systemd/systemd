@@ -37,8 +37,8 @@ static int property_get_user(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Session *s = userdata;
@@ -60,8 +60,8 @@ static int property_get_name(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Session *s = userdata;
 
@@ -78,8 +78,8 @@ static int property_get_seat(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Session *s = userdata;
@@ -104,8 +104,8 @@ static int property_get_active(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Session *s = userdata;
 
@@ -122,8 +122,8 @@ static int property_get_state(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Session *s = userdata;
 
@@ -140,8 +140,8 @@ static int property_get_idle_hint(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Session *s = userdata;
 
@@ -158,8 +158,8 @@ static int property_get_idle_since_hint(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Session *s = userdata;
         dual_timestamp t;
@@ -179,7 +179,7 @@ static int property_get_idle_since_hint(
         return sd_bus_message_append(reply, "t", u);
 }
 
-static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r;
 
@@ -189,12 +189,12 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
 
         r = session_stop(s);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_activate(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_activate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r;
 
@@ -204,12 +204,12 @@ static int method_activate(sd_bus *bus, sd_bus_message *message, void *userdata)
 
         r = session_activate(s);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_lock(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_lock(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r;
 
@@ -219,12 +219,12 @@ static int method_lock(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
         r = session_send_lock(s, streq(sd_bus_message_get_member(message), "Lock"));
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uid_t uid;
         int r, b;
@@ -235,21 +235,21 @@ static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *user
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = sd_bus_get_owner_uid(bus, sd_bus_message_get_sender(message), &uid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (uid != 0 && uid != s->user->uid)
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session my set idle hint");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session my set idle hint");
 
         session_set_idle_hint(s, b);
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         const char *swho;
         int32_t signo;
@@ -262,27 +262,27 @@ static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
         r = sd_bus_message_read(message, "si", &swho, &signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (isempty(swho))
                 who = KILL_ALL;
         else {
                 who = kill_who_from_string(swho);
                 if (who < 0)
-                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
         }
 
         if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         r = session_kill(s, who, signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_take_control(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_take_control(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r, force;
         uid_t uid;
@@ -293,23 +293,23 @@ static int method_take_control(sd_bus *bus, sd_bus_message *message, void *userd
 
         r = sd_bus_message_read(message, "b", &force);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = sd_bus_get_owner_uid(bus, sd_bus_message_get_sender(message), &uid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (uid != 0 && (force || uid != s->user->uid))
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may take control");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may take control");
 
         r = session_set_controller(s, sd_bus_message_get_sender(message), force);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_release_control(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_release_control(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
 
         assert(bus);
@@ -317,14 +317,14 @@ static int method_release_control(sd_bus *bus, sd_bus_message *message, void *us
         assert(s);
 
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
+                return sd_bus_error_setf(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
 
         session_drop_controller(s);
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_take_device(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_take_device(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
         SessionDevice *sd;
@@ -337,10 +337,10 @@ static int method_take_device(sd_bus *bus, sd_bus_message *message, void *userda
 
         r = sd_bus_message_read(message, "uu", &major, &minor);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
+                return sd_bus_error_setf(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
 
         dev = makedev(major, minor);
         sd = hashmap_get(s->devices, &dev);
@@ -350,11 +350,11 @@ static int method_take_device(sd_bus *bus, sd_bus_message *message, void *userda
                  * The caller should use dup() if it requires more
                  * than one fd (it would be functionally
                  * equivalent). */
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_DEVICE_IS_TAKEN, "Device already taken");
+                return sd_bus_error_setf(error, BUS_ERROR_DEVICE_IS_TAKEN, "Device already taken");
 
         r = session_device_new(s, dev, &sd);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = sd_bus_reply_method_return(message, "hb", sd->fd, !sd->active);
         if (r < 0)
@@ -363,7 +363,7 @@ static int method_take_device(sd_bus *bus, sd_bus_message *message, void *userda
         return r;
 }
 
-static int method_release_device(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_release_device(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
         SessionDevice *sd;
@@ -376,21 +376,21 @@ static int method_release_device(sd_bus *bus, sd_bus_message *message, void *use
 
         r = sd_bus_message_read(message, "uu", &major, &minor);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
+                return sd_bus_error_setf(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
 
         dev = makedev(major, minor);
         sd = hashmap_get(s->devices, &dev);
         if (!sd)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_DEVICE_NOT_TAKEN, "Device not taken");
+                return sd_bus_error_setf(error, BUS_ERROR_DEVICE_NOT_TAKEN, "Device not taken");
 
         session_device_free(sd);
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_pause_device_complete(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_pause_device_complete(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
         SessionDevice *sd;
@@ -403,15 +403,15 @@ static int method_pause_device_complete(sd_bus *bus, sd_bus_message *message, vo
 
         r = sd_bus_message_read(message, "uu", &major, &minor);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
+                return sd_bus_error_setf(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
 
         dev = makedev(major, minor);
         sd = hashmap_get(s->devices, &dev);
         if (!sd)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_DEVICE_NOT_TAKEN, "Device not taken");
+                return sd_bus_error_setf(error, BUS_ERROR_DEVICE_NOT_TAKEN, "Device not taken");
 
         session_device_complete_pause(sd);
 

@@ -314,7 +314,7 @@ static int get_calling_context(
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int selinux_access_check(
+int selinux_generic_access_check(
                 sd_bus *bus,
                 sd_bus_message *message,
                 const char *path,
@@ -391,7 +391,7 @@ finish:
 
 #else
 
-int selinux_access_check(
+int selinux_generic_access_check(
                 sd_bus *bus,
                 sd_bus_message *message,
                 const char *path,

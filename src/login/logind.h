@@ -150,11 +150,11 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
 
 extern const sd_bus_vtable manager_vtable[];
 
-int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata);
-int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata);
-int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata);
-int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata);
-int match_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata);
+int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
+int match_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name, InhibitWhat w, sd_bus_error *error);
 

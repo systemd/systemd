@@ -31,7 +31,7 @@
 
 static bool mask[32];
 
-static int filter(sd_bus *b, sd_bus_message *m, void *userdata) {
+static int filter(sd_bus *b, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Ran %i", PTR_TO_INT(userdata));
         mask[PTR_TO_INT(userdata)] = true;
         return 0;

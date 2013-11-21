@@ -48,8 +48,8 @@ static int property_get_idle_hint(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Manager *m = userdata;
 
@@ -66,8 +66,8 @@ static int property_get_idle_since_hint(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Manager *m = userdata;
         dual_timestamp t;
@@ -87,8 +87,8 @@ static int property_get_inhibited(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Manager *m = userdata;
         InhibitWhat w;
@@ -108,8 +108,8 @@ static int property_get_preparing(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Manager *m = userdata;
         bool b;
@@ -128,7 +128,7 @@ static int property_get_preparing(
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_handle_action, handle_action, HandleAction);
 
-static int method_get_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_get_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
         const char *name;
@@ -141,20 +141,20 @@ static int method_get_session(sd_bus *bus, sd_bus_message *message, void *userda
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         session = hashmap_get(m->sessions, name);
         if (!session)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
         p = session_bus_path(session);
         if (!p)
-                return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                return -ENOMEM;
 
         return sd_bus_reply_method_return(message, "o", p);
 }
 
-static int method_get_session_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_get_session_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Session *session = NULL;
         Manager *m = userdata;
@@ -169,28 +169,28 @@ static int method_get_session_by_pid(sd_bus *bus, sd_bus_message *message, void 
 
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (pid == 0) {
                 r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, NULL);
+                        return r;
         }
 
         r = manager_get_session_by_pid(m, pid, &session);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
         if (!session)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SESSION_FOR_PID, "PID %lu does not belong to any known session", (unsigned long) pid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SESSION_FOR_PID, "PID %lu does not belong to any known session", (unsigned long) pid);
 
         p = session_bus_path(session);
         if (!p)
-                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
+                return -ENOMEM;
 
         return sd_bus_reply_method_return(message, "o", p);
 }
 
-static int method_get_user(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_get_user(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
         uint32_t uid;
@@ -203,20 +203,20 @@ static int method_get_user(sd_bus *bus, sd_bus_message *message, void *userdata)
 
         r = sd_bus_message_read(message, "u", &uid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
         if (!user)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
 
         p = user_bus_path(user);
         if (!p)
-                return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                return -ENOMEM;
 
         return sd_bus_reply_method_return(message, "o", p);
 }
 
-static int method_get_user_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_get_user_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
         User *user = NULL;
@@ -231,28 +231,28 @@ static int method_get_user_by_pid(sd_bus *bus, sd_bus_message *message, void *us
 
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (pid == 0) {
                 r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, NULL);
+                        return r;
         }
 
         r = manager_get_user_by_pid(m, pid, &user);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
         if (!user)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_USER_FOR_PID, "PID %lu does not belong to any known or logged in user", (unsigned long) pid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_USER_FOR_PID, "PID %lu does not belong to any known or logged in user", (unsigned long) pid);
 
         p = user_bus_path(user);
         if (!p)
-                return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                return -ENOMEM;
 
         return sd_bus_reply_method_return(message, "o", p);
 }
 
-static int method_get_seat(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_get_seat(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
         const char *name;
@@ -265,20 +265,20 @@ static int method_get_seat(sd_bus *bus, sd_bus_message *message, void *userdata)
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         seat = hashmap_get(m->seats, name);
         if (!seat)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
 
         p = seat_bus_path(seat);
         if (!p)
-                return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                return -ENOMEM;
 
         return sd_bus_reply_method_return(message, "o", p);
 }
 
-static int method_list_sessions(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_list_sessions(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Session *session;
@@ -291,18 +291,18 @@ static int method_list_sessions(sd_bus *bus, sd_bus_message *message, void *user
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = sd_bus_message_open_container(reply, 'a', "(susso)");
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         HASHMAP_FOREACH(session, m->sessions, i) {
                 _cleanup_free_ char *p = NULL;
 
                 p = session_bus_path(session);
                 if (!p)
-                        return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        return -ENOMEM;
 
                 r = sd_bus_message_append(reply, "(susso)",
                                           session->id,
@@ -311,17 +311,17 @@ static int method_list_sessions(sd_bus *bus, sd_bus_message *message, void *user
                                           session->seat ? session->seat->id : "",
                                           p);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, NULL);
+                        return r;
         }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_send(bus, reply, NULL);
 }
 
-static int method_list_users(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_list_users(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         User *user;
@@ -334,35 +334,35 @@ static int method_list_users(sd_bus *bus, sd_bus_message *message, void *userdat
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = sd_bus_message_open_container(reply, 'a', "(uso)");
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         HASHMAP_FOREACH(user, m->users, i) {
                 _cleanup_free_ char *p = NULL;
 
                 p = user_bus_path(user);
                 if (!p)
-                        return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        return -ENOMEM;
 
                 r = sd_bus_message_append(reply, "(uso)",
                                           (uint32_t) user->uid,
                                           user->name,
                                           p);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, NULL);
+                        return r;
         }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_send(bus, reply, NULL);
 }
 
-static int method_list_seats(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_list_seats(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Seat *seat;
@@ -375,32 +375,32 @@ static int method_list_seats(sd_bus *bus, sd_bus_message *message, void *userdat
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = sd_bus_message_open_container(reply, 'a', "(so)");
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         HASHMAP_FOREACH(seat, m->seats, i) {
                 _cleanup_free_ char *p = NULL;
 
                 p = seat_bus_path(seat);
                 if (!p)
-                        return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        return -ENOMEM;
 
                 r = sd_bus_message_append(reply, "(so)", seat->id, p);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, NULL);
+                        return r;
         }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_send(bus, reply, NULL);
 }
 
-static int method_list_inhibitors(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_list_inhibitors(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Inhibitor *inhibitor;
@@ -409,11 +409,11 @@ static int method_list_inhibitors(sd_bus *bus, sd_bus_message *message, void *us
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = sd_bus_message_open_container(reply, 'a', "(ssssuu)");
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
 
@@ -425,17 +425,17 @@ static int method_list_inhibitors(sd_bus *bus, sd_bus_message *message, void *us
                                           (uint32_t) inhibitor->uid,
                                           (uint32_t) inhibitor->pid);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, NULL);
+                        return r;
         }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_send(bus, reply, NULL);
 }
 
-static int method_create_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_create_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host;
         uint32_t uid, leader, audit_id = 0;
         _cleanup_free_ char *id = NULL;
@@ -455,17 +455,17 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
 
         r = sd_bus_message_read(message, "uussssussbss", &uid, &leader, &service, &type, &class, &cseat, &vtnr, &tty, &display, &remote, &remote_user, &remote_host);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (leader == 1)
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
         if (isempty(type))
                 t = _SESSION_TYPE_INVALID;
         else {
                 t = session_type_from_string(type);
                 if (t < 0)
-                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid session type %s", type);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid session type %s", type);
         }
 
         if (isempty(class))
@@ -473,7 +473,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         else {
                 c = session_class_from_string(class);
                 if (c < 0)
-                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid session class %s", class);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid session class %s", class);
         }
 
         if (isempty(cseat))
@@ -481,7 +481,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         else {
                 seat = hashmap_get(m->seats, cseat);
                 if (!seat)
-                        return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", seat);
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", seat);
         }
 
         if (tty_is_vc(tty)) {
@@ -490,41 +490,41 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
                 if (!seat)
                         seat = m->seat0;
                 else if (seat != m->seat0)
-                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "TTY %s is virtual console but seat %s is not seat0", tty, seat);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "TTY %s is virtual console but seat %s is not seat0", tty, seat);
 
                 v = vtnr_from_tty(tty);
                 if (v <= 0)
-                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Cannot determine VT number from virtual console TTY %s", tty);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot determine VT number from virtual console TTY %s", tty);
 
                 if (vtnr <= 0)
                         vtnr = (uint32_t) v;
                 else if (vtnr != (uint32_t) v)
-                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Specified TTY and VT number do not match");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified TTY and VT number do not match");
 
         } else if (tty_is_console(tty)) {
 
                 if (!seat)
                         seat = m->seat0;
                 else if (seat != m->seat0)
-                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Console TTY specified but seat is not seat0");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Console TTY specified but seat is not seat0");
 
                 if (vtnr != 0)
-                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Console TTY specified but VT number is not 0");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Console TTY specified but VT number is not 0");
         }
 
         if (seat) {
                 if (seat_has_vts(seat)) {
                         if (vtnr > 63)
-                                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "VT number out of range");
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "VT number out of range");
                 } else {
                         if (vtnr != 0)
-                                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Seat has no VTs but VT number not 0");
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat has no VTs but VT number not 0");
                 }
         }
 
         r = sd_bus_message_enter_container(message, 'a', "(sv)");
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (t == _SESSION_TYPE_INVALID) {
                 if (!isempty(display))
@@ -547,7 +547,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
 
                 r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), (pid_t*) &leader);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, NULL);
+                        return r;
         }
 
         manager_get_session_by_pid(m, leader, &session);
@@ -561,11 +561,11 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
 
                 fifo_fd = session_create_fifo(session);
                 if (fifo_fd < 0)
-                        return sd_bus_reply_method_errno(message, fifo_fd, NULL);
+                        return fifo_fd;
 
                 path = session_bus_path(session);
                 if (!path)
-                        return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        return -ENOMEM;
 
                 return sd_bus_reply_method_return(
                                 message, "soshsub",
@@ -583,7 +583,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
                 /* Keep our session IDs and the audit session IDs in sync */
 
                 if (asprintf(&id, "%lu", (unsigned long) audit_id) < 0)
-                        return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        return -ENOMEM;
 
                 /* Wut? There's already a session by this name and we
                  * didn't find it above? Weird, then let's not trust
@@ -604,22 +604,18 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
                         id = NULL;
 
                         if (asprintf(&id, "c%lu", ++m->session_counter) < 0)
-                                return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                                return -ENOMEM;
 
                 } while (hashmap_get(m->sessions, id));
         }
 
         r = manager_add_user_by_uid(m, uid, &user);
-        if (r < 0) {
-                r = sd_bus_reply_method_errno(message, r, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         r = manager_add_session(m, id, &session);
-        if (r < 0) {
-                r = sd_bus_reply_method_errno(message, r, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         session_set_user(session, user);
 
@@ -633,7 +629,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         if (!isempty(tty)) {
                 session->tty = strdup(tty);
                 if (!session->tty) {
-                        r = sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        r = -ENOMEM;
                         goto fail;
                 }
         }
@@ -641,7 +637,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         if (!isempty(display)) {
                 session->display = strdup(display);
                 if (!session->display) {
-                        r = sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        r = -ENOMEM;
                         goto fail;
                 }
         }
@@ -649,7 +645,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         if (!isempty(remote_user)) {
                 session->remote_user = strdup(remote_user);
                 if (!session->remote_user) {
-                        r = sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        r = -ENOMEM;
                         goto fail;
                 }
         }
@@ -657,7 +653,7 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         if (!isempty(remote_host)) {
                 session->remote_host = strdup(remote_host);
                 if (!session->remote_host) {
-                        r = sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        r = -ENOMEM;
                         goto fail;
                 }
         }
@@ -665,24 +661,20 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         if (!isempty(service)) {
                 session->service = strdup(service);
                 if (!session->service) {
-                        r = sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        r = -ENOMEM;
                         goto fail;
                 }
         }
 
         if (seat) {
                 r = seat_attach_session(seat, session);
-                if (r < 0) {
-                        r = sd_bus_reply_method_errno(message, r, NULL);
+                if (r < 0)
                         goto fail;
-                }
         }
 
         r = session_start(session);
-        if (r < 0) {
-                r = sd_bus_reply_method_errno(message, r, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         session->create_message = sd_bus_message_ref(message);
 
@@ -702,7 +694,7 @@ fail:
         return r;
 }
 
-static int method_release_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_release_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Session *session;
         const char *name;
@@ -714,11 +706,11 @@ static int method_release_session(sd_bus *bus, sd_bus_message *message, void *us
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         session = hashmap_get(m->sessions, name);
         if (!session)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
         /* We use the FIFO to detect stray sessions where the process
            invoking PAM dies abnormally. We need to make sure that
@@ -733,7 +725,7 @@ static int method_release_session(sd_bus *bus, sd_bus_message *message, void *us
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Session *session;
         const char *name;
@@ -745,20 +737,20 @@ static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *u
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         session = hashmap_get(m->sessions, name);
         if (!session)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
         r = session_activate(session);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_activate_session_on_seat(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_activate_session_on_seat(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *session_name, *seat_name;
         Manager *m = userdata;
         Session *session;
@@ -774,27 +766,27 @@ static int method_activate_session_on_seat(sd_bus *bus, sd_bus_message *message,
 
         r = sd_bus_message_read(message, "ss", &session_name, &seat_name);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         session = hashmap_get(m->sessions, session_name);
         if (!session)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", session_name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", session_name);
 
         seat = hashmap_get(m->seats, seat_name);
         if (!seat)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", seat_name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", seat_name);
 
         if (session->seat != seat)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", session_name, seat_name);
+                return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", session_name, seat_name);
 
         r = session_activate(session);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_lock_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_lock_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Session *session;
         const char *name;
@@ -806,20 +798,20 @@ static int method_lock_session(sd_bus *bus, sd_bus_message *message, void *userd
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         session = hashmap_get(m->sessions, name);
         if (!session)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
         r = session_send_lock(session, streq(sd_bus_message_get_member(message), "LockSession"));
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_lock_sessions(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_lock_sessions(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int r;
 
@@ -829,12 +821,12 @@ static int method_lock_sessions(sd_bus *bus, sd_bus_message *message, void *user
 
         r = session_send_lock_all(m, streq(sd_bus_message_get_member(message), "LockSessions"));
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_kill_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_kill_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *name, *swho;
         Manager *m = userdata;
         Session *session;
@@ -848,31 +840,31 @@ static int method_kill_session(sd_bus *bus, sd_bus_message *message, void *userd
 
         r = sd_bus_message_read(message, "ssi", &name, &swho, &signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (isempty(swho))
                 who = KILL_ALL;
         else {
                 who = kill_who_from_string(swho);
                 if (who < 0)
-                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
         }
 
         if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         session = hashmap_get(m->sessions, name);
         if (!session)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
         r = session_kill(session, who, signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_kill_user(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_kill_user(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         uint32_t uid;
         int32_t signo;
@@ -885,23 +877,23 @@ static int method_kill_user(sd_bus *bus, sd_bus_message *message, void *userdata
 
         r = sd_bus_message_read(message, "ui", &uid, &signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
         if (!user)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
 
         r = user_kill(user, signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_terminate_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_terminate_session(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
         Session *session;
@@ -913,20 +905,20 @@ static int method_terminate_session(sd_bus *bus, sd_bus_message *message, void *
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         session = hashmap_get(m->sessions, name);
         if (!session)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
         r = session_stop(session);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_terminate_user(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_terminate_user(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         uint32_t uid;
         User *user;
@@ -938,20 +930,20 @@ static int method_terminate_user(sd_bus *bus, sd_bus_message *message, void *use
 
         r = sd_bus_message_read(message, "u", &uid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         user = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
         if (!user)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER, "No user '%lu' known or logged in", (unsigned long) uid);
 
         r = user_stop(user);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_terminate_seat(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_terminate_seat(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
         Seat *seat;
@@ -963,21 +955,20 @@ static int method_terminate_seat(sd_bus *bus, sd_bus_message *message, void *use
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         seat = hashmap_get(m->seats, name);
         if (!seat)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
 
         r = seat_stop_sessions(seat);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *cc = NULL;
         Manager *m = userdata;
         int b, r;
@@ -992,22 +983,22 @@ static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *us
 
         r = sd_bus_message_read(message, "ubb", &uid, &b, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         errno = 0;
         pw = getpwuid(uid);
         if (!pw)
-                return sd_bus_reply_method_errno(message, errno ? errno : ENOENT, NULL);
+                return errno ? -errno : -ENOENT;
 
         r = bus_verify_polkit_async(bus,
                                     &m->polkit_registry,
                                     message,
                                     "org.freedesktop.login1.set-user-linger",
                                     interactive,
-                                    &error,
+                                    error,
                                     method_set_user_linger, m);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, &error);
+                return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
@@ -1015,11 +1006,11 @@ static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *us
 
         r = mkdir_safe_label("/var/lib/systemd/linger", 0755, 0, 0);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         cc = cescape(pw->pw_name);
         if (!cc)
-                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
+                return -ENOMEM;
 
         path = strappenda("/var/lib/systemd/linger/", cc);
         if (b) {
@@ -1027,7 +1018,7 @@ static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *us
 
                 r = touch(path);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, NULL);
+                        return r;
 
                 if (manager_add_user_by_uid(m, uid, &u) >= 0)
                         user_start(u);
@@ -1037,7 +1028,7 @@ static int method_set_user_linger(sd_bus *bus, sd_bus_message *message, void *us
 
                 r = unlink(path);
                 if (r < 0 && errno != ENOENT)
-                        return sd_bus_reply_method_errno(message, errno, NULL);
+                        return -errno;
 
                 u = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
                 if (u)
@@ -1178,8 +1169,7 @@ static int flush_devices(Manager *m) {
         return trigger_device(m, NULL);
 }
 
-static int method_attach_device(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int method_attach_device(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *sysfs, *seat;
         Manager *m = userdata;
         int interactive, r;
@@ -1190,35 +1180,34 @@ static int method_attach_device(sd_bus *bus, sd_bus_message *message, void *user
 
         r = sd_bus_message_read(message, "ssb", &seat, &sysfs, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         if (!path_startswith(sysfs, "/sys"))
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not in /sys", sysfs);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not in /sys", sysfs);
 
         if (!seat_name_is_valid(seat))
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Seat %s is not valid", seat);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat %s is not valid", seat);
 
         r = bus_verify_polkit_async(bus,
                                     &m->polkit_registry,
                                     message,
                                     "org.freedesktop.login1.attach-device",
                                     interactive,
-                                    &error,
+                                    error,
                                     method_attach_device, m);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, &error);
+                return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = attach_device(m, seat, sysfs);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_flush_devices(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int method_flush_devices(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         int interactive, r;
 
@@ -1228,23 +1217,23 @@ static int method_flush_devices(sd_bus *bus, sd_bus_message *message, void *user
 
         r = sd_bus_message_read(message, "b", &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = bus_verify_polkit_async(bus,
                                     &m->polkit_registry,
                                     message,
                                     "org.freedesktop.login1.flush-devices",
                                     interactive,
-                                    &error,
+                                    error,
                                     method_flush_devices, m);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, &error);
+                return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = flush_devices(m);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, &error);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -1432,9 +1421,9 @@ static int method_do_shutdown_or_sleep(
                 const char *action_multiple_sessions,
                 const char *action_ignore_inhibit,
                 const char *sleep_verb,
-                sd_bus_message_handler_t method) {
+                sd_bus_message_handler_t method,
+                sd_bus_error *error) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         bool multiple_sessions, blocked;
         int interactive, r;
         uid_t uid;
@@ -1451,61 +1440,61 @@ static int method_do_shutdown_or_sleep(
 
         r = sd_bus_message_read(message, "b", &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->action_what)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_OPERATION_IN_PROGRESS, "There's already a shutdown or sleep operation in progress");
+                return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS, "There's already a shutdown or sleep operation in progress");
 
         if (sleep_verb) {
                 r = can_sleep(sleep_verb);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, NULL);
+                        return r;
 
                 if (r == 0)
-                        return sd_bus_reply_method_errorf(message, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED, "Sleep verb not supported");
+                        return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED, "Sleep verb not supported");
         }
 
         r = sd_bus_get_owner_uid(m->bus, sd_bus_message_get_sender(message), &uid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = have_multiple_sessions(m, uid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         multiple_sessions = r > 0;
         blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid);
 
         if (multiple_sessions) {
                 r = bus_verify_polkit_async(m->bus, &m->polkit_registry, message,
-                                            action_multiple_sessions, interactive, &error, method, m);
+                                            action_multiple_sessions, interactive, error, method, m);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, &error);
+                        return r;
         }
 
         if (blocked) {
                 r = bus_verify_polkit_async(m->bus, &m->polkit_registry, message,
-                                            action_ignore_inhibit, interactive, &error, method, m);
+                                            action_ignore_inhibit, interactive, error, method, m);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, &error);
+                        return r;
         }
 
         if (!multiple_sessions && !blocked) {
                 r = bus_verify_polkit_async(m->bus, &m->polkit_registry, message,
-                                            action, interactive, &error, method, m);
+                                            action, interactive, error, method, m);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, &error);
+                        return r;
         }
 
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, unit_name, w, &error);
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, unit_name, w, error);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, &error);
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         return method_do_shutdown_or_sleep(
@@ -1516,10 +1505,11 @@ static int method_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata)
                         "org.freedesktop.login1.power-off-multiple-sessions",
                         "org.freedesktop.login1.power-off-ignore-inhibit",
                         NULL,
-                        method_poweroff);
+                        method_poweroff,
+                        error);
 }
 
-static int method_reboot(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_reboot(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         return method_do_shutdown_or_sleep(
@@ -1530,10 +1520,11 @@ static int method_reboot(sd_bus *bus, sd_bus_message *message, void *userdata) {
                         "org.freedesktop.login1.reboot-multiple-sessions",
                         "org.freedesktop.login1.reboot-ignore-inhibit",
                         NULL,
-                        method_reboot);
+                        method_reboot,
+                        error);
 }
 
-static int method_suspend(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_suspend(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         return method_do_shutdown_or_sleep(
@@ -1544,10 +1535,11 @@ static int method_suspend(sd_bus *bus, sd_bus_message *message, void *userdata) 
                         "org.freedesktop.login1.suspend-multiple-sessions",
                         "org.freedesktop.login1.suspend-ignore-inhibit",
                         "suspend",
-                        method_suspend);
+                        method_suspend,
+                        error);
 }
 
-static int method_hibernate(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_hibernate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         return method_do_shutdown_or_sleep(
@@ -1558,10 +1550,11 @@ static int method_hibernate(sd_bus *bus, sd_bus_message *message, void *userdata
                         "org.freedesktop.login1.hibernate-multiple-sessions",
                         "org.freedesktop.login1.hibernate-ignore-inhibit",
                         "hibernate",
-                        method_hibernate);
+                        method_hibernate,
+                        error);
 }
 
-static int method_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         return method_do_shutdown_or_sleep(
@@ -1572,7 +1565,8 @@ static int method_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *userd
                         "org.freedesktop.login1.hibernate-multiple-sessions",
                         "org.freedesktop.login1.hibernate-ignore-inhibit",
                         "hybrid-sleep",
-                        method_hybrid_sleep);
+                        method_hybrid_sleep,
+                        error);
 }
 
 static int method_can_shutdown_or_sleep(
@@ -1582,9 +1576,9 @@ static int method_can_shutdown_or_sleep(
                 const char *action,
                 const char *action_multiple_sessions,
                 const char *action_ignore_inhibit,
-                const char *sleep_verb) {
+                const char *sleep_verb,
+                sd_bus_error *error) {
 
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         bool multiple_sessions, challenge, blocked;
         const char *result = NULL;
         uid_t uid;
@@ -1601,26 +1595,26 @@ static int method_can_shutdown_or_sleep(
         if (sleep_verb) {
                 r = can_sleep(sleep_verb);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, NULL);
+                        return r;
                 if (r == 0)
                         return sd_bus_reply_method_return(message, "s", "na");
         }
 
         r = sd_bus_get_owner_uid(m->bus, sd_bus_message_get_sender(message), &uid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = have_multiple_sessions(m, uid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         multiple_sessions = r > 0;
         blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid);
 
         if (multiple_sessions) {
-                r = bus_verify_polkit(m->bus, message, action_multiple_sessions, false, &challenge, &error);
+                r = bus_verify_polkit(m->bus, message, action_multiple_sessions, false, &challenge, error);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, &error);
+                        return r;
 
                 if (r > 0)
                         result = "yes";
@@ -1631,9 +1625,9 @@ static int method_can_shutdown_or_sleep(
         }
 
         if (blocked) {
-                r = bus_verify_polkit(m->bus, message, action_ignore_inhibit, false, &challenge, &error);
+                r = bus_verify_polkit(m->bus, message, action_ignore_inhibit, false, &challenge, error);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, &error);
+                        return r;
 
                 if (r > 0 && !result)
                         result = "yes";
@@ -1647,9 +1641,9 @@ static int method_can_shutdown_or_sleep(
                 /* If neither inhibit nor multiple sessions
                  * apply then just check the normal policy */
 
-                r = bus_verify_polkit(m->bus, message, action, false, &challenge, &error);
+                r = bus_verify_polkit(m->bus, message, action, false, &challenge, error);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(message, r, &error);
+                        return r;
 
                 if (r > 0)
                         result = "yes";
@@ -1662,7 +1656,7 @@ static int method_can_shutdown_or_sleep(
         return sd_bus_reply_method_return(message, "s", result);
 }
 
-static int method_can_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_can_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
@@ -1671,10 +1665,11 @@ static int method_can_poweroff(sd_bus *bus, sd_bus_message *message, void *userd
                         "org.freedesktop.login1.power-off",
                         "org.freedesktop.login1.power-off-multiple-sessions",
                         "org.freedesktop.login1.power-off-ignore-inhibit",
-                        NULL);
+                        NULL,
+                        error);
 }
 
-static int method_can_reboot(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_can_reboot(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
@@ -1683,10 +1678,11 @@ static int method_can_reboot(sd_bus *bus, sd_bus_message *message, void *userdat
                         "org.freedesktop.login1.reboot",
                         "org.freedesktop.login1.reboot-multiple-sessions",
                         "org.freedesktop.login1.reboot-ignore-inhibit",
-                        NULL);
+                        NULL,
+                        error);
 }
 
-static int method_can_suspend(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_can_suspend(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
@@ -1695,10 +1691,11 @@ static int method_can_suspend(sd_bus *bus, sd_bus_message *message, void *userda
                         "org.freedesktop.login1.suspend",
                         "org.freedesktop.login1.suspend-multiple-sessions",
                         "org.freedesktop.login1.suspend-ignore-inhibit",
-                        "suspend");
+                        "suspend",
+                        error);
 }
 
-static int method_can_hibernate(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_can_hibernate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
@@ -1707,10 +1704,11 @@ static int method_can_hibernate(sd_bus *bus, sd_bus_message *message, void *user
                         "org.freedesktop.login1.hibernate",
                         "org.freedesktop.login1.hibernate-multiple-sessions",
                         "org.freedesktop.login1.hibernate-ignore-inhibit",
-                        "hibernate");
+                        "hibernate",
+                        error);
 }
 
-static int method_can_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *userdata) {
+static int method_can_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
         return method_can_shutdown_or_sleep(
@@ -1719,11 +1717,11 @@ static int method_can_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *u
                         "org.freedesktop.login1.hibernate",
                         "org.freedesktop.login1.hibernate-multiple-sessions",
                         "org.freedesktop.login1.hibernate-ignore-inhibit",
-                        "hybrid-sleep");
+                        "hybrid-sleep",
+                        error);
 }
 
-static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *who, *why, *what, *mode;
         _cleanup_free_ char *id = NULL;
         _cleanup_close_ int fifo_fd = -1;
@@ -1741,26 +1739,26 @@ static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata) 
 
         r = sd_bus_message_read(message, "ssss", &what, &who, &why, &mode);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         w = inhibit_what_from_string(what);
         if (w <= 0)
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid what specification %s", what);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid what specification %s", what);
 
         mm = inhibit_mode_from_string(mode);
         if (mm < 0)
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid mode specification %s", mode);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid mode specification %s", mode);
 
         /* Delay is only supported for shutdown/sleep */
         if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Delay inhibitors only supported for shutdown and sleep");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Delay inhibitors only supported for shutdown and sleep");
 
         /* Don't allow taking delay locks while we are already
          * executing the operation. We shouldn't create the impression
          * that the lock was successful if the machine is about to go
          * down/suspend any moment. */
         if (m->action_what & w)
-                return sd_bus_reply_method_errorf(message, BUS_ERROR_OPERATION_IN_PROGRESS, "The operation inhibition has been requested for is already running");
+                return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS, "The operation inhibition has been requested for is already running");
 
         r = bus_verify_polkit_async(bus, &m->polkit_registry, message,
                                     w == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
@@ -1770,32 +1768,32 @@ static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata) 
                                     w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
                                     w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
                                                                         "org.freedesktop.login1.inhibit-handle-lid-switch",
-                                    false, &error, method_inhibit, m);
+                                    false, error, method_inhibit, m);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, &error);
+                return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = sd_bus_get_owner_uid(m->bus, sd_bus_message_get_sender(message), &uid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         r = sd_bus_get_owner_pid(m->bus, sd_bus_message_get_sender(message), &pid);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         do {
                 free(id);
                 id = NULL;
 
                 if (asprintf(&id, "%lu", ++m->inhibit_counter) < 0)
-                        return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                        return -ENOMEM;
 
         } while (hashmap_get(m->inhibitors, id));
 
         r = manager_add_inhibitor(m, id, &i);
         if (r < 0)
-                return sd_bus_reply_method_errno(message, r, NULL);
+                return r;
 
         i->what = w;
         i->mode = mm;
@@ -1805,13 +1803,13 @@ static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata) 
         i->who = strdup(who);
 
         if (!i->why || !i->who) {
-                r = sd_bus_reply_method_errno(message, -ENOMEM, NULL);
+                r = -ENOMEM;
                 goto fail;
         }
 
         fifo_fd = inhibitor_create_fifo(i);
         if (fifo_fd < 0) {
-                r = sd_bus_reply_method_errno(message, fifo_fd, NULL);
+                r = fifo_fd;
                 goto fail;
         }
 
@@ -1897,7 +1895,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *path, *result, *unit;
         Manager *m = userdata;
         Session *session;
@@ -1911,8 +1909,8 @@ int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
         r = sd_bus_message_read(message, "uoss", &id, &path, &unit, &result);
         if (r < 0) {
-                log_error("Failed to parse JobRemoved message: %s", strerror(-r));
-                return 0;
+                bus_log_parse_error(r);
+                return r;
         }
 
         if (m->action_job && streq(m->action_job, path)) {
@@ -1940,10 +1938,10 @@ int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
                         if (streq(result, "done"))
                                 session_send_create_reply(session, NULL);
                         else {
-                                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                                _cleanup_bus_error_free_ sd_bus_error e = SD_BUS_ERROR_NULL;
 
-                                sd_bus_error_setf(&error, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
-                                session_send_create_reply(session, &error);
+                                sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
+                                session_send_create_reply(session, &e);
                         }
                 } else
                         session_save(session);
@@ -1971,7 +1969,7 @@ int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
         return 0;
 }
 
-int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *path, *unit;
         Manager *m = userdata;
         Session *session;
@@ -1984,8 +1982,8 @@ int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
         r = sd_bus_message_read(message, "so", &unit, &path);
         if (r < 0) {
-                log_error("Failed to parse UnitRemoved message: %s", strerror(-r));
-                return 0;
+                bus_log_parse_error(r);
+                return r;
         }
 
         session = hashmap_get(m->session_units, unit);
@@ -1999,12 +1997,13 @@ int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata) {
         return 0;
 }
 
-int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *unit = NULL;
         Manager *m = userdata;
         const char *path;
         Session *session;
         User *user;
+        int r;
 
         assert(bus);
         assert(message);
@@ -2014,9 +2013,9 @@ int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdat
         if (!path)
                 return 0;
 
-        unit_name_from_dbus_path(path, &unit);
-        if (!unit)
-                return 0;
+        r = unit_name_from_dbus_path(path, &unit);
+        if (r < 0)
+                return r;
 
         session = hashmap_get(m->session_units, unit);
         if (session)
@@ -2029,7 +2028,7 @@ int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdat
         return 0;
 }
 
-int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata) {
+int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Session *session;
         Iterator i;
@@ -2039,8 +2038,8 @@ int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {
-                log_error("Failed to parse Reloading message: %s", strerror(-r));
-                return 0;
+                bus_log_parse_error(r);
+                return r;
         }
 
         if (b)
@@ -2055,7 +2054,7 @@ int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata) {
         return 0;
 }
 
-int match_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata) {
+int match_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *name, *old, *new;
         Manager *m = userdata;
         Session *session;
@@ -2067,8 +2066,8 @@ int match_name_owner_changed(sd_bus *bus, sd_bus_message *message, void *userdat
 
         r = sd_bus_message_read(message, "sss", &name, &old, &new);
         if (r < 0) {
-                log_error("Failed to parse NameOwnerChanged message: %s", strerror(-r));
-                return 0;
+                bus_log_parse_error(r);
+                return r;
         }
 
         if (isempty(old) || !isempty(new))

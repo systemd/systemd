@@ -31,10 +31,10 @@
 #include "sd-bus.h"
 #include "bus-error.h"
 #include "bus-message.h"
-
 #include "bus-util.h"
+#include "bus-internal.h"
 
-static int quit_callback(sd_bus *bus, sd_bus_message *m, void *userdata) {
+static int quit_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_event *e = userdata;
 
         assert(bus);
@@ -101,25 +101,6 @@ int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t 
         }
 
         return 0;
-}
-
-int bus_property_get_tristate(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
-
-        int *tristate = userdata;
-        int r;
-
-        r = sd_bus_message_append(reply, "b", *tristate > 0);
-        if (r < 0)
-                return r;
-
-        return 1;
 }
 
 int bus_verify_polkit(
@@ -203,11 +184,30 @@ typedef struct AsyncPolkitQuery {
         sd_bus_message_handler_t callback;
         void *userdata;
         uint64_t serial;
+        Hashmap *registry;
 } AsyncPolkitQuery;
 
-static int async_polkit_callback(sd_bus *bus, sd_bus_message *reply, void *userdata) {
-        AsyncPolkitQuery *q = userdata;
+static void async_polkit_query_free(sd_bus *b, AsyncPolkitQuery *q) {
+
+        if (!q)
+                return;
+
+        if (q->serial > 0 && b)
+                sd_bus_call_async_cancel(b, q->serial);
+
+        if (q->registry && q->request)
+                hashmap_remove(q->registry, q->request);
+
+        sd_bus_message_unref(q->request);
+        sd_bus_message_unref(q->reply);
+
+        free(q);
+}
+
+static int async_polkit_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        AsyncPolkitQuery *q = userdata;
         int r;
 
         assert(bus);
@@ -217,30 +217,18 @@ static int async_polkit_callback(sd_bus *bus, sd_bus_message *reply, void *userd
         q->reply = sd_bus_message_ref(reply);
         q->serial = 0;
 
-        m = sd_bus_message_ref(q->request);
+        r = sd_bus_message_rewind(q->request, true);
+        if (r < 0) {
+                r = sd_bus_reply_method_errno(q->request, r, NULL);
+                goto finish;
+        }
 
-        r = sd_bus_message_rewind(m, true);
-        if (r < 0)
-                return r;
+        r = q->callback(bus, q->request, q->userdata, &error_buffer);
+        r = bus_maybe_reply_error(q->request, r, &error_buffer);
 
-        r = q->callback(bus, m, q->userdata);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static void async_polkit_query_free(sd_bus *b, AsyncPolkitQuery *q) {
-
-        if (!q)
-                return;
-
-        if (q->serial >  0 && b)
-                sd_bus_call_async_cancel(b, q->serial);
-
-        sd_bus_message_unref(q->request);
-        sd_bus_message_unref(q->reply);
-        free(q);
+finish:
+        async_polkit_query_free(bus, q);
+        return r;
 }
 
 #endif
@@ -269,7 +257,7 @@ int bus_verify_polkit_async(
         assert(action);
 
 #ifdef ENABLE_POLKIT
-        q = hashmap_remove(*registry, m);
+        q = hashmap_get(*registry, m);
         if (q) {
                 int authorized, challenge;
 
@@ -281,25 +269,20 @@ int bus_verify_polkit_async(
                 if (sd_bus_message_is_method_error(q->reply, NULL)) {
                         const sd_bus_error *e;
 
-                        /* Treat no PK available as access denied */
-                        if (sd_bus_message_is_method_error(q->reply, SD_BUS_ERROR_SERVICE_UNKNOWN)) {
-                                async_polkit_query_free(bus, q);
-                                return -EACCES;
-                        }
-
+                        /* Copy error from polkit reply */
                         e = sd_bus_message_get_error(q->reply);
                         sd_bus_error_copy(error, e);
-                        r = sd_bus_error_get_errno(e);
 
-                        async_polkit_query_free(bus, q);
-                        return r;
+                        /* Treat no PK available as access denied */
+                        if (sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN))
+                                return -EACCES;
+
+                        return sd_bus_error_get_errno(e);
                 }
 
                 r = sd_bus_message_enter_container(q->reply, 'r', "bba{ss}");
                 if (r >= 0)
                         r = sd_bus_message_read(q->reply, "bb", &authorized, &challenge);
-
-                async_polkit_query_free(bus, q);
 
                 if (r < 0)
                         return r;
@@ -344,7 +327,7 @@ int bus_verify_polkit_async(
                         action,
                         0,
                         interactive ? 1 : 0,
-                        "");
+                        NULL);
         if (r < 0)
                 return r;
 
@@ -362,9 +345,13 @@ int bus_verify_polkit_async(
                 return r;
         }
 
+        q->registry = *registry;
+
         r = sd_bus_call_async(bus, pk, async_polkit_callback, q, 0, &q->serial);
-        if (r < 0)
+        if (r < 0) {
+                async_polkit_query_free(bus, q);
                 return r;
+        }
 
         return 0;
 #endif
@@ -1000,14 +987,28 @@ int bus_open_transport_systemd(BusTransport transport, const char *host, bool us
         return r;
 }
 
+int bus_property_get_tristate(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        int *tristate = userdata;
+
+        return sd_bus_message_append(reply, "b", *tristate > 0);
+}
+
 int bus_property_get_bool(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         int b = *(bool*) userdata;
 
@@ -1021,8 +1022,8 @@ int bus_property_get_size(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         uint64_t sz = *(size_t*) userdata;
 
@@ -1037,8 +1038,8 @@ int bus_property_get_long(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         int64_t l = *(long*) userdata;
 
@@ -1051,8 +1052,8 @@ int bus_property_get_ulong(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         uint64_t ul = *(unsigned long*) userdata;
 
@@ -1087,4 +1088,30 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
                         &u->job_id,
                         &u->job_type,
                         &u->job_path);
+}
+
+int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error) {
+        assert(m);
+
+        if (r < 0) {
+                if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
+                        sd_bus_reply_method_errno(m, r, error);
+
+        } else if (sd_bus_error_is_set(error)) {
+                if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
+                        sd_bus_reply_method_error(m, error);
+
+        } else
+                return r;
+
+        log_debug("Failed to process message [type=%s sender=%s path=%s interface=%s member=%s signature=%s]: %s",
+                  bus_message_type_to_string(m->header->type),
+                  strna(m->sender),
+                  strna(m->path),
+                  strna(m->interface),
+                  strna(m->member),
+                  strna(m->root_container.signature),
+                  bus_error_message(error, r));
+
+        return 1;
 }

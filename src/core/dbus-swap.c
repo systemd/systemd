@@ -35,8 +35,8 @@ static int property_get_priority(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Swap *s = SWAP(userdata);
         int p;

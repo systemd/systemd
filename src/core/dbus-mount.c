@@ -34,8 +34,8 @@ static int property_get_what(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Mount *m = userdata;
         const char *d;
@@ -60,8 +60,8 @@ static int property_get_options(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Mount *m = userdata;
         const char *d;
@@ -86,8 +86,8 @@ static int property_get_type(
                 const char *interface,
                 const char *property,
                 sd_bus_message *reply,
-                sd_bus_error *error,
-                void *userdata) {
+                void *userdata,
+                sd_bus_error *error) {
 
         Mount *m = userdata;
         const char *d;
