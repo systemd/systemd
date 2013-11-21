@@ -163,7 +163,14 @@
                                 to any of these options, the list of
                                 timers is reset, and all prior
                                 assignments will have no
-                                effect.</para></listitem>
+                                effect.</para>
+
+                                <para>Note that timers are not
+                                necessarily expired at the precise
+                                time configured with these settings,
+                                as they are subject to the
+                                <varname>AccuracySec=</varname>
+                                setting below.</para></listitem>
 
                         </varlistentry>
 
@@ -171,16 +178,61 @@
                                 <term><varname>OnCalendar=</varname></term>
 
                                 <listitem><para>Defines realtime
-                                (i.e. wallclock) timers via calendar
+                                (i.e. wallclock) timers with calendar
                                 event expressions. See
                                 <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for more information on the syntax of
                                 calendar event expressions. Otherwise
                                 the semantics are similar to
                                 <varname>OnActiveSec=</varname> and
-                                related settings.</para></listitem>
+                                related settings.</para>
+
+                                <para>Note that timers are not
+                                necessarily expired at the precise
+                                time configured with this setting,
+                                as it is subject to the
+                                <varname>AccuracySec=</varname>
+                                setting below.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>AccuracySec=</varname></term>
+
+                                <listitem><para>Specify the accuracy
+                                the timer shall elapse with. Defaults
+                                to 1min. The timer is scheduled to
+                                expire within a time window starting
+                                with the time specified in
+                                <varname>OnCalendar=</varname>,
+                                <varname>OnActiveSec=</varname>,
+                                <varname>OnBootSec=</varname>,
+                                <varname>OnStartupSec=</varname>,
+                                <varname>OnUnitActiveSec=</varname> or
+                                <varname>OnUnitInactiveSec=</varname>
+                                and ending the time configured with
+                                <varname>AccuracySec=</varname>
+                                later. Within this time window the
+                                expiry time will be placed at a
+                                host-specific, randomized but stable
+                                position, that is synchronized between
+                                all local timer units. This is done in
+                                order to distribute the wake-up time
+                                in networked installations, as well as
+                                optimizing power consumption to
+                                suppress unnecessary CPU wake-ups. To
+                                get best accuracy set this option to
+                                1us. Note that the timer is still
+                                subject to the timer slack configured
+                                via
+                                <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
+                                <varname>TimerSlackNSec=</varname>
+                                setting. See
+                                <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details. To optimize power
+                                consumption make sure to set this
+                                value as high as possible and as low
+                                as necessary.</para></listitem>
+                        </varlistentry>
                         <varlistentry>
                                 <term><varname>Unit=</varname></term>
 
@@ -208,7 +260,9 @@
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

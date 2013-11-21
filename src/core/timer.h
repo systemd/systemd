@@ -69,6 +69,8 @@ typedef enum TimerResult {
 struct Timer {
         Unit meta;
 
+        usec_t accuracy_usec;
+
         LIST_HEAD(TimerValue, values);
         usec_t next_elapse_monotonic;
         usec_t next_elapse_realtime;

@@ -47,6 +47,7 @@ static void timer_init(Unit *u) {
 
         t->next_elapse_monotonic = (usec_t) -1;
         t->next_elapse_realtime = (usec_t) -1;
+        t->accuracy_usec = USEC_PER_MINUTE;
 }
 
 void timer_free_values(Timer *t) {
@@ -144,6 +145,7 @@ static int timer_load(Unit *u) {
 }
 
 static void timer_dump(Unit *u, FILE *f, const char *prefix) {
+        char buf[FORMAT_TIMESPAN_MAX];
         Timer *t = TIMER(u);
         Unit *trigger;
         TimerValue *v;
@@ -153,10 +155,12 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sTimer State: %s\n"
                 "%sResult: %s\n"
-                "%sUnit: %s\n",
+                "%sUnit: %s\n"
+                "%sAccuracy: %s\n",
                 prefix, timer_state_to_string(t->state),
                 prefix, timer_result_to_string(t->result),
-                prefix, trigger ? trigger->id : "n/a");
+                prefix, trigger ? trigger->id : "n/a",
+                prefix, format_timespan(buf, sizeof(buf), t->accuracy_usec, 1));
 
         LIST_FOREACH(value, v, t->values) {
 
@@ -346,7 +350,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         r = sd_event_source_set_enabled(t->monotonic_event_source, SD_EVENT_ONESHOT);
                 } else
-                        r = sd_event_add_monotonic(UNIT(t)->manager->event, t->next_elapse_monotonic, 0, timer_dispatch, t, &t->monotonic_event_source);
+                        r = sd_event_add_monotonic(UNIT(t)->manager->event, t->next_elapse_monotonic, t->accuracy_usec, timer_dispatch, t, &t->monotonic_event_source);
 
                 if (r < 0)
                         goto fail;
@@ -372,7 +376,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         r = sd_event_source_set_enabled(t->realtime_event_source, SD_EVENT_ONESHOT);
                 } else
-                        r = sd_event_add_realtime(UNIT(t)->manager->event, t->next_elapse_realtime, 0, timer_dispatch, t, &t->realtime_event_source);
+                        r = sd_event_add_realtime(UNIT(t)->manager->event, t->next_elapse_realtime, t->accuracy_usec, timer_dispatch, t, &t->realtime_event_source);
 
                 if (r < 0)
                         goto fail;
