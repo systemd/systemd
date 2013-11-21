@@ -346,8 +346,13 @@ struct kdbus_cmd_name {
 	char name[0];
 };
 
+enum {
+	KDBUS_NAME_LIST_UNIQUE_NAMES		= 1 <<  0,
+};
+
 struct kdbus_cmd_names {
 	__u64 size;
+	__u64 flags;
 	struct kdbus_cmd_name names[0];
 };
 
