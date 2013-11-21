@@ -547,11 +547,11 @@ static int method_start_transient_unit(sd_bus *bus, sd_bus_message *message, voi
         if (mode < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s is invalid.", smode);
 
-        r = manager_load_unit(m, name, NULL, error, &u);
+        r = selinux_access_check(bus, message, "start", error);
         if (r < 0)
                 return r;
 
-        r = selinux_unit_access_check(u, bus, message, "start", error);
+        r = manager_load_unit(m, name, NULL, error, &u);
         if (r < 0)
                 return r;
 

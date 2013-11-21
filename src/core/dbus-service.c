@@ -169,6 +169,10 @@ static int bus_service_set_transient_property(
                 if (r < 0)
                         return r;
 
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
                 if (mode != UNIT_CHECK) {
                         _cleanup_free_ char *buf = NULL;
                         _cleanup_fclose_ FILE *f = NULL;

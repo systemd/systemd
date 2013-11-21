@@ -780,7 +780,7 @@ int bus_unit_queue_job(
 
         path = job_dbus_path(j);
         if (!path)
-                return r;
+                return -ENOMEM;
 
         return sd_bus_reply_method_return(message, "o", path);
 }
@@ -895,6 +895,10 @@ static int bus_unit_set_transient_property(
                 if (r < 0)
                         return r;
 
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
                 return 1;
         }
 
@@ -941,6 +945,7 @@ int bus_unit_set_properties(
                         r = sd_bus_message_rewind(message, false);
                         if (r < 0)
                                 return r;
+
                         for_real = true;
                         continue;
                 }
@@ -974,6 +979,10 @@ int bus_unit_set_properties(
 
                 n += for_real;
         }
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
 
         if (commit && n > 0 && UNIT_VTABLE(u)->bus_commit_properties)
                 UNIT_VTABLE(u)->bus_commit_properties(u);
