@@ -156,6 +156,10 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fdata-sections \
         -fstack-protector \
         --param=ssp-buffer-size=4])
+AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
+        [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
+               -flto])],
+        [AC_MSG_RESULT([skipping -flto, optimization not enabled])])
 AC_SUBST([OUR_CFLAGS], "$with_cflags $address_sanitizer_cflags")
 
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
