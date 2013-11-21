@@ -29,6 +29,7 @@
 int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         _cleanup_link_free_ Link *link = NULL;
         const char *mac;
+        struct ether_addr *mac_addr;
         int r;
 
         assert(device);
@@ -46,7 +47,12 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         if (!mac)
                 return -EINVAL;
 
-        memcpy(&link->mac.ether_addr_octet[0], ether_aton(mac), ETH_ALEN);
+        mac_addr = ether_aton(mac);
+        if (!mac_addr)
+                return -EINVAL;
+
+        memcpy(&link->mac, mac_addr, sizeof(struct ether_addr));
+
         link->manager = manager;
         link->state = _LINK_STATE_INVALID;
 
