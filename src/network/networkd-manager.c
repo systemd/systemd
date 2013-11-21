@@ -101,6 +101,8 @@ static int manager_process_link(Manager *m, struct udev_device *device) {
         if (streq_ptr(udev_device_get_action(device), "remove")) {
                 uint64_t ifindex;
 
+                log_debug("Link removed: %s", udev_device_get_sysname(device));
+
                 ifindex = udev_device_get_ifindex(device);
                 link = hashmap_get(m->links, &ifindex);
                 if (!link)
@@ -108,6 +110,8 @@ static int manager_process_link(Manager *m, struct udev_device *device) {
 
                 link_free(link);
         } else {
+                log_debug("New link: %s", udev_device_get_sysname(device));
+
                 r = link_add(m, device);
                 if (r < 0) {
                         log_error("Could not handle link %s: %s",
@@ -133,10 +137,6 @@ int manager_udev_enumerate_links(Manager *m) {
         }
 
         r = udev_enumerate_add_match_subsystem(e, "net");
-        if (r < 0)
-                goto finish;
-
-        r = udev_enumerate_add_match_tag(e, "systemd-networkd");
         if (r < 0)
                 goto finish;
 
@@ -192,12 +192,6 @@ int manager_udev_listen(Manager *m) {
         int r;
 
         r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_monitor, "net", NULL);
-        if (r < 0) {
-                log_error("Could not add udev monitor filter: %s", strerror(-r));
-                return r;
-        }
-
-        r = udev_monitor_filter_add_match_tag(m->udev_monitor, "systemd-networkd");
         if (r < 0) {
                 log_error("Could not add udev monitor filter: %s", strerror(-r));
                 return r;

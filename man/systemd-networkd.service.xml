@@ -60,9 +60,6 @@
                 service that manages networks. It detects and configures
                 network devices as they appear.</para>
 
-                <para>Network devices are managed by networkd only if they
-                have the udev tag <literal>systemd-networkd</literal>.</para>
-
                 <para>Network configurations applied before networkd is started
                 are not removed, and configuration applied by networkd are not
                 removed when networkd exits. This ensures restarting networkd
