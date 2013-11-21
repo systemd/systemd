@@ -1842,7 +1842,7 @@ static int process_timeout(sd_bus *bus) {
         r = bus_message_new_synthetic_error(
                         bus,
                         c->serial,
-                        &SD_BUS_ERROR_MAKE(SD_BUS_ERROR_NO_REPLY, "Method call timed out"),
+                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Method call timed out"),
                         &m);
         if (r < 0)
                 return r;
@@ -2127,7 +2127,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                 r = bus_message_new_synthetic_error(
                                 bus,
                                 c->serial,
-                                &SD_BUS_ERROR_MAKE(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
+                                &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
                                 &m);
                 if (r < 0)
                         return r;

@@ -256,8 +256,8 @@ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machi
 
 /* Error structures */
 
-#define SD_BUS_ERROR_MAKE(name, message) ((sd_bus_error) {(name), (message), 0})
-#define SD_BUS_ERROR_NULL SD_BUS_ERROR_MAKE(NULL, NULL)
+#define SD_BUS_ERROR_MAKE_CONST(name, message) ((sd_bus_error) {(name), (message), 0})
+#define SD_BUS_ERROR_NULL SD_BUS_ERROR_MAKE_CONST(NULL, NULL)
 
 void sd_bus_error_free(sd_bus_error *e);
 int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message);

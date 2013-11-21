@@ -157,7 +157,7 @@ _public_ int sd_bus_error_set_const(sd_bus_error *e, const char *name, const cha
         assert_return(!bus_error_is_dirty(e), -EINVAL);
         assert_return(name, -EINVAL);
 
-        *e = SD_BUS_ERROR_MAKE(name, message);
+        *e = SD_BUS_ERROR_MAKE_CONST(name, message);
         return sd_bus_error_get_errno(e);
 }
 
@@ -331,53 +331,53 @@ static sd_bus_error map_from_errno(int error) {
         switch (error) {
 
         case ENOMEM:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_NO_NETWORK, "Out of memory");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_NETWORK, "Out of memory");
 
         case EPERM:
         case EACCES:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_ACCESS_DENIED, "Access denied");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_ACCESS_DENIED, "Access denied");
 
         case EINVAL:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_INVALID_ARGS, "Invalid argument");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INVALID_ARGS, "Invalid argument");
 
         case ESRCH:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN, "No such process");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN, "No such process");
 
         case ENOENT:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_FILE_NOT_FOUND, "File not found");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FILE_NOT_FOUND, "File not found");
 
         case EEXIST:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_FILE_EXISTS, "File exists");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FILE_EXISTS, "File exists");
 
         case ETIMEDOUT:
         case ETIME:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_TIMEOUT, "Timed out");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_TIMEOUT, "Timed out");
 
         case EIO:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_IO_ERROR, "Input/output error");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_IO_ERROR, "Input/output error");
 
         case ENETRESET:
         case ECONNABORTED:
         case ECONNRESET:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_DISCONNECTED, "Disconnected");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_DISCONNECTED, "Disconnected");
 
         case ENOTSUP:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_NOT_SUPPORTED, "Not supported");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NOT_SUPPORTED, "Not supported");
 
         case EADDRNOTAVAIL:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_BAD_ADDRESS, "Address not available");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_BAD_ADDRESS, "Address not available");
 
         case ENOBUFS:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_LIMITS_EXCEEDED, "Limits exceeded");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_LIMITS_EXCEEDED, "Limits exceeded");
 
         case EADDRINUSE:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_ADDRESS_IN_USE, "Address in use");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_ADDRESS_IN_USE, "Address in use");
 
         case EBADMSG:
-                return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Inconsistent message");
+                return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Inconsistent message");
         }
 
-        return SD_BUS_ERROR_MAKE(SD_BUS_ERROR_FAILED, "Operation failed");
+        return SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FAILED, "Operation failed");
 }
 
 _public_ int sd_bus_error_set_errno(sd_bus_error *e, int error) {

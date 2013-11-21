@@ -246,7 +246,7 @@ static int server(sd_bus *bus) {
 
                         r = sd_bus_reply_method_error(
                                         m,
-                                        &SD_BUS_ERROR_MAKE(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
+                                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
