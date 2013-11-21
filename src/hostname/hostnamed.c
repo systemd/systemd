@@ -266,7 +266,7 @@ static int context_write_data_other(Context *c) {
                 [PROP_CHASSIS] = "CHASSIS"
         };
 
-        char **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
         int r, p;
 
         assert(c);
@@ -285,17 +285,16 @@ static int context_write_data_other(Context *c) {
                         continue;
                 }
 
-                if (asprintf(&t, "%s=%s", name[p], strempty(c->data[p])) < 0) {
-                        strv_free(l);
+                if (asprintf(&t, "%s=%s", name[p], strempty(c->data[p])) < 0)
                         return -ENOMEM;
-                }
 
                 u = strv_env_set(l, t);
                 free(t);
-                strv_free(l);
 
                 if (!u)
                         return -ENOMEM;
+
+                strv_free(l);
                 l = u;
         }
 
@@ -307,10 +306,7 @@ static int context_write_data_other(Context *c) {
                 return 0;
         }
 
-        r = write_env_file_label("/etc/machine-info", l);
-        strv_free(l);
-
-        return r;
+        return write_env_file_label("/etc/machine-info", l);
 }
 
 static int property_get_icon_name(
