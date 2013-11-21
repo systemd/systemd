@@ -29,6 +29,7 @@
 #include <limits.h>
 #include <selinux/selinux.h>
 #include <selinux/avc.h>
+#include <sys/socket.h>
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
 #endif
