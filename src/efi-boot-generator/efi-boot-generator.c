@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
                 "[Mount]\n"
                 "Where=/boot\n"
                 "What=%s\n"
-                "Options=umask=0077\n",
+                "Options=umask=0077,noauto\n",
                 fsck, fsck, what);
 
         name = strappenda(arg_dest, "/boot.automount");
