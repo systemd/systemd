@@ -182,9 +182,9 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
 
         r = user_stop(u);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -198,16 +198,16 @@ static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
         r = sd_bus_message_read(message, "i", &signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         r = user_kill(u, signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 const sd_bus_vtable user_vtable[] = {

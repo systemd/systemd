@@ -91,24 +91,22 @@ _public_ int sd_bus_call_method(
 }
 
 _public_ int sd_bus_reply_method_return(
-                sd_bus *bus,
                 sd_bus_message *call,
                 const char *types, ...) {
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
-        assert_return(bus, -EINVAL);
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
         assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(call->bus), -ECHILD);
 
         if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
-        r = sd_bus_message_new_method_return(bus, call, &m);
+        r = sd_bus_message_new_method_return(call, &m);
         if (r < 0)
                 return r;
 
@@ -122,37 +120,34 @@ _public_ int sd_bus_reply_method_return(
                         return r;
         }
 
-        return sd_bus_send(bus, m, NULL);
+        return sd_bus_send(call->bus, m, NULL);
 }
 
 _public_ int sd_bus_reply_method_error(
-                sd_bus *bus,
                 sd_bus_message *call,
                 const sd_bus_error *e) {
 
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
-        assert_return(bus, -EINVAL);
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
         assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
         assert_return(sd_bus_error_is_set(e), -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(call->bus), -ECHILD);
 
         if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
-        r = sd_bus_message_new_method_error(bus, call, e, &m);
+        r = sd_bus_message_new_method_error(call, e, &m);
         if (r < 0)
                 return r;
 
-        return sd_bus_send(bus, m, NULL);
+        return sd_bus_send(call->bus, m, NULL);
 }
 
 _public_ int sd_bus_reply_method_errorf(
-                sd_bus *bus,
                 sd_bus_message *call,
                 const char *name,
                 const char *format,
@@ -162,12 +157,11 @@ _public_ int sd_bus_reply_method_errorf(
         va_list ap;
         int r;
 
-        assert_return(bus, -EINVAL);
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
         assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(call->bus), -ECHILD);
 
         if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
@@ -179,37 +173,34 @@ _public_ int sd_bus_reply_method_errorf(
         if (r < 0)
                 return r;
 
-        return sd_bus_reply_method_error(bus, call, &error);
+        return sd_bus_reply_method_error(call, &error);
 }
 
 _public_ int sd_bus_reply_method_errno(
-                sd_bus *bus,
                 sd_bus_message *call,
                 int error,
                 const sd_bus_error *p) {
 
         _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
 
-        assert_return(bus, -EINVAL);
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
         assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(call->bus), -ECHILD);
 
         if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
         if (sd_bus_error_is_set(p))
-                return sd_bus_reply_method_error(bus, call, p);
+                return sd_bus_reply_method_error(call, p);
 
         sd_bus_error_set_errno(&berror, error);
 
-        return sd_bus_reply_method_error(bus, call, &berror);
+        return sd_bus_reply_method_error(call, &berror);
 }
 
 _public_ int sd_bus_reply_method_errnof(
-                sd_bus *bus,
                 sd_bus_message *call,
                 int error,
                 const char *format,
@@ -218,12 +209,11 @@ _public_ int sd_bus_reply_method_errnof(
         _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
         va_list ap;
 
-        assert_return(bus, -EINVAL);
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
         assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(call->bus), -ECHILD);
 
         if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
@@ -232,7 +222,7 @@ _public_ int sd_bus_reply_method_errnof(
         bus_error_set_errnofv(&berror, error, format, ap);
         va_end(ap);
 
-        return sd_bus_reply_method_error(bus, call, &berror);
+        return sd_bus_reply_method_error(call, &berror);
 }
 
 _public_ int sd_bus_get_property(

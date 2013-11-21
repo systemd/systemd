@@ -825,11 +825,11 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
         r = bus_message_read_strv_extend(m, &l);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, m, r, NULL);
+                return sd_bus_reply_method_errno(m, r, NULL);
 
         r = sd_bus_message_read_basic(m, 'b', &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, m, r, NULL);
+                return sd_bus_reply_method_errno(m, r, NULL);
 
         /* Check whether a variable changed and if so valid */
         STRV_FOREACH(i, l) {
@@ -853,7 +853,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata) {
                 }
 
                 if (!valid)
-                        sd_bus_reply_method_errorf(bus, m, SD_BUS_ERROR_INVALID_ARGS, "Invalid Locale data.");
+                        sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Invalid Locale data.");
         }
 
         /* Check whether a variable is unset */
@@ -870,7 +870,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata) {
                                             "org.freedesktop.locale1.set-locale", interactive,
                                             &error, method_set_locale, c);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(bus, m, r, &error);
+                        return sd_bus_reply_method_errno(m, r, &error);
                 if (r == 0)
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
@@ -905,7 +905,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata) {
                 r = locale_write_data(c);
                 if (r < 0) {
                         log_error("Failed to set locale: %s", strerror(-r));
-                        return sd_bus_reply_method_errnof(bus, m, r, "Failed to set locale: %s", strerror(-r));
+                        return sd_bus_reply_method_errnof(m, r, "Failed to set locale: %s", strerror(-r));
                 }
 
                 locale_update_system_manager(c, bus);
@@ -918,7 +918,7 @@ static int method_set_locale(sd_bus *bus, sd_bus_message *m, void *userdata) {
                                 "Locale", NULL);
         }
 
-        return sd_bus_reply_method_return(bus, m, NULL);
+        return sd_bus_reply_method_return(m, NULL);
 }
 
 static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata) {
@@ -930,7 +930,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
 
         r = sd_bus_message_read(m, "ssbb", &keymap, &keymap_toggle, &convert, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, m, r, NULL);
+                return sd_bus_reply_method_errno(m, r, NULL);
 
         if (isempty(keymap))
                 keymap = NULL;
@@ -943,13 +943,13 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
 
                 if ((keymap && (!filename_is_safe(keymap) || !string_is_safe(keymap))) ||
                     (keymap_toggle && (!filename_is_safe(keymap_toggle) || !string_is_safe(keymap_toggle))))
-                        return sd_bus_reply_method_errnof(bus, m, r, "Received invalid keymap data: %s", -EINVAL);
+                        return sd_bus_reply_method_errnof(m, r, "Received invalid keymap data: %s", -EINVAL);
 
                 r = bus_verify_polkit_async(bus, &c->polkit_registry, m,
                                 "org.freedesktop.locale1.set-keyboard",
                                 interactive, &error, method_set_vc_keyboard, c);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(bus, m, r, &error);
+                        return sd_bus_reply_method_errno(m, r, &error);
                 if (r == 0)
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
@@ -960,7 +960,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
                 r = vconsole_write_data(c);
                 if (r < 0) {
                         log_error("Failed to set virtual console keymap: %s", strerror(-r));
-                        return sd_bus_reply_method_errnof(bus, m, r, "Failed to set virtual console keymap: %s", strerror(-r));
+                        return sd_bus_reply_method_errnof(m, r, "Failed to set virtual console keymap: %s", strerror(-r));
                 }
 
                 log_info("Changed virtual console keymap to '%s'", strempty(c->vc_keymap));
@@ -981,7 +981,7 @@ static int method_set_vc_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata
                 }
         }
 
-        return sd_bus_reply_method_return(bus, m, NULL);
+        return sd_bus_reply_method_return(m, NULL);
 }
 
 static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdata) {
@@ -993,7 +993,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
 
         r = sd_bus_message_read(m, "ssssbb", &layout, &model, &variant, &options, &convert, &interactive);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, m, r, NULL);
+                return sd_bus_reply_method_errno(m, r, NULL);
 
         if (isempty(layout))
                 layout = NULL;
@@ -1016,13 +1016,13 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                     (model && !string_is_safe(model)) ||
                     (variant && !string_is_safe(variant)) ||
                     (options && !string_is_safe(options)))
-                        return sd_bus_reply_method_errnof(bus, m, r, "Received invalid keyboard data: %s", -EINVAL);
+                        return sd_bus_reply_method_errnof(m, r, "Received invalid keyboard data: %s", -EINVAL);
 
                 r = bus_verify_polkit_async(bus, &c->polkit_registry, m,
                                 "org.freedesktop.locale1.set-keyboard",
                                 interactive, &error, method_set_x11_keyboard, c);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(bus, m, r, &error);
+                        return sd_bus_reply_method_errno(m, r, &error);
                 if (r == 0)
                         return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
@@ -1035,7 +1035,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                 r = write_data_x11(c);
                 if (r < 0) {
                         log_error("Failed to set X11 keyboard layout: %s", strerror(-r));
-                        return sd_bus_reply_method_errnof(bus, m, r, "Failed to set X11 keyboard layout: %s", strerror(-r));
+                        return sd_bus_reply_method_errnof(m, r, "Failed to set X11 keyboard layout: %s", strerror(-r));
                 }
 
                 log_info("Changed X11 keyboard layout to '%s'", strempty(c->x11_layout));
@@ -1052,7 +1052,7 @@ static int method_set_x11_keyboard(sd_bus *bus, sd_bus_message *m, void *userdat
                 }
         }
 
-        return sd_bus_reply_method_return(bus, m, NULL);
+        return sd_bus_reply_method_return(m, NULL);
 }
 
 static const sd_bus_vtable locale_vtable[] = {

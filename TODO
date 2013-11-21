@@ -64,8 +64,6 @@ Features:
 
 * sd-bus: make message handlers take an sd_bus_error and generate error replies automatically if they are set
 
-* sd-bus: when replying to a bus message we should not need to specify the bus again
-
 * sd-bus: see if we can drop more message validation on the sending side
 
 * sd-bus: introduce sd_bus_creds object and attach it to messages as well as allow querying it for names

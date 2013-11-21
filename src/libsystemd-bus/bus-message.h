@@ -194,6 +194,7 @@ int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 
 int bus_message_from_header(
+                sd_bus *bus,
                 void *header,
                 size_t length,
                 int *fds,
@@ -204,6 +205,7 @@ int bus_message_from_header(
                 sd_bus_message **ret);
 
 int bus_message_from_malloc(
+                sd_bus *bus,
                 void *buffer,
                 size_t length,
                 int *fds,

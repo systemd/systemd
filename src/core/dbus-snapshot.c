@@ -36,7 +36,7 @@ int bus_snapshot_method_remove(sd_bus *bus, sd_bus_message *message, void *userd
 
         snapshot_remove(s);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 const sd_bus_vtable bus_snapshot_vtable[] = {

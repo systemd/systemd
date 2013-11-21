@@ -52,7 +52,7 @@ static int object_callback(sd_bus *bus, sd_bus_message *m, void *userdata) {
         if (sd_bus_message_is_method_call(m, "org.object.test", "Foobar")) {
                 log_info("Invoked Foobar() on %s", sd_bus_message_get_path(m));
 
-                r = sd_bus_reply_method_return(bus, m, NULL);
+                r = sd_bus_reply_method_return(m, NULL);
                 if (r < 0) {
                         log_error("Failed to send reply: %s", strerror(-r));
                         return r;
@@ -185,14 +185,14 @@ static int server(sd_bus *bus) {
 
                         ascii_strlower(lowercase);
 
-                        r = sd_bus_reply_method_return(bus, m, "s", lowercase);
+                        r = sd_bus_reply_method_return(m, "s", lowercase);
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
                         }
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient1")) {
 
-                        r = sd_bus_reply_method_return(bus, m, NULL);
+                        r = sd_bus_reply_method_return(m, NULL);
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
@@ -201,7 +201,7 @@ static int server(sd_bus *bus) {
                         client1_gone = true;
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient2")) {
 
-                        r = sd_bus_reply_method_return(bus, m, NULL);
+                        r = sd_bus_reply_method_return(m, NULL);
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
@@ -212,7 +212,7 @@ static int server(sd_bus *bus) {
 
                         sleep(1);
 
-                        r = sd_bus_reply_method_return(bus, m, NULL);
+                        r = sd_bus_reply_method_return(m, NULL);
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
@@ -236,7 +236,7 @@ static int server(sd_bus *bus) {
                                 goto fail;
                         }
 
-                        r = sd_bus_reply_method_return(bus, m, NULL);
+                        r = sd_bus_reply_method_return(m, NULL);
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));
                                 goto fail;
@@ -245,7 +245,7 @@ static int server(sd_bus *bus) {
                 } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
 
                         r = sd_bus_reply_method_error(
-                                        bus, m,
+                                        m,
                                         &SD_BUS_ERROR_MAKE(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
                         if (r < 0) {
                                 log_error("Failed to send reply: %s", strerror(-r));

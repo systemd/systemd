@@ -88,7 +88,7 @@ static void *server(void *p) {
 
                         assert_se((sd_bus_can_send(bus, 'h') >= 1) == (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
 
-                        r = sd_bus_message_new_method_return(bus, m, &reply);
+                        r = sd_bus_message_new_method_return(m, &reply);
                         if (r < 0) {
                                 log_error("Failed to allocate return: %s", strerror(-r));
                                 goto fail;
@@ -98,7 +98,7 @@ static void *server(void *p) {
 
                 } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
                         r = sd_bus_message_new_method_error(
-                                        bus, m,
+                                        m,
                                         &SD_BUS_ERROR_MAKE(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."),
                                         &reply);
                         if (r < 0) {

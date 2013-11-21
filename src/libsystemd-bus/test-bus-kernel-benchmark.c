@@ -52,7 +52,7 @@ static void server(sd_bus *b, size_t *result) {
                         continue;
 
                 if (sd_bus_message_is_method_call(m, "benchmark.server", "Ping"))
-                        assert_se(sd_bus_reply_method_return(b, m, NULL) >= 0);
+                        assert_se(sd_bus_reply_method_return(m, NULL) >= 0);
                 else if (sd_bus_message_is_method_call(m, "benchmark.server", "Work")) {
                         const void *p;
                         size_t sz;
@@ -60,7 +60,7 @@ static void server(sd_bus *b, size_t *result) {
                         /* Make sure the mmap is mapped */
                         assert_se(sd_bus_message_read_array(m, 'y', &p, &sz) > 0);
 
-                        assert_se(sd_bus_reply_method_return(b, m, NULL) >= 0);
+                        assert_se(sd_bus_reply_method_return(m, NULL) >= 0);
                 } else if (sd_bus_message_is_method_call(m, "benchmark.server", "Exit")) {
                         uint64_t res;
                         assert_se(sd_bus_message_read(m, "t", &res) > 0);

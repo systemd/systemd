@@ -62,7 +62,7 @@ static int method_cancel(sd_bus *bus, sd_bus_message *message, void *userdata) {
         SELINUX_UNIT_ACCESS_CHECK(j->unit, bus, message, "stop");
         job_finish_and_invalidate(j, JOB_CANCELED, true);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 const sd_bus_vtable bus_job_vtable[] = {

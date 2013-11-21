@@ -87,9 +87,9 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
 
         r = machine_stop(m);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -105,24 +105,24 @@ static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
         r = sd_bus_message_read(message, "si", &swho, &signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (isempty(swho))
                 who = KILL_ALL;
         else {
                 who = kill_who_from_string(swho);
                 if (who < 0)
-                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
         }
 
         if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         r = machine_kill(m, who, signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 const sd_bus_vtable machine_vtable[] = {
@@ -262,7 +262,7 @@ int machine_send_create_reply(Machine *m, sd_bus_error *error) {
         m->create_message = NULL;
 
         if (error)
-                return sd_bus_reply_method_error(m->manager->bus, c, error);
+                return sd_bus_reply_method_error(c, error);
 
         /* Update the machine state file before we notify the client
          * about the result. */
@@ -272,5 +272,5 @@ int machine_send_create_reply(Machine *m, sd_bus_error *error) {
         if (!p)
                 return -ENOMEM;
 
-        return sd_bus_reply_method_return(m->manager->bus, c, "o", p);
+        return sd_bus_reply_method_return(c, "o", p);
 }

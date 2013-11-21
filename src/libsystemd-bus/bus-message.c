@@ -305,6 +305,7 @@ static int message_append_field_uint32(sd_bus_message *m, uint8_t h, uint32_t x)
 }
 
 int bus_message_from_header(
+                sd_bus *bus,
                 void *buffer,
                 size_t length,
                 int *fds,
@@ -368,11 +369,15 @@ int bus_message_from_header(
                 memcpy(m->label, label, label_sz + 1);
         }
 
+        if (bus)
+                m->bus = sd_bus_ref(bus);
+
         *ret = m;
         return 0;
 }
 
 int bus_message_from_malloc(
+                sd_bus *bus,
                 void *buffer,
                 size_t length,
                 int *fds,
@@ -384,7 +389,7 @@ int bus_message_from_malloc(
         sd_bus_message *m;
         int r;
 
-        r = bus_message_from_header(buffer, length, fds, n_fds, ucred, label, 0, &m);
+        r = bus_message_from_header(bus, buffer, length, fds, n_fds, ucred, label, 0, &m);
         if (r < 0)
                 return r;
 
@@ -530,7 +535,6 @@ fail:
 }
 
 static int message_new_reply(
-                sd_bus *bus,
                 sd_bus_message *call,
                 uint8_t type,
                 sd_bus_message **m) {
@@ -538,13 +542,13 @@ static int message_new_reply(
         sd_bus_message *t;
         int r;
 
-        assert_return(!bus || bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
         assert_return(call->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
+        assert_return(!call->bus || call->bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(m, -EINVAL);
 
-        t = message_new(bus, type);
+        t = message_new(call->bus, type);
         if (!t)
                 return -ENOMEM;
 
@@ -572,15 +576,13 @@ fail:
 }
 
 _public_ int sd_bus_message_new_method_return(
-                sd_bus *bus,
                 sd_bus_message *call,
                 sd_bus_message **m) {
 
-        return message_new_reply(bus, call, SD_BUS_MESSAGE_METHOD_RETURN, m);
+        return message_new_reply(call, SD_BUS_MESSAGE_METHOD_RETURN, m);
 }
 
 _public_ int sd_bus_message_new_method_error(
-                sd_bus *bus,
                 sd_bus_message *call,
                 const sd_bus_error *e,
                 sd_bus_message **m) {
@@ -591,7 +593,7 @@ _public_ int sd_bus_message_new_method_error(
         assert_return(sd_bus_error_is_set(e), -EINVAL);
         assert_return(m, -EINVAL);
 
-        r = message_new_reply(bus, call, SD_BUS_MESSAGE_METHOD_ERROR, &t);
+        r = message_new_reply(call, SD_BUS_MESSAGE_METHOD_ERROR, &t);
         if (r < 0)
                 return r;
 
@@ -614,7 +616,6 @@ fail:
 }
 
 _public_ int sd_bus_message_new_method_errorf(
-                sd_bus *bus,
                 sd_bus_message *call,
                 sd_bus_message **m,
                 const char *name,
@@ -635,11 +636,10 @@ _public_ int sd_bus_message_new_method_errorf(
         if (r < 0)
                 return r;
 
-        return sd_bus_message_new_method_error(bus, call, &error, m);
+        return sd_bus_message_new_method_error(call, &error, m);
 }
 
 _public_ int sd_bus_message_new_method_errno(
-                sd_bus *bus,
                 sd_bus_message *call,
                 int error,
                 const sd_bus_error *p,
@@ -648,15 +648,14 @@ _public_ int sd_bus_message_new_method_errno(
         _cleanup_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
 
         if (sd_bus_error_is_set(p))
-                return sd_bus_message_new_method_error(bus, call, p, m);
+                return sd_bus_message_new_method_error(call, p, m);
 
         sd_bus_error_set_errno(&berror, error);
 
-        return sd_bus_message_new_method_error(bus, call, &berror, m);
+        return sd_bus_message_new_method_error(call, &berror, m);
 }
 
 _public_ int sd_bus_message_new_method_errnof(
-                sd_bus *bus,
                 sd_bus_message *call,
                 sd_bus_message **m,
                 int error,
@@ -674,7 +673,7 @@ _public_ int sd_bus_message_new_method_errnof(
         if (r < 0)
                 return r;
 
-        return sd_bus_message_new_method_error(bus, call, &berror, m);
+        return sd_bus_message_new_method_error(call, &berror, m);
 }
 
 int bus_message_new_synthetic_error(

@@ -1986,7 +1986,7 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
                 return 1;
 
         if (streq_ptr(m->member, "Ping"))
-                r = sd_bus_message_new_method_return(bus, m, &reply);
+                r = sd_bus_message_new_method_return(m, &reply);
         else if (streq_ptr(m->member, "GetMachineId")) {
                 sd_id128_t id;
                 char sid[33];
@@ -1995,14 +1995,14 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_new_method_return(bus, m, &reply);
+                r = sd_bus_message_new_method_return(m, &reply);
                 if (r < 0)
                         return r;
 
                 r = sd_bus_message_append(reply, "s", sd_id128_to_string(id, sid));
         } else {
                 r = sd_bus_message_new_method_errorf(
-                                bus, m, &reply,
+                                m, &reply,
                                 SD_BUS_ERROR_UNKNOWN_METHOD,
                                  "Unknown method '%s' on interface '%s'.", m->member, m->interface);
         }
@@ -2097,7 +2097,7 @@ static int process_running(sd_bus *bus, sd_bus_message **ret) {
         if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL) {
 
                 r = sd_bus_reply_method_errorf(
-                                bus, m,
+                                m,
                                 SD_BUS_ERROR_UNKNOWN_OBJECT,
                                 "Unknown object '%s'.", m->path);
                 if (r < 0)

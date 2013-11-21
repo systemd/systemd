@@ -39,7 +39,7 @@ int selinux_access_check(sd_bus *bus, sd_bus_message *message, const char *path,
                 int _r;                                                 \
                 _r = selinux_access_check(_b, _m, NULL, (permission), &_error); \
                 if (_r < 0)                                             \
-                        return sd_bus_reply_method_errno(_b, _m, _r, &_error); \
+                        return sd_bus_reply_method_errno(_m, _r, &_error); \
         } while (false)
 
 #define SELINUX_UNIT_ACCESS_CHECK(unit, bus, message, permission)       \
@@ -51,7 +51,7 @@ int selinux_access_check(sd_bus *bus, sd_bus_message *message, const char *path,
                 int _r;                                                 \
                 _r = selinux_access_check(_b, _m, _u->source_path ?: _u->fragment_path, (permission), &_error); \
                 if (_r < 0)                                             \
-                        return sd_bus_reply_method_errno(_b, _m, _r, &_error); \
+                        return sd_bus_reply_method_errno(_m, _r, &_error); \
         } while (false)
 
 #else

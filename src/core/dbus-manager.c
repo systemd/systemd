@@ -303,19 +303,19 @@ static int method_get_unit(sd_bus *bus, sd_bus_message *message, void *userdata)
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         u = manager_get_unit(m, name);
         if (!u)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", name);
 
         SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "status");
 
         path = unit_dbus_path(u);
         if (!path)
-                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "o", path);
+        return sd_bus_reply_method_return(message, "o", path);
 }
 
 static int method_get_unit_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -333,25 +333,25 @@ static int method_get_unit_by_pid(sd_bus *bus, sd_bus_message *message, void *us
 
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (pid == 0) {
                 r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+                        return sd_bus_reply_method_errno(message, r, NULL);
         }
 
         u = manager_get_unit_by_pid(m, pid);
         if (!u)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_UNIT_FOR_PID, "PID %u does not belong to any loaded unit.", pid);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_UNIT_FOR_PID, "PID %u does not belong to any loaded unit.", pid);
 
         SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "status");
 
         path = unit_dbus_path(u);
         if (!path)
-                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "o", path);
+        return sd_bus_reply_method_return(message, "o", path);
 }
 
 static int method_load_unit(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -368,19 +368,19 @@ static int method_load_unit(sd_bus *bus, sd_bus_message *message, void *userdata
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         r = manager_load_unit(m, name, NULL, &error, &u);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, &error);
+                return sd_bus_reply_method_errno(message, r, &error);
 
         SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "status");
 
         path = unit_dbus_path(u);
         if (!path)
-                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "o", path);
+        return sd_bus_reply_method_return(message, "o", path);
 }
 
 static int method_start_unit_generic(sd_bus *bus, sd_bus_message *message, Manager *m, JobType job_type, bool reload_if_possible) {
@@ -395,11 +395,11 @@ static int method_start_unit_generic(sd_bus *bus, sd_bus_message *message, Manag
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         r = manager_load_unit(m, name, NULL, &error, &u);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, &error);
+                return sd_bus_reply_method_errno(message, r, &error);
 
         return bus_unit_method_start_generic(bus, message, u, job_type, reload_if_possible);
 }
@@ -444,11 +444,11 @@ static int method_start_unit_replace(sd_bus *bus, sd_bus_message *message, void 
 
         r = sd_bus_message_read(message, "s", &old_name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         u = manager_get_unit(m, old_name);
         if (!u || !u->job || u->job->type != JOB_START)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
 
         return method_start_unit_generic(bus, message, m, JOB_START, false);
 }
@@ -465,11 +465,11 @@ static int method_kill_unit(sd_bus *bus, sd_bus_message *message, void *userdata
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         u = manager_get_unit(m, name);
         if (!u)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
 
         return bus_unit_method_kill(bus, message, u);
 }
@@ -486,11 +486,11 @@ static int method_reset_failed_unit(sd_bus *bus, sd_bus_message *message, void *
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         u = manager_get_unit(m, name);
         if (!u)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
 
         return bus_unit_method_reset_failed(bus, message, u);
 }
@@ -507,11 +507,11 @@ static int method_set_unit_properties(sd_bus *bus, sd_bus_message *message, void
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         u = manager_get_unit(m, name);
         if (!u)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
 
         return bus_unit_method_set_properties(bus, message, u);
 }
@@ -531,43 +531,43 @@ static int method_start_transient_unit(sd_bus *bus, sd_bus_message *message, voi
 
         r = sd_bus_message_read(message, "ss", &name, &smode);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         t = unit_name_to_type(name);
         if (t < 0)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit type.");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit type.");
 
         if (!unit_vtable[t]->can_transient)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.");
 
         mode = job_mode_from_string(smode);
         if (mode < 0)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s is invalid.", smode);
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s is invalid.", smode);
 
         r = manager_load_unit(m, name, NULL, &error, &u);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, &error);
+                return sd_bus_reply_method_errno(message, r, &error);
 
         SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "start");
 
         if (u->load_state != UNIT_NOT_FOUND || set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_UNIT_EXISTS, "Unit %s already exists.", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_UNIT_EXISTS, "Unit %s already exists.", name);
 
         /* OK, the unit failed to load and is unreferenced, now let's
          * fill in the transient data instead */
         r = unit_make_transient(u);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         /* Set our properties */
         r = bus_unit_set_properties(u, message, UNIT_RUNTIME, false, &error);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, &error);
+                return sd_bus_reply_method_errno(message, r, &error);
 
         /* And load this stub fully */
         r = unit_load(u);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, &error);
+                return sd_bus_reply_method_errno(message, r, &error);
 
         manager_dispatch_load_queue(m);
 
@@ -588,19 +588,19 @@ static int method_get_job(sd_bus *bus, sd_bus_message *message, void *userdata) 
 
         r = sd_bus_message_read(message, "u", &id);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         j = manager_get_job(m, id);
         if (!j)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
 
         SELINUX_UNIT_ACCESS_CHECK(j->unit, bus, message, "status");
 
         path = job_dbus_path(j);
         if (!path)
-                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "o", path);
+        return sd_bus_reply_method_return(message, "o", path);
 }
 
 static int method_cancel_job(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -615,17 +615,17 @@ static int method_cancel_job(sd_bus *bus, sd_bus_message *message, void *userdat
 
         r = sd_bus_message_read(message, "u", &id);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         j = manager_get_job(m, id);
         if (!j)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
 
         SELINUX_UNIT_ACCESS_CHECK(j->unit, bus, message, "stop");
 
         job_finish_and_invalidate(j, JOB_CANCELED, true);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_clear_jobs(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -638,7 +638,7 @@ static int method_clear_jobs(sd_bus *bus, sd_bus_message *message, void *userdat
         SELINUX_ACCESS_CHECK(bus, message, "reboot");
         manager_clear_jobs(m);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_reset_failed(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -651,7 +651,7 @@ static int method_reset_failed(sd_bus *bus, sd_bus_message *message, void *userd
         SELINUX_ACCESS_CHECK(bus, message, "reload");
         manager_reset_failed(m);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_list_units(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -668,13 +668,13 @@ static int method_list_units(sd_bus *bus, sd_bus_message *message, void *userdat
 
         SELINUX_ACCESS_CHECK(bus, message, "status");
 
-        r = sd_bus_message_new_method_return(bus, message, &reply);
+        r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         r = sd_bus_message_open_container(reply, 'a', "(ssssssouso)");
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         HASHMAP_FOREACH_KEY(u, k, m->units, i) {
                 _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
@@ -687,12 +687,12 @@ static int method_list_units(sd_bus *bus, sd_bus_message *message, void *userdat
 
                 unit_path = unit_dbus_path(u);
                 if (!unit_path)
-                        return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                        return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
                 if (u->job) {
                         job_path = job_dbus_path(u->job);
                         if (!job_path)
-                                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
                 }
 
                 r = sd_bus_message_append(
@@ -708,12 +708,12 @@ static int method_list_units(sd_bus *bus, sd_bus_message *message, void *userdat
                                 u->job ? job_type_to_string(u->job->type) : "",
                                 job_path ? job_path : "/");
                 if (r < 0)
-                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+                        return sd_bus_reply_method_errno(message, r, NULL);
         }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         return sd_bus_send(bus, reply, NULL);
 }
@@ -731,24 +731,24 @@ static int method_list_jobs(sd_bus *bus, sd_bus_message *message, void *userdata
 
         SELINUX_ACCESS_CHECK(bus, message, "status");
 
-        r = sd_bus_message_new_method_return(bus, message, &reply);
+        r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         r = sd_bus_message_open_container(reply, 'a', "(usssoo)");
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         HASHMAP_FOREACH(j, m->jobs, i) {
                 _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
 
                 job_path = job_dbus_path(j);
                 if (!job_path)
-                        return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                        return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
                 unit_path = unit_dbus_path(j->unit);
                 if (!unit_path)
-                        return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                        return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
                 r = sd_bus_message_append(
                                 reply, "(usssoo)",
@@ -758,12 +758,12 @@ static int method_list_jobs(sd_bus *bus, sd_bus_message *message, void *userdata
                                 job_path,
                                 unit_path);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+                        return sd_bus_reply_method_errno(message, r, NULL);
         }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         return sd_bus_send(bus, reply, NULL);
 }
@@ -780,11 +780,11 @@ static int method_subscribe(sd_bus *bus, sd_bus_message *message, void *userdata
 
         r = bus_client_track(&m->subscribed, bus, sd_bus_message_get_sender(message));
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
         if (r == 0)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_ALREADY_SUBSCRIBED, "Client is already subscribed.");
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_ALREADY_SUBSCRIBED, "Client is already subscribed.");
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_unsubscribe(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -799,11 +799,11 @@ static int method_unsubscribe(sd_bus *bus, sd_bus_message *message, void *userda
 
         r = bus_client_untrack(m->subscribed, bus, sd_bus_message_get_sender(message));
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
         if (r == 0)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NOT_SUBSCRIBED, "Client is not subscribed.");
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_dump(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -820,7 +820,7 @@ static int method_dump(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
         f = open_memstream(&dump, &size);
         if (!f)
-                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
         manager_dump_units(m, f, NULL);
         manager_dump_jobs(m, f, NULL);
@@ -828,9 +828,9 @@ static int method_dump(sd_bus *bus, sd_bus_message *message, void *userdata) {
         fflush(f);
 
         if (ferror(f))
-                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "s", dump);
+        return sd_bus_reply_method_return(message, "s", dump);
 }
 
 static int method_create_snapshot(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -850,20 +850,20 @@ static int method_create_snapshot(sd_bus *bus, sd_bus_message *message, void *us
 
         r = sd_bus_message_read(message, "sb", &name, &cleanup);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (isempty(name))
                 name = NULL;
 
         r = snapshot_create(m, name, cleanup, &error, &s);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, &error);
+                return sd_bus_reply_method_errno(message, r, &error);
 
         path = unit_dbus_path(UNIT(s));
         if (!path)
-                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "o", path);
+        return sd_bus_reply_method_return(message, "o", path);
 }
 
 static int method_remove_snapshot(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -880,14 +880,14 @@ static int method_remove_snapshot(sd_bus *bus, sd_bus_message *message, void *us
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         u = manager_get_unit(m, name);
         if (!u)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s does not exist.", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s does not exist.", name);
 
         if (u->type != UNIT_SNAPSHOT)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not a snapshot", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not a snapshot", name);
 
         return bus_snapshot_method_remove(bus, message, u);
 }
@@ -908,9 +908,9 @@ static int method_reload(sd_bus *bus, sd_bus_message *message, void *userdata) {
          * finished. */
 
         assert(!m->queued_message);
-        r = sd_bus_message_new_method_return(bus, message, &m->queued_message);
+        r = sd_bus_message_new_method_return(message, &m->queued_message);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         m->queued_message_bus = sd_bus_ref(bus);
         m->exit_code = MANAGER_RELOAD;
@@ -944,11 +944,11 @@ static int method_exit(sd_bus *bus, sd_bus_message *message, void *userdata) {
         SELINUX_ACCESS_CHECK(bus, message, "halt");
 
         if (m->running_as == SYSTEMD_SYSTEM)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
 
         m->exit_code = MANAGER_EXIT;
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_reboot(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -961,11 +961,11 @@ static int method_reboot(sd_bus *bus, sd_bus_message *message, void *userdata) {
         SELINUX_ACCESS_CHECK(bus, message, "reboot");
 
         if (m->running_as != SYSTEMD_SYSTEM)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
 
         m->exit_code = MANAGER_REBOOT;
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 
@@ -979,11 +979,11 @@ static int method_poweroff(sd_bus *bus, sd_bus_message *message, void *userdata)
         SELINUX_ACCESS_CHECK(bus, message, "halt");
 
         if (m->running_as != SYSTEMD_SYSTEM)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
 
         m->exit_code = MANAGER_POWEROFF;
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_halt(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -996,11 +996,11 @@ static int method_halt(sd_bus *bus, sd_bus_message *message, void *userdata) {
         SELINUX_ACCESS_CHECK(bus, message, "halt");
 
         if (m->running_as != SYSTEMD_SYSTEM)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "Halt is only supported for system managers.");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_NOT_SUPPORTED, "Halt is only supported for system managers.");
 
         m->exit_code = MANAGER_HALT;
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_kexec(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -1013,11 +1013,11 @@ static int method_kexec(sd_bus *bus, sd_bus_message *message, void *userdata) {
         SELINUX_ACCESS_CHECK(bus, message, "reboot");
 
         if (m->running_as != SYSTEMD_SYSTEM)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "KExec is only supported for system managers.");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_NOT_SUPPORTED, "KExec is only supported for system managers.");
 
         m->exit_code = MANAGER_KEXEC;
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -1033,42 +1033,42 @@ static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userda
         SELINUX_ACCESS_CHECK(bus, message, "reboot");
 
         if (m->running_as != SYSTEMD_SYSTEM)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_NOT_SUPPORTED, "KExec is only supported for system managers.");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_NOT_SUPPORTED, "KExec is only supported for system managers.");
 
         r = sd_bus_message_read(message, "ss", &root, &init);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (path_equal(root, "/") || !path_is_absolute(root))
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid switch root path %s", root);
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid switch root path %s", root);
 
         /* Safety check */
         if (isempty(init)) {
                 if (! path_is_os_tree(root))
-                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Specified switch root path %s does not seem to be an OS tree. /etc/os-release is missing.", root);
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Specified switch root path %s does not seem to be an OS tree. /etc/os-release is missing.", root);
         } else {
                 _cleanup_free_ char *p = NULL;
 
                 if (!path_is_absolute(init))
-                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid init path %s", init);
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid init path %s", init);
 
                 p = strappend(root, init);
                 if (!p)
-                        return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                        return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
                 if (access(p, X_OK) < 0)
-                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Specified init binary %s does not exist.", p);
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Specified init binary %s does not exist.", p);
         }
 
         rt = strdup(root);
         if (!rt)
-                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
         if (!isempty(init)) {
                 ri = strdup(init);
                 if (!ri) {
                         free(ri);
-                        return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                        return sd_bus_reply_method_errno(message, ENOMEM, NULL);
                 }
         }
 
@@ -1078,7 +1078,7 @@ static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userda
         free(m->switch_root_init);
         m->switch_root_init = ri;
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_set_environment(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -1094,15 +1094,15 @@ static int method_set_environment(sd_bus *bus, sd_bus_message *message, void *us
 
         r = sd_bus_message_read_strv(message, &plus);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
         if (!strv_env_is_valid(plus))
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
 
         r = manager_environment_add(m, NULL, plus);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_unset_environment(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -1118,16 +1118,16 @@ static int method_unset_environment(sd_bus *bus, sd_bus_message *message, void *
 
         r = sd_bus_message_read_strv(message, &minus);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (!strv_env_name_or_assignment_is_valid(minus))
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment variable names or assignments");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment variable names or assignments");
 
         r = manager_environment_add(m, minus, NULL);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_unset_and_set_environment(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -1143,22 +1143,22 @@ static int method_unset_and_set_environment(sd_bus *bus, sd_bus_message *message
 
         r = sd_bus_message_read_strv(message, &plus);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         r = sd_bus_message_read_strv(message, &minus);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (!strv_env_is_valid(plus))
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
         if (!strv_env_name_or_assignment_is_valid(minus))
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment variable names or assignments");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment variable names or assignments");
 
         r = manager_environment_add(m, minus, plus);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_list_unit_files(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -1175,23 +1175,23 @@ static int method_list_unit_files(sd_bus *bus, sd_bus_message *message, void *us
 
         SELINUX_ACCESS_CHECK(bus, message, "status");
 
-        r = sd_bus_message_new_method_return(bus, message, &reply);
+        r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         h = hashmap_new(string_hash_func, string_compare_func);
         if (!h)
-                return sd_bus_reply_method_errno(bus, message, ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, ENOMEM, NULL);
 
         r = unit_file_get_list(m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER, NULL, h);
         if (r < 0) {
-                r = sd_bus_reply_method_errno(bus, message, r, NULL);
+                r = sd_bus_reply_method_errno(message, r, NULL);
                 goto fail;
         }
 
         r = sd_bus_message_open_container(reply, 'a', "(ss)");
         if (r < 0) {
-                r = sd_bus_reply_method_errno(bus, message, r, NULL);
+                r = sd_bus_reply_method_errno(message, r, NULL);
                 goto fail;
         }
 
@@ -1199,7 +1199,7 @@ static int method_list_unit_files(sd_bus *bus, sd_bus_message *message, void *us
 
                 r = sd_bus_message_append(reply, "(ss)", item->path, unit_file_state_to_string(item->state));
                 if (r < 0) {
-                        r = sd_bus_reply_method_errno(bus, message, r, NULL);
+                        r = sd_bus_reply_method_errno(message, r, NULL);
                         goto fail;
                 }
         }
@@ -1208,7 +1208,7 @@ static int method_list_unit_files(sd_bus *bus, sd_bus_message *message, void *us
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         return sd_bus_send(bus, reply, NULL);
 
@@ -1232,15 +1232,15 @@ static int method_get_unit_file_state(sd_bus *bus, sd_bus_message *message, void
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         state = unit_file_get_state(scope, NULL, name);
         if (state < 0)
-                return sd_bus_reply_method_errno(bus, message, state, NULL);
+                return sd_bus_reply_method_errno(message, state, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "s", unit_file_state_to_string(state));
+        return sd_bus_reply_method_return(message, "s", unit_file_state_to_string(state));
 }
 
 static int method_get_default_target(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -1259,9 +1259,9 @@ static int method_get_default_target(sd_bus *bus, sd_bus_message *message, void 
 
         r = unit_file_get_default(scope, NULL, &default_target);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "s", default_target);
+        return sd_bus_reply_method_return(message, "s", default_target);
 }
 
 static int send_unit_files_changed(sd_bus *bus, const char *destination, void *userdata) {
@@ -1292,7 +1292,7 @@ static int reply_unit_file_changes_and_free(
         if (n_changes > 0)
                 bus_manager_foreach_client(m, send_unit_files_changed, NULL);
 
-        r = sd_bus_message_new_method_return(bus, message, &reply);
+        r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 goto fail;
 
@@ -1324,7 +1324,7 @@ static int reply_unit_file_changes_and_free(
 
 fail:
         unit_file_changes_free(changes, n_changes);
-        return sd_bus_reply_method_errno(bus, message, r, NULL);
+        return sd_bus_reply_method_errno(message, r, NULL);
 }
 
 static int method_enable_unit_files_generic(
@@ -1349,17 +1349,17 @@ static int method_enable_unit_files_generic(
 
         r = sd_bus_message_read_strv(message, &l);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         r = sd_bus_message_read(message, "bb", &runtime, &force);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = call(scope, runtime, NULL, l, force, &changes, &n_changes);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         return reply_unit_file_changes_and_free(m, bus, message, carries_install_info ? r : -1, changes, n_changes);
 }
@@ -1405,17 +1405,17 @@ static int method_disable_unit_files_generic(
 
         r = sd_bus_message_read_strv(message, &l);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         r = sd_bus_message_read(message, "b", &runtime);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = call(scope, runtime, NULL, l, &changes, &n_changes);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
 }
@@ -1444,13 +1444,13 @@ static int method_set_default_target(sd_bus *bus, sd_bus_message *message, void 
 
         r = sd_bus_message_read(message, "sb", &name, &force);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
         r = unit_file_set_default(scope, NULL, name, force, &changes, &n_changes);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         return reply_unit_file_changes_and_free(m, bus, message, -1, changes, n_changes);
 }

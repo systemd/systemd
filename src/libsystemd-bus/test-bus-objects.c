@@ -61,7 +61,7 @@ static int something_handler(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
         log_info("AlterSomething() called, got %s, returning %s", s, n);
 
-        r = sd_bus_reply_method_return(bus, m, "s", n);
+        r = sd_bus_reply_method_return(m, "s", n);
         assert_se(r >= 0);
 
         return 1;
@@ -75,7 +75,7 @@ static int exit_handler(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
         log_info("Exit called");
 
-        r = sd_bus_reply_method_return(bus, m, "");
+        r = sd_bus_reply_method_return(m, "");
         assert_se(r >= 0);
 
         return 1;
@@ -134,7 +134,7 @@ static int notify_test(sd_bus *bus, sd_bus_message *m, void *userdata) {
 
         assert_se(sd_bus_emit_properties_changed(bus, m->path, "org.freedesktop.systemd.ValueTest", "Value", NULL) >= 0);
 
-        r = sd_bus_reply_method_return(bus, m, NULL);
+        r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
 
         return 1;
@@ -145,7 +145,7 @@ static int emit_interfaces_added(sd_bus *bus, sd_bus_message *m, void *userdata)
 
         assert_se(sd_bus_emit_interfaces_added(bus, m->path, "org.freedesktop.systemd.test", NULL) >= 0);
 
-        r = sd_bus_reply_method_return(bus, m, NULL);
+        r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
 
         return 1;
@@ -156,7 +156,7 @@ static int emit_interfaces_removed(sd_bus *bus, sd_bus_message *m, void *userdat
 
         assert_se(sd_bus_emit_interfaces_removed(bus, m->path, "org.freedesktop.systemd.test", NULL) >= 0);
 
-        r = sd_bus_reply_method_return(bus, m, NULL);
+        r = sd_bus_reply_method_return(m, NULL);
         assert_se(r >= 0);
 
         return 1;

@@ -369,11 +369,11 @@ int bus_unit_method_start_generic(sd_bus *bus, sd_bus_message *message, Unit *u,
 
         r = sd_bus_message_read(message, "s", &smode);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         mode = job_mode_from_string(smode);
         if (mode < 0)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
 
         return bus_unit_queue_job(bus, message, u, job_type, mode, reload_if_possible);
 }
@@ -420,26 +420,26 @@ int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata) {
 
         r = sd_bus_message_read(message, "si", &swho, &signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (isempty(swho))
                 who = KILL_ALL;
         else {
                 who = kill_who_from_string(swho);
                 if (who < 0)
-                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid who argument %s", swho);
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid who argument %s", swho);
         }
 
         if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
 
         SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "stop");
 
         r = unit_kill(u, who, signo, &error);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, &error);
+                return sd_bus_reply_method_errno(message, r, &error);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 int bus_unit_method_reset_failed(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -453,7 +453,7 @@ int bus_unit_method_reset_failed(sd_bus *bus, sd_bus_message *message, void *use
 
         unit_reset_failed(u);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -467,23 +467,23 @@ int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *u
 
         r = sd_bus_message_read(message, "b", &runtime);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         SELINUX_UNIT_ACCESS_CHECK(u, bus, message, "start");
 
         r = sd_bus_message_enter_container(message, 'a', "(sv)");
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         r = bus_unit_set_properties(u, message, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, &error);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, &error);
+                return sd_bus_reply_method_errno(message, r, &error);
 
         r = sd_bus_message_exit_container(message);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 const sd_bus_vtable bus_unit_vtable[] = {
@@ -755,26 +755,26 @@ int bus_unit_queue_job(
         if (type == JOB_STOP &&
             (u->load_state == UNIT_NOT_FOUND || u->load_state == UNIT_ERROR) &&
             unit_active_state(u) == UNIT_INACTIVE)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
 
         if ((type == JOB_START && u->refuse_manual_start) ||
             (type == JOB_STOP && u->refuse_manual_stop) ||
             ((type == JOB_RESTART || type == JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)))
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only.", u->id);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only.", u->id);
 
         r = manager_add_job(u->manager, type, u, mode, true, &error, &j);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, &error);
+                return sd_bus_reply_method_errno(message, r, &error);
 
         r = bus_client_track(&j->subscribed, bus, sd_bus_message_get_sender(message));
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         path = job_dbus_path(j);
         if (!path)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "o", path);
+        return sd_bus_reply_method_return(message, "o", path);
 }
 
 static int bus_unit_set_transient_property(

@@ -485,7 +485,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         if (n_bytes != total)
                 return -EBADMSG;
 
-        r = bus_message_from_header(h, sizeof(struct bus_header), fds, n_fds, NULL, seclabel, 0, &m);
+        r = bus_message_from_header(bus, h, sizeof(struct bus_header), fds, n_fds, NULL, seclabel, 0, &m);
         if (r < 0)
                 return r;
 
@@ -603,7 +603,6 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
         /* We take possession of the kmsg struct now */
         m->kdbus = k;
-        m->bus = sd_bus_ref(bus);
         m->release_kdbus = true;
         m->free_fds = true;
 

@@ -289,7 +289,7 @@ static int method_callbacks_run(
                 return -EINVAL;
 
         if (!streq(strempty(c->vtable->x.method.signature), signature)) {
-                r = sd_bus_reply_method_errorf(bus, m,
+                r = sd_bus_reply_method_errorf(m,
                                                SD_BUS_ERROR_INVALID_ARGS,
                                                "Invalid arguments '%s' to call %s:%s, expecting '%s'.",
                                                signature, c->interface, c->member, strempty(c->vtable->x.method.signature));
@@ -303,7 +303,7 @@ static int method_callbacks_run(
                 return c->vtable->x.method.handler(bus, m, u);
 
         /* If the method callback is NULL, make this a successful NOP */
-        r = sd_bus_reply_method_return(bus, m, NULL);
+        r = sd_bus_reply_method_return(m, NULL);
         if (r < 0)
                 return r;
 
@@ -449,7 +449,7 @@ static int property_get_set_callbacks_run(
 
         *found_object = true;
 
-        r = sd_bus_message_new_method_return(bus, m, &reply);
+        r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)
                 return r;
 
@@ -470,7 +470,7 @@ static int property_get_set_callbacks_run(
                         return r;
 
                 if (sd_bus_error_is_set(&error)) {
-                        r = sd_bus_reply_method_error(bus, m, &error);
+                        r = sd_bus_reply_method_error(m, &error);
                         if (r < 0)
                                 return r;
 
@@ -507,7 +507,7 @@ static int property_get_set_callbacks_run(
                 }
 
                 if (sd_bus_error_is_set(&error)) {
-                        r = sd_bus_reply_method_error(bus, m, &error);
+                        r = sd_bus_reply_method_error(m, &error);
                         if (r < 0)
                                 return r;
 
@@ -598,7 +598,7 @@ static int property_get_all_callbacks_run(
         assert(m);
         assert(found_object);
 
-        r = sd_bus_message_new_method_return(bus, m, &reply);
+        r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)
                 return r;
 
@@ -637,7 +637,7 @@ static int property_get_all_callbacks_run(
                         return r;
 
                 if (sd_bus_error_is_set(&error)) {
-                        r = sd_bus_reply_method_error(bus, m, &error);
+                        r = sd_bus_reply_method_error(m, &error);
                         if (r < 0)
                                 return r;
 
@@ -649,7 +649,7 @@ static int property_get_all_callbacks_run(
 
         if (!found_interface) {
                 r = sd_bus_reply_method_errorf(
-                                bus, m,
+                                m,
                                 SD_BUS_ERROR_UNKNOWN_INTERFACE,
                                 "Unknown interface '%s'.", iface);
                 if (r < 0)
@@ -1004,7 +1004,7 @@ static int process_get_managed_objects(
         if (bus->nodes_modified)
                 return 0;
 
-        r = sd_bus_message_new_method_return(bus, m, &reply);
+        r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)
                 return r;
 
@@ -1048,7 +1048,7 @@ static int process_get_managed_objects(
                                 return -ENOMEM;
 
                         if (sd_bus_error_is_set(&error)) {
-                                r = sd_bus_reply_method_error(bus, m, &error);
+                                r = sd_bus_reply_method_error(m, &error);
                                 if (r < 0)
                                         return r;
 
@@ -1232,12 +1232,12 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
         if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "Get") ||
             sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "Set"))
                 r = sd_bus_reply_method_errorf(
-                                bus, m,
+                                m,
                                 SD_BUS_ERROR_UNKNOWN_PROPERTY,
                                 "Unknown property or interface.");
         else
                 r = sd_bus_reply_method_errorf(
-                                bus, m,
+                                m,
                                 SD_BUS_ERROR_UNKNOWN_METHOD,
                                 "Unknown method '%s' or interface '%s'.", m->member, m->interface);
 

@@ -169,7 +169,7 @@ int introspect_finish(struct introspect *i, sd_bus *bus, sd_bus_message *m, sd_b
         if (ferror(i->f))
                 return -ENOMEM;
 
-        r = sd_bus_message_new_method_return(bus, m, &q);
+        r = sd_bus_message_new_method_return(m, &q);
         if (r < 0)
                 return r;
 

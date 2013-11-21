@@ -909,7 +909,8 @@ static int bus_socket_make_message(sd_bus *bus, size_t size, sd_bus_message **m)
         } else
                 b = NULL;
 
-        r = bus_message_from_malloc(bus->rbuffer, size,
+        r = bus_message_from_malloc(bus,
+                                    bus->rbuffer, size,
                                     bus->fds, bus->n_fds,
                                     bus->ucred_valid ? &bus->ucred : NULL,
                                     bus->label[0] ? bus->label : NULL,

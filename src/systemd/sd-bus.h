@@ -139,11 +139,11 @@ int sd_bus_remove_object_manager(sd_bus *bus, const char *path);
 /* Message object */
 int sd_bus_message_new_signal(sd_bus *bus, const char *path, const char *interface, const char *member, sd_bus_message **m);
 int sd_bus_message_new_method_call(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message **m);
-int sd_bus_message_new_method_return(sd_bus *bus, sd_bus_message *call, sd_bus_message **m);
-int sd_bus_message_new_method_error(sd_bus *bus, sd_bus_message *call, const sd_bus_error *e, sd_bus_message **m);
-int sd_bus_message_new_method_errorf(sd_bus *bus, sd_bus_message *call, sd_bus_message **m, const char *name, const char *format, ...) _sd_printf_(5, 0);
-int sd_bus_message_new_method_errno(sd_bus *bus, sd_bus_message *call, int error, const sd_bus_error *e, sd_bus_message **m);
-int sd_bus_message_new_method_errnof(sd_bus *bus, sd_bus_message *call, sd_bus_message **m, int error, const char *format, ...) _sd_printf_(5, 0);
+int sd_bus_message_new_method_return(sd_bus_message *call, sd_bus_message **m);
+int sd_bus_message_new_method_error(sd_bus_message *call, const sd_bus_error *e, sd_bus_message **m);
+int sd_bus_message_new_method_errorf(sd_bus_message *call, sd_bus_message **m, const char *name, const char *format, ...) _sd_printf_(4, 0);
+int sd_bus_message_new_method_errno(sd_bus_message *call, int error, const sd_bus_error *e, sd_bus_message **m);
+int sd_bus_message_new_method_errnof(sd_bus_message *call, sd_bus_message **m, int error, const char *format, ...) _sd_printf_(4, 0);
 
 sd_bus_message* sd_bus_message_ref(sd_bus_message *m);
 sd_bus_message* sd_bus_message_unref(sd_bus_message *m);
@@ -227,11 +227,11 @@ int sd_bus_get_property_string(sd_bus *bus, const char *destination, const char 
 int sd_bus_get_property_strv(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char ***ret); /* free the result! */
 int sd_bus_set_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, const char *type, ...);
 
-int sd_bus_reply_method_return(sd_bus *bus, sd_bus_message *call, const char *types, ...);
-int sd_bus_reply_method_error(sd_bus *bus, sd_bus_message *call, const sd_bus_error *e);
-int sd_bus_reply_method_errorf(sd_bus *bus, sd_bus_message *call, const char *name, const char *format, ...) _sd_printf_(4, 0);
-int sd_bus_reply_method_errno(sd_bus *bus, sd_bus_message *call, int error, const sd_bus_error *e);
-int sd_bus_reply_method_errnof(sd_bus *bus, sd_bus_message *call, int error, const char *format, ...) _sd_printf_(4, 0);
+int sd_bus_reply_method_return(sd_bus_message *call, const char *types, ...);
+int sd_bus_reply_method_error(sd_bus_message *call, const sd_bus_error *e);
+int sd_bus_reply_method_errorf(sd_bus_message *call, const char *name, const char *format, ...) _sd_printf_(3, 0);
+int sd_bus_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *e);
+int sd_bus_reply_method_errnof(sd_bus_message *call, int error, const char *format, ...) _sd_printf_(3, 0);
 
 int sd_bus_emit_signal(sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, ...);
 

@@ -202,9 +202,9 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
 
         r = seat_stop_sessions(s);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -219,20 +219,20 @@ static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *u
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         session = hashmap_get(s->manager->sessions, name);
         if (!session)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
         if (session->seat != s)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", name, s->id);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", name, s->id);
 
         r = session_activate(session);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 const sd_bus_vtable seat_vtable[] = {

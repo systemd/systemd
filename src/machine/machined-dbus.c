@@ -71,17 +71,17 @@ static int method_get_machine(sd_bus *bus, sd_bus_message *message, void *userda
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         machine = hashmap_get(m->machines, name);
         if (!machine)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
         p = machine_bus_path(machine);
         if (!p)
-                return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "o", p);
+        return sd_bus_reply_method_return(message, "o", p);
 }
 
 static int method_get_machine_by_pid(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -99,25 +99,25 @@ static int method_get_machine_by_pid(sd_bus *bus, sd_bus_message *message, void 
 
         r = sd_bus_message_read(message, "u", &pid);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (pid == 0) {
                 r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+                        return sd_bus_reply_method_errno(message, r, NULL);
         }
 
         r = manager_get_machine_by_pid(m, pid, &machine);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
         if (!machine)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_MACHINE_FOR_PID, "PID %lu does not belong to any known machine", (unsigned long) pid);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_MACHINE_FOR_PID, "PID %lu does not belong to any known machine", (unsigned long) pid);
 
         p = machine_bus_path(machine);
         if (!p)
-                return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+                return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
 
-        return sd_bus_reply_method_return(bus, message, "o", p);
+        return sd_bus_reply_method_return(message, "o", p);
 }
 
 static int method_list_machines(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -131,20 +131,20 @@ static int method_list_machines(sd_bus *bus, sd_bus_message *message, void *user
         assert(message);
         assert(m);
 
-        r = sd_bus_message_new_method_return(bus, message, &reply);
+        r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         r = sd_bus_message_open_container(reply, 'a', "(ssso)");
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         HASHMAP_FOREACH(machine, m->machines, i) {
                 _cleanup_free_ char *p = NULL;
 
                 p = machine_bus_path(machine);
                 if (!p)
-                        return sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+                        return sd_bus_reply_method_errno(message, -ENOMEM, NULL);
 
                 r = sd_bus_message_append(reply, "(ssso)",
                                           machine->name,
@@ -152,12 +152,12 @@ static int method_list_machines(sd_bus *bus, sd_bus_message *message, void *user
                                           machine->service,
                                           p);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+                        return sd_bus_reply_method_errno(message, r, NULL);
         }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         return sd_bus_send(bus, reply, NULL);
 }
@@ -180,56 +180,56 @@ static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *use
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
         if (!valid_machine_name(name))
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine name");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine name");
 
         r = sd_bus_message_read_array(message, 'y', &v, &n);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
         if (n == 0)
                 id = SD_ID128_NULL;
         else if (n == 16)
                 memcpy(&id, v, n);
         else
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine ID parameter");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine ID parameter");
 
         r = sd_bus_message_read(message, "ssus", &service, &class, &leader, &root_directory);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (isempty(class))
                 c = _MACHINE_CLASS_INVALID;
         else {
                 c = machine_class_from_string(class);
                 if (c < 0)
-                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine class parameter");
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine class parameter");
         }
 
         if (leader == 1)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
         if (!isempty(root_directory) && !path_is_absolute(root_directory))
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
 
         r = sd_bus_message_enter_container(message, 'a', "(sv)");
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (leader == 0) {
                 assert_cc(sizeof(uint32_t) == sizeof(pid_t));
 
                 r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), (pid_t*) &leader);
                 if (r < 0)
-                        return sd_bus_reply_method_errno(bus, message, r, NULL);
+                        return sd_bus_reply_method_errno(message, r, NULL);
         }
 
         if (hashmap_get(manager->machines, name))
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
         r = manager_add_machine(manager, name, &m);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         m->leader = leader;
         m->class = c;
@@ -238,7 +238,7 @@ static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *use
         if (!isempty(service)) {
                 m->service = strdup(service);
                 if (!m->service) {
-                        r = sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+                        r = sd_bus_reply_method_errno(message, -ENOMEM, NULL);
                         goto fail;
                 }
         }
@@ -246,14 +246,14 @@ static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *use
         if (!isempty(root_directory)) {
                 m->root_directory = strdup(root_directory);
                 if (!m->root_directory) {
-                        r = sd_bus_reply_method_errno(bus, message, -ENOMEM, NULL);
+                        r = sd_bus_reply_method_errno(message, -ENOMEM, NULL);
                         goto fail;
                 }
         }
 
         r = machine_start(m, message, &error);
         if (r < 0) {
-                r = sd_bus_reply_method_errno(bus, message, r, &error);
+                r = sd_bus_reply_method_errno(message, r, &error);
                 goto fail;
         }
 
@@ -279,17 +279,17 @@ static int method_terminate_machine(sd_bus *bus, sd_bus_message *message, void *
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         machine = hashmap_get(m->machines, name);
         if (!machine)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
         r = machine_stop(machine);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 static int method_kill_machine(sd_bus *bus, sd_bus_message *message, void *userdata) {
@@ -307,28 +307,28 @@ static int method_kill_machine(sd_bus *bus, sd_bus_message *message, void *userd
 
         r = sd_bus_message_read(message, "ssi", &name, &swho, &signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
         if (isempty(swho))
                 who = KILL_ALL;
         else {
                 who = kill_who_from_string(swho);
                 if (who < 0)
-                        return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
+                        return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
         }
 
         if (signo <= 0 || signo >= _NSIG)
-                return sd_bus_reply_method_errorf(bus, message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
+                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         machine = hashmap_get(m->machines, name);
         if (!machine)
-                return sd_bus_reply_method_errorf(bus, message, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+                return sd_bus_reply_method_errorf(message, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
         r = machine_kill(machine, who, signo);
         if (r < 0)
-                return sd_bus_reply_method_errno(bus, message, r, NULL);
+                return sd_bus_reply_method_errno(message, r, NULL);
 
-        return sd_bus_reply_method_return(bus, message, NULL);
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 const sd_bus_vtable manager_vtable[] = {
