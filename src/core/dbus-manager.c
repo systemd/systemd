@@ -1121,7 +1121,7 @@ static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userda
         if (!isempty(init)) {
                 ri = strdup(init);
                 if (!ri) {
-                        free(ri);
+                        free(rt);
                         return -ENOMEM;
                 }
         }
@@ -1131,6 +1131,8 @@ static int method_switch_root(sd_bus *bus, sd_bus_message *message, void *userda
 
         free(m->switch_root_init);
         m->switch_root_init = ri;
+
+        m->exit_code = MANAGER_SWITCH_ROOT;
 
         return sd_bus_reply_method_return(message, NULL);
 }
