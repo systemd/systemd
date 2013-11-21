@@ -397,6 +397,8 @@ static int manager_default_environment(Manager *m) {
         if (!m->environment)
                 return -ENOMEM;
 
+        strv_sort(m->environment);
+
         return 0;
 }
 
@@ -2507,7 +2509,7 @@ int manager_environment_add(Manager *m, char **minus, char **plus) {
         if (b != l)
                 strv_free(b);
 
-        m->environment = l;
+        m->environment = strv_sort(l);
         return 0;
 }
 
