@@ -465,7 +465,7 @@ const sd_bus_vtable session_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int session_object_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
+int session_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
         Session *session;
         int r;
@@ -524,7 +524,7 @@ char *session_bus_path(Session *s) {
         return strappend("/org/freedesktop/login1/session/", t);
 }
 
-int session_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata) {
+int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         Session *session;

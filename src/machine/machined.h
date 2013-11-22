@@ -60,8 +60,6 @@ int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine);
 
 extern const sd_bus_vtable manager_vtable[];
 
-int machine_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata);
-
 int match_reloading(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
 int match_unit_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);
 int match_properties_changed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error);

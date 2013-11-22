@@ -235,7 +235,7 @@ const sd_bus_vtable user_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int user_object_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
+int user_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
         User *user;
         int r;
@@ -293,7 +293,7 @@ char *user_bus_path(User *u) {
         return s;
 }
 
-int user_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata) {
+int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         User *user;

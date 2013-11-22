@@ -272,7 +272,7 @@ static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, 
         return 0;
 }
 
-static int bus_job_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
+static int bus_job_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
         Job *j;
         int r;
@@ -291,7 +291,7 @@ static int bus_job_find(sd_bus *bus, const char *path, const char *interface, vo
         return 1;
 }
 
-static Unit *find_unit(Manager *m, sd_bus *bus, const char *path) {
+static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_bus_error *error) {
         Unit *u;
         int r;
 
@@ -305,43 +305,28 @@ static Unit *find_unit(Manager *m, sd_bus *bus, const char *path) {
 
                 message = sd_bus_get_current(bus);
                 if (!message)
-                        return NULL;
+                        return 0;
 
                 r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
                 if (r < 0)
-                        return NULL;
+                        return 0;
 
                 u = manager_get_unit_by_pid(m, pid);
         } else {
-                r = manager_load_unit_from_dbus_path(m, path, NULL, &u);
+                r = manager_load_unit_from_dbus_path(m, path, error, &u);
                 if (r < 0)
-                        return NULL;
+                        return 0;
         }
 
-        return u;
-}
-
-static int bus_unit_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
-        Manager *m = userdata;
-        Unit *u;
-
-        assert(bus);
-        assert(path);
-        assert(interface);
-        assert(found);
-        assert(m);
-
-        u = find_unit(m, bus, path);
         if (!u)
                 return 0;
 
-        *found = u;
+        *unit = u;
         return 1;
 }
 
-static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
+static int bus_unit_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
-        Unit *u;
 
         assert(bus);
         assert(path);
@@ -349,9 +334,23 @@ static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *in
         assert(found);
         assert(m);
 
-        u = find_unit(m, bus, path);
-        if (!u)
-                return 0;
+        return find_unit(m, bus, path, (Unit**) found, error);
+}
+
+static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        Manager *m = userdata;
+        Unit *u;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(interface);
+        assert(found);
+        assert(m);
+
+        r = find_unit(m, bus, path, &u, error);
+        if (r <= 0)
+                return r;
 
         if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
                 return 0;
@@ -360,9 +359,10 @@ static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *in
         return 1;
 }
 
-static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
+static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
         Unit *u;
+        int r;
 
         assert(bus);
         assert(path);
@@ -370,9 +370,9 @@ static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *inter
         assert(found);
         assert(m);
 
-        u = find_unit(m, bus, path);
-        if (!u)
-                return 0;
+        r = find_unit(m, bus, path, &u, error);
+        if (r <= 0)
+                return r;
 
         if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
                 return 0;
@@ -384,10 +384,11 @@ static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *inter
         return 1;
 }
 
-static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
+static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
         CGroupContext *c;
         Unit *u;
+        int r;
 
         assert(bus);
         assert(path);
@@ -395,9 +396,9 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
         assert(found);
         assert(m);
 
-        u = find_unit(m, bus, path);
-        if (!u)
-                return 0;
+        r = find_unit(m, bus, path, &u, error);
+        if (r <= 0)
+                return r;
 
         if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
                 return 0;
@@ -410,10 +411,11 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
         return 1;
 }
 
-static int bus_exec_context_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
+static int bus_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
         ExecContext *c;
         Unit *u;
+        int r;
 
         assert(bus);
         assert(path);
@@ -421,9 +423,9 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
         assert(found);
         assert(m);
 
-        u = find_unit(m, bus, path);
-        if (!u)
-                return 0;
+        r = find_unit(m, bus, path, &u, error);
+        if (r <= 0)
+                return r;
 
         if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
                 return 0;
@@ -436,10 +438,11 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
         return 1;
 }
 
-static int bus_kill_context_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
+static int bus_kill_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
         KillContext *c;
         Unit *u;
+        int r;
 
         assert(bus);
         assert(path);
@@ -447,9 +450,9 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
         assert(found);
         assert(m);
 
-        u = find_unit(m, bus, path);
-        if (!u)
-                return 0;
+        r = find_unit(m, bus, path, &u, error);
+        if (r <= 0)
+                return r;
 
         if (!streq_ptr(interface, UNIT_VTABLE(u)->bus_interface))
                 return 0;
@@ -462,7 +465,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
         return 1;
 }
 
-static int bus_job_enumerate(sd_bus *bus, const char *path, char ***nodes, void *userdata) {
+static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
@@ -489,7 +492,7 @@ static int bus_job_enumerate(sd_bus *bus, const char *path, char ***nodes, void 
         return k;
 }
 
-static int bus_unit_enumerate(sd_bus *bus, const char *path, char ***nodes, void *userdata) {
+static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;

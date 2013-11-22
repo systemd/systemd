@@ -93,7 +93,8 @@ MachineState machine_get_state(Machine *u);
 extern const sd_bus_vtable machine_vtable[];
 
 char *machine_bus_path(Machine *s);
-int machine_object_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata);
+int machine_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
 
 int machine_send_signal(Machine *m, bool new_machine);
 int machine_send_create_reply(Machine *m, sd_bus_error *error);

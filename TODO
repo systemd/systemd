@@ -43,6 +43,8 @@ CGroup Rework Completion:
 
 Features:
 
+* bus: translate all EIO, EINVAL, .. errors into dbus error 1:1 and back.
+
 * add API to clone sd_bus_message objects
 
 * sd-bus: synthesized messages should get serial number (uint32_t) -1

@@ -142,7 +142,7 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int machine_object_find(sd_bus *bus, const char *path, const char *interface, void **found, void *userdata) {
+int machine_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         int r;
@@ -201,7 +201,7 @@ char *machine_bus_path(Machine *m) {
         return strappend("/org/freedesktop/machine1/machine/", e);
 }
 
-int machine_node_enumerator(sd_bus *bus, const char *path, char ***nodes, void *userdata) {
+int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Machine *machine = NULL;
         Manager *m = userdata;

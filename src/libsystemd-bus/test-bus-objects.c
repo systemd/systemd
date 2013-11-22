@@ -182,7 +182,7 @@ static const sd_bus_vtable vtable2[] = {
         SD_BUS_VTABLE_END
 };
 
-static int enumerator_callback(sd_bus *b, const char *path, char ***nodes, void *userdata) {
+static int enumerator_callback(sd_bus *b, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
 
         if (object_path_startswith("/value", path))
                 assert_se(*nodes = strv_new("/value/a", "/value/b", "/value/c", NULL));
