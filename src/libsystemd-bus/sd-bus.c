@@ -99,10 +99,26 @@ static void bus_node_destroy(sd_bus *b, struct node *n) {
         free(n);
 }
 
+static void bus_reset_queues(sd_bus *b) {
+        unsigned i;
+
+        assert(b);
+
+        for (i = 0; i < b->rqueue_size; i++)
+                sd_bus_message_unref(b->rqueue[i]);
+        free(b->rqueue);
+
+        for (i = 0; i < b->wqueue_size; i++)
+                sd_bus_message_unref(b->wqueue[i]);
+        free(b->wqueue);
+
+        b->rqueue = b->wqueue = NULL;
+        b->rqueue_size = b->wqueue_size = 0;
+}
+
 static void bus_free(sd_bus *b) {
         struct filter_callback *f;
         struct node *n;
-        unsigned i;
 
         assert(b);
 
@@ -126,13 +142,7 @@ static void bus_free(sd_bus *b) {
         close_many(b->fds, b->n_fds);
         free(b->fds);
 
-        for (i = 0; i < b->rqueue_size; i++)
-                sd_bus_message_unref(b->rqueue[i]);
-        free(b->rqueue);
-
-        for (i = 0; i < b->wqueue_size; i++)
-                sd_bus_message_unref(b->wqueue[i]);
-        free(b->wqueue);
+        bus_reset_queues(b);
 
         hashmap_free_free(b->reply_callbacks);
         prioq_free(b->reply_callbacks_prioq);
@@ -1183,6 +1193,7 @@ _public_ int sd_bus_open_system_container(const char *machine, sd_bus **ret) {
 }
 
 _public_ void sd_bus_close(sd_bus *bus) {
+
         if (!bus)
                 return;
         if (bus->state == BUS_CLOSED)
@@ -1193,6 +1204,10 @@ _public_ void sd_bus_close(sd_bus *bus) {
         bus->state = BUS_CLOSED;
 
         sd_bus_detach_event(bus);
+
+        /* Drop all queued messages so that they drop references to
+         * the bus object and the bus may be freed */
+        bus_reset_queues(bus);
 
         if (!bus->is_kernel)
                 bus_close_fds(bus);
