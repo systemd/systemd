@@ -168,7 +168,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
         struct __useless_struct_to_allow_trailing_semicolon__
 
 #define BUS_PROPERTY_DUAL_TIMESTAMP(name, offset, flags) \
-        SD_BUS_PROPERTY(name, "t", bus_property_get_usec, offset + offsetof(struct dual_timestamp, realtime), flags), \
-        SD_BUS_PROPERTY(name "Monotonic", "t", bus_property_get_usec, offset + offsetof(struct dual_timestamp, monotonic), flags)
+        SD_BUS_PROPERTY(name, "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, realtime), (flags)), \
+        SD_BUS_PROPERTY(name "Monotonic", "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, monotonic), (flags))
 
 int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
