@@ -1161,7 +1161,10 @@ EXTRA_DIST += \
 	test/sched_idle_ok.service \
 	test/sched_rr_bad.service \
 	test/sched_rr_ok.service \
-	test/sched_rr_change.service
+	test/sched_rr_change.service \
+	test/son.service \
+	test/daughter.service \
+	test/parent.slice
 
 EXTRA_DIST += \
 	src/test/test-helper.h
