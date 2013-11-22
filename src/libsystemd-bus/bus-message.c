@@ -4468,3 +4468,9 @@ _public_ int sd_bus_message_verify_type(sd_bus_message *m, char type, const char
 
         return 1;
 }
+
+_public_ sd_bus *sd_bus_message_get_bus(sd_bus_message *m) {
+        assert_return(m, NULL);
+
+        return m->bus;
+}

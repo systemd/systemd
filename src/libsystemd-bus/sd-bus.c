@@ -2658,6 +2658,12 @@ _public_ int sd_bus_detach_event(sd_bus *bus) {
         return 0;
 }
 
+_public_ sd_event* sd_bus_get_event(sd_bus *bus) {
+        assert_return(bus, NULL);
+
+        return bus->event;
+}
+
 _public_ sd_bus_message* sd_bus_get_current(sd_bus *bus) {
         assert_return(bus, NULL);
 

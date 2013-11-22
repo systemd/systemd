@@ -54,6 +54,7 @@ global:
         sd_bus_get_tid;
         sd_bus_attach_event;
         sd_bus_detach_event;
+        sd_bus_get_event;
         sd_bus_add_filter;
         sd_bus_remove_filter;
         sd_bus_add_match;
@@ -94,6 +95,7 @@ global:
         sd_bus_message_get_sender;
         sd_bus_message_get_error;
         sd_bus_message_get_errno;
+        sd_bus_message_get_bus;
         sd_bus_message_get_monotonic_timestamp;
         sd_bus_message_get_realtime_timestamp;
         sd_bus_message_get_uid;

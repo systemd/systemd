@@ -111,6 +111,7 @@ int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
 
 int sd_bus_attach_event(sd_bus *bus, sd_event *e, int priority);
 int sd_bus_detach_event(sd_bus *bus);
+sd_event *sd_bus_get_event(sd_bus *bus);
 
 int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *userdata);
@@ -162,6 +163,8 @@ const char *sd_bus_message_get_destination(sd_bus_message *m);
 const char *sd_bus_message_get_sender(sd_bus_message *m);
 const sd_bus_error *sd_bus_message_get_error(sd_bus_message *m);
 int sd_bus_message_get_errno(sd_bus_message *m);
+
+sd_bus* sd_bus_message_get_bus(sd_bus_message *m);
 
 int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec);
 int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec);
