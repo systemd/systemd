@@ -97,8 +97,6 @@ int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec);
 sd_event_source* sd_event_source_ref(sd_event_source *s);
 sd_event_source* sd_event_source_unref(sd_event_source *s);
 
-sd_event *sd_event_get(sd_event_source *s);
-
 int sd_event_source_set_prepare(sd_event_source *s, sd_event_handler_t callback);
 int sd_event_source_get_pending(sd_event_source *s);
 int sd_event_source_get_priority(sd_event_source *s, int *priority);
@@ -116,6 +114,7 @@ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec);
 int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec);
 int sd_event_source_get_signal(sd_event_source *s);
 int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid);
+sd_event *sd_event_source_get_event(sd_event_source *s);
 
 _SD_END_DECLARATIONS;
 

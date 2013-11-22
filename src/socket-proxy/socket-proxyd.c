@@ -287,7 +287,7 @@ static int traffic_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
         if (c->client_fd == -1 && c->client_to_server_buffer_full <= 0)
                 goto quit;
 
-        r = connection_enable_event_sources(c, sd_event_get(s));
+        r = connection_enable_event_sources(c, sd_event_source_get_event(s));
         if (r < 0)
                 goto quit;
 
@@ -373,7 +373,7 @@ static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
         if (r < 0)
                 goto fail;
 
-        r = connection_enable_event_sources(c, sd_event_get(s));
+        r = connection_enable_event_sources(c, sd_event_source_get_event(s));
         if (r < 0)
                 goto fail;
 
@@ -477,7 +477,7 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 getpeername_pretty(nfd, &peer);
                 log_debug("New connection from %s", strna(peer));
 
-                r = add_connection_socket(context, sd_event_get(s), nfd);
+                r = add_connection_socket(context, sd_event_source_get_event(s), nfd);
                 if (r < 0) {
                         close_nointr_nofail(fd);
                         return r;

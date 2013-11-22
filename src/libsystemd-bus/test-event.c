@@ -63,7 +63,7 @@ static int child_handler(sd_event_source *s, const siginfo_t *si, void *userdata
 
         assert(userdata == INT_TO_PTR('f'));
 
-        assert_se(sd_event_request_quit(sd_event_get(s)) >= 0);
+        assert_se(sd_event_request_quit(sd_event_source_get_event(s)) >= 0);
         sd_event_source_unref(s);
 
         return 1;
@@ -91,7 +91,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
         if (pid == 0)
                 _exit(0);
 
-        assert_se(sd_event_add_child(sd_event_get(s), pid, WEXITED, child_handler, INT_TO_PTR('f'), &p) >= 0);
+        assert_se(sd_event_add_child(sd_event_source_get_event(s), pid, WEXITED, child_handler, INT_TO_PTR('f'), &p) >= 0);
         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
 
         sd_event_source_unref(s);
@@ -112,7 +112,7 @@ static int defer_handler(sd_event_source *s, void *userdata) {
         assert_se(sigemptyset(&ss) >= 0);
         assert_se(sigaddset(&ss, SIGUSR1) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &ss, NULL) >= 0);
-        assert_se(sd_event_add_signal(sd_event_get(s), SIGUSR1, signal_handler, INT_TO_PTR('e'), &p) >= 0);
+        assert_se(sd_event_add_signal(sd_event_source_get_event(s), SIGUSR1, signal_handler, INT_TO_PTR('e'), &p) >= 0);
         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
         raise(SIGUSR1);
 
@@ -131,7 +131,7 @@ static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
                 if (do_quit) {
                         sd_event_source *p;
 
-                        assert_se(sd_event_add_defer(sd_event_get(s), defer_handler, INT_TO_PTR('d'), &p) >= 0);
+                        assert_se(sd_event_add_defer(sd_event_source_get_event(s), defer_handler, INT_TO_PTR('d'), &p) >= 0);
                         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
                 } else {
                         assert(!got_c);

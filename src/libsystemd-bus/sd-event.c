@@ -984,7 +984,7 @@ _public_ sd_event_source* sd_event_source_unref(sd_event_source *s) {
         return NULL;
 }
 
-_public_ sd_event *sd_event_get(sd_event_source *s) {
+_public_ sd_event *sd_event_source_get_event(sd_event_source *s) {
         assert_return(s, NULL);
 
         return s->event;

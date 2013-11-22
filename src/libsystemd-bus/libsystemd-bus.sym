@@ -235,8 +235,6 @@ global:
         sd_event_source_ref;
         sd_event_source_unref;
 
-        sd_event_get;
-
         sd_event_source_set_prepare;
         sd_event_source_get_pending;
         sd_event_source_get_priority;
@@ -254,6 +252,7 @@ global:
         sd_event_source_get_time_accuracy;
         sd_event_source_get_signal;
         sd_event_source_get_child_pid;
+        sd_event_source_get_event;
 
         /* sd-utf8 function */
         sd_utf8_is_valid;
