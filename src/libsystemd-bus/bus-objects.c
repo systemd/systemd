@@ -135,6 +135,8 @@ static int add_enumerated_to_set(
                         }
 
                         r = set_consume(s, *k);
+                        if (r == -EEXIST)
+                                r = 0;
                 }
 
                 free(children);
