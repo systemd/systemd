@@ -145,9 +145,8 @@ server {
                         </example>
                         <example label="commands">
                                 <programlisting>
-<![CDATA[# systemctl --system daemon-reload
+<![CDATA[# systemctl enable proxy-to-nginx.socket
 # systemctl start proxy-to-nginx.socket
-# systemctl enable proxy-to-nginx.socket
 $ curl http://localhost:80/]]>
 </programlisting>
                         </example>
@@ -178,7 +177,7 @@ WantedBy=sockets.target]]>
                                 /etc/systemd/system/proxy-with-nginx.service</title>
                                 <programlisting>
 <![CDATA[[Unit]
-After=syslog.target remote-fs.target nss-lookup.target
+After=remote-fs.target nss-lookup.target
 
 [Service]
 ExecStartPre=/usr/sbin/nginx -t
@@ -213,9 +212,8 @@ server {
                         </example>
                         <example label="commands">
                                 <programlisting>
-<![CDATA[# systemctl --system daemon-reload
+<![CDATA[# systemctl enable proxy-with-nginx.socket
 # systemctl start proxy-with-nginx.socket
-# systemctl enable proxy-with-nginx.socket
 $ curl http://localhost:80/]]>
 </programlisting>
                         </example>
