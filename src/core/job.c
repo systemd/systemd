@@ -403,6 +403,11 @@ static bool job_is_runnable(Job *j) {
          * job type) or before (in the case of a 'negative' job
          * type. */
 
+        /* Note that unit types have a say in what is runnable,
+         * too. For example, if they return -EAGAIN from
+         * unit_start() they can indicate they are not
+         * runnable yet. */
+
         /* First check if there is an override */
         if (j->ignore_order)
                 return true;
@@ -909,7 +914,7 @@ int job_serialize(Job *j, FILE *f, FDSet *fds) {
         fprintf(f, "job-ignore-order=%s\n", yes_no(j->ignore_order));
 
         if (j->begin_usec > 0)
-                fprintf(f, "job-begin=%llu", (unsigned long long) j->begin_usec);
+                fprintf(f, "job-begin=%llu\n", (unsigned long long) j->begin_usec);
 
         bus_client_track_serialize(j->manager, f, j->subscribed);
 
