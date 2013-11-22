@@ -145,7 +145,9 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 #if defined(static_assert)
 #define assert_cc(expr) static_assert(expr, #expr)
 #else
-#define assert_cc(expr) struct _assert_struct_ ## __LINE__ { char x[(expr) ? 0 : -1]; }
+#define assert___cc(expr, line) struct _assert_struct_ ## line { char x[(expr) ? 0 : -1]; }
+#define assert__cc(expr, line) assert___cc((expr), line)
+#define assert_cc(expr) assert__cc((expr), __LINE__)
 #endif
 
 #define assert_return(expr, r)                    \
