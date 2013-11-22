@@ -137,6 +137,8 @@ static bool arg_plain = false;
 static int daemon_reload(sd_bus *bus, char **args);
 static int halt_now(enum action a);
 
+static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet);
+
 static void pager_open_if_enabled(void) {
 
         if (arg_no_pager)
@@ -1309,6 +1311,8 @@ static int list_dependencies_one(
         qsort_safe(deps, strv_length(deps), sizeof (char*), list_dependencies_compare);
 
         STRV_FOREACH(c, deps) {
+                int state;
+
                 if (strv_contains(u, *c)) {
                         if (!arg_plain) {
                                 r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), 1);
@@ -1317,6 +1321,12 @@ static int list_dependencies_one(
                         }
                         continue;
                 }
+
+                state = check_one_unit(bus, *c, "activating\0active\0reloading\0", true);
+                if (state > 0)
+                        printf("%s%s%s", ansi_highlight_green(), draw_special_char(DRAW_BLACK_CIRCLE), ansi_highlight_off());
+                else
+                        printf("%s%s%s", ansi_highlight_red(), draw_special_char(DRAW_BLACK_CIRCLE), ansi_highlight_off());
 
                 r = list_dependencies_print(*c, level, branches, c[1] == NULL);
                 if (r < 0)

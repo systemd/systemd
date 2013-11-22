@@ -395,6 +395,10 @@ static inline const char *ansi_highlight_green(void) {
         return on_tty() ? ANSI_HIGHLIGHT_GREEN_ON : "";
 }
 
+static inline const char *ansi_highlight_yellow(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_YELLOW_ON : "";
+}
+
 static inline const char *ansi_highlight_off(void) {
         return on_tty() ? ANSI_HIGHLIGHT_OFF : "";
 }
