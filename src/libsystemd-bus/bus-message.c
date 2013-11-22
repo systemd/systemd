@@ -624,17 +624,13 @@ _public_ int sd_bus_message_new_method_errorf(
 
         _cleanup_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         va_list ap;
-        int r;
 
         assert_return(name, -EINVAL);
         assert_return(m, -EINVAL);
 
         va_start(ap, format);
-        r = bus_error_setfv(&error, name, format, ap);
+        bus_error_setfv(&error, name, format, ap);
         va_end(ap);
-
-        if (r < 0)
-                return r;
 
         return sd_bus_message_new_method_error(call, &error, m);
 }
@@ -664,14 +660,10 @@ _public_ int sd_bus_message_new_method_errnof(
 
         _cleanup_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
         va_list ap;
-        int r;
 
         va_start(ap, format);
-        r = bus_error_set_errnofv(&berror, error, format, ap);
+        bus_error_set_errnofv(&berror, error, format, ap);
         va_end(ap);
-
-        if (r < 0)
-                return r;
 
         return sd_bus_message_new_method_error(call, &berror, m);
 }

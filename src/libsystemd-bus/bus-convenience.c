@@ -155,7 +155,6 @@ _public_ int sd_bus_reply_method_errorf(
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         va_list ap;
-        int r;
 
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
@@ -167,11 +166,8 @@ _public_ int sd_bus_reply_method_errorf(
                 return 0;
 
         va_start(ap, format);
-        r = bus_error_setfv(&error, name, format, ap);
+        bus_error_setfv(&error, name, format, ap);
         va_end(ap);
-
-        if (r < 0)
-                return r;
 
         return sd_bus_reply_method_error(call, &error);
 }

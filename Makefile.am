@@ -177,6 +177,7 @@ AM_CPPFLAGS = \
 	-DQUOTACHECK=\"$(QUOTACHECK)\" \
 	-DKEXEC=\"$(KEXEC)\" \
 	-I $(top_srcdir)/src \
+	-I $(top_builddir)/src/shared \
 	-I $(top_srcdir)/src/shared \
 	-I $(top_srcdir)/src/network \
 	-I $(top_srcdir)/src/login \
@@ -761,7 +762,13 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/ptyfwd.c \
 	src/shared/ptyfwd.h \
 	src/shared/net-util.c \
-	src/shared/net-util.h
+	src/shared/net-util.h \
+	src/shared/errno-list.c \
+	src/shared/errno-list.h
+
+nodist_libsystemd_shared_la_SOURCES = \
+	src/shared/errno-from-name.h \
+	src/shared/errno-to-name.h
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -1031,11 +1038,15 @@ CLEANFILES += \
 	src/core/load-fragment-gperf.c \
 	src/core/load-fragment-gperf-nulstr.c \
 	src/core/syscall-list.txt \
-	src/core/syscall-from-name.gperf
+	src/core/syscall-from-name.gperf \
+	src/shared/errno-list.txt \
+	src/shared/errno-from-name.gperf
 
 BUILT_SOURCES += \
 	src/core/syscall-from-name.h \
-	src/core/syscall-to-name.h
+	src/core/syscall-to-name.h \
+	src/shared/errno-from-name.h \
+	src/shared/errno-to-name.h
 
 src/core/syscall-list.txt: Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
@@ -1051,7 +1062,23 @@ src/core/syscall-from-name.h: src/core/syscall-from-name.gperf Makefile
 
 src/core/syscall-to-name.h: src/core/syscall-list.txt Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const syscall_names[] = { "} { printf "[SYSCALL_TO_INDEX(__NR_%s)] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const syscall_names[] = { "} { printf "[SYSCALL_TO_INDEX(__NR_%s)] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
+
+src/shared/errno-list.txt: Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include errno.h - < /dev/null | $(AWK) '/^#define[ \t]+E[^ _]+[ \t]+[0-9]/ { print $$2; }'  > $@
+
+src/shared/errno-from-name.gperf: src/shared/errno-list.txt Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct errno_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, %s\n", $$1, $$1 }' < $< > $@
+
+src/shared/errno-from-name.h: src/shared/errno-from-name.gperf Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_errno -H hash_errno_name -p -C < $< > $@
+
+src/shared/errno-to-name.h: src/shared/errno-list.txt Makefile
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const errno_names[] = { "} { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 
 # ------------------------------------------------------------------------------
 systemd_SOURCES = \
@@ -2004,6 +2031,7 @@ tests += \
 	test-bus-zero-copy \
 	test-bus-introspect \
 	test-bus-objects \
+	test-bus-error \
 	test-event
 
 bin_PROGRAMS += \
@@ -2078,6 +2106,15 @@ test_bus_objects_LDADD = \
 	libsystemd-bus-dump.la \
 	libsystemd-capability.la \
 	$(CAP_LIBS)
+
+test_bus_error_SOURCES = \
+	src/libsystemd-bus/test-bus-error.c
+
+test_bus_error_LDADD = \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
 
 test_bus_match_SOURCES = \
 	src/libsystemd-bus/test-bus-match.c

@@ -3,7 +3,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2012 Lennart Poettering
+  Copyright 2013 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -19,38 +19,41 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/syscall.h>
+#include <errno.h>
 #include <string.h>
 
 #include "util.h"
-#include "syscall-list.h"
+#include "errno-list.h"
 
-static const struct syscall_name* lookup_syscall(register const char *str,
+static const struct errno_name* lookup_errno(register const char *str,
                                                  register unsigned int len);
 
-#include "syscall-to-name.h"
-#include "syscall-from-name.h"
+#include "errno-to-name.h"
+#include "errno-from-name.h"
 
-const char *syscall_to_name(int id) {
-        id = SYSCALL_TO_INDEX(id);
-        if (id < 0 || id >= (int) ELEMENTSOF(syscall_names))
+const char *errno_to_name(int id) {
+
+        if (id < 0)
+                id = -id;
+
+        if (id >= (int) ELEMENTSOF(errno_names))
                 return NULL;
 
-        return syscall_names[id];
+        return errno_names[id];
 }
 
-int syscall_from_name(const char *name) {
-        const struct syscall_name *sc;
+int errno_from_name(const char *name) {
+        const struct errno_name *sc;
 
         assert(name);
 
-        sc = lookup_syscall(name, strlen(name));
+        sc = lookup_errno(name, strlen(name));
         if (!sc)
-                return -1;
+                return 0;
 
         return sc->id;
 }
 
-int syscall_max(void) {
-        return ELEMENTSOF(syscall_names);
+int errno_max(void) {
+        return ELEMENTSOF(errno_names);
 }
