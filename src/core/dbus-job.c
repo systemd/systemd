@@ -84,7 +84,7 @@ static int foreach_client(Job *j, int (*send_message)(sd_bus *bus, const char *n
         Iterator i;
         sd_bus *b;
         unsigned n, m;
-        int r;
+        int r, ret;
 
         assert(j);
         assert(send_message);
@@ -105,17 +105,22 @@ static int foreach_client(Job *j, int (*send_message)(sd_bus *bus, const char *n
         if (one_destination)
                 return send_message(one_destination->bus, isempty(one_destination->name) ? NULL : one_destination->name, j);
 
+        ret = 0;
+
         /* Send to everybody */
         SET_FOREACH(b, j->manager->private_buses, i) {
                 r = send_message(b, NULL, j);
                 if (r < 0)
-                        return r;
+                        ret = r;
         }
 
-        if (j->manager->api_bus)
-                return send_message(j->manager->api_bus, NULL, j);
+        if (j->manager->api_bus) {
+                r = send_message(j->manager->api_bus, NULL, j);
+                if (r < 0)
+                        ret = r;
+        }
 
-        return 0;
+        return ret;
 }
 
 static int send_new_signal(sd_bus *bus, const char *destination, Job *j) {
@@ -171,7 +176,7 @@ void bus_job_send_change_signal(Job *j) {
 
         r = foreach_client(j, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal);
         if (r < 0)
-                log_warning("Failed to send job change signal for %u/%s: %s", j->id, j->unit->id, strerror(-r));
+                log_debug("Failed to send job change signal for %u: %s", j->id, strerror(-r));
 
         j->sent_dbus_new_signal = true;
 }
@@ -215,6 +220,5 @@ void bus_job_send_removed_signal(Job *j) {
 
         r = foreach_client(j, send_removed_signal);
         if (r < 0)
-                log_warning("Failed to send job removal signal for %u/%s: %s", j->id, j->unit->id, strerror(-r));
-                return;
+                log_debug("Failed to send job remove signal for %u: %s", j->id, strerror(-r));
 }

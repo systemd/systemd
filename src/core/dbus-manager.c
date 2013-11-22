@@ -1624,7 +1624,7 @@ int bus_manager_foreach_client(Manager *m, int (*send_message)(sd_bus *bus, cons
         Iterator i;
         sd_bus *b;
         unsigned n;
-        int r;
+        int r, ret;
 
         n = set_size(m->subscribed);
         if (n <= 0)
@@ -1636,17 +1636,22 @@ int bus_manager_foreach_client(Manager *m, int (*send_message)(sd_bus *bus, cons
                 return send_message(d->bus, isempty(d->name) ? NULL : d->name, userdata);
         }
 
+        ret = 0;
+
         /* Send to everybody */
         SET_FOREACH(b, m->private_buses, i) {
                 r = send_message(b, NULL, userdata);
                 if (r < 0)
-                        return r;
+                        ret = r;
         }
 
-        if (m->api_bus)
-                return send_message(m->api_bus, NULL, userdata);
+        if (m->api_bus) {
+                r = send_message(m->api_bus, NULL, userdata);
+                if (r < 0)
+                        ret = r;
+        }
 
-        return 0;
+        return ret;
 }
 
 static int send_finished(sd_bus *bus, const char *destination, void *userdata) {
@@ -1668,7 +1673,7 @@ static int send_finished(sd_bus *bus, const char *destination, void *userdata) {
         return sd_bus_send_to(bus, message, destination, NULL);
 }
 
-int bus_manager_send_finished(
+void bus_manager_send_finished(
                 Manager *m,
                 usec_t firmware_usec,
                 usec_t loader_usec,
@@ -1677,10 +1682,14 @@ int bus_manager_send_finished(
                 usec_t userspace_usec,
                 usec_t total_usec) {
 
+        int r;
+
         assert(m);
 
-        return bus_manager_foreach_client(m, send_finished,
-                        (usec_t[6]) { firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec });
+        r = bus_manager_foreach_client(m, send_finished,
+                                   (usec_t[6]) { firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec });
+        if (r < 0)
+                log_debug("Failed to send finished signal: %s", strerror(-r));
 }
 
 static int send_reloading(sd_bus *bus, const char *destination, void *userdata) {
@@ -1700,8 +1709,13 @@ static int send_reloading(sd_bus *bus, const char *destination, void *userdata) 
         return sd_bus_send_to(bus, message, destination, NULL);
 }
 
-int bus_manager_send_reloading(Manager *m, bool active) {
+void bus_manager_send_reloading(Manager *m, bool active) {
+        int r;
+
         assert(m);
 
-        return bus_manager_foreach_client(m, send_reloading, INT_TO_PTR(active));
+        r = bus_manager_foreach_client(m, send_reloading, INT_TO_PTR(active));
+        if (r < 0)
+                log_debug("Failed to send reloading signal: %s", strerror(-r));
+
 }

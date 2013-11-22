@@ -664,7 +664,6 @@ static int send_changed_signal(sd_bus *bus, const char *destination, void *userd
 
 void bus_unit_send_change_signal(Unit *u) {
         int r;
-
         assert(u);
 
         if (u->in_dbus_queue) {
@@ -677,7 +676,7 @@ void bus_unit_send_change_signal(Unit *u) {
 
         r = bus_manager_foreach_client(u->manager, u->sent_dbus_new_signal ? send_changed_signal : send_new_signal, u);
         if (r < 0)
-                log_warning("Failed to send unit change signal for %s: %s", u->id, strerror(-r));
+                log_debug("Failed to send unit change signal for %s: %s", u->id, strerror(-r));
 
         u->sent_dbus_new_signal = true;
 }
@@ -713,7 +712,6 @@ static int send_removed_signal(sd_bus *bus, const char *destination, void *userd
 
 void bus_unit_send_removed_signal(Unit *u) {
         int r;
-
         assert(u);
 
         if (!u->sent_dbus_new_signal)
@@ -724,7 +722,7 @@ void bus_unit_send_removed_signal(Unit *u) {
 
         r = bus_manager_foreach_client(u->manager, send_removed_signal, u);
         if (r < 0)
-                log_warning("Failed to send unit change signal for %s: %s", u->id, strerror(-r));
+                log_debug("Failed to send unit remove signal for %s: %s", u->id, strerror(-r));
 }
 
 int bus_unit_queue_job(
