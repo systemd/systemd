@@ -38,8 +38,8 @@
 #define issecure(X)		(issecure_mask(X) & current_cred_xxx(securebits))
 
 #define SECURE_ALL_BITS		(issecure_mask(SECURE_NOROOT) | \
-				 issecure_mask(SECURE_NO_SETUID_FIXUP) | \
-				 issecure_mask(SECURE_KEEP_CAPS))
+                                 issecure_mask(SECURE_NO_SETUID_FIXUP) | \
+                                 issecure_mask(SECURE_KEEP_CAPS))
 #define SECURE_ALL_LOCKS	(SECURE_ALL_BITS << 1)
 
 #endif /* !_LINUX_SECUREBITS_H */

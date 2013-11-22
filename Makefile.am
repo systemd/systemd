@@ -665,6 +665,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/linux/seccomp-bpf.h \
 	src/shared/ioprio.h \
 	src/shared/missing.h \
+	src/shared/initreq.h \
+	src/shared/securebits.h \
+	src/shared/special.h \
 	src/shared/list.h \
 	src/shared/macro.h \
 	src/shared/def.h \
@@ -764,11 +767,15 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/net-util.c \
 	src/shared/net-util.h \
 	src/shared/errno-list.c \
-	src/shared/errno-list.h
+	src/shared/errno-list.h \
+	src/shared/syscall-list.c \
+	src/shared/syscall-list.h
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
-	src/shared/errno-to-name.h
+	src/shared/errno-to-name.h \
+	src/shared/syscall-from-name.h \
+	src/shared/syscall-to-name.h
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -973,17 +980,12 @@ libsystemd_core_la_SOURCES = \
 	src/core/namespace.h \
 	src/core/tcpwrap.c \
 	src/core/tcpwrap.h \
-	src/core/securebits.h \
-	src/core/initreq.h \
-	src/core/special.h \
 	src/core/build.h \
 	src/core/sysfs-show.h \
 	src/core/switch-root.h \
 	src/core/switch-root.c \
 	src/core/killall.h \
 	src/core/killall.c \
-	src/core/syscall-list.c \
-	src/core/syscall-list.h \
 	src/core/audit-fd.c \
 	src/core/audit-fd.h \
 	src/core/async.c \
@@ -997,9 +999,7 @@ endif
 
 nodist_libsystemd_core_la_SOURCES = \
 	src/core/load-fragment-gperf.c \
-	src/core/load-fragment-gperf-nulstr.c \
-	src/core/syscall-from-name.h \
-	src/core/syscall-to-name.h
+	src/core/load-fragment-gperf-nulstr.c
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1037,30 +1037,30 @@ CLEANFILES += \
 	src/core/load-fragment-gperf.gperf \
 	src/core/load-fragment-gperf.c \
 	src/core/load-fragment-gperf-nulstr.c \
-	src/core/syscall-list.txt \
-	src/core/syscall-from-name.gperf \
+	src/shared/syscall-list.txt \
+	src/shared/syscall-from-name.gperf \
 	src/shared/errno-list.txt \
 	src/shared/errno-from-name.gperf
 
 BUILT_SOURCES += \
-	src/core/syscall-from-name.h \
-	src/core/syscall-to-name.h \
+	src/shared/syscall-from-name.h \
+	src/shared/syscall-to-name.h \
 	src/shared/errno-from-name.h \
 	src/shared/errno-to-name.h
 
-src/core/syscall-list.txt: Makefile
+src/shared/syscall-list.txt: Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/syscall.h - < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9(]/ { sub(/__NR_/, "", $$2); if ($$2 !~ /SYSCALL_BASE/) print $$2; }' > $@
 
-src/core/syscall-from-name.gperf: src/core/syscall-list.txt Makefile
+src/shared/syscall-from-name.gperf: src/shared/syscall-list.txt Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct syscall_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, __NR_%s\n", $$1, $$1 }' < $< > $@
 
-src/core/syscall-from-name.h: src/core/syscall-from-name.gperf Makefile
+src/shared/syscall-from-name.h: src/shared/syscall-from-name.gperf Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@
 
-src/core/syscall-to-name.h: src/core/syscall-list.txt Makefile
+src/shared/syscall-to-name.h: src/shared/syscall-list.txt Makefile
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const syscall_names[] = { "} { printf "[SYSCALL_TO_INDEX(__NR_%s)] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 

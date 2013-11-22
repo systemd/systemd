@@ -45,14 +45,14 @@
  *	Linux doesn't use this right now.
  */
 struct init_request_bsd {
-	char	gen_id[8];		/* Beats me.. telnetd uses "fe" */
-	char	tty_id[16];		/* Tty name minus /dev/tty      */
-	char	host[INITRQ_HLEN];	/* Hostname                     */
-	char	term_type[16];		/* Terminal type                */
-	int	signal;			/* Signal to send               */
-	int	pid;			/* Process to send to           */
-	char	exec_name[128];	        /* Program to execute           */
-	char	reserved[128];		/* For future expansion.        */
+        char	gen_id[8];		/* Beats me.. telnetd uses "fe" */
+        char	tty_id[16];		/* Tty name minus /dev/tty      */
+        char	host[INITRQ_HLEN];	/* Hostname                     */
+        char	term_type[16];		/* Terminal type                */
+        int	signal;			/* Signal to send               */
+        int	pid;			/* Process to send to           */
+        char	exec_name[128];	        /* Program to execute           */
+        char	reserved[128];		/* For future expansion.        */
 };
 
 
@@ -64,14 +64,14 @@ struct init_request_bsd {
  *	struct to be 384 bytes.
  */
 struct init_request {
-	int	magic;			/* Magic number                 */
-	int	cmd;			/* What kind of request         */
-	int	runlevel;		/* Runlevel to change to        */
-	int	sleeptime;		/* Time between TERM and KILL   */
-	union {
-		struct init_request_bsd	bsd;
-		char			data[368];
-	} i;
+        int	magic;			/* Magic number                 */
+        int	cmd;			/* What kind of request         */
+        int	runlevel;		/* Runlevel to change to        */
+        int	sleeptime;		/* Time between TERM and KILL   */
+        union {
+                struct init_request_bsd	bsd;
+                char			data[368];
+        } i;
 };
 
 #endif
