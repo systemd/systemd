@@ -53,6 +53,11 @@
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
 
+#define XCONCATENATE(x, y) x ## y
+#define CONCATENATE(x, y) XCONCATENATE(x, y)
+
+#define UNIQUE(prefix) CONCATENATE(prefix, __LINE__)
+
 /* Rounds up */
 
 #define ALIGN4(l) (((l) + 3) & ~3)
@@ -145,9 +150,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 #if defined(static_assert)
 #define assert_cc(expr) static_assert(expr, #expr)
 #else
-#define assert___cc(expr, line) struct _assert_struct_ ## line { char x[(expr) ? 0 : -1]; }
-#define assert__cc(expr, line) assert___cc((expr), line)
-#define assert_cc(expr) assert__cc((expr), __LINE__)
+#define assert_cc(expr) struct UNIQUE(_assert_struct_) { char x[(expr) ? 0 : -1]; };
 #endif
 
 #define assert_return(expr, r)                    \
