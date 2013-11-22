@@ -346,11 +346,6 @@ static int service_arm_timer(Service *s, usec_t usec) {
 
         assert(s);
 
-        if (usec <= 0) {
-                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-                return 0;
-        }
-
         if (s->timer_event_source) {
                 r = sd_event_source_set_time(s->timer_event_source, now(CLOCK_MONOTONIC) + usec);
                 if (r < 0)
@@ -1597,19 +1592,28 @@ static int service_coldplug(Unit *u) {
                     s->deserialized_state == SERVICE_STOP_SIGKILL ||
                     s->deserialized_state == SERVICE_STOP_POST ||
                     s->deserialized_state == SERVICE_FINAL_SIGTERM ||
-                    s->deserialized_state == SERVICE_FINAL_SIGKILL ||
-                    s->deserialized_state == SERVICE_AUTO_RESTART) {
+                    s->deserialized_state == SERVICE_FINAL_SIGKILL) {
 
-                        if (s->deserialized_state == SERVICE_AUTO_RESTART || s->timeout_start_usec > 0) {
+                        usec_t k;
 
-                                r = service_arm_timer(s,
-                                                      s->deserialized_state == SERVICE_AUTO_RESTART ? s->restart_usec :
-                                                      s->deserialized_state == SERVICE_START_PRE || s->deserialized_state == SERVICE_START ||
-                                                      s->deserialized_state == SERVICE_START_POST || s->deserialized_state == SERVICE_RELOAD ? s->timeout_start_usec :
-                                                      s->timeout_stop_usec);
+                        k = s->deserialized_state == SERVICE_START_PRE || s->deserialized_state == SERVICE_START ||
+                                s->deserialized_state == SERVICE_START_POST || s->deserialized_state == SERVICE_RELOAD ?
+                                s->timeout_start_usec : s->timeout_stop_usec;
+
+                        /* For the start/stop timeouts 0 means off */
+                        if (k > 0) {
+                                r = service_arm_timer(s, k);
                                 if (r < 0)
                                         return r;
                         }
+                }
+
+                if (s->deserialized_state == SERVICE_AUTO_RESTART) {
+
+                        /* The restart timeouts 0 means immediately */
+                        r = service_arm_timer(s, s->restart_usec);
+                        if (r < 0)
+                                return r;
                 }
 
                 if ((s->deserialized_state == SERVICE_START &&
@@ -1651,6 +1655,7 @@ static int service_coldplug(Unit *u) {
 
                 service_set_state(s, s->deserialized_state);
         }
+
         return 0;
 }
 
@@ -1763,9 +1768,12 @@ static int service_spawn(
                 }
         }
 
-        r = service_arm_timer(s, timeout ? s->timeout_start_usec : 0);
-        if (r < 0)
-                goto fail;
+        if (timeout && s->timeout_start_usec > 0) {
+                r = service_arm_timer(s, s->timeout_start_usec);
+                if (r < 0)
+                        goto fail;
+        } else
+                s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 
         r = unit_full_printf_strv(UNIT(s), c->argv, &argv);
         if (r < 0)
