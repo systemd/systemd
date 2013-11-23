@@ -305,7 +305,7 @@ static int process_pty_loop(int master, sigset_t *mask, pid_t kill_pid, int sign
                                         struct winsize ws;
 
                                         /* The window size changed, let's forward that. */
-                                        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
+                                        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
                                                 ioctl(master, TIOCSWINSZ, &ws);
 
                                 } else if (sfsi.ssi_signo == SIGTERM && kill_pid > 0 && signo > 0 && !tried_orderly_shutdown) {
@@ -346,7 +346,7 @@ int process_pty(int master, sigset_t *mask, pid_t kill_pid, int signo) {
         struct winsize ws;
         int r;
 
-        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
+        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
                 ioctl(master, TIOCSWINSZ, &ws);
 
         if (tcgetattr(STDIN_FILENO, &saved_attr) >= 0) {
