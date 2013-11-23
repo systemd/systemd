@@ -341,29 +341,40 @@ static int process_pty_loop(int master, sigset_t *mask, pid_t kill_pid, int sign
 }
 
 int process_pty(int master, sigset_t *mask, pid_t kill_pid, int signo) {
-        struct termios saved_attr;
-        bool saved = false;
+        struct termios saved_stdin_attr, raw_stdin_attr;
+        struct termios saved_stdout_attr, raw_stdout_attr;
+        bool saved_stdin = false;
+        bool saved_stdout = false;
         struct winsize ws;
         int r;
 
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
                 ioctl(master, TIOCSWINSZ, &ws);
 
-        if (tcgetattr(STDIN_FILENO, &saved_attr) >= 0) {
-                struct termios raw_attr;
-                saved = true;
+        if (tcgetattr(STDIN_FILENO, &saved_stdin_attr) >= 0) {
+                saved_stdin = true;
 
-                raw_attr = saved_attr;
-                cfmakeraw(&raw_attr);
-                raw_attr.c_lflag &= ~ECHO;
+                raw_stdin_attr = saved_stdin_attr;
+                cfmakeraw(&raw_stdin_attr);
+                raw_stdin_attr.c_oflag = saved_stdin_attr.c_oflag;
+                tcsetattr(STDIN_FILENO, TCSANOW, &raw_stdin_attr);
+        }
+        if (tcgetattr(STDOUT_FILENO, &saved_stdout_attr) >= 0) {
+                saved_stdout = true;
 
-                tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr);
+                raw_stdout_attr = saved_stdout_attr;
+                cfmakeraw(&raw_stdout_attr);
+                raw_stdout_attr.c_iflag = saved_stdout_attr.c_iflag;
+                raw_stdout_attr.c_lflag = saved_stdout_attr.c_lflag;
+                tcsetattr(STDOUT_FILENO, TCSANOW, &raw_stdout_attr);
         }
 
         r = process_pty_loop(master, mask, kill_pid, signo);
 
-        if (saved)
-                tcsetattr(STDIN_FILENO, TCSANOW, &saved_attr);
+        if (saved_stdout)
+                tcsetattr(STDOUT_FILENO, TCSANOW, &saved_stdout_attr);
+        if (saved_stdin)
+                tcsetattr(STDIN_FILENO, TCSANOW, &saved_stdin_attr);
 
         return r;
 
