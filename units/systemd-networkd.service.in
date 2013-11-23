@@ -9,11 +9,11 @@
 Description=Network Service
 Documentation=man:systemd-networkd.service(8)
 DefaultDependencies=no
-After=sysinit.target
 Before=network.target
 Wants=network.target
 
 [Service]
+Type=notify
 Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-networkd
