@@ -3843,6 +3843,7 @@ nodist_systemd_networkd_SOURCES = \
 
 systemd_networkd_LDADD = \
 	libudev-internal.la \
+	libsystemd-daemon-internal.la \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-rtnl.la \

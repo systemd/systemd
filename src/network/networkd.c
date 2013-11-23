@@ -20,6 +20,7 @@
 ***/
 
 #include "sd-event.h"
+#include "sd-daemon.h"
 
 #include "networkd.h"
 
