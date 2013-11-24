@@ -44,6 +44,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto out;
 
+        r = manager_load_config(m);
+        if (r < 0)
+                return EXIT_FAILURE;
+
         r = manager_udev_listen(m);
         if (r < 0)
                 goto out;

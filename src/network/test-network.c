@@ -31,15 +31,15 @@ static void test_link(struct udev_device *loopback) {
         assert(link);
 }
 
-static void test_network_load(Manager *manager) {
+static void test_load_config(Manager *manager) {
 /*  TODO: should_reload, is false if the config dirs do not exist, so
  *        so we can't do this test here, move it to a test for paths_check_timestamps
  *        directly
  *
  *        assert(network_should_reload(manager) == true);
 */
-        assert(network_load(manager) >= 0);
-        assert(network_should_reload(manager) == false);
+        assert(manager_load_config(manager) >= 0);
+        assert(manager_should_reload(manager) == false);
 }
 
 static void test_network_get(Manager *manager, struct udev_device *loopback) {
@@ -58,7 +58,7 @@ int main(void) {
 
         assert(manager_new(&manager) >= 0);
 
-        test_network_load(manager);
+        test_load_config(manager);
 
         udev = udev_new();
         assert(udev);

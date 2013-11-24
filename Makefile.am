@@ -3833,6 +3833,7 @@ systemd_networkd_SOURCES = \
 	src/network/networkd.h \
 	src/network/networkd.c \
 	src/network/networkd-link.c \
+	src/network/networkd-bridge.c \
 	src/network/networkd-network.c \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \
@@ -3859,6 +3860,7 @@ test_network_SOURCES = \
 	src/network/test-network.c \
 	src/network/networkd.h \
 	src/network/networkd-link.c \
+	src/network/networkd-bridge.c \
 	src/network/networkd-network.c \
 	src/network/networkd-address.c \
 	src/network/networkd-route.c \

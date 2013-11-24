@@ -51,6 +51,10 @@ int manager_new(Manager **ret) {
         if (!m->links)
                 return -ENOMEM;
 
+        m->bridges = hashmap_new(string_hash_func, string_compare_func);
+        if (!m->bridges)
+                return -ENOMEM;
+
         LIST_HEAD_INIT(m->networks);
 
         m->network_dirs = strv_new("/etc/systemd/network/",
@@ -74,6 +78,7 @@ int manager_new(Manager **ret) {
 
 void manager_free(Manager *m) {
         Network *network;
+        Bridge *bridge;
         Link *link;
 
         udev_monitor_unref(m->udev_monitor);
@@ -88,10 +93,35 @@ void manager_free(Manager *m) {
                 link_free(link);
         hashmap_free(m->links);
 
+        while ((bridge = hashmap_first(m->bridges)))
+                bridge_free(bridge);
+        hashmap_free(m->bridges);
+
         strv_free(m->network_dirs);
         sd_rtnl_unref(m->rtnl);
 
         free(m);
+}
+
+int manager_load_config(Manager *m) {
+        int r;
+
+        /* update timestamp */
+        paths_check_timestamp(m->network_dirs, &m->network_dirs_ts_usec, true);
+
+        r = bridge_load(m);
+        if (r < 0)
+                return r;
+
+        r = network_load(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+bool manager_should_reload(Manager *m) {
+        return paths_check_timestamp(m->network_dirs, &m->network_dirs_ts_usec, false);
 }
 
 static int manager_process_link(Manager *m, struct udev_device *device) {

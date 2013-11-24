@@ -85,6 +85,7 @@ int link_add(Manager *m, struct udev_device *device) {
         Network *network;
         int r;
         uint64_t ifindex;
+        const char *devtype;
 
         assert(m);
         assert(device);
@@ -98,6 +99,13 @@ int link_add(Manager *m, struct udev_device *device) {
         if (r < 0) {
                 log_error("Could not create link: %s", strerror(-r));
                 return r;
+        }
+
+        devtype = udev_device_get_devtype(device);
+        if (streq_ptr(devtype, "bridge")) {
+                r = bridge_set_link(m, link);
+                if (r < 0)
+                        return r == -ENOENT ? 0 : r;
         }
 
         r = network_get(m, device, &network);
@@ -287,14 +295,59 @@ static int link_up(Link *link) {
         return 0;
 }
 
-int link_configure(Link *link) {
+static int link_enter_bridge_joined(Link *link) {
         int r;
 
         r = link_up(link);
         if (r < 0)
                 return link_enter_failed(link);
 
-        r = link_enter_set_addresses(link);
+        link->state = LINK_STATE_BRIDGE_JOINED;
+
+        return link_enter_set_addresses(link);
+}
+
+static int bridge_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        assert(link->state == LINK_STATE_JOIN_BRIDGE || link->state == LINK_STATE_FAILED);
+
+        if (link->state == LINK_STATE_FAILED)
+                return 1;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0)
+                log_warning("Could not join interface '%s' to bridge: %s",
+                            link->ifname, strerror(-r));
+
+        link_enter_bridge_joined(link);
+
+        return 1;
+}
+
+static int link_enter_join_bridge(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (!link->network->bridge)
+                return link_enter_bridge_joined(link);
+
+        link->state = LINK_STATE_JOIN_BRIDGE;
+
+        r = bridge_join(link->network->bridge, link, &bridge_handler);
+        if (r < 0)
+                return link_enter_failed(link);
+
+        return 0;
+}
+
+int link_configure(Link *link) {
+        int r;
+
+        r = link_enter_join_bridge(link);
         if (r < 0)
                 return link_enter_failed(link);
 

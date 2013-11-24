@@ -83,9 +83,6 @@ int network_load(Manager *manager) {
         while ((network = manager->networks))
                 network_free(network);
 
-        /* update timestamp */
-        paths_check_timestamp(manager->network_dirs, &manager->network_dirs_ts_usec, true);
-
         r = conf_files_list_strv(&files, ".network", NULL, (const char **)manager->network_dirs);
         if (r < 0) {
                 log_error("failed to enumerate network files: %s", strerror(-r));
@@ -101,10 +98,6 @@ int network_load(Manager *manager) {
         strv_free(files);
 
         return 0;
-}
-
-bool network_should_reload(Manager *manager) {
-        return paths_check_timestamp(manager->network_dirs, &manager->network_dirs_ts_usec, false);
 }
 
 void network_free(Network *network) {
@@ -145,8 +138,8 @@ int network_get(Manager *manager, struct udev_device *device, Network **ret) {
         assert(device);
         assert(ret);
 
-        if (network_should_reload(manager))
-                network_load(manager);
+        if (manager_should_reload(manager))
+                manager_load_config(manager);
 
         LIST_FOREACH(networks, network, manager->networks) {
                 if (net_match_config(network->match_mac, network->match_path,
@@ -173,14 +166,45 @@ int network_get(Manager *manager, struct udev_device *device, Network **ret) {
 int network_apply(Manager *manager, Network *network, Link *link) {
         int r;
 
-        log_info("Network '%s' being applied to link '%ju'",
-                        network->description, link->ifindex);
+        log_info("Network '%s' being applied to link '%s'",
+                        network->description, link->ifname);
 
         link->network = network;
 
         r = link_configure(link);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int config_parse_bridge(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+        Bridge *bridge;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = bridge_get(network->manager, rvalue, &bridge);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Bridge is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        network->bridge = bridge;
 
         return 0;
 }

@@ -21,7 +21,10 @@ Match.Driver,            config_parse_string,           0,       offsetof(Networ
 Match.Type,              config_parse_string,           0,       offsetof(Network, match_type)
 Match.Name,              config_parse_ifname,           0,       offsetof(Network, match_name)
 Network.Description,     config_parse_string,           0,       offsetof(Network, description)
+Network.Bridge,          config_parse_bridge,           0,       offsetof(Network, bridge)
 Network.Address,         config_parse_address,          0,       0
 Network.Gateway,         config_parse_gateway,          0,       0
 Address.Address,         config_parse_address,          0,       0
 Address.Label,           config_parse_label,            0,       0
+Bridge.Description,      config_parse_string,           0,       offsetof(Bridge, description)
+Bridge.Name,             config_parse_ifname,           0,       offsetof(Bridge, name)

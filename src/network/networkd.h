@@ -32,11 +32,44 @@
 #include "hashmap.h"
 #include "list.h"
 
+typedef struct Bridge Bridge;
 typedef struct Network Network;
 typedef struct Link Link;
 typedef struct Address Address;
 typedef struct Route Route;
 typedef struct Manager Manager;
+
+typedef struct bridge_join_callback bridge_join_callback;
+
+struct bridge_join_callback {
+        sd_rtnl_message_handler_t callback;
+        Link *link;
+
+        LIST_FIELDS(bridge_join_callback, callbacks);
+};
+
+typedef enum BridgeState {
+        BRIDGE_STATE_FAILED,
+        BRIDGE_STATE_CREATING,
+        BRIDGE_STATE_CREATED,
+        BRIDGE_STATE_READY,
+        _BRIDGE_STATE_MAX,
+        _BRIDGE_STATE_INVALID = -1,
+} BridgeState;
+
+struct Bridge {
+        Manager *manager;
+
+        char *filename;
+
+        char *description;
+        char *name;
+
+        Link *link;
+        BridgeState state;
+
+        LIST_HEAD(bridge_join_callback, callbacks);
+};
 
 struct Network {
         Manager *manager;
@@ -50,6 +83,7 @@ struct Network {
         char *match_name;
 
         char *description;
+        Bridge *bridge;
 
         LIST_HEAD(Address, addresses);
         LIST_HEAD(Route, routes);
@@ -99,6 +133,8 @@ struct Route {
 };
 
 typedef enum LinkState {
+        LINK_STATE_JOIN_BRIDGE,
+        LINK_STATE_BRIDGE_JOINED,
         LINK_STATE_SET_ADDRESSES,
         LINK_STATE_ADDRESSES_SET,
         LINK_STATE_SET_ROUTES,
@@ -133,6 +169,7 @@ struct Manager {
         sd_event_source *udev_event_source;
 
         Hashmap *links;
+        Hashmap *bridges;
         LIST_HEAD(Network, networks);
 
         char **network_dirs;
@@ -144,6 +181,9 @@ struct Manager {
 int manager_new(Manager **ret);
 void manager_free(Manager *m);
 
+int manager_load_config(Manager *m);
+bool manager_should_reload(Manager *m);
+
 int manager_udev_enumerate_links(Manager *m);
 int manager_udev_listen(Manager *m);
 
@@ -152,10 +192,22 @@ int manager_rtnl_listen(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
 
+/* Bridge */
+
+int bridge_load(Manager *manager);
+
+void bridge_free(Bridge *bridge);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Bridge*, bridge_free);
+#define _cleanup_bridge_free_ _cleanup_(bridge_freep)
+
+int bridge_get(Manager *manager, const char *name, Bridge **ret);
+int bridge_set_link(Manager *m, Link *link);
+int bridge_join(Bridge *bridge, Link *link, sd_rtnl_message_handler_t cb);
+
 /* Network */
 
 int network_load(Manager *manager);
-bool network_should_reload(Manager *manager);
 
 void network_free(Network *network);
 
@@ -164,6 +216,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_free);
 
 int network_get(Manager *manager, struct udev_device *device, Network **ret);
 int network_apply(Manager *manager, Network *network, Link *link);
+
+int config_parse_bridge(const char *unit, const char *filename, unsigned line,
+                        const char *section, unsigned section_line, const char *lvalue,
+                        int ltype, const char *rvalue, void *data, void *userdata);
+
+/* gperf */
 
 const struct ConfigPerfItem* network_gperf_lookup(const char *key, unsigned length);
 
