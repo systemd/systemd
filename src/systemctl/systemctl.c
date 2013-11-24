@@ -3604,16 +3604,13 @@ static int show_one(
         return r;
 }
 
-static int show_one_by_pid(
-                const char *verb,
+static int get_unit_dbus_path_by_pid(
                 sd_bus *bus,
                 uint32_t pid,
-                bool *new_line,
-                bool *ellipsized) {
+                char **unit) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        const char *path = NULL;
         int r;
 
         r = sd_bus_call_method(
@@ -3630,11 +3627,11 @@ static int show_one_by_pid(
                 return r;
         }
 
-        r = sd_bus_message_read(reply, "o", &path);
+        r = sd_bus_message_read(reply, "o", unit);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return show_one(verb, bus, path, false, new_line, ellipsized);
+        return 0;
 }
 
 static int show_all(
@@ -3702,41 +3699,34 @@ static int show(sd_bus *bus, char **args) {
                 ret = show_all(args[0], bus, false, &new_line, &ellipsized);
         else
                 STRV_FOREACH(name, args+1) {
+                        _cleanup_free_ char *unit = NULL;
                         uint32_t id;
 
                         if (safe_atou32(*name, &id) < 0) {
-                                _cleanup_free_ char *p = NULL, *n = NULL;
+                                _cleanup_free_ char *n = NULL;
                                 /* Interpret as unit name */
 
                                 n = unit_name_mangle(*name);
                                 if (!n)
                                         return log_oom();
 
-                                p = unit_dbus_path_from_name(n);
-                                if (!p)
+                                unit = unit_dbus_path_from_name(n);
+                                if (!unit)
                                         return log_oom();
-
-                                r = show_one(args[0], bus, p, show_properties, &new_line, &ellipsized);
-                                if (r != 0)
-                                        ret = r;
 
                         } else if (show_properties) {
-                                _cleanup_free_ char *p = NULL;
-
                                 /* Interpret as job id */
-                                if (asprintf(&p, "/org/freedesktop/systemd1/job/%u", id) < 0)
+                                if (asprintf(&unit, "/org/freedesktop/systemd1/job/%u", id) < 0)
                                         return log_oom();
-
-                                r = show_one(args[0], bus, p, show_properties, &new_line, &ellipsized);
-                                if (r != 0)
-                                        ret = r;
 
                         } else {
                                 /* Interpret as PID */
-                                r = show_one_by_pid(args[0], bus, id, &new_line, &ellipsized);
-                                if (r != 0)
+                                r = get_unit_dbus_path_by_pid(bus, id, &unit);
+                                if (r < 0)
                                         ret = r;
                         }
+
+                        show_one(args[0], bus, unit, show_properties, &new_line, &ellipsized);
                 }
 
         if (ellipsized && !arg_quiet)
