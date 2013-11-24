@@ -118,8 +118,6 @@ int route_configure(Route *route, Link *link,
                 return r;
         }
 
-        link->rtnl_messages ++;
-
         return 0;
 }
 

@@ -79,7 +79,12 @@ int address_configure(Address *address, Link *link,
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
+        assert(address);
+        assert(address->family == AF_INET || address->family == AF_INET6);
+        assert(link);
+        assert(link->ifindex > 0);
         assert(link->manager);
+        assert(link->manager->rtnl);
 
         r = sd_rtnl_message_addr_new(RTM_NEWADDR, link->ifindex,
                         address->family, address->prefixlen,
@@ -124,8 +129,6 @@ int address_configure(Address *address, Link *link,
                 log_error("Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
-
-        link->rtnl_messages ++;
 
         return 0;
 }

@@ -30,6 +30,7 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
         _cleanup_link_free_ Link *link = NULL;
         const char *mac;
         struct ether_addr *mac_addr;
+        const char *ifname;
         int r;
 
         assert(device);
@@ -53,6 +54,9 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret) {
                         memcpy(&link->mac, mac_addr, sizeof(struct ether_addr));
         }
 
+        ifname = udev_device_get_sysname(device);
+        link->ifname = strdup(ifname);
+
         r = hashmap_put(manager->links, &link->ifindex, link);
         if (r < 0)
                 return r;
@@ -70,6 +74,8 @@ void link_free(Link *link) {
         assert(link->manager);
 
         hashmap_remove(link->manager->links, &link->ifindex);
+
+        free(link->ifname);
 
         free(link);
 }
@@ -90,7 +96,7 @@ int link_add(Manager *m, struct udev_device *device) {
 
         r = link_new(m, device, &link);
         if (r < 0) {
-                log_error("could not create link: %s", strerror(-r));
+                log_error("Could not create link: %s", strerror(-r));
                 return r;
         }
 
@@ -106,7 +112,7 @@ int link_add(Manager *m, struct udev_device *device) {
 }
 
 static int link_enter_configured(Link *link) {
-        log_info("Link configured successfully.");
+        log_info("Link '%s' configured", link->ifname);
 
         link->state = LINK_STATE_CONFIGURED;
 
@@ -114,7 +120,7 @@ static int link_enter_configured(Link *link) {
 }
 
 static int link_enter_failed(Link *link) {
-        log_warning("Could not configure link.");
+        log_warning("Could not configure link '%s'", link->ifname);
 
         link->state = LINK_STATE_FAILED;
 
@@ -126,7 +132,7 @@ static bool link_is_up(Link *link) {
 }
 
 static int link_enter_routes_set(Link *link) {
-        log_info("Routes set for link %ju", link->ifindex);
+        log_info("Routes set for link '%s'", link->ifname);
 
         if (link_is_up(link))
                 return link_enter_configured(link);
@@ -149,11 +155,9 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 return 1;
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_warning("Could not set route on interface %ju: %s",
-                            link->ifindex, strerror(-r));
-                return link_enter_failed(link);
-        }
+        if (r < 0 && r != -EEXIST)
+                log_warning("Could not set route on interface '%s': %s",
+                            link->ifname, strerror(-r));
 
         if (link->rtnl_messages == 0)
                 return link_enter_routes_set(link);
@@ -178,14 +182,16 @@ static int link_enter_set_routes(Link *link) {
         LIST_FOREACH(routes, route, link->network->routes) {
                 r = route_configure(route, link, &route_handler);
                 if (r < 0)
-                        link_enter_failed(link);
+                        return link_enter_failed(link);
+
+                link->rtnl_messages ++;
         }
 
         return 0;
 }
 
 static int link_enter_addresses_set(Link *link) {
-        log_info("Addresses set for link %ju", link->ifindex);
+        log_info("Addresses set for link '%s'", link->ifname);
 
         link->state = LINK_STATE_ADDRESSES_SET;
 
@@ -205,11 +211,9 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 return 1;
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_warning("Could not set address on interface %ju: %s",
-                            link->ifindex, strerror(-r));
-                link_enter_failed(link);
-        }
+        if (r < 0 && r != -EEXIST)
+                log_warning("Could not set address on interface '%s': %s",
+                            link->ifname, strerror(-r));
 
         if (link->rtnl_messages == 0)
                 link_enter_addresses_set(link);
@@ -233,7 +237,9 @@ static int link_enter_set_addresses(Link *link) {
         LIST_FOREACH(addresses, address, link->network->addresses) {
                 r = address_configure(address, link, &address_handler);
                 if (r < 0)
-                        link_enter_failed(link);
+                        return link_enter_failed(link);
+
+                link->rtnl_messages ++;
         }
 
         return 0;
@@ -244,15 +250,13 @@ static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         int r;
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0) {
-                log_warning("Could not bring up interface %ju: %s",
-                            link->ifindex, strerror(-r));
-                return link_enter_failed(link);
-        }
+        if (r < 0)
+                log_warning("Could not bring up interface '%s': %s",
+                            link->ifname, strerror(-r));
 
         link->flags |= IFF_UP;
 
-        log_info("Link is UP.");
+        log_info("Link '%s' is up", link->ifname);
 
         if (link->state == LINK_STATE_ROUTES_SET)
                 return link_enter_configured(link);

@@ -113,6 +113,7 @@ struct Link {
         Manager *manager;
 
         uint64_t ifindex;
+        char *ifname;
         struct ether_addr mac;
 
         unsigned flags;
