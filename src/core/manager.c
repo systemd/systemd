@@ -2275,8 +2275,9 @@ void manager_check_finished(Manager *m) {
         if (m->n_running_jobs == 0)
                 m->jobs_in_progress_event_source = sd_event_source_unref(m->jobs_in_progress_event_source);
 
-        if (hashmap_size(m->jobs) > 0 && m->jobs_in_progress_event_source) {
-                sd_event_source_set_time(m->jobs_in_progress_event_source, JOBS_IN_PROGRESS_PERIOD_SEC);
+        if (hashmap_size(m->jobs) > 0) {
+                if (m->jobs_in_progress_event_source)
+                        sd_event_source_set_time(m->jobs_in_progress_event_source, JOBS_IN_PROGRESS_PERIOD_SEC);
                 return;
         }
 
