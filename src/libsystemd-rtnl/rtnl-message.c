@@ -320,6 +320,7 @@ int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *
                                 case IFLA_IFALIAS:
                                 case IFLA_QDISC:
                                         return add_rtattr(m, type, data, strlen(data) + 1);
+                                case IFLA_MASTER:
                                 case IFLA_MTU:
                                 case IFLA_LINK:
                                         return add_rtattr(m, type, data, sizeof(uint32_t));
