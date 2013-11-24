@@ -1,34 +1,14 @@
+import itertools
 import os
-import ycm_core
-from clang_helpers import PrepareClangFlags
+import subprocess
 
-compilation_database_folder = ''
+def GetFlagsFromMakefile(varname):
+  return subprocess.check_output([
+      "make", "-s", "print-%s" % varname]).decode().split()
 
-flags = [
-'-include',
-'./config.h',
-'-I',
-'/usr/include/dbus-1.0',
-'-I',
-'./src/shared',
-'-I',
-'./src/systemd',
-'-Wall',
-'-Wextra',
-'-Werror',
-'-Wno-long-long',
-'-Wno-variadic-macros',
-'-fexceptions',
-'-DNDEBUG',
-'-DUSE_CLANG_COMPLETER',
-'-D_GNU_SOURCE',
-'-std=c99',
-]
 
-if compilation_database_folder:
-  database = ycm_core.CompilationDatabase(compilation_database_folder)
-else:
-  database = None
+def Flatten(lists):
+  return list(itertools.chain.from_iterable(lists))
 
 
 def DirectoryOfThisScript():
@@ -65,19 +45,22 @@ def MakeRelativePathsInFlagsAbsolute(flags, working_directory):
 
 
 def FlagsForFile(filename):
-  if database:
-    compilation_info = database.GetCompilationInfoForFile(filename)
-    final_flags = PrepareClangFlags(
-        MakeRelativePathsInFlagsAbsolute(
-            compilation_info.compiler_flags_,
-            compilation_info.compiler_working_dir_),
-        filename)
-
-  else:
-    relative_to = DirectoryOfThisScript()
-    final_flags = MakeRelativePathsInFlagsAbsolute(flags, relative_to)
+  relative_to = DirectoryOfThisScript()
 
   return {
-    'flags': final_flags,
+    'flags': MakeRelativePathsInFlagsAbsolute(flags, relative_to),
     'do_cache': True
   }
+
+flags = Flatten(map(GetFlagsFromMakefile, [
+  'AM_CPPFLAGS',
+  'CPPFLAGS',
+  'AM_CFLAGS',
+  'CFLAGS',
+]))
+
+# these flags cause crashes in libclang, so remove them
+flags.remove('-Wlogical-op')
+flags.remove('-Wsuggest-attribute=noreturn')
+
+# vim: set et ts=2 sw=2:

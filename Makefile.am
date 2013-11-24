@@ -5081,3 +5081,7 @@ tests += \
 
 cppcheck:
 	cppcheck --enable=all -q $(top_srcdir)
+
+# Used to extract compile flags for YCM.
+print-%:
+	@echo $($*)
