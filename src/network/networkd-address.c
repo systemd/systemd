@@ -206,7 +206,6 @@ int config_parse_label(const char *unit,
                 void *userdata) {
         Network *network = userdata;
         _cleanup_address_free_ Address *n = NULL;
-        _cleanup_free_ char *address = NULL;
         char *label;
         int r;
 

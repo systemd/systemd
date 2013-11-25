@@ -206,7 +206,6 @@ static void async_polkit_query_free(sd_bus *b, AsyncPolkitQuery *q) {
 
 static int async_polkit_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         AsyncPolkitQuery *q = userdata;
         int r;
 
