@@ -202,7 +202,7 @@ int log_syntax_internal(const char *unit, int level,
                                 continue;                                      \
                                                                                \
                         *(xs + i) = x;                                         \
-                        xs = realloc(xs, ++i + 1);                             \
+                        xs = realloc(xs, (++i + 1) * sizeof(type));            \
                         if (!xs)                                               \
                                 return -ENOMEM;                                \
                         *(xs + i) = invalid;                                   \
