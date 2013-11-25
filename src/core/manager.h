@@ -152,7 +152,6 @@ struct Manager {
         FILE *proc_swaps;
         sd_event_source *swap_event_source;
         Hashmap *swaps_by_proc_swaps;
-        bool request_reload;
 
         /* Data specific to the D-Bus subsystem */
         sd_bus *api_bus, *system_bus;

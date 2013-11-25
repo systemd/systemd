@@ -28,7 +28,8 @@ typedef struct Swap Swap;
 
 typedef enum SwapState {
         SWAP_DEAD,
-        SWAP_ACTIVATING,
+        SWAP_ACTIVATING,               /* /sbin/swapon is running, but the swap not yet enabled. */
+        SWAP_ACTIVATING_DONE,          /* /sbin/swapon is running, and the swap is done. */
         SWAP_ACTIVE,
         SWAP_DEACTIVATING,
         SWAP_ACTIVATING_SIGTERM,
@@ -47,13 +48,6 @@ typedef enum SwapExecCommand {
         _SWAP_EXEC_COMMAND_INVALID = -1
 } SwapExecCommand;
 
-typedef struct SwapParameters {
-        char *what;
-        int priority;
-        bool noauto:1;
-        bool nofail:1;
-} SwapParameters;
-
 typedef enum SwapResult {
         SWAP_SUCCESS,
         SWAP_FAILURE_RESOURCES,
@@ -64,6 +58,13 @@ typedef enum SwapResult {
         _SWAP_RESULT_MAX,
         _SWAP_RESULT_INVALID = -1
 } SwapResult;
+
+typedef struct SwapParameters {
+        char *what;
+        int priority;
+        bool noauto:1;
+        bool nofail:1;
+} SwapParameters;
 
 struct Swap {
         Unit meta;

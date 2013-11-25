@@ -141,8 +141,8 @@ static void mount_init(Unit *u) {
 
         if (unit_has_name(u, "-.mount")) {
                 /* Don't allow start/stop for root directory */
-                UNIT(m)->refuse_manual_start = true;
-                UNIT(m)->refuse_manual_stop = true;
+                u->refuse_manual_start = true;
+                u->refuse_manual_stop = true;
         } else {
                 /* The stdio/kmsg bridge socket is on /, in order to avoid a
                  * dep loop, don't use kmsg logging for -.mount */
@@ -161,7 +161,7 @@ static void mount_init(Unit *u) {
 
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
 
-        UNIT(m)->ignore_on_isolate = true;
+        u->ignore_on_isolate = true;
 }
 
 static int mount_arm_timer(Mount *m) {
@@ -694,34 +694,33 @@ static int mount_coldplug(Unit *u) {
         else if (m->from_proc_self_mountinfo)
                 new_state = MOUNT_MOUNTED;
 
-        if (new_state != m->state) {
+        if (new_state == m->state)
+                return 0;
 
-                if (new_state == MOUNT_MOUNTING ||
-                    new_state == MOUNT_MOUNTING_DONE ||
-                    new_state == MOUNT_REMOUNTING ||
-                    new_state == MOUNT_UNMOUNTING ||
-                    new_state == MOUNT_MOUNTING_SIGTERM ||
-                    new_state == MOUNT_MOUNTING_SIGKILL ||
-                    new_state == MOUNT_UNMOUNTING_SIGTERM ||
-                    new_state == MOUNT_UNMOUNTING_SIGKILL ||
-                    new_state == MOUNT_REMOUNTING_SIGTERM ||
-                    new_state == MOUNT_REMOUNTING_SIGKILL) {
+        if (new_state == MOUNT_MOUNTING ||
+            new_state == MOUNT_MOUNTING_DONE ||
+            new_state == MOUNT_REMOUNTING ||
+            new_state == MOUNT_UNMOUNTING ||
+            new_state == MOUNT_MOUNTING_SIGTERM ||
+            new_state == MOUNT_MOUNTING_SIGKILL ||
+            new_state == MOUNT_UNMOUNTING_SIGTERM ||
+            new_state == MOUNT_UNMOUNTING_SIGKILL ||
+            new_state == MOUNT_REMOUNTING_SIGTERM ||
+            new_state == MOUNT_REMOUNTING_SIGKILL) {
 
-                        if (m->control_pid <= 0)
-                                return -EBADMSG;
+                if (m->control_pid <= 0)
+                        return -EBADMSG;
 
-                        r = unit_watch_pid(UNIT(m), m->control_pid);
-                        if (r < 0)
-                                return r;
+                r = unit_watch_pid(UNIT(m), m->control_pid);
+                if (r < 0)
+                        return r;
 
-                        r = mount_arm_timer(m);
-                        if (r < 0)
-                                return r;
-                }
-
-                mount_set_state(m, new_state);
+                r = mount_arm_timer(m);
+                if (r < 0)
+                        return r;
         }
 
+        mount_set_state(m, new_state);
         return 0;
 }
 
@@ -964,12 +963,6 @@ fail:
                          "%s failed to run 'mount' task: %s",
                          UNIT(m)->id, strerror(-r));
         mount_enter_dead(m, MOUNT_FAILURE_RESOURCES);
-}
-
-static void mount_enter_mounting_done(Mount *m) {
-        assert(m);
-
-        mount_set_state(m, MOUNT_MOUNTING_DONE);
 }
 
 static void mount_enter_remounting(Mount *m) {
@@ -1691,7 +1684,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                                 break;
 
                         case MOUNT_MOUNTING:
-                                mount_enter_mounting_done(mount);
+                                mount_set_state(mount, MOUNT_MOUNTING_DONE);
                                 break;
 
                         default:

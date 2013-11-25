@@ -54,12 +54,6 @@ typedef enum MountExecCommand {
         _MOUNT_EXEC_COMMAND_INVALID = -1
 } MountExecCommand;
 
-typedef struct MountParameters {
-        char *what;
-        char *options;
-        char *fstype;
-} MountParameters;
-
 typedef enum MountResult {
         MOUNT_SUCCESS,
         MOUNT_FAILURE_RESOURCES,
@@ -70,6 +64,12 @@ typedef enum MountResult {
         _MOUNT_RESULT_MAX,
         _MOUNT_RESULT_INVALID = -1
 } MountResult;
+
+typedef struct MountParameters {
+        char *what;
+        char *options;
+        char *fstype;
+} MountParameters;
 
 struct Mount {
         Unit meta;

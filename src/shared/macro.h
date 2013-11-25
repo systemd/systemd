@@ -277,7 +277,7 @@ do {                                                                    \
  * specified type as a decimal string. Adds in extra space for a
  * negative '-' prefix. */
 #define DECIMAL_STR_MAX(type)                                           \
-        (1+(sizeof(type) <= 1 ? 3 :                                     \
+        (2+(sizeof(type) <= 1 ? 3 :                                     \
             sizeof(type) <= 2 ? 5 :                                     \
             sizeof(type) <= 4 ? 10 :                                    \
             sizeof(type) <= 8 ? 20 : sizeof(int[-2*(sizeof(type) > 8)])))
