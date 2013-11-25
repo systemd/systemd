@@ -145,7 +145,7 @@ static void wait_for_children(Set *pids, sigset_t *mask) {
         }
 }
 
-static int killall(int sig, Set *pids) {
+static int killall(int sig, Set *pids, bool send_sighup) {
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *d;
 
@@ -178,12 +178,28 @@ static int killall(int sig, Set *pids) {
                                 set_put(pids, ULONG_TO_PTR((unsigned long) pid));
                 } else if (errno != ENOENT)
                         log_warning("Could not kill %d: %m", pid);
+
+                if (send_sighup) {
+                        /* Optionally, also send a SIGHUP signal, but
+                        only if the process has a controlling
+                        tty. This is useful to allow handling of
+                        shells which ignore SIGTERM but react to
+                        SIGHUP. We do not send this to processes that
+                        have no controlling TTY since we don't want to
+                        trigger reloads of daemon processes. Also we
+                        make sure to only send this after SIGTERM so
+                        that SIGTERM is always first in the queue. */
+
+
+                        if (get_ctty_devnr(pid, NULL) >= 0)
+                                kill(pid, SIGHUP);
+                }
         }
 
         return set_size(pids);
 }
 
-void broadcast_signal(int sig, bool wait_for_exit) {
+void broadcast_signal(int sig, bool send_sighup, bool wait_for_exit) {
         sigset_t mask, oldmask;
         Set *pids = NULL;
 
@@ -197,7 +213,7 @@ void broadcast_signal(int sig, bool wait_for_exit) {
         if (kill(-1, SIGSTOP) < 0 && errno != ESRCH)
                 log_warning("kill(-1, SIGSTOP) failed: %m");
 
-        killall(sig, pids);
+        killall(sig, pids, send_sighup);
 
         if (kill(-1, SIGCONT) < 0 && errno != ESRCH)
                 log_warning("kill(-1, SIGCONT) failed: %m");

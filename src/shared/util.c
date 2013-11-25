@@ -2525,10 +2525,8 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
         char line[LINE_MAX], *p;
         unsigned long ttynr;
         const char *fn;
-        int k;
 
         assert(pid >= 0);
-        assert(d);
 
         if (pid == 0)
                 fn = "/proc/self/stat";
@@ -2539,10 +2537,8 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
         if (!f)
                 return -errno;
 
-        if (!fgets(line, sizeof(line), f)) {
-                k = feof(f) ? -EIO : -errno;
-                return k;
-        }
+        if (!fgets(line, sizeof(line), f))
+                return feof(f) ? -EIO : -errno;
 
         p = strrchr(line, ')');
         if (!p)
@@ -2562,7 +2558,9 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
         if (major(ttynr) == 0 && minor(ttynr) == 0)
                 return -ENOENT;
 
-        *d = (dev_t) ttynr;
+        if (d)
+                *d = (dev_t) ttynr;
+
         return 0;
 }
 

@@ -1745,7 +1745,7 @@ finish:
                          * initrd, but don't wait for them, so that we
                          * can handle the SIGCHLD for them after
                          * deserializing. */
-                        broadcast_signal(SIGTERM, false);
+                        broadcast_signal(SIGTERM, false, true);
 
                         /* And switch root */
                         r = switch_root(switch_root_dir);

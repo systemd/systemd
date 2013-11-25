@@ -21,4 +21,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-void broadcast_signal(int sig, bool wait);
+void broadcast_signal(int sig, bool wait, bool send_sighup);

@@ -43,6 +43,8 @@ CGroup Rework Completion:
 
 Features:
 
+* general: get rid of readdir_r/dirent_storage stuff, it's unnecessary on Linux
+
 * add API to clone sd_bus_message objects
 
 * sd-bus: synthesized messages should get serial number (uint32_t) -1
