@@ -1122,7 +1122,7 @@ static int object_find_and_run(
 
                         r = sd_bus_message_read(m, "ss", &vtable_key.interface, &vtable_key.member);
                         if (r < 0)
-                                return r;
+                                return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected interface and member parameters");
 
                         v = hashmap_get(bus->vtable_properties, &vtable_key);
                         if (v) {
@@ -1140,7 +1140,7 @@ static int object_find_and_run(
 
                         r = sd_bus_message_read(m, "s", &iface);
                         if (r < 0)
-                                return r;
+                                return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected interface parameter");
 
                         if (iface[0] == 0)
                                 iface = NULL;
@@ -1152,11 +1152,17 @@ static int object_find_and_run(
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
 
+                if (!isempty(sd_bus_message_get_signature(m, true)))
+                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected no parameters");
+
                 r = process_introspect(bus, m, n, require_fallback, found_object);
                 if (r != 0)
                         return r;
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")) {
+
+                if (!isempty(sd_bus_message_get_signature(m, true)))
+                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Expected no parameters");
 
                 r = process_get_managed_objects(bus, m, n, require_fallback, found_object);
                 if (r != 0)
