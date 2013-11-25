@@ -97,6 +97,8 @@ struct Manager {
 
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
+        sd_event_source *run_queue_event_source;
+
         char *notify_socket;
         int notify_fd;
         sd_event_source *notify_event_source;
@@ -192,7 +194,6 @@ struct Manager {
         ManagerExitCode exit_code:5;
 
         bool dispatching_load_queue:1;
-        bool dispatching_run_queue:1;
         bool dispatching_dbus_queue:1;
 
         bool taint_usr:1;

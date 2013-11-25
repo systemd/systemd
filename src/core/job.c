@@ -874,6 +874,9 @@ void job_add_to_run_queue(Job *j) {
         if (j->in_run_queue)
                 return;
 
+        if (!j->manager->run_queue)
+                sd_event_source_set_enabled(j->manager->run_queue_event_source, SD_EVENT_ONESHOT);
+
         LIST_PREPEND(run_queue, j->manager->run_queue, j);
         j->in_run_queue = true;
 }

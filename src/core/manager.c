@@ -95,6 +95,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
+static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 
 static int manager_setup_notify(Manager *m) {
         union {
@@ -456,6 +457,18 @@ int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
         if (r < 0)
                 goto fail;
 
+        r = sd_event_add_defer(m->event, manager_dispatch_run_queue, m, &m->run_queue_event_source);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(m->run_queue_event_source, SD_EVENT_PRIORITY_IDLE);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_enabled(m->run_queue_event_source, SD_EVENT_OFF);
+        if (r < 0)
+                goto fail;
+
         r = manager_setup_signals(m);
         if (r < 0)
                 goto fail;
@@ -662,6 +675,7 @@ void manager_free(Manager *m) {
         sd_event_source_unref(m->time_change_event_source);
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->idle_pipe_event_source);
+        sd_event_source_unref(m->run_queue_event_source);
 
         if (m->signal_fd >= 0)
                 close_nointr_nofail(m->signal_fd);
@@ -1119,24 +1133,19 @@ void manager_clear_jobs(Manager *m) {
                 job_finish_and_invalidate(j, JOB_CANCELED, false);
 }
 
-static unsigned manager_dispatch_run_queue(Manager *m) {
+static int manager_dispatch_run_queue(sd_event_source *source, void *userdata) {
+        Manager *m = userdata;
         Job *j;
-        unsigned n = 0;
 
-        if (m->dispatching_run_queue)
-                return 0;
-
-        m->dispatching_run_queue = true;
+        assert(source);
+        assert(m);
 
         while ((j = m->run_queue)) {
                 assert(j->installed);
                 assert(j->in_run_queue);
 
                 job_run_and_invalidate(j);
-                n++;
         }
-
-        m->dispatching_run_queue = false;
 
         if (m->n_running_jobs > 0)
                 manager_watch_jobs_in_progress(m);
@@ -1144,7 +1153,7 @@ static unsigned manager_dispatch_run_queue(Manager *m) {
         if (m->n_on_console > 0)
                 manager_watch_idle_pipe(m);
 
-        return n;
+        return 1;
 }
 
 static unsigned manager_dispatch_dbus_queue(Manager *m) {
@@ -1677,9 +1686,6 @@ int manager_loop(Manager *m) {
                         continue;
 
                 if (manager_dispatch_cgroup_queue(m) > 0)
-                        continue;
-
-                if (manager_dispatch_run_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_dbus_queue(m) > 0)
