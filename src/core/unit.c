@@ -716,6 +716,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 timestamp4[FORMAT_TIMESTAMP_MAX],
                 timespan[FORMAT_TIMESPAN_MAX];
         Unit *following;
+        _cleanup_set_free_ Set *following_set = NULL;
+        int r;
 
         assert(u);
         assert(u->type >= 0);
@@ -767,8 +769,17 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         STRV_FOREACH(j, u->documentation)
                 fprintf(f, "%s\tDocumentation: %s\n", prefix, *j);
 
-        if ((following = unit_following(u)))
+        following = unit_following(u);
+        if (following)
                 fprintf(f, "%s\tFollowing: %s\n", prefix, following->id);
+
+        r = unit_following_set(u, &following_set);
+        if (r >= 0) {
+                Unit *other;
+
+                SET_FOREACH(other, following_set, i)
+                        fprintf(f, "%s\tFollowing Set Member: %s\n", prefix, other->id);
+        }
 
         if (u->fragment_path)
                 fprintf(f, "%s\tFragment Path: %s\n", prefix, u->fragment_path);

@@ -558,6 +558,7 @@ bool unit_need_daemon_reload(Unit *u);
 void unit_reset_failed(Unit *u);
 
 Unit *unit_following(Unit *u);
+int unit_following_set(Unit *u, Set **s);
 
 const char *unit_slice_name(Unit *u);
 
@@ -568,8 +569,6 @@ bool unit_active_or_pending(Unit *u);
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 
 char *unit_default_cgroup_path(Unit *u);
-
-int unit_following_set(Unit *u, Set **s);
 
 void unit_start_on_failure(Unit *u);
 void unit_trigger_notify(Unit *u);
