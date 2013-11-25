@@ -20,7 +20,7 @@
 ***/
 
 #include <netinet/ether.h>
-#include <net/if.h>
+#include <linux/if.h>
 #include <arpa/inet.h>
 
 #include "net-util.h"
@@ -108,6 +108,46 @@ int config_parse_ifname(const char *unit,
         if (!ascii_is_valid(n) || strlen(n) >= IFNAMSIZ) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Interface name is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
+                free(n);
+                return 0;
+        }
+
+        free(*s);
+        if (*n)
+                *s = n;
+        else {
+                free(n);
+                *s = NULL;
+        }
+
+        return 0;
+}
+
+int config_parse_ifalias(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
+
+        char **s = data;
+        char *n;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        n = strdup(rvalue);
+        if (!n)
+                return log_oom();
+
+        if (!ascii_is_valid(n) || strlen(n) >= IFALIASZ) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Interface alias is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
                 free(n);
                 return 0;
         }

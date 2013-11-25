@@ -129,7 +129,8 @@ int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, unsigned int type, 
         struct ifinfomsg *ifi;
         int r;
 
-        assert_return(nlmsg_type == RTM_NEWLINK || nlmsg_type == RTM_DELLINK || nlmsg_type == RTM_GETLINK, -EINVAL);
+        assert_return(nlmsg_type == RTM_NEWLINK || nlmsg_type == RTM_DELLINK ||
+                      nlmsg_type == RTM_SETLINK || nlmsg_type == RTM_GETLINK, -EINVAL);
         assert_return(index > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -258,14 +259,15 @@ int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *
 
         switch (rtm_type) {
                 case RTM_NEWLINK:
+                case RTM_SETLINK:
                 case RTM_DELLINK:
                 case RTM_GETLINK:
                         switch (type) {
                                 case IFLA_IFNAME:
+                                case IFLA_IFALIAS:
                                 case IFLA_QDISC:
                                         return add_rtattr(m, type, data, strlen(data) + 1);
                                 case IFLA_MTU:
-                                        return add_rtattr(m, type, data, sizeof(uint32_t));
                                 case IFLA_LINK:
                                         return add_rtattr(m, type, data, sizeof(uint32_t));
                                 case IFLA_STATS:
@@ -352,6 +354,7 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
 
         switch (rtm_type) {
                 case RTM_NEWLINK:
+                case RTM_SETLINK:
                 case RTM_DELLINK:
                 case RTM_GETLINK:
                         if (!m->next_rta) {
@@ -512,6 +515,7 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
                                         k = -EIO;
                                 break;
                         case RTM_NEWLINK:
+                        case RTM_SETLINK:
                         case RTM_DELLINK:
                         case RTM_GETLINK:
                                 if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct ifinfomsg)))

@@ -124,6 +124,7 @@ static void link_configs_free(link_config_ctx *ctx) {
                 free(link->match_driver);
                 free(link->match_type);
                 free(link->description);
+                free(link->alias);
 
                 free(link);
         }
@@ -364,14 +365,6 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
         if (!old_name)
                 return -EINVAL;
 
-        if (config->description) {
-                r = udev_device_set_sysattr_value(device, "ifalias",
-                                                  config->description);
-                if (r < 0)
-                        log_warning("Could not set description of %s to '%s': %s",
-                                    old_name, config->description, strerror(-r));
-        }
-
         r = ethtool_set_speed(ctx->ethtool_fd, old_name, config->speed, config->duplex);
         if (r < 0)
                 log_warning("Could not set speed or duplex of %s to %u Mbytes (%s): %s",
@@ -439,9 +432,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
                         mac = config->mac;
         }
 
-        r = rtnl_set_link_properties(ctx->rtnl, ifindex, mac, config->mtu);
+        r = rtnl_set_link_properties(ctx->rtnl, ifindex, config->alias, mac, config->mtu);
         if (r < 0) {
-                log_warning("Could not set MACAddress or MTU on %s: %s", old_name, strerror(-r));
+                log_warning("Could not set Alias, MACAddress or MTU on %s: %s", old_name, strerror(-r));
                 return r;
         }
 

@@ -804,7 +804,13 @@
         <varlistentry>
           <term><varname>Description</varname></term>
           <listitem>
-            <para>A description of the device. The <literal>ifalias</literal> is set to this value.</para>
+            <para>A description of the device.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Alias</varname></term>
+          <listitem>
+            <para>The <literal>ifalias</literal> is set to this value.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

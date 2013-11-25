@@ -59,6 +59,7 @@ struct link_config {
         MACPolicy mac_policy;
         NamePolicy *name_policy;
         char *name;
+        char *alias;
         unsigned int mtu;
         unsigned int speed;
         Duplex duplex;
