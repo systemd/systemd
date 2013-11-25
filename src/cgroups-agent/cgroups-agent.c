@@ -22,7 +22,6 @@
 #include <stdlib.h>
 
 #include "sd-bus.h"
-
 #include "log.h"
 #include "bus-util.h"
 
@@ -46,7 +45,10 @@ int main(int argc, char *argv[]) {
 
         r = bus_open_system_systemd(&bus);
         if (r < 0) {
-                log_warning("Failed to get D-Bus connection: %s", strerror(-r));
+                /* If we couldn't connect we assume this was triggered
+                 * while systemd got restarted/transitioned from
+                 * initrd to the system, so let's ignore this */
+                log_debug("Failed to get D-Bus connection: %s", strerror(-r));
                 return EXIT_FAILURE;
         }
 
@@ -56,7 +58,7 @@ int main(int argc, char *argv[]) {
                                "Released",
                                "s", argv[1]);
         if (r < 0) {
-                log_error("Failed to send signal message on private connection: %s", strerror(-r));
+                log_debug("Failed to send signal message on private connection: %s", strerror(-r));
                 return EXIT_FAILURE;
         }
 
