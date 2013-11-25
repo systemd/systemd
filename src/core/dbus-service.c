@@ -60,12 +60,12 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("StatusText", "s", NULL, offsetof(Service, status_text), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Service, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        BUS_EXEC_COMMAND_VTABLE("ExecStartPre", offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]), 0),
-        BUS_EXEC_COMMAND_VTABLE("ExecStart", offsetof(Service, exec_command[SERVICE_EXEC_START]), 0),
-        BUS_EXEC_COMMAND_VTABLE("ExecStartPost", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), 0),
-        BUS_EXEC_COMMAND_VTABLE("ExecReload", offsetof(Service, exec_command[SERVICE_EXEC_RELOAD]), 0),
-        BUS_EXEC_COMMAND_VTABLE("ExecStop", offsetof(Service, exec_command[SERVICE_EXEC_STOP]), 0),
-        BUS_EXEC_COMMAND_VTABLE("ExecStopPost", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), 0),
+        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPre", offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]), 0),
+        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStart", offsetof(Service, exec_command[SERVICE_EXEC_START]), 0),
+        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPost", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), 0),
+        BUS_EXEC_COMMAND_LIST_VTABLE("ExecReload", offsetof(Service, exec_command[SERVICE_EXEC_RELOAD]), 0),
+        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStop", offsetof(Service, exec_command[SERVICE_EXEC_STOP]), 0),
+        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPost", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), 0),
         SD_BUS_VTABLE_END
 };
 

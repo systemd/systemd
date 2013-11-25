@@ -428,7 +428,69 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+static int append_exec_command(sd_bus_message *reply, ExecCommand *c) {
+        int r;
+
+        assert(reply);
+        assert(c);
+
+        if (!c->path)
+                return 0;
+
+        r = sd_bus_message_open_container(reply, 'r', "sasbttttuii");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", c->path);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(reply, c->argv);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "bttttuii",
+                                  c->ignore,
+                                  c->exec_status.start_timestamp.realtime,
+                                  c->exec_status.start_timestamp.monotonic,
+                                  c->exec_status.exit_timestamp.realtime,
+                                  c->exec_status.exit_timestamp.monotonic,
+                                  (uint32_t) c->exec_status.pid,
+                                  (int32_t) c->exec_status.code,
+                                  (int32_t) c->exec_status.status);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
 int bus_property_get_exec_command(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *ret_error) {
+
+        ExecCommand *c = (ExecCommand*) userdata;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(sasbttttuii)");
+        if (r < 0)
+                return r;
+
+        r = append_exec_command(reply, c);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
+int bus_property_get_exec_command_list(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -448,34 +510,7 @@ int bus_property_get_exec_command(
                 return r;
 
         LIST_FOREACH(command, c, c) {
-                if (!c->path)
-                        continue;
-
-                r = sd_bus_message_open_container(reply, 'r', "sasbttttuii");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_append(reply, "s", c->path);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_append_strv(reply, c->argv);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_append(reply, "bttttuii",
-                                          c->ignore,
-                                          c->exec_status.start_timestamp.realtime,
-                                          c->exec_status.start_timestamp.monotonic,
-                                          c->exec_status.exit_timestamp.realtime,
-                                          c->exec_status.exit_timestamp.monotonic,
-                                          (uint32_t) c->exec_status.pid,
-                                          (int32_t) c->exec_status.code,
-                                          (int32_t) c->exec_status.status);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_close_container(reply);
+                r = append_exec_command(reply, c);
                 if (r < 0)
                         return r;
         }
