@@ -31,6 +31,12 @@
                                 <surname>Strauss</surname>
                                 <email>david@davidstrauss.net</email>
                         </author>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
                 </authorgroup>
         </refentryinfo>
         <refmeta>
@@ -83,6 +89,17 @@
                 <title>Options</title>
                 <para>The following options are understood:</para>
                 <variablelist>
+                        <varlistentry>
+                                <term><option>-l</option></term>
+                                <term><option>--listener</option></term>
+                                <listitem>
+                                        <para>Restricts listening to a
+                                        single inherited socket, specified
+                                        as a file descriptor. By default,
+                                        the proxy listens on all inherited
+                                        sockets.</para>
+                                </listitem>
+                        </varlistentry>
                         <varlistentry>
                                 <term><option>-h</option></term>
                                 <term><option>--help</option></term>
@@ -196,8 +213,12 @@ while [ ! -f /tmp/nginx.pid ]
   do
      /usr/bin/inotifywait /tmp/nginx.pid
   done
-exec /usr/bin/systemd-socket-proxyd localhost 8080]]>
+exec /usr/bin/systemd-socket-proxyd localhost:8080]]>
 </programlisting>
+                                <para>Make it executable:</para>
+                                <programlisting>
+<![CDATA[chmod 755 /usr/bin/socket-proxyd-nginx.sh]]>
+                                </programlisting>
                         </example>
                         <example label="nginx configuration">
                                 <title>
@@ -215,6 +236,63 @@ server {
 <![CDATA[# systemctl enable proxy-with-nginx.socket
 # systemctl start proxy-with-nginx.socket
 $ curl http://localhost:80/]]>
+</programlisting>
+                        </example>
+                </refsect2>
+
+                <refsect2>
+                        <title>Multiple Listeners with Multiple Destinations</title>
+                        <para>When using namespaces, it may be useful to
+                        have multiple listeners with each going to a unique
+                        destination. systemd always passes sockets into
+                        services in the order specified in the socket
+                        unit, beginning with file descriptor 3.</para>
+                        <para>In this example, port <literal>80</literal>
+                        will proxy to <literal>localhost:8080</literal>,
+                        and port <literal>443</literal> will proxy to
+                        <literal>localhost:8443</literal>.</para>
+                        <example label="proxy socket unit">
+                                <title>/etc/systemd/system/multi-destination.socket</title>
+                                <programlisting>
+<![CDATA[[Socket]
+ListenStream=80
+ListenStream=443
+
+[Install]
+WantedBy=sockets.target]]>
+</programlisting>
+                        </example>
+                        <example label="proxy service unit">
+                                <title>/etc/systemd/system/multi-destination.service</title>
+                                <programlisting>
+<![CDATA[[Service]
+ExecStart=/usr/bin/socket-proxyd-multi-destination.sh
+PrivateTmp=true
+PrivateNetwork=true]]>
+</programlisting>
+                        </example>
+
+                        <example label="shell script">
+                                <title>
+                                /usr/bin/socket-proxyd-multi-destination.sh</title>
+                                <programlisting>
+<![CDATA[#!/bin/sh
+/usr/bin/systemd-socket-proxyd --listener=3 localhost:8080 &
+/usr/bin/systemd-socket-proxyd --listener=4 localhost:8443 &
+wait]]>
+</programlisting>
+                                <para>Make it executable:</para>
+                                <programlisting>
+<![CDATA[chmod 755 /usr/bin/socket-proxyd-multi-destination.sh]]>
+                                </programlisting>
+                        </example>
+
+                        <example label="commands">
+                                <programlisting>
+<![CDATA[# systemctl enable multi-destination.socket
+# systemctl start multi-destination.socket
+$ curl http://localhost/
+$ curl https://localhost/]]>
 </programlisting>
                         </example>
                 </refsect2>
