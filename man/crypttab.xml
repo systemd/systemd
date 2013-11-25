@@ -363,8 +363,6 @@
 swap       /dev/sda7       /dev/urandom             swap
 truecrypt  /dev/sda2       /etc/container_password  tcrypt
 hidden     /mnt/tc_hidden  /null                    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile</programlisting>
-                        <para>Note that the default hash algorithm is ripemd160. If you use your system
-                        in FIPS mode, please specify supported hash algorithm (e.g.: hash=sha1).</para>
                 </example>
         </refsect1>
 
