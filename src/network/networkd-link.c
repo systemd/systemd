@@ -126,7 +126,7 @@ static bool link_is_up(Link *link) {
 }
 
 static int link_enter_routes_set(Link *link) {
-        log_info("Routes set for link %u", (unsigned)link->ifindex);
+        log_info("Routes set for link %ju", link->ifindex);
 
         if (link_is_up(link))
                 return link_enter_configured(link);
@@ -150,8 +150,8 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_warning("Could not set route on interface %u: %s",
-                            (unsigned)link->ifindex, strerror(-r));
+                log_warning("Could not set route on interface %ju: %s",
+                            link->ifindex, strerror(-r));
                 return link_enter_failed(link);
         }
 
@@ -185,7 +185,7 @@ static int link_enter_set_routes(Link *link) {
 }
 
 static int link_enter_addresses_set(Link *link) {
-        log_info("Addresses set for link %u", (unsigned)link->ifindex);
+        log_info("Addresses set for link %ju", link->ifindex);
 
         link->state = LINK_STATE_ADDRESSES_SET;
 
@@ -206,8 +206,8 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_warning("Could not set address on interface %u: %s",
-                            (unsigned)link->ifindex, strerror(-r));
+                log_warning("Could not set address on interface %ju: %s",
+                            link->ifindex, strerror(-r));
                 link_enter_failed(link);
         }
 
@@ -245,8 +245,8 @@ static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_warning("Could not bring up interface %u: %s",
-                            (unsigned)link->ifindex, strerror(-r));
+                log_warning("Could not bring up interface %ju: %s",
+                            link->ifindex, strerror(-r));
                 return link_enter_failed(link);
         }
 

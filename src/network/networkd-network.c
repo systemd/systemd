@@ -173,8 +173,8 @@ int network_get(Manager *manager, struct udev_device *device, Network **ret) {
 int network_apply(Manager *manager, Network *network, Link *link) {
         int r;
 
-        log_info("Network '%s' being applied to link '%u'",
-                        network->description, (unsigned) link->ifindex);
+        log_info("Network '%s' being applied to link '%ju'",
+                        network->description, link->ifindex);
 
         link->network = network;
 
