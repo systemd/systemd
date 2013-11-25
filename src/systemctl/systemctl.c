@@ -3670,8 +3670,6 @@ static int show_all(
                 if (!p)
                         return log_oom();
 
-                printf("%s -> '%s'\n", u->id, p);
-
                 r = show_one(verb, bus, p, show_properties, new_line, ellipsized);
                 if (r != 0)
                         return r;
