@@ -490,6 +490,12 @@ int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
         if (r < 0)
                 goto fail;
 
+        m->udev = udev_new();
+        if (!m->udev) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
         if (running_as == SYSTEMD_SYSTEM)
                 try_bus_connect = reexecuting;
         else if (getenv("DBUS_SESSION_BUS_ADDRESS"))
@@ -691,6 +697,7 @@ void manager_free(Manager *m) {
 
         manager_close_idle_pipe(m);
 
+        udev_unref(m->udev);
         sd_event_unref(m->event);
 
         free(m->notify_socket);

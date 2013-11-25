@@ -23,8 +23,6 @@
 #include <sys/epoll.h>
 #include <libudev.h>
 
-#include "unit.h"
-#include "device.h"
 #include "strv.h"
 #include "log.h"
 #include "unit-name.h"
@@ -32,6 +30,9 @@
 #include "def.h"
 #include "path-util.h"
 #include "udev-util.h"
+#include "unit.h"
+#include "swap.h"
+#include "device.h"
 
 static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD] = UNIT_INACTIVE,
@@ -502,11 +503,6 @@ static void device_shutdown(Manager *m) {
                 m->udev_monitor = NULL;
         }
 
-        if (m->udev) {
-                udev_unref(m->udev);
-                m->udev = NULL;
-        }
-
         hashmap_free(m->devices_by_sysfs);
         m->devices_by_sysfs = NULL;
 }
@@ -518,11 +514,7 @@ static int device_enumerate(Manager *m) {
 
         assert(m);
 
-        if (!m->udev) {
-                m->udev = udev_new();
-                if (!m->udev)
-                        return -ENOMEM;
-
+        if (!m->udev_monitor) {
                 m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
                 if (!m->udev_monitor) {
                         r = -ENOMEM;
@@ -607,10 +599,19 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                 r = device_process_removed_device(m, dev);
                 if (r < 0)
                         log_error("Failed to process device remove event: %s", strerror(-r));
+
+                r = swap_process_removed_device(m, dev);
+                if (r < 0)
+                        log_error("Failed to process swap device remove event: %s", strerror(-r));
+
         } else {
                 r = device_process_new_device(m, dev);
                 if (r < 0)
                         log_error("Failed to process device new event: %s", strerror(-r));
+
+                r = swap_process_new_device(m, dev);
+                if (r < 0)
+                        log_error("Failed to process swap device new event: %s", strerror(-r));
 
                 manager_dispatch_load_queue(m);
 

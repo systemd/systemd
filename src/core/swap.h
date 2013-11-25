@@ -22,6 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <libudev.h>
+
 typedef struct Swap Swap;
 
 #include "unit.h"
@@ -71,6 +73,11 @@ struct Swap {
 
         char *what;
 
+        /* If the device has already shown up, this is the device
+         * node, which might be different from what, due to
+         * symlinks */
+        char *devnode;
+
         SwapParameters parameters_proc_swaps;
         SwapParameters parameters_fragment;
 
@@ -103,10 +110,13 @@ struct Swap {
         different device nodes we might end up creating multiple
         devices for the same swap. We chain them up here. */
 
-        LIST_FIELDS(struct Swap, same_proc_swaps);
+        LIST_FIELDS(struct Swap, same_devnode);
 };
 
 extern const UnitVTable swap_vtable;
+
+int swap_process_new_device(Manager *m, struct udev_device *dev);
+int swap_process_removed_device(Manager *m, struct udev_device *dev);
 
 const char* swap_state_to_string(SwapState i) _const_;
 SwapState swap_state_from_string(const char *s) _pure_;

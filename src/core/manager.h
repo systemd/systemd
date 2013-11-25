@@ -138,8 +138,9 @@ struct Manager {
         char *generator_unit_path_early;
         char *generator_unit_path_late;
 
-        /* Data specific to the device subsystem */
         struct udev* udev;
+
+        /* Data specific to the device subsystem */
         struct udev_monitor* udev_monitor;
         sd_event_source *udev_event_source;
         Hashmap *devices_by_sysfs;
@@ -151,7 +152,7 @@ struct Manager {
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;
         sd_event_source *swap_event_source;
-        Hashmap *swaps_by_proc_swaps;
+        Hashmap *swaps_by_devnode;
 
         /* Data specific to the D-Bus subsystem */
         sd_bus *api_bus, *system_bus;

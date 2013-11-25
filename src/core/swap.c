@@ -59,29 +59,55 @@ static int swap_dispatch_timer(sd_event_source *source, usec_t usec, void *userd
 static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
 static void swap_unset_proc_swaps(Swap *s) {
-        Hashmap *swaps;
-        Swap *first;
-
         assert(s);
 
-        if (!s->parameters_proc_swaps.what)
+        if (!s->from_proc_swaps)
                 return;
-
-        /* Remove this unit from the chain of swaps which share the
-         * same kernel swap device. */
-        swaps = UNIT(s)->manager->swaps_by_proc_swaps;
-        first = hashmap_get(swaps, s->parameters_proc_swaps.what);
-        LIST_REMOVE(same_proc_swaps, first, s);
-
-        if (first)
-                hashmap_remove_and_replace(swaps, s->parameters_proc_swaps.what, first->parameters_proc_swaps.what, first);
-        else
-                hashmap_remove(swaps, s->parameters_proc_swaps.what);
 
         free(s->parameters_proc_swaps.what);
         s->parameters_proc_swaps.what = NULL;
 
         s->from_proc_swaps = false;
+}
+
+static int swap_set_devnode(Swap *s, const char *devnode) {
+        Hashmap *swaps;
+        Swap *first;
+        int r;
+
+        assert(s);
+
+        r = hashmap_ensure_allocated(&UNIT(s)->manager->swaps_by_devnode, string_hash_func, string_compare_func);
+        if (r < 0)
+                return r;
+
+        swaps = UNIT(s)->manager->swaps_by_devnode;
+
+        if (s->devnode) {
+                first = hashmap_get(swaps, s->devnode);
+
+                LIST_REMOVE(same_devnode, first, s);
+                if (first)
+                        hashmap_replace(swaps, first->devnode, first);
+                else
+                        hashmap_remove(swaps, s->devnode);
+
+                free(s->devnode);
+                s->devnode = NULL;
+        }
+
+        if (devnode) {
+                s->devnode = strdup(devnode);
+                if (!s->devnode)
+                        return -ENOMEM;
+
+                first = hashmap_get(swaps, s->devnode);
+                LIST_PREPEND(same_devnode, first, s);
+
+                return hashmap_replace(swaps, first->devnode, first);
+        }
+
+        return 0;
 }
 
 static void swap_init(Unit *u) {
@@ -121,6 +147,7 @@ static void swap_done(Unit *u) {
         assert(s);
 
         swap_unset_proc_swaps(s);
+        swap_set_devnode(s, NULL);
 
         free(s->what);
         s->what = NULL;
@@ -242,6 +269,27 @@ static int swap_verify(Swap *s) {
         return 0;
 }
 
+static int swap_load_devnode(Swap *s) {
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        struct stat st;
+        const char *p;
+
+        assert(s);
+
+        if (stat(s->what, &st) < 0 || !S_ISBLK(st.st_mode))
+                return 0;
+
+        d = udev_device_new_from_devnum(UNIT(s)->manager->udev, 'b', st.st_rdev);
+        if (!d)
+                return 0;
+
+        p = udev_device_get_devnode(d);
+        if (!p)
+                return 0;
+
+        return swap_set_devnode(s, p);
+}
+
 static int swap_load(Unit *u) {
         int r;
         Swap *s = SWAP(u);
@@ -290,6 +338,10 @@ static int swap_load(Unit *u) {
                 if (r < 0)
                         return r;
 
+                r = swap_load_devnode(s);
+                if (r < 0)
+                        return r;
+
                 r = unit_add_default_slice(u);
                 if (r < 0)
                         return r;
@@ -322,7 +374,6 @@ static int swap_add_one(
         Unit *u = NULL;
         int r;
         SwapParameters *p;
-        Swap *first;
 
         assert(m);
         assert(what);
@@ -368,17 +419,6 @@ static int swap_add_one(
                         r = -ENOMEM;
                         goto fail;
                 }
-
-                r = hashmap_ensure_allocated(&m->swaps_by_proc_swaps, string_hash_func, string_compare_func);
-                if (r < 0)
-                        goto fail;
-
-                first = hashmap_get(m->swaps_by_proc_swaps, p->what);
-                LIST_PREPEND(same_proc_swaps, first, SWAP(u));
-
-                r = hashmap_replace(m->swaps_by_proc_swaps, p->what, first);
-                if (r < 0)
-                        goto fail;
         }
 
         if (set_flags) {
@@ -553,6 +593,9 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, s->what,
                 prefix, yes_no(s->from_proc_swaps),
                 prefix, yes_no(s->from_fragment));
+
+        if (s->devnode)
+                fprintf(f, "%sDevice Node: %s\n", prefix, s->devnode);
 
         if (p)
                 fprintf(f,
@@ -1150,23 +1193,24 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
 }
 
 static Unit *swap_following(Unit *u) {
+        _cleanup_free_ char *p = NULL;
         Swap *s = SWAP(u);
         Swap *other, *first = NULL;
 
         assert(s);
 
-        if (streq_ptr(s->what, s->parameters_proc_swaps.what))
+        if (streq_ptr(s->what, s->devnode))
                 return NULL;
 
         /* Make everybody follow the unit that's named after the swap
          * device in the kernel */
 
-        LIST_FOREACH_AFTER(same_proc_swaps, other, s)
-                if (streq_ptr(other->what, other->parameters_proc_swaps.what))
+        LIST_FOREACH_AFTER(same_devnode, other, s)
+                if (streq_ptr(other->what, other->devnode))
                         return UNIT(other);
 
-        LIST_FOREACH_BEFORE(same_proc_swaps, other, s) {
-                if (streq_ptr(other->what, other->parameters_proc_swaps.what))
+        LIST_FOREACH_BEFORE(same_devnode, other, s) {
+                if (streq_ptr(other->what, other->devnode))
                         return UNIT(other);
 
                 first = other;
@@ -1183,7 +1227,7 @@ static int swap_following_set(Unit *u, Set **_set) {
         assert(s);
         assert(_set);
 
-        if (LIST_JUST_US(same_proc_swaps, s)) {
+        if (LIST_JUST_US(same_devnode, s)) {
                 *_set = NULL;
                 return 0;
         }
@@ -1192,13 +1236,13 @@ static int swap_following_set(Unit *u, Set **_set) {
         if (!set)
                 return -ENOMEM;
 
-        LIST_FOREACH_AFTER(same_proc_swaps, other, s) {
+        LIST_FOREACH_AFTER(same_devnode, other, s) {
                 r = set_put(set, other);
                 if (r < 0)
                         goto fail;
         }
 
-        LIST_FOREACH_BEFORE(same_proc_swaps, other, s) {
+        LIST_FOREACH_BEFORE(same_devnode, other, s) {
                 r = set_put(set, other);
                 if (r < 0)
                         goto fail;
@@ -1222,12 +1266,13 @@ static void swap_shutdown(Manager *m) {
                 m->proc_swaps = NULL;
         }
 
-        hashmap_free(m->swaps_by_proc_swaps);
-        m->swaps_by_proc_swaps = NULL;
+        hashmap_free(m->swaps_by_devnode);
+        m->swaps_by_devnode = NULL;
 }
 
 static int swap_enumerate(Manager *m) {
         int r;
+
         assert(m);
 
         if (!m->proc_swaps) {
@@ -1255,6 +1300,70 @@ static int swap_enumerate(Manager *m) {
 
 fail:
         swap_shutdown(m);
+        return r;
+}
+
+int swap_process_new_device(Manager *m, struct udev_device *dev) {
+        struct udev_list_entry *item = NULL, *first = NULL;
+        _cleanup_free_ char *e = NULL;
+        const char *dn;
+        Swap *s;
+        int r = 0;
+
+        assert(m);
+        assert(dev);
+
+        dn = udev_device_get_devnode(dev);
+        if (!dn)
+                return 0;
+
+        e = unit_name_from_path(dn, ".swap");
+        if (!e)
+                return -ENOMEM;
+
+        s = hashmap_get(m->units, e);
+        if (s)
+                r = swap_set_devnode(s, dn);
+
+        first = udev_device_get_devlinks_list_entry(dev);
+        udev_list_entry_foreach(item, first) {
+                _cleanup_free_ char *n = NULL;
+
+                n = unit_name_from_path(udev_list_entry_get_name(item), ".swap");
+                if (!n)
+                        return -ENOMEM;
+
+                s = hashmap_get(m->units, n);
+                if (s) {
+                        int q;
+
+                        q = swap_set_devnode(s, dn);
+                        if (q < 0)
+                                r = q;
+                }
+        }
+
+        return r;
+}
+
+int swap_process_removed_device(Manager *m, struct udev_device *dev) {
+        _cleanup_free_ char *e = NULL;
+        const char *dn;
+        int r = 0;
+        Swap *s;
+
+        dn = udev_device_get_devnode(dev);
+        if (!dn)
+                return 0;
+
+        while ((s = hashmap_get(m->swaps_by_devnode, dn))) {
+                int q;
+
+                q = swap_set_devnode(s, NULL);
+                if (q < 0)
+                        r = q;
+        }
+
         return r;
 }
 
