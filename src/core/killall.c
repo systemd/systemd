@@ -199,7 +199,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
         return set_size(pids);
 }
 
-void broadcast_signal(int sig, bool send_sighup, bool wait_for_exit) {
+void broadcast_signal(int sig, bool wait_for_exit, bool send_sighup) {
         sigset_t mask, oldmask;
         Set *pids = NULL;
 
