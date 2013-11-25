@@ -265,7 +265,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                                 char e[l+1];
 
                                 memcpy(e, w, l);
-                                e[l] = 1;
+                                e[l] = 0;
 
                                 n = unit_name_mangle(e);
                                 if (!n) {
