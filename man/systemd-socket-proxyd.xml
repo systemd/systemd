@@ -91,7 +91,7 @@
                 <variablelist>
                         <varlistentry>
                                 <term><option>-l</option></term>
-                                <term><option>--listener</option></term>
+                                <term><option>--listener=</option></term>
                                 <listitem>
                                         <para>Restricts listening to a
                                         single inherited socket, specified
