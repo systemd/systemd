@@ -1238,6 +1238,13 @@ static int swap_enumerate(Manager *m) {
                 r = sd_event_add_io(m->event, fileno(m->proc_swaps), EPOLLPRI, swap_dispatch_io, m, &m->swap_event_source);
                 if (r < 0)
                         goto fail;
+
+                /* Dispatch this before we dispatch SIGCHLD, so that
+                 * we always get the events from /proc/swaps before
+                 * the SIGCHLD of /sbin/swapon. */
+                r = sd_event_source_set_priority(m->swap_event_source, -10);
+                if (r < 0)
+                        goto fail;
         }
 
         r = swap_load_proc_swaps(m, false);

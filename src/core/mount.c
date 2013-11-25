@@ -1611,6 +1611,13 @@ static int mount_enumerate(Manager *m) {
                 r = sd_event_add_io(m->event, fileno(m->proc_self_mountinfo), EPOLLPRI, mount_dispatch_io, m, &m->mount_event_source);
                 if (r < 0)
                         goto fail;
+
+                /* Dispatch this before we dispatch SIGCHLD, so that
+                 * we always get the events from /proc/self/mountinfo
+                 * before the SIGCHLD of /bin/mount. */
+                r = sd_event_source_set_priority(m->mount_event_source, -10);
+                if (r < 0)
+                        goto fail;
         }
 
         r = mount_load_proc_self_mountinfo(m, false);

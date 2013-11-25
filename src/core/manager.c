@@ -368,6 +368,11 @@ static int manager_setup_signals(Manager *m) {
         if (r < 0)
                 return r;
 
+        /* Process signals a bit earlier than the rest of things */
+        r = sd_event_source_set_priority(m->signal_event_source, -5);
+        if (r < 0)
+                return r;
+
         if (m->running_as == SYSTEMD_SYSTEM)
                 return enable_special_signals(m);
 
