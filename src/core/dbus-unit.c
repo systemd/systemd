@@ -326,7 +326,10 @@ static int property_get_conditions(
                 return r;
 
         LIST_FOREACH(conditions, c, u->conditions) {
-                r = sd_bus_message_append(reply, "sbbsi", condition_type_to_string(c->type), c->trigger, c->negate, c->parameter, c->state);
+                r = sd_bus_message_append(reply, "(sbbsi)",
+                                          condition_type_to_string(c->type),
+                                          c->trigger, c->negate,
+                                          c->parameter, c->state);
                 if (r < 0)
                         return r;
 
