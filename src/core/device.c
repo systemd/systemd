@@ -41,6 +41,7 @@ static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
 static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
 static void device_unset_sysfs(Device *d) {
+        Hashmap *devices;
         Device *first;
 
         assert(d);
@@ -50,13 +51,14 @@ static void device_unset_sysfs(Device *d) {
 
         /* Remove this unit from the chain of devices which share the
          * same sysfs path. */
-        first = hashmap_get(UNIT(d)->manager->devices_by_sysfs, d->sysfs);
+        devices = UNIT(d)->manager->devices_by_sysfs;
+        first = hashmap_get(devices, d->sysfs);
         LIST_REMOVE(same_sysfs, first, d);
 
         if (first)
-                hashmap_remove_and_replace(UNIT(d)->manager->devices_by_sysfs, d->sysfs, first->sysfs, first);
+                hashmap_remove_and_replace(devices, d->sysfs, first->sysfs, first);
         else
-                hashmap_remove(UNIT(d)->manager->devices_by_sysfs, d->sysfs);
+                hashmap_remove(devices, d->sysfs);
 
         free(d->sysfs);
         d->sysfs = NULL;
@@ -73,10 +75,10 @@ static void device_init(Unit *u) {
          * indefinitely for plugged in devices, something which cannot
          * happen for the other units since their operations time out
          * anyway. */
-        UNIT(d)->job_timeout = u->manager->default_timeout_start_usec;
+        u->job_timeout = u->manager->default_timeout_start_usec;
 
-        UNIT(d)->ignore_on_isolate = true;
-        UNIT(d)->ignore_on_snapshot = true;
+        u->ignore_on_isolate = true;
+        u->ignore_on_snapshot = true;
 }
 
 static void device_done(Unit *u) {
@@ -190,7 +192,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
 
         sysfs = udev_device_get_syspath(dev);
         if (!sysfs)
-                return -ENOMEM;
+                return 0;
 
         r = device_find_escape_name(m, path, &u);
         if (r < 0)
@@ -204,7 +206,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
 
                 u = unit_new(m, sizeof(Device));
                 if (!u)
-                        return -ENOMEM;
+                        return log_oom();
 
                 r = device_add_escaped_name(u, path);
                 if (r < 0)
@@ -248,30 +250,10 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                 goto fail;
 
         if (main) {
+                const char *wants;
+
                 /* The additional systemd udev properties we only
                  * interpret for the main object */
-                const char *wants, *alias;
-
-                alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
-                if (alias) {
-                        char *state, *w;
-                        size_t l;
-
-                        FOREACH_WORD_QUOTED(w, l, alias, state) {
-                                _cleanup_free_ char *e;
-
-                                e = strndup(w, l);
-                                if (!e) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
-
-                                if (is_path(e))
-                                        device_update_unit(m, dev, e, false);
-                                else
-                                        log_warning("SYSTEMD_ALIAS for %s is not a path, ignoring: %s", sysfs, e);
-                        }
-                }
 
                 wants = udev_device_get_property_value(dev, m->running_as == SYSTEMD_USER ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS");
                 if (wants) {
@@ -279,13 +261,11 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                         size_t l;
 
                         FOREACH_WORD_QUOTED(w, l, wants, state) {
-                                _cleanup_free_ char *e, *n = NULL;
+                                _cleanup_free_ char *n = NULL;
+                                char e[l+1];
 
-                                e = strndup(w, l);
-                                if (!e) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                memcpy(e, w, l);
+                                e[l] = 1;
 
                                 n = unit_name_mangle(e);
                                 if (!n) {
@@ -300,6 +280,9 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                 }
         }
 
+        /* Note that this won't dispatch the load queue, the caller
+         * has to do that if needed and appropriate */
+
         unit_add_to_dbus_queue(u);
         return 0;
 
@@ -312,8 +295,8 @@ fail:
         return r;
 }
 
-static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
-        const char *sysfs, *dn;
+static int device_process_new_device(Manager *m, struct udev_device *dev) {
+        const char *sysfs, *dn, *alias;
         struct udev_list_entry *item = NULL, *first = NULL;
         int r;
 
@@ -321,7 +304,7 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
 
         sysfs = udev_device_get_syspath(dev);
         if (!sysfs)
-                return -ENOMEM;
+                return 0;
 
         /* Add the main unit named after the sysfs path */
         r = device_update_unit(m, dev, sysfs, true);
@@ -329,7 +312,8 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                 return r;
 
         /* Add an additional unit for the device node */
-        if ((dn = udev_device_get_devnode(dev)))
+        dn = udev_device_get_devnode(dev);
+        if (dn)
                 device_update_unit(m, dev, dn, false);
 
         /* Add additional units for all symlinks */
@@ -360,35 +344,43 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                 device_update_unit(m, dev, p, false);
         }
 
-        if (update_state) {
-                Device *d, *l;
+        /* Add additional units for all explicitly configured
+         * aliases */
+        alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
+        if (alias) {
+                char *state, *w;
+                size_t l;
 
-                manager_dispatch_load_queue(m);
+                FOREACH_WORD_QUOTED(w, l, alias, state) {
+                        char e[l+1];
 
-                l = hashmap_get(m->devices_by_sysfs, sysfs);
-                LIST_FOREACH(same_sysfs, d, l)
-                        device_set_state(d, DEVICE_PLUGGED);
+                        memcpy(e, w, l);
+                        e[l] = 0;
+
+                        if (path_is_absolute(e))
+                                device_update_unit(m, dev, e, false);
+                        else
+                                log_warning("SYSTEMD_ALIAS for %s is not an absolute path, ignoring: %s", sysfs, e);
+                }
         }
 
         return 0;
 }
 
-static int device_process_path(Manager *m, const char *path, bool update_state) {
-        int r;
-        struct udev_device *dev;
+static void device_set_path_plugged(Manager *m, struct udev_device *dev) {
+        const char *sysfs;
+        Device *d, *l;
 
         assert(m);
-        assert(path);
+        assert(dev);
 
-        dev = udev_device_new_from_syspath(m->udev, path);
-        if (!dev) {
-                log_warning("Failed to get udev device object from udev for path %s.", path);
-                return -ENOMEM;
-        }
+        sysfs = udev_device_get_syspath(dev);
+        if (!sysfs)
+                return;
 
-        r = device_process_new_device(m, dev, update_state);
-        udev_device_unref(dev);
-        return r;
+        l = hashmap_get(m->devices_by_sysfs, sysfs);
+        LIST_FOREACH(same_sysfs, d, l)
+                device_set_state(d, DEVICE_PLUGGED);
 }
 
 static int device_process_removed_device(Manager *m, struct udev_device *dev) {
@@ -398,7 +390,8 @@ static int device_process_removed_device(Manager *m, struct udev_device *dev) {
         assert(m);
         assert(dev);
 
-        if (!(sysfs = udev_device_get_syspath(dev)))
+        sysfs = udev_device_get_syspath(dev);
+        if (!sysfs)
                 return -ENOMEM;
 
         /* Remove all units of this sysfs path */
@@ -408,6 +401,34 @@ static int device_process_removed_device(Manager *m, struct udev_device *dev) {
         }
 
         return 0;
+}
+
+static bool device_is_ready(struct udev_device *dev) {
+        const char *ready;
+
+        assert(dev);
+
+        ready = udev_device_get_property_value(dev, "SYSTEMD_READY");
+        if (!ready)
+                return true;
+
+        return parse_boolean(ready) != 0;
+}
+
+static int device_process_new_path(Manager *m, const char *path) {
+        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+
+        assert(m);
+        assert(path);
+
+        dev = udev_device_new_from_syspath(m->udev, path);
+        if (!dev)
+                return log_oom();
+
+        if (!device_is_ready(dev))
+                return 0;
+
+        return device_process_new_device(m, dev);
 }
 
 static Unit *device_following(Unit *u) {
@@ -434,36 +455,40 @@ static Unit *device_following(Unit *u) {
         return UNIT(first);
 }
 
-static int device_following_set(Unit *u, Set **_s) {
-        Device *d = DEVICE(u);
-        Device *other;
-        Set *s;
+static int device_following_set(Unit *u, Set **_set) {
+        Device *d = DEVICE(u), *other;
+        Set *set;
         int r;
 
         assert(d);
-        assert(_s);
+        assert(_set);
 
-        if (!d->same_sysfs_prev && !d->same_sysfs_next) {
-                *_s = NULL;
+        if (LIST_JUST_US(same_sysfs, d)) {
+                *_set = NULL;
                 return 0;
         }
 
-        if (!(s = set_new(NULL, NULL)))
+        set = set_new(NULL, NULL);
+        if (!set)
                 return -ENOMEM;
 
-        for (other = d->same_sysfs_next; other; other = other->same_sysfs_next)
-                if ((r = set_put(s, other)) < 0)
+        LIST_FOREACH_AFTER(same_sysfs, other, d) {
+                r = set_put(set, other);
+                if (r < 0)
                         goto fail;
+        }
 
-        for (other = d->same_sysfs_prev; other; other = other->same_sysfs_prev)
-                if ((r = set_put(s, other)) < 0)
+        LIST_FOREACH_BEFORE(same_sysfs, other, d) {
+                r = set_put(set, other);
+                if (r < 0)
                         goto fail;
+        }
 
-        *_s = s;
+        *_set = set;
         return 1;
 
 fail:
-        set_free(s);
+        set_free(set);
         return r;
 }
 
@@ -538,7 +563,7 @@ static int device_enumerate(Manager *m) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first)
-                device_process_path(m, udev_list_entry_get_name(item), false);
+                device_process_new_path(m, udev_list_entry_get_name(item));
 
         return 0;
 
@@ -549,8 +574,8 @@ fail:
 
 static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
-        const char *action, *ready;
         Manager *m = userdata;
+        const char *action;
         int r;
 
         assert(m);
@@ -578,16 +603,18 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                 return 0;
         }
 
-        ready = udev_device_get_property_value(dev, "SYSTEMD_READY");
-
-        if (streq(action, "remove") || (ready && parse_boolean(ready) == 0)) {
+        if (streq(action, "remove") || !device_is_ready(dev))  {
                 r = device_process_removed_device(m, dev);
                 if (r < 0)
-                        log_error("Failed to process udev device event: %s", strerror(-r));
+                        log_error("Failed to process device remove event: %s", strerror(-r));
         } else {
-                r = device_process_new_device(m, dev, true);
+                r = device_process_new_device(m, dev);
                 if (r < 0)
-                        log_error("Failed to process udev device event: %s", strerror(-r));
+                        log_error("Failed to process device new event: %s", strerror(-r));
+
+                manager_dispatch_load_queue(m);
+
+                device_set_path_plugged(m, dev);
         }
 
         return 0;
