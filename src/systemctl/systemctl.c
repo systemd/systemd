@@ -3654,6 +3654,8 @@ static int show_all(
         if (r < 0)
                 return r;
 
+        pager_open_if_enabled();
+
         c = (unsigned) r;
 
         qsort_safe(unit_infos, c, sizeof(UnitInfo), compare_unit_info);
