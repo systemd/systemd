@@ -2916,7 +2916,12 @@ static int service_demand_pid_file(Service *s) {
 }
 
 static int service_dispatch_io(sd_event_source *source, int fd, uint32_t events, void *userdata) {
-        Service *s = SERVICE(userdata);
+        PathSpec *p = userdata;
+        Service *s;
+
+        assert(p);
+
+        s = SERVICE(p->unit);
 
         assert(s);
         assert(fd >= 0);
@@ -2926,7 +2931,7 @@ static int service_dispatch_io(sd_event_source *source, int fd, uint32_t events,
 
         log_debug_unit(UNIT(s)->id, "inotify event for %s", UNIT(s)->id);
 
-        if (path_spec_fd_event(s->pid_file_pathspec, events) < 0)
+        if (path_spec_fd_event(p, events) < 0)
                 goto fail;
 
         if (service_retry_pid_file(s) == 0)
