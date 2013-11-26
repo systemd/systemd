@@ -84,10 +84,20 @@ _public_ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
 #endif
 
                 r = ioctl(bus->input_fd, KDBUS_CMD_NAME_ACQUIRE, n);
-                if (r < 0)
-                        return -errno;
+                if (r < 0) {
+                        if (errno == -EALREADY)
+                                return SD_BUS_NAME_ALREADY_OWNER;
 
-                return n->flags;
+                        if (errno == -EEXIST)
+                                return SD_BUS_NAME_EXISTS;
+
+                        return -errno;
+                }
+
+                if (n->flags & KDBUS_NAME_IN_QUEUE)
+                        return SD_BUS_NAME_IN_QUEUE;
+
+                return SD_BUS_NAME_PRIMARY_OWNER;
         } else {
                 r = sd_bus_call_method(
                                 bus,
