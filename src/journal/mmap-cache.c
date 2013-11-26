@@ -72,6 +72,9 @@ struct MMapCache {
         int n_ref;
         unsigned n_windows;
 
+        unsigned n_hit, n_missed;
+
+
         Hashmap *fds;
         Hashmap *contexts;
 
@@ -542,13 +545,19 @@ int mmap_cache_get(
 
         /* Check whether the current context is the right one already */
         r = try_context(m, fd, prot, context, keep_always, offset, size, ret);
-        if (r != 0)
+        if (r != 0) {
+                m->n_hit ++;
                 return r;
+        }
 
         /* Search for a matching mmap */
         r = find_mmap(m, fd, prot, context, keep_always, offset, size, ret);
-        if (r != 0)
+        if (r != 0) {
+                m->n_hit ++;
                 return r;
+        }
+
+        m->n_missed++;
 
         /* Create a new mmap */
         return add_mmap(m, fd, prot, context, keep_always, offset, size, st, ret);
@@ -577,4 +586,16 @@ void mmap_cache_close_context(MMapCache *m, unsigned context) {
                 return;
 
         context_free(c);
+}
+
+unsigned mmap_cache_get_hit(MMapCache *m) {
+        assert(m);
+
+        return m->n_hit;
+}
+
+unsigned mmap_cache_get_missed(MMapCache *m) {
+        assert(m);
+
+        return m->n_missed;
 }
