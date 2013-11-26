@@ -1687,7 +1687,7 @@ found:
                 return 0;
 
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, array->entry_array.items[0], t, i + (subtract_one ? -1 : 0));
+        chain_cache_put(f->chain_cache, ci, first, a, array->entry_array.items[0], t, subtract_one ? (i > 0 ? i-1 : (uint64_t) -1) : i);
 
         if (subtract_one && i == 0)
                 p = last_p;
