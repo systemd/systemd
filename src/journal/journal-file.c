@@ -401,7 +401,7 @@ static int journal_file_move_to(JournalFile *f, int context, bool keep_always, u
 
 static uint64_t minimum_header_size(Object *o) {
 
-        static uint64_t table[] = {
+        static const uint64_t table[] = {
                 [OBJECT_DATA] = sizeof(DataObject),
                 [OBJECT_FIELD] = sizeof(FieldObject),
                 [OBJECT_ENTRY] = sizeof(EntryObject),

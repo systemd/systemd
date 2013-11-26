@@ -54,11 +54,11 @@ typedef struct JournalFile {
 
         int flags;
         int prot;
-        bool writable;
-        bool compress;
-        bool seal;
+        bool writable:1;
+        bool compress:1;
+        bool seal:1;
 
-        bool tail_entry_monotonic_valid;
+        bool tail_entry_monotonic_valid:1;
 
         direction_t last_direction;
 
