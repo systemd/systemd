@@ -217,7 +217,7 @@ static int fifo_process(Fifo *f) {
                 if (errno == EAGAIN)
                         return 0;
 
-                log_warning("Failed to read from fifo: %s", strerror(errno));
+                log_warning("Failed to read from fifo: %m");
                 return -1;
         }
 
@@ -278,7 +278,7 @@ static int server_init(Server *s, unsigned n_sockets) {
         s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (s->epoll_fd < 0) {
                 r = -errno;
-                log_error("Failed to create epoll object: %s", strerror(errno));
+                log_error("Failed to create epoll object: %m");
                 goto fail;
         }
 
@@ -305,8 +305,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 f = new0(Fifo, 1);
                 if (!f) {
                         r = -ENOMEM;
-                        log_error("Failed to create fifo object: %s",
-                                  strerror(errno));
+                        log_error("Failed to create fifo object: %m");
                         goto fail;
                 }
 
@@ -318,8 +317,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
                         r = -errno;
                         fifo_free(f);
-                        log_error("Failed to add fifo fd to epoll object: %s",
-                                  strerror(errno));
+                        log_error("Failed to add fifo fd to epoll object: %m");
                         goto fail;
                 }
 
@@ -416,7 +414,7 @@ int main(int argc, char *argv[]) {
                         if (errno == EINTR)
                                 continue;
 
-                        log_error("epoll_wait() failed: %s", strerror(errno));
+                        log_error("epoll_wait() failed: %m");
                         goto fail;
                 }
 

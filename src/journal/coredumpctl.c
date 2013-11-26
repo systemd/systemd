@@ -479,7 +479,7 @@ static int run_gdb(sd_journal *j) {
 
         sz = write(fd, data, len);
         if (sz < 0) {
-                log_error("Failed to write temporary file: %s", strerror(errno));
+                log_error("Failed to write temporary file: %m");
                 r = -errno;
                 goto finish;
         }

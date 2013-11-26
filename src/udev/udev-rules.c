@@ -2595,7 +2595,7 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                                         strscpyl(tag_symlink, sizeof(tag_symlink), tags_dir, unescaped_filename, NULL);
                                         r = symlink(device_node, tag_symlink);
                                         if (r < 0 && errno != EEXIST) {
-                                                log_error("failed to create symlink %s -> %s: %s\n", tag_symlink, device_node, strerror(errno));
+                                                log_error("failed to create symlink %s -> %s: %m\n", tag_symlink, device_node);
                                                 return -errno;
                                         } else
                                                 r = 0;

@@ -188,7 +188,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   p->type,
                   p->flags,
                   p->options) < 0) {
-                log_full((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, "Failed to mount %s: %s", p->where, strerror(errno));
+                log_full((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, "Failed to mount %s: %m", p->where);
                 return (p->mode & MNT_FATAL) ? -errno : 0;
         }
 

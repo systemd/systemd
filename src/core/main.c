@@ -131,7 +131,7 @@ _noreturn_ static void crash(int sig) {
 
                 pid = fork();
                 if (pid < 0)
-                        log_error("Caught <%s>, cannot fork for core dump: %s", signal_to_string(sig), strerror(errno));
+                        log_error("Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
 
                 else if (pid == 0) {
                         struct rlimit rl = {};

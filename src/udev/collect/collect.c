@@ -97,7 +97,7 @@ static int prepare(char *dir, char *filename)
 
         fd = open(buf,O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
         if (fd < 0)
-                fprintf(stderr, "Cannot open %s: %s\n", buf, strerror(errno));
+                fprintf(stderr, "Cannot open %s: %m\n", buf);
 
         if (lockf(fd,F_TLOCK,0) < 0) {
                 if (debug)
@@ -109,7 +109,7 @@ static int prepare(char *dir, char *filename)
                                 fprintf(stderr, "Acquired lock on %s\n", buf);
                 } else {
                         if (debug)
-                                fprintf(stderr, "Could not get lock on %s: %s\n", buf, strerror(errno));
+                                fprintf(stderr, "Could not get lock on %s: %m\n", buf);
                 }
         }
 
@@ -404,7 +404,7 @@ int main(int argc, char **argv)
         us = argv[argi++];
 
         if (signal(SIGALRM, sig_alrm) == SIG_ERR) {
-                fprintf(stderr, "Cannot set SIGALRM: %s\n", strerror(errno));
+                fprintf(stderr, "Cannot set SIGALRM: %m\n");
                 ret = 2;
                 goto exit;
         }

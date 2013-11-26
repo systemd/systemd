@@ -3507,7 +3507,7 @@ static int service_enumerate(Manager *m) {
                         d = opendir(path);
                         if (!d) {
                                 if (errno != ENOENT)
-                                        log_warning("opendir(%s) failed: %s", path, strerror(errno));
+                                        log_warning("opendir(%s) failed: %m", path);
 
                                 continue;
                         }
@@ -3540,7 +3540,7 @@ static int service_enumerate(Manager *m) {
                                 if (access(fpath, X_OK) < 0) {
 
                                         if (errno != ENOENT)
-                                                log_warning("access() failed on %s: %s", fpath, strerror(errno));
+                                                log_warning("access() failed on %s: %m", fpath);
 
                                         continue;
                                 }

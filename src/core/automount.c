@@ -304,7 +304,7 @@ static int open_dev_autofs(Manager *m) {
 
         m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
         if (m->dev_autofs_fd < 0) {
-                log_error("Failed to open /dev/autofs: %s", strerror(errno));
+                log_error("Failed to open /dev/autofs: %m");
                 return -errno;
         }
 

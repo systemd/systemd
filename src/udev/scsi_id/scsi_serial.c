@@ -362,7 +362,7 @@ resend:
                         dev_scsi->use_sg = 3;
                         goto resend;
                 }
-                log_debug("%s: ioctl failed: %s\n", dev_scsi->kernel, strerror(errno));
+                log_debug("%s: ioctl failed: %m\n", dev_scsi->kernel);
                 goto error;
         }
 
@@ -820,14 +820,12 @@ int scsi_std_inquiry(struct udev *udev,
 
         fd = open(devname, O_RDONLY | O_NONBLOCK);
         if (fd < 0) {
-                log_debug("scsi_id: cannot open %s: %s\n",
-                     devname, strerror(errno));
+                log_debug("scsi_id: cannot open %s: %m\n", devname);
                 return 1;
         }
 
         if (fstat(fd, &statbuf) < 0) {
-                log_debug("scsi_id: cannot stat %s: %s\n",
-                     devname, strerror(errno));
+                log_debug("scsi_id: cannot stat %s: %m\n", devname);
                 err = 2;
                 goto out;
         }

@@ -88,7 +88,7 @@ void server_forward_kmsg(
         IOVEC_SET_STRING(iovec[n++], "\n");
 
         if (writev(s->dev_kmsg_fd, iovec, n) < 0)
-                log_debug("Failed to write to /dev/kmsg for logging: %s", strerror(errno));
+                log_debug("Failed to write to /dev/kmsg for logging: %m");
 
         free(ident_buf);
 }

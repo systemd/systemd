@@ -307,7 +307,7 @@ static int enable_special_signals(Manager *m) {
         } else {
                 /* Enable that we get SIGWINCH on kbrequest */
                 if (ioctl(fd, KDSIGACCEPT, SIGWINCH) < 0)
-                        log_warning("Failed to enable kbrequest handling: %s", strerror(errno));
+                        log_warning("Failed to enable kbrequest handling: %m");
         }
 
         return 0;
