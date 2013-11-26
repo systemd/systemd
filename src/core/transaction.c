@@ -578,7 +578,7 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
 
         /* Moves the transaction jobs to the set of active jobs */
 
-        if (mode == JOB_ISOLATE) {
+        if (mode == JOB_ISOLATE || mode == JOB_FLUSH) {
 
                 /* When isolating first kill all installed jobs which
                  * aren't part of the new transaction */
