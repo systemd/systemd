@@ -4549,7 +4549,7 @@ static int enable_unit(sd_bus *bus, char **args) {
                                 return bus_log_parse_error(r);
                 }
 
-                r = deserialize_and_dump_unit_file_changes(m);
+                r = deserialize_and_dump_unit_file_changes(reply);
                 if (r < 0)
                         return r;
 
