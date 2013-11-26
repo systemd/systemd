@@ -11,6 +11,7 @@ DefaultDependencies=no
 Requires=initrd-root-fs.target
 After=initrd-root-fs.target
 OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
 ConditionPathExists=/etc/initrd-release
 
 [Service]

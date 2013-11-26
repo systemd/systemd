@@ -10,6 +10,7 @@ Description=Switch Root
 DefaultDependencies=no
 ConditionPathExists=/etc/initrd-release
 OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
 AllowIsolate=yes
 
 [Service]

@@ -86,6 +86,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->deserialized_job = _JOB_TYPE_INVALID;
         u->default_dependencies = true;
         u->unit_file_state = _UNIT_FILE_STATE_INVALID;
+        u->on_failure_job_mode = JOB_REPLACE;
 
         return u;
 }
@@ -826,14 +827,14 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tRefuseManualStart: %s\n"
                         "%s\tRefuseManualStop: %s\n"
                         "%s\tDefaultDependencies: %s\n"
-                        "%s\tOnFailureIsolate: %s\n"
+                        "%s\tOnFailureJobMode: %s\n"
                         "%s\tIgnoreOnIsolate: %s\n"
                         "%s\tIgnoreOnSnapshot: %s\n",
                         prefix, yes_no(u->stop_when_unneeded),
                         prefix, yes_no(u->refuse_manual_start),
                         prefix, yes_no(u->refuse_manual_stop),
                         prefix, yes_no(u->default_dependencies),
-                        prefix, yes_no(u->on_failure_isolate),
+                        prefix, job_mode_to_string(u->on_failure_job_mode),
                         prefix, yes_no(u->ignore_on_isolate),
                         prefix, yes_no(u->ignore_on_snapshot));
 
@@ -1044,11 +1045,11 @@ int unit_load(Unit *u) {
                 if (r < 0)
                         goto fail;
 
-                if (u->on_failure_isolate &&
+                if (u->on_failure_job_mode == JOB_ISOLATE &&
                     set_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
 
                         log_error_unit(u->id,
-                                       "More than one OnFailure= dependencies specified for %s but OnFailureIsolate= enabled. Refusing.", u->id);
+                                       "More than one OnFailure= dependencies specified for %s but OnFailureJobMode=isolate set. Refusing.", u->id);
 
                         r = -EINVAL;
                         goto fail;
@@ -1454,7 +1455,7 @@ void unit_start_on_failure(Unit *u) {
         SET_FOREACH(other, u->dependencies[UNIT_ON_FAILURE], i) {
                 int r;
 
-                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_isolate ? JOB_ISOLATE : JOB_REPLACE, true, NULL, NULL);
+                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, true, NULL, NULL);
                 if (r < 0)
                         log_error_unit(u->id, "Failed to enqueue OnFailure= job: %s", strerror(-r));
         }

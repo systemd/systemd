@@ -9,7 +9,7 @@
 Description=Initrd File Systems
 Documentation=man:systemd.special(7)
 OnFailure=emergency.target
-OnFailureIsolate=yes
+OnFailureJobMode=replace-irreversibly
 ConditionPathExists=/etc/initrd-release
 After=initrd-parse-etc.service
 DefaultDependencies=no

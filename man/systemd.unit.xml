@@ -669,19 +669,37 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>OnFailureIsolate=</varname></term>
+                                <term><varname>OnFailureJobMode=</varname></term>
 
-                                <listitem><para>Takes a boolean
-                                argument. If <option>true</option>, the
-                                unit listed in
-                                <varname>OnFailure=</varname> will be
-                                enqueued in isolation mode, i.e. all
-                                units that are not its dependency will
-                                be stopped. If this is set, only a
-                                single unit may be listed in
-                                <varname>OnFailure=</varname>. Defaults
+                                <listitem><para>Takes a value of
+                                <literal>fail</literal>,
+                                <literal>replace</literal>,
+                                <literal>replace-irreversibly</literal>
+                                or
+                                <literal>isolate</literal>. Defaults
                                 to
-                                <option>false</option>.</para></listitem>
+                                <literal>replace</literal>. Specifies
+                                how the units listed in
+                                <varname>OnFailure=</varname> will be
+                                enqueued. If set to
+                                <literal>fail</literal> and
+                                contradicting jobs are already queued,
+                                cause the activation to fail. If set
+                                to <literal>replace</literal> and
+                                contradicting jobs area already
+                                queued, replace
+                                those. <literal>replace-irreversibly</literal>
+                                is similar to
+                                <literal>replace</literal>, however,
+                                creates jobs that cannot be reversed
+                                unless they finished or are explicitly
+                                canceled. <literal>isolate</literal>
+                                may be used to terminate all other
+                                units but the specified one. If
+                                this is set to
+                                <literal>isolate</literal>, only a
+                                single unit may be listed in
+                                <varname>OnFailure=</varname>..</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

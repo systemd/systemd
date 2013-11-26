@@ -12,4 +12,4 @@ After=local-fs-pre.target
 DefaultDependencies=no
 Conflicts=shutdown.target
 OnFailure=emergency.target
-OnFailureIsolate=no
+OnFailureJobMode=replace-irreversibly

@@ -10,6 +10,6 @@ Description=Initrd Root File System
 Documentation=man:systemd.special(7)
 ConditionPathExists=/etc/initrd-release
 OnFailure=emergency.target
-OnFailureIsolate=yes
+OnFailureJobMode=replace-irreversibly
 DefaultDependencies=no
 Conflicts=shutdown.target

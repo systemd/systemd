@@ -230,8 +230,8 @@ struct Unit {
         /* Allow isolation requests */
         bool allow_isolate;
 
-        /* Isolate OnFailure unit */
-        bool on_failure_isolate;
+        /* How to start OnFailure units */
+        JobMode on_failure_job_mode;
 
         /* Ignore this unit when isolating */
         bool ignore_on_isolate;
