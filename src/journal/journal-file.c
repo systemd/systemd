@@ -2732,10 +2732,6 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         ts.monotonic = le64toh(o->entry.monotonic);
         ts.realtime = le64toh(o->entry.realtime);
 
-        if (to->tail_entry_monotonic_valid &&
-            ts.monotonic < le64toh(to->header->tail_entry_monotonic))
-                return -EINVAL;
-
         n = journal_file_entry_n_items(o);
         items = alloca(sizeof(EntryItem) * n);
 
