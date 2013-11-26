@@ -568,11 +568,12 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
                         return -ENOMEM;
 
                 return sd_bus_reply_method_return(
-                                message, "soshsub",
+                                message, "soshusub",
                                 session->id,
                                 path,
                                 session->user->runtime_path,
                                 fifo_fd,
+                                (uint32_t) session->user->uid,
                                 session->seat ? session->seat->id : "",
                                 (uint32_t) session->vtnr,
                                 true);
@@ -1855,7 +1856,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("ListUsers", NULL, "a(uso)", method_list_users, 0),
         SD_BUS_METHOD("ListSeats", NULL, "a(so)", method_list_seats, 0),
         SD_BUS_METHOD("ListInhibitors", NULL, "a(ssssuu)", method_list_inhibitors, 0),
-        SD_BUS_METHOD("CreateSession", "uussssussbssa(sv)", "soshsub", method_create_session, 0),
+        SD_BUS_METHOD("CreateSession", "uussssussbssa(sv)", "soshusub", method_create_session, 0),
         SD_BUS_METHOD("ReleaseSession", "s", NULL, method_release_session, 0),
         SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, 0),
         SD_BUS_METHOD("ActivateSessionOnSeat", "ss", NULL, method_activate_session_on_seat, 0),

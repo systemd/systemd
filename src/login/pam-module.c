@@ -42,10 +42,11 @@
 #include "fileio.h"
 #include "bus-error.h"
 
-static int parse_argv(pam_handle_t *handle,
-                      int argc, const char **argv,
-                      const char **class,
-                      bool *debug) {
+static int parse_argv(
+                pam_handle_t *handle,
+                int argc, const char **argv,
+                const char **class,
+                bool *debug) {
 
         unsigned i;
 
@@ -83,31 +84,24 @@ static int get_user_data(
 
         const char *username = NULL;
         struct passwd *pw = NULL;
-        uid_t uid;
         int r;
 
         assert(handle);
         assert(ret_username);
         assert(ret_pw);
 
-        r = audit_loginuid_from_pid(0, &uid);
-        if (r >= 0)
-                pw = pam_modutil_getpwuid(handle, uid);
-        else {
-                r = pam_get_user(handle, &username, NULL);
-                if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to get user name.");
-                        return r;
-                }
-
-                if (isempty(username)) {
-                        pam_syslog(handle, LOG_ERR, "User name not valid.");
-                        return PAM_AUTH_ERR;
-                }
-
-                pw = pam_modutil_getpwnam(handle, username);
+        r = pam_get_user(handle, &username, NULL);
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to get user name.");
+                return r;
         }
 
+        if (isempty(username)) {
+                pam_syslog(handle, LOG_ERR, "User name not valid.");
+                return PAM_AUTH_ERR;
+        }
+
+        pw = pam_modutil_getpwnam(handle, username);
         if (!pw) {
                 pam_syslog(handle, LOG_ERR, "Failed to get user data.");
                 return PAM_USER_UNKNOWN;
@@ -120,16 +114,14 @@ static int get_user_data(
 }
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-        _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
         };
+        _cleanup_free_ char *p = NULL, *tty = NULL;
+        _cleanup_close_ int fd = -1;
         struct ucred ucred;
         socklen_t l;
-        _cleanup_free_ char *tty = NULL;
-        int v;
+        int v, r;
 
         assert(display);
         assert(vtnr);
@@ -191,14 +183,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *class_pam = NULL, *cvtnr = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         int session_fd = -1, existing, r;
-        uint32_t uid, pid, vtnr = 0;
         bool debug = false, remote;
         struct passwd *pw;
+        uint32_t vtnr = 0;
+        uid_t original_uid;
 
         assert(handle);
-
-        if (debug)
-                pam_syslog(handle, LOG_INFO, "pam-systemd initializing");
 
         /* Make this a NOP on non-logind systems */
         if (!logind_running())
@@ -209,6 +199,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        &class_pam,
                        &debug) < 0)
                 return PAM_SESSION_ERR;
+
+        if (debug)
+                pam_syslog(handle, LOG_INFO, "pam-systemd initializing");
 
         r = get_user_data(handle, &username, &pw);
         if (r != PAM_SUCCESS) {
@@ -248,9 +241,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         /* Otherwise, we ask logind to create a session for us */
 
-        uid = pw->pw_uid;
-        pid = getpid();
-
         pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
         pam_get_item(handle, PAM_TTY, (const void**) &tty);
         pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
@@ -264,12 +254,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (isempty(cvtnr))
                 cvtnr = getenv("XDG_VTNR");
 
-        service = strempty(service);
         tty = strempty(tty);
         display = strempty(display);
-        remote_user = strempty(remote_user);
-        remote_host = strempty(remote_host);
-        seat = strempty(seat);
 
         if (strchr(tty, ':')) {
                 /* A tty with a colon is usually an X11 display,
@@ -318,8 +304,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 class = streq(type, "unspecified") ? "background" : "user";
 
         remote = !isempty(remote_host) &&
-                !streq(remote_host, "localhost") &&
-                !streq(remote_host, "localhost.localdomain");
+                !streq_ptr(remote_host, "localhost") &&
+                !streq_ptr(remote_host, "localhost.localdomain");
 
         /* Talk to logind over the message bus */
 
@@ -332,7 +318,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "Asking logind to create session: "
                            "uid=%u pid=%u service=%s type=%s class=%s seat=%s vtnr=%u tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
-                           uid, pid, service, type, class, seat, vtnr, tty, display, yes_no(remote), remote_user, remote_host);
+                           pw->pw_uid, getpid(),
+                           strempty(service),
+                           type, class,
+                           strempty(seat), vtnr, tty, strempty(display),
+                           yes_no(remote), strempty(remote_user), strempty(remote_host));
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.login1",
@@ -342,18 +332,18 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                &error,
                                &reply,
                                "uussssussbssa(sv)",
-                               uid,
-                               pid,
-                               service,
+                               (uint32_t) pw->pw_uid,
+                               (uint32_t) getpid(),
+                               strempty(service),
                                type,
                                class,
-                               seat,
+                               strempty(seat),
                                vtnr,
                                tty,
-                               display,
+                               strempty(display),
                                remote,
-                               remote_user,
-                               remote_host,
+                               strempty(remote_user),
+                               strempty(remote_host),
                                0);
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
@@ -361,11 +351,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
         r = sd_bus_message_read(reply,
-                                "soshsub",
+                                "soshusub",
                                 &id,
                                 &object_path,
                                 &runtime_path,
                                 &session_fd,
+                                &original_uid,
                                 &seat,
                                 &vtnr,
                                 &existing);
@@ -376,8 +367,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "Reply from logind: "
-                           "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u",
-                           id, object_path, runtime_path, session_fd, seat, vtnr);
+                           "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u original_uid=%u",
+                           id, object_path, runtime_path, session_fd, seat, vtnr, original_uid);
 
         r = pam_misc_setenv(handle, "XDG_SESSION_ID", id, 0);
         if (r != PAM_SUCCESS) {
@@ -385,10 +376,18 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return r;
         }
 
-        r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", runtime_path, 0);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
-                return r;
+        if (original_uid == pw->pw_uid) {
+                /* Don't set $XDG_RUNTIME_DIR if the user we now
+                 * authenticated for does not match the original user
+                 * of the session. We do this in order not to result
+                 * in privileged apps clobbering the runtime directory
+                 * unnecessarily. */
+
+                r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", runtime_path, 0);
+                if (r != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
+                        return r;
+                }
         }
 
         if (!isempty(seat)) {
@@ -401,7 +400,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         if (vtnr > 0) {
                 char buf[DECIMAL_STR_MAX(vtnr)];
-                snprintf(buf, sizeof(buf), "%u", vtnr);
+                sprintf(buf, "%u", vtnr);
 
                 r = pam_misc_setenv(handle, "XDG_VTNR", buf, 0);
                 if (r != PAM_SUCCESS) {

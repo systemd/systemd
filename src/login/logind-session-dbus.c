@@ -667,12 +667,12 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
                   (uint32_t) s->vtnr);
 
         return sd_bus_reply_method_return(
-                        c,
-                        "soshsub",
+                        c, "soshusub",
                         s->id,
                         p,
                         s->user->runtime_path,
                         fifo_fd,
+                        (uint32_t) s->user->uid,
                         s->seat ? s->seat->id : "",
                         (uint32_t) s->vtnr,
                         false);
