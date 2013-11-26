@@ -1366,6 +1366,7 @@ typedef struct ChainCacheItem {
         uint64_t array; /* the cached array */
         uint64_t begin; /* the first item in the cached array */
         uint64_t total; /* the total number of items in all arrays before this one in the chain */
+        uint64_t last_index; /* the last index we looked at, to optimize locality when bisecting */
 } ChainCacheItem;
 
 static void chain_cache_put(
@@ -1374,7 +1375,8 @@ static void chain_cache_put(
                 uint64_t first,
                 uint64_t array,
                 uint64_t begin,
-                uint64_t total) {
+                uint64_t total,
+                uint64_t last_index) {
 
         if (!ci) {
                 /* If the chain item to cache for this chain is the
@@ -1402,12 +1404,14 @@ static void chain_cache_put(
         ci->array = array;
         ci->begin = begin;
         ci->total = total;
+        ci->last_index = last_index;
 }
 
-static int generic_array_get(JournalFile *f,
-                             uint64_t first,
-                             uint64_t i,
-                             Object **ret, uint64_t *offset) {
+static int generic_array_get(
+                JournalFile *f,
+                uint64_t first,
+                uint64_t i,
+                Object **ret, uint64_t *offset) {
 
         Object *o;
         uint64_t p = 0, a, t = 0;
@@ -1448,7 +1452,7 @@ static int generic_array_get(JournalFile *f,
 
 found:
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, o->entry_array.items[0], t);
+        chain_cache_put(f->chain_cache, ci, first, a, o->entry_array.items[0], t, i);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)
@@ -1463,11 +1467,12 @@ found:
         return 1;
 }
 
-static int generic_array_get_plus_one(JournalFile *f,
-                                      uint64_t extra,
-                                      uint64_t first,
-                                      uint64_t i,
-                                      Object **ret, uint64_t *offset) {
+static int generic_array_get_plus_one(
+                JournalFile *f,
+                uint64_t extra,
+                uint64_t first,
+                uint64_t i,
+                Object **ret, uint64_t *offset) {
 
         Object *o;
 
@@ -1498,17 +1503,18 @@ enum {
         TEST_RIGHT
 };
 
-static int generic_array_bisect(JournalFile *f,
-                                uint64_t first,
-                                uint64_t n,
-                                uint64_t needle,
-                                int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
-                                direction_t direction,
-                                Object **ret,
-                                uint64_t *offset,
-                                uint64_t *idx) {
+static int generic_array_bisect(
+                JournalFile *f,
+                uint64_t first,
+                uint64_t n,
+                uint64_t needle,
+                int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
+                direction_t direction,
+                Object **ret,
+                uint64_t *offset,
+                uint64_t *idx) {
 
-        uint64_t a, p, t = 0, i = 0, last_p = 0;
+        uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = (uint64_t) -1;
         bool subtract_one = false;
         Object *o, *array = NULL;
         int r;
@@ -1533,7 +1539,7 @@ static int generic_array_bisect(JournalFile *f,
                         return r;
 
                 if (r == TEST_LEFT) {
-                        /* OK, what we are looking for is right of th
+                        /* OK, what we are looking for is right of the
                          * begin of this EntryArray, so let's jump
                          * straight to previously cached array in the
                          * chain */
@@ -1541,6 +1547,7 @@ static int generic_array_bisect(JournalFile *f,
                         a = ci->array;
                         n -= ci->total;
                         t = ci->total;
+                        last_index = ci->last_index;
                 }
         }
 
@@ -1571,6 +1578,60 @@ static int generic_array_bisect(JournalFile *f,
                 if (r == TEST_RIGHT) {
                         left = 0;
                         right -= 1;
+
+                        if (last_index != (uint64_t) -1) {
+                                assert(last_index <= right);
+
+                                /* If we cached the last index we
+                                 * looked at, let's try to not to jump
+                                 * too wildly around and see if we can
+                                 * limit the range to look at early to
+                                 * the immediate neighbors of the last
+                                 * index we looked at. */
+
+                                if (last_index > 0) {
+                                        uint64_t x = last_index - 1;
+
+                                        p = le64toh(array->entry_array.items[x]);
+                                        if (p <= 0)
+                                                return -EBADMSG;
+
+                                        r = test_object(f, p, needle);
+                                        if (r < 0)
+                                                return r;
+
+                                        if (r == TEST_FOUND)
+                                                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
+
+                                        if (r == TEST_RIGHT)
+                                                right = x;
+                                        else
+                                                left = x + 1;
+                                }
+
+                                if (last_index < right) {
+                                        uint64_t y = last_index + 1;
+
+                                        p = le64toh(array->entry_array.items[y]);
+                                        if (p <= 0)
+                                                return -EBADMSG;
+
+                                        r = test_object(f, p, needle);
+                                        if (r < 0)
+                                                return r;
+
+                                        if (r == TEST_FOUND)
+                                                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
+
+                                        if (r == TEST_RIGHT)
+                                                right = y;
+                                        else
+                                                left = y + 1;
+                                }
+
+                                last_index = (uint64_t) -1;
+                        }
+
                         for (;;) {
                                 if (left == right) {
                                         if (direction == DIRECTION_UP)
@@ -1581,8 +1642,8 @@ static int generic_array_bisect(JournalFile *f,
                                 }
 
                                 assert(left < right);
-
                                 i = (left + right) / 2;
+
                                 p = le64toh(array->entry_array.items[i]);
                                 if (p <= 0)
                                         return -EBADMSG;
@@ -1615,6 +1676,7 @@ static int generic_array_bisect(JournalFile *f,
 
                 n -= k;
                 t += k;
+                last_index = (uint64_t) -1;
                 a = le64toh(array->entry_array.next_entry_array_offset);
         }
 
@@ -1625,7 +1687,7 @@ found:
                 return 0;
 
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, array->entry_array.items[0], t);
+        chain_cache_put(f->chain_cache, ci, first, a, array->entry_array.items[0], t, i + (subtract_one ? -1 : 0));
 
         if (subtract_one && i == 0)
                 p = last_p;
@@ -1650,16 +1712,18 @@ found:
         return 1;
 }
 
-static int generic_array_bisect_plus_one(JournalFile *f,
-                                         uint64_t extra,
-                                         uint64_t first,
-                                         uint64_t n,
-                                         uint64_t needle,
-                                         int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
-                                         direction_t direction,
-                                         Object **ret,
-                                         uint64_t *offset,
-                                         uint64_t *idx) {
+
+static int generic_array_bisect_plus_one(
+                JournalFile *f,
+                uint64_t extra,
+                uint64_t first,
+                uint64_t n,
+                uint64_t needle,
+                int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
+                direction_t direction,
+                Object **ret,
+                uint64_t *offset,
+                uint64_t *idx) {
 
         int r;
         bool step_back = false;
