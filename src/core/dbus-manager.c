@@ -1579,7 +1579,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("ReloadOrTryRestartUnit", "ss", "o", method_reload_or_try_restart_unit, 0),
         SD_BUS_METHOD("KillUnit", "ssi", NULL, method_kill_unit, 0),
         SD_BUS_METHOD("ResetFailedUnit", "s", NULL, method_reset_failed_unit, 0),
-        SD_BUS_METHOD("SetUnitProperties", "sb", "a(sv)", method_set_unit_properties, 0),
+        SD_BUS_METHOD("SetUnitProperties", "sba(sv)", NULL, method_set_unit_properties, 0),
         SD_BUS_METHOD("StartTransientUnit", "ssa(sv)a(sa(sv))", "o", method_start_transient_unit, 0),
         SD_BUS_METHOD("GetJob", "u", "o", method_get_job, 0),
         SD_BUS_METHOD("CancelJob", "u", NULL, method_cancel_job, 0),
