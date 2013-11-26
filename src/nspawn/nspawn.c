@@ -192,7 +192,7 @@ static int parse_argv(int argc, char *argv[]) {
                         free(arg_directory);
                         arg_directory = canonicalize_file_name(optarg);
                         if (!arg_directory) {
-                                log_error("Failed to canonicalize root directory.");
+                                log_error("Invalid root directory: %m");
                                 return -ENOMEM;
                         }
 
