@@ -806,3 +806,21 @@ void bus_kernel_flush_memfd(sd_bus *b) {
         for (i = 0; i < b->n_memfd_cache; i++)
                 close_and_munmap(b->memfd_cache[i].fd, b->memfd_cache[i].address, b->memfd_cache[i].size);
 }
+
+int sd_bus_kernel_translate_request_name_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags) {
+
+        assert_return(kdbus_flags != NULL, -EINVAL);
+
+        *kdbus_flags = 0;
+
+        if (sd_bus_flags & SD_BUS_NAME_ALLOW_REPLACEMENT)
+                *kdbus_flags |= KDBUS_NAME_ALLOW_REPLACEMENT;
+
+        if (sd_bus_flags & SD_BUS_NAME_REPLACE_EXISTING)
+                *kdbus_flags |= KDBUS_NAME_REPLACE_EXISTING;
+
+        if (!(sd_bus_flags & SD_BUS_NAME_DO_NOT_QUEUE))
+                *kdbus_flags |= KDBUS_NAME_QUEUE;
+
+        return 0;
+}
