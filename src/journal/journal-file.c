@@ -68,6 +68,9 @@
 /* How many entries to keep in the entry array chain cache at max */
 #define CHAIN_CACHE_MAX 20
 
+/* How much to increase the journal file size at once each time we allocate something new. */
+#define FILE_SIZE_INCREASE (8ULL*1024ULL*1024ULL)              /* 8MB */
+
 static int journal_file_set_online(JournalFile *f) {
         assert(f);
 
@@ -218,8 +221,7 @@ static int journal_file_refresh_header(JournalFile *f) {
         journal_file_set_online(f);
 
         /* Sync the online state to disk */
-        msync(f->header, PAGE_ALIGN(sizeof(Header)), MS_SYNC);
-        fdatasync(f->fd);
+        fsync(f->fd);
 
         return 0;
 }
@@ -313,7 +315,7 @@ static int journal_file_verify_header(JournalFile *f) {
 }
 
 static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size) {
-        uint64_t old_size, new_size;
+        uint64_t old_size, new_size, file_size;
         int r;
 
         assert(f);
@@ -333,12 +335,10 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (new_size <= old_size)
                 return 0;
 
-        if (f->metrics.max_size > 0 &&
-            new_size > f->metrics.max_size)
+        if (f->metrics.max_size > 0 && new_size > f->metrics.max_size)
                 return -E2BIG;
 
-        if (new_size > f->metrics.min_size &&
-            f->metrics.keep_free > 0) {
+        if (new_size > f->metrics.min_size && f->metrics.keep_free > 0) {
                 struct statvfs svfs;
 
                 if (fstatvfs(f->fd, &svfs) >= 0) {
@@ -363,8 +363,16 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (r != 0)
                 return -r;
 
-        if (fstat(f->fd, &f->last_stat) < 0)
-                return -errno;
+        /* Increase the file size a bit further than this, so that we
+         * we can create larger memory maps to cache */
+        file_size = ((new_size+FILE_SIZE_INCREASE-1) / FILE_SIZE_INCREASE) * FILE_SIZE_INCREASE;
+        if (file_size > (uint64_t) f->last_stat.st_size) {
+                if (file_size > new_size)
+                        ftruncate(f->fd, file_size);
+
+                if (fstat(f->fd, &f->last_stat) < 0)
+                        return -errno;
+        }
 
         f->header->arena_size = htole64(new_size - le64toh(f->header->header_size));
 
