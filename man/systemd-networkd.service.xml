@@ -58,7 +58,8 @@
 
                 <para><command>systemd-networkd</command> is a system
                 service that manages networks. It detects and configures
-                network devices as they appear.</para>
+                network devices as they appear, as well as creating virtual
+                network devices.</para>
 
                 <para>Network configurations applied before networkd is started
                 are not removed, and configuration applied by networkd are not
@@ -68,118 +69,148 @@
                 and back.</para>
         </refsect1>
 
-        <refsect1><title>Network Configuration</title>
-                <para>The network files are read from the files located in the
+        <refsect1><title>Configuration Files</title>
+                <para>The configuration files are read from the files located in the
                 system network directory <filename>/usr/lib/systemd/network</filename>,
                 the volatile runtime network directory
                 <filename>/run/systemd/network</filename> and the local administration
                 network directory <filename>/etc/systemd/network</filename>.
-                All link files are collectively sorted and processed in lexical order,
+                All configuration files are collectively sorted and processed in lexical order,
                 regardless of the directories in which they live. However, files with
                 identical filenames replace each other. Files in
                 <filename>/etc</filename> have the highest priority, files in
                 <filename>/run</filename> take precedence over files with the same
                 name in <filename>/lib</filename>. This can be used to override a
-                system-supplied network file with a local file if needed; a symlink in
-                <filename>/etc</filename> with the same name as a network file in
+                system-supplied configuration file with a local file if needed; a symlink in
+                <filename>/etc</filename> with the same name as a configuration file in
                 <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
-                disables the network file entirely. Network files must have the extension
-                <filename>.network</filename>; other extensions are ignored.</para>
+                disables the configuration file entirely.</para>
 
-                <para>The network file contains a <literal>[Match]</literal> section,
-                which determines if a given network file may be applied to a given device;
-                and a <literal>[Network]</literal> section specifying how the device should
-                be configured. The first (in lexical order) of the network files that
-                matches a given device is applied.</para>
+                <refsect2><title>Virtual Network Devices</title>
+                        <para>Netdev files must have the extension <filename>.netdev</filename>;
+                        other extensions are ignored. Virtual network devices are created as soon
+                        as networkd is started.</para>
 
-                <para>A network file is said to match a device if each of the entries in the
-                <literal>[Match]</literal> section matches, or if the section is empty.
-                The following keys are accepted:</para>
+                        <para>The <literal>[Bridge]</literal> section accepts the following
+                        keys:</para>
 
-                <variablelist class='network-directives'>
-                        <varlistentry>
-                                <term><varname>MACAddress</varname></term>
-                                <listitem>
-                                        <para>The hardware address.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><varname>Path</varname></term>
-                                <listitem>
-                                        <para>The persistent path, as exposed by the udev
-                                        property <literal>ID_PATH</literal>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><varname>Driver</varname></term>
-                                <listitem>
-                                        <para>The driver currently bound to the device, as
-                                        exposed by the udev property <literal>DRIVER</literal>.
-                                        </para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><varname>Type</varname></term>
-                                <listitem>
-                                        <para>The device type, as exposed by the udev property
-                                        <literal>DEVTYPE</literal>.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><varname>Name</varname></term>
-                                <listitem>
-                                        <para>The device name, as exposed by the udev property
-                                        <literal>INTERFACE</literal>.</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Name</varname></term>
+                                        <listitem>
+                                                <para>The interface name used when creating the
+                                                bridge. This option is compulsory.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+                </refsect2>
 
-                <para>The <literal>[Network]</literal> section accepts the following keys:</para>
+                <refsect2><title>Networks</title>
+                        <para>Network files must have the extension <filename>.network</filename>;
+                        other extensions are ignored. Networks are applied to links whenever the links
+                        appear.</para>
 
-                <variablelist class='network-directives'>
-                        <varlistentry>
-                                <term><varname>Description</varname></term>
-                                <listitem>
-                                        <para>A description of the device. This is only used for
-                                        presentation purposes.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><varname>Address</varname></term>
-                                <listitem>
-                                        <para>A static IPv4 or IPv6 address and its prefix length,
-                                        separated by a '/' character. The format of the address must
-                                        be as described in
-                                        <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                        .</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><varname>Gateway</varname></term>
-                                <listitem>
-                                        <para>The gateway address, which must be in the format described in
-                                        <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                        .</para>
-                                </listitem>
-                        </varlistentry>
-                </variablelist>
+                        <para>The network file contains a <literal>[Match]</literal> section,
+                        which determines if a given network file may be applied to a given device;
+                        and a <literal>[Network]</literal> section specifying how the device should
+                        be configured. The first (in lexical order) of the network files that
+                        matches a given device is applied.</para>
 
-                <para>The <literal>[Address]</literal> section accepts the following keys:</para>
+                        <para>A network file is said to match a device if each of the entries in the
+                        <literal>[Match]</literal> section matches, or if the section is empty.
+                        The following keys are accepted:</para>
 
-                <variablelist class='network-directives'>
-                        <varlistentry>
-                                <term><varname>Address</varname></term>
-                                <listitem>
-                                        <para>As in the <literal>[Network]</literal> section.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><varname>Label</varname></term>
-                                <listitem>
-                                        <para>An address label.</para>
-                                </listitem>
-                        </varlistentry>
-               </variablelist>
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>MACAddress</varname></term>
+                                        <listitem>
+                                                <para>The hardware address.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Path</varname></term>
+                                        <listitem>
+                                                <para>The persistent path, as exposed by the udev
+                                                property <literal>ID_PATH</literal>.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Driver</varname></term>
+                                        <listitem>
+                                                <para>The driver currently bound to the device, as
+                                                exposed by the udev property <literal>DRIVER</literal>.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Type</varname></term>
+                                        <listitem>
+                                                <para>The device type, as exposed by the udev property
+                                                <literal>DEVTYPE</literal>.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Name</varname></term>
+                                        <listitem>
+                                                <para>The device name, as exposed by the udev property
+                                                <literal>INTERFACE</literal>.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+
+                        <para>The <literal>[Network]</literal> section accepts the following keys:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Description</varname></term>
+                                        <listitem>
+                                                <para>A description of the device. This is only used for
+                                                presentation purposes.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Address</varname></term>
+                                        <listitem>
+                                                <para>A static IPv4 or IPv6 address and its prefix length,
+                                                separated by a '/' character. The format of the address must
+                                                be as described in
+                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                                .</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Gateway</varname></term>
+                                        <listitem>
+                                                <para>The gateway address, which must be in the format described in
+                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                                .</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Bridge</varname></term>
+                                        <listitem>
+                                                <para>The name of the bridge to add the configured link to.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+
+                        <para>The <literal>[Address]</literal> section accepts the following keys:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Address</varname></term>
+                                        <listitem>
+                                                <para>As in the <literal>[Network]</literal> section.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Label</varname></term>
+                                        <listitem>
+                                                <para>An address label.</para>
+                                        </listitem>
+                                </varlistentry>
+                       </variablelist>
+                </refsect2>
         </refsect1>
 
         <refsect1>
