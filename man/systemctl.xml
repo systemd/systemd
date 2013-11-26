@@ -195,18 +195,6 @@ systemctl start foo
       </varlistentry>
 
       <varlistentry>
-        <term><option>--fail</option></term>
-
-        <listitem>
-          <para>If the requested operation conflicts with a pending
-          unfinished job, fail the command. If this is not specified,
-          the requested operation will replace the pending job, if
-          necessary. Do not confuse with
-          <option>--failed</option>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--show-types</option></term>
 
         <listitem>
@@ -215,27 +203,58 @@ systemctl start foo
       </varlistentry>
 
       <varlistentry>
-        <term><option>--irreversible</option></term>
+        <term><option>--job-mode=</option></term>
 
         <listitem>
-          <para>Mark this transaction's jobs as irreversible. This prevents
-          future conflicting transactions from replacing these jobs.
-          The jobs can still be cancelled using the <command>cancel</command>
-          command.</para>
-        </listitem>
-      </varlistentry>
+        <para>When queuing a new job, control how to deal with already
+        queued jobs. Takes one of <literal>fail</literal>,
+        <literal>replace</literal>,
+        <literal>replace-irreversibly</literal>,
+        <literal>isolate</literal>,
+        <literal>ignore-dependencies</literal>,
+        <literal>ignore-requirements</literal> or
+        <literal>flush</literal>. Defaults to
+        <literal>replace</literal>, except when the
+        <command>isolate</command> command is used which implies the
+        <literal>isolate</literal> job mode.</para>
 
-      <varlistentry>
-        <term><option>--ignore-dependencies</option></term>
+        <para>If <literal>fail</literal> is specified and a requested
+        operation conflicts with a pending job (more specifically:
+        causes an already pending start job to be reversed into a stop
+        job or vice versa), cause the operation to fail.</para>
 
-        <listitem>
-          <para>When enqueuing a new job, ignore all its dependencies
-          and execute it immediately. If passed, no required units of
-          the unit passed will be pulled in, and no ordering
-          dependencies will be honored. This is mostly a debugging and
-          rescue tool for the administrator and should not be used by
-          applications.</para>
+        <para>If <literal>replace</literal> (the default) is
+        specified, any conflicting pending job will be replaced, as
+        necessary.</para>
+
+        <para>If <literal>replace-irreversibly</literal> is specified,
+        operate like <literal>replace</literal>, but also mark the new
+        jobs as irreversible. This prevents future conflicting
+        transactions from replacing these jobs. The jobs can still be
+        cancelled using the <command>cancel</command> command.</para>
+
+        <para><literal>isolate</literal> is only valid for start
+        operations and causes all other units to be stopped when the
+        specified unit is started. This mode is always used when the
+        <command>isolate</command> command is used.</para>
+
+        <para><literal>flush</literal> will cause all queued jobs to
+        be canceled when the new job is enqueued.</para>
+
+        <para>If <literal>ignore-dependencies</literal> is specified,
+        then all unit dependencies are ignored for this new job and
+        the operation is executed immediately. If passed, no required
+        units of the unit passed will be pulled in, and no ordering
+        dependencies will be honored. This is mostly a debugging and
+        rescue tool for the administrator and should not be used by
+        applications.</para>
+
+        <para><literal>ignore-requirements</literal> is similar to
+        <literal>ignore-dependencies</literal> but only causes the
+        requirement dependencies to be ignored, the ordering
+        dependencies will still be honoured.</para>
         </listitem>
+
       </varlistentry>
 
       <varlistentry>

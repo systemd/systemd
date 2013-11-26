@@ -674,28 +674,20 @@
                                 <listitem><para>Takes a value of
                                 <literal>fail</literal>,
                                 <literal>replace</literal>,
-                                <literal>replace-irreversibly</literal>
+                                <literal>replace-irreversibly</literal>,
+                                <literal>isolate</literal>,
+                                <literal>flush</literal>,
+                                <literal>ignore-dependencies</literal>
                                 or
-                                <literal>isolate</literal>. Defaults
+                                <literal>ignore-requirements</literal>. Defaults
                                 to
                                 <literal>replace</literal>. Specifies
                                 how the units listed in
                                 <varname>OnFailure=</varname> will be
-                                enqueued. If set to
-                                <literal>fail</literal> and
-                                contradicting jobs are already queued,
-                                cause the activation to fail. If set
-                                to <literal>replace</literal> and
-                                contradicting jobs area already
-                                queued, replace
-                                those. <literal>replace-irreversibly</literal>
-                                is similar to
-                                <literal>replace</literal>, however,
-                                creates jobs that cannot be reversed
-                                unless they finished or are explicitly
-                                canceled. <literal>isolate</literal>
-                                may be used to terminate all other
-                                units but the specified one. If
+                                enqueued. See
+                                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+                                <option>--job-mode=</option> option
+                                for details on the possible values. If
                                 this is set to
                                 <literal>isolate</literal>, only a
                                 single unit may be listed in

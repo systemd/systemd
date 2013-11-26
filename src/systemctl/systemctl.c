@@ -4671,14 +4671,10 @@ static int systemctl_help(void) {
                "  -a --all            Show all loaded units/properties, including dead/empty\n"
                "                      ones. To list all units installed on the system, use\n"
                "                      the 'list-unit-files' command instead.\n"
-               "     --reverse        Show reverse dependencies with 'list-dependencies'\n"
                "  -l --full           Don't ellipsize unit names on output\n"
-               "     --fail           When queueing a new job, fail if conflicting jobs are\n"
-               "                      pending\n"
-               "     --irreversible   When queueing a new job, make sure it cannot be implicitly\n"
-               "                      cancelled\n"
-               "     --ignore-dependencies\n"
-               "                      When queueing a new job, ignore all its dependencies\n"
+               "     --reverse        Show reverse dependencies with 'list-dependencies'\n"
+               "     --job-mode=MODE  Specify how to deal with already queued jobs, when\n"
+               "                      queueing a new job\n"
                "     --show-types     When showing sockets, explicitly show their type\n"
                "  -i --ignore-inhibitors\n"
                "                      When shutting down or sleeping, ignore inhibitors\n"
@@ -4880,7 +4876,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_RUNTIME,
                 ARG_FORCE,
                 ARG_PLAIN,
-                ARG_STATE
+                ARG_STATE,
+                ARG_JOB_MODE
         };
 
         static const struct option options[] = {
@@ -4895,9 +4892,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "show-types",          no_argument,       NULL, ARG_SHOW_TYPES          },
                 { "failed",              no_argument,       NULL, ARG_FAILED              }, /* compatibility only */
                 { "full",                no_argument,       NULL, 'l'                     },
-                { "fail",                no_argument,       NULL, ARG_FAIL                },
-                { "irreversible",        no_argument,       NULL, ARG_IRREVERSIBLE        },
-                { "ignore-dependencies", no_argument,       NULL, ARG_IGNORE_DEPENDENCIES },
+                { "job-mode",            required_argument, NULL, ARG_JOB_MODE            },
+                { "fail",                no_argument,       NULL, ARG_FAIL                }, /* compatibility only */
+                { "irreversible",        no_argument,       NULL, ARG_IRREVERSIBLE        }, /* compatibility only */
+                { "ignore-dependencies", no_argument,       NULL, ARG_IGNORE_DEPENDENCIES }, /* compatibility only */
                 { "ignore-inhibitors",   no_argument,       NULL, 'i'                     },
                 { "user",                no_argument,       NULL, ARG_USER                },
                 { "system",              no_argument,       NULL, ARG_SYSTEM              },
@@ -5033,6 +5031,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_SHOW_TYPES:
                         arg_show_types = true;
+                        break;
+
+                case ARG_JOB_MODE:
+                        arg_job_mode = optarg;
                         break;
 
                 case ARG_FAIL:
