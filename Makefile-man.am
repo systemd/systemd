@@ -68,7 +68,7 @@ MANPAGES += \
 	man/systemd-run.1 \
 	man/systemd-shutdownd.service.8 \
 	man/systemd-sleep.conf.5 \
-	man/systemd-socket-proxyd.1 \
+	man/systemd-socket-proxyd.8 \
 	man/systemd-suspend.service.8 \
 	man/systemd-sysctl.service.8 \
 	man/systemd-system-update-generator.8 \
