@@ -128,8 +128,8 @@ Subject: Le démarrage du système est terminé
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
-Tous les services nécéssaires au démarrage du système ont tous été lancés
-avec succès. Notez que cela ne signifie pas que le système est maintenant au
+Tous les services nécessaires au démarrage du système ont été lancés avec
+succès. Notez que cela ne signifie pas que le système est maintenant au
 repos, car des services peuvent encore être en train de terminer leur
 démarrage.
 
@@ -137,7 +137,7 @@ Le chargement du noyau a nécessité @KERNEL_USEC@ microsecondes.
 
 Le chargement du « RAM disk » initial a nécessité @INITRD_USEC@ microsecondes.
 
-Le chargement de l'espace utilisateur a nécéssité @USERSPACE_USEC@ microsecondes.
+Le chargement de l'espace utilisateur a nécessité @USERSPACE_USEC@ microsecondes.
 
 -- 6bbd95ee977941e497c48be27c254128 fr
 Subject: Le système entre dans l'état de repos (sleep state) @SLEEP@
