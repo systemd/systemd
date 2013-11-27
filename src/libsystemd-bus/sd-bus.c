@@ -380,7 +380,7 @@ static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd
         int r;
 
         assert(bus);
-        assert(bus->state == BUS_HELLO);
+        assert(bus->state == BUS_HELLO || bus->state == BUS_CLOSING);
         assert(reply);
 
         r = sd_bus_message_get_errno(reply);
@@ -400,7 +400,8 @@ static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd
         if (!bus->unique_name)
                 return -ENOMEM;
 
-        bus->state = BUS_RUNNING;
+        if (bus->state == BUS_HELLO)
+                bus->state = BUS_RUNNING;
 
         return 1;
 }
