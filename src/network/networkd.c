@@ -25,7 +25,7 @@
 #include "networkd.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_manager_free_ Manager *m;
+        _cleanup_manager_free_ Manager *m = NULL;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
