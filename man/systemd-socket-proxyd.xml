@@ -108,11 +108,11 @@
         <refsect1>
                 <title>Examples</title>
                 <refsect2>
-                        <title>Direct-Use Example</title>
+                        <title>Simple Example</title>
                         <para>Use two services with a dependency
                         and no namespace isolation.</para>
-                        <example label="proxy socket unit">
-                                <title>/etc/systemd/system/proxy-to-nginx.socket</title>
+                        <example>
+                                <title>proxy-to-nginx.socket</title>
                                 <programlisting>
 <![CDATA[[Socket]
 ListenStream=80
@@ -121,21 +121,21 @@ ListenStream=80
 WantedBy=sockets.target]]>
 </programlisting>
                         </example>
-                        <example label="proxy service unit">
-                                <title>/etc/systemd/system/proxy-to-nginx.service</title>
+                        <example>
+                                <title>proxy-to-nginx.service</title>
                                 <programlisting>
 <![CDATA[[Unit]
-After=nginx.service
 Requires=nginx.service
+After=nginx.service
 
 [Service]
-ExecStart=/usr/bin/systemd-socket-proxyd /tmp/nginx.sock
-PrivateTmp=true
-PrivateNetwork=true]]>
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd /tmp/nginx.sock
+PrivateTmp=yes
+PrivateNetwork=yes]]>
 </programlisting>
                         </example>
-                        <example label="nginx configuration">
-                                <title>/etc/nginx/nginx.conf</title>
+                        <example>
+                                <title>nginx.conf</title>
                                 <programlisting>
 <![CDATA[[...]
 server {
@@ -143,7 +143,8 @@ server {
     [...]]]>
 </programlisting>
                         </example>
-                        <example label="commands">
+                        <example>
+                                <title>Enabling the proxy</title>
                                 <programlisting>
 <![CDATA[# systemctl enable proxy-to-nginx.socket
 # systemctl start proxy-to-nginx.socket
@@ -152,17 +153,16 @@ $ curl http://localhost:80/]]>
                         </example>
                 </refsect2>
                 <refsect2>
-                        <title>Indirect-Use Example</title>
-                        <para>Use a shell script to isolate the
-                        service and proxy into the same namespace.
-                        This is particularly useful for running
-                        TCP-only daemons without the daemon
-                        affecting ports on regular
-                        interfaces.</para>
-                        <example label="combined proxy and nginx socket unit">
-
-                                <title>
-                                /etc/systemd/system/proxy-with-nginx.socket</title>
+                        <title>Namespace Example</title>
+                        <para>Similar as above, but runs the socket
+                        proxy and the main service in the same private
+                        namespace, assuming that
+                        <filename>nginx.service</filename> has
+                        <varname>PrivateTmp=</varname> and
+                        <varname>PrivateNetwork=</varname> set,
+                        too.</para>
+                        <example>
+                                <title>proxy-to-nginx.socket</title>
                                 <programlisting>
 <![CDATA[[Socket]
 ListenStream=80
@@ -171,37 +171,22 @@ ListenStream=80
 WantedBy=sockets.target]]>
 </programlisting>
                         </example>
-                        <example label="combined proxy and nginx service unit">
-
-                                <title>
-                                /etc/systemd/system/proxy-with-nginx.service</title>
+                        <example>
+                                <title>proxy-to-nginx.service</title>
                                 <programlisting>
 <![CDATA[[Unit]
-After=remote-fs.target nss-lookup.target
+Requires=nginx.service
+After=nginx.service
+JoinsNamespaceOf=nginx.service
 
 [Service]
-ExecStartPre=/usr/sbin/nginx -t
-ExecStart=/usr/bin/socket-proxyd-nginx.sh
-PrivateTmp=true
-PrivateNetwork=true]]>
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:8080
+PrivateTmp=yes
+PrivateNetwork=yes]]>
 </programlisting>
                         </example>
-                        <example label="shell script">
-                                <title>
-                                /usr/bin/socket-proxyd-nginx.sh</title>
-                                <programlisting>
-<![CDATA[#!/bin/sh
-/usr/sbin/nginx
-while [ ! -f /tmp/nginx.pid ]
-  do
-     /usr/bin/inotifywait /tmp/nginx.pid
-  done
-exec /usr/bin/systemd-socket-proxyd localhost 8080]]>
-</programlisting>
-                        </example>
-                        <example label="nginx configuration">
-                                <title>
-                                /etc/nginx/nginx.conf</title>
+                        <example>
+                                <title>nginx.conf</title>
                                 <programlisting>
 <![CDATA[[...]
 server {
@@ -210,10 +195,11 @@ server {
     [...]]]>
 </programlisting>
                         </example>
-                        <example label="commands">
+                        <example>
+                                <title>Enabling the proxy</title>
                                 <programlisting>
-<![CDATA[# systemctl enable proxy-with-nginx.socket
-# systemctl start proxy-with-nginx.socket
+<![CDATA[# systemctl enable proxy-to-nginx.socket
+# systemctl start proxy-to-nginx.socket
 $ curl http://localhost:80/]]>
 </programlisting>
                         </example>
@@ -226,7 +212,9 @@ $ curl http://localhost:80/]]>
                         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>nginx</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>curl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 </refentry>
