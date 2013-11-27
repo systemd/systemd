@@ -92,8 +92,7 @@ REQUIREMENTS:
         turn it off at kernel compile time using:
           CONFIG_AUDIT=n
 
-	glibc >= 2.14
-        dbus >= 1.4.0
+        glibc >= 2.14
         libcap
         libblkid >= 2.20 (from util-linux) (optional)
         libkmod >= 15 (optional)
