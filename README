@@ -114,6 +114,7 @@ REQUIREMENTS:
         dependencies:
 
         util-linux >= v2.19 (requires fsck -l, agetty -s)
+        dbus >= 1.4.0 (strictly speaking optional, but recommended)
         sulogin (from util-linux >= 2.22 or sysvinit-tools, optional but recommended)
         dracut (optional)
         PolicyKit (optional)
