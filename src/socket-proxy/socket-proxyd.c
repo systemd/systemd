@@ -66,7 +66,6 @@ typedef struct Connection {
 } Connection;
 
 static const char *arg_remote_host = NULL;
-static int arg_listener = -1;
 
 static void connection_free(Connection *c) {
         assert(c);
@@ -555,9 +554,8 @@ static int help(void) {
         printf("%s [HOST:PORT]\n"
                "%s [SOCKET]\n\n"
                "Bidirectionally proxy local sockets to another (possibly remote) socket.\n\n"
-               "  -l --listener=FD  Listen on a specific, single file descriptor.\n"
-               "  -h --help         Show this help\n"
-               "     --version      Show package version\n",
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n",
                program_invocation_short_name,
                program_invocation_short_name);
 
@@ -567,22 +565,22 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
-                ARG_VERSION = 0x100
+                ARG_VERSION = 0x100,
+                ARG_IGNORE_ENV
         };
 
         static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'         },
-                { "version",  no_argument,       NULL, ARG_VERSION },
-                { "listener", required_argument, NULL, 'l'         },
+                { "help",       no_argument, NULL, 'h'           },
+                { "version",    no_argument, NULL, ARG_VERSION   },
                 {}
         };
 
-        int c, fd;
+        int c;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hl:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -593,18 +591,6 @@ static int parse_argv(int argc, char *argv[]) {
                         puts(PACKAGE_STRING);
                         puts(SYSTEMD_FEATURES);
                         return 0;
-
-                case 'l':
-                        if (safe_atoi(optarg, &fd) < 0) {
-                                log_error("Failed to parse listener file descriptor: %s", optarg);
-                                return -EINVAL;
-                        }
-                        if (fd < SD_LISTEN_FDS_START) {
-                                log_error("Listener file descriptor must be at least %d.", SD_LISTEN_FDS_START);
-                                return -EINVAL;
-                        }
-                        arg_listener = fd;
-                        break;
 
                 case '?':
                         return -EINVAL;
@@ -646,26 +632,19 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_listener == -1) {
-                n = sd_listen_fds(1);
-                if (n < 0) {
-                        log_error("Failed to receive sockets from parent.");
-                        r = n;
-                        goto finish;
-                } else if (n == 0) {
-                        log_error("Didn't get any sockets passed in.");
-                        r = -EINVAL;
-                        goto finish;
-                }
-                log_info("Listening on %d inherited socket(s), starting with fd=%d.", n, SD_LISTEN_FDS_START);
-                for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
-                        r = add_listen_socket(&context, event, fd);
-                        if (r < 0)
-                                goto finish;
-                }
-        } else {
-                log_info("Listening on single inherited socket fd=%d.", arg_listener);
-                r = add_listen_socket(&context, event, arg_listener);
+        n = sd_listen_fds(1);
+        if (n < 0) {
+                log_error("Failed to receive sockets from parent.");
+                r = n;
+                goto finish;
+        } else if (n == 0) {
+                log_error("Didn't get any sockets passed in.");
+                r = -EINVAL;
+                goto finish;
+        }
+
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
+                r = add_listen_socket(&context, event, fd);
                 if (r < 0)
                         goto finish;
         }

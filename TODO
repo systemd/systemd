@@ -105,6 +105,7 @@ Features:
 * remove NSS usage from PID 1 (notably the specifiers)
 
 * socket-proxyd:
+  - Support multiple inherited sockets mapped to different remote hosts
   - Use a nonblocking alternative to getaddrinfo
   - Until we can start daemons directly, find a less ugly, less racy alternative than shell scripts for the second man page example.
   - Support starting daemons directly without requiring a shell script; update man pages
