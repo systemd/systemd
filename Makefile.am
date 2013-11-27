@@ -2961,6 +2961,12 @@ test_journal_stream_SOURCES = \
 test_journal_stream_LDADD = \
 	libsystemd-journal-core.la
 
+test_journal_flush_SOURCES = \
+	src/journal/test-journal-flush.c
+
+test_journal_flush_LDADD = \
+	libsystemd-journal-core.la
+
 test_journal_init_SOURCES = \
 	src/journal/test-journal-init.c
 
@@ -3167,6 +3173,7 @@ tests += \
 	test-journal-init \
 	test-journal-verify \
 	test-journal-interleaving \
+	test-journal-flush \
 	test-mmap-cache \
 	test-catalog
 

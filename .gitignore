@@ -123,6 +123,7 @@
 /test-job-type
 /test-journal
 /test-journal-enum
+/test-journal-flush
 /test-journal-interleaving
 /test-journal-match
 /test-journal-send

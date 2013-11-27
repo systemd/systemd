@@ -85,8 +85,6 @@ Features:
 
 * be more careful what we export on the bus as (usec_t) 0 and (usec_t) -1
 
-* increase journal files by a few MB each time, instead of piecemeal
-
 * add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
 
 * systemctl: rework wait filter to not require match callback
@@ -392,9 +390,6 @@ Features:
 * service: watchdog logic: for testing purposes allow ping, but do not require pong
 
 * journal:
-  - do not use magic msync() in src/journal/journal-file.c, just call fsync()
-      <alxchk> poettering: looks like msync just calls vfs_fsync
-      http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/mm/msync.c#n18
   - import and delete pstore filesystem content at startup
   - journald: also get thread ID from client, plus thread name
   - journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
