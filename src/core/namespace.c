@@ -354,9 +354,10 @@ int setup_netns(int netns_storage_socket[2]) {
         assert(netns_storage_socket[1] >= 0);
 
         /* We use the passed socketpair as a storage buffer for our
-         * namespace socket. Whatever process runs this first shall
-         * create a new namespace, all others should just join it. To
-         * serialize that we use a file lock on the socket pair.
+         * namespace reference fd. Whatever process runs this first
+         * shall create a new namespace, all others should just join
+         * it. To serialize that we use a file lock on the socket
+         * pair.
          *
          * It's a bit crazy, but hey, works great! */
 
