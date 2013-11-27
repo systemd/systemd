@@ -763,9 +763,12 @@ Features:
    - Make sure ID_PATH is always exported and complete for
      network devices where possible, so we can safely rely
      on Path= matching
-   - NamePolicy= replace the current naming rules
-   - MACPolicy= support 'firmware', 'synthetic' and 'random'
    - Check if Driver= is broken, or just my driver (bcma)
+
+* sd-rtnl:
+   - replace sd_rtnl_message_append() by type-safe versions
+   - improve container support, and add support for entering containers when reading
+   - add support for more attribute types
 
 External:
 
