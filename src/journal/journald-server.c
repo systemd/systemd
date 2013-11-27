@@ -970,9 +970,12 @@ static int system_journal_open(Server *s) {
 }
 
 int server_flush_to_var(Server *s) {
-        int r;
         sd_id128_t machine;
         sd_journal *j = NULL;
+        char ts[FORMAT_TIMESPAN_MAX];
+        usec_t start;
+        unsigned n = 0;
+        int r;
 
         assert(s);
 
@@ -989,6 +992,8 @@ int server_flush_to_var(Server *s) {
                 return 0;
 
         log_debug("Flushing to /var...");
+
+        start = now(CLOCK_MONOTONIC);
 
         r = sd_id128_get_machine(&machine);
         if (r < 0)
@@ -1008,6 +1013,8 @@ int server_flush_to_var(Server *s) {
 
                 f = j->current_file;
                 assert(f && f->current_offset > 0);
+
+                n++;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
                 if (r < 0) {
@@ -1051,6 +1058,8 @@ finish:
                 rm_rf("/run/log/journal", false, true, false);
 
         sd_journal_close(j);
+
+        server_driver_message(s, SD_ID128_NULL, "Time spent on flushing to /var is %s for %u entries.", format_timespan(ts, sizeof(ts), now(CLOCK_MONOTONIC) - start, 0), n);
 
         return r;
 }
