@@ -399,7 +399,6 @@ static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
 
 static int openpt_in_namespace(pid_t pid, int flags) {
         _cleanup_close_ int nsfd = -1, rootfd = -1;
-        _cleanup_free_ char *ns = NULL, *root = NULL;
         _cleanup_close_pipe_ int sock[2] = { -1, -1 };
         union {
                 struct cmsghdr cmsghdr;
@@ -411,20 +410,17 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         };
         struct cmsghdr *cmsg;
         int master = -1, r;
+        char *ns, *root;
         pid_t child;
         siginfo_t si;
 
-        r = asprintf(&ns, "/proc/%lu/ns/mnt", (unsigned long) pid);
-        if (r < 0)
-                return -ENOMEM;
+        ns = procfs_file_alloca(pid, "ns/mnt");
 
         nsfd = open(ns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (nsfd < 0)
                 return -errno;
 
-        r = asprintf(&root, "/proc/%lu/root", (unsigned long) pid);
-        if (r < 0)
-                return -ENOMEM;
+        root = procfs_file_alloca(pid, "root");
 
         rootfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
         if (rootfd < 0)

@@ -522,6 +522,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("TriggeredBy", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_TRIGGERED_BY]), 0),
         SD_BUS_PROPERTY("PropagatesReloadTo", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_PROPAGATES_RELOAD_TO]), 0),
         SD_BUS_PROPERTY("ReloadPropagatedFrom", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_RELOAD_PROPAGATED_FROM]), 0),
+        SD_BUS_PROPERTY("JoinsNamespaceOf", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_JOINS_NAMESPACE_OF]), 0),
         SD_BUS_PROPERTY("RequiresMountsFor", "as", NULL, offsetof(Unit, requires_mounts_for), 0),
         SD_BUS_PROPERTY("Documentation", "as", NULL, offsetof(Unit, documentation), 0),
         SD_BUS_PROPERTY("Description", "s", property_get_description, 0, 0),

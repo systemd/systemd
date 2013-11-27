@@ -106,6 +106,9 @@ enum UnitDependency {
         UNIT_PROPAGATES_RELOAD_TO,
         UNIT_RELOAD_PROPAGATED_FROM,
 
+        /* Joins namespace of */
+        UNIT_JOINS_NAMESPACE_OF,
+
         /* Reference information for GC logic */
         UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
         UNIT_REFERENCED_BY,
@@ -300,6 +303,11 @@ struct UnitVTable {
         /* If greater than 0, the offset into the object where
          * KillContext is found, if the unit type has that */
         size_t kill_context_offset;
+
+        /* If greater than 0, the offset into the object where the
+         * pointer to ExecRuntime is found, if the unit type has
+         * that */
+        size_t exec_runtime_offset;
 
         /* The name of the configuration file section with the private settings of this unit*/
         const char *private_section;
@@ -586,6 +594,9 @@ int unit_exec_context_defaults(Unit *u, ExecContext *c);
 ExecContext *unit_get_exec_context(Unit *u) _pure_;
 KillContext *unit_get_kill_context(Unit *u) _pure_;
 CGroupContext *unit_get_cgroup_context(Unit *u) _pure_;
+ExecRuntime *unit_get_exec_runtime(Unit *u) _pure_;
+
+int unit_setup_exec_runtime(Unit *u);
 
 int unit_write_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *data);
 int unit_write_drop_in_format(Unit *u, UnitSetPropertiesMode mode, const char *name, const char *format, ...) _printf_(4,5);

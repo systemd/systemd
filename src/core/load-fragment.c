@@ -1350,15 +1350,17 @@ int config_parse_socket_service(const char *unit,
         assert(data);
 
         r = unit_name_printf(UNIT(s), rvalue, &p);
-        if (r < 0)
+        if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve specifiers, ignoring: %s", rvalue);
+                return 0;
+        }
 
-        if (!endswith(p ?: rvalue, ".service")) {
+        if (!endswith(p, ".service")) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Unit must be of type service, ignoring: %s", rvalue);
                 return 0;
         }
 
-        r = manager_load_unit(UNIT(s)->manager, p ?: rvalue, NULL, &error, &x);
+        r = manager_load_unit(UNIT(s)->manager, p, NULL, &error, &x);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to load unit %s, ignoring: %s", rvalue, bus_error_message(&error, r));
                 return 0;

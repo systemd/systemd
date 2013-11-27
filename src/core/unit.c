@@ -49,6 +49,7 @@
 #include "fileio-label.h"
 #include "bus-errors.h"
 #include "dbus.h"
+#include "execute.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -1745,6 +1746,7 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
                 [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
                 [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
+                [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF,
         };
         int r, q = 0, v = 0, w = 0;
 
@@ -1760,34 +1762,47 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
         if (u == other)
                 return 0;
 
-        if ((r = set_ensure_allocated(&u->dependencies[d], trivial_hash_func, trivial_compare_func)) < 0)
+        r = set_ensure_allocated(&u->dependencies[d], trivial_hash_func, trivial_compare_func);
+        if (r < 0)
                 return r;
 
-        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID)
-                if ((r = set_ensure_allocated(&other->dependencies[inverse_table[d]], trivial_hash_func, trivial_compare_func)) < 0)
+        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID) {
+                r = set_ensure_allocated(&other->dependencies[inverse_table[d]], trivial_hash_func, trivial_compare_func);
+                if (r < 0)
+                        return r;
+        }
+
+        if (add_reference) {
+                r = set_ensure_allocated(&u->dependencies[UNIT_REFERENCES], trivial_hash_func, trivial_compare_func);
+                if (r < 0)
                         return r;
 
-        if (add_reference)
-                if ((r = set_ensure_allocated(&u->dependencies[UNIT_REFERENCES], trivial_hash_func, trivial_compare_func)) < 0 ||
-                    (r = set_ensure_allocated(&other->dependencies[UNIT_REFERENCED_BY], trivial_hash_func, trivial_compare_func)) < 0)
+                r = set_ensure_allocated(&other->dependencies[UNIT_REFERENCED_BY], trivial_hash_func, trivial_compare_func);
+                if (r < 0)
                         return r;
+        }
 
-        if ((q = set_put(u->dependencies[d], other)) < 0)
+        q = set_put(u->dependencies[d], other);
+        if (q < 0)
                 return q;
 
-        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID)
-                if ((v = set_put(other->dependencies[inverse_table[d]], u)) < 0) {
+        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID && inverse_table[d] != d) {
+                v = set_put(other->dependencies[inverse_table[d]], u);
+                if (v < 0) {
                         r = v;
                         goto fail;
                 }
+        }
 
         if (add_reference) {
-                if ((w = set_put(u->dependencies[UNIT_REFERENCES], other)) < 0) {
+                w = set_put(u->dependencies[UNIT_REFERENCES], other);
+                if (w < 0) {
                         r = w;
                         goto fail;
                 }
 
-                if ((r = set_put(other->dependencies[UNIT_REFERENCED_BY], u)) < 0)
+                r = set_put(other->dependencies[UNIT_REFERENCED_BY], u);
+                if (r < 0)
                         goto fail;
         }
 
@@ -2082,6 +2097,7 @@ bool unit_can_serialize(Unit *u) {
 }
 
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
+        ExecRuntime *rt;
         int r;
 
         assert(u);
@@ -2095,17 +2111,11 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (r < 0)
                 return r;
 
-
-        if (serialize_jobs) {
-                if (u->job) {
-                        fprintf(f, "job\n");
-                        job_serialize(u->job, f, fds);
-                }
-
-                if (u->nop_job) {
-                        fprintf(f, "job\n");
-                        job_serialize(u->nop_job, f, fds);
-                }
+        rt = unit_get_exec_runtime(u);
+        if (rt) {
+                r = exec_runtime_serialize(rt, u, f, fds);
+                if (r < 0)
+                        return r;
         }
 
         dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
@@ -2121,6 +2131,18 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
 
         if (u->cgroup_path)
                 unit_serialize_item(u, f, "cgroup", u->cgroup_path);
+
+        if (serialize_jobs) {
+                if (u->job) {
+                        fprintf(f, "job\n");
+                        job_serialize(u->job, f, fds);
+                }
+
+                if (u->nop_job) {
+                        fprintf(f, "job\n");
+                        job_serialize(u->nop_job, f, fds);
+                }
+        }
 
         /* End marker */
         fputc('\n', f);
@@ -2155,6 +2177,8 @@ void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
 }
 
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
+        size_t offset;
+        ExecRuntime **rt;
         int r;
 
         assert(u);
@@ -2163,6 +2187,10 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
         if (!unit_can_serialize(u))
                 return 0;
+
+        offset = UNIT_VTABLE(u)->exec_runtime_offset;
+        if (offset > 0)
+                rt = (ExecRuntime**) ((uint8_t*) u + offset);
 
         for (;;) {
                 char line[LINE_MAX], *l, *v;
@@ -2274,6 +2302,14 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         assert(hashmap_put(u->manager->cgroup_unit, s, u) == 1);
                         continue;
+                }
+
+                if (rt) {
+                        r = exec_runtime_deserialize_item(rt, u, l, v, fds);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                continue;
                 }
 
                 r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
@@ -2660,6 +2696,16 @@ CGroupContext *unit_get_cgroup_context(Unit *u) {
         return (CGroupContext*) ((uint8_t*) u + offset);
 }
 
+ExecRuntime *unit_get_exec_runtime(Unit *u) {
+        size_t offset;
+
+        offset = UNIT_VTABLE(u)->exec_runtime_offset;
+        if (offset <= 0)
+                return NULL;
+
+        return *(ExecRuntime**) ((uint8_t*) u + offset);
+}
+
 static int drop_in_file(Unit *u, UnitSetPropertiesMode mode, const char *name, char **_p, char **_q) {
         _cleanup_free_ char *b = NULL;
         char *p, *q;
@@ -3010,6 +3056,33 @@ int unit_require_mounts_for(Unit *u, const char *path) {
         return 0;
 }
 
+int unit_setup_exec_runtime(Unit *u) {
+        ExecRuntime **rt;
+        size_t offset;
+        Iterator i;
+        Unit *other;
+
+        offset = UNIT_VTABLE(u)->exec_runtime_offset;
+        assert(offset > 0);
+
+        /* Check if ther already is an ExecRuntime for this unit? */
+        rt = (ExecRuntime**) ((uint8_t*) u + offset);
+        if (*rt)
+                return 0;
+
+        /* Try to get it from somebody else */
+        SET_FOREACH(other, u->dependencies[UNIT_JOINS_NAMESPACE_OF], i) {
+
+                *rt = unit_get_exec_runtime(other);
+                if (*rt) {
+                        exec_runtime_ref(*rt);
+                        return 0;
+                }
+        }
+
+        return exec_runtime_make(rt, unit_get_exec_context(u), u->id);
+}
+
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_ACTIVE] = "active",
         [UNIT_RELOADING] = "reloading",
@@ -3045,6 +3118,7 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_RELOAD_PROPAGATED_FROM] = "ReloadPropagatedFrom",
         [UNIT_REFERENCES] = "References",
         [UNIT_REFERENCED_BY] = "ReferencedBy",
+        [UNIT_JOINS_NAMESPACE_OF] = "JoinsNamespaceOf",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);

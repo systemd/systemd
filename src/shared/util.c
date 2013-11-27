@@ -5705,56 +5705,6 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *sear
         return search_and_fopen_internal(path, mode, s, _f);
 }
 
-int create_tmp_dir(char template[], char** dir_name) {
-        int r = 0;
-        char *d = NULL, *dt;
-
-        assert(dir_name);
-
-        RUN_WITH_UMASK(0077) {
-                d = mkdtemp(template);
-        }
-        if (!d) {
-                log_error("Can't create directory %s: %m", template);
-                return -errno;
-        }
-
-        dt = strjoin(d, "/tmp", NULL);
-        if (!dt) {
-                r = log_oom();
-                goto fail3;
-        }
-
-        RUN_WITH_UMASK(0000) {
-                r = mkdir(dt, 0777);
-        }
-        if (r < 0) {
-                log_error("Can't create directory %s: %m", dt);
-                r = -errno;
-                goto fail2;
-        }
-        log_debug("Created temporary directory %s", dt);
-
-        r = chmod(dt, 0777 | S_ISVTX);
-        if (r < 0) {
-                log_error("Failed to chmod %s: %m", dt);
-                r = -errno;
-                goto fail1;
-        }
-        log_debug("Set sticky bit on %s", dt);
-
-        *dir_name = dt;
-
-        return 0;
-fail1:
-        rmdir(dt);
-fail2:
-        free(dt);
-fail3:
-        rmdir(template);
-        return r;
-}
-
 char *strextend(char **x, ...) {
         va_list ap;
         size_t f, l;

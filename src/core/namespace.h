@@ -23,14 +23,15 @@
 
 #include <stdbool.h>
 
-int setup_tmpdirs(const char *unit_id,
-                  char **tmp_dir,
-                  char **var_tmp_dir);
-
 int setup_namespace(char **read_write_dirs,
                     char **read_only_dirs,
                     char **inaccessible_dirs,
                     char *tmp_dir,
                     char *var_tmp_dir,
-                    bool private_tmp,
                     unsigned mount_flags);
+
+int setup_tmp_dirs(const char *id,
+                  char **tmp_dir,
+                  char **var_tmp_dir);
+
+int setup_netns(int netns_storage_socket[2]);

@@ -59,7 +59,6 @@ int main(int argc, char *argv[]) {
                             (char **) inaccessible,
                             tmp_dir,
                             var_tmp_dir,
-                            true,
                             0);
         if (r < 0) {
                 log_error("Failed to setup namespace: %s", strerror(-r));

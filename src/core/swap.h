@@ -98,6 +98,8 @@ struct Swap {
         KillContext kill_context;
         CGroupContext cgroup_context;
 
+        ExecRuntime *exec_runtime;
+
         SwapState state, deserialized_state;
 
         ExecCommand* control_command;

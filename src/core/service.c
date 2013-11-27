@@ -304,7 +304,8 @@ static void service_done(Unit *u) {
         s->status_text = NULL;
 
         cgroup_context_done(&s->cgroup_context);
-        exec_context_done(&s->exec_context, manager_is_reloading_or_reexecuting(u->manager));
+        exec_context_done(&s->exec_context);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
         s->main_command = NULL;
@@ -1751,6 +1752,10 @@ static int service_spawn(
 
         unit_realize_cgroup(UNIT(s));
 
+        r = unit_setup_exec_runtime(UNIT(s));
+        if (r < 0)
+                goto fail;
+
         if (pass_fds ||
             s->exec_context.std_input == EXEC_INPUT_SOCKET ||
             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
@@ -1834,6 +1839,7 @@ static int service_spawn(
                        path,
                        UNIT(s)->id,
                        s->type == SERVICE_IDLE ? UNIT(s)->manager->idle_pipe : NULL,
+                       s->exec_runtime,
                        &pid);
         if (r < 0)
                 goto fail;
@@ -1932,7 +1938,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         s->forbid_restart = false;
 
         /* we want fresh tmpdirs in case service is started again immediately */
-        exec_context_tmp_dirs_done(&s->exec_context);
+        exec_runtime_destroy(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
 
         /* Try to delete the pid file. At this point it will be
          * out-of-date, and some software might be confused by it, so
@@ -2642,12 +2649,6 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 dual_timestamp_serialize(f, "watchdog-timestamp",
                                          &s->watchdog_timestamp);
 
-        if (s->exec_context.tmp_dir)
-                unit_serialize_item(u, f, "tmp-dir", s->exec_context.tmp_dir);
-
-        if (s->exec_context.var_tmp_dir)
-                unit_serialize_item(u, f, "var-tmp-dir", s->exec_context.var_tmp_dir);
-
         if (s->forbid_restart)
                 unit_serialize_item(u, f, "forbid-restart", yes_no(s->forbid_restart));
 
@@ -2771,23 +2772,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 dual_timestamp_deserialize(value, &s->main_exec_status.exit_timestamp);
         else if (streq(key, "watchdog-timestamp"))
                 dual_timestamp_deserialize(value, &s->watchdog_timestamp);
-        else if (streq(key, "tmp-dir")) {
-                char *t;
-
-                t = strdup(value);
-                if (!t)
-                        return log_oom();
-
-                s->exec_context.tmp_dir = t;
-        } else if (streq(key, "var-tmp-dir")) {
-                char *t;
-
-                t = strdup(value);
-                if (!t)
-                        return log_oom();
-
-                s->exec_context.var_tmp_dir = t;
-        } else if (streq(key, "forbid-restart")) {
+        else if (streq(key, "forbid-restart")) {
                 int b;
 
                 b = parse_boolean(value);
@@ -3835,6 +3820,7 @@ const UnitVTable service_vtable = {
         .exec_context_offset = offsetof(Service, exec_context),
         .cgroup_context_offset = offsetof(Service, cgroup_context),
         .kill_context_offset = offsetof(Service, kill_context),
+        .exec_runtime_offset = offsetof(Service, exec_runtime),
 
         .sections =
                 "Unit\0"

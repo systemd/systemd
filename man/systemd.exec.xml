@@ -846,9 +846,9 @@
                                 system namespace for the executed
                                 processes and mounts private
                                 <filename>/tmp</filename> and
-                                <filename>/var/tmp</filename> directories
-                                inside it, that are not shared by
-                                processes outside of the
+                                <filename>/var/tmp</filename>
+                                directories inside it, that are not
+                                shared by processes outside of the
                                 namespace. This is useful to secure
                                 access to temporary files of the
                                 process, but makes sharing between
@@ -856,9 +856,17 @@
                                 <filename>/tmp</filename> or
                                 <filename>/var/tmp</filename>
                                 impossible. All temporary data created
-                                by service will be removed after service
-                                is stopped. Defaults to
-                                false.</para></listitem>
+                                by service will be removed after
+                                service is stopped. Defaults to
+                                false. Note that it is possible to run
+                                two or more units within the same
+                                private <filename>/tmp</filename> and
+                                <filename>/var/tmp</filename>
+                                namespace by using the
+                                <varname>JoinsNamespaceOf=</varname>
+                                directive, see
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -874,8 +882,14 @@
                                 available to the executed process.
                                 This is useful to securely turn off
                                 network access by the executed
-                                process. Defaults to
-                                false.</para></listitem>
+                                process. Defaults to false. Note that
+                                it is possible to run two or more
+                                units within the same private network
+                                namespace by using the
+                                <varname>JoinsNamespaceOf=</varname>
+                                directive, see
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

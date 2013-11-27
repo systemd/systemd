@@ -134,9 +134,9 @@ static void socket_done(Unit *u) {
 
         socket_free_ports(s);
 
-        exec_context_done(&s->exec_context, manager_is_reloading_or_reexecuting(u->manager));
-        cgroup_context_init(&s->cgroup_context);
-
+        cgroup_context_done(&s->cgroup_context);
+        exec_context_done(&s->exec_context);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -1232,6 +1232,10 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
 
         unit_realize_cgroup(UNIT(s));
 
+        r = unit_setup_exec_runtime(UNIT(s));
+        if (r < 0)
+                goto fail;
+
         r = socket_arm_timer(s);
         if (r < 0)
                 goto fail;
@@ -1253,6 +1257,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        UNIT(s)->cgroup_path,
                        UNIT(s)->id,
                        NULL,
+                       s->exec_runtime,
                        &pid);
 
         strv_free(argv);
@@ -1280,7 +1285,9 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
         if (f != SOCKET_SUCCESS)
                 s->result = f;
 
-        exec_context_tmp_dirs_done(&s->exec_context);
+        exec_runtime_destroy(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 }
 
@@ -1736,11 +1743,12 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                 if (p->fd < 0)
                         continue;
 
-                if ((copy = fdset_put_dup(fds, p->fd)) < 0)
+                copy = fdset_put_dup(fds, p->fd);
+                if (copy < 0)
                         return copy;
 
                 if (p->type == SOCKET_SOCKET) {
-                        char *t;
+                        _cleanup_free_ char *t = NULL;
 
                         r = socket_address_print(&p->address, &t);
                         if (r < 0)
@@ -1750,7 +1758,7 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                                 unit_serialize_item_format(u, f, "netlink", "%i %s", copy, t);
                         else
                                 unit_serialize_item_format(u, f, "socket", "%i %i %s", copy, p->address.type, t);
-                        free(t);
+
                 } else if (p->type == SOCKET_SPECIAL)
                         unit_serialize_item_format(u, f, "special", "%i %s", copy, p->path);
                 else if (p->type == SOCKET_MQUEUE)
@@ -1760,8 +1768,6 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                         unit_serialize_item_format(u, f, "fifo", "%i %s", copy, p->path);
                 }
         }
-
-        exec_context_serialize(&s->exec_context, UNIT(s), f);
 
         return 0;
 }
@@ -1922,22 +1928,6 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                                 p->fd = fdset_remove(fds, fd);
                         }
                 }
-        } else if (streq(key, "tmp-dir")) {
-                char *t;
-
-                t = strdup(value);
-                if (!t)
-                        return log_oom();
-
-                s->exec_context.tmp_dir = t;
-        } else if (streq(key, "var-tmp-dir")) {
-                char *t;
-
-                t = strdup(value);
-                if (!t)
-                        return log_oom();
-
-                s->exec_context.var_tmp_dir = t;
         } else
                 log_debug_unit(UNIT(s)->id,
                                "Unknown serialization key '%s'", key);
@@ -2428,6 +2418,7 @@ const UnitVTable socket_vtable = {
         .exec_context_offset = offsetof(Socket, exec_context),
         .cgroup_context_offset = offsetof(Socket, cgroup_context),
         .kill_context_offset = offsetof(Socket, kill_context),
+        .exec_runtime_offset = offsetof(Socket, exec_runtime),
 
         .sections =
                 "Unit\0"

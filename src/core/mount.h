@@ -101,6 +101,8 @@ struct Mount {
         KillContext kill_context;
         CGroupContext cgroup_context;
 
+        ExecRuntime *exec_runtime;
+
         MountState state, deserialized_state;
 
         ExecCommand* control_command;

@@ -24,6 +24,7 @@
 typedef struct ExecStatus ExecStatus;
 typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
+typedef struct ExecRuntime ExecRuntime;
 
 #include <linux/types.h>
 #include <sys/time.h>
@@ -35,6 +36,7 @@ typedef struct ExecContext ExecContext;
 
 #include "list.h"
 #include "util.h"
+#include "fdset.h"
 
 typedef struct Unit Unit;
 
@@ -77,6 +79,15 @@ struct ExecCommand {
         ExecStatus exec_status;
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
         bool ignore;
+};
+
+struct ExecRuntime {
+        int n_ref;
+
+        char *tmp_dir;
+        char *var_tmp_dir;
+
+        int netns_storage_socket[2];
 };
 
 struct ExecContext {
@@ -140,8 +151,6 @@ struct ExecContext {
         bool non_blocking;
         bool private_tmp;
         bool private_network;
-        char *tmp_dir;
-        char *var_tmp_dir;
 
         bool no_new_privileges;
 
@@ -175,6 +184,7 @@ int exec_spawn(ExecCommand *command,
                const char *cgroup_path,
                const char *unit_id,
                int pipe_fd[2],
+               ExecRuntime *runtime,
                pid_t *ret);
 
 void exec_command_done(ExecCommand *c);
@@ -191,18 +201,25 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e);
 int exec_command_set(ExecCommand *c, const char *path, ...);
 
 void exec_context_init(ExecContext *c);
-void exec_context_done(ExecContext *c, bool reloading_or_reexecuting);
-void exec_context_tmp_dirs_done(ExecContext *c);
+void exec_context_done(ExecContext *c);
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
 
 int exec_context_load_environment(const ExecContext *c, char ***l);
 
 bool exec_context_may_touch_console(ExecContext *c);
-void exec_context_serialize(const ExecContext *c, Unit *u, FILE *f);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
+
+int exec_runtime_make(ExecRuntime **rt, ExecContext *c, const char *id);
+ExecRuntime *exec_runtime_ref(ExecRuntime *r);
+ExecRuntime *exec_runtime_unref(ExecRuntime *r);
+
+int exec_runtime_serialize(ExecRuntime *rt, Unit *u, FILE *f, FDSet *fds);
+int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, const char *value, FDSet *fds);
+
+void exec_runtime_destroy(ExecRuntime *rt);
 
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;

@@ -217,7 +217,8 @@ static void mount_done(Unit *u) {
         mount_parameters_done(&m->parameters_fragment);
 
         cgroup_context_done(&m->cgroup_context);
-        exec_context_done(&m->exec_context, manager_is_reloading_or_reexecuting(u->manager));
+        exec_context_done(&m->exec_context);
+        m->exec_runtime = exec_runtime_unref(m->exec_runtime);
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
 
@@ -772,6 +773,10 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
 
         unit_realize_cgroup(UNIT(m));
 
+        r = unit_setup_exec_runtime(UNIT(m));
+        if (r < 0)
+                goto fail;
+
         r = mount_arm_timer(m);
         if (r < 0)
                 goto fail;
@@ -789,6 +794,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                        UNIT(m)->cgroup_path,
                        UNIT(m)->id,
                        NULL,
+                       m->exec_runtime,
                        &pid);
         if (r < 0)
                 goto fail;
@@ -814,7 +820,9 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         if (f != MOUNT_SUCCESS)
                 m->result = f;
 
-        exec_context_tmp_dirs_done(&m->exec_context);
+        exec_runtime_destroy(m->exec_runtime);
+        m->exec_runtime = exec_runtime_unref(m->exec_runtime);
+
         mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
 }
 
@@ -1095,8 +1103,6 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (m->control_command_id >= 0)
                 unit_serialize_item(u, f, "control-command", mount_exec_command_to_string(m->control_command_id));
 
-        exec_context_serialize(&m->exec_context, UNIT(m), f);
-
         return 0;
 }
 
@@ -1153,22 +1159,6 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
                         m->control_command_id = id;
                         m->control_command = m->exec_command + id;
                 }
-        } else if (streq(key, "tmp-dir")) {
-                char *t;
-
-                t = strdup(value);
-                if (!t)
-                        return log_oom();
-
-                m->exec_context.tmp_dir = t;
-        } else if (streq(key, "var-tmp-dir")) {
-                char *t;
-
-                t = strdup(value);
-                if (!t)
-                        return log_oom();
-
-                m->exec_context.var_tmp_dir = t;
         } else
                 log_debug_unit(UNIT(m)->id,
                                "Unknown serialization key '%s'", key);
@@ -1770,6 +1760,7 @@ const UnitVTable mount_vtable = {
         .exec_context_offset = offsetof(Mount, exec_context),
         .cgroup_context_offset = offsetof(Mount, cgroup_context),
         .kill_context_offset = offsetof(Mount, kill_context),
+        .exec_runtime_offset = offsetof(Mount, exec_runtime),
 
         .sections =
                 "Unit\0"

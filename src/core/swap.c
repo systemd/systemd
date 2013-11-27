@@ -155,11 +155,11 @@ static void swap_done(Unit *u) {
         free(s->parameters_fragment.what);
         s->parameters_fragment.what = NULL;
 
-        exec_context_done(&s->exec_context, manager_is_reloading_or_reexecuting(u->manager));
+        cgroup_context_done(&s->cgroup_context);
+        exec_context_done(&s->exec_context);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
-
-        cgroup_context_done(&s->cgroup_context);
 
         swap_unwatch_control_pid(s);
 
@@ -625,6 +625,10 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
 
         unit_realize_cgroup(UNIT(s));
 
+        r = unit_setup_exec_runtime(UNIT(s));
+        if (r < 0)
+                goto fail;
+
         r = swap_arm_timer(s);
         if (r < 0)
                 goto fail;
@@ -642,6 +646,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                        UNIT(s)->cgroup_path,
                        UNIT(s)->id,
                        NULL,
+                       s->exec_runtime,
                        &pid);
         if (r < 0)
                 goto fail;
@@ -667,7 +672,9 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
         if (f != SWAP_SUCCESS)
                 s->result = f;
 
-        exec_context_tmp_dirs_done(&s->exec_context);
+        exec_runtime_destroy(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 }
 
@@ -867,8 +874,6 @@ static int swap_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (s->control_command_id >= 0)
                 unit_serialize_item(u, f, "control-command", swap_exec_command_to_string(s->control_command_id));
 
-        exec_context_serialize(&s->exec_context, UNIT(s), f);
-
         return 0;
 }
 
@@ -912,22 +917,6 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
                         s->control_command_id = id;
                         s->control_command = s->exec_command + id;
                 }
-        } else if (streq(key, "tmp-dir")) {
-                char *t;
-
-                t = strdup(value);
-                if (!t)
-                        return log_oom();
-
-                s->exec_context.tmp_dir = t;
-        } else if (streq(key, "var-tmp-dir")) {
-                char *t;
-
-                t = strdup(value);
-                if (!t)
-                        return log_oom();
-
-                s->exec_context.var_tmp_dir = t;
         } else
                 log_debug_unit(u->id, "Unknown serialization key '%s'", key);
 
@@ -1420,6 +1409,7 @@ const UnitVTable swap_vtable = {
         .exec_context_offset = offsetof(Swap, exec_context),
         .cgroup_context_offset = offsetof(Swap, cgroup_context),
         .kill_context_offset = offsetof(Swap, kill_context),
+        .exec_runtime_offset = offsetof(Swap, exec_runtime),
 
         .sections =
                 "Unit\0"

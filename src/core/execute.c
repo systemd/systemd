@@ -61,7 +61,6 @@
 #include "missing.h"
 #include "utmp-wtmp.h"
 #include "def.h"
-#include "loopback-setup.h"
 #include "path-util.h"
 #include "syscall-list.h"
 #include "env-util.h"
@@ -176,24 +175,13 @@ static bool is_terminal_output(ExecOutput o) {
                 o == EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
 }
 
-void exec_context_serialize(const ExecContext *context, Unit *u, FILE *f) {
-        assert(context);
-        assert(u);
-        assert(f);
-
-        if (context->tmp_dir)
-                unit_serialize_item(u, f, "tmp-dir", context->tmp_dir);
-
-        if (context->var_tmp_dir)
-                unit_serialize_item(u, f, "var-tmp-dir", context->var_tmp_dir);
-}
-
 static int open_null_as(int flags, int nfd) {
         int fd, r;
 
         assert(nfd >= 0);
 
-        if ((fd = open("/dev/null", flags|O_NOCTTY)) < 0)
+        fd = open("/dev/null", flags|O_NOCTTY);
+        if (fd < 0)
                 return -errno;
 
         if (fd != nfd) {
@@ -1037,6 +1025,7 @@ int exec_spawn(ExecCommand *command,
                const char *cgroup_path,
                const char *unit_id,
                int idle_pipe[4],
+               ExecRuntime *runtime,
                pid_t *ret) {
 
         _cleanup_strv_free_ char **files_env = NULL;
@@ -1088,25 +1077,19 @@ int exec_spawn(ExecCommand *command,
                         NULL);
         free(line);
 
-        if (context->private_tmp && !context->tmp_dir && !context->var_tmp_dir) {
-                r = setup_tmpdirs(unit_id, &context->tmp_dir, &context->var_tmp_dir);
-                if (r < 0)
-                        return r;
-        }
-
         pid = fork();
         if (pid < 0)
                 return -errno;
 
         if (pid == 0) {
-                int i, err;
-                sigset_t ss;
+                _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
                 const char *username = NULL, *home = NULL, *shell = NULL;
+                unsigned n_dont_close = 0, n_env = 0;
+                int dont_close[n_fds + 3];
                 uid_t uid = (uid_t) -1;
                 gid_t gid = (gid_t) -1;
-                _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL,
-                        **final_env = NULL, **final_argv = NULL;
-                unsigned n_env = 0;
+                sigset_t ss;
+                int i, err;
 
                 /* child */
 
@@ -1137,8 +1120,21 @@ int exec_spawn(ExecCommand *command,
                  * block init reexecution because it cannot bind its
                  * sockets */
                 log_forget_fds();
-                err = close_all_fds(socket_fd >= 0 ? &socket_fd : fds,
-                                           socket_fd >= 0 ? 1 : n_fds);
+
+                if (socket_fd >= 0)
+                        dont_close[n_dont_close++] = socket_fd;
+                if (n_fds > 0) {
+                        memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
+                        n_dont_close += n_fds;
+                }
+                if (runtime) {
+                        if (runtime->netns_storage_socket[0] >= 0)
+                                dont_close[n_dont_close++] = runtime->netns_storage_socket[0];
+                        if (runtime->netns_storage_socket[1] >= 0)
+                                dont_close[n_dont_close++] = runtime->netns_storage_socket[1];
+                }
+
+                err = close_all_fds(dont_close, n_dont_close);
                 if (err < 0) {
                         r = EXIT_FDS;
                         goto fail_child;
@@ -1335,28 +1331,43 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 #endif
-                if (context->private_network) {
-                        if (unshare(CLONE_NEWNET) < 0) {
-                                err = -errno;
+                if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
+                        err = setup_netns(runtime->netns_storage_socket);
+                        if (err < 0) {
                                 r = EXIT_NETWORK;
                                 goto fail_child;
                         }
-
-                        loopback_setup();
                 }
 
-                if (strv_length(context->read_write_dirs) > 0 ||
-                    strv_length(context->read_only_dirs) > 0 ||
-                    strv_length(context->inaccessible_dirs) > 0 ||
+                if (!strv_isempty(context->read_write_dirs) ||
+                    !strv_isempty(context->read_only_dirs) ||
+                    !strv_isempty(context->inaccessible_dirs) ||
                     context->mount_flags != 0 ||
-                    context->private_tmp) {
-                        err = setup_namespace(context->read_write_dirs,
-                                              context->read_only_dirs,
-                                              context->inaccessible_dirs,
-                                              context->tmp_dir,
-                                              context->var_tmp_dir,
-                                              context->private_tmp,
-                                              context->mount_flags);
+                    (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir))) {
+
+                        char *tmp = NULL, *var = NULL;
+
+                        /* The runtime struct only contains the parent
+                         * of the private /tmp, which is
+                         * non-accessible to world users. Inside of it
+                         * there's a /tmp that is sticky, and that's
+                         * the one we want to use here. */
+
+                        if (context->private_tmp && runtime) {
+                                if (runtime->tmp_dir)
+                                        tmp = strappenda(runtime->tmp_dir, "/tmp");
+                                if (runtime->var_tmp_dir)
+                                        var = strappenda(runtime->var_tmp_dir, "/tmp");
+                        }
+
+                        err = setup_namespace(
+                                        context->read_write_dirs,
+                                        context->read_only_dirs,
+                                        context->inaccessible_dirs,
+                                        tmp,
+                                        var,
+                                        context->mount_flags);
+
                         if (err < 0) {
                                 r = EXIT_NAMESPACE;
                                 goto fail_child;
@@ -1580,43 +1591,7 @@ void exec_context_init(ExecContext *c) {
         c->timer_slack_nsec = (nsec_t) -1;
 }
 
-static void *remove_tmpdir_thread(void *p) {
-        int r;
-        _cleanup_free_ char *dirp = p;
-        char *dir;
-
-        assert(dirp);
-
-        r = rm_rf_dangerous(dirp, false, true, false);
-        dir = dirname(dirp);
-        if (r < 0)
-                log_warning("Failed to remove content of temporary directory %s: %s",
-                            dir, strerror(-r));
-        else {
-                r = rmdir(dir);
-                if (r < 0)
-                        log_warning("Failed to remove temporary directory %s: %s",
-                                    dir, strerror(-r));
-        }
-
-        return NULL;
-}
-
-void exec_context_tmp_dirs_done(ExecContext *c) {
-        char* dirs[] = {c->tmp_dir ? c->tmp_dir : c->var_tmp_dir,
-                        c->tmp_dir ? c->var_tmp_dir : NULL,
-                        NULL};
-        char **dirp;
-
-        for(dirp = dirs; *dirp; dirp++) {
-                log_debug("Spawning thread to nuke %s", *dirp);
-                asynchronous_job(remove_tmpdir_thread, *dirp);
-        }
-
-        c->tmp_dir = c->var_tmp_dir = NULL;
-}
-
-void exec_context_done(ExecContext *c, bool reloading_or_reexecuting) {
+void exec_context_done(ExecContext *c) {
         unsigned l;
 
         assert(c);
@@ -1680,9 +1655,6 @@ void exec_context_done(ExecContext *c, bool reloading_or_reexecuting) {
 
         free(c->syscall_filter);
         c->syscall_filter = NULL;
-
-        if (!reloading_or_reexecuting)
-                exec_context_tmp_dirs_done(c);
 }
 
 void exec_command_done(ExecCommand *c) {
@@ -2227,6 +2199,216 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
         c->argv = l;
 
         return 0;
+}
+
+static int exec_runtime_allocate(ExecRuntime **rt) {
+
+        if (*rt)
+                return 0;
+
+        *rt = new0(ExecRuntime, 1);
+        if (!rt)
+                return -ENOMEM;
+
+        (*rt)->n_ref = 1;
+        (*rt)->netns_storage_socket[0] = (*rt)->netns_storage_socket[1] = -1;
+
+        return 0;
+}
+
+int exec_runtime_make(ExecRuntime **rt, ExecContext *c, const char *id) {
+        int r;
+
+        assert(rt);
+        assert(c);
+        assert(id);
+
+        if (*rt)
+                return 1;
+
+        if (!c->private_network && !c->private_tmp)
+                return 0;
+
+        r = exec_runtime_allocate(rt);
+        if (r < 0)
+                return r;
+
+        if (c->private_network && (*rt)->netns_storage_socket[0] < 0) {
+                if (socketpair(AF_UNIX, SOCK_DGRAM, 0, (*rt)->netns_storage_socket) < 0)
+                        return -errno;
+        }
+
+        if (c->private_tmp && !(*rt)->tmp_dir) {
+                r = setup_tmp_dirs(id, &(*rt)->tmp_dir, &(*rt)->var_tmp_dir);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
+}
+
+ExecRuntime *exec_runtime_ref(ExecRuntime *r) {
+        assert(r);
+        assert(r->n_ref > 0);
+
+        r->n_ref++;
+        return r;
+}
+
+ExecRuntime *exec_runtime_unref(ExecRuntime *r) {
+
+        if (!r)
+                return NULL;
+
+        assert(r->n_ref > 0);
+
+        r->n_ref--;
+        if (r->n_ref <= 0) {
+                free(r->tmp_dir);
+                free(r->var_tmp_dir);
+                close_pipe(r->netns_storage_socket);
+                free(r);
+        }
+
+        return NULL;
+}
+
+int exec_runtime_serialize(ExecRuntime *rt, Unit *u, FILE *f, FDSet *fds) {
+        assert(u);
+        assert(f);
+        assert(fds);
+
+        if (!rt)
+                return 0;
+
+        if (rt->tmp_dir)
+                unit_serialize_item(u, f, "tmp-dir", rt->tmp_dir);
+
+        if (rt->var_tmp_dir)
+                unit_serialize_item(u, f, "var-tmp-dir", rt->var_tmp_dir);
+
+        if (rt->netns_storage_socket[0] >= 0) {
+                int copy;
+
+                copy = fdset_put_dup(fds, rt->netns_storage_socket[0]);
+                if (copy < 0)
+                        return copy;
+
+                unit_serialize_item_format(u, f, "netns-socket-0", "%i", copy);
+        }
+
+        if (rt->netns_storage_socket[1] >= 0) {
+                int copy;
+
+                copy = fdset_put_dup(fds, rt->netns_storage_socket[1]);
+                if (copy < 0)
+                        return copy;
+
+                unit_serialize_item_format(u, f, "netns-socket-1", "%i", copy);
+        }
+
+        return 0;
+}
+
+int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, const char *value, FDSet *fds) {
+        int r;
+
+        assert(rt);
+        assert(key);
+        assert(value);
+
+        if (streq(key, "tmp-dir")) {
+                char *copy;
+
+                r = exec_runtime_allocate(rt);
+                if (r < 0)
+                        return r;
+
+                copy = strdup(value);
+                if (!copy)
+                        return log_oom();
+
+                free((*rt)->tmp_dir);
+                (*rt)->tmp_dir = copy;
+
+        } else if (streq(key, "var-tmp-dir")) {
+                char *copy;
+
+                r = exec_runtime_allocate(rt);
+                if (r < 0)
+                        return r;
+
+                copy = strdup(value);
+                if (!copy)
+                        return log_oom();
+
+                free((*rt)->var_tmp_dir);
+                (*rt)->var_tmp_dir = copy;
+
+        } else if (streq(key, "netns-socket-0")) {
+                int fd;
+
+                r = exec_runtime_allocate(rt);
+                if (r < 0)
+                        return r;
+
+                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd))
+                        log_debug_unit(u->id, "Failed to parse netns socket value %s", value);
+                else {
+                        if ((*rt)->netns_storage_socket[0] >= 0)
+                                close_nointr_nofail((*rt)->netns_storage_socket[0]);
+
+                        (*rt)->netns_storage_socket[0] = fdset_remove(fds, fd);
+                }
+        } else if (streq(key, "netns-socket-1")) {
+                int fd;
+
+                r = exec_runtime_allocate(rt);
+                if (r < 0)
+                        return r;
+
+                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd))
+                        log_debug_unit(u->id, "Failed to parse netns socket value %s", value);
+                else {
+                        if ((*rt)->netns_storage_socket[1] >= 0)
+                                close_nointr_nofail((*rt)->netns_storage_socket[1]);
+
+                        (*rt)->netns_storage_socket[1] = fdset_remove(fds, fd);
+                }
+        } else
+                return 0;
+
+        return 1;
+}
+
+static void *remove_tmpdir_thread(void *p) {
+        _cleanup_free_ char *path = p;
+
+        rm_rf_dangerous(path, false, true, false);
+        return NULL;
+}
+
+void exec_runtime_destroy(ExecRuntime *rt) {
+        if (!rt)
+                return;
+
+        /* If there are multiple users of this, let's leave the stuff around */
+        if (rt->n_ref > 1)
+                return;
+
+        if (rt->tmp_dir) {
+                log_debug("Spawning thread to nuke %s", rt->tmp_dir);
+                asynchronous_job(remove_tmpdir_thread, rt->tmp_dir);
+                rt->tmp_dir = NULL;
+        }
+
+        if (rt->var_tmp_dir) {
+                log_debug("Spawning thread to nuke %s", rt->var_tmp_dir);
+                asynchronous_job(remove_tmpdir_thread, rt->var_tmp_dir);
+                rt->var_tmp_dir = NULL;
+        }
+
+        close_pipe(rt->netns_storage_socket);
 }
 
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
