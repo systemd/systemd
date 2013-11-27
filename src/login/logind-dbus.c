@@ -1399,7 +1399,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 
         delayed =
                 m->inhibit_delay_max > 0 &&
-                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL, false, false, 0);
+                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL, false, false, 0, NULL);
 
         if (delayed)
                 /* Shutdown is delayed, keep in mind what we
@@ -1465,7 +1465,7 @@ static int method_do_shutdown_or_sleep(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid);
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
 
         if (multiple_sessions) {
                 r = bus_verify_polkit_async(m->bus, &m->polkit_registry, message,
@@ -1610,7 +1610,7 @@ static int method_can_shutdown_or_sleep(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid);
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
 
         if (multiple_sessions) {
                 r = bus_verify_polkit(m->bus, message, action_multiple_sessions, false, &challenge, error);
@@ -2105,6 +2105,7 @@ int manager_send_changed(Manager *manager, const char *property, ...) {
 
 int manager_dispatch_delayed(Manager *manager) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        Inhibitor *offending = NULL;
         int r;
 
         assert(manager);
@@ -2113,12 +2114,18 @@ int manager_dispatch_delayed(Manager *manager) {
                 return 0;
 
         /* Continue delay? */
-        if (manager_is_inhibited(manager, manager->action_what, INHIBIT_DELAY, NULL, false, false, 0)) {
+        if (manager_is_inhibited(manager, manager->action_what, INHIBIT_DELAY, NULL, false, false, 0, &offending)) {
+                _cleanup_free_ char *comm = NULL, *u = NULL;
+
+                get_process_comm(offending->pid, &comm);
+                u = uid_to_name(offending->uid);
 
                 if (manager->action_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC))
                         return 0;
 
-                log_info("Delay lock is active but inhibitor timeout is reached.");
+                log_info("Delay lock is active (UID %lu/%s, PID %lu/%s) but inhibitor timeout is reached.",
+                         (unsigned long) offending->uid, strna(u),
+                         (unsigned long) offending->pid, strna(comm));
         }
 
         /* Actually do the operation */

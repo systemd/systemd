@@ -372,7 +372,8 @@ bool manager_is_inhibited(
                 dual_timestamp *since,
                 bool ignore_inactive,
                 bool ignore_uid,
-                uid_t uid) {
+                uid_t uid,
+                Inhibitor **offending) {
 
         Inhibitor *i;
         Iterator j;
@@ -400,6 +401,9 @@ bool manager_is_inhibited(
                         ts = i->since;
 
                 inhibited = true;
+
+                if (offending)
+                        *offending = i;
         }
 
         if (since)

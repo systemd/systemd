@@ -58,6 +58,7 @@ int manager_handle_action(
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         InhibitWhat inhibit_operation;
+        Inhibitor *offending = NULL;
         bool supported;
         int r;
 
@@ -71,7 +72,7 @@ int manager_handle_action(
 
         /* If the key handling is inhibited, don't do anything */
         if (inhibit_key > 0) {
-                if (manager_is_inhibited(m, inhibit_key, INHIBIT_BLOCK, NULL, true, false, 0)) {
+                if (manager_is_inhibited(m, inhibit_key, INHIBIT_BLOCK, NULL, true, false, 0, NULL)) {
                         log_debug("Refusing operation, %s is inhibited.", inhibit_what_to_string(inhibit_key));
                         return 0;
                 }
@@ -109,15 +110,26 @@ int manager_handle_action(
 
         /* If the actual operation is inhibited, warn and fail */
         if (!ignore_inhibited &&
-            manager_is_inhibited(m, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0)) {
+            manager_is_inhibited(m, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0, &offending)) {
+                _cleanup_free_ char *comm = NULL, *u = NULL;
+
+                get_process_comm(offending->pid, &comm);
+                u = uid_to_name(offending->uid);
 
                 /* If this is just a recheck of the lid switch then don't warn about anything */
                 if (!is_edge) {
-                        log_debug("Refusing operation, %s is inhibited.", inhibit_what_to_string(inhibit_operation));
+                        log_debug("Refusing operation, %s is inhibited by UID %lu/%s, PID %lu/%s.",
+                                  inhibit_what_to_string(inhibit_operation),
+                                  (unsigned long) offending->uid, strna(u),
+                                  (unsigned long) offending->pid, strna(comm));
                         return 0;
                 }
 
-                log_error("Refusing operation, %s is inhibited.", inhibit_what_to_string(inhibit_operation));
+                log_error("Refusing operation, %s is inhibited by UID %lu/%s, PID %lu/%s.",
+                          inhibit_what_to_string(inhibit_operation),
+                          (unsigned long) offending->uid, strna(u),
+                          (unsigned long) offending->pid, strna(comm));
+
                 warn_melody();
                 return -EPERM;
         }
