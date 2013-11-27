@@ -59,7 +59,7 @@
                 <para>
                 <command>systemd-socket-proxyd</command> is a generic
                 socket-activated network socket forwarder proxy daemon
-                for IPV4, IPv6 and UNIX stream sockets. It may be used
+                for IPv4, IPv6 and UNIX stream sockets. It may be used
                 to bi-directionally forward traffic from a local listening socket to a
                 local or remote destination socket.</para>
 
