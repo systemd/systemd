@@ -315,7 +315,7 @@ static int journal_file_verify_header(JournalFile *f) {
 }
 
 static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size) {
-        uint64_t old_size, new_size, file_size;
+        uint64_t old_size, new_size;
         int r;
 
         assert(f);
@@ -356,6 +356,11 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
                 }
         }
 
+        /* Increase by larger blocks at once */
+        new_size = ((new_size+FILE_SIZE_INCREASE-1) / FILE_SIZE_INCREASE) * FILE_SIZE_INCREASE;
+        if (f->metrics.max_size > 0 && new_size > f->metrics.max_size)
+                new_size = f->metrics.max_size;
+
         /* Note that the glibc fallocate() fallback is very
            inefficient, hence we try to minimize the allocation area
            as we can. */
@@ -363,16 +368,8 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (r != 0)
                 return -r;
 
-        /* Increase the file size a bit further than this, so that we
-         * we can create larger memory maps to cache */
-        file_size = ((new_size+FILE_SIZE_INCREASE-1) / FILE_SIZE_INCREASE) * FILE_SIZE_INCREASE;
-        if (file_size > (uint64_t) f->last_stat.st_size) {
-                if (file_size > new_size)
-                        ftruncate(f->fd, file_size);
-
-                if (fstat(f->fd, &f->last_stat) < 0)
-                        return -errno;
-        }
+        if (fstat(f->fd, &f->last_stat) < 0)
+                return -errno;
 
         f->header->arena_size = htole64(new_size - le64toh(f->header->header_size));
 
