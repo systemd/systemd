@@ -373,17 +373,21 @@ char *split(const char *c, size_t *l, const char *separator, char **state) {
 /* Split a string into words, but consider strings enclosed in '' and
  * "" as words even if they include spaces. */
 char *split_quoted(const char *c, size_t *l, char **state) {
-        char *current, *e;
+        const char *current, *e;
         bool escaped = false;
 
-        current = *state ? *state : (char*) c;
+        assert(c);
+        assert(l);
+        assert(state);
 
-        if (!*current || *c == 0)
-                return NULL;
+        current = *state ? *state : c;
 
         current += strspn(current, WHITESPACE);
 
-        if (*current == '\'') {
+        if (*current == 0)
+                return NULL;
+
+        else if (*current == '\'') {
                 current ++;
 
                 for (e = current; *e; e++) {
@@ -396,7 +400,8 @@ char *split_quoted(const char *c, size_t *l, char **state) {
                 }
 
                 *l = e-current;
-                *state = *e == 0 ? e : e+1;
+                *state = (char*) (*e == 0 ? e : e+1);
+
         } else if (*current == '\"') {
                 current ++;
 
@@ -410,7 +415,8 @@ char *split_quoted(const char *c, size_t *l, char **state) {
                 }
 
                 *l = e-current;
-                *state = *e == 0 ? e : e+1;
+                *state = (char*) (*e == 0 ? e : e+1);
+
         } else {
                 for (e = current; *e; e++) {
                         if (escaped)
@@ -421,10 +427,10 @@ char *split_quoted(const char *c, size_t *l, char **state) {
                                 break;
                 }
                 *l = e-current;
-                *state = e;
+                *state = (char*) e;
         }
 
-        return (char*) current;
+        return current;
 }
 
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {

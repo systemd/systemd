@@ -143,6 +143,7 @@ static void test_strv_quote_unquote(const char* const *split, const char *quoted
         char **t;
 
         p = strv_join_quoted((char **)split);
+        assert_se(p);
         printf("-%s- --- -%s-\n", p, quoted); /* fprintf deals with NULL, puts does not */
         assert_se(p);
         assert_se(streq(p, quoted));
@@ -154,6 +155,20 @@ static void test_strv_quote_unquote(const char* const *split, const char *quoted
                 assert_se(streq(*t, *split));
                 split++;
         }
+}
+
+static void test_strv_quote_unquote2(const char *quoted, const char ** list) {
+        _cleanup_strv_free_ char **s;
+        unsigned i = 0;
+        char **t;
+
+        s = strv_split_quoted(quoted);
+        assert_se(s);
+
+        STRV_FOREACH(t, s)
+                assert_se(streq(list[i++], *t));
+
+        assert_se(list[i] == NULL);
 }
 
 static void test_strv_split(void) {
@@ -404,6 +419,18 @@ int main(int argc, char *argv[]) {
         test_strv_quote_unquote(input_table_none, "");
         test_strv_quote_unquote(input_table_quotes, QUOTES_STRING);
         test_strv_quote_unquote(input_table_spaces, SPACES_STRING);
+
+        test_strv_quote_unquote2("    foo=bar     \"waldo\"    zzz    ", (const char*[]) { "foo=bar", "waldo", "zzz", NULL });
+        test_strv_quote_unquote2("", (const char*[]) { NULL });
+        test_strv_quote_unquote2(" ", (const char*[]) { NULL });
+        test_strv_quote_unquote2("   ", (const char*[]) { NULL });
+        test_strv_quote_unquote2("   x", (const char*[]) { "x", NULL });
+        test_strv_quote_unquote2("x   ", (const char*[]) { "x", NULL });
+        test_strv_quote_unquote2("  x   ", (const char*[]) { "x", NULL });
+        test_strv_quote_unquote2("  \"x\"   ", (const char*[]) { "x", NULL });
+        test_strv_quote_unquote2("  \'x\'   ", (const char*[]) { "x", NULL });
+        test_strv_quote_unquote2("  \'x\"\'   ", (const char*[]) { "x\"", NULL });
+        test_strv_quote_unquote2("  \"x\'\"   ", (const char*[]) { "x\'", NULL });
 
         test_strv_split();
         test_strv_split_newlines();
