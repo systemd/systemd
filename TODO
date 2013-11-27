@@ -121,8 +121,6 @@ Features:
 
 * move config_parse_path_strv() out of conf-parser.c
 
-* libdsystemd-bus should expose utf8 validation calls
-
 * After coming back from hibernation reset hibernation swap partition using the /dev/snapshot ioctl APIs
 
 * If we try to find a unit via a dangling symlink, generate a clean
