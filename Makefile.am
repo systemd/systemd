@@ -4141,6 +4141,8 @@ MULTI_USER_TARGET_WANTS += \
 SYSTEM_UNIT_ALIASES += \
 	systemd-logind.service dbus-org.freedesktop.login1.service
 
+if ENABLE_MULTI_SEAT_X
+
 systemd_multi_seat_x_SOURCES = \
 	src/login/multi-seat-x.c
 
@@ -4150,6 +4152,8 @@ systemd_multi_seat_x_LDADD = \
 
 rootlibexec_PROGRAMS += \
 	systemd-multi-seat-x
+
+endif
 
 dist_udevrules_DATA += \
 	src/login/70-uaccess.rules \
