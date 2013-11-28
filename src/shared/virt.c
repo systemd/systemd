@@ -27,30 +27,10 @@
 #include "virt.h"
 #include "fileio.h"
 
-/* Returns a short identifier for the various VM implementations */
-int detect_vm(const char **id) {
-        _cleanup_free_ char *cpuinfo_contents = NULL;
-        int r;
-
-#if defined(__i386__) || defined(__x86_64__)
+static int detect_vm_cpuid(const char **_id) {
 
         /* Both CPUID and DMI are x86 specific interfaces... */
-
-        static const char *const dmi_vendors[] = {
-                "/sys/class/dmi/id/sys_vendor",
-                "/sys/class/dmi/id/board_vendor",
-                "/sys/class/dmi/id/bios_vendor"
-        };
-
-        static const char dmi_vendor_table[] =
-                "QEMU\0"                  "qemu\0"
-                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-                "VMware\0"                "vmware\0"
-                "VMW\0"                   "vmware\0"
-                "Microsoft Corporation\0" "microsoft\0"
-                "innotek GmbH\0"          "oracle\0"
-                "Xen\0"                   "xen\0"
-                "Bochs\0"                 "bochs\0";
+#if defined(__i386__) || defined(__x86_64__)
 
         static const char cpuid_vendor_table[] =
                 "XenVMMXenVMM\0"          "xen\0"
@@ -60,40 +40,13 @@ int detect_vm(const char **id) {
                 /* http://msdn.microsoft.com/en-us/library/ff542428.aspx */
                 "Microsoft Hv\0"          "microsoft\0";
 
-        static __thread int cached_found = -1;
-        static __thread const char *cached_id = NULL;
-
         uint32_t eax, ecx;
         union {
                 uint32_t sig32[3];
                 char text[13];
         } sig = {};
-        unsigned i;
         const char *j, *k;
         bool hypervisor;
-        _cleanup_free_ char *hvtype = NULL;
-        const char *_id = NULL;
-
-        if (_likely_(cached_found >= 0)) {
-
-                if (id)
-                        *id = cached_id;
-
-                return cached_found;
-        }
-
-        /* Try high-level hypervisor sysfs file first:
-         *
-         * https://bugs.freedesktop.org/show_bug.cgi?id=61491 */
-        r = read_one_line_file("/sys/hypervisor/type", &hvtype);
-        if (r >= 0) {
-                if (streq(hvtype, "xen")) {
-                        _id = "xen";
-                        r = 1;
-                        goto finish;
-                }
-        } else if (r != -ENOENT)
-                return r;
 
         /* http://lwn.net/Articles/301888/ */
 
@@ -136,14 +89,44 @@ int detect_vm(const char **id) {
 
                 NULSTR_FOREACH_PAIR(j, k, cpuid_vendor_table)
                         if (streq(sig.text, j)) {
-                                _id = k;
-                                r = 1;
-                                goto finish;
+                                *_id = k;
+                                return 1;
                         }
+
+                *_id = "other";
+                return 0;
         }
+#endif
+
+        return 0;
+}
+
+static int detect_vm_dmi(const char **_id) {
+
+        /* Both CPUID and DMI are x86 specific interfaces... */
+#if defined(__i386__) || defined(__x86_64__)
+
+        static const char *const dmi_vendors[] = {
+                "/sys/class/dmi/id/sys_vendor",
+                "/sys/class/dmi/id/board_vendor",
+                "/sys/class/dmi/id/bios_vendor"
+        };
+
+        static const char dmi_vendor_table[] =
+                "QEMU\0"                  "qemu\0"
+                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
+                "VMware\0"                "vmware\0"
+                "VMW\0"                   "vmware\0"
+                "Microsoft Corporation\0" "microsoft\0"
+                "innotek GmbH\0"          "oracle\0"
+                "Xen\0"                   "xen\0"
+                "Bochs\0"                 "bochs\0";
+        unsigned i;
 
         for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
                 _cleanup_free_ char *s = NULL;
+                const char *j, *k;
+                int r;
 
                 r = read_one_line_file(dmi_vendors[i], &s);
                 if (r < 0) {
@@ -155,19 +138,58 @@ int detect_vm(const char **id) {
 
                 NULSTR_FOREACH_PAIR(j, k, dmi_vendor_table)
                         if (startswith(s, j)) {
-                                _id = k;
-                                r = 1;
-                                goto finish;
+                                *_id = k;
+                                return 1;
                         }
         }
+#endif
 
-        if (hypervisor || hvtype) {
-                _id = "other";
+        return 0;
+}
+
+/* Returns a short identifier for the various VM implementations */
+int detect_vm(const char **id) {
+        _cleanup_free_ char *hvtype = NULL, *cpuinfo_contents = NULL;
+        static __thread int cached_found = -1;
+        static __thread const char *cached_id = NULL;
+        const char *_id = NULL;
+        int r;
+
+        if (_likely_(cached_found >= 0)) {
+
+                if (id)
+                        *id = cached_id;
+
+                return cached_found;
+        }
+
+        /* Try high-level hypervisor sysfs file first:
+         *
+         * https://bugs.freedesktop.org/show_bug.cgi?id=61491 */
+        r = read_one_line_file("/sys/hypervisor/type", &hvtype);
+        if (r >= 0) {
+                if (streq(hvtype, "xen")) {
+                        _id = "xen";
+                        r = 1;
+                        goto finish;
+                }
+        } else if (r != -ENOENT)
+                return r;
+
+        /* this will set _id to "other" and return 0 for unknown hypervisors */
+        r = detect_vm_cpuid(&_id);
+        if (r != 0)
+                goto finish;
+
+        r = detect_vm_dmi(&_id);
+        if (r != 0)
+                goto finish;
+
+        if (_id) {
+                /* "other" */
                 r = 1;
                 goto finish;
         }
-
-#endif
 
         /* Detect User-Mode Linux by reading /proc/cpuinfo */
         r = read_full_file("/proc/cpuinfo", &cpuinfo_contents, NULL);
