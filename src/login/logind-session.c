@@ -334,21 +334,21 @@ int session_load(Session *s) {
                         s->remote = k;
         }
 
+        if (vtnr)
+                safe_atou(vtnr, &s->vtnr);
+
         if (seat && !s->seat) {
                 Seat *o;
 
                 o = hashmap_get(s->manager->seats, seat);
                 if (o)
-                        seat_attach_session(o, s);
+                        r = seat_attach_session(o, s);
+                if (!o || r < 0)
+                        log_error("Cannot attach session %s to seat %s", s->id, seat);
         }
 
-        if (vtnr && s->seat && seat_has_vts(s->seat)) {
-                unsigned int v;
-
-                k = safe_atou(vtnr, &v);
-                if (k >= 0 && v >= 1)
-                        s->vtnr = v;
-        }
+        if (!s->seat || !seat_has_vts(s->seat))
+                s->vtnr = 0;
 
         if (leader) {
                 k = parse_pid(leader, &s->leader);

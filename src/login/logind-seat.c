@@ -408,6 +408,9 @@ int seat_attach_session(Seat *s, Session *session) {
         assert(session);
         assert(!session->seat);
 
+        if (!seat_has_vts(s) != !session->vtnr)
+                return -EINVAL;
+
         session->seat = s;
         LIST_PREPEND(sessions_by_seat, s->sessions, session);
 
