@@ -2178,7 +2178,7 @@ void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
 
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         size_t offset;
-        ExecRuntime **rt;
+        ExecRuntime **rt = NULL;
         int r;
 
         assert(u);
