@@ -161,6 +161,7 @@ int sd_bus_add_object_manager(sd_bus *bus, const char *path);
 int sd_bus_remove_object_manager(sd_bus *bus, const char *path);
 
 /* Message object */
+
 int sd_bus_message_new_signal(sd_bus *bus, const char *path, const char *interface, const char *member, sd_bus_message **m);
 int sd_bus_message_new_method_call(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message **m);
 int sd_bus_message_new_method_return(sd_bus_message *call, sd_bus_message **m);
@@ -233,8 +234,7 @@ int sd_bus_get_unique_name(sd_bus *bus, const char **unique);
 int sd_bus_request_name(sd_bus *bus, const char *name, int flags);
 int sd_bus_release_name(sd_bus *bus, const char *name);
 int sd_bus_list_names(sd_bus *bus, char ***l);
-int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner); /* free the result! */
-int sd_bus_get_owner_creds(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds); /* unref the result! */
+int sd_bus_get_owner(sd_bus *bus, const char *name, uint64_t mask, char **owner, sd_bus_creds **creds); /* free/unref the result! */
 int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);
 
 /* Convenience calls */

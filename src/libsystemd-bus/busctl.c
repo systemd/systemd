@@ -36,6 +36,7 @@
 static bool arg_no_pager = false;
 static char *arg_address = NULL;
 static bool arg_no_unique = false;
+static bool arg_no_machine = false;
 static char **arg_matches = NULL;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
@@ -71,8 +72,13 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         STRV_FOREACH(i, l)
                 max_i = MAX(max_i, strlen(*i));
 
-        printf("%-*s %*s %-*s %-*s %-*s MACHINE\n",
+        printf("%-*s %*s %-*s %-*s %-*s",
                (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 20, "CONNECTION");
+
+        if (!arg_no_machine)
+                puts(" MACHINE");
+        else
+                putchar('\n');
 
         STRV_FOREACH(i, l) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
@@ -84,7 +90,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
                 printf("%-*s", (int) max_i, *i);
 
-                r = sd_bus_get_owner_creds(bus, *i, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM, &creds);
+                r = sd_bus_get_owner(bus, *i, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM, &owner, &creds);
                 if (r >= 0) {
                         pid_t pid;
                         uid_t uid;
@@ -97,7 +103,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
                                 printf(" %10lu %-15s", (unsigned long) pid, strna(comm));
                         } else
-                                printf("          - -              ");
+                                fputs("          - -              ", stdout);
 
                         r = sd_bus_creds_get_uid(creds, &uid);
                         if (r >= 0) {
@@ -112,23 +118,26 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
                                 printf(" %-16s", u);
                         } else
-                                printf(" -               ");
+                                fputs(" -               ", stdout);
+
+                        if (owner)
+                                printf(" %-20s", owner);
+                        else
+                                fputs(" -                   ", stdout);
+
                 } else
-                        printf("          - -               -               ");
+                        printf("          - -               -                -                   ");
 
-
-                r = sd_bus_get_owner(bus, *i, &owner);
-                if (r >= 0)
-                        printf(" %-20s", owner);
-                else
-                        printf(" -                   ");
-
-                r = sd_bus_get_owner_machine_id(bus, *i, &mid);
-                if (r >= 0) {
-                        char m[SD_ID128_STRING_MAX];
-                        printf(" %s\n", sd_id128_to_string(mid, m));
-                } else
-                        printf(" -\n");
+                if (arg_no_machine)
+                        putchar('\n');
+                else {
+                        r = sd_bus_get_owner_machine_id(bus, *i, &mid);
+                        if (r >= 0) {
+                                char m[SD_ID128_STRING_MAX];
+                                printf(" %s\n", sd_id128_to_string(mid, m));
+                        } else
+                                puts(" -");
+                }
         }
 
         return 0;
@@ -218,7 +227,8 @@ static int help(void) {
                "  -M --machine=CONTAINER  Operate on local container\n"
                "     --address=ADDRESS    Connect to bus specified by address\n"
                "     --no-unique          Only show well-known names\n"
-               "     --match=MATCH        Only show matching messages\n\n"
+               "     --no-machine         Don't show machine ID column in list\n\n"
+               "     --match=MATCH        Only show matching messages\n"
                "Commands:\n"
                "  list                    List bus names\n"
                "  monitor [SERVICE...]    Show bus traffic\n",
@@ -236,20 +246,22 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_ADDRESS,
                 ARG_MATCH,
-                ARG_NO_UNIQUE
+                ARG_NO_UNIQUE,
+                ARG_NO_MACHINE,
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                { "system",    no_argument,       NULL, ARG_SYSTEM    },
-                { "user",      no_argument,       NULL, ARG_USER      },
-                { "address",   required_argument, NULL, ARG_ADDRESS   },
-                { "no-unique", no_argument,       NULL, ARG_NO_UNIQUE },
-                { "match",     required_argument, NULL, ARG_MATCH     },
-                { "host",      required_argument, NULL, 'H'           },
-                { "machine",   required_argument, NULL, 'M'           },
+                { "help",       no_argument,       NULL, 'h'            },
+                { "version",    no_argument,       NULL, ARG_VERSION    },
+                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
+                { "system",     no_argument,       NULL, ARG_SYSTEM     },
+                { "user",       no_argument,       NULL, ARG_USER       },
+                { "address",    required_argument, NULL, ARG_ADDRESS    },
+                { "no-unique",  no_argument,       NULL, ARG_NO_UNIQUE  },
+                { "no-machine", no_argument,       NULL, ARG_NO_MACHINE },
+                { "match",      required_argument, NULL, ARG_MATCH      },
+                { "host",       required_argument, NULL, 'H'            },
+                { "machine",    required_argument, NULL, 'M'            },
                 {},
         };
 
@@ -288,6 +300,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_UNIQUE:
                         arg_no_unique = true;
+                        break;
+
+                case ARG_NO_MACHINE:
+                        arg_no_machine = true;
                         break;
 
                 case ARG_MATCH:
