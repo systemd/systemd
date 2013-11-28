@@ -137,7 +137,7 @@ int manager_process_button_device(Manager *m, struct udev_device *d);
 
 int manager_startup(Manager *m);
 int manager_run(Manager *m);
-int manager_spawn_autovt(Manager *m, int vtnr);
+int manager_spawn_autovt(Manager *m, unsigned int vtnr);
 
 void manager_gc(Manager *m, bool drop_not_started);
 

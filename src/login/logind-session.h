@@ -90,7 +90,7 @@ struct Session {
         char *scope_job;
 
         Seat *seat;
-        int vtnr;
+        unsigned int vtnr;
         int vtfd;
         sd_event_source *vt_source;
 

@@ -436,7 +436,7 @@ bool manager_shall_kill(Manager *m, const char *user) {
         return strv_contains(m->kill_only_users, user);
 }
 
-static int vt_is_busy(int vtnr) {
+static int vt_is_busy(unsigned int vtnr) {
         struct vt_stat vt_stat;
         int r = 0, fd;
 
@@ -462,7 +462,7 @@ static int vt_is_busy(int vtnr) {
         return r;
 }
 
-int manager_spawn_autovt(Manager *m, int vtnr) {
+int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *name = NULL;
         int r;
@@ -470,11 +470,11 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
         assert(m);
         assert(vtnr >= 1);
 
-        if ((unsigned) vtnr > m->n_autovts &&
-            (unsigned) vtnr != m->reserve_vt)
+        if (vtnr > m->n_autovts &&
+            vtnr != m->reserve_vt)
                 return 0;
 
-        if ((unsigned) vtnr != m->reserve_vt) {
+        if (vtnr != m->reserve_vt) {
                 /* If this is the reserved TTY, we'll start the getty
                  * on it in any case, but otherwise only if it is not
                  * busy. */
@@ -486,7 +486,7 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
                         return -EBUSY;
         }
 
-        if (asprintf(&name, "autovt@tty%i.service", vtnr) < 0)
+        if (asprintf(&name, "autovt@tty%u.service", vtnr) < 0)
                 return log_oom();
 
         r = sd_bus_call_method(

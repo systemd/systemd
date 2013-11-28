@@ -166,13 +166,13 @@ int seat_load(Seat *s) {
         return 0;
 }
 
-static int vt_allocate(int vtnr) {
+static int vt_allocate(unsigned int vtnr) {
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -1;
 
         assert(vtnr >= 1);
 
-        if (asprintf(&p, "/dev/tty%i", vtnr) < 0)
+        if (asprintf(&p, "/dev/tty%u", vtnr) < 0)
                 return -ENOMEM;
 
         fd = open_terminal(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
@@ -270,7 +270,7 @@ int seat_set_active(Seat *s, Session *session) {
         return 0;
 }
 
-int seat_active_vt_changed(Seat *s, int vtnr) {
+int seat_active_vt_changed(Seat *s, unsigned int vtnr) {
         Session *i, *new_active = NULL;
         int r;
 
@@ -280,7 +280,7 @@ int seat_active_vt_changed(Seat *s, int vtnr) {
         if (!seat_has_vts(s))
                 return -EINVAL;
 
-        log_debug("VT changed to %i", vtnr);
+        log_debug("VT changed to %u", vtnr);
 
         LIST_FOREACH(sessions_by_seat, i, s->sessions)
                 if (i->vtnr == vtnr) {
@@ -297,7 +297,8 @@ int seat_active_vt_changed(Seat *s, int vtnr) {
 int seat_read_active_vt(Seat *s) {
         char t[64];
         ssize_t k;
-        int r, vtnr;
+        unsigned int vtnr;
+        int r;
 
         assert(s);
 
@@ -320,13 +321,13 @@ int seat_read_active_vt(Seat *s) {
                 return -EIO;
         }
 
-        r = safe_atoi(t+3, &vtnr);
+        r = safe_atou(t+3, &vtnr);
         if (r < 0) {
                 log_error("Failed to parse VT number %s", t+3);
                 return r;
         }
 
-        if (vtnr <= 0) {
+        if (!vtnr) {
                 log_error("VT number invalid: %s", t+3);
                 return -EIO;
         }

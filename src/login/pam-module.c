@@ -284,7 +284,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (!isempty(cvtnr))
                 safe_atou32(cvtnr, &vtnr);
 
-        if (!isempty(display) && vtnr <= 0) {
+        if (!isempty(display) && !vtnr) {
                 if (isempty(seat))
                         get_seat_from_display(display, &seat, &vtnr);
                 else if (streq(seat, "seat0"))

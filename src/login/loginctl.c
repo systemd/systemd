@@ -251,7 +251,7 @@ typedef struct SessionStatusInfo {
         uid_t uid;
         const char *name;
         usec_t timestamp;
-        int vtnr;
+        unsigned int vtnr;
         const char *seat;
         const char *tty;
         const char *display;

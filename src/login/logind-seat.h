@@ -55,7 +55,7 @@ int seat_load(Seat *s);
 
 int seat_apply_acls(Seat *s, Session *old_active);
 int seat_set_active(Seat *s, Session *session);
-int seat_active_vt_changed(Seat *s, int vtnr);
+int seat_active_vt_changed(Seat *s, unsigned int vtnr);
 int seat_read_active_vt(Seat *s);
 int seat_preallocate_vts(Seat *s);
 

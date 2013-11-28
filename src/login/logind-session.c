@@ -229,7 +229,7 @@ int session_save(Session *s) {
                 fprintf(f, "SERVICE=%s\n", s->service);
 
         if (s->seat && seat_has_vts(s->seat))
-                fprintf(f, "VTNR=%i\n", s->vtnr);
+                fprintf(f, "VTNR=%u\n", s->vtnr);
 
         if (s->leader > 0)
                 fprintf(f, "LEADER=%lu\n", (unsigned long) s->leader);
@@ -343,9 +343,9 @@ int session_load(Session *s) {
         }
 
         if (vtnr && s->seat && seat_has_vts(s->seat)) {
-                int v;
+                unsigned int v;
 
-                k = safe_atoi(vtnr, &v);
+                k = safe_atou(vtnr, &v);
                 if (k >= 0 && v >= 1)
                         s->vtnr = v;
         }
@@ -421,7 +421,7 @@ int session_activate(Session *s) {
 
         /* on seats with VTs, we let VTs manage session-switching */
         if (seat_has_vts(s->seat)) {
-                if (s->vtnr <= 0)
+                if (!s->vtnr)
                         return -ENOTSUP;
 
                 return chvt(s->vtnr);
@@ -981,13 +981,13 @@ int session_kill(Session *s, KillWho who, int signo) {
 static int session_open_vt(Session *s) {
         char path[128];
 
-        if (s->vtnr <= 0)
+        if (!s->vtnr)
                 return -1;
 
         if (s->vtfd >= 0)
                 return s->vtfd;
 
-        sprintf(path, "/dev/tty%d", s->vtnr);
+        sprintf(path, "/dev/tty%u", s->vtnr);
         s->vtfd = open(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
         if (s->vtfd < 0) {
                 log_error("cannot open VT %s of session %s: %m", path, s->id);
@@ -1044,7 +1044,7 @@ void session_mute_vt(Session *s) {
         return;
 
 error:
-        log_error("cannot mute VT %d for session %s (%d/%d)", s->vtnr, s->id, r, errno);
+        log_error("cannot mute VT %u for session %s (%d/%d)", s->vtnr, s->id, r, errno);
         session_restore_vt(s);
 }
 
