@@ -24,6 +24,7 @@
 #include "util.h"
 #include "capability.h"
 #include "strv.h"
+#include "audit.h"
 
 #include "bus-message.h"
 #include "bus-internal.h"
@@ -45,13 +46,8 @@ static char *indent(unsigned level) {
 }
 
 int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
-        const char *u = NULL, *uu = NULL, *s = NULL;
-        char **cmdline = NULL;
         unsigned level = 1;
         int r;
-        uid_t owner, audit_loginuid;
-        uint32_t audit_sessionid;
-        bool audit_sessionid_is_set = false, audit_loginuid_is_set = false;
 
         assert(m);
 
@@ -96,23 +92,6 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                                 ansi_highlight_red(), strna(m->error.name), ansi_highlight_off(),
                                 ansi_highlight_red(), strna(m->error.message), ansi_highlight_off());
 
-                if (m->pid != 0)
-                        fprintf(f, "  PID=%lu", (unsigned long) m->pid);
-                if (m->pid_starttime != 0)
-                        fprintf(f, "  PIDStartTime=%llu", (unsigned long long) m->pid_starttime);
-                if (m->tid != 0)
-                        fprintf(f, "  TID=%lu", (unsigned long) m->tid);
-                if (m->uid_valid)
-                        fprintf(f, "  UID=%lu", (unsigned long) m->uid);
-                r = sd_bus_message_get_owner_uid(m, &owner);
-                if (r >= 0)
-                        fprintf(f, "  OwnerUID=%lu", (unsigned long) owner);
-                if (m->gid_valid)
-                        fprintf(f, "  GID=%lu", (unsigned long) m->gid);
-
-                if (m->pid != 0 || m->pid_starttime != 0 || m->tid != 0 || m->uid_valid || r >= 0 || m->gid_valid)
-                        fputs("\n", f);
-
                 if (m->monotonic != 0)
                         fprintf(f, "  Monotonic=%llu", (unsigned long long) m->monotonic);
                 if (m->realtime != 0)
@@ -121,70 +100,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                 if (m->monotonic != 0 || m->realtime != 0)
                         fputs("\n", f);
 
-                if (m->exe)
-                        fprintf(f, "  Exe=%s", m->exe);
-                if (m->comm)
-                        fprintf(f, "  Comm=%s", m->comm);
-                if (m->tid_comm)
-                        fprintf(f, "  TIDComm=%s", m->tid_comm);
-                if (m->label)
-                        fprintf(f, "  Label=%s", m->label);
-
-                if (m->exe || m->comm || m->tid_comm || m->label)
-                        fputs("\n", f);
-
-                if (sd_bus_message_get_cmdline(m, &cmdline) >= 0) {
-                        char **c;
-
-                        fputs("  CommandLine=[", f);
-                        STRV_FOREACH(c, cmdline) {
-                                if (c != cmdline)
-                                        fputc(' ', f);
-
-                                fputs(*c, f);
-                        }
-
-                        fputs("]\n", f);
-                }
-
-                if (m->cgroup)
-                        fprintf(f, "  CGroup=%s\n", m->cgroup);
-
-                sd_bus_message_get_unit(m, &u);
-                if (u)
-                        fprintf(f, "  Unit=%s", u);
-                sd_bus_message_get_user_unit(m, &uu);
-                if (uu)
-                        fprintf(f, "  UserUnit=%s", uu);
-                sd_bus_message_get_session(m, &s);
-                if (s)
-                        fprintf(f, "  Session=%s", s);
-                if (sd_bus_message_get_audit_loginuid(m, &audit_loginuid) >= 0) {
-                        audit_loginuid_is_set = true;
-                        fprintf(f, "  AuditLoginUID=%lu", (unsigned long) audit_loginuid);
-                }
-                if (sd_bus_message_get_audit_sessionid(m, &audit_sessionid) >= 0) {
-                        audit_sessionid_is_set = true;
-                        fprintf(f, "  AuditSessionID=%lu", (unsigned long) audit_sessionid);
-                }
-
-                if (u || uu || s || audit_loginuid_is_set || audit_sessionid_is_set)
-                        fputs("\n", f);
-
-                r = sd_bus_message_has_effective_cap(m, 0);
-                if (r >= 0) {
-                        unsigned long c, last_cap;
-
-                        fprintf(f, "  Capabilities=%s", r ? cap_to_name(0) : "");
-
-                        last_cap = cap_last_cap();
-                        for (c = 0; c < last_cap; c++) {
-                                r = sd_bus_message_has_effective_cap(m, c);
-                                if (r > 0)
-                                        fprintf(f, "|%s", cap_to_name(c));
-                        }
-                        fputs("\n", f);
-                }
+                bus_creds_dump(&m->creds, f);
         }
 
         r = sd_bus_message_rewind(m, true);
@@ -331,5 +247,144 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
         }
 
         fprintf(f, "  };\n\n");
+        return 0;
+}
+
+static void dump_capabilities(
+                sd_bus_creds *c,
+                FILE *f,
+                const char *name,
+                int (*has)(sd_bus_creds *c, int capability)) {
+
+        unsigned long i, last_cap;
+        unsigned n = 0;
+        int r;
+
+        assert(c);
+        assert(f);
+        assert(name);
+        assert(has);
+
+        i = 0;
+        r = has(c, i);
+        if (r < 0)
+                return;
+
+        fprintf(f, "  %s=", name);
+        last_cap = cap_last_cap();
+
+        for (;;) {
+                if (r > 0) {
+                        if (n > 0)
+                                fputc(' ', f);
+                        if (n % 4 == 3)
+                                fputs("\n          ", f);
+
+                        fputs(cap_to_name(i), f);
+                        n++;
+                }
+
+                i++;
+
+                if (i > last_cap)
+                        break;
+
+                r = has(c, i);
+        }
+
+        fputs("\n", f);
+}
+
+int bus_creds_dump(sd_bus_creds *c, FILE *f) {
+        bool audit_sessionid_is_set = false, audit_loginuid_is_set = false;
+        const char *u = NULL, *uu = NULL, *s = NULL, *sl = NULL;
+        uid_t owner, audit_loginuid;
+        uint32_t audit_sessionid;
+        char **cmdline = NULL;
+        int r;
+
+        assert(c);
+
+        if (!f)
+                f = stdout;
+
+        if (c->mask & SD_BUS_CREDS_PID)
+                fprintf(f, "  PID=%lu", (unsigned long) c->pid);
+        if (c->mask & SD_BUS_CREDS_PID_STARTTIME)
+                fprintf(f, "  PIDStartTime=%llu", (unsigned long long) c->pid_starttime);
+        if (c->mask & SD_BUS_CREDS_TID)
+                fprintf(f, "  TID=%lu", (unsigned long) c->tid);
+        if (c->mask & SD_BUS_CREDS_UID)
+                fprintf(f, "  UID=%lu", (unsigned long) c->uid);
+        r = sd_bus_creds_get_owner_uid(c, &owner);
+        if (r >= 0)
+                fprintf(f, "  OwnerUID=%lu", (unsigned long) owner);
+        if (c->mask & SD_BUS_CREDS_GID)
+                fprintf(f, "  GID=%lu", (unsigned long) c->gid);
+
+        if ((c->mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID|SD_BUS_CREDS_UID|SD_BUS_CREDS_GID)) || r >= 0)
+                fputs("\n", f);
+
+        if (c->mask & SD_BUS_CREDS_EXE)
+                fprintf(f, "  Exe=%s", c->exe);
+        if (c->mask & SD_BUS_CREDS_COMM)
+                fprintf(f, "  Comm=%s", c->comm);
+        if (c->mask & SD_BUS_CREDS_TID_COMM)
+                fprintf(f, "  TIDComm=%s", c->tid_comm);
+        if (c->mask & SD_BUS_CREDS_SELINUX_CONTEXT)
+                fprintf(f, "  Label=%s", c->label);
+
+        if (c->mask & (SD_BUS_CREDS_EXE|SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM|SD_BUS_CREDS_SELINUX_CONTEXT))
+                fputs("\n", f);
+
+        if (sd_bus_creds_get_cmdline(c, &cmdline) >= 0) {
+                char **i;
+
+                fputs("  CommandLine=", f);
+                STRV_FOREACH(i, cmdline) {
+                        if (i != cmdline)
+                                fputc(' ', f);
+
+                        fputs(*i, f);
+                }
+
+                fputs("\n", f);
+        }
+
+        if (c->mask & SD_BUS_CREDS_CGROUP)
+                fprintf(f, "  CGroup=%s", c->cgroup);
+        sd_bus_creds_get_unit(c, &u);
+        if (u)
+                fprintf(f, "  Unit=%s", u);
+        sd_bus_creds_get_user_unit(c, &uu);
+        if (uu)
+                fprintf(f, "  UserUnit=%s", uu);
+        sd_bus_creds_get_slice(c, &sl);
+        if (sl)
+                fprintf(f, "  Slice=%s", sl);
+        sd_bus_creds_get_session(c, &s);
+        if (s)
+                fprintf(f, "  Session=%s", s);
+
+        if ((c->mask & SD_BUS_CREDS_CGROUP) || u || uu || sl || s)
+                fputs("\n", f);
+
+        if (sd_bus_creds_get_audit_login_uid(c, &audit_loginuid) >= 0) {
+                audit_loginuid_is_set = true;
+                fprintf(f, "  AuditLoginUID=%lu", (unsigned long) audit_loginuid);
+        }
+        if (sd_bus_creds_get_audit_session_id(c, &audit_sessionid) >= 0) {
+                audit_sessionid_is_set = true;
+                fprintf(f, "  AuditSessionID=%lu", (unsigned long) audit_sessionid);
+        }
+
+        if (audit_loginuid_is_set || audit_sessionid_is_set)
+                fputs("\n", f);
+
+        dump_capabilities(c, f, "EffectiveCapabilities", sd_bus_creds_has_effective_cap);
+        dump_capabilities(c, f, "PermittedCapabilities", sd_bus_creds_has_permitted_cap);
+        dump_capabilities(c, f, "InheritableCapabilities", sd_bus_creds_has_inheritable_cap);
+        dump_capabilities(c, f, "BoundingCapabilities", sd_bus_creds_has_bounding_cap);
+
         return 0;
 }

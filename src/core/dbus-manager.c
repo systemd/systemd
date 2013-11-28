@@ -338,7 +338,13 @@ static int method_get_unit_by_pid(sd_bus *bus, sd_bus_message *message, void *us
                 return r;
 
         if (pid == 0) {
-                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_pid(creds, &pid);
                 if (r < 0)
                         return r;
         }

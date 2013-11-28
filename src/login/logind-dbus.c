@@ -172,7 +172,13 @@ static int method_get_session_by_pid(sd_bus *bus, sd_bus_message *message, void 
                 return r;
 
         if (pid == 0) {
-                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_pid(creds, &pid);
                 if (r < 0)
                         return r;
         }
@@ -234,7 +240,13 @@ static int method_get_user_by_pid(sd_bus *bus, sd_bus_message *message, void *us
                 return r;
 
         if (pid == 0) {
-                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_pid(creds, &pid);
                 if (r < 0)
                         return r;
         }
@@ -543,9 +555,15 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
         }
 
         if (leader <= 0) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                if (r < 0)
+                        return r;
+
                 assert_cc(sizeof(uint32_t) == sizeof(pid_t));
 
-                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), (pid_t*) &leader);
+                r = sd_bus_creds_get_pid(creds, (pid_t*) &leader);
                 if (r < 0)
                         return r;
         }
@@ -1424,6 +1442,7 @@ static int method_do_shutdown_or_sleep(
                 sd_bus_message_handler_t method,
                 sd_bus_error *error) {
 
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         bool multiple_sessions, blocked;
         int interactive, r;
         uid_t uid;
@@ -1455,7 +1474,11 @@ static int method_do_shutdown_or_sleep(
                         return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED, "Sleep verb not supported");
         }
 
-        r = sd_bus_get_owner_uid(m->bus, sd_bus_message_get_sender(message), &uid);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_uid(creds, &uid);
         if (r < 0)
                 return r;
 
@@ -1579,6 +1602,7 @@ static int method_can_shutdown_or_sleep(
                 const char *sleep_verb,
                 sd_bus_error *error) {
 
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         bool multiple_sessions, challenge, blocked;
         const char *result = NULL;
         uid_t uid;
@@ -1600,7 +1624,11 @@ static int method_can_shutdown_or_sleep(
                         return sd_bus_reply_method_return(message, "s", "na");
         }
 
-        r = sd_bus_get_owner_uid(m->bus, sd_bus_message_get_sender(message), &uid);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_uid(creds, &uid);
         if (r < 0)
                 return r;
 
@@ -1722,6 +1750,7 @@ static int method_can_hybrid_sleep(sd_bus *bus, sd_bus_message *message, void *u
 }
 
 static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         const char *who, *why, *what, *mode;
         _cleanup_free_ char *id = NULL;
         _cleanup_close_ int fifo_fd = -1;
@@ -1774,11 +1803,15 @@ static int method_inhibit(sd_bus *bus, sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = sd_bus_get_owner_uid(m->bus, sd_bus_message_get_sender(message), &uid);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID, &creds);
         if (r < 0)
                 return r;
 
-        r = sd_bus_get_owner_pid(m->bus, sd_bus_message_get_sender(message), &pid);
+        r = sd_bus_creds_get_uid(creds, &uid);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_pid(creds, &pid);
         if (r < 0)
                 return r;
 

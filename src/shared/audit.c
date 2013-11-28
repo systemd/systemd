@@ -26,8 +26,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
-#include <sys/prctl.h>
-#include <sys/capability.h>
 
 #include "macro.h"
 #include "audit.h"
@@ -37,91 +35,64 @@
 #include "virt.h"
 
 int audit_session_from_pid(pid_t pid, uint32_t *id) {
-        char *s;
+        _cleanup_free_ char *s = NULL;
+        const char *p;
         uint32_t u;
         int r;
 
         assert(id);
-
-        if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
-                return -ENOENT;
 
         /* Audit doesn't support containers right now */
         if (detect_container(NULL) > 0)
                 return -ENOTSUP;
 
         if (pid == 0)
-                r = read_one_line_file("/proc/self/sessionid", &s);
-        else {
-                char *p;
+                p = "/proc/self/sessionid";
+        else
+                p = procfs_file_alloca(pid, "sessionid");
 
-                if (asprintf(&p, "/proc/%lu/sessionid", (unsigned long) pid) < 0)
-                        return -ENOMEM;
-
-                r = read_one_line_file(p, &s);
-                free(p);
-        }
-
+        r = read_one_line_file(p, &s);
         if (r < 0)
                 return r;
 
         r = safe_atou32(s, &u);
-        free(s);
-
         if (r < 0)
                 return r;
 
         if (u == (uint32_t) -1 || u <= 0)
-                return -ENOENT;
+                return -ENXIO;
 
         *id = u;
         return 0;
 }
 
 int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
-        char *s;
+        _cleanup_free_ char *s = NULL;
+        const char *p;
         uid_t u;
         int r;
 
         assert(uid);
-
-        /* Only use audit login uid if we are executed with sufficient
-         * capabilities so that pam_loginuid could do its job. If we
-         * are lacking the CAP_AUDIT_CONTROL capabality we most likely
-         * are being run in a container and /proc/self/loginuid is
-         * useless since it probably contains a uid of the host
-         * system. */
-
-        if (have_effective_cap(CAP_AUDIT_CONTROL) <= 0)
-                return -ENOENT;
 
         /* Audit doesn't support containers right now */
         if (detect_container(NULL) > 0)
                 return -ENOTSUP;
 
         if (pid == 0)
-                r = read_one_line_file("/proc/self/loginuid", &s);
-        else {
-                char *p;
+                p = "/proc/self/loginuid";
+        else
+                p = procfs_file_alloca(pid, "loginuid");
 
-                if (asprintf(&p, "/proc/%lu/loginuid", (unsigned long) pid) < 0)
-                        return -ENOMEM;
-
-                r = read_one_line_file(p, &s);
-                free(p);
-        }
-
+        r = read_one_line_file(p, &s);
         if (r < 0)
                 return r;
 
         r = parse_uid(s, &u);
-        free(s);
-
         if (r < 0)
                 return r;
 
         if (u == (uid_t) -1)
-                return -ENOENT;
+                return -ENXIO;
 
         *uid = (uid_t) u;
         return 0;

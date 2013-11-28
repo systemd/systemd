@@ -769,7 +769,9 @@ libsystemd_shared_la_SOURCES = \
 	src/shared/errno-list.c \
 	src/shared/errno-list.h \
 	src/shared/syscall-list.c \
-	src/shared/syscall-list.h
+	src/shared/syscall-list.h \
+	src/shared/audit.c \
+	src/shared/audit.h
 
 nodist_libsystemd_shared_la_SOURCES = \
 	src/shared/errno-from-name.h \
@@ -841,14 +843,6 @@ libsystemd_capability_la_CFLAGS = \
 
 libsystemd_capability_la_LIBADD = \
 	$(CAP_LIBS)
-
-# ------------------------------------------------------------------------------
-noinst_LTLIBRARIES += \
-	libsystemd-audit.la
-
-libsystemd_audit_la_SOURCES = \
-	src/shared/audit.c \
-	src/shared/audit.h
 
 # ------------------------------------------------------------------------------
 if HAVE_ACL
@@ -1013,7 +1007,6 @@ libsystemd_core_la_LIBADD = \
 	libsystemd-capability.la \
 	libsystemd-units.la \
 	libsystemd-label.la \
-	libsystemd-audit.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
 	libudev-internal.la \
@@ -1957,6 +1950,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-container.h \
 	src/libsystemd-bus/bus-message.c \
 	src/libsystemd-bus/bus-message.h \
+	src/libsystemd-bus/bus-creds.c \
+	src/libsystemd-bus/bus-creds.h \
 	src/libsystemd-bus/bus-signature.c \
 	src/libsystemd-bus/bus-signature.h \
 	src/libsystemd-bus/bus-type.c \
@@ -2035,6 +2030,7 @@ tests += \
 	test-bus-introspect \
 	test-bus-objects \
 	test-bus-error \
+	test-bus-creds \
 	test-event
 
 bin_PROGRAMS += \
@@ -2118,6 +2114,17 @@ test_bus_error_LDADD = \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-shared.la
+
+test_bus_creds_SOURCES = \
+	src/libsystemd-bus/test-bus-creds.c
+
+test_bus_creds_LDADD = \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la \
+	libsystemd-bus-dump.la \
+	libsystemd-capability.la
 
 test_bus_match_SOURCES = \
 	src/libsystemd-bus/test-bus-match.c
@@ -3086,7 +3093,6 @@ nodist_libsystemd_journal_core_la_SOURCES = \
 libsystemd_journal_core_la_LIBADD = \
 	libsystemd-journal-internal.la \
 	libudev-internal.la \
-	libsystemd-audit.la \
 	libsystemd-capability.la \
 	libsystemd-label.la \
 	libsystemd-daemon-internal.la \
@@ -3778,7 +3784,6 @@ libsystemd_machine_core_la_SOURCES = \
 
 libsystemd_machine_core_la_LIBADD = \
 	libsystemd-label.la \
-	libsystemd-audit.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
@@ -3933,7 +3938,6 @@ libsystemd_logind_core_la_SOURCES = \
 libsystemd_logind_core_la_LIBADD = \
 	libsystemd-label.la \
 	libsystemd-capability.la \
-	libsystemd-audit.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-bus-internal.la \
@@ -4073,7 +4077,6 @@ pam_systemd_la_LDFLAGS = \
 
 pam_systemd_la_LIBADD = \
 	libsystemd-capability.la \
-	libsystemd-audit.la \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \

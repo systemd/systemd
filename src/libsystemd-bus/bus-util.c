@@ -20,6 +20,7 @@
 ***/
 
 #include <sys/socket.h>
+#include <sys/capability.h>
 
 #include "util.h"
 #include "strv.h"
@@ -137,7 +138,7 @@ int bus_verify_polkit(
                 bool *_challenge,
                 sd_bus_error *e) {
 
-        const char *sender;
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         uid_t uid;
         int r;
 
@@ -145,11 +146,11 @@ int bus_verify_polkit(
         assert(m);
         assert(action);
 
-        sender = sd_bus_message_get_sender(m);
-        if (!sender)
-                return -EBADMSG;
+        r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds);
+        if (r < 0)
+                return r;
 
-        r = sd_bus_get_owner_uid(bus, sender, &uid);
+        r = sd_bus_creds_get_uid(creds, &uid);
         if (r < 0)
                 return r;
 
@@ -160,6 +161,11 @@ int bus_verify_polkit(
         else {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
                 int authorized = false, challenge = false;
+                const char *sender;
+
+                sender = sd_bus_message_get_sender(m);
+                if (!sender)
+                        return -EBADMSG;
 
                 r = sd_bus_call_method(
                                 bus,
@@ -271,8 +277,9 @@ int bus_verify_polkit_async(
 #ifdef ENABLE_POLKIT
         _cleanup_bus_message_unref_ sd_bus_message *pk = NULL;
         AsyncPolkitQuery *q;
-#endif
         const char *sender;
+#endif
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         uid_t uid;
         int r;
 
@@ -319,17 +326,21 @@ int bus_verify_polkit_async(
         }
 #endif
 
-        sender = sd_bus_message_get_sender(m);
-        if (!sender)
-                return -EBADMSG;
+        r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds);
+        if (r < 0)
+                return r;
 
-        r = sd_bus_get_owner_uid(bus, sender, &uid);
+        r = sd_bus_creds_get_uid(creds, &uid);
         if (r < 0)
                 return r;
 
         if (uid == 0)
                 return 1;
+
 #ifdef ENABLE_POLKIT
+        sender = sd_bus_message_get_sender(m);
+        if (!sender)
+                return -EBADMSG;
 
         r = hashmap_ensure_allocated(registry, trivial_hash_func, trivial_compare_func);
         if (r < 0)

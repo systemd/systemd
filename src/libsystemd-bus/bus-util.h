@@ -137,9 +137,11 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_creds*, sd_bus_creds_unref);
 
 #define _cleanup_bus_unref_ _cleanup_(sd_bus_unrefp)
 #define _cleanup_bus_message_unref_ _cleanup_(sd_bus_message_unrefp)
+#define _cleanup_bus_creds_unref_ _cleanup_(sd_bus_creds_unrefp)
 #define _cleanup_bus_error_free_ _cleanup_(sd_bus_error_free)
 
 #define BUS_DEFINE_PROPERTY_GET_ENUM(function, name, type)              \

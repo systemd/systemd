@@ -548,31 +548,48 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         idx += d->memfd.size;
 
                 } else if (d->type == KDBUS_MSG_SRC_CREDS) {
-                        m->pid_starttime = d->creds.starttime / NSEC_PER_USEC;
-                        m->uid = d->creds.uid;
-                        m->gid = d->creds.gid;
-                        m->pid = d->creds.pid;
-                        m->tid = d->creds.tid;
-                        m->uid_valid = m->gid_valid = true;
+                        m->creds.pid_starttime = d->creds.starttime / NSEC_PER_USEC;
+                        m->creds.uid = d->creds.uid;
+                        m->creds.gid = d->creds.gid;
+                        m->creds.pid = d->creds.pid;
+                        m->creds.tid = d->creds.tid;
+                        m->creds.mask |= (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID) & bus->creds_mask;
+
                 } else if (d->type == KDBUS_MSG_TIMESTAMP) {
                         m->realtime = d->timestamp.realtime_ns / NSEC_PER_USEC;
                         m->monotonic = d->timestamp.monotonic_ns / NSEC_PER_USEC;
-                } else if (d->type == KDBUS_MSG_SRC_PID_COMM)
-                        m->comm = d->str;
-                else if (d->type == KDBUS_MSG_SRC_TID_COMM)
-                        m->tid_comm = d->str;
-                else if (d->type == KDBUS_MSG_SRC_EXE)
-                        m->exe = d->str;
-                else if (d->type == KDBUS_MSG_SRC_CMDLINE) {
-                        m->cmdline = d->str;
-                        m->cmdline_length = l;
-                } else if (d->type == KDBUS_MSG_SRC_CGROUP)
-                        m->cgroup = d->str;
-                else if (d->type == KDBUS_MSG_SRC_AUDIT)
-                        m->audit = &d->audit;
-                else if (d->type == KDBUS_MSG_SRC_CAPS) {
-                        m->capability = d->data;
-                        m->capability_size = l;
+
+                } else if (d->type == KDBUS_MSG_SRC_PID_COMM) {
+                        m->creds.comm = d->str;
+                        m->creds.mask |= SD_BUS_CREDS_COMM & bus->creds_mask;
+
+                } else if (d->type == KDBUS_MSG_SRC_TID_COMM) {
+                        m->creds.tid_comm = d->str;
+                        m->creds.mask |= SD_BUS_CREDS_TID_COMM & bus->creds_mask;
+
+                } else if (d->type == KDBUS_MSG_SRC_EXE) {
+                        m->creds.exe = d->str;
+                        m->creds.mask |= SD_BUS_CREDS_EXE & bus->creds_mask;
+
+                } else if (d->type == KDBUS_MSG_SRC_CMDLINE) {
+                        m->creds.cmdline = d->str;
+                        m->creds.cmdline_length = l;
+                        m->creds.mask |= SD_BUS_CREDS_CMDLINE & bus->creds_mask;
+
+                } else if (d->type == KDBUS_MSG_SRC_CGROUP) {
+                        m->creds.cgroup = d->str;
+                        m->creds.mask |= (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID) & bus->creds_mask;
+
+                } else if (d->type == KDBUS_MSG_SRC_AUDIT) {
+                        m->creds.audit_session_id = d->audit.sessionid;
+                        m->creds.audit_login_uid = d->audit.loginuid;
+                        m->creds.mask |= (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID) & bus->creds_mask;
+
+                } else if (d->type == KDBUS_MSG_SRC_CAPS) {
+                        m->creds.capability = d->data;
+                        m->creds.capability_size = l;
+                        m->creds.mask |= (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS) & bus->creds_mask;
+
                 } else if (d->type == KDBUS_MSG_DST_NAME)
                         destination = d->str;
                 else if (d->type != KDBUS_MSG_FDS &&

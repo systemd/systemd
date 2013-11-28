@@ -225,6 +225,7 @@ static int method_lock(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
 }
 
 static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         Session *s = userdata;
         uid_t uid;
         int r, b;
@@ -237,7 +238,11 @@ static int method_set_idle_hint(sd_bus *bus, sd_bus_message *message, void *user
         if (r < 0)
                 return r;
 
-        r = sd_bus_get_owner_uid(bus, sd_bus_message_get_sender(message), &uid);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_uid(creds, &uid);
         if (r < 0)
                 return r;
 
@@ -283,6 +288,7 @@ static int method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, sd_
 }
 
 static int method_take_control(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         Session *s = userdata;
         int r, force;
         uid_t uid;
@@ -295,7 +301,11 @@ static int method_take_control(sd_bus *bus, sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
-        r = sd_bus_get_owner_uid(bus, sd_bus_message_get_sender(message), &uid);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_UID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_uid(creds, &uid);
         if (r < 0)
                 return r;
 
@@ -477,6 +487,7 @@ int session_object_find(sd_bus *bus, const char *path, const char *interface, vo
         assert(m);
 
         if (streq(path, "/org/freedesktop/login1/session/self")) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
                 pid_t pid;
 
@@ -484,9 +495,13 @@ int session_object_find(sd_bus *bus, const char *path, const char *interface, vo
                 if (!message)
                         return 0;
 
-                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
                 if (r < 0)
-                        return 0;
+                        return r;
+
+                r = sd_bus_creds_get_pid(creds, &pid);
+                if (r < 0)
+                        return r;
 
                 r = manager_get_session_by_pid(m, pid, &session);
                 if (r <= 0)

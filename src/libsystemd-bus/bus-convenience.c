@@ -410,3 +410,33 @@ _public_ int sd_bus_set_property(
 
         return sd_bus_call(bus, m, 0, error, NULL);
 }
+
+_public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_bus_creds **creds) {
+        sd_bus_creds *c;
+
+        assert_return(call, -EINVAL);
+        assert_return(call->sealed, -EPERM);
+        assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(call->bus), -ECHILD);
+
+        c = sd_bus_message_get_creds(call);
+
+        /* All data we need? */
+        if (c && (mask & ~c->mask) == 0) {
+                *creds = sd_bus_creds_ref(c);
+                return 0;
+        }
+
+        /* No data passed? Or not enough data passed to retrieve the missing bits? */
+        if (!c || !(c->mask & SD_BUS_CREDS_PID)) {
+                /* We couldn't read anything from the call, let's try
+                 * to get it from the sender or peer */
+
+                if (call->sender)
+                        return sd_bus_get_owner_creds(call->bus, call->sender, mask, creds);
+                else
+                        return sd_bus_get_peer_creds(call->bus, mask, creds);
+        }
+
+        return sd_bus_creds_extend(c, mask, creds);
+}

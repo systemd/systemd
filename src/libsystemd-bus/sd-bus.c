@@ -283,75 +283,38 @@ _public_ int sd_bus_negotiate_attach_timestamp(sd_bus *bus, int b) {
         return 0;
 }
 
-_public_ int sd_bus_negotiate_attach_creds(sd_bus *bus, int b) {
+_public_ int sd_bus_negotiate_attach_creds(sd_bus *bus, uint64_t mask) {
         assert_return(bus, -EINVAL);
+        assert_return(mask <= _SD_BUS_CREDS_MAX, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CREDS, b);
-        return 0;
-}
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CREDS,
+                 !!(mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID)));
 
-_public_ int sd_bus_negotiate_attach_comm(sd_bus *bus, int b) {
-        assert_return(bus, -EINVAL);
-        assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_COMM,
+                 !!(mask & (SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM)));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_COMM, b);
-        return 0;
-}
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_EXE,
+                 !!(mask & SD_BUS_CREDS_EXE));
 
-_public_ int sd_bus_negotiate_attach_exe(sd_bus *bus, int b) {
-        assert_return(bus, -EINVAL);
-        assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CMDLINE,
+                 !!(mask & SD_BUS_CREDS_CMDLINE));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_EXE, b);
-        return 0;
-}
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CGROUP,
+                 !!(mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)));
 
-_public_ int sd_bus_negotiate_attach_cmdline(sd_bus *bus, int b) {
-        assert_return(bus, -EINVAL);
-        assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CAPS,
+                 !!(mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS)));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CMDLINE, b);
-        return 0;
-}
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_SECLABEL,
+                 !!(mask & SD_BUS_CREDS_SELINUX_CONTEXT));
 
-_public_ int sd_bus_negotiate_attach_cgroup(sd_bus *bus, int b) {
-        assert_return(bus, -EINVAL);
-        assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_AUDIT,
+                 !!(mask & (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CGROUP, b);
-        return 0;
-}
+        bus->creds_mask = mask;
 
-_public_ int sd_bus_negotiate_attach_caps(sd_bus *bus, int b) {
-        assert_return(bus, -EINVAL);
-        assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CAPS, b);
-        return 0;
-}
-
-_public_ int sd_bus_negotiate_attach_selinux_context(sd_bus *bus, int b) {
-        assert_return(bus, -EINVAL);
-        assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_SECLABEL, b);
-        return 0;
-}
-
-_public_ int sd_bus_negotiate_attach_audit(sd_bus *bus, int b) {
-        assert_return(bus, -EINVAL);
-        assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_AUDIT, b);
         return 0;
 }
 
@@ -2811,4 +2774,49 @@ _public_ char *sd_bus_label_unescape(const char *f) {
         *t = 0;
 
         return r;
+}
+
+_public_ int sd_bus_get_peer_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
+        sd_bus_creds *c;
+        pid_t pid = 0;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(mask <= _SD_BUS_CREDS_MAX, -ENOTSUP);
+        assert_return(ret, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus->is_kernel, -ENOTSUP);
+
+        if (!bus->ucred_valid && !isempty(bus->label))
+                return -ENODATA;
+
+        c = bus_creds_new();
+        if (!c)
+                return -ENOMEM;
+
+        if (bus->ucred_valid) {
+                pid = c->pid = bus->ucred.pid;
+                c->uid = bus->ucred.uid;
+                c->gid = bus->ucred.gid;
+
+                c->mask |= ((SD_BUS_CREDS_UID | SD_BUS_CREDS_PID | SD_BUS_CREDS_GID) & mask) & bus->creds_mask;
+        }
+
+        if (!isempty(bus->label) && (mask & SD_BUS_CREDS_SELINUX_CONTEXT)) {
+                c->label = strdup(bus->label);
+                if (!c->label) {
+                        sd_bus_creds_unref(c);
+                        return -ENOMEM;
+                }
+
+                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT | bus->creds_mask;
+        }
+
+        r = bus_creds_add_more(c, mask, pid, 0);
+        if (r < 0)
+                return r;
+
+        *ret = c;
+        return 0;
 }

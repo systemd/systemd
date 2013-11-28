@@ -29,6 +29,7 @@
 #include "sd-bus.h"
 #include "kdbus.h"
 #include "time-util.h"
+#include "bus-creds.h"
 
 struct bus_container {
         char enclosing;
@@ -78,19 +79,14 @@ struct sd_bus_message {
 
         sd_bus_error error;
 
-        uid_t uid;
-        gid_t gid;
-        pid_t pid;
-        pid_t tid;
-        usec_t pid_starttime;
+        sd_bus_creds creds;
+
         usec_t monotonic;
         usec_t realtime;
 
         bool sealed:1;
         bool dont_send:1;
         bool allow_fds:1;
-        bool uid_valid:1;
-        bool gid_valid:1;
         bool free_header:1;
         bool free_kdbus:1;
         bool free_fds:1;
@@ -101,8 +97,6 @@ struct sd_bus_message {
         struct bus_body_part body;
         struct bus_body_part *body_end;
         unsigned n_body_parts;
-
-        char *label;
 
         size_t rindex;
         struct bus_body_part *cached_rindex_part;
@@ -126,24 +120,6 @@ struct sd_bus_message {
 
         char sender_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
         char destination_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
-
-        const char *exe;
-        const char *comm;
-        const char *tid_comm;
-        const char *cgroup;
-
-        const char *cmdline;
-        size_t cmdline_length;
-        char **cmdline_array;
-
-        char *session;
-        char *unit;
-        char *user_unit;
-
-        struct kdbus_audit *audit;
-
-        uint8_t *capability;
-        size_t capability_size;
 };
 
 #define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_NATIVE_ENDIAN)

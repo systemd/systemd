@@ -430,7 +430,7 @@ char *split_quoted(const char *c, size_t *l, char **state) {
                 *state = (char*) e;
         }
 
-        return current;
+        return (char*) current;
 }
 
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
@@ -497,7 +497,7 @@ int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
 
         f = fopen(p, "re");
         if (!f)
-                return -errno;
+                return errno == ENOENT ? -ESRCH : -errno;
 
         if (!fgets(line, sizeof(line), f)) {
                 if (ferror(f))
@@ -563,6 +563,7 @@ char *truncate_nl(char *s) {
 
 int get_process_comm(pid_t pid, char **name) {
         const char *p;
+        int r;
 
         assert(name);
         assert(pid >= 0);
@@ -572,7 +573,11 @@ int get_process_comm(pid_t pid, char **name) {
         else
                 p = procfs_file_alloca(pid, "comm");
 
-        return read_one_line_file(p, name);
+        r = read_one_line_file(p, name);
+        if (r == -ENOENT)
+                return -ESRCH;
+
+        return r;
 }
 
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
@@ -729,7 +734,7 @@ int get_process_exe(pid_t pid, char **name) {
 
         r = readlink_malloc(p, name);
         if (r < 0)
-                return r;
+                return r == -ENOENT ? -ESRCH : r;
 
         d = endswith(*name, " (deleted)");
         if (d)

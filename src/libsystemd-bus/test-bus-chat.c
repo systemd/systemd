@@ -158,8 +158,8 @@ static int server(sd_bus *bus) {
                 if (!m)
                         continue;
 
-                sd_bus_message_get_pid(m, &pid);
-                sd_bus_message_get_selinux_context(m, &label);
+                sd_bus_creds_get_pid(sd_bus_message_get_creds(m), &pid);
+                sd_bus_creds_get_selinux_context(sd_bus_message_get_creds(m), &label);
                 log_info("Got message! member=%s pid=%lu label=%s",
                          strna(sd_bus_message_get_member(m)),
                          (unsigned long) pid,

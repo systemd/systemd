@@ -266,6 +266,7 @@ int seat_object_find(sd_bus *bus, const char *path, const char *interface, void 
         assert(m);
 
         if (streq(path, "/org/freedesktop/login1/seat/self")) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 sd_bus_message *message;
                 Session *session;
                 pid_t pid;
@@ -274,9 +275,13 @@ int seat_object_find(sd_bus *bus, const char *path, const char *interface, void 
                 if (!message)
                         return 0;
 
-                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
                 if (r < 0)
-                        return 0;
+                        return r;
+
+                r = sd_bus_creds_get_pid(creds, &pid);
+                if (r < 0)
+                        return r;
 
                 r = manager_get_session_by_pid(m, pid, &session);
                 if (r <= 0)

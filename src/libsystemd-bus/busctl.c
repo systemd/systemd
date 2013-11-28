@@ -75,41 +75,47 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 20, "CONNECTION");
 
         STRV_FOREACH(i, l) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 _cleanup_free_ char *owner = NULL;
                 sd_id128_t mid;
-                pid_t pid;
-                uid_t uid;
 
                 if (arg_no_unique && (*i)[0] == ':')
                         continue;
 
                 printf("%-*s", (int) max_i, *i);
 
-                r = sd_bus_get_owner_pid(bus, *i, &pid);
+                r = sd_bus_get_owner_creds(bus, *i, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM, &creds);
                 if (r >= 0) {
-                        _cleanup_free_ char *comm = NULL;
+                        pid_t pid;
+                        uid_t uid;
 
-                        printf(" %10lu", (unsigned long) pid);
+                        r = sd_bus_creds_get_pid(creds, &pid);
+                        if (r >= 0) {
+                                const char *comm = NULL;
 
-                        get_process_comm(pid, &comm);
-                        printf(" %-15s", strna(comm));
+                                sd_bus_creds_get_comm(creds, &comm);
+
+                                printf(" %10lu %-15s", (unsigned long) pid, strna(comm));
+                        } else
+                                printf("          - -              ");
+
+                        r = sd_bus_creds_get_uid(creds, &uid);
+                        if (r >= 0) {
+                                _cleanup_free_ char *u = NULL;
+
+                                u = uid_to_name(uid);
+                                if (!u)
+                                        return log_oom();
+
+                                if (strlen(u) > 16)
+                                        u[16] = 0;
+
+                                printf(" %-16s", u);
+                        } else
+                                printf(" -               ");
                 } else
-                        printf("          - -              ");
+                        printf("          - -               -               ");
 
-                r = sd_bus_get_owner_uid(bus, *i, &uid);
-                if (r >= 0) {
-                        _cleanup_free_ char *u = NULL;
-
-                        u = uid_to_name(uid);
-                        if (!u)
-                                return log_oom();
-
-                        if (strlen(u) > 16)
-                                u[16] = 0;
-
-                        printf(" %-16s", u);
-                } else
-                        printf(" -               ");
 
                 r = sd_bus_get_owner(bus, *i, &owner);
                 if (r >= 0)

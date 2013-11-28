@@ -143,16 +143,12 @@ static void message_free(sd_bus_message *m) {
         if (m->iovec != m->iovec_fixed)
                 free(m->iovec);
 
-        free(m->cmdline_array);
-
         message_reset_containers(m);
         free(m->root_container.signature);
 
         free(m->peeked_signature);
 
-        free(m->unit);
-        free(m->user_unit);
-        free(m->session);
+        bus_creds_done(&m->creds);
         free(m);
 }
 
@@ -358,15 +354,17 @@ int bus_message_from_header(
         m->n_fds = n_fds;
 
         if (ucred) {
-                m->uid = ucred->uid;
-                m->pid = ucred->pid;
-                m->gid = ucred->gid;
-                m->uid_valid = m->gid_valid = true;
+                m->creds.uid = ucred->uid;
+                m->creds.pid = ucred->pid;
+                m->creds.gid = ucred->gid;
+                m->creds.mask |= SD_BUS_CREDS_UID | SD_BUS_CREDS_PID | SD_BUS_CREDS_GID;
         }
 
         if (label) {
-                m->label = (char*) m + ALIGN(sizeof(sd_bus_message)) + ALIGN(extra);
-                memcpy(m->label, label, label_sz + 1);
+                m->creds.label = (char*) m + ALIGN(sizeof(sd_bus_message)) + ALIGN(extra);
+                memcpy(m->creds.label, label, label_sz + 1);
+
+                m->creds.mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
         }
 
         if (bus)
@@ -811,63 +809,10 @@ _public_ const sd_bus_error *sd_bus_message_get_error(sd_bus_message *m) {
         return &m->error;
 }
 
-_public_ int sd_bus_message_get_uid(sd_bus_message *m, uid_t *uid) {
-        assert_return(m, -EINVAL);
-        assert_return(uid, -EINVAL);
-        assert_return(m->uid_valid, -ESRCH);
-
-        *uid = m->uid;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_gid(sd_bus_message *m, gid_t *gid) {
-        assert_return(m, -EINVAL);
-        assert_return(gid, -EINVAL);
-        assert_return(m->gid_valid, -ESRCH);
-
-        *gid = m->gid;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_pid(sd_bus_message *m, pid_t *pid) {
-        assert_return(m, -EINVAL);
-        assert_return(pid, -EINVAL);
-        assert_return(m->pid > 0, -ESRCH);
-
-        *pid = m->pid;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_tid(sd_bus_message *m, pid_t *tid) {
-        assert_return(m, -EINVAL);
-        assert_return(tid, -EINVAL);
-        assert_return(m->tid > 0, -ESRCH);
-
-        *tid = m->tid;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_pid_starttime(sd_bus_message *m, uint64_t *usec) {
-        assert_return(m, -EINVAL);
-        assert_return(usec, -EINVAL);
-        assert_return(m->pid_starttime > 0, -ESRCH);
-
-        *usec = m->pid_starttime;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_selinux_context(sd_bus_message *m, const char **ret) {
-        assert_return(m, -EINVAL);
-        assert_return(m->label, -ESRCH);
-
-        *ret = m->label;
-        return 0;
-}
-
 _public_ int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t *usec) {
         assert_return(m, -EINVAL);
         assert_return(usec, -EINVAL);
-        assert_return(m->monotonic > 0, -ESRCH);
+        assert_return(m->monotonic > 0, -ENODATA);
 
         *usec = m->monotonic;
         return 0;
@@ -876,166 +821,19 @@ _public_ int sd_bus_message_get_monotonic_timestamp(sd_bus_message *m, uint64_t 
 _public_ int sd_bus_message_get_realtime_timestamp(sd_bus_message *m, uint64_t *usec) {
         assert_return(m, -EINVAL);
         assert_return(usec, -EINVAL);
-        assert_return(m->realtime > 0, -ESRCH);
+        assert_return(m->realtime > 0, -ENODATA);
 
         *usec = m->realtime;
         return 0;
 }
 
-_public_ int sd_bus_message_get_comm(sd_bus_message *m, const char **ret) {
-        assert_return(m, -EINVAL);
-        assert_return(ret, -EINVAL);
-        assert_return(m->comm, -ESRCH);
+_public_ sd_bus_creds *sd_bus_message_get_creds(sd_bus_message *m) {
+        assert_return(m, NULL);
 
-        *ret = m->comm;
-        return 0;
-}
+        if (m->creds.mask == 0)
+                return NULL;
 
-_public_ int sd_bus_message_get_tid_comm(sd_bus_message *m, const char **ret) {
-        assert_return(m, -EINVAL);
-        assert_return(ret, -EINVAL);
-        assert_return(m->tid_comm, -ESRCH);
-
-        *ret = m->tid_comm;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_exe(sd_bus_message *m, const char **ret) {
-        assert_return(m, -EINVAL);
-        assert_return(ret, -EINVAL);
-        assert_return(m->exe, -ESRCH);
-
-        *ret = m->exe;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_cgroup(sd_bus_message *m, const char **ret) {
-        assert_return(m, -EINVAL);
-        assert_return(ret, -EINVAL);
-        assert_return(m->cgroup, -ESRCH);
-
-        *ret = m->cgroup;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_unit(sd_bus_message *m, const char **ret) {
-        int r;
-
-        assert_return(m, -EINVAL);
-        assert_return(ret, -EINVAL);
-        assert_return(m->cgroup, -ESRCH);
-
-        if (!m->unit) {
-                r = cg_path_get_unit(m->cgroup, &m->unit);
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = m->unit;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_user_unit(sd_bus_message *m, const char **ret) {
-        int r;
-
-        assert_return(m, -EINVAL);
-        assert_return(ret, -EINVAL);
-        assert_return(m->cgroup, -ESRCH);
-
-        if (!m->user_unit) {
-                r = cg_path_get_user_unit(m->cgroup, &m->user_unit);
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = m->user_unit;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_session(sd_bus_message *m, const char **ret) {
-        int r;
-
-        assert_return(m, -EINVAL);
-        assert_return(ret, -EINVAL);
-        assert_return(m->cgroup, -ESRCH);
-
-        if (!m->session) {
-                r = cg_path_get_session(m->cgroup, &m->session);
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = m->session;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_owner_uid(sd_bus_message *m, uid_t *uid) {
-        assert_return(m, -EINVAL);
-        assert_return(uid, -EINVAL);
-        assert_return(m->cgroup, -ESRCH);
-
-        return cg_path_get_owner_uid(m->cgroup, uid);
-}
-
-_public_ int sd_bus_message_get_cmdline(sd_bus_message *m, char ***cmdline) {
-        size_t n, i;
-        const char *p;
-        bool first;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->cmdline, -ESRCH);
-
-        for (p = m->cmdline, n = 0; p < m->cmdline + m->cmdline_length; p++)
-                if (*p == 0)
-                        n++;
-
-        m->cmdline_array = new(char*, n + 1);
-        if (!m->cmdline_array)
-                return -ENOMEM;
-
-        for (p = m->cmdline, i = 0, first = true; p < m->cmdline + m->cmdline_length; p++) {
-                if (first)
-                        m->cmdline_array[i++] = (char*) p;
-
-                first = *p == 0;
-        }
-
-        m->cmdline_array[i] = NULL;
-        *cmdline = m->cmdline_array;
-
-        return 0;
-}
-
-_public_ int sd_bus_message_get_audit_sessionid(sd_bus_message *m, uint32_t *sessionid) {
-        assert_return(m, -EINVAL);
-        assert_return(sessionid, -EINVAL);
-        assert_return(m->audit, -ESRCH);
-
-        *sessionid = m->audit->sessionid;
-        return 0;
-}
-
-_public_ int sd_bus_message_get_audit_loginuid(sd_bus_message *m, uid_t *uid) {
-        assert_return(m, -EINVAL);
-        assert_return(uid, -EINVAL);
-        assert_return(m->audit, -ESRCH);
-
-        *uid = m->audit->loginuid;
-        return 0;
-}
-
-_public_ int sd_bus_message_has_effective_cap(sd_bus_message *m, int capability) {
-        unsigned sz;
-
-        assert_return(m, -EINVAL);
-        assert_return(capability < 0, -EINVAL);
-        assert_return(!m->capability, -ESRCH);
-
-        sz = m->capability_size / 4;
-        if ((unsigned) capability >= sz*8)
-                return 0;
-
-        return !!(m->capability[2 * sz + (capability / 8)] & (1 << (capability % 8)));
+        return &m->creds;
 }
 
 _public_ int sd_bus_message_is_signal(sd_bus_message *m,

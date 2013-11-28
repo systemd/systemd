@@ -90,6 +90,7 @@
 /tags
 /test-boot-timestamp
 /test-bus-chat
+/test-bus-creds
 /test-bus-error
 /test-bus-introspect
 /test-bus-kernel

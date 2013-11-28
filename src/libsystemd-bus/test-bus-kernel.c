@@ -63,24 +63,10 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         assert_se(sd_bus_negotiate_attach_timestamp(a, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_creds(a, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_comm(a, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_exe(a, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_cmdline(a, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_cgroup(a, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_caps(a, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_selinux_context(a, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_audit(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_creds(a, _SD_BUS_CREDS_MAX) >= 0);
 
         assert_se(sd_bus_negotiate_attach_timestamp(b, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_creds(b, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_comm(b, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_exe(b, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_cmdline(b, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_cgroup(b, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_caps(b, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_selinux_context(b, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_audit(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_creds(b, _SD_BUS_CREDS_MAX) >= 0);
 
         r = sd_bus_start(a);
         assert_se(r >= 0);

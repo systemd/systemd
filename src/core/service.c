@@ -3673,11 +3673,14 @@ static void service_bus_name_owner_change(
                     s->state == SERVICE_RUNNING ||
                     s->state == SERVICE_RELOAD)) {
 
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 pid_t pid;
 
                 /* Try to acquire PID from bus service */
 
-                r = sd_bus_get_owner_pid(u->manager->api_bus, name, &pid);
+                r = sd_bus_get_owner_creds(u->manager->api_bus, name, SD_BUS_CREDS_PID, &creds);
+                if (r >= 0)
+                        r = sd_bus_creds_get_pid(creds, &pid);
                 if (r >= 0) {
                         log_debug_unit(u->id, "%s's D-Bus name %s is now owned by process %u", u->id, name, (unsigned) pid);
 

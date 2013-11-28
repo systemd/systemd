@@ -102,7 +102,13 @@ static int method_get_machine_by_pid(sd_bus *bus, sd_bus_message *message, void 
                 return r;
 
         if (pid == 0) {
-                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), &pid);
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_pid(creds, &pid);
                 if (r < 0)
                         return r;
         }
@@ -216,9 +222,15 @@ static int method_create_machine(sd_bus *bus, sd_bus_message *message, void *use
                 return r;
 
         if (leader == 0) {
+                _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                if (r < 0)
+                        return r;
+
                 assert_cc(sizeof(uint32_t) == sizeof(pid_t));
 
-                r = sd_bus_get_owner_pid(bus, sd_bus_message_get_sender(message), (pid_t*) &leader);
+                r = sd_bus_creds_get_pid(creds, (pid_t*) &leader);
                 if (r < 0)
                         return r;
         }

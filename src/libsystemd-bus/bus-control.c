@@ -260,80 +260,114 @@ _public_ int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
         return 0;
 }
 
-_public_ int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
+_public_ int sd_bus_get_owner_creds(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        uint32_t u;
+        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        pid_t pid = 0;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!name)
-                return -EINVAL;
-        if (!uid)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(mask <= _SD_BUS_CREDS_MAX, -ENOTSUP);
+        assert_return(creds, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "GetConnectionUnixUser",
-                        NULL,
-                        &reply,
-                        "s",
-                        name);
+        c = bus_creds_new();
+        if (!c)
+                return -ENOMEM;
+
+        if ((mask & SD_BUS_CREDS_PID) ||
+            mask & ~(SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|SD_BUS_CREDS_SELINUX_CONTEXT)) {
+                uint32_t u;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "GetConnectionUnixProcessID",
+                                NULL,
+                                &reply,
+                                "s",
+                                name);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(reply, "u", &u);
+                if (r < 0)
+                        return r;
+
+                pid = u;
+                if (mask & SD_BUS_CREDS_PID) {
+                        c->pid = u;
+                        c->mask |= SD_BUS_CREDS_PID;
+                }
+
+                reply = sd_bus_message_unref(reply);
+        }
+
+        if (mask & SD_BUS_CREDS_UID) {
+                uint32_t u;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "GetConnectionUnixUser",
+                                NULL,
+                                &reply,
+                                "s",
+                                name);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(reply, "u", &u);
+                if (r < 0)
+                        return r;
+
+                c->uid = u;
+                c->mask |= SD_BUS_CREDS_UID;
+
+                reply = sd_bus_message_unref(reply);
+        }
+
+        if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
+                const void *p;
+                size_t sz;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "GetConnectionSELinuxSecurityContext",
+                                NULL,
+                                &reply,
+                                "s",
+                                name);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_array(reply, 'y', &p, &sz);
+                if (r < 0)
+                        return r;
+
+                c->label = strndup(p, sz);
+                if (!c->label)
+                        return -ENOMEM;
+
+                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
+        }
+
+        r = bus_creds_add_more(c, mask, pid, 0);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(reply, "u", &u);
-        if (r < 0)
-                return r;
+        *creds = c;
+        c = NULL;
 
-        *uid = (uid_t) u;
-        return 0;
-}
-
-_public_ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        uint32_t u;
-        int r;
-
-        if (!bus)
-                return -EINVAL;
-        if (!name)
-                return -EINVAL;
-        if (!pid)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
-
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "GetConnectionUnixProcessID",
-                        NULL,
-                        &reply,
-                        "s",
-                        name);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_read(reply, "u", &u);
-        if (r < 0)
-                return r;
-
-        if (u == 0)
-                return -EIO;
-
-        *pid = (uid_t) u;
         return 0;
 }
 

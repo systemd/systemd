@@ -213,6 +213,8 @@ struct sd_bus {
         struct ucred ucred;
         char label[NAME_MAX];
 
+        uint64_t creds_mask;
+
         int *fds;
         unsigned n_fds;
 

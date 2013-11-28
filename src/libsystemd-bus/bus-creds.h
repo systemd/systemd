@@ -21,11 +21,47 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
 #include <stdbool.h>
 
 #include "sd-bus.h"
+#include "time-util.h"
 
-int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header);
+struct sd_bus_creds {
+        bool allocated;
+        unsigned n_ref;
+        uint64_t mask;
 
-int bus_creds_dump(sd_bus_creds *c, FILE *f);
+        uid_t uid;
+        gid_t gid;
+        pid_t pid;
+        usec_t pid_starttime;
+        pid_t tid;
+
+        char *comm;
+        char *tid_comm;
+        char *exe;
+
+        char *cmdline;
+        size_t cmdline_length;
+        char **cmdline_array;
+
+        char *cgroup;
+        char *session;
+        char *unit;
+        char *user_unit;
+        char *slice;
+
+        uint8_t *capability;
+        size_t capability_size;
+
+        uint32_t audit_session_id;
+        uid_t audit_login_uid;
+
+        char *label;
+};
+
+sd_bus_creds* bus_creds_new(void);
+
+void bus_creds_done(sd_bus_creds *c);
+
+int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid);

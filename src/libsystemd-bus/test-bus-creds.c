@@ -1,7 +1,5 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#pragma once
-
 /***
   This file is part of systemd.
 
@@ -21,11 +19,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdio.h>
-#include <stdbool.h>
-
 #include "sd-bus.h"
+#include "bus-dump.h"
+#include "bus-util.h"
+#include "util.h"
 
-int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header);
+int main(int argc, char *argv[]) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        int r;
 
-int bus_creds_dump(sd_bus_creds *c, FILE *f);
+        r = sd_bus_creds_new_from_pid(0, _SD_BUS_CREDS_MAX, &creds);
+        assert_se(r >= 0);
+
+        bus_creds_dump(creds, NULL);
+
+        creds = sd_bus_creds_unref(creds);
+
+        r = sd_bus_creds_new_from_pid(1, _SD_BUS_CREDS_MAX, &creds);
+        if (r != -EACCES) {
+                assert_se(r >= 0);
+                putchar('\n');
+                bus_creds_dump(creds, NULL);
+        }
+
+        return 0;
+}
