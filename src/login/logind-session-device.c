@@ -162,7 +162,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
                          * state. */
                         r = sd_drmsetmaster(fd);
                         if (r < 0) {
-                                close(fd);
+                                close_nointr(fd);
                                 return r;
                         }
                 } else {
@@ -209,7 +209,7 @@ static int session_device_start(SessionDevice *sd) {
                 r = session_device_open(sd, true);
                 if (r < 0)
                         return r;
-                close_nointr_nofail(sd->fd);
+                close_nointr(sd->fd);
                 sd->fd = r;
                 break;
         case DEVICE_TYPE_UNKNOWN:
@@ -407,7 +407,7 @@ void session_device_free(SessionDevice *sd) {
 
         session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);
-        close_nointr_nofail(sd->fd);
+        close_nointr(sd->fd);
 
         LIST_REMOVE(sd_by_device, sd->device->session_devices, sd);
 
