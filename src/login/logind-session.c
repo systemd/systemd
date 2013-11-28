@@ -954,9 +954,6 @@ void session_add_to_gc_queue(Session *s) {
 SessionState session_get_state(Session *s) {
         assert(s);
 
-        if (s->closing)
-                return SESSION_CLOSING;
-
         if (s->scope_job)
                 return SESSION_OPENING;
 

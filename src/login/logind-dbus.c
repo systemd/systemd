@@ -1252,7 +1252,6 @@ static int have_multiple_sessions(
          * count, and non-login sessions do not count either. */
         HASHMAP_FOREACH(session, m->sessions, i)
                 if (session->class == SESSION_USER &&
-                    !session->closing &&
                     session->user->uid != uid)
                         return true;
 
