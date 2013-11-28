@@ -56,6 +56,8 @@ int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name);
 
 int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout);
 
+int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error);
+
 int bus_check_peercred(sd_bus *c);
 
 int bus_verify_polkit(sd_bus *bus, sd_bus_message *m, const char *action, bool interactive, bool *_challenge, sd_bus_error *e);

@@ -103,6 +103,32 @@ int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t 
         return 0;
 }
 
+int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *rep = NULL;
+        int r, has_owner = 0;
+
+        assert(c);
+        assert(name);
+
+        r = sd_bus_call_method(c,
+                               "org.freedesktop.DBus",
+                               "/org/freedesktop/dbus",
+                               "org.freedesktop.DBus",
+                               "NameHasOwner",
+                               error,
+                               &rep,
+                               "s",
+                               name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_basic(rep, 'b', &has_owner);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        return has_owner;
+}
+
 int bus_verify_polkit(
                 sd_bus *bus,
                 sd_bus_message *m,
