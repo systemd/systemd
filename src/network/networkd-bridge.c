@@ -202,8 +202,6 @@ static int bridge_create(Bridge *bridge) {
 }
 
 int bridge_join(Bridge *bridge, Link *link, sd_rtnl_message_handler_t callback) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
-
         if (bridge->state == BRIDGE_STATE_READY) {
                 bridge_join_ready(bridge, link, callback);
         } else {

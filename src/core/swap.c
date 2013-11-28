@@ -1182,7 +1182,6 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
 }
 
 static Unit *swap_following(Unit *u) {
-        _cleanup_free_ char *p = NULL;
         Swap *s = SWAP(u);
         Swap *other, *first = NULL;
 
@@ -1336,7 +1335,6 @@ int swap_process_new_device(Manager *m, struct udev_device *dev) {
 }
 
 int swap_process_removed_device(Manager *m, struct udev_device *dev) {
-        _cleanup_free_ char *e = NULL;
         const char *dn;
         int r = 0;
         Swap *s;
