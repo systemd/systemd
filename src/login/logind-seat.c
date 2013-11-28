@@ -413,8 +413,8 @@ int seat_attach_session(Seat *s, Session *session) {
         seat_send_changed(s, "Sessions", NULL);
 
         /* On seats with VTs, the VT logic defines which session is active. On
-         * seats without VTs, we automatically activate the first session. */
-        if (!seat_has_vts(s) && !s->active)
+         * seats without VTs, we automatically activate new sessions. */
+        if (!seat_has_vts(s))
                 seat_set_active(s, session);
 
         return 0;
