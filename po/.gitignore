@@ -3,3 +3,4 @@ Makefile.in.in
 .intltool-merge-cache
 Makefile
 systemd.pot
+/*.gmo
