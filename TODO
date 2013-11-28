@@ -4,8 +4,6 @@ Bugfixes:
     $ systemctl enable getty@.service
     ln -s '/usr/lib/systemd/system/getty@.service' '/etc/systemd/system/getty.target.wants/getty@.service'
 
-* check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
-
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
 * Dangling symlinks of .automount unit files in .wants/ directories, set up
@@ -21,100 +19,59 @@ Bugfixes:
 
   Cannot add dependency job for unit display-manager.service, ignoring: Unit display-manager.service failed to load: No such file or directory. See system logs and 'systemctl status display-manager.service' for details.
 
-Fedora 20:
+External:
 
-* external: ps should gain colums for slice
+* ps should gain colums for slice
 
-* localed:
-  - localectl: support new converted x11→console keymaps
-
-* when installing fedora with yum --installroot /var/run is a directory, not a symlink
+* Fedora: when installing fedora with yum --installroot /var/run is a directory, not a symlink
    https://bugzilla.redhat.com/show_bug.cgi?id=975864
 
-CGroup Rework Completion:
+* Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
-* implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
-
-* implement per-slice CPUFairScheduling=1 switch
-
-* handle jointly mounted controllers correctly
-
-* introduce high-level settings for RT budget, swappiness
+* Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
 
 Features:
 
+* cgroups:
+  - implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
+  - implement per-slice CPUFairScheduling=1 switch
+  - handle jointly mounted controllers correctly
+  - introduce high-level settings for RT budget, swappiness
+  - how to reset dynamically changed unit cgroup attributes sanely?
+  - when reloading configuration, apply new cgroup configuration
+  - when recursively showing the cgroup hierarchy, optionally also show
+    the hierarchies of child processes
+
+* transient units:
+  - allow creating auxiliary units with the same call
+  - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
+  - ensure scope units may be started only a single time
+
+* switch to SipHash for hashmaps/sets?
+
 * general: get rid of readdir_r/dirent_storage stuff, it's unnecessary on Linux
-
-* add API to clone sd_bus_message objects
-
-* sd-bus: synthesized messages should get serial number (uint32_t) -1
-
-* sd-event: allow multiple signal handlers per signal
 
 * when we detect low battery and no AC on boot, show pretty splash and refuse boot
 
 * move libasyncns into systemd as libsystemd-asyncns
 
-* calendarspec: support value ranges with ".." notation. Example: 2013-4..8-1
-
-* sd-bus: when triggering property change events, allow a NULL strv indicate that all properties listed as such are send out as changed
-
-* sd-bus: enforce signatures on response messages
-
-* sd-bus: see if we can drop more message validation on the sending side
-
-* sd-bus: introduce sd_bus_creds object and attach it to messages as well as allow querying it for names
-
-* sd-bus: support "const" properties as flag
-
-* sd-event: when a handler returns an error, just turn off its event
-  source, but do not return anything up to the event loop
-  caller. Instead add parameter to sd_event_request_quit() to take
-  retval. This way errors rippling upwards are the option, not the
-  default
-
-* sd-event: child pid handling: first invoke waitid(WNOHANG) and call event handler, only afterwards reap the process
-
-* sd-event: native support for watchdog stuff
-
-* machined, localed: when we try to kill an empty cgroup, generate an ESRCH call over the bus
-
-* sd-bus: SD_BUS_COMMENT() macro for inclusion in vtables, syntax inspired by gdbus
+* machined, localed: when we try to kill an empty cgroup, generate an ESRCH error over the bus
 
 * libsystemd-journal, libsystemd-login, libudev: add calls to easily attach these objects to sd-event event loops
 
 * be more careful what we export on the bus as (usec_t) 0 and (usec_t) -1
 
-* add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
-
-* systemctl: rework wait filter to not require match callback
-
 * unify dispatch table in systemctl_main() and friends
-
-* bus: access policy as vtable flag
-
-* journalctl: support -M to read journal of containers and determine journal directory from root directory of container
-
-* tmpfiles: to make sure we don't delete unpacked tarballs with old timestamps right-away never delete stuff that is inside a directory with a new mtime
-
-* "systemctl mask" should find all names by which a unit is accessible
-  (i.e. by scanning for symlinks to it) and link them all to /dev/null
 
 * Automatically configure swap partition to use for hibernation by looking for largest swap partition on the root disk?
 
 * remove NSS usage from PID 1 (notably the specifiers)
 
-* socket-proxyd:
-  - Support multiple inherited sockets mapped to different remote hosts
-  - Use a nonblocking alternative to getaddrinfo
-
-* "systemctl cat" or "systemctl view" command or or so, that cats the backing unit file of a service, plus its drop-ins and shows them in a pager
+* socket-proxyd:Use a nonblocking alternative to getaddrinfo
 
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
 
 * Add a new Distribute=$NUMBER key to socket units that makes use of SO_REUSEPORT to distribute network traffic on $NUMBER instances
-
-* tmpfiles: when applying ownership to /run/log/journal, also do this for the journal fails contained in it
 
 * we probably should replace the left-over uses of strv_append() and replace them by strv_push() or strv_extend()
 
@@ -132,62 +89,16 @@ Features:
 
 * refuse boot if /etc/os-release is missing or /etc/machine-id cannot be set up
 
-* ensure scope units may be started only a single time
-
-* better error message if you run systemctl without systemd running
-
-* systemctl status output should should include list of triggering units and their status
-
-* for transient units, instead of writing out drop-ins for all properties consider serializing them in the normal serialization stream
-
-* logind: when logging out, remove user-owned sysv and posix IPC objects
-
-* session scopes/user unit: add RequiresMountsFor for the home directory of the user
-
-* add a man page containing packaging guidelines and recommending usage of things like Documentation=, PrivateTmp=, PrivateNetwork= and ReadOnlyDirectories=/etc /usr.
-
-* journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
-
 * given that logind/machined now let PID 1 do all nasty work, we can
   probably reduce the capability set they retain substantially.
 
 * btrfs raid assembly: some .device jobs stay stuck in the queue
 
-* Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
-
-* Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
-
 * make sure gdm doesn't use multi-user-x but the new default X configuration file, and then remove multi-user-x from systemd
-
-* when parsing calendar timestamps support the UTC timezone (even if we won't support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
-
-* when a kernel driver logs in a tight loop, we should ratelimit that too.
-
-* "systemctl disable" of a unit instance removes all symlinks, but should
-  only remove the instance symlink (systemctl disable of a template
-  unit however should remove them all).
-
-* journald: optionally, log debug messages to /run but everything else to /var
-
-* systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
-
-* journald: when we drop syslog messages because the syslog socket is
-  full, make sure to write how many messages are lost as first thing
-  to syslog when it works again.
 
 * man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
 * load .d/*.conf dropins for device units
-
-* service_coldplug() appears to reinstall the wrong stop timeout watch.
-
-* transient units: allow creating auxiliary units with the same call
-
-* how to reset dynamically changed attributes sanely?
-
-* when reloading configuration, apply new cgroup configuration
-
-* journald: make sure ratelimit is actually really per-service with the new cgroup changes
 
 * gparted needs to disable auto-activation of mount units somehow, or
   maybe we should stop doing auto-activation of this after boot
@@ -195,32 +106,21 @@ Features:
   Maybe take a BSD lock at the disk device node and teach udev to
   check for that and suppress event handling.
 
-* when recursively showing the cgroup hierarchy, optionally also show
-  the hierarchies of child processes
-
 * document logic of auto/noauto and fail/nofail in fstab in systemd.mount or systemd-fstab-generator man page
 
 * something pulls in pcre as shared object dependency into our daemons such as hostnamed.
-
-* document systemd-journal-flush.service properly
-
-* change systemd-journal-flush into a service that stays around during
-  boot, and causes the journal to be moved back to /run on shutdown,
-  so that we don't keep /var busy. This needs to happen synchronously,
-  hence doing this via signals is not going to work.
 
 * allow implementation of InaccessibleDirectories=/ plus
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * libsystemd-bus:
   - default policy (allow uid == 0 and our own uid)
+  - access policy as vtable flag
   - enforce alignment of pointers passed in
   - when kdbus doesn't take our message without memfds, try again with memfds
   - implement translator service
-  - port systemd to new library
   - implement busname unit type in systemd
   - move to gvariant
-  - merge busctl into systemctl or so?
   - synthesize sd_bus_message objects from kernel messages
   - properly implement name registry ioctls for kdbus
   - implement monitor logic
@@ -228,15 +128,27 @@ Features:
   - longer term:
     * priority queues
     * priority inheritance
+  - synthesized messages should get serial number (uint32_t) -1
+  - when triggering property change events, allow a NULL strv indicate that all properties listed as such are send out as changed
+  - enforce signatures on response messages
+  - see if we can drop more message validation on the sending side
+  - support "const" properties as flag
+  - add API to clone sd_bus_message objects
+  - SD_BUS_COMMENT() macro for inclusion in vtables, syntax inspired by gdbus
+
+* sd-event
+  - allow multiple signal handlers per signal
+  - when a handler returns an error, just turn off its event source,
+    but do not return anything up to the event loop caller. Instead
+    add parameter to sd_event_request_quit() to take retval. This way
+    errors rippling upwards are the option, not the default
+  - child pid handling: first invoke waitid(WNOHANG) and call event handler, only afterwards reap the process
+  - native support for watchdog stuff
 
 * in the final killing spree, detect processes from the root directory, and
   complain loudly if they have argv[0][0] == '@' set.
   https://bugzilla.redhat.com/show_bug.cgi?id=961044
 
-* add an option to nspawn that uses seccomp to make socket(AF_NETLINK,
-  SOCK_RAW, NETLINK_AUDIT) fail the the appropriate error code that
-  makes the audit userspace to think auditing is not available in the
-  kernel.
 
 * Introduce a way how we can kill the main process of a service with KillSignal, but all processes with SIGKILL later on
   https://bugzilla.redhat.com/show_bug.cgi?id=952634
@@ -248,11 +160,6 @@ Features:
 * dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
   should be able to safely try another attempt when the bus call LoadUnit() is invoked.
 
-* if pam_systemd is invoked by su from a process that is outside of a
-  any session we should probably just become a NOP, since that's
-  usually not a real user session but just some system code that just
-  needs setuid().
-
 * add a pam module that passes the hdd passphrase into the PAM stack and then expires it, for usage by gdm auto-login.
 
 * add a pam module that on password changes updates any LUKS slot where the password matches
@@ -260,8 +167,6 @@ Features:
 * maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
 
 * timedatctl, localectl: possibly make some commands work without the daemon, for chroot situations...
-
-* logind: add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
 
 * cgtop: make cgtop useful in a container
 
@@ -301,14 +206,10 @@ Features:
   installed to the ESP. Define a way how an installer can figure out
   whether a BLS compliant boot loader is installed.
 
-* man: remove .include documentation, and instead push people to use .d/*.conf
-
 * think about requeuing jobs when daemon-reload is issued? usecase:
   the initrd issues a reload after fstab from the host is accessible
   and we might want to requeue the mounts local-fs acquired through
   that automatically.
-
-* rework specifier logic so that we can distinguish OOM errors from other errors
 
 * systemd-inhibit: make taking delay locks useful: support sending SIGINT or SIGTERM on PrepareForSleep()
 
@@ -316,21 +217,7 @@ Features:
 
 * remove any syslog support from log.c -- we probably can't do this before split-off udev is gone for good
 
-* documentation: recommend to connect the timer units of a service to the service via Also= in [Install]
-
-* add a tool that lists active timer units plus their next elapse and the time the units ran last
-
-* man: document the very specific env the shutdown drop-in tools live in
-
 * shutdown logging: store to EFI var, and store to USB stick?
-
-* man: extend runlevel(8) to mention that runlevels suck, and are dead. Maybe add runlevel(7) with a note about that too
-
-* systemctl: maybe add "systemctl add-wants" or so...
-
-* man: add more examples to man pages
-
-* man: maybe sort directives in man pages, and take sections from --help and apply them to man too
 
 * write UI tool that pops up emergency messages from the journal as notification
 
@@ -381,6 +268,13 @@ Features:
   - logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
   - pam: when leaving a session explicitly exclude the ReleaseSession() caller process from the killing spree
   - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
+  - when logging out, remove user-owned sysv and posix IPC objects
+  - session scopes/user unit: add RequiresMountsFor for the home directory of the user
+  - add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
+  - if pam_systemd is invoked by su from a process that is outside of a
+    any session we should probably just become a NOP, since that's
+    usually not a real user session but just some system code that just
+    needs setuid().
 
 * exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
@@ -404,7 +298,6 @@ Features:
   - journal: add a setgid "systemd-journal" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
   - journactl: support negative filtering, i.e. FOOBAR!="waldo",
     and !FOOBAR for events without FOOBAR.
-  - journal: when rotating, copy over old acls/access mode
   - journal: send out marker messages every now and then, and immediately sync with fdatasync() afterwards, in order to have hourly guaranteed syncs.
   - journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
   - journal: find a way to allow dropping history early, based on priority, other rules
@@ -415,14 +308,24 @@ Features:
   - refuse taking lower-case variable names in sd_journal_send() and friends.
   - journald: we currently rotate only after MaxUse+MaxFilesize has been reached.
   - journal: deal nicely with byte-by-byte copied files, especially regards header
-  - journalctl: expand tabs
   - journal: store euid in journal if it differs from uid
   - journal: sanely deal with entries which are larger than the individual file size, but where the components would fit
   - Replace utmp, wtmp, btmp, and lastlog completely with journal
-  - Port upower to use the journal for historical power information used in future calculations
+  - journalctl: instead --after-cursor= maybe have a --cursor=XYZ+1 syntax?
+  - journalctl: support -M to read journal of containers and determine journal directory from root directory of container
+  - tmpfiles: when applying ownership to /run/log/journal, also do this for the journal fails contained in it
+  - when a kernel driver logs in a tight loop, we should ratelimit that too.
+  - journald: optionally, log debug messages to /run but everything else to /var
+  - journald: when we drop syslog messages because the syslog socket is
+    full, make sure to write how many messages are lost as first thing
+    to syslog when it works again.
+  - journald: make sure ratelimit is actually really per-service with the new cgroup changes
+  - change systemd-journal-flush into a service that stays around during
+    boot, and causes the journal to be moved back to /run on shutdown,
+    so that we don't keep /var busy. This needs to happen synchronously,
+    hence doing this via signals is not going to work.
 
 * document:
-  - document unit_name_mangle()
   - document that deps in [Unit] sections ignore Alias= fileds in
     [Install] units of other units, unless those units are disabled
   - man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
@@ -431,6 +334,14 @@ Features:
   - document the exit codes when services fail before they are exec()ed
   - document that service reload may be implemented as service reexec
   - document in wiki how to map ical recurrence events to systemd timer unit calendar specifications
+  - add a man page containing packaging guidelines and recommending usage of things like Documentation=, PrivateTmp=, PrivateNetwork= and ReadOnlyDirectories=/etc /usr.
+  - document systemd-journal-flush.service properly
+  - man: remove .include documentation, and instead push people to use .d/*.conf
+  - documentation: recommend to connect the timer units of a service to the service via Also= in [Install]
+  - man: document the very specific env the shutdown drop-in tools live in
+  - man: extend runlevel(8) to mention that runlevels suck, and are dead. Maybe add runlevel(7) with a note about that too
+  - man: add more examples to man pages
+  - man: maybe sort directives in man pages, and take sections from --help and apply them to man too
 
 * systemctl:
   - systemctl list-jobs - show dependencies
@@ -446,6 +357,20 @@ Features:
   - systemctl: "Journal has been rotated since unit was started." message is misleading
   - support "systemctl stop foobar@.service" to stop all units matching a certain template
   - Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
+  - rework wait filter to not require match callback
+  - "systemctl cat" or "systemctl view" command or or so, that cats the backing unit file of a service, plus its drop-ins and shows them in a pager
+  - better error message if you run systemctl without systemd running
+  - systemctl status output should should include list of triggering units and their status
+  - in systemctl list-timers show time trggering units ran last
+
+* unit install:
+  - "systemctl mask" should find all names by which a unit is accessible
+    (i.e. by scanning for symlinks to it) and link them all to /dev/null
+  - "systemctl disable" of a unit instance removes all symlinks, but should
+    only remove the instance symlink (systemctl disable of a template
+    unit however should remove them all).
+  - systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
+  - systemctl: maybe add "systemctl add-wants" or so...
 
 * introduce ntp.service (or suchlike) as symlink that is used to arbitrate between various NTP implementations
 
@@ -457,6 +382,8 @@ Features:
     o CLOCK_REALTIME makes jumps (TFD_TIMER_CANCEL_ON_SET)
     o DST changes
   - Support 2012-02~4 as syntax for specifying the fourth to last day of the month.
+  - calendarspec: support value ranges with ".." notation. Example: 2013-4..8-1
+  - when parsing calendar timestamps support the UTC timezone (even if we won't support arbitrary timezone specs, support UTC itself certainly makes sense), also support syntaxes such as +0200
   - Modulate timer frequency based on battery state
   - anacron-like feature
 
@@ -480,8 +407,6 @@ Features:
   logs-show.c. Alternatively: use libelfutil, which seems to be the
   better supported alternative.
 
-* figure out relation of --all and --full in the various tools
-
 * add libsystemd-password or so to query passwords during boot using the password agent logic
 
 * If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
@@ -490,12 +415,9 @@ Features:
 * fedup: don't delete initrd on switch-root
 * fedup: generator
 
-* timedated:
-  - timedated: refuse time changes when NTP is on
+* timedated: refuse time changes when NTP is on
 
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
-
-* introduce generic AUGMENT_PID=, AUGMENT_DEVICE= fields
 
 * on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
 
@@ -509,13 +431,9 @@ Features:
 * make repeated alt-ctrl-del presses printing a dump, or even force a reboot without
   waiting for the timeout
 
-* high level net_prio setting in execution context
-
 * hostnamed: before returning information from /etc/machine-info.conf check the modification data and reread. Similar for localed, ...
 
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab isn't
-
-* refuse boot if /etc/machine-id is not useful (or set taint?)
 
 * nspawn:
   - nspawn: consider changing users for -u with su, so that NSS resolving works correctly
@@ -530,14 +448,16 @@ Features:
   - nspawn: maybe explicitly reset loginuid?
   - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters, selinux exec context
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
+  - add an option to nspawn that uses seccomp to make socket(AF_NETLINK,
+    SOCK_RAW, NETLINK_AUDIT) fail the the appropriate error code that
+    makes the audit userspace to think auditing is not available in the
+    kernel.
 
 * cryptsetup:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
   - move cryptsetup key caching into kernel keyctl?
     https://bugs.freedesktop.org/show_bug.cgi?id=54982
   - support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
-
-* move debug shell to tty6 and make sure this doesn't break the gettys on tty6
 
 * hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
   https://bugs.freedesktop.org/show_bug.cgi?id=54712
@@ -574,8 +494,6 @@ Features:
   when done. That means clients don't get a successful method reply,
   but much rather a disconnect on success.
 
-* use opterr = 0 for all getopt tools
-
 * properly handle loop back mounts via fstab, especially regards to fsck/passno
 
 * allow services with no ExecStart= but with an ExecStop=
@@ -592,8 +510,6 @@ Features:
   - syscall filter: option to return EPERM rather than SIGSYS?
   - syscall filter: port to libseccomp
   - system-wide seccomp filter
-
-* .device aliases need to be implemented with the "following" logic, probably.
 
 * load-fragment: when loading a unit file via a chain of symlinks
   verify that it isn't masked via any of the names traversed.
@@ -614,8 +530,6 @@ Features:
      - call umount
      - answer expire packet on pipe with AUTOFS_DEV_IOCTL_{READY,FAIL}_CMD
    - AUTOFS_DEV_IOCTL_EXPIRE_CMD returns
-
-* services which create their own subcgroups break cgroup-empty notification (needs to be fixed in the kernel)
 
 * ExecOnFailure=/usr/bin/foo
 
@@ -652,7 +566,9 @@ Features:
 
 * when a bus name of a service disappears from the bus make sure to queue further activation requests
 
-* tmpfiles: apply "x" on "D" too (see patch from William Douglas)
+* tmpfiles:
+  - check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
+  - apply "x" on "D" too (see patch from William Douglas)
 
 * for services: don't set $HOME in services unless requested
 
@@ -678,7 +594,7 @@ Features:
   when we start a service in order to avoid confusion when a user
   assumes starting a service is enough to make it accessible
 
-* support User= and Group= attributes for AF_UNIX sockets.
+* support User= and Group= attributes for AF_UNIX sockets. (difficult, requires NSS from PID 1?)
 
 * Make it possible to set the keymap independently from the font on
   the kernel cmdline. Right now setting one resets also the other.
@@ -732,8 +648,6 @@ Features:
 * dot output for --test showing the 'initial transaction'
 
 * port over to LISTEN_FDS/LISTEN_PID:
-   - rpcbind (/var/run/rpcbind.sock!) HAVEPATCH
-   - cups     HAVEPATCH
    - postfix, saslauthd
    - apache/samba
    - libvirtd (/var/run/libvirt/libvirt-sock-ro)
@@ -771,12 +685,7 @@ Features:
 External:
 
 * dbus:
-   - dbus --user
    - natively watch for dbus-*.service symlinks (PENDING)
-   - allow specification of socket mode/umask when allocating DBusServer
-   - allow disabling of fd passing when connecting a AF_UNIX connection
-   - allow disabling of UID passing for AUTH EXTERNAL
-   - always pass cred data along each message
    - teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
 * fix alsa mixer restore to not print error when no config is stored
