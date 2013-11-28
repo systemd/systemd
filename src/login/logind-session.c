@@ -20,9 +20,13 @@
 ***/
 
 #include <errno.h>
-#include <string.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <linux/vt.h>
+#include <linux/kd.h>
+#include <signal.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "sd-id128.h"
 #include "sd-messages.h"
@@ -86,6 +90,7 @@ Session* session_new(Manager *m, const char *id) {
 
         s->manager = m;
         s->fifo_fd = -1;
+        s->vtfd = -1;
 
         return s;
 }
@@ -395,6 +400,8 @@ int session_load(Session *s) {
         if (controller) {
                 if (bus_name_has_owner(s->manager->bus, controller, NULL) > 0)
                         session_set_controller(s, controller, false);
+                else
+                        session_restore_vt(s);
         }
 
         return r;
@@ -971,6 +978,101 @@ int session_kill(Session *s, KillWho who, int signo) {
         return manager_kill_unit(s->manager, s->scope, who, signo, NULL);
 }
 
+static int session_open_vt(Session *s) {
+        char path[128];
+
+        if (s->vtnr <= 0)
+                return -1;
+
+        if (s->vtfd >= 0)
+                return s->vtfd;
+
+        sprintf(path, "/dev/tty%d", s->vtnr);
+        s->vtfd = open(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
+        if (s->vtfd < 0) {
+                log_error("cannot open VT %s of session %s: %m", path, s->id);
+                return -1;
+        }
+
+        return s->vtfd;
+}
+
+static int session_vt_fn(sd_event_source *source, const struct signalfd_siginfo *si, void *data) {
+        Session *s = data;
+
+        if (s->vtfd >= 0)
+                ioctl(s->vtfd, VT_RELDISP, 1);
+
+        return 0;
+}
+
+void session_mute_vt(Session *s) {
+        int vt, r;
+        struct vt_mode mode = { 0 };
+        sigset_t mask;
+
+        vt = session_open_vt(s);
+        if (vt < 0)
+                return;
+
+        r = ioctl(vt, KDSKBMODE, K_OFF);
+        if (r < 0)
+                goto error;
+
+        r = ioctl(vt, KDSETMODE, KD_GRAPHICS);
+        if (r < 0)
+                goto error;
+
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGUSR1);
+        sigprocmask(SIG_BLOCK, &mask, NULL);
+
+        r = sd_event_add_signal(s->manager->event, SIGUSR1, session_vt_fn, s, &s->vt_source);
+        if (r < 0)
+                goto error;
+
+        /* Oh, thanks to the VT layer, VT_AUTO does not work with KD_GRAPHICS.
+         * So we need a dummy handler here which just acknowledges *all* VT
+         * switch requests. */
+        mode.mode = VT_PROCESS;
+        mode.relsig = SIGUSR1;
+        mode.acqsig = SIGUSR1;
+        r = ioctl(vt, VT_SETMODE, &mode);
+        if (r < 0)
+                goto error;
+
+        return;
+
+error:
+        log_error("cannot mute VT %d for session %s (%d/%d)", s->vtnr, s->id, r, errno);
+        session_restore_vt(s);
+}
+
+void session_restore_vt(Session *s) {
+        _cleanup_free_ char *utf8;
+        int vt, kb = K_XLATE;
+        struct vt_mode mode = { 0 };
+
+        vt = session_open_vt(s);
+        if (vt < 0)
+                return;
+
+        sd_event_source_unref(s->vt_source);
+        s->vt_source = NULL;
+
+        ioctl(vt, KDSETMODE, KD_TEXT);
+
+        if (read_one_line_file("/sys/module/vt/parameters/default_utf8", &utf8) >= 0 && *utf8 == '1')
+                kb = K_UNICODE;
+        ioctl(vt, KDSKBMODE, kb);
+
+        mode.mode = VT_AUTO;
+        ioctl(vt, VT_SETMODE, &mode);
+
+        close_nointr_nofail(vt);
+        s->vtfd = -1;
+}
+
 bool session_is_controller(Session *s, const char *sender) {
         assert(s);
 
@@ -990,6 +1092,9 @@ static void session_swap_controller(Session *s, char *name) {
                  * dbus signals. */
                 while ((sd = hashmap_first(s->devices)))
                         session_device_free(sd);
+
+                if (!name)
+                        session_restore_vt(s);
         }
 
         s->controller = name;
@@ -1019,6 +1124,16 @@ int session_set_controller(Session *s, const char *sender, bool force) {
         }
 
         session_swap_controller(s, t);
+
+        /* When setting a session controller, we forcibly mute the VT and set
+         * it into graphics-mode. Applications can override that by changing
+         * VT state after calling TakeControl(). However, this serves as a good
+         * default and well-behaving controllers can now ignore VTs entirely.
+         * Note that we reset the VT on ReleaseControl() and if the controller
+         * exits.
+         * If logind crashes/restarts, we restore the controller during restart
+         * or reset the VT in case it crashed/exited, too. */
+        session_mute_vt(s);
 
         return 0;
 }
