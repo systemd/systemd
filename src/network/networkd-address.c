@@ -155,6 +155,12 @@ int config_parse_address(const char *unit,
         assert(rvalue);
         assert(data);
 
+        if (streq(section, "Network")) {
+                /* we are not in an Address section, so treat
+                 * this as the special '0' section */
+                section_line = 0;
+        }
+
         r = address_new(network, section_line, &n);
         if (r < 0)
                 return r;

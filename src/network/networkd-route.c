@@ -142,6 +142,12 @@ int config_parse_gateway(const char *unit,
         assert(rvalue);
         assert(data);
 
+        if (streq(section, "Network")) {
+                /* we are not in an Route section, so treat
+                 * this as the special '0' section */
+                section_line = 0;
+        }
+
         r = route_new(network, section_line, &n);
         if (r < 0)
                 return r;
