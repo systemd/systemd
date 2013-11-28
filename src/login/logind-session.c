@@ -239,6 +239,9 @@ int session_save(Session *s) {
                         (unsigned long long) s->timestamp.realtime,
                         (unsigned long long) s->timestamp.monotonic);
 
+        if (s->controller)
+                fprintf(f, "CONTROLLER=%s\n", s->controller);
+
         fflush(f);
 
         if (ferror(f) || rename(temp_path, s->state_file) < 0) {
@@ -263,7 +266,8 @@ int session_load(Session *s) {
                 *class = NULL,
                 *uid = NULL,
                 *realtime = NULL,
-                *monotonic = NULL;
+                *monotonic = NULL,
+                *controller = NULL;
 
         int k, r;
 
@@ -287,6 +291,7 @@ int session_load(Session *s) {
                            "UID",            &uid,
                            "REALTIME",       &realtime,
                            "MONOTONIC",      &monotonic,
+                           "CONTROLLER",     &controller,
                            NULL);
 
         if (r < 0) {
@@ -385,6 +390,11 @@ int session_load(Session *s) {
                 unsigned long long l;
                 if (sscanf(monotonic, "%llu", &l) > 0)
                         s->timestamp.monotonic = l;
+        }
+
+        if (controller) {
+                if (bus_name_has_owner(s->manager->bus, controller, NULL) > 0)
+                        session_set_controller(s, controller, false);
         }
 
         return r;
@@ -967,6 +977,25 @@ bool session_is_controller(Session *s, const char *sender) {
         return streq_ptr(s->controller, sender);
 }
 
+static void session_swap_controller(Session *s, char *name) {
+        SessionDevice *sd;
+
+        if (s->controller) {
+                manager_drop_busname(s->manager, s->controller);
+                free(s->controller);
+                s->controller = NULL;
+
+                /* Drop all devices as they're now unused. Do that after the
+                 * controller is released to avoid sending out useles
+                 * dbus signals. */
+                while ((sd = hashmap_first(s->devices)))
+                        session_device_free(sd);
+        }
+
+        s->controller = name;
+        session_save(s);
+}
+
 int session_set_controller(Session *s, const char *sender, bool force) {
         char *t;
         int r;
@@ -989,28 +1018,18 @@ int session_set_controller(Session *s, const char *sender, bool force) {
                 return r;
         }
 
-        session_drop_controller(s);
+        session_swap_controller(s, t);
 
-        s->controller = t;
         return 0;
 }
 
 void session_drop_controller(Session *s) {
-        SessionDevice *sd;
-
         assert(s);
 
         if (!s->controller)
                 return;
 
-        manager_drop_busname(s->manager, s->controller);
-        free(s->controller);
-        s->controller = NULL;
-
-        /* Drop all devices as they're now unused. Do that after the controller
-         * is released to avoid sending out useles dbus signals. */
-        while ((sd = hashmap_first(s->devices)))
-                session_device_free(sd);
+        session_swap_controller(s, NULL);
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {
