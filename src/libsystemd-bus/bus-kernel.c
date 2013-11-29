@@ -61,7 +61,7 @@ static void append_payload_vec(struct kdbus_item **d, const void *p, size_t sz) 
          * conditions */
 
         (*d)->size = offsetof(struct kdbus_item, vec) + sizeof(struct kdbus_vec);
-        (*d)->type = KDBUS_MSG_PAYLOAD_VEC;
+        (*d)->type = KDBUS_ITEM_PAYLOAD_VEC;
         (*d)->vec.address = PTR_TO_UINT64(p);
         (*d)->vec.size = sz;
 
@@ -75,7 +75,7 @@ static void append_payload_memfd(struct kdbus_item **d, int memfd, size_t sz) {
 
         *d = ALIGN8_PTR(*d);
         (*d)->size = offsetof(struct kdbus_item, memfd) + sizeof(struct kdbus_memfd);
-        (*d)->type = KDBUS_MSG_PAYLOAD_MEMFD;
+        (*d)->type = KDBUS_ITEM_PAYLOAD_MEMFD;
         (*d)->memfd.fd = memfd;
         (*d)->memfd.size = sz;
 
@@ -89,7 +89,7 @@ static void append_destination(struct kdbus_item **d, const char *s, size_t leng
         *d = ALIGN8_PTR(*d);
 
         (*d)->size = offsetof(struct kdbus_item, str) + length + 1;
-        (*d)->type = KDBUS_MSG_DST_NAME;
+        (*d)->type = KDBUS_ITEM_DST_NAME;
         memcpy((*d)->str, s, length + 1);
 
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
@@ -103,7 +103,7 @@ static void* append_bloom(struct kdbus_item **d, size_t length) {
         *d = ALIGN8_PTR(*d);
 
         (*d)->size = offsetof(struct kdbus_item, data) + length;
-        (*d)->type = KDBUS_MSG_BLOOM;
+        (*d)->type = KDBUS_ITEM_BLOOM;
         r = (*d)->data;
 
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
@@ -118,7 +118,7 @@ static void append_fds(struct kdbus_item **d, const int fds[], unsigned n_fds) {
 
         *d = ALIGN8_PTR(*d);
         (*d)->size = offsetof(struct kdbus_item, fds) + sizeof(int) * n_fds;
-        (*d)->type = KDBUS_MSG_FDS;
+        (*d)->type = KDBUS_ITEM_FDS;
         memcpy((*d)->fds, fds, sizeof(int) * n_fds);
 
         *d = (struct kdbus_item *) ((uint8_t*) *d + (*d)->size);
@@ -415,9 +415,9 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
 
         KDBUS_PART_FOREACH(d, k, items) {
 
-                if (d->type == KDBUS_MSG_FDS)
+                if (d->type == KDBUS_ITEM_FDS)
                         close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
-                else if (d->type == KDBUS_MSG_PAYLOAD_MEMFD)
+                else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD)
                         close_nointr_nofail(d->memfd.fd);
         }
 }
@@ -444,7 +444,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                 l = d->size - offsetof(struct kdbus_item, data);
 
-                if (d->type == KDBUS_MSG_PAYLOAD_OFF) {
+                if (d->type == KDBUS_ITEM_PAYLOAD_OFF) {
 
                         if (!h) {
                                 h = (struct bus_header *)((uint8_t *)bus->kdbus_buffer + d->vec.offset);
@@ -455,14 +455,14 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                         n_bytes += d->vec.size;
 
-                } else if (d->type == KDBUS_MSG_PAYLOAD_MEMFD) {
+                } else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD) {
 
                         if (!h)
                                 return -EBADMSG;
 
                         n_bytes += d->memfd.size;
 
-                } else if (d->type == KDBUS_MSG_FDS) {
+                } else if (d->type == KDBUS_ITEM_FDS) {
                         int *f;
                         unsigned j;
 
@@ -475,7 +475,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         memcpy(fds + n_fds, d->fds, sizeof(int) * j);
                         n_fds += j;
 
-                } else if (d->type == KDBUS_MSG_SRC_SECLABEL)
+                } else if (d->type == KDBUS_ITEM_SECLABEL)
                         seclabel = d->str;
         }
 
@@ -498,7 +498,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                 l = d->size - offsetof(struct kdbus_item, data);
 
-                if (d->type == KDBUS_MSG_PAYLOAD_OFF) {
+                if (d->type == KDBUS_ITEM_PAYLOAD_OFF) {
                         size_t begin_body;
 
                         begin_body = BUS_MESSAGE_BODY_BEGIN(m);
@@ -531,7 +531,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         }
 
                         idx += d->vec.size;
-                } else if (d->type == KDBUS_MSG_PAYLOAD_MEMFD) {
+                } else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD) {
                         struct bus_body_part *part;
 
                         if (idx < BUS_MESSAGE_BODY_BEGIN(m)) {
@@ -551,7 +551,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                         idx += d->memfd.size;
 
-                } else if (d->type == KDBUS_MSG_SRC_CREDS) {
+                } else if (d->type == KDBUS_ITEM_CREDS) {
                         m->creds.pid_starttime = d->creds.starttime / NSEC_PER_USEC;
                         m->creds.uid = d->creds.uid;
                         m->creds.gid = d->creds.gid;
@@ -559,46 +559,46 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         m->creds.tid = d->creds.tid;
                         m->creds.mask |= (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID) & bus->creds_mask;
 
-                } else if (d->type == KDBUS_MSG_TIMESTAMP) {
+                } else if (d->type == KDBUS_ITEM_TIMESTAMP) {
                         m->realtime = d->timestamp.realtime_ns / NSEC_PER_USEC;
                         m->monotonic = d->timestamp.monotonic_ns / NSEC_PER_USEC;
 
-                } else if (d->type == KDBUS_MSG_SRC_PID_COMM) {
+                } else if (d->type == KDBUS_ITEM_PID_COMM) {
                         m->creds.comm = d->str;
                         m->creds.mask |= SD_BUS_CREDS_COMM & bus->creds_mask;
 
-                } else if (d->type == KDBUS_MSG_SRC_TID_COMM) {
+                } else if (d->type == KDBUS_ITEM_TID_COMM) {
                         m->creds.tid_comm = d->str;
                         m->creds.mask |= SD_BUS_CREDS_TID_COMM & bus->creds_mask;
 
-                } else if (d->type == KDBUS_MSG_SRC_EXE) {
+                } else if (d->type == KDBUS_ITEM_EXE) {
                         m->creds.exe = d->str;
                         m->creds.mask |= SD_BUS_CREDS_EXE & bus->creds_mask;
 
-                } else if (d->type == KDBUS_MSG_SRC_CMDLINE) {
+                } else if (d->type == KDBUS_ITEM_CMDLINE) {
                         m->creds.cmdline = d->str;
                         m->creds.cmdline_length = l;
                         m->creds.mask |= SD_BUS_CREDS_CMDLINE & bus->creds_mask;
 
-                } else if (d->type == KDBUS_MSG_SRC_CGROUP) {
+                } else if (d->type == KDBUS_ITEM_CGROUP) {
                         m->creds.cgroup = d->str;
                         m->creds.mask |= (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID) & bus->creds_mask;
 
-                } else if (d->type == KDBUS_MSG_SRC_AUDIT) {
+                } else if (d->type == KDBUS_ITEM_AUDIT) {
                         m->creds.audit_session_id = d->audit.sessionid;
                         m->creds.audit_login_uid = d->audit.loginuid;
                         m->creds.mask |= (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID) & bus->creds_mask;
 
-                } else if (d->type == KDBUS_MSG_SRC_CAPS) {
+                } else if (d->type == KDBUS_ITEM_CAPS) {
                         m->creds.capability = d->data;
                         m->creds.capability_size = l;
                         m->creds.mask |= (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS) & bus->creds_mask;
 
-                } else if (d->type == KDBUS_MSG_DST_NAME)
+                } else if (d->type == KDBUS_ITEM_DST_NAME)
                         destination = d->str;
-                else if (d->type != KDBUS_MSG_FDS &&
-                           d->type != KDBUS_MSG_SRC_SECLABEL &&
-                             d->type != KDBUS_MSG_SRC_NAMES)
+                else if (d->type != KDBUS_ITEM_FDS &&
+                           d->type != KDBUS_ITEM_SECLABEL &&
+                             d->type != KDBUS_ITEM_NAMES)
                         log_debug("Got unknown field from kernel %llu", d->type);
         }
 

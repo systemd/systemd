@@ -88,38 +88,40 @@ struct kdbus_memfd {
 
 /* Message Item Types */
 enum {
-	_KDBUS_MSG_NULL,
+	_KDBUS_ITEM_NULL,
 
 	/* Filled in by userspace */
-	KDBUS_MSG_PAYLOAD_VEC,		/* .data_vec, reference to memory area */
-	KDBUS_MSG_PAYLOAD_OFF,		/* .data_vec, reference to memory area */
-	KDBUS_MSG_PAYLOAD_MEMFD,	/* file descriptor of a special data file */
-	KDBUS_MSG_FDS,			/* .data_fds of file descriptors */
-	KDBUS_MSG_BLOOM,		/* for broadcasts, carries bloom filter blob in .data */
-	KDBUS_MSG_DST_NAME,		/* destination's well-known name, in .str */
-	KDBUS_MSG_PRIORITY,		/* queue priority for message */
+	KDBUS_ITEM_PAYLOAD_VEC,		/* .data_vec, reference to memory area */
+	KDBUS_ITEM_PAYLOAD_OFF,		/* .data_vec, reference to memory area */
+	KDBUS_ITEM_PAYLOAD_MEMFD,	/* file descriptor of a special data file */
+	KDBUS_ITEM_FDS,			/* .data_fds of file descriptors */
+	KDBUS_ITEM_BLOOM,		/* for broadcasts, carries bloom filter blob in .data */
+	KDBUS_ITEM_DST_NAME,		/* destination's well-known name, in .str */
+	KDBUS_ITEM_PRIORITY,		/* queue priority for message */
 
 	/* Filled in by kernelspace */
-	KDBUS_MSG_SRC_NAMES	= 0x400,/* NUL separated string list with well-known names of source */
-	KDBUS_MSG_TIMESTAMP,		/* .timestamp */
-	KDBUS_MSG_SRC_CREDS,		/* .creds */
-	KDBUS_MSG_SRC_PID_COMM,		/* optional, in .str */
-	KDBUS_MSG_SRC_TID_COMM,		/* optional, in .str */
-	KDBUS_MSG_SRC_EXE,		/* optional, in .str */
-	KDBUS_MSG_SRC_CMDLINE,		/* optional, in .str (a chain of NUL str) */
-	KDBUS_MSG_SRC_CGROUP,		/* optional, in .str */
-	KDBUS_MSG_SRC_CAPS,		/* caps data blob, in .data */
-	KDBUS_MSG_SRC_SECLABEL,		/* NUL terminated string, in .str */
-	KDBUS_MSG_SRC_AUDIT,		/* .audit */
+	KDBUS_ITEM_NAMES	= 0x400,/* NUL separated string list with well-known names of source */
+	KDBUS_ITEM_TIMESTAMP,		/* .timestamp */
+
+	/* when appended to a message, the following items refer to the sender */
+	KDBUS_ITEM_CREDS,		/* .creds */
+	KDBUS_ITEM_PID_COMM,		/* optional, in .str */
+	KDBUS_ITEM_TID_COMM,		/* optional, in .str */
+	KDBUS_ITEM_EXE,		/* optional, in .str */
+	KDBUS_ITEM_CMDLINE,		/* optional, in .str (a chain of NUL str) */
+	KDBUS_ITEM_CGROUP,		/* optional, in .str */
+	KDBUS_ITEM_CAPS,		/* caps data blob, in .data */
+	KDBUS_ITEM_SECLABEL,		/* NUL terminated string, in .str */
+	KDBUS_ITEM_AUDIT,		/* .audit */
 
 	/* Special messages from kernel, consisting of one and only one of these data blocks */
-	KDBUS_MSG_NAME_ADD	= 0x800,/* .name_change */
-	KDBUS_MSG_NAME_REMOVE,		/* .name_change */
-	KDBUS_MSG_NAME_CHANGE,		/* .name_change */
-	KDBUS_MSG_ID_ADD,		/* .id_change */
-	KDBUS_MSG_ID_REMOVE,		/* .id_change */
-	KDBUS_MSG_REPLY_TIMEOUT,	/* empty, but .reply_cookie in .kdbus_msg is filled in */
-	KDBUS_MSG_REPLY_DEAD,		/* dito */
+	KDBUS_ITEM_NAME_ADD	= 0x800,/* .name_change */
+	KDBUS_ITEM_NAME_REMOVE,		/* .name_change */
+	KDBUS_ITEM_NAME_CHANGE,		/* .name_change */
+	KDBUS_ITEM_ID_ADD,		/* .id_change */
+	KDBUS_ITEM_ID_REMOVE,		/* .id_change */
+	KDBUS_ITEM_REPLY_TIMEOUT,	/* empty, but .reply_cookie in .kdbus_msg is filled in */
+	KDBUS_ITEM_REPLY_DEAD,		/* dito */
 };
 
 /**
