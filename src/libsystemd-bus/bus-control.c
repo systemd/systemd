@@ -38,12 +38,9 @@
 _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!unique)
-                return -EINVAL;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(unique, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -58,16 +55,11 @@ _public_ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
         uint32_t ret;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!name)
-                return -EINVAL;
-        if (!bus->bus_client)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(bus->bus_client, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (bus->is_kernel) {
                 struct kdbus_cmd_name *n;
@@ -126,16 +118,11 @@ _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
         uint32_t ret;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!name)
-                return -EINVAL;
-        if (!bus->bus_client)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(bus->bus_client, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (bus->is_kernel) {
                 struct kdbus_cmd_name *n;
@@ -181,14 +168,10 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
         char **x = NULL;
         int r;
 
-        if (!bus)
-                return -EINVAL;
-        if (!l)
-                return -EINVAL;
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-        if (bus_pid_changed(bus))
-                return -ECHILD;
+        assert_return(bus, -EINVAL);
+        assert_return(l, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (bus->is_kernel) {
                 _cleanup_free_ struct kdbus_cmd_names *names = NULL;
