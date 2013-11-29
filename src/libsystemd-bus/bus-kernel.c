@@ -566,6 +566,39 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k, sd_bus
         return translate[found->type](bus, k, d, ret);
 }
 
+int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
+
+        uint64_t m = 0;
+
+        SET_FLAG(m, KDBUS_ATTACH_CREDS,
+                 !!(mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID)));
+
+        SET_FLAG(m, KDBUS_ATTACH_COMM,
+                 !!(mask & (SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM)));
+
+        SET_FLAG(m, KDBUS_ATTACH_EXE,
+                 !!(mask & SD_BUS_CREDS_EXE));
+
+        SET_FLAG(m, KDBUS_ATTACH_CMDLINE,
+                 !!(mask & SD_BUS_CREDS_CMDLINE));
+
+        SET_FLAG(m, KDBUS_ATTACH_CGROUP,
+                 !!(mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)));
+
+        SET_FLAG(m, KDBUS_ATTACH_CAPS,
+                 !!(mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS)));
+
+        SET_FLAG(m, KDBUS_ATTACH_SECLABEL,
+                 !!(mask & SD_BUS_CREDS_SELINUX_CONTEXT));
+
+        SET_FLAG(m, KDBUS_ATTACH_AUDIT,
+                 !!(mask & (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)));
+
+        *kdbus_mask = m;
+
+        return 0;
+}
+
 static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_message **ret) {
         sd_bus_message *m = NULL;
         struct kdbus_item *d;
