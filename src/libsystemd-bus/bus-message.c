@@ -385,6 +385,7 @@ int bus_message_from_malloc(
                 sd_bus_message **ret) {
 
         sd_bus_message *m;
+        size_t sz;
         int r;
 
         r = bus_message_from_header(bus, buffer, length, fds, n_fds, ucred, label, 0, &m);
@@ -396,11 +397,14 @@ int bus_message_from_malloc(
                 goto fail;
         }
 
-        m->n_body_parts = 1;
-        m->body.data = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
-        m->body.size = length - sizeof(struct bus_header) - ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
-        m->body.sealed = true;
-        m->body.memfd = -1;
+        sz = length - sizeof(struct bus_header) - ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
+        if (sz > 0) {
+                m->n_body_parts = 1;
+                m->body.data = (uint8_t*) buffer + sizeof(struct bus_header) + ALIGN8(BUS_MESSAGE_FIELDS_SIZE(m));
+                m->body.size = sz;
+                m->body.sealed = true;
+                m->body.memfd = -1;
+        }
 
         m->n_iovec = 1;
         m->iovec = m->iovec_fixed;
