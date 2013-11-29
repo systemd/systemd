@@ -33,6 +33,9 @@
 #include "bus-message.h"
 #include "bus-kernel.h"
 #include "bus-bloom.h"
+#include "bus-util.h"
+
+#define UNIQUE_NAME_MAX (3+DECIMAL_STR_MAX(uint64_t))
 
 int bus_kernel_parse_unique_name(const char *s, uint64_t *id) {
         int r;
@@ -422,6 +425,147 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
         }
 }
 
+static int return_name_owner_changed(sd_bus *bus, const char *name, const char *old_owner, const char *new_owner, sd_bus_message **ret) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+        assert(ret);
+
+        r = sd_bus_message_new_signal(
+                        bus,
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "NameOwnerChanged",
+                        &m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "sss", name, old_owner, new_owner);
+        if (r < 0)
+                return r;
+
+        m->sender = "org.freedesktop.DBus";
+
+        r = bus_seal_message(bus, m);
+        if (r < 0)
+                return r;
+
+        *ret = m;
+        m = NULL;
+
+        return 1;
+}
+
+static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d, sd_bus_message **ret) {
+        char new_owner[UNIQUE_NAME_MAX], old_owner[UNIQUE_NAME_MAX];
+
+        assert(bus);
+        assert(k);
+        assert(d);
+        assert(ret);
+
+        if (d->name_change.flags != 0)
+                return 0;
+
+        if (d->type == KDBUS_ITEM_NAME_ADD)
+                old_owner[0] = 0;
+        else
+                sprintf(old_owner, ":1.%llu", (unsigned long long) d->name_change.old_id);
+
+        if (d->type == KDBUS_ITEM_NAME_REMOVE)
+                new_owner[0] = 0;
+        else
+                sprintf(new_owner, ":1.%llu", (unsigned long long) d->name_change.new_id);
+
+        return return_name_owner_changed(bus, d->name_change.name, old_owner, new_owner, ret);
+}
+
+static int translate_id_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d, sd_bus_message **ret) {
+        char owner[UNIQUE_NAME_MAX];
+
+        assert(bus);
+        assert(k);
+        assert(d);
+        assert(ret);
+
+        sprintf(owner, ":1.%llu", d->id_change.id);
+
+        return return_name_owner_changed(
+                        bus, owner,
+                        d->type == KDBUS_ITEM_ID_ADD ? NULL : owner,
+                        d->type == KDBUS_ITEM_ID_ADD ? owner : NULL,
+                        ret);
+}
+
+static int translate_reply(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d, sd_bus_message **ret) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+        assert(k);
+        assert(d);
+        assert(ret);
+
+        r = bus_message_new_synthetic_error(
+                        bus,
+                        k->cookie_reply,
+                        d->type == KDBUS_ITEM_REPLY_TIMEOUT ?
+                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Method call timed out") :
+                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Method call peer died"),
+                        &m);
+        if (r < 0)
+                return r;
+
+        m->sender = "org.freedesktop.DBus";
+
+        r = bus_seal_message(bus, m);
+        if (r < 0)
+                return r;
+
+        *ret = m;
+        m = NULL;
+
+        return 1;
+}
+
+static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_message **ret) {
+        struct kdbus_item *d, *found = NULL;
+
+        static int (* const translate[])(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d, sd_bus_message **ret) = {
+                [KDBUS_ITEM_NAME_ADD - _KDBUS_ITEM_KERNEL_BASE] = translate_name_change,
+                [KDBUS_ITEM_NAME_REMOVE - _KDBUS_ITEM_KERNEL_BASE] = translate_name_change,
+                [KDBUS_ITEM_NAME_CHANGE - _KDBUS_ITEM_KERNEL_BASE] = translate_name_change,
+
+                [KDBUS_ITEM_ID_ADD - _KDBUS_ITEM_KERNEL_BASE] = translate_id_change,
+                [KDBUS_ITEM_ID_REMOVE - _KDBUS_ITEM_KERNEL_BASE] = translate_id_change,
+
+                [KDBUS_ITEM_REPLY_TIMEOUT - _KDBUS_ITEM_KERNEL_BASE] = translate_reply,
+                [KDBUS_ITEM_REPLY_DEAD - _KDBUS_ITEM_KERNEL_BASE] = translate_reply,
+        };
+
+        assert(bus);
+        assert(k);
+        assert(ret);
+        assert(k->payload_type == KDBUS_PAYLOAD_KERNEL);
+
+        KDBUS_PART_FOREACH(d, k, items) {
+                if (d->type >= _KDBUS_ITEM_KERNEL_BASE && d->type < _KDBUS_ITEM_KERNEL_BASE + ELEMENTSOF(translate)) {
+                        if (found)
+                                return -EBADMSG;
+                        found = d;
+                } else
+                        log_debug("Got unknown field from kernel %llu", d->type);
+        }
+
+        if (!found) {
+                log_debug("Didn't find a kernel message to translate.");
+                return 0;
+        }
+
+        return translate[found->type](bus, k, d, ret);
+}
+
 static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_message **ret) {
         sd_bus_message *m = NULL;
         struct kdbus_item *d;
@@ -435,17 +579,16 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
         assert(bus);
         assert(k);
         assert(ret);
-
-        if (k->payload_type != KDBUS_PAYLOAD_DBUS1)
-                return 0;
+        assert(k->payload_type == KDBUS_PAYLOAD_DBUS1);
 
         KDBUS_PART_FOREACH(d, k, items) {
                 size_t l;
 
                 l = d->size - offsetof(struct kdbus_item, data);
 
-                if (d->type == KDBUS_ITEM_PAYLOAD_OFF) {
+                switch (d->type) {
 
+                case KDBUS_ITEM_PAYLOAD_OFF:
                         if (!h) {
                                 h = (struct bus_header *)((uint8_t *)bus->kdbus_buffer + d->vec.offset);
 
@@ -454,15 +597,16 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         }
 
                         n_bytes += d->vec.size;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD) {
-
+                case KDBUS_ITEM_PAYLOAD_MEMFD:
                         if (!h)
                                 return -EBADMSG;
 
                         n_bytes += d->memfd.size;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_FDS) {
+                case KDBUS_ITEM_FDS: {
                         int *f;
                         unsigned j;
 
@@ -474,9 +618,13 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         fds = f;
                         memcpy(fds + n_fds, d->fds, sizeof(int) * j);
                         n_fds += j;
+                        break;
+                }
 
-                } else if (d->type == KDBUS_ITEM_SECLABEL)
+                case KDBUS_ITEM_SECLABEL:
                         seclabel = d->str;
+                        break;
+                }
         }
 
         if (!h)
@@ -498,7 +646,9 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
                 l = d->size - offsetof(struct kdbus_item, data);
 
-                if (d->type == KDBUS_ITEM_PAYLOAD_OFF) {
+                switch (d->type) {
+
+                case KDBUS_ITEM_PAYLOAD_OFF: {
                         size_t begin_body;
 
                         begin_body = BUS_MESSAGE_BODY_BEGIN(m);
@@ -531,7 +681,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         }
 
                         idx += d->vec.size;
-                } else if (d->type == KDBUS_ITEM_PAYLOAD_MEMFD) {
+                        break;
+                }
+
+                case KDBUS_ITEM_PAYLOAD_MEMFD: {
                         struct bus_body_part *part;
 
                         if (idx < BUS_MESSAGE_BODY_BEGIN(m)) {
@@ -550,56 +703,73 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                         part->sealed = true;
 
                         idx += d->memfd.size;
+                        break;
+                }
 
-                } else if (d->type == KDBUS_ITEM_CREDS) {
+                case KDBUS_ITEM_CREDS:
                         m->creds.pid_starttime = d->creds.starttime / NSEC_PER_USEC;
                         m->creds.uid = d->creds.uid;
                         m->creds.gid = d->creds.gid;
                         m->creds.pid = d->creds.pid;
                         m->creds.tid = d->creds.tid;
                         m->creds.mask |= (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID) & bus->creds_mask;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_TIMESTAMP) {
+                case KDBUS_ITEM_TIMESTAMP:
                         m->realtime = d->timestamp.realtime_ns / NSEC_PER_USEC;
                         m->monotonic = d->timestamp.monotonic_ns / NSEC_PER_USEC;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_PID_COMM) {
+                case KDBUS_ITEM_PID_COMM:
                         m->creds.comm = d->str;
                         m->creds.mask |= SD_BUS_CREDS_COMM & bus->creds_mask;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_TID_COMM) {
+                case KDBUS_ITEM_TID_COMM:
                         m->creds.tid_comm = d->str;
                         m->creds.mask |= SD_BUS_CREDS_TID_COMM & bus->creds_mask;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_EXE) {
+                case KDBUS_ITEM_EXE:
                         m->creds.exe = d->str;
                         m->creds.mask |= SD_BUS_CREDS_EXE & bus->creds_mask;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_CMDLINE) {
+                case KDBUS_ITEM_CMDLINE:
                         m->creds.cmdline = d->str;
                         m->creds.cmdline_length = l;
                         m->creds.mask |= SD_BUS_CREDS_CMDLINE & bus->creds_mask;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_CGROUP) {
+                case KDBUS_ITEM_CGROUP:
                         m->creds.cgroup = d->str;
                         m->creds.mask |= (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID) & bus->creds_mask;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_AUDIT) {
+                case KDBUS_ITEM_AUDIT:
                         m->creds.audit_session_id = d->audit.sessionid;
                         m->creds.audit_login_uid = d->audit.loginuid;
                         m->creds.mask |= (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID) & bus->creds_mask;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_CAPS) {
+                case KDBUS_ITEM_CAPS:
                         m->creds.capability = d->data;
                         m->creds.capability_size = l;
                         m->creds.mask |= (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS) & bus->creds_mask;
+                        break;
 
-                } else if (d->type == KDBUS_ITEM_DST_NAME)
+                case KDBUS_ITEM_DST_NAME:
                         destination = d->str;
-                else if (d->type != KDBUS_ITEM_FDS &&
-                           d->type != KDBUS_ITEM_SECLABEL &&
-                             d->type != KDBUS_ITEM_NAMES)
+                        break;
+
+                case KDBUS_ITEM_FDS:
+                case KDBUS_ITEM_SECLABEL:
+                case KDBUS_ITEM_NAMES:
+                        break;
+
+                default:
                         log_debug("Got unknown field from kernel %llu", d->type);
+                }
         }
 
         r = bus_message_parse_fields(m);
@@ -666,7 +836,13 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
         }
         k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + off);
 
-        r = bus_kernel_make_message(bus, k, m);
+        if (k->payload_type == KDBUS_PAYLOAD_DBUS1)
+                r = bus_kernel_make_message(bus, k, m);
+        else if (k->payload_type == KDBUS_PAYLOAD_KERNEL)
+                r = bus_kernel_translate_message(bus, k, m);
+        else
+                r = 0;
+
         if (r <= 0)
                 close_kdbus_msg(bus, k);
 

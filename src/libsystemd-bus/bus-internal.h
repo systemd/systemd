@@ -294,6 +294,8 @@ int bus_ensure_running(sd_bus *bus);
 int bus_start_running(sd_bus *bus);
 int bus_next_address(sd_bus *bus);
 
+int bus_seal_message(sd_bus *b, sd_bus_message *m);
+
 bool bus_pid_changed(sd_bus *bus);
 
 char *bus_address_escape(const char *v);

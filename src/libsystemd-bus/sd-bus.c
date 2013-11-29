@@ -1257,7 +1257,7 @@ _public_ int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *server_id) {
         return 0;
 }
 
-static int bus_seal_message(sd_bus *b, sd_bus_message *m) {
+int bus_seal_message(sd_bus *b, sd_bus_message *m) {
         assert(m);
 
         if (m->header->version > b->message_version)

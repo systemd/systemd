@@ -416,6 +416,183 @@ _public_ int sd_bus_get_owner(
         return 0;
 }
 
+static int add_name_change_match(sd_bus *bus,
+                                 uint64_t cookie,
+                                 const char *name,
+                                 const char *old_owner,
+                                 const char *new_owner) {
+
+        uint64_t name_id = 0, old_owner_id = 0, new_owner_id = 0;
+        int is_name_id = -1, r;
+        struct kdbus_item *item;
+
+        assert(bus);
+
+        /* If we encounter a match that could match against
+         * NameOwnerChanged messages, then we need to create
+         * KDBUS_MATCH_NAME_{ADD,REMOVE,CHANGE} and
+         * KDBUS_MATCH_ID_{ADD,REMOVE} matches for it, possibly
+         * multiple if the match is underspecified.
+         *
+         * The NameOwnerChanged signals take three parameters with
+         * unique or well-known names, but only some forms actually
+         * exist:
+         *
+         * WELLKNOWN, "", UNIQUE       → KDBUS_MATCH_NAME_ADD
+         * WELLKNOWN, UNIQUE, ""       → KDBUS_MATCH_NAME_REMOVE
+         * WELLKNOWN, UNIQUE, UNIQUE   → KDBUS_MATCH_NAME_CHANGE
+         * UNIQUE, "", UNIQUE          → KDBUS_MATCH_ID_ADD
+         * UNIQUE, UNIQUE, ""          → KDBUS_MATCH_ID_REMOVE
+         *
+         * For the latter two the two unique names must be identical.
+         *
+         * */
+
+        if (name) {
+                is_name_id = bus_kernel_parse_unique_name(name, &name_id);
+                if (is_name_id < 0)
+                        return 0;
+        }
+
+        if (old_owner) {
+                r = bus_kernel_parse_unique_name(old_owner, &old_owner_id);
+                if (r < 0)
+                        return 0;
+                if (r == 0)
+                        return 0;
+                if (is_name_id > 0 && old_owner_id != name_id)
+                        return 0;
+        }
+
+        if (new_owner) {
+                r = bus_kernel_parse_unique_name(new_owner, &new_owner_id);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 0;
+                if (is_name_id > 0 && new_owner_id != name_id)
+                        return 0;
+        }
+
+        if (is_name_id <= 0) {
+                size_t sz, l;
+
+                /* If the name argument is missing or is a well-known
+                 * name, then add KDBUS_MATCH_NAME_{ADD,REMOVE,CHANGE}
+                 * matches for it */
+
+                l = name ? strlen(name) : 0;
+
+                sz = ALIGN8(offsetof(struct kdbus_cmd_match, items) +
+                            offsetof(struct kdbus_item, name_change) +
+                            offsetof(struct kdbus_notify_name_change, name) +
+                            l+1);
+
+                {
+                        union {
+                                uint8_t buffer[sz];
+                                struct kdbus_cmd_match match;
+                        } m;
+
+                        memzero(&m, sz);
+
+                        m.match.size = sz;
+                        m.match.cookie = cookie;
+                        m.match.src_id = KDBUS_SRC_ID_KERNEL;
+
+                        item = m.match.items;
+                        item->size =
+                                offsetof(struct kdbus_item, name_change) +
+                                offsetof(struct kdbus_notify_name_change, name) +
+                                l+1;
+
+                        item->name_change.old_id = old_owner_id;
+                        item->name_change.new_id = new_owner_id;
+
+                        if (name)
+                                strcpy(item->name_change.name, name);
+
+                        /* If the old name is unset or empty, then
+                         * this can match against added names */
+                        if (!old_owner || old_owner[0] == 0) {
+                                item->type = KDBUS_MATCH_NAME_ADD;
+
+                                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                                if (r < 0)
+                                        return -errno;
+                        }
+
+                        /* If the new name is unset or empty, then
+                         * this can match against removed names */
+                        if (!new_owner || new_owner[0] == 0) {
+                                item->type = KDBUS_MATCH_NAME_REMOVE;
+
+                                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                                if (r < 0)
+                                        return -errno;
+                        }
+
+                        /* If the neither name is explicitly set to
+                         * the empty string, then this can match
+                         * agains changed names */
+                        if (!(old_owner && old_owner[0] == 0) &&
+                            !(new_owner && new_owner[0] == 0)) {
+                                item->type = KDBUS_MATCH_NAME_CHANGE;
+
+                                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                                if (r < 0)
+                                        return -errno;
+                        }
+                }
+        }
+
+        if (is_name_id != 0) {
+                uint64_t sz =
+                        ALIGN8(offsetof(struct kdbus_cmd_match, items) +
+                               offsetof(struct kdbus_item, id_change));
+                union {
+                        uint8_t buffer[sz];
+                        struct kdbus_cmd_match match;
+                } m;
+
+                /* If the name argument is missing or is a unique
+                 * name, then add KDBUS_MATCH_ID_{ADD,REMOVE} matches
+                 * for it */
+
+                memzero(&m, sz);
+
+                m.match.size = sz;
+                m.match.cookie = cookie;
+                m.match.src_id = KDBUS_SRC_ID_KERNEL;
+
+                item = m.match.items;
+                item->size = offsetof(struct kdbus_item, id_change) + sizeof(struct kdbus_notify_id_change);
+                item->id_change.id = name_id;
+
+                /* If the old name is unset or empty, then this can
+                 * match against added ids */
+                if (!old_owner || old_owner[0] == 0) {
+                        item->type = KDBUS_MATCH_ID_ADD;
+
+                        r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                        if (r < 0)
+                                return -errno;
+                }
+
+                /* If thew new name is unset or empty, then this can
+                match against removed ids */
+                if (!new_owner || new_owner[0] == 0) {
+                        item->type = KDBUS_MATCH_ID_REMOVE;
+
+                        r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                        if (r < 0)
+                                return -errno;
+                }
+        }
+
+        return 0;
+}
+
 int bus_add_match_internal(
                 sd_bus *bus,
                 const char *match,
@@ -438,6 +615,8 @@ int bus_add_match_internal(
                 uint64_t src_id = KDBUS_MATCH_SRC_ID_ANY;
                 bool using_bloom = false;
                 unsigned i;
+                bool matches_name_change = true;
+                const char *name_change_arg[3] = {};
 
                 zero(bloom);
 
@@ -449,6 +628,9 @@ int bus_add_match_internal(
                         switch (c->type) {
 
                         case BUS_MATCH_SENDER:
+                                if (!streq(c->value_str, "org.freedesktop.DBus"))
+                                        matches_name_change = false;
+
                                 r = bus_kernel_parse_unique_name(c->value_str, &src_id);
                                 if (r < 0)
                                         return r;
@@ -462,21 +644,33 @@ int bus_add_match_internal(
                                 break;
 
                         case BUS_MATCH_MESSAGE_TYPE:
+                                if (c->value_u8 != SD_BUS_MESSAGE_SIGNAL)
+                                        matches_name_change = false;
+
                                 bloom_add_pair(bloom, "message-type", bus_message_type_to_string(c->value_u8));
                                 using_bloom = true;
                                 break;
 
                         case BUS_MATCH_INTERFACE:
+                                if (!streq(c->value_str, "org.freedesktop.DBus"))
+                                        matches_name_change = false;
+
                                 bloom_add_pair(bloom, "interface", c->value_str);
                                 using_bloom = true;
                                 break;
 
                         case BUS_MATCH_MEMBER:
+                                if (!streq(c->value_str, "NameOwnerChanged"))
+                                        matches_name_change = false;
+
                                 bloom_add_pair(bloom, "member", c->value_str);
                                 using_bloom = true;
                                 break;
 
                         case BUS_MATCH_PATH:
+                                if (!streq(c->value_str, "/org/freedesktop/DBus"))
+                                        matches_name_change = false;
+
                                 bloom_add_pair(bloom, "path", c->value_str);
                                 using_bloom = true;
                                 break;
@@ -490,6 +684,9 @@ int bus_add_match_internal(
 
                         case BUS_MATCH_ARG...BUS_MATCH_ARG_LAST: {
                                 char buf[sizeof("arg")-1 + 2 + 1];
+
+                                if (c->type - BUS_MATCH_ARG < 3)
+                                        name_change_arg[c->type - BUS_MATCH_ARG] = c->value_str;
 
                                 snprintf(buf, sizeof(buf), "arg%u", c->type - BUS_MATCH_ARG);
                                 bloom_add_pair(bloom, buf, c->value_str);
@@ -560,7 +757,20 @@ int bus_add_match_internal(
                 if (r < 0)
                         return -errno;
 
-        } else {
+                if (matches_name_change) {
+
+                        /* If this match could theoretically match
+                         * NameOwnerChanged messages, we need to
+                         * install a second non-bloom filter explitly
+                         * for it */
+
+                        r = add_name_change_match(bus, cookie, name_change_arg[0], name_change_arg[1], name_change_arg[2]);
+                        if (r < 0)
+                                return r;
+                }
+
+                return 0;
+        } else
                 return sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.DBus",
@@ -571,9 +781,6 @@ int bus_add_match_internal(
                                 NULL,
                                 "s",
                                 match);
-        }
-
-        return 0;
 }
 
 int bus_remove_match_internal(
@@ -597,6 +804,8 @@ int bus_remove_match_internal(
                 if (r < 0)
                         return -errno;
 
+                return 0;
+
         } else {
                 return sd_bus_call_method(
                                 bus,
@@ -609,8 +818,6 @@ int bus_remove_match_internal(
                                 "s",
                                 match);
         }
-
-        return 0;
 }
 
 _public_ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
