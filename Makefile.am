@@ -302,7 +302,6 @@ rootbin_PROGRAMS = \
 bin_PROGRAMS = \
 	systemd-cgls \
 	systemd-cgtop \
-	systemd-stdio-bridge \
 	systemd-nspawn \
 	systemd-detect-virt \
 	systemd-delta \
@@ -329,6 +328,7 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-sysctl \
 	systemd-sleep \
+	systemd-bus-proxyd \
 	systemd-socket-proxyd
 
 systemgenerator_PROGRAMS = \
@@ -1859,15 +1859,23 @@ systemd_run_LDADD = \
 	libsystemd-shared.la
 
 # ------------------------------------------------------------------------------
-systemd_stdio_bridge_SOURCES = \
-	src/stdio-bridge/stdio-bridge.c
+systemd_bus_proxyd_SOURCES = \
+	src/bus-proxyd/bus-proxyd.c
 
-systemd_stdio_bridge_LDADD = \
+systemd_bus_proxyd_LDADD = \
 	libsystemd-bus-internal.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-shared.la
 
+bus-proxyd-install-hook:
+	$(AM_V_LN)$(LN_S) -f ../../lib/systemd/systemd-bus-proxyd $(DESTDIR)$(bindir)/systemd-stdio-bridge
+
+bus-proxyd-uninstall-hook:
+	rm -f $(DESTDIR)$(bindir)/systemd-stdio-bridge
+
+INSTALL_EXEC_HOOKS += bus-proxyd-install-hook
+UNINSTALL_EXEC_HOOKS += bus-proxyd-uninstall-hook
 # ------------------------------------------------------------------------------
 systemd_tty_ask_password_agent_SOURCES = \
 	src/tty-ask-password-agent/tty-ask-password-agent.c

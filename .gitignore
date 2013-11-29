@@ -76,7 +76,7 @@
 /systemd-shutdown
 /systemd-shutdownd
 /systemd-sleep
-/systemd-stdio-bridge
+/systemd-bus-proxyd
 /systemd-sysctl
 /systemd-system-update-generator
 /systemd-timedated
