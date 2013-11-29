@@ -68,7 +68,7 @@ _public_ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 l = strlen(name);
                 n = alloca0(offsetof(struct kdbus_cmd_name, name) + l + 1);
                 n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
-                n->flags = flags;
+                kdbus_translate_request_name_flags(flags, (uint64_t *) &n->flags);
                 memcpy(n->name, name, l+1);
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
