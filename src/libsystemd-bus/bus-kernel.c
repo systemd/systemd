@@ -561,7 +561,7 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
                 return 0;
         }
 
-        return translate[found->type](bus, k, d);
+        return translate[found->type - _KDBUS_ITEM_KERNEL_BASE](bus, k, found);
 }
 
 int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
