@@ -1020,7 +1020,7 @@ void bus_kernel_flush_memfd(sd_bus *b) {
                 close_and_munmap(b->memfd_cache[i].fd, b->memfd_cache[i].address, b->memfd_cache[i].size);
 }
 
-int sd_bus_kernel_translate_request_name_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags) {
+int kdbus_translate_request_name_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags) {
 
         assert_return(kdbus_flags != NULL, -EINVAL);
 
