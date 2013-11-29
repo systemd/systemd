@@ -549,7 +549,8 @@ static int add_name_change_match(sd_bus *bus,
         if (is_name_id != 0) {
                 uint64_t sz =
                         ALIGN8(offsetof(struct kdbus_cmd_match, items) +
-                               offsetof(struct kdbus_item, id_change));
+                               offsetof(struct kdbus_item, id_change) +
+                               sizeof(struct kdbus_notify_id_change));
                 union {
                         uint8_t buffer[sz];
                         struct kdbus_cmd_match match;
