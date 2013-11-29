@@ -260,7 +260,7 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
         return 0;
 }
 
-_public_ int sd_bus_get_owner(
+static int sd_bus_get_owner_dbus(
                 sd_bus *bus,
                 const char *name,
                 uint64_t mask,
@@ -272,13 +272,6 @@ _public_ int sd_bus_get_owner(
         _cleanup_free_ char *unique = NULL;
         pid_t pid = 0;
         int r;
-
-        assert_return(bus, -EINVAL);
-        assert_return(name, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_MAX, -ENOTSUP);
-        assert_return(mask == 0 || creds, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
 
         /* Only query the owner if the caller wants to know it or if
          * the caller just wants to check whether a name exists */
@@ -592,6 +585,23 @@ static int add_name_change_match(sd_bus *bus,
         }
 
         return 0;
+}
+
+_public_ int sd_bus_get_owner(
+                sd_bus *bus,
+                const char *name,
+                uint64_t mask,
+                char **owner,
+                sd_bus_creds **creds) {
+
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(mask <= _SD_BUS_CREDS_MAX, -ENOTSUP);
+        assert_return(mask == 0 || creds, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        return sd_bus_get_owner_dbus(bus, name, mask, owner, creds);
 }
 
 int bus_add_match_internal(
