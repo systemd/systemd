@@ -652,15 +652,15 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         if (missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)) {
 
                 r = cg_pid_get_path(NULL, pid, &c->cgroup);
-                if (r < 0)
+                if (r < 0 && r != -ESRCH)
                         return r;
-
-                c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
+                else if (r >= 0)
+                        c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
         }
 
         if (missing & SD_BUS_CREDS_AUDIT_SESSION_ID) {
                 r = audit_session_from_pid(pid, &c->audit_session_id);
-                if (r < 0 && r != -ENOTSUP && r != -ENXIO && r != ENOENT)
+                if (r < 0 && r != -ENOTSUP && r != -ENXIO && r != -ENOENT)
                         return r;
                 else if (r >= 0)
                         c->mask |= SD_BUS_CREDS_AUDIT_SESSION_ID;
@@ -668,7 +668,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
         if (missing & SD_BUS_CREDS_AUDIT_LOGIN_UID) {
                 r = audit_loginuid_from_pid(pid, &c->audit_login_uid);
-                if (r < 0 && r != -ENOTSUP && r != -ENXIO && r != ENOENT)
+                if (r < 0 && r != -ENOTSUP && r != -ENXIO && r != -ENOENT)
                         return r;
                 else if (r >= 0)
                         c->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
