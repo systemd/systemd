@@ -231,8 +231,8 @@ static int help(void) {
                "  -M --machine=CONTAINER  Operate on local container\n"
                "     --address=ADDRESS    Connect to bus specified by address\n"
                "     --no-unique          Only show well-known names\n"
-               "     --no-machine         Don't show machine ID column in list\n\n"
-               "     --match=MATCH        Only show matching messages\n"
+               "     --no-machine         Don't show machine ID column in list\n"
+               "     --match=MATCH        Only show matching messages\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
                "  monitor [SERVICE...]    Show bus traffic\n",
