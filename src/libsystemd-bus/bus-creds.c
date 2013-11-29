@@ -607,10 +607,10 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
         if (missing & SD_BUS_CREDS_COMM) {
                 r = get_process_comm(pid, &c->comm);
-                if (r < 0 && r != -ESRCH)
+                if (r < 0)
                         return r;
-                else if (r >= 0)
-                        c->mask |= SD_BUS_CREDS_COMM;
+
+                c->mask |= SD_BUS_CREDS_COMM;
         }
 
         if (missing & SD_BUS_CREDS_EXE) {
@@ -643,19 +643,19 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         return -ENOMEM;
 
                 r = read_one_line_file(p, &c->tid_comm);
-                if (r < 0 && r != -ENOENT)
+                if (r < 0)
                         return r == -ENOENT ? -ESRCH : r;
-                else if (r >= 0)
-                        c->mask |= SD_BUS_CREDS_TID_COMM;
+
+                c->mask |= SD_BUS_CREDS_TID_COMM;
         }
 
         if (missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)) {
 
                 r = cg_pid_get_path(NULL, pid, &c->cgroup);
-                if (r < 0 && r != -ESRCH)
+                if (r < 0)
                         return r;
-                else if (r >= 0)
-                        c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
+
+                c->mask |= missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID);
         }
 
         if (missing & SD_BUS_CREDS_AUDIT_SESSION_ID) {
