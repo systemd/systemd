@@ -1041,35 +1041,35 @@ BUILT_SOURCES += \
 	src/shared/errno-from-name.h \
 	src/shared/errno-to-name.h
 
-src/shared/syscall-list.txt: Makefile
+src/shared/syscall-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include sys/syscall.h - < /dev/null | $(AWK) '/^#define[ \t]+__NR_[^ ]+[ \t]+[0-9(]/ { sub(/__NR_/, "", $$2); if ($$2 !~ /SYSCALL_BASE/) print $$2; }' > $@
 
-src/shared/syscall-from-name.gperf: src/shared/syscall-list.txt Makefile
+src/shared/syscall-from-name.gperf: src/shared/syscall-list.txt
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct syscall_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, __NR_%s\n", $$1, $$1 }' < $< > $@
 
-src/shared/syscall-from-name.h: src/shared/syscall-from-name.gperf Makefile
+src/shared/syscall-from-name.h: src/shared/syscall-from-name.gperf
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_syscall -H hash_syscall_name -p -C < $< > $@
 
-src/shared/syscall-to-name.h: src/shared/syscall-list.txt Makefile
+src/shared/syscall-to-name.h: src/shared/syscall-list.txt
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const syscall_names[] = { "} { printf "[SYSCALL_TO_INDEX(__NR_%s)] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 
-src/shared/errno-list.txt: Makefile
+src/shared/errno-list.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include errno.h - < /dev/null | $(AWK) '/^#define[ \t]+E[^ _]+[ \t]+[0-9]/ { print $$2; }'  > $@
 
-src/shared/errno-from-name.gperf: src/shared/errno-list.txt Makefile
+src/shared/errno-from-name.gperf: src/shared/errno-list.txt
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct errno_name { const char* name; int id; };"; print "%null-strings"; print "%%";} { printf "%s, %s\n", $$1, $$1 }' < $< > $@
 
-src/shared/errno-from-name.h: src/shared/errno-from-name.gperf Makefile
+src/shared/errno-from-name.h: src/shared/errno-from-name.gperf
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_errno -H hash_errno_name -p -C < $< > $@
 
-src/shared/errno-to-name.h: src/shared/errno-list.txt Makefile
+src/shared/errno-to-name.h: src/shared/errno-list.txt
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const errno_names[] = { "} { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
 
@@ -2395,17 +2395,17 @@ rootlibexec_PROGRAMS += \
 noinst_LTLIBRARIES += \
 	libudev-core.la
 
-src/udev/keyboard-keys.txt: Makefile
+src/udev/keyboard-keys.txt:
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include linux/input.h - < /dev/null | $(AWK) '/^#define[ \t]+KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
 
-src/udev/keyboard-keys-from-name.gperf: src/udev/keyboard-keys.txt Makefile
+src/udev/keyboard-keys-from-name.gperf: src/udev/keyboard-keys.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print tolower(substr($$1 ,5)) ", " $$1 }' < $< > $@
 
-src/udev/keyboard-keys-from-name.h: src/udev/keyboard-keys-from-name.gperf Makefile
+src/udev/keyboard-keys-from-name.h: src/udev/keyboard-keys-from-name.gperf
 	$(AM_V_GPERF)$(GPERF) -L ANSI-C -t -N keyboard_lookup_key -H hash_key_name -p -C < $< > $@
 
-src/udev/keyboard-keys-to-name.h: src/udev/keyboard-keys.txt Makefile
+src/udev/keyboard-keys-to-name.h: src/udev/keyboard-keys.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
 
 libudev_core_la_SOURCES = \
@@ -4309,7 +4309,7 @@ dist_pkgpyexec_PYTHON = \
 	src/python-systemd/daemon.py \
 	src/python-systemd/__init__.py
 
-src/python-systemd/id128-constants.h: src/systemd/sd-messages.h Makefile
+src/python-systemd/id128-constants.h: src/systemd/sd-messages.h
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)$(SED) -n -r 's/,//g; s/#define (SD_MESSAGE_[A-Z0-9_]+)\s.*/add_id(m, "\1", \1) JOINER/p' <$< >$@
 
@@ -4397,28 +4397,28 @@ SED_PROCESS = \
 	$(SED) $(subst '|,-e 's|@,$(subst =,\@|,$(subst |',|g',$(substitutions)))) \
 		< $< > $@
 
-units/%: units/%.in Makefile
+units/%: units/%.in
 	$(SED_PROCESS)
 
-man/%: man/%.in Makefile
+man/%: man/%.in
 	$(SED_PROCESS)
 
-sysctl.d/%: sysctl.d/%.in Makefile
+sysctl.d/%: sysctl.d/%.in
 	$(SED_PROCESS)
 
-%.pc: %.pc.in Makefile
+%.pc: %.pc.in
 	$(SED_PROCESS)
 
-src/core/macros.%: src/core/macros.%.in Makefile
+src/core/macros.%: src/core/macros.%.in
 	$(SED_PROCESS)
 
-src/%.policy.in: src/%.policy.in.in Makefile
+src/%.policy.in: src/%.policy.in.in
 	$(SED_PROCESS)
 
-%.rules: %.rules.in Makefile
+%.rules: %.rules.in
 	$(SED_PROCESS)
 
-%.sh: %.sh.in Makefile
+%.sh: %.sh.in
 	$(SED_PROCESS)
 	$(AM_V_GEN)chmod +x $@
 
@@ -4430,11 +4430,11 @@ src/%: src/%.m4
 	$(AM_V_at)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) < $< > $@
 
-units/%: units/%.m4 Makefile
+units/%: units/%.m4
 	$(AM_V_M4)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@
 
-units/user/%: units/%.m4 Makefile
+units/user/%: units/%.m4
 	$(AM_V_M4)$(MKDIR_P) $(dir $@)
 	$(AM_V_M4)$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@
 
@@ -4457,7 +4457,7 @@ CLEANFILES += \
 
 # ------------------------------------------------------------------------------
 if ENABLE_MANPAGES
-man/custom-entities.ent: Makefile
+man/custom-entities.ent:
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@)
 	$(AM_V_GEN)(echo '<?xml version="1.0" encoding="utf-8" ?>' && \
 	 echo '$(subst '|,<!ENTITY ,$(subst =, ",$(subst |',">,$(substitutions))))') \
@@ -4755,38 +4755,32 @@ endef
 test-libsystemd-bus-sym.c: \
 	src/libsystemd-bus/libsystemd-bus.sym \
 	src/systemd/sd-bus.h \
-	src/systemd/sd-utf8.h \
-	Makefile
+	src/systemd/sd-utf8.h
 	$(generate-sym-test)
 
 test-libsystemd-daemon-sym.c: \
 	src/libsystemd-daemon/libsystemd-daemon.sym \
-	src/systemd/sd-daemon.h \
-	Makefile
+	src/systemd/sd-daemon.h
 	$(generate-sym-test)
 
 test-libsystemd-id128-sym.c: \
 	src/libsystemd-id128/libsystemd-id128.sym \
-	src/systemd/sd-id128.h \
-	Makefile
+	src/systemd/sd-id128.h
 	$(generate-sym-test)
 
 test-libsystemd-journal-sym.c: \
 	src/journal/libsystemd-journal.sym \
-	src/systemd/sd-journal.h \
-	Makefile
+	src/systemd/sd-journal.h
 	$(generate-sym-test)
 
 test-libsystemd-login-sym.c: \
 	src/login/libsystemd-login.sym \
-	src/systemd/sd-login.h \
-	Makefile
+	src/systemd/sd-login.h
 	$(generate-sym-test)
 
 test-libudev-sym.c: \
 	src/libudev/libudev.sym \
-	src/udev/udev.h \
-	Makefile
+	src/udev/udev.h
 	$(generate-sym-test)
 
 test_libsystemd_bus_sym_SOURCES = \
