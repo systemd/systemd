@@ -425,12 +425,11 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
         }
 }
 
-static int return_name_owner_changed(sd_bus *bus, const char *name, const char *old_owner, const char *new_owner, sd_bus_message **ret) {
+static int push_name_owner_changed(sd_bus *bus, const char *name, const char *old_owner, const char *new_owner) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
-        assert(ret);
 
         r = sd_bus_message_new_signal(
                         bus,
@@ -451,19 +450,20 @@ static int return_name_owner_changed(sd_bus *bus, const char *name, const char *
         if (r < 0)
                 return r;
 
-        *ret = m;
-        m = NULL;
+        r = bus_rqueue_push(bus, m);
+        if (r < 0)
+                return r;
 
+        m = NULL;
         return 1;
 }
 
-static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d, sd_bus_message **ret) {
+static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d) {
         char new_owner[UNIQUE_NAME_MAX], old_owner[UNIQUE_NAME_MAX];
 
         assert(bus);
         assert(k);
         assert(d);
-        assert(ret);
 
         if (d->name_change.flags != 0)
                 return 0;
@@ -478,34 +478,31 @@ static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_
         else
                 sprintf(new_owner, ":1.%llu", (unsigned long long) d->name_change.new_id);
 
-        return return_name_owner_changed(bus, d->name_change.name, old_owner, new_owner, ret);
+        return push_name_owner_changed(bus, d->name_change.name, old_owner, new_owner);
 }
 
-static int translate_id_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d, sd_bus_message **ret) {
+static int translate_id_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d) {
         char owner[UNIQUE_NAME_MAX];
 
         assert(bus);
         assert(k);
         assert(d);
-        assert(ret);
 
         sprintf(owner, ":1.%llu", d->id_change.id);
 
-        return return_name_owner_changed(
+        return push_name_owner_changed(
                         bus, owner,
                         d->type == KDBUS_ITEM_ID_ADD ? NULL : owner,
-                        d->type == KDBUS_ITEM_ID_ADD ? owner : NULL,
-                        ret);
+                        d->type == KDBUS_ITEM_ID_ADD ? owner : NULL);
 }
 
-static int translate_reply(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d, sd_bus_message **ret) {
+static int translate_reply(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
         assert(k);
         assert(d);
-        assert(ret);
 
         r = bus_message_new_synthetic_error(
                         bus,
@@ -523,16 +520,18 @@ static int translate_reply(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *
         if (r < 0)
                 return r;
 
-        *ret = m;
-        m = NULL;
+        r = bus_rqueue_push(bus, m);
+        if (r < 0)
+                return r;
 
+        m = NULL;
         return 1;
 }
 
-static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_message **ret) {
+static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
         struct kdbus_item *d, *found = NULL;
 
-        static int (* const translate[])(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d, sd_bus_message **ret) = {
+        static int (* const translate[])(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d) = {
                 [KDBUS_ITEM_NAME_ADD - _KDBUS_ITEM_KERNEL_BASE] = translate_name_change,
                 [KDBUS_ITEM_NAME_REMOVE - _KDBUS_ITEM_KERNEL_BASE] = translate_name_change,
                 [KDBUS_ITEM_NAME_CHANGE - _KDBUS_ITEM_KERNEL_BASE] = translate_name_change,
@@ -546,7 +545,6 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k, sd_bus
 
         assert(bus);
         assert(k);
-        assert(ret);
         assert(k->payload_type == KDBUS_PAYLOAD_KERNEL);
 
         KDBUS_PART_FOREACH(d, k, items) {
@@ -563,7 +561,7 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k, sd_bus
                 return 0;
         }
 
-        return translate[found->type](bus, k, d, ret);
+        return translate[found->type](bus, k, d);
 }
 
 int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
@@ -599,7 +597,7 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
         return 0;
 }
 
-static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_message **ret) {
+static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         sd_bus_message *m = NULL;
         struct kdbus_item *d;
         unsigned n_fds = 0;
@@ -611,7 +609,6 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
         assert(bus);
         assert(k);
-        assert(ret);
         assert(k->payload_type == KDBUS_PAYLOAD_DBUS1);
 
         KDBUS_PART_FOREACH(d, k, items) {
@@ -833,7 +830,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
 
         fds = NULL;
 
-        *ret = m;
+        r = bus_rqueue_push(bus, m);
+        if (r < 0)
+                goto fail;
+
         return 1;
 
 fail:
@@ -852,13 +852,21 @@ fail:
         return r;
 }
 
-int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
-        uint64_t off;
+int bus_kernel_read_message(sd_bus *bus) {
         struct kdbus_msg *k;
+        uint64_t off;
         int r;
 
         assert(bus);
-        assert(m);
+
+        /* Kernel messages might result in 2 new queued messages in
+         * the worst case (NameOwnerChange and LostName for the same
+         * well-known name, for example). Let's make room in
+         * advance. */
+
+        r = bus_rqueue_make_room(bus, 2);
+        if (r < 0)
+                return r;
 
         r = ioctl(bus->input_fd, KDBUS_CMD_MSG_RECV, &off);
         if (r < 0) {
@@ -870,9 +878,9 @@ int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m) {
         k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + off);
 
         if (k->payload_type == KDBUS_PAYLOAD_DBUS1)
-                r = bus_kernel_make_message(bus, k, m);
+                r = bus_kernel_make_message(bus, k);
         else if (k->payload_type == KDBUS_PAYLOAD_KERNEL)
-                r = bus_kernel_translate_message(bus, k, m);
+                r = bus_kernel_translate_message(bus, k);
         else
                 r = 0;
 

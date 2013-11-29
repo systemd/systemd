@@ -1299,50 +1299,78 @@ static int dispatch_wqueue(sd_bus *bus) {
         return ret;
 }
 
-static int bus_read_message(sd_bus *bus, sd_bus_message **m) {
+static int bus_read_message(sd_bus *bus) {
+        assert(bus);
+
+        if (bus->is_kernel)
+                return bus_kernel_read_message(bus);
+        else
+                return bus_socket_read_message(bus);
+}
+
+int bus_rqueue_make_room(sd_bus *bus, unsigned n) {
+        sd_bus_message **q;
+        unsigned x;
+
+        x = bus->rqueue_size + n;
+
+        if (bus->rqueue_allocated >= x)
+                return 0;
+
+        if (x > BUS_RQUEUE_MAX)
+                return -ENOBUFS;
+
+        q = realloc(bus->rqueue, x * sizeof(sd_bus_message*));
+        if (!q)
+                return -ENOMEM;
+
+        bus->rqueue = q;
+        bus->rqueue_allocated = x;
+
+        return 0;
+}
+
+int bus_rqueue_push(sd_bus *bus, sd_bus_message *m) {
         int r;
 
         assert(bus);
         assert(m);
 
-        if (bus->is_kernel)
-                r = bus_kernel_read_message(bus, m);
-        else
-                r = bus_socket_read_message(bus, m);
+        r = bus_rqueue_make_room(bus, 1);
+        if (r < 0)
+                return r;
 
-        return r;
+        bus->rqueue[bus->rqueue_size++] = m;
+
+        return 0;
 }
 
 static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
-        sd_bus_message *z = NULL;
         int r, ret = 0;
 
         assert(bus);
         assert(m);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
-        if (bus->rqueue_size > 0) {
-                /* Dispatch a queued message */
+        for (;;) {
+                if (bus->rqueue_size > 0) {
+                        /* Dispatch a queued message */
 
-                *m = bus->rqueue[0];
-                bus->rqueue_size --;
-                memmove(bus->rqueue, bus->rqueue + 1, sizeof(sd_bus_message*) * bus->rqueue_size);
-                return 1;
-        }
+                        *m = bus->rqueue[0];
+                        bus->rqueue_size --;
+                        memmove(bus->rqueue, bus->rqueue + 1, sizeof(sd_bus_message*) * bus->rqueue_size);
+                        return 1;
+                }
 
-        /* Try to read a new message */
-        do {
-                r = bus_read_message(bus, &z);
+                /* Try to read a new message */
+                r = bus_read_message(bus);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return ret;
 
                 ret = 1;
-        } while (!z);
-
-        *m = z;
-        return ret;
+        }
 }
 
 _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
@@ -1578,10 +1606,10 @@ _public_ int sd_bus_call(
                 sd_bus_error *error,
                 sd_bus_message **reply) {
 
-        int r;
         usec_t timeout;
         uint64_t serial;
-        bool room = false;
+        unsigned i;
+        int r;
 
         assert_return(bus, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
@@ -1600,36 +1628,25 @@ _public_ int sd_bus_call(
                 return r;
 
         timeout = calc_elapse(usec);
+        i = bus->rqueue_size;
 
         for (;;) {
                 usec_t left;
-                sd_bus_message *incoming = NULL;
 
-                if (!room) {
-                        sd_bus_message **q;
-
-                        if (bus->rqueue_size >= BUS_RQUEUE_MAX)
-                                return -ENOBUFS;
-
-                        /* Make sure there's room for queuing this
-                         * locally, before we read the message */
-
-                        q = realloc(bus->rqueue, (bus->rqueue_size + 1) * sizeof(sd_bus_message*));
-                        if (!q)
-                                return -ENOMEM;
-
-                        bus->rqueue = q;
-                        room = true;
-                }
-
-                r = bus_read_message(bus, &incoming);
+                r = bus_read_message(bus);
                 if (r < 0)
                         return r;
 
-                if (incoming) {
+                while (i < bus->rqueue_size) {
+                        sd_bus_message *incoming = NULL;
+
+                        incoming = bus->rqueue[i];
 
                         if (incoming->reply_serial == serial) {
                                 /* Found a match! */
+
+                                memmove(bus->rqueue + i, bus->rqueue + i + 1, sizeof(sd_bus_message*) * (bus->rqueue_size - i - 1));
+                                bus->rqueue_size--;
 
                                 if (incoming->header->type == SD_BUS_MESSAGE_METHOD_RETURN) {
 
@@ -1663,6 +1680,9 @@ _public_ int sd_bus_call(
                                    incoming->sender &&
                                    streq(bus->unique_name, incoming->sender)) {
 
+                                memmove(bus->rqueue + i, bus->rqueue + i + 1, sizeof(sd_bus_message*) * (bus->rqueue_size - i - 1));
+                                bus->rqueue_size--;
+
                                 /* Our own message? Somebody is trying
                                  * to send its own client a message,
                                  * let's not dead-lock, let's fail
@@ -1672,15 +1692,11 @@ _public_ int sd_bus_call(
                                 return -ELOOP;
                         }
 
-                        /* There's already guaranteed to be room for
-                         * this, so need to resize things here */
-                        bus->rqueue[bus->rqueue_size ++] = incoming;
-                        room = false;
-
                         /* Try to read more, right-away */
-                        continue;
+                        i++;
                 }
-                if (r != 0)
+
+                if (r > 0)
                         continue;
 
                 if (timeout > 0) {

@@ -891,13 +891,12 @@ static int bus_socket_read_message_need(sd_bus *bus, size_t *need) {
         return 0;
 }
 
-static int bus_socket_make_message(sd_bus *bus, size_t size, sd_bus_message **m) {
+static int bus_socket_make_message(sd_bus *bus, size_t size) {
         sd_bus_message *t;
         void *b;
         int r;
 
         assert(bus);
-        assert(m);
         assert(bus->rbuffer_size >= size);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
@@ -926,11 +925,16 @@ static int bus_socket_make_message(sd_bus *bus, size_t size, sd_bus_message **m)
         bus->fds = NULL;
         bus->n_fds = 0;
 
-        *m = t;
+        r = bus_rqueue_push(bus, t);
+        if (r < 0) {
+                sd_bus_message_unref(t);
+                return r;
+        }
+
         return 1;
 }
 
-int bus_socket_read_message(sd_bus *bus, sd_bus_message **m) {
+int bus_socket_read_message(sd_bus *bus) {
         struct msghdr mh;
         struct iovec iov;
         ssize_t k;
@@ -947,15 +951,18 @@ int bus_socket_read_message(sd_bus *bus, sd_bus_message **m) {
         bool handle_cmsg = false;
 
         assert(bus);
-        assert(m);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
+
+        r = bus_rqueue_make_room(bus, 1);
+        if (r < 0)
+                return r;
 
         r = bus_socket_read_message_need(bus, &need);
         if (r < 0)
                 return r;
 
         if (bus->rbuffer_size >= need)
-                return bus_socket_make_message(bus, need, m);
+                return bus_socket_make_message(bus, need);
 
         b = realloc(bus->rbuffer, need);
         if (!b)
@@ -1045,7 +1052,7 @@ int bus_socket_read_message(sd_bus *bus, sd_bus_message **m) {
                 return r;
 
         if (bus->rbuffer_size >= need)
-                return bus_socket_make_message(bus, need, m);
+                return bus_socket_make_message(bus, need);
 
         return 1;
 }

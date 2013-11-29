@@ -166,7 +166,7 @@ struct sd_bus {
         size_t rbuffer_size;
 
         sd_bus_message **rqueue;
-        unsigned rqueue_size;
+        unsigned rqueue_size, rqueue_allocated;
 
         sd_bus_message **wqueue;
         unsigned wqueue_size;
@@ -295,6 +295,9 @@ int bus_start_running(sd_bus *bus);
 int bus_next_address(sd_bus *bus);
 
 int bus_seal_message(sd_bus *b, sd_bus_message *m);
+
+int bus_rqueue_make_room(sd_bus *bus, unsigned n);
+int bus_rqueue_push(sd_bus *bus, sd_bus_message *m);
 
 bool bus_pid_changed(sd_bus *bus);
 

@@ -58,7 +58,7 @@ int bus_kernel_connect(sd_bus *b);
 int bus_kernel_take_fd(sd_bus *b);
 
 int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m);
-int bus_kernel_read_message(sd_bus *bus, sd_bus_message **m);
+int bus_kernel_read_message(sd_bus *bus);
 
 int bus_kernel_create(const char *name, char **s);
 
