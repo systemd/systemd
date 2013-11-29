@@ -125,6 +125,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wold-style-definition \
         -Wpointer-arith \
         -Winit-self \
+        -Wdeclaration-after-statement \
         -Wfloat-equal \
         -Wmissing-prototypes \
         -Wstrict-prototypes \
