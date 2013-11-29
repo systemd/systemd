@@ -1828,6 +1828,8 @@ static int process_timeout(sd_bus *bus) {
         if (r < 0)
                 return r;
 
+        m->sender = "org.freedesktop.DBus";
+
         r = bus_seal_message(bus, m);
         if (r < 0)
                 return r;
@@ -2148,6 +2150,8 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                         &m);
         if (r < 0)
                 return r;
+
+        m->sender = "org.freedesktop.DBus.Local";
 
         r = bus_seal_message(bus, m);
         if (r < 0)
