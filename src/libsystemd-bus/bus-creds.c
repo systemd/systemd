@@ -643,10 +643,10 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         return -ENOMEM;
 
                 r = read_one_line_file(p, &c->tid_comm);
-                if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return r == -ENOENT ? -ESRCH : r;
-
-                c->mask |= SD_BUS_CREDS_TID_COMM;
+                else if (r >= 0)
+                        c->mask |= SD_BUS_CREDS_TID_COMM;
         }
 
         if (missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)) {
