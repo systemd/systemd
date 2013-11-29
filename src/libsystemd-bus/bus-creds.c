@@ -607,10 +607,10 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
         if (missing & SD_BUS_CREDS_COMM) {
                 r = get_process_comm(pid, &c->comm);
-                if (r < 0)
+                if (r < 0 && r != -ESRCH)
                         return r;
-
-                c->mask |= SD_BUS_CREDS_COMM;
+                else if (r >= 0)
+                        c->mask |= SD_BUS_CREDS_COMM;
         }
 
         if (missing & SD_BUS_CREDS_EXE) {
