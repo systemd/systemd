@@ -91,7 +91,8 @@ enum {
 	_KDBUS_ITEM_NULL,
 
 	/* Filled in by userspace */
-	KDBUS_ITEM_PAYLOAD_VEC,		/* .data_vec, reference to memory area */
+        _KDBUS_ITEM_USER_BASE	    = 1,
+        KDBUS_ITEM_PAYLOAD_VEC	    = 1,/* .data_vec, reference to memory area */
 	KDBUS_ITEM_PAYLOAD_OFF,		/* .data_vec, reference to memory area */
 	KDBUS_ITEM_PAYLOAD_MEMFD,	/* file descriptor of a special data file */
 	KDBUS_ITEM_FDS,			/* .data_fds of file descriptors */
@@ -100,6 +101,7 @@ enum {
 	KDBUS_ITEM_PRIORITY,		/* queue priority for message */
 
 	/* Filled in by kernelspace */
+        _KDBUS_ITEM_ATTACH_BASE	= 0x400,
 	KDBUS_ITEM_NAMES	= 0x400,/* NUL separated string list with well-known names of source */
 	KDBUS_ITEM_TIMESTAMP,		/* .timestamp */
 
@@ -115,6 +117,7 @@ enum {
 	KDBUS_ITEM_AUDIT,		/* .audit */
 
 	/* Special messages from kernel, consisting of one and only one of these data blocks */
+        _KDBUS_ITEM_KERNEL_BASE	= 0x800,
 	KDBUS_ITEM_NAME_ADD	= 0x800,/* .name_change */
 	KDBUS_ITEM_NAME_REMOVE,		/* .name_change */
 	KDBUS_ITEM_NAME_CHANGE,		/* .name_change */
