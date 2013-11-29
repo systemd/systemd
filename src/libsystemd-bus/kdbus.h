@@ -36,14 +36,14 @@
 
 /* Message sent from kernel to userspace, when the owner or starter of
  * a well-known name changes */
-struct kdbus_manager_msg_name_change {
+struct kdbus_notify_name_change {
 	__u64 old_id;
 	__u64 new_id;
 	__u64 flags;			/* 0 or (possibly?) KDBUS_NAME_IN_QUEUE */
 	char name[0];
 };
 
-struct kdbus_manager_msg_id_change {
+struct kdbus_notify_id_change {
 	__u64 id;
 	__u64 flags;			/* The kernel flags field from KDBUS_HELLO */
 };
@@ -153,8 +153,8 @@ struct kdbus_item {
 		/* specific fields */
 		struct kdbus_memfd memfd;
 		int fds[0];
-		struct kdbus_manager_msg_name_change name_change;
-		struct kdbus_manager_msg_id_change id_change;
+		struct kdbus_notify_name_change name_change;
+		struct kdbus_notify_id_change id_change;
 	};
 };
 
