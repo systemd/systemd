@@ -900,6 +900,10 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
         assert(bus->rbuffer_size >= size);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
+        r = bus_rqueue_make_room(bus);
+        if (r < 0)
+                return r;
+
         if (bus->rbuffer_size > size) {
                 b = memdup((const uint8_t*) bus->rbuffer + size,
                            bus->rbuffer_size - size);
@@ -925,11 +929,7 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
         bus->fds = NULL;
         bus->n_fds = 0;
 
-        r = bus_rqueue_push(bus, t);
-        if (r < 0) {
-                sd_bus_message_unref(t);
-                return r;
-        }
+        bus->rqueue[bus->rqueue_size++] = t;
 
         return 1;
 }
@@ -952,10 +952,6 @@ int bus_socket_read_message(sd_bus *bus) {
 
         assert(bus);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
-
-        r = bus_rqueue_make_room(bus, 1);
-        if (r < 0)
-                return r;
 
         r = bus_socket_read_message_need(bus, &need);
         if (r < 0)

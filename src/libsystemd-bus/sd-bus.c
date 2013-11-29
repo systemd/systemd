@@ -1231,7 +1231,8 @@ _public_ int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *server_id) {
         return 0;
 }
 
-int bus_seal_message(sd_bus *b, sd_bus_message *m) {
+static int bus_seal_message(sd_bus *b, sd_bus_message *m) {
+        assert(b);
         assert(m);
 
         if (m->header->version > b->message_version)
@@ -1246,6 +1247,24 @@ int bus_seal_message(sd_bus *b, sd_bus_message *m) {
         }
 
         return bus_message_seal(m, ++b->serial);
+}
+
+int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
+        assert(b);
+        assert(m);
+
+        if (m->header->version > b->message_version)
+                return -EPERM;
+
+        /* The bus specification says the serial number cannot be 0,
+         * hence let's fill something in for synthetic messages. Since
+         * synthetic messages might have a fake sender and we don't
+         * want to interfere with the real sender's serial numbers we
+         * pick a fixed, artifical one. We use (uint32_t) -1 rather
+         * than (uint64_t) -1 since dbus1 only had 32bit identifiers,
+         * even though kdbus can do 64bit. */
+
+        return bus_message_seal(m, 0xFFFFFFFFULL);
 }
 
 static int bus_write_message(sd_bus *bus, sd_bus_message *message, size_t *idx) {
@@ -1308,11 +1327,11 @@ static int bus_read_message(sd_bus *bus) {
                 return bus_socket_read_message(bus);
 }
 
-int bus_rqueue_make_room(sd_bus *bus, unsigned n) {
+int bus_rqueue_make_room(sd_bus *bus) {
         sd_bus_message **q;
         unsigned x;
 
-        x = bus->rqueue_size + n;
+        x = bus->rqueue_size + 1;
 
         if (bus->rqueue_allocated >= x)
                 return 0;
@@ -1326,21 +1345,6 @@ int bus_rqueue_make_room(sd_bus *bus, unsigned n) {
 
         bus->rqueue = q;
         bus->rqueue_allocated = x;
-
-        return 0;
-}
-
-int bus_rqueue_push(sd_bus *bus, sd_bus_message *m) {
-        int r;
-
-        assert(bus);
-        assert(m);
-
-        r = bus_rqueue_make_room(bus, 1);
-        if (r < 0)
-                return r;
-
-        bus->rqueue[bus->rqueue_size++] = m;
 
         return 0;
 }
@@ -1820,7 +1824,7 @@ static int process_timeout(sd_bus *bus) {
 
         m->sender = "org.freedesktop.DBus";
 
-        r = bus_seal_message(bus, m);
+        r = bus_seal_synthetic_message(bus, m);
         if (r < 0)
                 return r;
 
@@ -2112,7 +2116,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                 if (r < 0)
                         return r;
 
-                r = bus_seal_message(bus, m);
+                r = bus_seal_synthetic_message(bus, m);
                 if (r < 0)
                         return r;
 
@@ -2143,7 +2147,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
 
         m->sender = "org.freedesktop.DBus.Local";
 
-        r = bus_seal_message(bus, m);
+        r = bus_seal_synthetic_message(bus, m);
         if (r < 0)
                 return r;
 

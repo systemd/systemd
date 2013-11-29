@@ -365,11 +365,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         /* the kernel told us the UUID of the underlying bus */
         memcpy(b->server_id.bytes, hello.id128, sizeof(b->server_id.bytes));
 
-        r = bus_start_running(b);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return bus_start_running(b);
 }
 
 int bus_kernel_connect(sd_bus *b) {
@@ -448,55 +444,18 @@ static int push_name_owner_changed(sd_bus *bus, const char *name, const char *ol
 
         m->sender = "org.freedesktop.DBus";
 
-        r = bus_seal_message(bus, m);
+        r = bus_seal_synthetic_message(bus, m);
         if (r < 0)
                 return r;
 
-        r = bus_rqueue_push(bus, m);
-        if (r < 0)
-                return r;
-
+        bus->rqueue[bus->rqueue_size++] = m;
         m = NULL;
-        return 1;
-}
 
-static int push_name_name_acquired(sd_bus *bus, const char *signal, const char *name) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
-        int r;
-
-        assert(bus);
-
-        r = sd_bus_message_new_signal(
-                        bus,
-                        "/org/freedesktop/DBus",
-                        "org.freedesktop.DBus",
-                        signal,
-                        &m);
-
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "ss", name);
-        if (r < 0)
-                return r;
-
-        m->sender = "org.freedesktop.DBus";
-
-        r = bus_seal_message(bus, m);
-        if (r < 0)
-                return r;
-
-        r = bus_rqueue_push(bus, m);
-        if (r < 0)
-                return r;
-
-        m = NULL;
         return 1;
 }
 
 static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d) {
         char new_owner[UNIQUE_NAME_MAX], old_owner[UNIQUE_NAME_MAX];
-        int r;
 
         assert(bus);
         assert(k);
@@ -505,19 +464,6 @@ static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_
         if (d->name_change.flags != 0)
                 return 0;
 
-        /* First generate NameAcquired/NameList messages */
-        if (d->type == KDBUS_ITEM_NAME_ADD && d->name_change.new_id == bus->unique_id) {
-                r = push_name_name_acquired(bus, "NameAcquired", d->name_change.name);
-                if (r < 0)
-                        return r;
-
-        } else if (d->type == KDBUS_ITEM_NAME_REMOVE && d->name_change.old_id == bus->unique_id) {
-                r = push_name_name_acquired(bus, "NameLost", d->name_change.name);
-                if (r < 0)
-                        return r;
-        }
-
-        /* Then, generate NameOwnerChanged messages */
         if (d->type == KDBUS_ITEM_NAME_ADD)
                 old_owner[0] = 0;
         else
@@ -566,15 +512,13 @@ static int translate_reply(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *
 
         m->sender = "org.freedesktop.DBus";
 
-        r = bus_seal_message(bus, m);
+        r = bus_seal_synthetic_message(bus, m);
         if (r < 0)
                 return r;
 
-        r = bus_rqueue_push(bus, m);
-        if (r < 0)
-                return r;
-
+        bus->rqueue[bus->rqueue_size++] = m;
         m = NULL;
+
         return 1;
 }
 
@@ -877,12 +821,9 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         m->kdbus = k;
         m->release_kdbus = true;
         m->free_fds = true;
-
         fds = NULL;
 
-        r = bus_rqueue_push(bus, m);
-        if (r < 0)
-                goto fail;
+        bus->rqueue[bus->rqueue_size++] = m;
 
         return 1;
 
@@ -909,12 +850,7 @@ int bus_kernel_read_message(sd_bus *bus) {
 
         assert(bus);
 
-        /* Kernel messages might result in 2 new queued messages in
-         * the worst case (NameOwnerChange and LostName for the same
-         * well-known name, for example). Let's make room in
-         * advance. */
-
-        r = bus_rqueue_make_room(bus, 2);
+        r = bus_rqueue_make_room(bus);
         if (r < 0)
                 return r;
 
