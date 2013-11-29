@@ -175,6 +175,7 @@ struct sd_bus {
         uint64_t serial;
 
         char *unique_name;
+        uint64_t unique_id;
 
         struct bus_match_node match_callbacks;
         Prioq *reply_callbacks_prioq;

@@ -356,6 +356,8 @@ int bus_kernel_take_fd(sd_bus *b) {
         if (asprintf(&b->unique_name, ":1.%llu", (unsigned long long) hello.id) < 0)
                 return -ENOMEM;
 
+        b->unique_id = hello.id;
+
         b->is_kernel = true;
         b->bus_client = true;
         b->can_fds = !!(hello.conn_flags & KDBUS_HELLO_ACCEPT_FD);
@@ -458,8 +460,43 @@ static int push_name_owner_changed(sd_bus *bus, const char *name, const char *ol
         return 1;
 }
 
+static int push_name_name_acquired(sd_bus *bus, const char *signal, const char *name) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+
+        r = sd_bus_message_new_signal(
+                        bus,
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        signal,
+                        &m);
+
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "ss", name);
+        if (r < 0)
+                return r;
+
+        m->sender = "org.freedesktop.DBus";
+
+        r = bus_seal_message(bus, m);
+        if (r < 0)
+                return r;
+
+        r = bus_rqueue_push(bus, m);
+        if (r < 0)
+                return r;
+
+        m = NULL;
+        return 1;
+}
+
 static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_item *d) {
         char new_owner[UNIQUE_NAME_MAX], old_owner[UNIQUE_NAME_MAX];
+        int r;
 
         assert(bus);
         assert(k);
@@ -468,6 +505,19 @@ static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_
         if (d->name_change.flags != 0)
                 return 0;
 
+        /* First generate NameAcquired/NameList messages */
+        if (d->type == KDBUS_ITEM_NAME_ADD && d->name_change.new_id == bus->unique_id) {
+                r = push_name_name_acquired(bus, "NameAcquired", d->name_change.name);
+                if (r < 0)
+                        return r;
+
+        } else if (d->type == KDBUS_ITEM_NAME_REMOVE && d->name_change.old_id == bus->unique_id) {
+                r = push_name_name_acquired(bus, "NameLost", d->name_change.name);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Then, generate NameOwnerChanged messages */
         if (d->type == KDBUS_ITEM_NAME_ADD)
                 old_owner[0] = 0;
         else
