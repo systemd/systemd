@@ -3697,6 +3697,20 @@ dist_zshcompletion_DATA += \
 
 endif
 
+if ENABLE_BUS_DRIVERD
+systemd_bus_driverd_SOURCES = \
+	src/bus-driverd/bus-driverd.c
+
+systemd_bus_driverd_LDADD = \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la
+
+rootlibexec_PROGRAMS += \
+	systemd-bus-driverd
+endif
+
 polkitpolicy_in_files += \
 	src/hostname/org.freedesktop.hostname1.policy.in
 

@@ -50,6 +50,7 @@
 /systemd-binfmt
 /systemd-bootchart
 /systemd-bus-proxyd
+/systemd-bus-driverd
 /systemd-cat
 /systemd-cgls
 /systemd-cgroups-agent
