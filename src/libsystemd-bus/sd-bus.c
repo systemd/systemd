@@ -181,7 +181,8 @@ _public_ int sd_bus_new(sd_bus **ret) {
         r->n_ref = REFCNT_INIT;
         r->input_fd = r->output_fd = -1;
         r->message_version = 1;
-        r->hello_flags |= KDBUS_HELLO_ACCEPT_FD|KDBUS_HELLO_ATTACH_NAMES;
+        r->hello_flags |= KDBUS_HELLO_ACCEPT_FD;
+        r->attach_flags |= KDBUS_ATTACH_NAMES;
         r->original_pid = getpid();
 
         assert_se(pthread_mutex_init(&r->memfd_cache_mutex, NULL) == 0);
@@ -279,7 +280,7 @@ _public_ int sd_bus_negotiate_attach_timestamp(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_TIMESTAMP, b);
+        SET_FLAG(bus->attach_flags, KDBUS_ATTACH_TIMESTAMP, b);
         return 0;
 }
 
@@ -289,28 +290,28 @@ _public_ int sd_bus_negotiate_attach_creds(sd_bus *bus, uint64_t mask) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CREDS,
+        SET_FLAG(bus->attach_flags, KDBUS_ATTACH_CREDS,
                  !!(mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID)));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_COMM,
+        SET_FLAG(bus->attach_flags, KDBUS_ATTACH_COMM,
                  !!(mask & (SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM)));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_EXE,
+        SET_FLAG(bus->attach_flags, KDBUS_ATTACH_EXE,
                  !!(mask & SD_BUS_CREDS_EXE));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CMDLINE,
+        SET_FLAG(bus->attach_flags, KDBUS_ATTACH_CMDLINE,
                  !!(mask & SD_BUS_CREDS_CMDLINE));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CGROUP,
+        SET_FLAG(bus->attach_flags, KDBUS_ATTACH_CGROUP,
                  !!(mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CAPS,
+        SET_FLAG(bus->attach_flags, KDBUS_ATTACH_CAPS,
                  !!(mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS)));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_SECLABEL,
+        SET_FLAG(bus->attach_flags, KDBUS_ATTACH_SECLABEL,
                  !!(mask & SD_BUS_CREDS_SELINUX_CONTEXT));
 
-        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_AUDIT,
+        SET_FLAG(bus->attach_flags, KDBUS_ATTACH_AUDIT,
                  !!(mask & (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)));
 
         bus->creds_mask = mask;

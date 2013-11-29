@@ -239,6 +239,7 @@ struct sd_bus {
         pid_t original_pid;
 
         uint64_t hello_flags;
+        uint64_t attach_flags;
 
         uint64_t match_cookie;
 

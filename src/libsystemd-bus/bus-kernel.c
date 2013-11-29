@@ -326,6 +326,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         zero(hello);
         hello.size = sizeof(hello);
         hello.conn_flags = b->hello_flags;
+        hello.attach_flags = b->attach_flags;
         hello.pool_size = KDBUS_POOL_SIZE;
 
         r = ioctl(b->input_fd, KDBUS_CMD_HELLO, &hello);

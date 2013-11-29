@@ -236,18 +236,20 @@ struct kdbus_cmd_policy {
 enum {
 	KDBUS_HELLO_STARTER		=  1 <<  0,
 	KDBUS_HELLO_ACCEPT_FD		=  1 <<  1,
+};
 
-	/* subscription for metadata to attach */
-	KDBUS_HELLO_ATTACH_TIMESTAMP	=  1 <<  8,
-	KDBUS_HELLO_ATTACH_CREDS	=  1 <<  9,
-	KDBUS_HELLO_ATTACH_NAMES	=  1 << 10,
-	KDBUS_HELLO_ATTACH_COMM		=  1 << 11,
-	KDBUS_HELLO_ATTACH_EXE		=  1 << 12,
-	KDBUS_HELLO_ATTACH_CMDLINE	=  1 << 13,
-	KDBUS_HELLO_ATTACH_CGROUP	=  1 << 14,
-	KDBUS_HELLO_ATTACH_CAPS		=  1 << 15,
-	KDBUS_HELLO_ATTACH_SECLABEL	=  1 << 16,
-	KDBUS_HELLO_ATTACH_AUDIT	=  1 << 17,
+/* Flags for message attachments */
+enum {
+	KDBUS_ATTACH_TIMESTAMP		=  1 <<  0,
+	KDBUS_ATTACH_CREDS		=  1 <<  1,
+	KDBUS_ATTACH_NAMES		=  1 <<  2,
+	KDBUS_ATTACH_COMM		=  1 <<  3,
+	KDBUS_ATTACH_EXE		=  1 <<  4,
+	KDBUS_ATTACH_CMDLINE		=  1 <<  5,
+	KDBUS_ATTACH_CGROUP		=  1 <<  6,
+	KDBUS_ATTACH_CAPS		=  1 <<  7,
+	KDBUS_ATTACH_SECLABEL		=  1 <<  8,
+	KDBUS_ATTACH_AUDIT		=  1 <<  9,
 };
 
 struct kdbus_cmd_hello {
@@ -260,6 +262,9 @@ struct kdbus_cmd_hello {
 				 * more. Kernel might refuse client's
 				 * capabilities by returning an error
 				 * from KDBUS_HELLO */
+	__u64 attach_flags;	/* userspace specifies the metadata
+				 * attachments it wishes to receive with
+				 * every message. */
 
 	/* kernel → userspace */
 	__u64 bus_flags;	/* this is .flags copied verbatim from
@@ -366,7 +371,8 @@ enum {
 
 struct kdbus_cmd_name_info {
 	__u64 size;			/* overall size of info */
-	__u64 flags;
+	__u64 flags;			/* query flags */
+	__u64 attach_flags;		/* which meta data payload to attach */
 	__u64 id;			/* either ID, or 0 and _ITEM_NAME follows */
 	struct kdbus_creds creds;
 	struct kdbus_item items[0];	/* list of item records */
