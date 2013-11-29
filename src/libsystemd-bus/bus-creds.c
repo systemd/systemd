@@ -599,7 +599,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
 
                 p = procfs_file_alloca(pid, "attr/current");
                 r = read_one_line_file(p, &c->label);
-                if (r < 0 && r != -ENOENT)
+                if (r < 0 && r != -ENOENT && r != -EINVAL)
                         return r;
                 else if (r >= 0)
                         c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
