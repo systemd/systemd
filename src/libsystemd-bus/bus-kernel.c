@@ -357,6 +357,9 @@ int bus_kernel_take_fd(sd_bus *b) {
         b->bus_client = true;
         b->can_fds = !!(hello.conn_flags & KDBUS_HELLO_ACCEPT_FD);
 
+        /* the kernel told us the UUID of the underlying bus */
+        memcpy(b->server_id.bytes, hello.id128, sizeof(b->server_id.bytes));
+
         r = bus_start_running(b);
         if (r < 0)
                 return r;

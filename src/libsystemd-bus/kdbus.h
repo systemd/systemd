@@ -276,6 +276,8 @@ struct kdbus_cmd_hello {
 	__u64 bloom_size;	/* The bloom filter size chosen by the
 				 * bus owner */
 	__u64 pool_size;	/* maximum size of pool buffer */
+	__u8 id128[16];		/* the unique id of the bus */
+
 	struct kdbus_item items[0];
 };
 
