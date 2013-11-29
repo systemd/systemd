@@ -593,7 +593,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k, sd_bus_mess
                 } else if (d->type == KDBUS_MSG_DST_NAME)
                         destination = d->str;
                 else if (d->type != KDBUS_MSG_FDS &&
-                           d->type != KDBUS_MSG_SRC_SECLABEL)
+                           d->type != KDBUS_MSG_SRC_SECLABEL &&
+                             d->type != KDBUS_MSG_SRC_NAMES)
                         log_debug("Got unknown field from kernel %llu", d->type);
         }
 
