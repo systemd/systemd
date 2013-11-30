@@ -42,7 +42,7 @@ static int bus_error_name_to_errno(const char *name) {
         if (!name)
                 return EINVAL;
 
-        p = startswith(name, "Posix.Error.");
+        p = startswith(name, "System.Error.");
         if (p) {
                 r = errno_from_name(p);
                 if (r <= 0)
@@ -198,7 +198,7 @@ static int errno_to_bus_error_name_new(int error, char **ret) {
         if (!name)
                 return 0;
 
-        n = strappend("Posix.Error.", name);
+        n = strappend("System.Error.", name);
         if (!n)
                 return -ENOMEM;
 

@@ -86,19 +86,19 @@ int main(int argc, char *argv[]) {
         assert_se(sd_bus_error_is_set(&second));
 
         assert_se(!sd_bus_error_is_set(&error));
-        assert_se(sd_bus_error_set_const(&error, "Posix.Error.EUCLEAN", "Hallo") == -EUCLEAN);
-        assert_se(streq(error.name, "Posix.Error.EUCLEAN"));
+        assert_se(sd_bus_error_set_const(&error, "System.Error.EUCLEAN", "Hallo") == -EUCLEAN);
+        assert_se(streq(error.name, "System.Error.EUCLEAN"));
         assert_se(streq(error.message, "Hallo"));
-        assert_se(sd_bus_error_has_name(&error, "Posix.Error.EUCLEAN"));
+        assert_se(sd_bus_error_has_name(&error, "System.Error.EUCLEAN"));
         assert_se(sd_bus_error_get_errno(&error) == EUCLEAN);
         assert_se(sd_bus_error_is_set(&error));
         sd_bus_error_free(&error);
 
         assert_se(!sd_bus_error_is_set(&error));
         assert_se(sd_bus_error_set_errno(&error, EBUSY) == -EBUSY);
-        assert_se(streq(error.name, "Posix.Error.EBUSY"));
+        assert_se(streq(error.name, "System.Error.EBUSY"));
         assert_se(streq(error.message, strerror(EBUSY)));
-        assert_se(sd_bus_error_has_name(&error, "Posix.Error.EBUSY"));
+        assert_se(sd_bus_error_has_name(&error, "System.Error.EBUSY"));
         assert_se(sd_bus_error_get_errno(&error) == EBUSY);
         assert_se(sd_bus_error_is_set(&error));
         sd_bus_error_free(&error);
