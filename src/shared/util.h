@@ -669,8 +669,11 @@ char *strextend(char **x, ...) _sentinel_;
 char *strrep(const char *s, unsigned n);
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need);
+void* greedy_realloc0(void **p, size_t *allocated, size_t need);
 #define GREEDY_REALLOC(array, allocated, need) \
         greedy_realloc((void**) &(array), &(allocated), sizeof((array)[0]) * (need))
+#define GREEDY_REALLOC0(array, allocated, need) \
+        greedy_realloc0((void**) &(array), &(allocated), sizeof((array)[0]) * (need))
 
 static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
