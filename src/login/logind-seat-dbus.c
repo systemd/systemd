@@ -103,7 +103,7 @@ static int property_get_can_graphical(
         assert(reply);
         assert(s);
 
-        return sd_bus_message_append(reply, "b", seat_can_tty(s));
+        return sd_bus_message_append(reply, "b", seat_can_graphical(s));
 }
 
 static int property_get_sessions(
