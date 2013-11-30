@@ -164,7 +164,7 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
 
         e = udev_enumerate_new(udev);
         if (!e)
-                return ENOMEM;
+                return -ENOMEM;
 
         if (!streq(seat, "seat0"))
                 r = udev_enumerate_add_match_tag(e, seat);
