@@ -1411,9 +1411,12 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
                 size_t idx = 0;
 
                 r = bus_write_message(bus, m, &idx);
-                if (r < 0)
+                if (r < 0) {
+                        if (r == -EPIPE || r == -ENOTCONN || r == -ESHUTDOWN)
+                                bus_enter_closing(bus);
+
                         return r;
-                else if (!bus->is_kernel && idx < BUS_MESSAGE_SIZE(m))  {
+                } else if (!bus->is_kernel && idx < BUS_MESSAGE_SIZE(m))  {
                         /* Wasn't fully written. So let's remember how
                          * much was written. Note that the first entry
                          * of the wqueue array is always allocated so
@@ -1687,8 +1690,12 @@ _public_ int sd_bus_call(
                 }
 
                 r = bus_read_message(bus);
-                if (r < 0)
+                if (r < 0) {
+                        if (r == -EPIPE || r == -ENOTCONN || r == -ESHUTDOWN)
+                                bus_enter_closing(bus);
+
                         return r;
+                }
                 if (r > 0)
                         continue;
 
@@ -1708,8 +1715,12 @@ _public_ int sd_bus_call(
                         return r;
 
                 r = dispatch_wqueue(bus);
-                if (r < 0)
+                if (r < 0) {
+                        if (r == -EPIPE || r == -ENOTCONN || r == -ESHUTDOWN)
+                                bus_enter_closing(bus);
+
                         return r;
+                }
         }
 }
 
@@ -2188,7 +2199,7 @@ _public_ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
 
         case BUS_OPENING:
                 r = bus_socket_process_opening(bus);
-                if (r == -ECONNRESET || r == -EPIPE) {
+                if (r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                         bus_enter_closing(bus);
                         r = 1;
                 } else if (r < 0)
@@ -2199,7 +2210,7 @@ _public_ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
 
         case BUS_AUTHENTICATING:
                 r = bus_socket_process_authenticating(bus);
-                if (r == -ECONNRESET || r == -EPIPE) {
+                if (r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                         bus_enter_closing(bus);
                         r = 1;
                 } else if (r < 0)
@@ -2213,7 +2224,7 @@ _public_ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
         case BUS_RUNNING:
         case BUS_HELLO:
                 r = process_running(bus, ret);
-                if (r == -ECONNRESET || r == -EPIPE) {
+                if (r == -ECONNRESET || r == -EPIPE || r == -ESHUTDOWN) {
                         bus_enter_closing(bus);
                         r = 1;
 
@@ -2324,8 +2335,12 @@ _public_ int sd_bus_flush(sd_bus *bus) {
 
         for (;;) {
                 r = dispatch_wqueue(bus);
-                if (r < 0)
+                if (r < 0) {
+                        if (r == -EPIPE || r == -ENOTCONN || r == -ESHUTDOWN)
+                                bus_enter_closing(bus);
+
                         return r;
+                }
 
                 if (bus->wqueue_size <= 0)
                         return 0;
