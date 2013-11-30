@@ -1274,9 +1274,9 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *message, size_t *idx) 
         assert(message);
 
         if (bus->is_kernel)
-                r = bus_kernel_write_message(bus, message);
+                return bus_kernel_write_message(bus, message);
         else
-                r = bus_socket_write_message(bus, message, idx);
+                return bus_socket_write_message(bus, message, idx);
 
         return r;
 }
@@ -1627,19 +1627,16 @@ _public_ int sd_bus_call(
         if (r < 0)
                 return r;
 
+        i = bus->rqueue_size;
+
         r = sd_bus_send(bus, m, &serial);
         if (r < 0)
                 return r;
 
         timeout = calc_elapse(usec);
-        i = bus->rqueue_size;
 
         for (;;) {
                 usec_t left;
-
-                r = bus_read_message(bus);
-                if (r < 0)
-                        return r;
 
                 while (i < bus->rqueue_size) {
                         sd_bus_message *incoming = NULL;
@@ -1660,24 +1657,13 @@ _public_ int sd_bus_call(
                                                 sd_bus_message_unref(incoming);
 
                                         return 1;
-                                }
-
-                                if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR) {
-                                        int k;
-
+                                } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
                                         r = sd_bus_error_copy(error, &incoming->error);
-                                        if (r < 0) {
-                                                sd_bus_message_unref(incoming);
-                                                return r;
-                                        }
-
-                                        k = sd_bus_error_get_errno(&incoming->error);
-                                        sd_bus_message_unref(incoming);
-                                        return -k;
-                                }
+                                else
+                                        r = -EIO;
 
                                 sd_bus_message_unref(incoming);
-                                return -EIO;
+                                return r;
 
                         } else if (incoming->header->serial == serial &&
                                    bus->unique_name &&
@@ -1700,6 +1686,9 @@ _public_ int sd_bus_call(
                         i++;
                 }
 
+                r = bus_read_message(bus);
+                if (r < 0)
+                        return r;
                 if (r > 0)
                         continue;
 

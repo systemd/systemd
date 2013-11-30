@@ -35,6 +35,7 @@ int main(int argc, char *argv[]) {
         _cleanup_close_ int bus_ref = -1;
         _cleanup_free_ char *bus_name = NULL, *address = NULL;
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *ua = NULL, *ub = NULL, *the_string = NULL;
         sd_bus *a, *b;
         int r, pipe_fds[2];
@@ -83,6 +84,10 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         printf("unique b: %s\n", ub);
+
+        r = sd_bus_call_method(a, "this.doesnt.exist", "/foo", "meh.mah", "muh", &error, NULL, "s", "yayayay");
+        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_SERVICE_UNKNOWN));
+        assert_se(r == -EHOSTUNREACH);
 
         r = sd_bus_add_match(b, "interface='waldo.com',member='Piep'", NULL, NULL);
         assert_se(r >= 0);

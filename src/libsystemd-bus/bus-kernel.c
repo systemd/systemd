@@ -393,13 +393,60 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
         assert(m);
         assert(bus->state == BUS_RUNNING);
 
+        /* If we can't deliver, we want room for the error message */
+        r = bus_rqueue_make_room(bus);
+        if (r < 0)
+                return r;
+
         r = bus_message_setup_kmsg(bus, m);
         if (r < 0)
                 return r;
 
         r = ioctl(bus->output_fd, KDBUS_CMD_MSG_SEND, m->kdbus);
-        if (r < 0)
-                return errno == EAGAIN ? 0 : -errno;
+        if (r < 0) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+                sd_bus_message *reply;
+
+                if (errno == EAGAIN || errno == EINTR)
+                        return 0;
+                else if (errno == ENXIO || errno == ESRCH) {
+
+                        /* ENXIO: unique name not known
+                         * ESRCH: well-known name not known */
+
+                        if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
+                                sd_bus_error_setf(&error, SD_BUS_ERROR_SERVICE_UNKNOWN, "Destination %s not known", m->destination);
+                        else
+                                return 0;
+
+                } else if (errno == EADDRNOTAVAIL) {
+
+                        /* EADDRNOTAVAIL: activation is possible, but turned off in request flags */
+
+                        if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
+                                sd_bus_error_setf(&error, SD_BUS_ERROR_SERVICE_UNKNOWN, "Activation of %s not requested", m->destination);
+                        else
+                                return 0;
+                } else
+                        return -errno;
+
+                r = bus_message_new_synthetic_error(
+                                bus,
+                                BUS_MESSAGE_SERIAL(m),
+                                &error,
+                                &reply);
+
+                if (r < 0)
+                        return r;
+
+                r = bus_seal_synthetic_message(bus, reply);
+                if (r < 0)
+                        return r;
+
+                bus->rqueue[bus->rqueue_size++] = reply;
+
+                return 0;
+        }
 
         return 1;
 }
