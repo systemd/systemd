@@ -609,6 +609,8 @@ _public_ int sd_bus_message_new_method_error(
                         goto fail;
         }
 
+        t->error._need_free = -1;
+
         *m = t;
         return 0;
 
@@ -708,6 +710,8 @@ int bus_message_new_synthetic_error(
                 if (r < 0)
                         goto fail;
         }
+
+        t->error._need_free = -1;
 
         *m = t;
         return 0;
@@ -3804,6 +3808,9 @@ int bus_message_parse_fields(sd_bus_message *m) {
                                 return -EBADMSG;
 
                         r = message_peek_field_string(m, error_name_is_valid, &ri, &m->error.name);
+                        if (r >= 0)
+                                m->error._need_free = -1;
+
                         break;
 
                 case SD_BUS_MESSAGE_HEADER_DESTINATION:

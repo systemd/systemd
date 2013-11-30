@@ -210,20 +210,20 @@ bool bus_error_is_dirty(sd_bus_error *e) {
         if (!e)
                 return false;
 
-        return e->name || e->message || e->need_free;
+        return e->name || e->message || e->_need_free != 0;
 }
 
 _public_ void sd_bus_error_free(sd_bus_error *e) {
         if (!e)
                 return;
 
-        if (e->need_free) {
+        if (e->_need_free > 0) {
                 free((void*) e->name);
                 free((void*) e->message);
         }
 
         e->name = e->message = NULL;
-        e->need_free = false;
+        e->_need_free = 0;
 }
 
 _public_ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *message) {
@@ -244,7 +244,7 @@ _public_ int sd_bus_error_set(sd_bus_error *e, const char *name, const char *mes
         if (message)
                 e->message = strdup(message);
 
-        e->need_free = true;
+        e->_need_free = 1;
 
 finish:
         return -bus_error_name_to_errno(name);
@@ -268,7 +268,7 @@ int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_li
         if (format)
                 vasprintf((char**) &e->message, format, ap);
 
-        e->need_free = true;
+        e->_need_free = 1;
 
 finish:
         return -bus_error_name_to_errno(name);
@@ -299,7 +299,13 @@ _public_ int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
 
         assert_return(!bus_error_is_dirty(dest), -EINVAL);
 
-        if (!e->need_free)
+        /*
+         * _need_free  < 0 indicates that the error is temporarily const, needs deep copying
+         * _need_free == 0 indicates that the error is perpetually const, needs no deep copying
+         * _need_free  > 0 indicates that the error is fully dynamic, needs deep copying
+         */
+
+        if (e->_need_free == 0)
                 *dest = *e;
         else {
                 dest->name = strdup(e->name);
@@ -311,7 +317,7 @@ _public_ int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e) {
                 if (e->message)
                         dest->message = strdup(e->message);
 
-                dest->need_free = true;
+                dest->_need_free = 1;
         }
 
 finish:
@@ -380,7 +386,7 @@ static void bus_error_strerror(sd_bus_error *e, int error) {
                 }
 
                 if (x == m) {
-                        if (e->need_free) {
+                        if (e->_need_free > 0) {
                                 /* Error is already dynamic, let's just update the message */
                                 free((char*) e->message);
                                 e->message = x;
@@ -395,14 +401,14 @@ static void bus_error_strerror(sd_bus_error *e, int error) {
                                         return;
                                 }
 
-                                e->need_free = true;
+                                e->_need_free = 1;
                                 e->name = t;
                                 e->message = x;
                         }
                 } else {
                         free(m);
 
-                        if (e->need_free) {
+                        if (e->_need_free > 0) {
                                 char *t;
 
                                 /* Error is dynamic, let's hence make the message also dynamic */
@@ -444,7 +450,7 @@ _public_ int sd_bus_error_set_errno(sd_bus_error *e, int error) {
 
                 k = errno_to_bus_error_name_new(error, (char**) &e->name);
                 if (k > 0)
-                        e->need_free = true;
+                        e->_need_free = 1;
                 else if (k < 0) {
                         *e = BUS_ERROR_OOM;
                         return -error;
@@ -480,7 +486,7 @@ int bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_lis
 
                 k = errno_to_bus_error_name_new(error, (char**) &e->name);
                 if (k > 0)
-                        e->need_free = true;
+                        e->_need_free = 1;
                 else if (k < 0) {
                         *e = BUS_ERROR_OOM;
                         return -ENOMEM;
@@ -496,12 +502,12 @@ int bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_lis
                 r = vasprintf(&m, format, ap);
                 if (r >= 0) {
 
-                        if (!e->need_free) {
+                        if (e->_need_free <= 0) {
                                 char *t;
 
                                 t = strdup(e->name);
                                 if (t) {
-                                        e->need_free = true;
+                                        e->_need_free = 1;
                                         e->name = t;
                                         e->message = m;
                                         return -error;

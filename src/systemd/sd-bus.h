@@ -42,7 +42,7 @@ typedef struct sd_bus_creds sd_bus_creds;
 typedef struct {
         const char *name;
         const char *message;
-        int need_free;
+        int _need_free;
 } sd_bus_error;
 
 /* Flags */

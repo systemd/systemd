@@ -26,6 +26,12 @@
 int main(int argc, char *argv[]) {
 
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL, second = SD_BUS_ERROR_NULL;
+        const sd_bus_error const_error = SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FILE_EXISTS, "const error");
+        const sd_bus_error temporarily_const_error = {
+                .name = SD_BUS_ERROR_ACCESS_DENIED,
+                .message = "oh! no",
+                ._need_free = -1
+        };
 
         assert_se(!sd_bus_error_is_set(&error));
         assert_se(sd_bus_error_set(&error, SD_BUS_ERROR_NOT_SUPPORTED, "xxx") == -ENOTSUP);
@@ -45,7 +51,10 @@ int main(int argc, char *argv[]) {
         assert_se(sd_bus_error_is_set(&error));
 
         assert_se(!sd_bus_error_is_set(&second));
+        assert_se(second._need_free == 0);
+        assert_se(error._need_free > 0);
         assert_se(sd_bus_error_copy(&second, &error) == -ENOENT);
+        assert_se(second._need_free > 0);
         assert_se(streq(error.name, second.name));
         assert_se(streq(error.message, second.message));
         assert_se(sd_bus_error_get_errno(&second) == ENOENT);
@@ -53,6 +62,28 @@ int main(int argc, char *argv[]) {
         assert_se(sd_bus_error_is_set(&second));
 
         sd_bus_error_free(&error);
+        sd_bus_error_free(&second);
+
+        assert_se(!sd_bus_error_is_set(&second));
+        assert_se(const_error._need_free == 0);
+        assert_se(sd_bus_error_copy(&second, &const_error) == -EEXIST);
+        assert_se(second._need_free == 0);
+        assert_se(streq(const_error.name, second.name));
+        assert_se(streq(const_error.message, second.message));
+        assert_se(sd_bus_error_get_errno(&second) == EEXIST);
+        assert_se(sd_bus_error_has_name(&second, SD_BUS_ERROR_FILE_EXISTS));
+        assert_se(sd_bus_error_is_set(&second));
+        sd_bus_error_free(&second);
+
+        assert_se(!sd_bus_error_is_set(&second));
+        assert_se(temporarily_const_error._need_free < 0);
+        assert_se(sd_bus_error_copy(&second, &temporarily_const_error) == -EACCES);
+        assert_se(second._need_free > 0);
+        assert_se(streq(temporarily_const_error.name, second.name));
+        assert_se(streq(temporarily_const_error.message, second.message));
+        assert_se(sd_bus_error_get_errno(&second) == EACCES);
+        assert_se(sd_bus_error_has_name(&second, SD_BUS_ERROR_ACCESS_DENIED));
+        assert_se(sd_bus_error_is_set(&second));
 
         assert_se(!sd_bus_error_is_set(&error));
         assert_se(sd_bus_error_set_const(&error, "Posix.Error.EUCLEAN", "Hallo") == -EUCLEAN);
