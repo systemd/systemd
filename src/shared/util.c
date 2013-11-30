@@ -2501,7 +2501,7 @@ int getttyname_malloc(int fd, char **r) {
         assert(r);
 
         k = ttyname_r(fd, path, sizeof(path));
-        if (k != 0)
+        if (k > 0)
                 return -k;
 
         char_array_0(path);
