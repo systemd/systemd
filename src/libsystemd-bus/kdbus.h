@@ -91,8 +91,8 @@ enum {
 	_KDBUS_ITEM_NULL,
 
 	/* Filled in by userspace */
-        _KDBUS_ITEM_USER_BASE	    = 1,
-        KDBUS_ITEM_PAYLOAD_VEC	    = 1,/* .data_vec, reference to memory area */
+	_KDBUS_ITEM_USER_BASE	= 1,
+	KDBUS_ITEM_PAYLOAD_VEC	= 1,	/* .data_vec, reference to memory area */
 	KDBUS_ITEM_PAYLOAD_OFF,		/* .data_vec, reference to memory area */
 	KDBUS_ITEM_PAYLOAD_MEMFD,	/* file descriptor of a special data file */
 	KDBUS_ITEM_FDS,			/* .data_fds of file descriptors */
@@ -101,7 +101,7 @@ enum {
 	KDBUS_ITEM_PRIORITY,		/* queue priority for message */
 
 	/* Filled in by kernelspace */
-        _KDBUS_ITEM_ATTACH_BASE	= 0x400,
+	_KDBUS_ITEM_ATTACH_BASE	= 0x400,
 	KDBUS_ITEM_NAMES	= 0x400,/* NUL separated string list with well-known names of source */
 	KDBUS_ITEM_TIMESTAMP,		/* .timestamp */
 
@@ -109,7 +109,7 @@ enum {
 	KDBUS_ITEM_CREDS,		/* .creds */
 	KDBUS_ITEM_PID_COMM,		/* optional, in .str */
 	KDBUS_ITEM_TID_COMM,		/* optional, in .str */
-	KDBUS_ITEM_EXE,		/* optional, in .str */
+	KDBUS_ITEM_EXE,			/* optional, in .str */
 	KDBUS_ITEM_CMDLINE,		/* optional, in .str (a chain of NUL str) */
 	KDBUS_ITEM_CGROUP,		/* optional, in .str */
 	KDBUS_ITEM_CAPS,		/* caps data blob, in .data */
@@ -117,7 +117,7 @@ enum {
 	KDBUS_ITEM_AUDIT,		/* .audit */
 
 	/* Special messages from kernel, consisting of one and only one of these data blocks */
-        _KDBUS_ITEM_KERNEL_BASE	= 0x800,
+	_KDBUS_ITEM_KERNEL_BASE	= 0x800,
 	KDBUS_ITEM_NAME_ADD	= 0x800,/* .name_change */
 	KDBUS_ITEM_NAME_REMOVE,		/* .name_change */
 	KDBUS_ITEM_NAME_CHANGE,		/* .name_change */
@@ -172,17 +172,6 @@ enum {
 	KDBUS_PAYLOAD_GVARIANT	= 0x4756617269616e74ULL, /* 'GVariant' */
 };
 
-/**
- * struct kdbus_msg
- *
- * set by userspace:
- * dst_id: destination id
- * flags: KDBUS_MSG_FLAGS_*
- * items: data records
- *
- * set by kernel:
- * src_id: who sent the message
- */
 struct kdbus_msg {
 	__u64 size;
 	__u64 flags;
@@ -217,12 +206,11 @@ enum {
 };
 
 struct kdbus_policy_access {
-	__u64 type;		/* USER, GROUP, WORLD */
-	__u64 bits;		/* RECV, SEND, OWN */
-	__u64 id;		/* uid, gid, 0 */
+	__u64 type;			/* USER, GROUP, WORLD */
+	__u64 bits;			/* RECV, SEND, OWN */
+	__u64 id;			/* uid, gid, 0 */
 };
 
-//FIXME: convert access to access[]
 struct kdbus_policy {
 	KDBUS_PART_HEADER;
 	union {
@@ -257,6 +245,7 @@ enum {
 	KDBUS_ATTACH_AUDIT		=  1 <<  9,
 };
 
+/* KDBUS_CMD_HELLO */
 struct kdbus_cmd_hello {
 	__u64 size;
 
@@ -350,11 +339,11 @@ enum {
 	KDBUS_NAME_IN_QUEUE			= 1 << 16,
 };
 
-/* We allow (de)registration of names of other peers */
+/* KDBUS_CMD_NAME_ACQUIRE */
 struct kdbus_cmd_name {
 	__u64 size;
 	__u64 flags;
-	__u64 id;
+	__u64 id;		/* we allow (de)registration of names of other peers */
 	__u64 conn_flags;
 	char name[0];
 };
@@ -366,7 +355,7 @@ enum {
 
 struct kdbus_cmd_name_list {
 	__u64 flags;
-	__u64 offset;			/* returned offset in the caller's buffer */
+	__u64 offset;		/* returned offset in the caller's buffer */
 };
 
 struct kdbus_name_list {
