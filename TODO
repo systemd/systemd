@@ -121,14 +121,8 @@ Features:
   - implement translator service
   - implement busname unit type in systemd
   - move to gvariant
-  - synthesize sd_bus_message objects from kernel messages
-  - properly implement name registry ioctls for kdbus
   - implement monitor logic
   - properly map matches with well-known names against messages with unique names
-  - longer term:
-    * priority queues
-    * priority inheritance
-  - synthesized messages should get serial number (uint32_t) -1
   - when triggering property change events, allow a NULL strv indicate that all properties listed as such are send out as changed
   - enforce signatures on response messages
   - see if we can drop more message validation on the sending side
@@ -136,6 +130,9 @@ Features:
   - add API to clone sd_bus_message objects
   - SD_BUS_COMMENT() macro for inclusion in vtables, syntax inspired by gdbus
   - unelss configure option is specified refuse connecting and creating kdbus, so that we can break compat
+  - longer term:
+    * priority queues
+    * priority inheritance
 
 * sd-event
   - allow multiple signal handlers per signal
