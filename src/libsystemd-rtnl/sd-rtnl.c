@@ -47,6 +47,8 @@ static int sd_rtnl_new(sd_rtnl **ret) {
 
         rtnl->original_pid = getpid();
 
+        LIST_HEAD_INIT(rtnl->match_callbacks);
+
         /* We guarantee that wqueue always has space for at least
          * one entry */
         rtnl->wqueue = new(sd_rtnl_message*, 1);
@@ -109,6 +111,7 @@ sd_rtnl *sd_rtnl_ref(sd_rtnl *rtnl) {
 sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
 
         if (rtnl && REFCNT_DEC(rtnl->n_ref) <= 0) {
+                struct match_callback *f;
                 unsigned i;
 
                 for (i = 0; i < rtnl->rqueue_size; i++)
@@ -121,6 +124,11 @@ sd_rtnl *sd_rtnl_unref(sd_rtnl *rtnl) {
 
                 hashmap_free_free(rtnl->reply_callbacks);
                 prioq_free(rtnl->reply_callbacks_prioq);
+
+                while ((f = rtnl->match_callbacks)) {
+                        LIST_REMOVE(match_callbacks, rtnl->match_callbacks, f);
+                        free(f);
+                }
 
                 if (rtnl->fd >= 0)
                         close_nointr_nofail(rtnl->fd);
@@ -281,6 +289,29 @@ static int process_reply(sd_rtnl *rtnl, sd_rtnl_message *m) {
         return r;
 }
 
+static int process_match(sd_rtnl *rtnl, sd_rtnl_message *m) {
+        struct match_callback *c;
+        uint16_t type;
+        int r;
+
+        assert(rtnl);
+        assert(m);
+
+        r = sd_rtnl_message_get_type(m, &type);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks) {
+                if (type & c->types) {
+                        r = c->callback(rtnl, m, c->userdata);
+                        if (r != 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static int process_running(sd_rtnl *rtnl, sd_rtnl_message **ret) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         int r;
@@ -300,6 +331,10 @@ static int process_running(sd_rtnl *rtnl, sd_rtnl_message **ret) {
                 goto null_message;
 
         r = process_reply(rtnl, m);
+        if (r != 0)
+                goto null_message;
+
+        r = process_match(rtnl, m);
         if (r != 0)
                 goto null_message;
 
@@ -781,6 +816,51 @@ int sd_rtnl_detach_event(sd_rtnl *rtnl) {
 
         if (rtnl->event)
                 rtnl->event = sd_event_unref(rtnl->event);
+
+        return 0;
+}
+
+int sd_rtnl_add_match(sd_rtnl *rtnl,
+                      uint16_t types,
+                      sd_rtnl_message_handler_t callback,
+                      void *userdata) {
+        struct match_callback *c;
+
+        assert_return(rtnl, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(types, -EINVAL);
+        assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
+
+        c = new0(struct match_callback, 1);
+        if (!c)
+                return -ENOMEM;
+
+        c->callback = callback;
+        c->types = types;
+        c->userdata = userdata;
+
+        LIST_PREPEND(match_callbacks, rtnl->match_callbacks, c);
+
+        return 0;
+}
+
+int sd_rtnl_remove_match(sd_rtnl *rtnl,
+                         uint16_t types,
+                         sd_rtnl_message_handler_t callback,
+                         void *userdata) {
+        struct match_callback *c;
+
+        assert_return(rtnl, -EINVAL);
+        assert_return(callback, -EINVAL);
+        assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
+
+        LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks)
+                if (c->callback == callback && c->types == types && c->userdata == userdata) {
+                        LIST_REMOVE(match_callbacks, rtnl->match_callbacks, c);
+                        free(c);
+
+                        return 1;
+                }
 
         return 0;
 }

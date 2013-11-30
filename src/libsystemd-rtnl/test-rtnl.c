@@ -230,6 +230,21 @@ static void test_container(void) {
 */
 }
 
+static void test_match(void) {
+        _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
+
+        assert(sd_rtnl_open(0, &rtnl) >= 0);
+
+        assert(sd_rtnl_add_match(rtnl, 0, &link_handler, NULL) == -EINVAL);
+
+        assert(sd_rtnl_add_match(rtnl, RTMGRP_LINK, &link_handler, NULL) >= 0);
+        assert(sd_rtnl_add_match(rtnl, RTMGRP_LINK, &link_handler, NULL) >= 0);
+
+        assert(sd_rtnl_remove_match(rtnl, RTMGRP_LINK, &link_handler, NULL) == 1);
+        assert(sd_rtnl_remove_match(rtnl, RTMGRP_LINK, &link_handler, NULL) == 1);
+        assert(sd_rtnl_remove_match(rtnl, RTMGRP_LINK, &link_handler, NULL) == 0);
+}
+
 int main(void) {
         sd_rtnl *rtnl;
         sd_rtnl_message *m;
@@ -239,6 +254,8 @@ int main(void) {
         uint16_t type;
         unsigned int mtu = 0;
         unsigned int *mtu_reply;
+
+        test_match();
 
         test_multiple();
 

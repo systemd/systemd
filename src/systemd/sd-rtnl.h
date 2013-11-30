@@ -57,6 +57,9 @@ int sd_rtnl_process(sd_rtnl *nl, sd_rtnl_message **ret);
 int sd_rtnl_wait(sd_rtnl *nl, uint64_t timeout);
 int sd_rtnl_flush(sd_rtnl *nl);
 
+int sd_rtnl_add_match(sd_rtnl *nl, uint16_t match, sd_rtnl_message_handler_t c, void *userdata);
+int sd_rtnl_remove_match(sd_rtnl *nl, uint16_t match, sd_rtnl_message_handler_t c, void *userdata);
+
 int sd_rtnl_attach_event(sd_rtnl *nl, sd_event *e, int priority);
 int sd_rtnl_detach_event(sd_rtnl *nl);
 

@@ -25,6 +25,7 @@
 
 #include "refcnt.h"
 #include "prioq.h"
+#include "list.h"
 
 #include "sd-rtnl.h"
 
@@ -34,6 +35,14 @@ struct reply_callback {
         usec_t timeout;
         uint64_t serial;
         unsigned prioq_idx;
+};
+
+struct match_callback {
+        sd_rtnl_message_handler_t callback;
+        uint16_t types;
+        void *userdata;
+
+        LIST_FIELDS(struct match_callback, match_callbacks);
 };
 
 struct sd_rtnl {
@@ -58,6 +67,8 @@ struct sd_rtnl {
 
         struct Prioq *reply_callbacks_prioq;
         Hashmap *reply_callbacks;
+
+        LIST_HEAD(struct match_callback, match_callbacks);
 
         pid_t original_pid;
 
