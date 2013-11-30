@@ -426,11 +426,6 @@ static int bus_get_owner_kdbus(
         }
 
         cmd->size = size;
-
-        r = kdbus_translate_attach_flags(mask, (uint64_t*) &cmd->attach_flags);
-        if (r < 0)
-                return r;
-
         r = ioctl(bus->input_fd, KDBUS_CMD_NAME_INFO, cmd);
         if (r < 0)
                 return -errno;

@@ -368,7 +368,6 @@ struct kdbus_name_list {
 struct kdbus_cmd_name_info {
 	__u64 size;
 	__u64 flags;			/* query flags */
-	__u64 attach_flags;		/* which meta data payload to attach */
 	__u64 id;			/* either ID, or 0 and name follows */
 	__u64 offset;			/* returned offset in the caller's buffer */
 	char name[0];
