@@ -395,8 +395,11 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
                         fputs(*i, f);
                 }
 
-                fputs("}\n", f);
+                fputc('}', f);
         }
+
+        if (c->mask & SD_BUS_CREDS_UNIQUE_NAME || well_known)
+                fputc('\n', f);
 
         dump_capabilities(c, f, "EffectiveCapabilities", sd_bus_creds_has_effective_cap);
         dump_capabilities(c, f, "PermittedCapabilities", sd_bus_creds_has_permitted_cap);

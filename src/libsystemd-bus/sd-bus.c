@@ -181,6 +181,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
         r->n_ref = REFCNT_INIT;
         r->input_fd = r->output_fd = -1;
         r->message_version = 1;
+        r->creds_mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME;
         r->hello_flags |= KDBUS_HELLO_ACCEPT_FD;
         r->attach_flags |= KDBUS_ATTACH_NAMES;
         r->original_pid = getpid();
@@ -291,9 +292,9 @@ _public_ int sd_bus_negotiate_attach_creds(sd_bus *bus, uint64_t mask) {
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         /* The well knowns we need unconditionally, so that matches can work */
-        mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
+        bus->creds_mask = mask | SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME;
 
-        return kdbus_translate_attach_flags(mask, &bus->creds_mask);
+        return kdbus_translate_attach_flags(bus->creds_mask, &bus->creds_mask);
 }
 
 _public_ int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {
@@ -2805,7 +2806,7 @@ _public_ int sd_bus_get_peer_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **re
                 c->uid = bus->ucred.uid;
                 c->gid = bus->ucred.gid;
 
-                c->mask |= ((SD_BUS_CREDS_UID | SD_BUS_CREDS_PID | SD_BUS_CREDS_GID) & mask) & bus->creds_mask;
+                c->mask |= (SD_BUS_CREDS_UID | SD_BUS_CREDS_PID | SD_BUS_CREDS_GID) & mask;
         }
 
         if (!isempty(bus->label) && (mask & SD_BUS_CREDS_SELINUX_CONTEXT)) {
@@ -2815,7 +2816,7 @@ _public_ int sd_bus_get_peer_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **re
                         return -ENOMEM;
                 }
 
-                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT | bus->creds_mask;
+                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
         }
 
         r = bus_creds_add_more(c, mask, pid, 0);
