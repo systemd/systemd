@@ -290,6 +290,9 @@ _public_ int sd_bus_negotiate_attach_creds(sd_bus *bus, uint64_t mask) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
+        /* The well knowns we need unconditionally, so that matches can work */
+        mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
+
         return kdbus_translate_attach_flags(mask, &bus->creds_mask);
 }
 

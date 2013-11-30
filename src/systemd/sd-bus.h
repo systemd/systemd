@@ -48,11 +48,11 @@ typedef struct {
 /* Flags */
 
 enum {
-        SD_BUS_CREDS_UID              = 1ULL << 0,
-        SD_BUS_CREDS_GID              = 1ULL << 1,
-        SD_BUS_CREDS_PID              = 1ULL << 2,
-        SD_BUS_CREDS_PID_STARTTIME    = 1ULL << 3,
-        SD_BUS_CREDS_TID              = 1ULL << 4,
+        SD_BUS_CREDS_PID              = 1ULL << 0,
+        SD_BUS_CREDS_PID_STARTTIME    = 1ULL << 1,
+        SD_BUS_CREDS_TID              = 1ULL << 2,
+        SD_BUS_CREDS_UID              = 1ULL << 3,
+        SD_BUS_CREDS_GID              = 1ULL << 4,
         SD_BUS_CREDS_COMM             = 1ULL << 5,
         SD_BUS_CREDS_TID_COMM         = 1ULL << 6,
         SD_BUS_CREDS_EXE              = 1ULL << 7,
@@ -70,7 +70,9 @@ enum {
         SD_BUS_CREDS_SELINUX_CONTEXT  = 1ULL << 19,
         SD_BUS_CREDS_AUDIT_SESSION_ID = 1ULL << 20,
         SD_BUS_CREDS_AUDIT_LOGIN_UID  = 1ULL << 21,
-        _SD_BUS_CREDS_MAX             = (1ULL << 22) -1,
+        SD_BUS_CREDS_UNIQUE_NAME      = 1ULL << 22,
+        SD_BUS_CREDS_WELL_KNOWN_NAMES = 1ULL << 23,
+        _SD_BUS_CREDS_MAX             = (1ULL << 24) -1,
 };
 
 /* Callbacks */
@@ -233,8 +235,8 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete);
 int sd_bus_get_unique_name(sd_bus *bus, const char **unique);
 int sd_bus_request_name(sd_bus *bus, const char *name, int flags);
 int sd_bus_release_name(sd_bus *bus, const char *name);
-int sd_bus_list_names(sd_bus *bus, char ***l);
-int sd_bus_get_owner(sd_bus *bus, const char *name, uint64_t mask, char **owner, sd_bus_creds **creds); /* free/unref the result! */
+int sd_bus_list_names(sd_bus *bus, char ***l); /* free the results */
+int sd_bus_get_owner(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds); /* unref the result! */
 int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);
 
 /* Convenience calls */
@@ -271,13 +273,11 @@ sd_bus_creds *sd_bus_creds_ref(sd_bus_creds *c);
 sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c);
 uint64_t sd_bus_creds_get_mask(sd_bus_creds *c);
 
-int sd_bus_creds_extend(sd_bus_creds *c, uint64_t creds_mask, sd_bus_creds **ret); /* unref the result */
-
-int sd_bus_creds_get_uid(sd_bus_creds *c, uid_t *uid);
-int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid);
 int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *pid);
 int sd_bus_creds_get_pid_starttime(sd_bus_creds *c, uint64_t *usec);
 int sd_bus_creds_get_tid(sd_bus_creds *c, pid_t *tid);
+int sd_bus_creds_get_uid(sd_bus_creds *c, uid_t *uid);
+int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid);
 int sd_bus_creds_get_comm(sd_bus_creds *c, const char **r);
 int sd_bus_creds_get_tid_comm(sd_bus_creds *c, const char **r);
 int sd_bus_creds_get_exe(sd_bus_creds *c, const char **r);
@@ -295,6 +295,8 @@ int sd_bus_creds_has_bounding_cap(sd_bus_creds *c, int capability);
 int sd_bus_creds_get_selinux_context(sd_bus_creds *c, const char **r);
 int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *sessionid);
 int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *loginuid);
+int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **name);
+int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***names);
 
 /* Error structures */
 

@@ -300,7 +300,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
         const char *u = NULL, *uu = NULL, *s = NULL, *sl = NULL;
         uid_t owner, audit_loginuid;
         uint32_t audit_sessionid;
-        char **cmdline = NULL;
+        char **cmdline = NULL, **well_known = NULL;
         int r;
 
         assert(c);
@@ -340,7 +340,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
         if (sd_bus_creds_get_cmdline(c, &cmdline) >= 0) {
                 char **i;
 
-                fputs("  CommandLine=", f);
+                fputs("  CommandLine={", f);
                 STRV_FOREACH(i, cmdline) {
                         if (i != cmdline)
                                 fputc(' ', f);
@@ -348,7 +348,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
                         fputs(*i, f);
                 }
 
-                fputs("\n", f);
+                fputs("}\n", f);
         }
 
         if (c->mask & SD_BUS_CREDS_CGROUP)
@@ -380,6 +380,23 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f) {
 
         if (audit_loginuid_is_set || audit_sessionid_is_set)
                 fputs("\n", f);
+
+        if (c->mask & SD_BUS_CREDS_UNIQUE_NAME)
+                fprintf(f, "  UniqueName=%s", c->unique_name);
+
+        if (sd_bus_creds_get_well_known_names(c, &well_known) >= 0) {
+                char **i;
+
+                fputs("  WellKnownNames={", f);
+                STRV_FOREACH(i, well_known) {
+                        if (i != well_known)
+                                fputc(' ', f);
+
+                        fputs(*i, f);
+                }
+
+                fputs("}\n", f);
+        }
 
         dump_capabilities(c, f, "EffectiveCapabilities", sd_bus_creds_has_effective_cap);
         dump_capabilities(c, f, "PermittedCapabilities", sd_bus_creds_has_permitted_cap);

@@ -3826,6 +3826,12 @@ int bus_message_parse_fields(sd_bus_message *m) {
                                 return -EBADMSG;
 
                         r = message_peek_field_string(m, service_name_is_valid, &ri, &m->sender);
+
+                        if (r >= 0 && m->sender[0] == ':' && m->bus && m->bus->bus_client && !m->bus->is_kernel) {
+                                m->creds.unique_name = (char*) m->sender;
+                                m->creds.mask |= SD_BUS_CREDS_UNIQUE_NAME & m->bus->creds_mask;
+                        }
+
                         break;
 
 

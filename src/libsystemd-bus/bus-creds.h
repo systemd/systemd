@@ -42,7 +42,7 @@ struct sd_bus_creds {
         char *exe;
 
         char *cmdline;
-        size_t cmdline_length;
+        size_t cmdline_size;
         char **cmdline_array;
 
         char *cgroup;
@@ -58,6 +58,12 @@ struct sd_bus_creds {
         uid_t audit_login_uid;
 
         char *label;
+
+        char *unique_name;
+
+        char *well_known_names;
+        size_t well_known_names_size;
+        char **well_known_names_array;
 };
 
 sd_bus_creds* bus_creds_new(void);
@@ -65,3 +71,5 @@ sd_bus_creds* bus_creds_new(void);
 void bus_creds_done(sd_bus_creds *c);
 
 int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid);
+
+int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret);

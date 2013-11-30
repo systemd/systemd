@@ -157,7 +157,6 @@ global:
         sd_bus_creds_new_from_pid;
         sd_bus_creds_ref;
         sd_bus_creds_unref;
-        sd_bus_creds_extend;
         sd_bus_creds_get_mask;
         sd_bus_creds_get_uid;
         sd_bus_creds_get_gid;
@@ -181,6 +180,8 @@ global:
         sd_bus_creds_get_selinux_context;
         sd_bus_creds_get_audit_session_id;
         sd_bus_creds_get_audit_login_uid;
+        sd_bus_creds_get_unique_name;
+        sd_bus_creds_get_well_known_names;
 
         /* Error structures */
         sd_bus_error_free;

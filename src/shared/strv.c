@@ -531,7 +531,7 @@ char **strv_parse_nulstr(const char *s, size_t l) {
         assert(s || l <= 0);
 
         if (l <= 0)
-                return strv_new(NULL, NULL);
+                return new0(char*, 1);
 
         for (p = s; p < s + l; p++)
                 if (*p == 0)

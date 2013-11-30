@@ -251,24 +251,21 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
         return 0;
 }
 
-static int sd_bus_get_owner_dbus(
+static int bus_get_owner_dbus(
                 sd_bus *bus,
                 const char *name,
                 uint64_t mask,
-                char **owner,
                 sd_bus_creds **creds) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply_unique = NULL, *reply = NULL;
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
-        _cleanup_free_ char *unique = NULL;
+        const char *unique = NULL;
         pid_t pid = 0;
         int r;
 
         /* Only query the owner if the caller wants to know it or if
          * the caller just wants to check whether a name exists */
-        if (owner || mask == 0) {
-                const char *found;
-
+        if ((mask & SD_BUS_CREDS_UNIQUE_NAME) || mask == 0) {
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.DBus",
@@ -276,21 +273,15 @@ static int sd_bus_get_owner_dbus(
                                 "org.freedesktop.DBus",
                                 "GetNameOwner",
                                 NULL,
-                                &reply,
+                                &reply_unique,
                                 "s",
                                 name);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_read(reply, "s", &found);
+                r = sd_bus_message_read(reply_unique, "s", &unique);
                 if (r < 0)
                         return r;
-
-                unique = strdup(found);
-                if (!unique)
-                        return -ENOMEM;
-
-                reply = sd_bus_message_unref(reply);
         }
 
         if (mask != 0) {
@@ -298,8 +289,19 @@ static int sd_bus_get_owner_dbus(
                 if (!c)
                         return -ENOMEM;
 
-                if ((mask & SD_BUS_CREDS_PID) ||
-                    mask & ~(SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|SD_BUS_CREDS_SELINUX_CONTEXT)) {
+                if ((mask & SD_BUS_CREDS_UNIQUE_NAME) && unique) {
+                        c->unique_name = strdup(unique);
+                        if (!c->unique_name)
+                                return -ENOMEM;
+
+                        c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
+                }
+
+                if (mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_GID|
+                            SD_BUS_CREDS_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
+                            SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
+                            SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
+                            SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)) {
                         uint32_t u;
 
                         r = sd_bus_call_method(
@@ -311,7 +313,7 @@ static int sd_bus_get_owner_dbus(
                                         NULL,
                                         &reply,
                                         "s",
-                                        name);
+                                        unique ? unique : name);
                         if (r < 0)
                                 return r;
 
@@ -340,7 +342,7 @@ static int sd_bus_get_owner_dbus(
                                         NULL,
                                         &reply,
                                         "s",
-                                        name);
+                                        unique ? unique : name);
                         if (r < 0)
                                 return r;
 
@@ -367,7 +369,7 @@ static int sd_bus_get_owner_dbus(
                                         NULL,
                                         &reply,
                                         "s",
-                                        name);
+                                        unique ? unique : name);
                         if (r < 0)
                                 return r;
 
@@ -392,12 +394,225 @@ static int sd_bus_get_owner_dbus(
                 c = NULL;
         }
 
-        if (owner) {
-                *owner = unique;
-                unique = NULL;
+        return 0;
+}
+
+static int bus_get_owner_kdbus(
+                sd_bus *bus,
+                const char *name,
+                uint64_t mask,
+                sd_bus_creds **creds) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        struct kdbus_cmd_name_info *cmd;
+        struct kdbus_name_info *name_info;
+        struct kdbus_item *item;
+        size_t size;
+        uint64_t m, id;
+        int r;
+
+        r = bus_kernel_parse_unique_name(name, &id);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                size = offsetof(struct kdbus_cmd_name_info, name);
+                cmd = alloca0(size);
+                cmd->id = id;
+        } else {
+                size = offsetof(struct kdbus_cmd_name_info, name) + strlen(name) + 1;
+                cmd = alloca0(size);
+                strcpy(cmd->name, name);
         }
 
-        return 0;
+        cmd->size = size;
+
+        r = kdbus_translate_attach_flags(mask, (uint64_t*) &cmd->attach_flags);
+        if (r < 0)
+                return r;
+
+        r = ioctl(bus->input_fd, KDBUS_CMD_NAME_INFO, cmd);
+        if (r < 0)
+                return -errno;
+
+        name_info = (struct kdbus_name_info *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
+
+        c = bus_creds_new();
+        if (!c)
+                return -ENOMEM;
+
+        if (mask & SD_BUS_CREDS_UNIQUE_NAME) {
+                if (asprintf(&c->unique_name, ":1.%llu", (unsigned long long) name_info->id) < 0)
+                        return -ENOMEM;
+
+                c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
+        }
+
+        KDBUS_PART_FOREACH(item, name_info, items) {
+
+                switch (item->type) {
+
+                case KDBUS_ITEM_CREDS:
+                        m = (SD_BUS_CREDS_UID | SD_BUS_CREDS_GID | SD_BUS_CREDS_PID |
+                             SD_BUS_CREDS_TID | SD_BUS_CREDS_PID_STARTTIME) & mask;
+
+                        if (m) {
+                                c->uid = item->creds.uid;
+                                c->pid = item->creds.pid;
+                                c->gid = item->creds.gid;
+                                c->tid = item->creds.tid;
+                                c->pid_starttime = item->creds.starttime;
+                                c->mask |= m;
+                        }
+                        break;
+
+                case KDBUS_ITEM_PID_COMM:
+                        if (mask & SD_BUS_CREDS_COMM) {
+                                c->comm = strdup(item->str);
+                                if (!c->comm) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                c->mask |= SD_BUS_CREDS_COMM;
+                        }
+                        break;
+
+                case KDBUS_ITEM_TID_COMM:
+                        if (mask & SD_BUS_CREDS_TID_COMM) {
+                                c->tid_comm = strdup(item->str);
+                                if (!c->tid_comm) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                c->mask |= SD_BUS_CREDS_TID_COMM;
+                        }
+                        break;
+
+                case KDBUS_ITEM_EXE:
+                        if (mask & SD_BUS_CREDS_EXE) {
+                                c->exe = strdup(item->str);
+                                if (!c->exe) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                c->mask |= SD_BUS_CREDS_EXE;
+                        }
+                        break;
+
+                case KDBUS_ITEM_CMDLINE:
+                        if (mask & SD_BUS_CREDS_CMDLINE) {
+                                c->cmdline_size = item->size - KDBUS_PART_HEADER_SIZE;
+                                c->cmdline = memdup(item->data, c->cmdline_size);
+                                if (!c->cmdline) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                c->mask |= SD_BUS_CREDS_CMDLINE;
+                        }
+                        break;
+
+                case KDBUS_ITEM_CGROUP:
+                        m = (SD_BUS_CREDS_CGROUP | SD_BUS_CREDS_UNIT |
+                             SD_BUS_CREDS_USER_UNIT | SD_BUS_CREDS_SLICE |
+                             SD_BUS_CREDS_SESSION | SD_BUS_CREDS_OWNER_UID) & mask;
+
+                        if (m) {
+                                c->cgroup = strdup(item->str);
+                                if (!c->cgroup) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                c->mask |= m;
+                        }
+                        break;
+
+                case KDBUS_ITEM_CAPS:
+                        m = (SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_PERMITTED_CAPS |
+                             SD_BUS_CREDS_INHERITABLE_CAPS | SD_BUS_CREDS_BOUNDING_CAPS) & mask;
+
+                        if (m) {
+                                c->capability_size = item->size - KDBUS_PART_HEADER_SIZE;
+                                c->capability = memdup(item->data, c->capability_size);
+                                if (!c->capability) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                c->mask |= m;
+                        }
+                        break;
+
+                case KDBUS_ITEM_SECLABEL:
+                        if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
+                                c->label = strdup(item->str);
+                                if (!c->label) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
+                        }
+                        break;
+
+                case KDBUS_ITEM_AUDIT:
+                        m = (SD_BUS_CREDS_AUDIT_SESSION_ID | SD_BUS_CREDS_AUDIT_LOGIN_UID) & mask;
+
+                        if (m) {
+                                c->audit_session_id = item->audit.sessionid;
+                                c->audit_login_uid = item->audit.loginuid;
+                                c->mask |= m;
+                        }
+                        break;
+
+                case KDBUS_ITEM_NAMES:
+                        if (mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) {
+                                c->well_known_names_size = item->size - KDBUS_PART_HEADER_SIZE;
+                                c->well_known_names = memdup(item->data, c->well_known_names_size);
+                                if (!c->well_known_names) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                c->mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
+                        }
+                        break;
+                }
+        }
+
+        if (creds) {
+                *creds = c;
+                c = NULL;
+        }
+
+        r = 0;
+
+fail:
+        ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd->offset);
+        return r;
+}
+
+_public_ int sd_bus_get_owner(
+                sd_bus *bus,
+                const char *name,
+                uint64_t mask,
+                sd_bus_creds **creds) {
+
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(mask <= _SD_BUS_CREDS_MAX, -ENOTSUP);
+        assert_return(mask == 0 || creds, -EINVAL);
+        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (bus->is_kernel)
+                return bus_get_owner_kdbus(bus, name, mask, creds);
+        else
+                return bus_get_owner_dbus(bus, name, mask, creds);
 }
 
 static int add_name_change_match(sd_bus *bus,
@@ -576,192 +791,6 @@ static int add_name_change_match(sd_bus *bus,
         }
 
         return 0;
-}
-
-static int kdbus_name_info(
-                sd_bus *bus,
-                const char *name,
-                uint64_t mask,
-                char **owner,
-                sd_bus_creds **creds) {
-
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
-        _cleanup_free_ struct kdbus_cmd_name_info *cmd = NULL;
-        _cleanup_free_ char *unique = NULL;
-        struct kdbus_name_info *name_info;
-        struct kdbus_item *item;
-        uint64_t attach_flags, m;
-        size_t size;
-        int r;
-
-        r = kdbus_translate_attach_flags(mask, &attach_flags);
-        if (r < 0)
-                return r;
-
-        size = sizeof(struct kdbus_cmd_name_info) + strlen(name) + 1;
-        cmd = malloc0(size);
-        if (!cmd)
-                return -ENOMEM;
-
-        cmd ->size = size;
-        cmd->attach_flags = attach_flags;
-        strcpy(cmd->name, name);
-
-        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_INFO, cmd);
-        if (r < 0)
-                return -errno;
-
-        name_info = (struct kdbus_name_info *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
-
-        asprintf(&unique, ":1.%llu", (unsigned long long) name_info->id);
-
-        c = bus_creds_new();
-        if (!c)
-                return -ENOMEM;
-
-        KDBUS_PART_FOREACH(item, name_info, items) {
-                switch (item->type) {
-                case KDBUS_ITEM_CREDS:
-                        m = (SD_BUS_CREDS_UID | SD_BUS_CREDS_GID | SD_BUS_CREDS_PID |
-                             SD_BUS_CREDS_TID | SD_BUS_CREDS_PID_STARTTIME) & mask;
-
-                        if (m) {
-                                c->uid = item->creds.uid;
-                                c->pid = item->creds.pid;
-                                c->gid = item->creds.gid;
-                                c->tid = item->creds.tid;
-                                c->pid_starttime = item->creds.starttime;
-                                c->mask |= m;
-                        }
-                        break;
-
-                case KDBUS_ITEM_PID_COMM:
-                        if (mask & SD_BUS_CREDS_COMM) {
-                                c->comm = strdup(item->str);
-                                if (!c->comm)
-                                        return -ENOMEM;
-
-                                c->mask |= SD_BUS_CREDS_COMM;
-                        }
-                        break;
-
-                case KDBUS_ITEM_TID_COMM:
-                        if (mask & SD_BUS_CREDS_TID_COMM) {
-                                c->tid_comm = strdup(item->str);
-                                if (!c->tid_comm)
-                                        return -ENOMEM;
-
-                                c->mask |= SD_BUS_CREDS_TID_COMM;
-                        }
-                        break;
-
-                case KDBUS_ITEM_EXE:
-                        if (mask & SD_BUS_CREDS_EXE) {
-                                c->exe = strdup(item->str);
-                                if (!c->exe)
-                                        return -ENOMEM;
-
-                                c->mask |= SD_BUS_CREDS_EXE;
-                        }
-                        break;
-
-                case KDBUS_ITEM_CMDLINE:
-                        if (mask & SD_BUS_CREDS_CMDLINE) {
-                                c->cmdline_length = item->size - KDBUS_PART_HEADER_SIZE;
-                                c->cmdline = memdup(item->data, c->cmdline_length);
-                                if (!c->cmdline)
-                                        return -ENOMEM;
-
-                                c->mask |= SD_BUS_CREDS_CMDLINE;
-                        }
-                        break;
-
-                case KDBUS_ITEM_CGROUP:
-                        m = (SD_BUS_CREDS_CGROUP | SD_BUS_CREDS_UNIT |
-                             SD_BUS_CREDS_USER_UNIT | SD_BUS_CREDS_SLICE |
-                             SD_BUS_CREDS_SESSION | SD_BUS_CREDS_OWNER_UID) & mask;
-
-                        if (m) {
-                                c->cgroup = strdup(item->str);
-                                if (!c->cgroup)
-                                        return -ENOMEM;
-
-                                c->mask |= m;
-                        }
-                        break;
-
-                case KDBUS_ITEM_CAPS:
-                        m = (SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_PERMITTED_CAPS |
-                             SD_BUS_CREDS_INHERITABLE_CAPS | SD_BUS_CREDS_BOUNDING_CAPS) & mask;
-
-                        if (m) {
-                                c->capability_size = item->size - KDBUS_PART_HEADER_SIZE;
-                                c->capability = memdup(item->data, c->capability_size);
-                                if (!c->capability)
-                                        return -ENOMEM;
-
-                                c->mask |= m;
-                        }
-                        break;
-
-                case KDBUS_ITEM_SECLABEL:
-                        if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
-                                c->label = strdup(item->str);
-                                if (!c->label)
-                                        return -ENOMEM;
-
-                                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
-                        }
-                        break;
-
-                case KDBUS_ITEM_AUDIT:
-                        m = (SD_BUS_CREDS_AUDIT_SESSION_ID | SD_BUS_CREDS_AUDIT_LOGIN_UID) & mask;
-
-                        if (m) {
-                                c->audit_session_id = item->audit.sessionid;
-                                c->audit_login_uid = item->audit.loginuid;
-                                c->mask |= m;
-                        }
-                        break;
-                }
-        }
-
-        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_FREE, &cmd->offset);
-        if (r < 0)
-                return -errno;
-
-        if (creds) {
-                *creds = c;
-                c = NULL;
-        }
-
-        if (owner) {
-                *owner = unique;
-                unique = NULL;
-        }
-
-        return 0;
-}
-
-_public_ int sd_bus_get_owner(
-                sd_bus *bus,
-                const char *name,
-                uint64_t mask,
-                char **owner,
-                sd_bus_creds **creds) {
-
-        assert_return(bus, -EINVAL);
-        assert_return(name, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_MAX, -ENOTSUP);
-        assert_return(mask == 0 || creds, -EINVAL);
-        assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        if (bus->is_kernel)
-                return kdbus_name_info(bus, name, mask, owner, creds);
-
-        return sd_bus_get_owner_dbus(bus, name, mask, owner, creds);
 }
 
 int bus_add_match_internal(

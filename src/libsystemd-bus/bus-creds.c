@@ -28,6 +28,7 @@
 #include "bus-message.h"
 #include "bus-util.h"
 #include "time-util.h"
+#include "strv.h"
 #include "bus-creds.h"
 
 enum {
@@ -48,7 +49,8 @@ void bus_creds_done(sd_bus_creds *c) {
         free(c->user_unit);
         free(c->slice);
 
-        free(c->cmdline_array);
+        strv_free(c->cmdline_array);
+        strv_free(c->well_known_names_array);
 }
 
 _public_ sd_bus_creds *sd_bus_creds_ref(sd_bus_creds *c) {
@@ -86,6 +88,8 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                         free(c->cgroup);
                         free(c->capability);
                         free(c->label);
+                        free(c->unique_name);
+                        free(c->well_known_names);
                         free(c);
                 }
         } else {
@@ -333,34 +337,19 @@ _public_ int sd_bus_creds_get_owner_uid(sd_bus_creds *c, uid_t *uid) {
 }
 
 _public_ int sd_bus_creds_get_cmdline(sd_bus_creds *c, char ***cmdline) {
-        size_t n, i;
-        const char *p;
-        bool first;
-
         assert_return(c, -EINVAL);
         assert_return(c->cmdline, -ESRCH);
         assert_return(c->mask & SD_BUS_CREDS_CMDLINE, -ENODATA);
 
         assert(c->cmdline);
 
-        for (p = c->cmdline, n = 0; p < c->cmdline + c->cmdline_length; p++)
-                if (*p == 0)
-                        n++;
-
-        *(char***) &c->cmdline_array = new(char*, n + 1);
-        if (!c->cmdline_array)
-                return -ENOMEM;
-
-        for (p = c->cmdline, i = 0, first = true; p < c->cmdline + c->cmdline_length; p++) {
-                if (first)
-                        c->cmdline_array[i++] = (char*) p;
-
-                first = *p == 0;
+        if (!c->cmdline_array) {
+                c->cmdline_array = strv_parse_nulstr(c->cmdline, c->cmdline_size);
+                if (!c->cmdline_array)
+                        return -ENOMEM;
         }
 
-        c->cmdline_array[i] = NULL;
         *cmdline = c->cmdline_array;
-
         return 0;
 }
 
@@ -379,6 +368,32 @@ _public_ int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *uid) {
         assert_return(c->mask & SD_BUS_CREDS_AUDIT_LOGIN_UID, -ENODATA);
 
         *uid = c->audit_login_uid;
+        return 0;
+}
+
+_public_ int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **unique_name) {
+        assert_return(c, -EINVAL);
+        assert_return(unique_name, -EINVAL);
+        assert_return(c->mask & SD_BUS_CREDS_UNIQUE_NAME, -ENODATA);
+
+        *unique_name = c->unique_name;
+        return 0;
+}
+
+_public_ int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***well_known_names) {
+        assert_return(c, -EINVAL);
+        assert_return(well_known_names, -EINVAL);
+        assert_return(c->mask & SD_BUS_CREDS_WELL_KNOWN_NAMES, -ENODATA);
+
+        assert(c->well_known_names);
+
+        if (!c->well_known_names_array) {
+                c->well_known_names_array = strv_parse_nulstr(c->well_known_names, c->well_known_names_size);
+                if (!c->well_known_names_array)
+                        return -ENOMEM;
+        }
+
+        *well_known_names = c->well_known_names_array;
         return 0;
 }
 
@@ -625,11 +640,11 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 const char *p;
 
                 p = procfs_file_alloca(pid, "cmdline");
-                r = read_full_file(p, &c->cmdline, &c->cmdline_length);
+                r = read_full_file(p, &c->cmdline, &c->cmdline_size);
                 if (r < 0)
                         return r;
 
-                if (c->cmdline_length == 0) {
+                if (c->cmdline_size == 0) {
                         free(c->cmdline);
                         c->cmdline = NULL;
                 } else
@@ -677,12 +692,12 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         return 0;
 }
 
-_public_ int sd_bus_creds_extend(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) {
+int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) {
         _cleanup_bus_creds_unref_ sd_bus_creds *n = NULL;
         int r;
 
-        assert_return(c, -EINVAL);
-        assert_return(ret, -EINVAL);
+        assert(c);
+        assert(ret);
 
         if ((mask & ~c->mask) == 0) {
                 /* There's already all data we need. */
@@ -747,11 +762,11 @@ _public_ int sd_bus_creds_extend(sd_bus_creds *c, uint64_t mask, sd_bus_creds **
         }
 
         if (c->mask & mask & SD_BUS_CREDS_CMDLINE) {
-                n->cmdline = memdup(c->cmdline, c->cmdline_length);
+                n->cmdline = memdup(c->cmdline, c->cmdline_size);
                 if (!n->cmdline)
                         return -ENOMEM;
 
-                n->cmdline_length = c->cmdline_length;
+                n->cmdline_size = c->cmdline_size;
                 n->mask |= SD_BUS_CREDS_CMDLINE;
         }
 
@@ -780,6 +795,20 @@ _public_ int sd_bus_creds_extend(sd_bus_creds *c, uint64_t mask, sd_bus_creds **
         if (c->mask & mask & SD_BUS_CREDS_AUDIT_LOGIN_UID) {
                 n->audit_login_uid = c->audit_login_uid;
                 n->mask |= SD_BUS_CREDS_AUDIT_LOGIN_UID;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_UNIQUE_NAME) {
+                n->unique_name = strdup(c->unique_name);
+                if (!n->unique_name)
+                        return -ENOMEM;
+        }
+
+        if (c->mask & mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) {
+                n->well_known_names = memdup(c->well_known_names, c->well_known_names_size);
+                if (!n->well_known_names)
+                        return -ENOMEM;
+
+                n->well_known_names_size = c->well_known_names_size;
         }
 
         /* Get more data */

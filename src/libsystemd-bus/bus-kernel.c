@@ -775,7 +775,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
                 case KDBUS_ITEM_CMDLINE:
                         m->creds.cmdline = d->str;
-                        m->creds.cmdline_length = l;
+                        m->creds.cmdline_size = l;
                         m->creds.mask |= SD_BUS_CREDS_CMDLINE & bus->creds_mask;
                         break;
 
@@ -800,9 +800,14 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         destination = d->str;
                         break;
 
+                case KDBUS_ITEM_NAMES:
+                        m->creds.well_known_names = d->str;
+                        m->creds.well_known_names_size = l;
+                        m->creds.mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES & bus->creds_mask;
+                        break;
+
                 case KDBUS_ITEM_FDS:
                 case KDBUS_ITEM_SECLABEL:
-                case KDBUS_ITEM_NAMES:
                         break;
 
                 default:
@@ -818,7 +823,8 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                 m->sender = "org.freedesktop.DBus";
         else {
                 snprintf(m->sender_buffer, sizeof(m->sender_buffer), ":1.%llu", (unsigned long long) k->src_id);
-                m->sender = m->sender_buffer;
+                m->sender = m->creds.unique_name = m->sender_buffer;
+                m->creds.mask |= SD_BUS_CREDS_UNIQUE_NAME & bus->creds_mask;
         }
 
         if (!m->destination) {
@@ -1028,6 +1034,9 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
 
         if (mask & (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID))
                 m |= KDBUS_ATTACH_AUDIT;
+
+        if (mask & SD_BUS_CREDS_WELL_KNOWN_NAMES)
+                m |= KDBUS_ATTACH_NAMES;
 
         *kdbus_mask = m;
         return 0;

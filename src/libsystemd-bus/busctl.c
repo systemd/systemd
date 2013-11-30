@@ -82,7 +82,6 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
         STRV_FOREACH(i, l) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-                _cleanup_free_ char *owner = NULL;
                 sd_id128_t mid;
 
                 if (arg_no_unique && (*i)[0] == ':')
@@ -94,8 +93,9 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
                 printf("%-*s", (int) max_i, *i);
 
-                r = sd_bus_get_owner(bus, *i, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM, &owner, &creds);
+                r = sd_bus_get_owner(bus, *i, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_UNIQUE_NAME, &creds);
                 if (r >= 0) {
+                        const char *unique;
                         pid_t pid;
                         uid_t uid;
 
@@ -124,8 +124,9 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                         } else
                                 fputs(" -               ", stdout);
 
-                        if (owner)
-                                printf(" %-20s", owner);
+                        r = sd_bus_creds_get_unique_name(creds, &unique);
+                        if (r >= 0)
+                                printf(" %-20s", unique);
                         else
                                 fputs(" -                   ", stdout);
 
