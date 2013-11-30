@@ -1042,7 +1042,7 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
         return 0;
 }
 
-int bus_kernel_create(const char *name, char **s) {
+int bus_kernel_create_bus(const char *name, char **s) {
         struct kdbus_cmd_bus_make *make;
         struct kdbus_item *n;
         int fd;
@@ -1078,6 +1078,50 @@ int bus_kernel_create(const char *name, char **s) {
                 char *p;
 
                 p = strjoin("/dev/kdbus/", n->str, "/bus", NULL);
+                if (!p) {
+                        close_nointr_nofail(fd);
+                        return -ENOMEM;
+                }
+
+                *s = p;
+        }
+
+        return fd;
+}
+
+int bus_kernel_create_namespace(const char *name, char **s) {
+        struct kdbus_cmd_ns_make *make;
+        struct kdbus_item *n;
+        int fd;
+
+        assert(name);
+        assert(s);
+
+        fd = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        make = alloca0(ALIGN8(offsetof(struct kdbus_cmd_ns_make, items) +
+                              offsetof(struct kdbus_item, str) +
+                              strlen(name) + 1));
+
+        n = make->items;
+        strcpy(n->str, name);
+        n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
+        n->type = KDBUS_MAKE_NAME;
+
+        make->size = ALIGN8(offsetof(struct kdbus_cmd_ns_make, items) + n->size);
+        make->flags = KDBUS_MAKE_POLICY_OPEN;
+
+        if (ioctl(fd, KDBUS_CMD_NS_MAKE, make) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        if (s) {
+                char *p;
+
+                p = strappend("/dev/kdbus/", name);
                 if (!p) {
                         close_nointr_nofail(fd);
                         return -ENOMEM;

@@ -61,6 +61,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "ptyfwd.h"
+#include "bus-kernel.h"
 
 #ifndef TTY_GID
 #define TTY_GID 5
@@ -927,6 +928,26 @@ static int setup_journal(const char *directory) {
         return 0;
 }
 
+static int setup_kdbus(const char *dest, const char *path) {
+        const char *p;
+
+        if (!path)
+                return 0;
+
+        p = strappenda(dest, "/dev/kdbus");
+        if (mkdir(p, 0755) < 0) {
+                log_error("Failed to create kdbus path: %m");
+                return  -errno;
+        }
+
+        if (mount(path, p, "bind", MS_BIND, NULL) < 0) {
+                log_error("Failed to mount kdbus namespace path: %m");
+                return -errno;
+        }
+
+        return 0;
+}
+
 static int drop_capabilities(void) {
         return capability_bounding_set_drop(~arg_retain, false);
 }
@@ -1032,12 +1053,13 @@ static bool audit_enabled(void) {
 int main(int argc, char *argv[]) {
         pid_t pid = 0;
         int r = EXIT_FAILURE, k;
-        _cleanup_close_ int master = -1;
+        _cleanup_close_ int master = -1, kdbus_fd = -1;
         int n_fd_passed;
         const char *console = NULL;
         sigset_t mask;
         _cleanup_close_pipe_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_free_ char *kdbus_namespace = NULL;
 
         log_parse_environment();
         log_open();
@@ -1137,6 +1159,12 @@ int main(int argc, char *argv[]) {
                 log_error("Failed to unlock tty: %m");
                 goto finish;
         }
+
+        kdbus_fd = bus_kernel_create_namespace(arg_machine, &kdbus_namespace);
+        if (r < 0)
+                log_debug("Failed to create kdbus namespace: %s", strerror(-r));
+        else
+                log_debug("Successfully created kdbus namespace as %s", kdbus_namespace);
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
                 log_error("Failed to create kmsg socket pair.");
@@ -1287,6 +1315,9 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
 
                         if (mount_binds(arg_directory, arg_bind_ro, MS_RDONLY) < 0)
+                                goto child_fail;
+
+                        if (setup_kdbus(arg_directory, kdbus_namespace) < 0)
                                 goto child_fail;
 
                         if (chdir(arg_directory) < 0) {

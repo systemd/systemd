@@ -239,7 +239,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(arg_loop_usec > 0);
 
-        bus_ref = bus_kernel_create("deine-mutter", &bus_name);
+        bus_ref = bus_kernel_create_bus("deine-mutter", &bus_name);
         if (bus_ref == -ENOENT)
                 exit(EXIT_TEST_SKIP);
 
