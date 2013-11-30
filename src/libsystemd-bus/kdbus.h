@@ -103,6 +103,7 @@ enum {
 	/* Filled in by kernelspace */
 	_KDBUS_ITEM_ATTACH_BASE	= 0x400,
 	KDBUS_ITEM_NAMES	= 0x400,/* NUL separated string list with well-known names of source */
+	KDBUS_ITEM_STARTER_NAME,	/* Only used in HELLO for starter connection */
 	KDBUS_ITEM_TIMESTAMP,		/* .timestamp */
 
 	/* when appended to a message, the following items refer to the sender */
@@ -401,10 +402,13 @@ struct kdbus_cmd_match {
 };
 
 /* KDBUS_CMD_MONITOR */
+enum {
+	KDBUS_MONITOR_ENABLE		= 1 <<  0,
+};
+
 struct kdbus_cmd_monitor {
 	__u64 id;		/* We allow setting the monitor flag of other peers */
-	unsigned int enable;	/* A boolean to enable/disable monitoring */
-	__u32 __pad;
+	__u64 flags;
 };
 
 enum {
