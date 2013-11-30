@@ -69,6 +69,7 @@ struct Session {
         Manager *manager;
 
         char *id;
+        unsigned int pos;
         SessionType type;
         SessionClass class;
 

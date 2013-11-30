@@ -79,6 +79,7 @@ void seat_free(Seat *s) {
 
         hashmap_remove(s->manager->seats, s->id);
 
+        free(s->positions);
         free(s->state_file);
         free(s);
 }
@@ -270,6 +271,60 @@ int seat_set_active(Seat *s, Session *session) {
         return 0;
 }
 
+int seat_switch_to(Seat *s, unsigned int num) {
+        /* Public session positions skip 0 (there is only F1-F12). Maybe it
+         * will get reassigned in the future, so return error for now. */
+        if (!num)
+                return -EINVAL;
+
+        if (num >= s->position_count || !s->positions[num])
+                return -EINVAL;
+
+        return session_activate(s->positions[num]);
+}
+
+int seat_switch_to_next(Seat *s) {
+        unsigned int start, i;
+
+        if (!s->position_count)
+                return -EINVAL;
+
+        start = 1;
+        if (s->active && s->active->pos > 0)
+                start = s->active->pos;
+
+        for (i = start + 1; i < s->position_count; ++i)
+                if (s->positions[i])
+                        return session_activate(s->positions[i]);
+
+        for (i = 1; i < start; ++i)
+                if (s->positions[i])
+                        return session_activate(s->positions[i]);
+
+        return -EINVAL;
+}
+
+int seat_switch_to_previous(Seat *s) {
+        unsigned int start, i;
+
+        if (!s->position_count)
+                return -EINVAL;
+
+        start = 1;
+        if (s->active && s->active->pos > 0)
+                start = s->active->pos;
+
+        for (i = start - 1; i > 0; --i)
+                if (s->positions[i])
+                        return session_activate(s->positions[i]);
+
+        for (i = s->position_count - 1; i > start; --i)
+                if (s->positions[i])
+                        return session_activate(s->positions[i]);
+
+        return -EINVAL;
+}
+
 int seat_active_vt_changed(Seat *s, unsigned int vtnr) {
         Session *i, *new_active = NULL;
         int r;
@@ -403,6 +458,46 @@ int seat_stop_sessions(Seat *s) {
         return r;
 }
 
+void seat_evict_position(Seat *s, Session *session) {
+        unsigned int pos = session->pos;
+
+        session->pos = 0;
+
+        if (!pos)
+                return;
+
+        if (pos < s->position_count && s->positions[pos] == session)
+                s->positions[pos] = NULL;
+}
+
+void seat_claim_position(Seat *s, Session *session, unsigned int pos) {
+        /* with VTs, the position is always the same as the VTnr */
+        if (seat_has_vts(s))
+                pos = session->vtnr;
+
+        if (!GREEDY_REALLOC0(s->positions, s->position_count, pos + 1))
+                return;
+
+        seat_evict_position(s, session);
+
+        session->pos = pos;
+        if (pos > 0 && !s->positions[pos])
+                s->positions[pos] = session;
+}
+
+static void seat_assign_position(Seat *s, Session *session) {
+        unsigned int pos;
+
+        if (session->pos > 0)
+                return;
+
+        for (pos = 1; pos < s->position_count; ++pos)
+                if (!s->positions[pos])
+                        break;
+
+        seat_claim_position(s, session, pos);
+}
+
 int seat_attach_session(Seat *s, Session *session) {
         assert(s);
         assert(session);
@@ -413,6 +508,7 @@ int seat_attach_session(Seat *s, Session *session) {
 
         session->seat = s;
         LIST_PREPEND(sessions_by_seat, s->sessions, session);
+        seat_assign_position(s, session);
 
         seat_send_changed(s, "Sessions", NULL);
 

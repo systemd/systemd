@@ -236,6 +236,59 @@ static int method_activate_session(sd_bus *bus, sd_bus_message *message, void *u
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_switch_to(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Seat *s = userdata;
+        unsigned int to;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(s);
+
+        r = sd_bus_message_read(message, "u", &to);
+        if (r < 0)
+                return r;
+
+        if (to <= 0)
+                return -EINVAL;
+
+        r = seat_switch_to(s, to);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_switch_to_next(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Seat *s = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(s);
+
+        r = seat_switch_to_next(s);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_switch_to_previous(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Seat *s = userdata;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(s);
+
+        r = seat_switch_to_previous(s);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable seat_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -251,6 +304,9 @@ const sd_bus_vtable seat_vtable[] = {
 
         SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SwitchTo", "u", NULL, method_switch_to, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SwitchToNext", NULL, NULL, method_switch_to_next, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SwitchToPrevious", NULL, NULL, method_switch_to_previous, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };

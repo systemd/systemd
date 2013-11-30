@@ -125,6 +125,7 @@ void session_free(Session *s) {
                 if (s->seat->pending_switch == s)
                         s->seat->pending_switch = NULL;
 
+                seat_evict_position(s->seat, s);
                 LIST_REMOVE(sessions_by_seat, s->seat->sessions, s);
         }
 
@@ -231,6 +232,9 @@ int session_save(Session *s) {
         if (s->seat && seat_has_vts(s->seat))
                 fprintf(f, "VTNR=%u\n", s->vtnr);
 
+        if (!s->vtnr)
+                fprintf(f, "POS=%u\n", s->pos);
+
         if (s->leader > 0)
                 fprintf(f, "LEADER=%lu\n", (unsigned long) s->leader);
 
@@ -266,6 +270,7 @@ int session_load(Session *s) {
         _cleanup_free_ char *remote = NULL,
                 *seat = NULL,
                 *vtnr = NULL,
+                *pos = NULL,
                 *leader = NULL,
                 *type = NULL,
                 *class = NULL,
@@ -290,6 +295,7 @@ int session_load(Session *s) {
                            "REMOTE_USER",    &s->remote_user,
                            "SERVICE",        &s->service,
                            "VTNR",           &vtnr,
+                           "POS",            &pos,
                            "LEADER",         &leader,
                            "TYPE",           &type,
                            "CLASS",          &class,
@@ -349,6 +355,13 @@ int session_load(Session *s) {
 
         if (!s->seat || !seat_has_vts(s->seat))
                 s->vtnr = 0;
+
+        if (pos && s->seat) {
+                unsigned int npos;
+
+                safe_atou(pos, &npos);
+                seat_claim_position(s->seat, s, npos);
+        }
 
         if (leader) {
                 k = parse_pid(leader, &s->leader);
