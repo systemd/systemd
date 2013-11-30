@@ -174,36 +174,23 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (bus->is_kernel) {
-                _cleanup_free_ struct kdbus_cmd_names *names = NULL;
+                _cleanup_free_ struct kdbus_cmd_name_list *cmd = NULL;
+                struct kdbus_name_list *name_list;
                 struct kdbus_cmd_name *name;
-                size_t size;
 
-                /* assume 8k size first. If that doesn't suffice, kdbus will tell us
-                 * how big the buffer needs to be.  */
-                size = 8192;
+                cmd = malloc0(sizeof(struct kdbus_cmd_name_list *));
+                if (!cmd)
+                        return -ENOMEM;
 
-                for(;;) {
-                        names = realloc(names, size);
-                        if (!names)
-                                return -ENOMEM;
+                cmd->flags = KDBUS_NAME_LIST_UNIQUE_NAMES;
 
-                        names->size = size;
-                        names->flags = KDBUS_NAME_LIST_UNIQUE_NAMES;
+                r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_LIST, cmd);
+                if (r < 0)
+                        return -errno;
 
-                        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_LIST, names);
-                        if (r < 0) {
-                                if (errno == ENOBUFS && size != names->size) {
-                                        size = names->size;
-                                        continue;
-                                }
+                name_list = (struct kdbus_name_list *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
 
-                                return -errno;
-                        }
-
-                        break;
-                }
-
-                KDBUS_PART_FOREACH(name, names, names) {
+                KDBUS_PART_FOREACH(name, name_list, names) {
                         char *n;
 
                         if (name->size > sizeof(*name))
@@ -215,6 +202,10 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
                         if (r < 0)
                                 return -ENOMEM;
                 }
+
+                r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_FREE, &cmd->offset);
+                if (r < 0)
+                        return -errno;
 
                 *l = x;
         } else {
@@ -587,7 +578,7 @@ static int add_name_change_match(sd_bus *bus,
         return 0;
 }
 
-static int kdbus_name_query(
+static int kdbus_name_info(
                 sd_bus *bus,
                 const char *name,
                 uint64_t mask,
@@ -596,52 +587,32 @@ static int kdbus_name_query(
 
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        _cleanup_free_ struct kdbus_cmd_name_info *cmd = NULL;
         _cleanup_free_ char *unique = NULL;
-        struct kdbus_cmd_name_info *name_info = NULL;
+        struct kdbus_name_info *name_info;
         struct kdbus_item *item;
         uint64_t attach_flags, m;
-        size_t slen, size;
+        size_t size;
         int r;
 
         r = kdbus_translate_attach_flags(mask, &attach_flags);
         if (r < 0)
                 return r;
 
-        slen = strlen(name) + 1;
+        size = sizeof(struct kdbus_cmd_name_info) + strlen(name) + 1;
+        cmd = malloc0(size);
+        if (!cmd)
+                return -ENOMEM;
 
-        /*
-         * The structure is used for both directions. Start with 8k buffer size and
-         * expand to the size kdbus reports in case we fail.
-         */
-        size = slen + 8192;
+        cmd ->size = size;
+        cmd->attach_flags = attach_flags;
+        strcpy(cmd->name, name);
 
-        for(;;) {
-                name_info = realloc(name_info, size);
-                if (!name_info)
-                        return -ENOMEM;
+        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_INFO, cmd);
+        if (r < 0)
+                return -errno;
 
-                memset(name_info, 0, size);
-
-                name_info->size = size;
-                name_info->attach_flags = attach_flags;
-
-                item = name_info->items;
-                item->type = KDBUS_NAME_INFO_ITEM_NAME;
-                item->size = KDBUS_ITEM_SIZE(slen);
-                strcpy(item->str, name);
-
-                r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_QUERY, name_info);
-                if (r < 0) {
-                        if (errno == ENOBUFS && size != name_info->size) {
-                                size = name_info->size;
-                                continue;
-                        }
-
-                        return -errno;
-                }
-
-                break;
-        }
+        name_info = (struct kdbus_name_info *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
 
         asprintf(&unique, ":1.%llu", (unsigned long long) name_info->id);
 
@@ -756,6 +727,10 @@ static int kdbus_name_query(
                 }
         }
 
+        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_FREE, &cmd->offset);
+        if (r < 0)
+                return -errno;
+
         if (creds) {
                 *creds = c;
                 c = NULL;
@@ -784,7 +759,7 @@ _public_ int sd_bus_get_owner(
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (bus->is_kernel)
-                return kdbus_name_query(bus, name, mask, owner, creds);
+                return kdbus_name_info(bus, name, mask, owner, creds);
 
         return sd_bus_get_owner_dbus(bus, name, mask, owner, creds);
 }

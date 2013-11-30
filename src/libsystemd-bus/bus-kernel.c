@@ -459,7 +459,7 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
         assert(k);
 
         off = (uint8_t *)k - (uint8_t *)bus->kdbus_buffer;
-        ioctl(bus->input_fd, KDBUS_CMD_MSG_RELEASE, &off);
+        ioctl(bus->input_fd, KDBUS_CMD_FREE, &off);
 
         KDBUS_PART_FOREACH(d, k, items) {
 

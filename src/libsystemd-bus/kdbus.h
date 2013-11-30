@@ -297,6 +297,11 @@ enum {
 enum {
 	_KDBUS_MAKE_NULL,
 	KDBUS_MAKE_NAME,
+	KDBUS_MAKE_CRED,	/* allow translator services which connect
+				 * to the bus on behalf of somebody else,
+				 * allow specifying the credentials of the
+				 * client to connect on behalf on. Needs
+				 * privileges */
 };
 
 struct kdbus_cmd_bus_make {
@@ -345,7 +350,7 @@ enum {
 	KDBUS_NAME_IN_QUEUE			= 1 << 16,
 };
 
-/* We allow (de)regestration of names of other peers */
+/* We allow (de)registration of names of other peers */
 struct kdbus_cmd_name {
 	__u64 size;
 	__u64 flags;
@@ -354,32 +359,39 @@ struct kdbus_cmd_name {
 	char name[0];
 };
 
+/* KDBUS_CMD_NAME_LIST */
 enum {
 	KDBUS_NAME_LIST_UNIQUE_NAMES		= 1 <<  0,
 };
 
-struct kdbus_cmd_names {
-	__u64 size;
+struct kdbus_cmd_name_list {
 	__u64 flags;
+	__u64 offset;			/* returned offset in the caller's buffer */
+};
+
+struct kdbus_name_list {
+	__u64 size;
 	struct kdbus_cmd_name names[0];
 };
 
-enum {
-	_KDBUS_NAME_INFO_ITEM_NULL,
-	KDBUS_NAME_INFO_ITEM_NAME,	/* userspace → kernel */
-	KDBUS_NAME_INFO_ITEM_SECLABEL,	/* kernel → userspace */
-	KDBUS_NAME_INFO_ITEM_AUDIT,	/* kernel → userspace */
-};
-
+/* KDBUS_CMD_NAME_INFO */
 struct kdbus_cmd_name_info {
-	__u64 size;			/* overall size of info */
+	__u64 size;
 	__u64 flags;			/* query flags */
 	__u64 attach_flags;		/* which meta data payload to attach */
-	__u64 id;			/* either ID, or 0 and _ITEM_NAME follows */
-	struct kdbus_creds creds;
+	__u64 id;			/* either ID, or 0 and name follows */
+	__u64 offset;			/* returned offset in the caller's buffer */
+	char name[0];
+};
+
+struct kdbus_name_info {
+	__u64 size;
+	__u64 id;
+	__u64 flags;			/* connection flags */
 	struct kdbus_item items[0];	/* list of item records */
 };
 
+/* KDBUS_CMD_MATCH_ADD/REMOVE */
 enum {
 	_KDBUS_MATCH_NULL,
 	KDBUS_MATCH_BLOOM,		/* Matches a mask blob against KDBUS_MSG_BLOOM */
@@ -399,22 +411,13 @@ struct kdbus_cmd_match {
 	struct kdbus_item items[0];
 };
 
+/* KDBUS_CMD_MONITOR */
 struct kdbus_cmd_monitor {
 	__u64 id;		/* We allow setting the monitor flag of other peers */
 	unsigned int enable;	/* A boolean to enable/disable monitoring */
 	__u32 __pad;
 };
 
-/* FD states:
- * control nodes: unset
- *   bus owner  (via KDBUS_CMD_BUS_MAKE)
- *   ns owner   (via KDBUS_CMD_NS_MAKE)
- *
- * ep nodes: unset
- *   connected  (via KDBUS_CMD_HELLO)
- *   starter    (via KDBUS_CMD_HELLO with KDBUS_CMD_HELLO_STARTER)
- *   ep owner   (via KDBUS_CMD_EP_MAKE)
- */
 enum {
 	/* kdbus control node commands: require unset state */
 	KDBUS_CMD_BUS_MAKE =		_IOW(KDBUS_IOC_MAGIC, 0x00, struct kdbus_cmd_bus_make),
@@ -427,12 +430,12 @@ enum {
 	/* kdbus ep node commands: require connected state */
 	KDBUS_CMD_MSG_SEND =		_IOW(KDBUS_IOC_MAGIC, 0x40, struct kdbus_msg),
 	KDBUS_CMD_MSG_RECV =		_IOR(KDBUS_IOC_MAGIC, 0x41, __u64 *),
-	KDBUS_CMD_MSG_RELEASE =		_IOW(KDBUS_IOC_MAGIC, 0x42, __u64 *),
+	KDBUS_CMD_FREE =		_IOW(KDBUS_IOC_MAGIC, 0x42, __u64 *),
 
 	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOC_MAGIC, 0x50, struct kdbus_cmd_name),
 	KDBUS_CMD_NAME_RELEASE =	_IOW(KDBUS_IOC_MAGIC, 0x51, struct kdbus_cmd_name),
-	KDBUS_CMD_NAME_LIST =		_IOWR(KDBUS_IOC_MAGIC, 0x52, struct kdbus_cmd_names),
-	KDBUS_CMD_NAME_QUERY =		_IOWR(KDBUS_IOC_MAGIC, 0x53, struct kdbus_cmd_name_info),
+	KDBUS_CMD_NAME_LIST =		_IOWR(KDBUS_IOC_MAGIC, 0x52, struct kdbus_cmd_name_list),
+	KDBUS_CMD_NAME_INFO =		_IOWR(KDBUS_IOC_MAGIC, 0x53, struct kdbus_cmd_name_info),
 
 	KDBUS_CMD_MATCH_ADD =		_IOW(KDBUS_IOC_MAGIC, 0x60, struct kdbus_cmd_match),
 	KDBUS_CMD_MATCH_REMOVE =	_IOW(KDBUS_IOC_MAGIC, 0x61, struct kdbus_cmd_match),

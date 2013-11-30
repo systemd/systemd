@@ -129,7 +129,7 @@ static void message_free(sd_bus_message *m) {
                 uint64_t off;
 
                 off = (uint8_t *)m->kdbus - (uint8_t *)m->bus->kdbus_buffer;
-                ioctl(m->bus->input_fd, KDBUS_CMD_MSG_RELEASE, &off);
+                ioctl(m->bus->input_fd, KDBUS_CMD_FREE, &off);
         }
 
         if (m->bus)
