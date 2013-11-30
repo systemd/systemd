@@ -129,7 +129,7 @@ Features:
   - support "const" properties as flag
   - add API to clone sd_bus_message objects
   - SD_BUS_COMMENT() macro for inclusion in vtables, syntax inspired by gdbus
-  - unelss configure option is specified refuse connecting and creating kdbus, so that we can break compat
+  - make sd_bus_open_system_container() kdbus aware
   - longer term:
     * priority queues
     * priority inheritance

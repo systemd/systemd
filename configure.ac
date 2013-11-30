@@ -800,6 +800,15 @@ fi
 AM_CONDITIONAL(ENABLE_MULTI_SEAT_X, [test "$have_multi_seat_x" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_kdbus=no
+AC_ARG_ENABLE(kdbus, AS_HELP_STRING([--enable-kdbus], [do not connect to kdbus by default]))
+if test "x$enable_kdbus" == "xyes"; then
+        AC_DEFINE(ENABLE_KDBUS, 1, [Define if kdbus support is to be enabled])
+        have_kdbus=yes
+fi
+AM_CONDITIONAL(ENABLE_KDBUS, [test "$have_kdbus" = "yes"])
+
+# ------------------------------------------------------------------------------
 AC_ARG_WITH(rc-local-script-path-start,
         AS_HELP_STRING([--with-rc-local-script-path-start=PATH],
                 [Path to /etc/rc.local]),
@@ -1084,6 +1093,7 @@ AC_MSG_RESULT([
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
         multi-seat-x:            ${have_multi_seat_x}
+        kdbus:                   ${have_kdbus}
         Python:                  ${have_python}
         Python Headers:          ${have_python_devel}
         man pages:               ${have_manpages}

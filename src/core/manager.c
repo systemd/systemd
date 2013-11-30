@@ -414,6 +414,7 @@ static int manager_setup_kdbus(Manager *m) {
 
         assert(m);
 
+#ifdef ENABLE_KDBUS
         if (m->kdbus_fd >= 0)
                 return 0;
 
@@ -428,6 +429,8 @@ static int manager_setup_kdbus(Manager *m) {
         }
 
         log_info("Successfully set up kdbus on %s", p);
+#endif
+
         return 0;
 }
 

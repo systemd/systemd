@@ -993,7 +993,11 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
         if (e)
                 r = sd_bus_set_address(b, e);
         else
+#ifdef ENABLE_KDBUS
                 r = sd_bus_set_address(b, "kernel:path=/dev/kdbus/0-system/bus;unix:path=/run/dbus/system_bus_socket");
+#else
+                r = sd_bus_set_address(b, "unix:path=/run/dbus/system_bus_socket");
+#endif
 
         if (r < 0)
                 goto fail;
@@ -1035,13 +1039,22 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
 
                         ee = bus_address_escape(e);
                         if (!ee) {
-                                r = -ENOENT;
+                                r = -ENOMEM;
                                 goto fail;
                         }
 
+#ifdef ENABLE_KDBUS
                         asprintf(&b->address, "kernel:path=/dev/kdbus/%lu-user/bus;unix:path=%s/bus", (unsigned long) getuid(), ee);
-                } else
+#else
+                        b->address = strjoin("unix:path=", ee, "/bus", NULL);
+#endif
+                } else {
+#ifdef ENABLE_KDBUS
                         asprintf(&b->address, "kernel:path=/dev/kdbus/%lu-user/bus", (unsigned long) getuid());
+#else
+                        return -ECONNREFUSED;
+#endif
+                }
 
                 if (!b->address) {
                         r = -ENOMEM;
