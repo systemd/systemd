@@ -403,7 +403,6 @@ static int bus_get_owner_kdbus(
                 uint64_t mask,
                 sd_bus_creds **creds) {
 
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
         struct kdbus_cmd_name_info *cmd;
         struct kdbus_name_info *name_info;
