@@ -297,11 +297,6 @@ enum {
 enum {
 	_KDBUS_MAKE_NULL,
 	KDBUS_MAKE_NAME,
-	KDBUS_MAKE_CRED,	/* allow translator services which connect
-				 * to the bus on behalf of somebody else,
-				 * allow specifying the credentials of the
-				 * client to connect on behalf on. Needs
-				 * privileges */
 };
 
 struct kdbus_cmd_bus_make {

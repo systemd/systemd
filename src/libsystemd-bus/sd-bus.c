@@ -986,15 +986,13 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
                 return r;
 
         e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
-        if (e) {
+        if (e)
                 r = sd_bus_set_address(b, e);
-                if (r < 0)
-                        goto fail;
-        } else {
-                b->sockaddr.un.sun_family = AF_UNIX;
-                strncpy(b->sockaddr.un.sun_path, "/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
-                b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + sizeof("/run/dbus/system_bus_socket") - 1;
-        }
+        else
+                r = sd_bus_set_address(b, "kernel:path=/dev/kdbus/0-system/bus;unix:path=/run/dbus/system_bus_socket");
+
+        if (r < 0)
+                goto fail;
 
         b->bus_client = true;
 
@@ -1013,7 +1011,6 @@ fail:
 _public_ int sd_bus_open_user(sd_bus **ret) {
         const char *e;
         sd_bus *b;
-        size_t l;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -1029,20 +1026,23 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
                         goto fail;
         } else {
                 e = secure_getenv("XDG_RUNTIME_DIR");
-                if (!e) {
-                        r = -ENOENT;
+                if (e) {
+                        _cleanup_free_ char *ee = NULL;
+
+                        ee = bus_address_escape(e);
+                        if (!ee) {
+                                r = -ENOENT;
+                                goto fail;
+                        }
+
+                        asprintf(&b->address, "kernel:path=/dev/kdbus/%lu-user/bus;unix:path=%s/bus", (unsigned long) getuid(), ee);
+                } else
+                        asprintf(&b->address, "kernel:path=/dev/kdbus/%lu-user/bus", (unsigned long) getuid());
+
+                if (!b->address) {
+                        r = -ENOMEM;
                         goto fail;
                 }
-
-                l = strlen(e);
-                if (l + 4 > sizeof(b->sockaddr.un.sun_path)) {
-                        r = -E2BIG;
-                        goto fail;
-                }
-
-                b->sockaddr.un.sun_family = AF_UNIX;
-                memcpy(mempcpy(b->sockaddr.un.sun_path, e, l), "/bus", 4);
-                b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + l + 4;
         }
 
         b->bus_client = true;

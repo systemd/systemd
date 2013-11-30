@@ -76,6 +76,7 @@
 #include "dbus-unit.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
+#include "bus-kernel.h"
 
 /* As soon as 5s passed since a unit was added to our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
@@ -408,10 +409,45 @@ static int manager_default_environment(Manager *m) {
         return 0;
 }
 
-int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
+static int manager_setup_kdbus(Manager *m) {
+        _cleanup_free_ char *p = NULL;
+
+        assert(m);
+
+        if (m->kdbus_fd >= 0)
+                return 0;
+
+        /* If there's already a bus address set, don't set up kdbus */
+        if (m->running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS"))
+                return 0;
+
+        m->kdbus_fd = bus_kernel_create(m->running_as == SYSTEMD_SYSTEM ? "system" : "user", &p);
+        if (m->kdbus_fd < 0) {
+                log_debug("Failed to set up kdbus: %s", strerror(-m->kdbus_fd));
+                return m->kdbus_fd;
+        }
+
+        log_info("Successfully set up kdbus on %s", p);
+        return 0;
+}
+
+static int manager_connect_bus(Manager *m, bool reexecuting) {
+        bool try_bus_connect;
+
+        assert(m);
+
+        try_bus_connect =
+                m->kdbus_fd >= 0 ||
+                reexecuting ||
+                (m->running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS"));
+
+        /* Try to connect to the busses, if possible. */
+        return bus_init(m, try_bus_connect);
+}
+
+int manager_new(SystemdRunningAs running_as, Manager **_m) {
         Manager *m;
-        int r = -ENOMEM;
-        bool try_bus_connect = false;
+        int r;
 
         assert(_m);
         assert(running_as >= 0);
@@ -431,7 +467,7 @@ int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
 
         m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
-        m->pin_cgroupfs_fd = m->notify_fd = m->signal_fd = m->time_change_fd = m->dev_autofs_fd = m->private_listen_fd = -1;
+        m->pin_cgroupfs_fd = m->notify_fd = m->signal_fd = m->time_change_fd = m->dev_autofs_fd = m->private_listen_fd = m->kdbus_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
         r = manager_default_environment(m);
@@ -495,18 +531,6 @@ int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
                 r = -ENOMEM;
                 goto fail;
         }
-
-        if (running_as == SYSTEMD_SYSTEM)
-                try_bus_connect = reexecuting;
-        else if (getenv("DBUS_SESSION_BUS_ADDRESS"))
-                try_bus_connect = true;
-        else
-                log_debug("Skipping DBus session bus connection attempt - no DBUS_SESSION_BUS_ADDRESS set...");
-
-        /* Try to connect to the busses, if possible. */
-        r = bus_init(m, try_bus_connect);
-        if (r < 0)
-                goto fail;
 
         m->taint_usr = dir_is_empty("/usr") > 0;
 
@@ -694,6 +718,8 @@ void manager_free(Manager *m) {
                 close_nointr_nofail(m->notify_fd);
         if (m->time_change_fd >= 0)
                 close_nointr_nofail(m->time_change_fd);
+        if (m->kdbus_fd >= 0)
+                close_nointr_nofail(m->kdbus_fd);
 
         manager_close_idle_pipe(m);
 
@@ -888,6 +914,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 if (q < 0)
                         r = q;
         }
+
+        /* We might have deserialized the kdbus control fd, but if we
+         * didn't, then let's create the bus now. */
+        manager_setup_kdbus(m);
+        manager_connect_bus(m, !!serialization);
 
         /* Third, fire things up! */
         q = manager_coldplug(m);
@@ -1979,9 +2010,21 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                         _cleanup_free_ char *ce;
 
                         ce = cescape(*e);
-                        if (ce)
-                                fprintf(f, "env=%s\n", *e);
+                        if (!ce)
+                                return -ENOMEM;
+
+                        fprintf(f, "env=%s\n", *e);
                 }
+        }
+
+        if (m->kdbus_fd >= 0) {
+                int copy;
+
+                copy = fdset_put_dup(fds, m->kdbus_fd);
+                if (copy < 0)
+                        return copy;
+
+                fprintf(f, "kdbus-fd=%i\n", copy);
         }
 
         bus_serialize(m, f);
@@ -2074,7 +2117,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if (startswith(l, "taint-usr=")) {
                         int b;
 
-                        if ((b = parse_boolean(l+10)) < 0)
+                        b = parse_boolean(l+10);
+                        if (b < 0)
                                 log_debug("Failed to parse taint /usr flag %s", l+10);
                         else
                                 m->taint_usr = m->taint_usr || b;
@@ -2121,6 +2165,19 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         strv_free(m->environment);
                         m->environment = e;
+
+                } else if (startswith(l, "kdbus-fd=")) {
+                        int fd;
+
+                        if (safe_atoi(l + 9, &fd) < 0 || !fdset_contains(fds, fd))
+                                log_debug("Failed to parse kdbus fd: %s", l + 9);
+                        else {
+                                if (m->kdbus_fd >= 0)
+                                        close_nointr_nofail(m->kdbus_fd);
+
+                                m->kdbus_fd = fdset_remove(fds, fd);
+                        }
+
                 } else if (bus_deserialize_item(m, l) == 0)
                         log_debug("Unknown serialization item '%s'", l);
         }

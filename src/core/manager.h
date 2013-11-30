@@ -234,9 +234,12 @@ struct Manager {
          * them. It's a hashmap with a path string as key and a Set as
          * value where Unit objects are contained. */
         Hashmap *units_requiring_mounts_for;
+
+        /* Reference to the kdbus bus control fd */
+        int kdbus_fd;
 };
 
-int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **m);
+int manager_new(SystemdRunningAs running_as, Manager **m);
 void manager_free(Manager *m);
 
 int manager_enumerate(Manager *m);

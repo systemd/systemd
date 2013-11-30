@@ -605,39 +605,6 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
         return translate[found->type - _KDBUS_ITEM_KERNEL_BASE](bus, k, found);
 }
 
-int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
-
-        uint64_t m = 0;
-
-        SET_FLAG(m, KDBUS_ATTACH_CREDS,
-                 !!(mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID)));
-
-        SET_FLAG(m, KDBUS_ATTACH_COMM,
-                 !!(mask & (SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM)));
-
-        SET_FLAG(m, KDBUS_ATTACH_EXE,
-                 !!(mask & SD_BUS_CREDS_EXE));
-
-        SET_FLAG(m, KDBUS_ATTACH_CMDLINE,
-                 !!(mask & SD_BUS_CREDS_CMDLINE));
-
-        SET_FLAG(m, KDBUS_ATTACH_CGROUP,
-                 !!(mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)));
-
-        SET_FLAG(m, KDBUS_ATTACH_CAPS,
-                 !!(mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS)));
-
-        SET_FLAG(m, KDBUS_ATTACH_SECLABEL,
-                 !!(mask & SD_BUS_CREDS_SELINUX_CONTEXT));
-
-        SET_FLAG(m, KDBUS_ATTACH_AUDIT,
-                 !!(mask & (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)));
-
-        *kdbus_mask = m;
-
-        return 0;
-}
-
 static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         sd_bus_message *m = NULL;
         struct kdbus_item *d;
@@ -923,52 +890,6 @@ int bus_kernel_read_message(sd_bus *bus) {
         return r < 0 ? r : 1;
 }
 
-int bus_kernel_create(const char *name, char **s) {
-        struct kdbus_cmd_bus_make *make;
-        struct kdbus_item *n;
-        size_t l;
-        int fd;
-        char *p;
-
-        assert(name);
-        assert(s);
-
-        fd = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        l = strlen(name);
-        make = alloca0(offsetof(struct kdbus_cmd_bus_make, items) +
-                       KDBUS_PART_HEADER_SIZE + sizeof(uint64_t) +
-                       KDBUS_PART_HEADER_SIZE + DECIMAL_STR_MAX(uid_t) + 1 + l + 1);
-
-        n = make->items;
-        n->type = KDBUS_MAKE_NAME;
-        sprintf(n->str, "%lu-%s", (unsigned long) getuid(), name);
-        n->size = KDBUS_PART_HEADER_SIZE + strlen(n->str) + 1;
-
-        make->size = offsetof(struct kdbus_cmd_bus_make, items) + n->size;
-        make->flags = KDBUS_MAKE_POLICY_OPEN;
-        make->bus_flags = 0;
-        make->bloom_size = BLOOM_SIZE;
-        assert_cc(BLOOM_SIZE % 8 == 0);
-
-        p = strjoin("/dev/kdbus/", n->str, "/bus", NULL);
-        if (!p)
-                return -ENOMEM;
-
-        if (ioctl(fd, KDBUS_CMD_BUS_MAKE, make) < 0) {
-                close_nointr_nofail(fd);
-                free(p);
-                return -errno;
-        }
-
-        if (s)
-                *s = p;
-
-        return fd;
-}
-
 int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size) {
         struct memfd_cache *c;
         int fd;
@@ -1061,20 +982,100 @@ void bus_kernel_flush_memfd(sd_bus *b) {
                 close_and_munmap(b->memfd_cache[i].fd, b->memfd_cache[i].address, b->memfd_cache[i].size);
 }
 
-int kdbus_translate_request_name_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags) {
+int kdbus_translate_request_name_flags(uint64_t flags, uint64_t *kdbus_flags) {
+        uint64_t f = 0;
 
-        assert_return(kdbus_flags != NULL, -EINVAL);
+        assert(kdbus_flags);
 
-        *kdbus_flags = 0;
+        if (flags & SD_BUS_NAME_ALLOW_REPLACEMENT)
+                f |= KDBUS_NAME_ALLOW_REPLACEMENT;
 
-        if (sd_bus_flags & SD_BUS_NAME_ALLOW_REPLACEMENT)
-                *kdbus_flags |= KDBUS_NAME_ALLOW_REPLACEMENT;
+        if (flags & SD_BUS_NAME_REPLACE_EXISTING)
+                f |= KDBUS_NAME_REPLACE_EXISTING;
 
-        if (sd_bus_flags & SD_BUS_NAME_REPLACE_EXISTING)
-                *kdbus_flags |= KDBUS_NAME_REPLACE_EXISTING;
+        if (!(flags & SD_BUS_NAME_DO_NOT_QUEUE))
+                f |= KDBUS_NAME_QUEUE;
 
-        if (!(sd_bus_flags & SD_BUS_NAME_DO_NOT_QUEUE))
-                *kdbus_flags |= KDBUS_NAME_QUEUE;
-
+        *kdbus_flags = f;
         return 0;
+}
+
+int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
+        uint64_t m = 0;
+
+        assert(kdbus_mask);
+
+        if (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_GID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_TID))
+                m |= KDBUS_ATTACH_CREDS;
+
+        if (mask & (SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM))
+                m |= KDBUS_ATTACH_COMM;
+
+        if (mask & SD_BUS_CREDS_EXE)
+                m |= KDBUS_ATTACH_EXE;
+
+        if (mask & SD_BUS_CREDS_CMDLINE)
+                m |= KDBUS_ATTACH_CMDLINE;
+
+        if (mask & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID))
+                m |= KDBUS_ATTACH_CGROUP;
+
+        if (mask & (SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS))
+                m |= KDBUS_ATTACH_CAPS;
+
+        if (mask & SD_BUS_CREDS_SELINUX_CONTEXT)
+                m |= KDBUS_ATTACH_SECLABEL;
+
+        if (mask & (SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID))
+                m |= KDBUS_ATTACH_AUDIT;
+
+        *kdbus_mask = m;
+        return 0;
+}
+
+int bus_kernel_create(const char *name, char **s) {
+        struct kdbus_cmd_bus_make *make;
+        struct kdbus_item *n;
+        int fd;
+
+        assert(name);
+        assert(s);
+
+        fd = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        make = alloca0(ALIGN8(offsetof(struct kdbus_cmd_bus_make, items) +
+                              offsetof(struct kdbus_item, str) +
+                              DECIMAL_STR_MAX(uid_t) + 1 + strlen(name) + 1));
+
+        n = make->items;
+        sprintf(n->str, "%lu-%s", (unsigned long) getuid(), name);
+        n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
+        n->type = KDBUS_MAKE_NAME;
+
+        make->size = ALIGN8(offsetof(struct kdbus_cmd_bus_make, items) + n->size);
+        make->flags = KDBUS_MAKE_POLICY_OPEN;
+        make->bus_flags = 0;
+        make->bloom_size = BLOOM_SIZE;
+        assert_cc(BLOOM_SIZE % 8 == 0);
+
+        if (ioctl(fd, KDBUS_CMD_BUS_MAKE, make) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        if (s) {
+                char *p;
+
+                p = strjoin("/dev/kdbus/", n->str, "/bus", NULL);
+                if (!p) {
+                        close_nointr_nofail(fd);
+                        return -ENOMEM;
+                }
+
+                *s = p;
+        }
+
+        return fd;
 }

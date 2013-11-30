@@ -1531,7 +1531,7 @@ int main(int argc, char *argv[]) {
         if (arg_running_as == SYSTEMD_SYSTEM)
                 bump_rlimit_nofile(&saved_rlimit_nofile);
 
-        r = manager_new(arg_running_as, !!serialization, &m);
+        r = manager_new(arg_running_as, &m);
         if (r < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
                 goto finish;
