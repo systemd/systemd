@@ -3718,23 +3718,6 @@ static int cat(sd_bus *bus, char **args) {
                         continue;
                 }
 
-                if (isempty(fragment_path)) {
-                        free(fragment_path);
-                        fragment_path = NULL;
-
-                        if (sd_bus_get_property_string(
-                                        bus,
-                                        "org.freedesktop.systemd1",
-                                        unit,
-                                        "org.freedesktop.systemd1.Unit",
-                                        "SourcePath",
-                                        &error,
-                                        &fragment_path) < 0) {
-                                log_warning("Failed to get SourcePath: %s", bus_error_message(&error, r));
-                                continue;
-                        }
-                }
-
                 r = sd_bus_get_property_strv(
                                 bus,
                                 "org.freedesktop.systemd1",
