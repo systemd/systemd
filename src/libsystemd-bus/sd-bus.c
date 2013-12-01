@@ -1284,8 +1284,6 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
 }
 
 static int bus_write_message(sd_bus *bus, sd_bus_message *message, size_t *idx) {
-        int r;
-
         assert(bus);
         assert(message);
 
@@ -1293,8 +1291,6 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *message, size_t *idx) 
                 return bus_kernel_write_message(bus, message);
         else
                 return bus_socket_write_message(bus, message, idx);
-
-        return r;
 }
 
 static int dispatch_wqueue(sd_bus *bus) {
