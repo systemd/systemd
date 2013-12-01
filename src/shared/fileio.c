@@ -240,6 +240,7 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
 
         buf[l] = 0;
         *contents = buf;
+        buf = NULL; /* do not free */
 
         if (size)
                 *size = l;
