@@ -733,7 +733,16 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             human-readable output.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><command>cat <replaceable>NAME</replaceable>...</command></term>
 
+          <listitem>
+            <para>Show backing files of one or more units.
+            Prints the fragment, drop-ins, and source (sysvinit compat)
+            of units. Each file is preceded by a comment which includes the
+            file name.</para>
+          </listitem>
+        </varlistentry>
         <varlistentry>
           <term><command>set-property <replaceable>NAME</replaceable> <replaceable>ASSIGNMENT</replaceable>...</command></term>
 

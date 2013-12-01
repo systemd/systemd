@@ -5791,6 +5791,8 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need) {
         size_t a;
         void *q;
 
+        assert(allocated);
+
         if (*allocated >= need)
                 return *p;
 

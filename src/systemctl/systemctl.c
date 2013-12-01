@@ -3675,6 +3675,107 @@ static int show_all(
         return 0;
 }
 
+static int cat(sd_bus *bus, char **args) {
+        int r = 0;
+        char **name;
+
+        _cleanup_free_ char *unit = NULL, *n = NULL;
+
+        assert(bus);
+        assert(args);
+
+        pager_open_if_enabled();
+
+        STRV_FOREACH(name, args+1) {
+                _cleanup_free_ char *fragment_path = NULL;
+                _cleanup_strv_free_ char **dropin_paths = NULL;
+                sd_bus_error error;
+                FILE *stdout;
+                char **path;
+
+                n = unit_name_mangle(*name);
+                if (!n)
+                        return log_oom();
+
+                unit = unit_dbus_path_from_name(n);
+                if (!unit)
+                        return log_oom();
+
+                if (need_daemon_reload(bus, n) > 0)
+                        log_warning("Unit file of %s changed on disk. Run 'systemctl%s daemon-reload'.",
+                                    n, arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                unit,
+                                "org.freedesktop.systemd1.Unit",
+                                "FragmentPath",
+                                &error,
+                                &fragment_path);
+                if (r < 0) {
+                        log_warning("Failed to get FragmentPath: %s", bus_error_message(&error, r));
+                        continue;
+                }
+
+                if (isempty(fragment_path)) {
+                        free(fragment_path);
+                        fragment_path = NULL;
+
+                        if (sd_bus_get_property_string(
+                                        bus,
+                                        "org.freedesktop.systemd1",
+                                        unit,
+                                        "org.freedesktop.systemd1.Unit",
+                                        "SourcePath",
+                                        &error,
+                                        &fragment_path) < 0) {
+                                log_warning("Failed to get SourcePath: %s", bus_error_message(&error, r));
+                                continue;
+                        }
+                }
+
+                r = sd_bus_get_property_strv(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                unit,
+                                "org.freedesktop.systemd1.Unit",
+                                "DropInPaths",
+                                &error,
+                                &dropin_paths);
+                if (r < 0) {
+                        log_warning("Failed to get DropInPaths: %s", bus_error_message(&error, r));
+                        continue;
+                }
+
+                stdout = fdopen(STDOUT_FILENO, "a");
+
+                if (!isempty(fragment_path)) {
+                        fprintf(stdout, "# %s\n", fragment_path);
+                        fflush(stdout);
+                        r = sendfile_full(STDOUT_FILENO, fragment_path);
+                        if (r < 0) {
+                                log_warning("Failed to cat %s: %s", fragment_path, strerror(-r));
+                                continue;
+                        }
+                }
+
+                STRV_FOREACH(path, dropin_paths) {
+                        fprintf(stdout,   "%s# %s\n",
+                                isempty(fragment_path) && path == dropin_paths ? "" : "\n",
+                                *path);
+                        fflush(stdout);
+                        r = sendfile_full(STDOUT_FILENO, *path);
+                        if (r < 0) {
+                                log_warning("Failed to cat %s: %s", *path, strerror(-r));
+                                continue;
+                        }
+                }
+        }
+
+        return r;
+}
+
 static int show(sd_bus *bus, char **args) {
         int r, ret = 0;
         bool show_properties, show_status, new_line = false;
@@ -4707,6 +4808,7 @@ static int systemctl_help(void) {
                "  status [NAME...|PID...]         Show runtime status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
                "                                  units/jobs or the manager\n"
+               "  cat [NAME...]                   Show files and drop-ins of one or more units\n"
                "  set-property [NAME] [ASSIGNMENT...]\n"
                "                                  Sets one or more properties of a unit\n"
                "  help [NAME...|PID...]           Show manual for one or more units\n"
@@ -5690,6 +5792,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "check",                 MORE,  2, check_unit_active },
                 { "is-failed",             MORE,  2, check_unit_failed },
                 { "show",                  MORE,  1, show              },
+                { "cat",                   MORE,  2, cat               },
                 { "status",                MORE,  1, show              },
                 { "help",                  MORE,  2, show              },
                 { "snapshot",              LESS,  2, snapshot          },

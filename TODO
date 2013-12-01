@@ -356,7 +356,6 @@ Features:
   - support "systemctl stop foobar@.service" to stop all units matching a certain template
   - Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
   - rework wait filter to not require match callback
-  - "systemctl cat" or "systemctl view" command or or so, that cats the backing unit file of a service, plus its drop-ins and shows them in a pager
   - better error message if you run systemctl without systemd running
   - systemctl status output should should include list of triggering units and their status
   - in systemctl list-timers show time trggering units ran last
