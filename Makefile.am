@@ -1784,8 +1784,14 @@ systemctl_LDADD = \
 	libsystemd-units.la \
 	libsystemd-label.la \
 	libsystemd-bus-internal.la \
-	libsystemd-logs.la \
-	libsystemd-login-internal.la \
+	libsystemd-logs.la
+
+if ENABLE_LOGIND
+systemctl_LDADD += \
+	libsystemd-login-internal.la
+endif
+
+systemctl_LDADD += \
 	libsystemd-journal-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
