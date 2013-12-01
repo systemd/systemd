@@ -477,10 +477,11 @@ int bus_open_user_systemd(sd_bus **_bus) {
         assert(_bus);
 
         e = secure_getenv("XDG_RUNTIME_DIR");
-        if (e) {
-                if (asprintf(&p, "unix:path=%s/systemd/private", e) < 0)
-                        return -ENOMEM;
-        }
+        if (!e)
+                return sd_bus_open_user(_bus);
+
+        if (asprintf(&p, "unix:path=%s/systemd/private", e) < 0)
+                return -ENOMEM;
 
         r = sd_bus_new(&bus);
         if (r < 0)
