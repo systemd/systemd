@@ -1111,7 +1111,7 @@ int bus_kernel_create_namespace(const char *name, char **s) {
         n->type = KDBUS_MAKE_NAME;
 
         make->size = ALIGN8(offsetof(struct kdbus_cmd_ns_make, items) + n->size);
-        make->flags = KDBUS_MAKE_POLICY_OPEN;
+        make->flags = KDBUS_MAKE_POLICY_OPEN | KDBUS_MAKE_ACCESS_WORLD;
 
         if (ioctl(fd, KDBUS_CMD_NS_MAKE, make) < 0) {
                 close_nointr_nofail(fd);
