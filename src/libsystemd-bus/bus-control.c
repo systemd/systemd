@@ -404,8 +404,8 @@ static int bus_get_owner_kdbus(
                 sd_bus_creds **creds) {
 
         _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
-        struct kdbus_cmd_name_info *cmd;
-        struct kdbus_name_info *name_info;
+        struct kdbus_cmd_conn_info *cmd;
+        struct kdbus_conn_info *conn_info;
         struct kdbus_item *item;
         size_t size;
         uint64_t m, id;
@@ -415,34 +415,34 @@ static int bus_get_owner_kdbus(
         if (r < 0)
                 return r;
         if (r > 0) {
-                size = offsetof(struct kdbus_cmd_name_info, name);
+                size = offsetof(struct kdbus_cmd_conn_info, name);
                 cmd = alloca0(size);
                 cmd->id = id;
         } else {
-                size = offsetof(struct kdbus_cmd_name_info, name) + strlen(name) + 1;
+                size = offsetof(struct kdbus_cmd_conn_info, name) + strlen(name) + 1;
                 cmd = alloca0(size);
                 strcpy(cmd->name, name);
         }
 
         cmd->size = size;
-        r = ioctl(bus->input_fd, KDBUS_CMD_NAME_INFO, cmd);
+        r = ioctl(bus->input_fd, KDBUS_CMD_CONN_INFO, cmd);
         if (r < 0)
                 return -errno;
 
-        name_info = (struct kdbus_name_info *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
+        conn_info = (struct kdbus_conn_info *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
 
         c = bus_creds_new();
         if (!c)
                 return -ENOMEM;
 
         if (mask & SD_BUS_CREDS_UNIQUE_NAME) {
-                if (asprintf(&c->unique_name, ":1.%llu", (unsigned long long) name_info->id) < 0)
+                if (asprintf(&c->unique_name, ":1.%llu", (unsigned long long) conn_info->id) < 0)
                         return -ENOMEM;
 
                 c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
         }
 
-        KDBUS_PART_FOREACH(item, name_info, items) {
+        KDBUS_PART_FOREACH(item, conn_info, items) {
 
                 switch (item->type) {
 
