@@ -668,6 +668,7 @@ static int add_name_change_match(sd_bus *bus,
         }
 
         if (is_name_id <= 0) {
+                struct kdbus_cmd_match *m;
                 size_t sz, l;
 
                 /* If the name argument is missing or is a well-known
@@ -681,85 +682,74 @@ static int add_name_change_match(sd_bus *bus,
                             offsetof(struct kdbus_notify_name_change, name) +
                             l+1);
 
-                {
-                        union {
-                                uint8_t buffer[sz];
-                                struct kdbus_cmd_match match;
-                        } m;
+                m = alloca0(sz);
+                m->size = sz;
+                m->cookie = cookie;
+                m->src_id = KDBUS_SRC_ID_KERNEL;
 
-                        memzero(&m, sz);
+                item = m->items;
+                item->size =
+                        offsetof(struct kdbus_item, name_change) +
+                        offsetof(struct kdbus_notify_name_change, name) +
+                        l+1;
 
-                        m.match.size = sz;
-                        m.match.cookie = cookie;
-                        m.match.src_id = KDBUS_SRC_ID_KERNEL;
+                item->name_change.old_id = old_owner_id;
+                item->name_change.new_id = new_owner_id;
 
-                        item = m.match.items;
-                        item->size =
-                                offsetof(struct kdbus_item, name_change) +
-                                offsetof(struct kdbus_notify_name_change, name) +
-                                l+1;
+                if (name)
+                        strcpy(item->name_change.name, name);
 
-                        item->name_change.old_id = old_owner_id;
-                        item->name_change.new_id = new_owner_id;
+                /* If the old name is unset or empty, then
+                 * this can match against added names */
+                if (!old_owner || old_owner[0] == 0) {
+                        item->type = KDBUS_MATCH_NAME_ADD;
 
-                        if (name)
-                                strcpy(item->name_change.name, name);
+                        r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                        if (r < 0)
+                                return -errno;
+                }
 
-                        /* If the old name is unset or empty, then
-                         * this can match against added names */
-                        if (!old_owner || old_owner[0] == 0) {
-                                item->type = KDBUS_MATCH_NAME_ADD;
+                /* If the new name is unset or empty, then
+                 * this can match against removed names */
+                if (!new_owner || new_owner[0] == 0) {
+                        item->type = KDBUS_MATCH_NAME_REMOVE;
 
-                                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
-                                if (r < 0)
-                                        return -errno;
-                        }
+                        r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                        if (r < 0)
+                                return -errno;
+                }
 
-                        /* If the new name is unset or empty, then
-                         * this can match against removed names */
-                        if (!new_owner || new_owner[0] == 0) {
-                                item->type = KDBUS_MATCH_NAME_REMOVE;
+                /* If the neither name is explicitly set to
+                 * the empty string, then this can match
+                 * agains changed names */
+                if (!(old_owner && old_owner[0] == 0) &&
+                    !(new_owner && new_owner[0] == 0)) {
+                        item->type = KDBUS_MATCH_NAME_CHANGE;
 
-                                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
-                                if (r < 0)
-                                        return -errno;
-                        }
-
-                        /* If the neither name is explicitly set to
-                         * the empty string, then this can match
-                         * agains changed names */
-                        if (!(old_owner && old_owner[0] == 0) &&
-                            !(new_owner && new_owner[0] == 0)) {
-                                item->type = KDBUS_MATCH_NAME_CHANGE;
-
-                                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
-                                if (r < 0)
-                                        return -errno;
-                        }
+                        r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                        if (r < 0)
+                                return -errno;
                 }
         }
 
         if (is_name_id != 0) {
-                uint64_t sz =
-                        ALIGN8(offsetof(struct kdbus_cmd_match, items) +
-                               offsetof(struct kdbus_item, id_change) +
-                               sizeof(struct kdbus_notify_id_change));
-                union {
-                        uint8_t buffer[sz];
-                        struct kdbus_cmd_match match;
-                } m;
+                struct kdbus_cmd_match *m;
+                uint64_t sz;
 
                 /* If the name argument is missing or is a unique
                  * name, then add KDBUS_MATCH_ID_{ADD,REMOVE} matches
                  * for it */
 
-                memzero(&m, sz);
+                sz = ALIGN8(offsetof(struct kdbus_cmd_match, items) +
+                            offsetof(struct kdbus_item, id_change) +
+                            sizeof(struct kdbus_notify_id_change));
 
-                m.match.size = sz;
-                m.match.cookie = cookie;
-                m.match.src_id = KDBUS_SRC_ID_KERNEL;
+                m = alloca0(sz);
+                m->size = sz;
+                m->cookie = cookie;
+                m->src_id = KDBUS_SRC_ID_KERNEL;
 
-                item = m.match.items;
+                item = m->items;
                 item->size = offsetof(struct kdbus_item, id_change) + sizeof(struct kdbus_notify_id_change);
                 item->id_change.id = name_id;
 
