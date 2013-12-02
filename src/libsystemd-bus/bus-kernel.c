@@ -1121,7 +1121,7 @@ int bus_kernel_create_namespace(const char *name, char **s) {
         if (s) {
                 char *p;
 
-                p = strappend("/dev/kdbus/", name);
+                p = strappend("/dev/kdbus/ns/", name);
                 if (!p) {
                         close_nointr_nofail(fd);
                         return -ENOMEM;
