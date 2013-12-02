@@ -91,11 +91,9 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
 
         char buffer[8 + LINE_MAX], p[11]; struct iovec iov[2];
 
-        if (priority < 0 || priority > 7)
-                return -EINVAL;
-
-        if (!format)
-                return -EINVAL;
+        assert_return(priority >= 0, -EINVAL);
+        assert_return(priority <= 7, -EINVAL);
+        assert_return(format, -EINVAL);
 
         snprintf(p, sizeof(p), "PRIORITY=%i", priority & LOG_PRIMASK);
         char_array_0(p);
@@ -224,11 +222,8 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         char path[] = "/dev/shm/journal.XXXXXX";
         bool have_syslog_identifier = false;
 
-        if (_unlikely_(!iov))
-                return -EINVAL;
-
-        if (_unlikely_(n <= 0))
-                return -EINVAL;
+        assert_return(iov, -EINVAL);
+        assert_return(n > 0, -EINVAL);
 
         w = alloca(sizeof(struct iovec) * n * 5 + 3);
         l = alloca(sizeof(uint64_t) * n);
@@ -410,8 +405,8 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         size_t l;
         ssize_t r;
 
-        if (priority < 0 || priority > 7)
-                return -EINVAL;
+        assert_return(priority >= 0, -EINVAL);
+        assert_return(priority <= 7, -EINVAL);
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
@@ -480,11 +475,9 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
         struct iovec iov[5];
         char *f;
 
-        if (priority < 0 || priority > 7)
-                return -EINVAL;
-
-        if (_unlikely_(!format))
-                return -EINVAL;
+        assert_return(priority >= 0, -EINVAL);
+        assert_return(priority <= 7, -EINVAL);
+        assert_return(format, -EINVAL);
 
         snprintf(p, sizeof(p), "PRIORITY=%i", priority & LOG_PRIMASK);
         char_array_0(p);
@@ -548,11 +541,8 @@ _public_ int sd_journal_sendv_with_location(
         struct iovec *niov;
         char *f;
 
-        if (_unlikely_(!iov))
-                return -EINVAL;
-
-        if (_unlikely_(n <= 0))
-                return -EINVAL;
+        assert_return(iov, -EINVAL);
+        assert_return(n > 0, -EINVAL);
 
         niov = alloca(sizeof(struct iovec) * (n + 3));
         memcpy(niov, iov, sizeof(struct iovec) * n);

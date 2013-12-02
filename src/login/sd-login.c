@@ -34,62 +34,49 @@
 #include "login-shared.h"
 
 _public_ int sd_pid_get_session(pid_t pid, char **session) {
-        if (pid < 0)
-                return -EINVAL;
 
-        if (!session)
-                return -EINVAL;
+        assert_return(pid >= 0, -EINVAL);
+        assert_return(session, -EINVAL);
 
         return cg_pid_get_session(pid, session);
 }
 
 _public_ int sd_pid_get_unit(pid_t pid, char **unit) {
 
-        if (pid < 0)
-                return -EINVAL;
-        if (!unit)
-                return -EINVAL;
+        assert_return(pid >= 0, -EINVAL);
+        assert_return(unit, -EINVAL);
 
         return cg_pid_get_unit(pid, unit);
 }
 
 _public_ int sd_pid_get_user_unit(pid_t pid, char **unit) {
 
-        if (pid < 0)
-                return -EINVAL;
-        if (!unit)
-                return -EINVAL;
+        assert_return(pid >= 0, -EINVAL);
+        assert_return(unit, -EINVAL);
 
         return cg_pid_get_user_unit(pid, unit);
 }
 
 _public_ int sd_pid_get_machine_name(pid_t pid, char **name) {
 
-        if (pid < 0)
-                return -EINVAL;
-        if (!name)
-                return -EINVAL;
+        assert_return(pid >= 0, -EINVAL);
+        assert_return(name, -EINVAL);
 
         return cg_pid_get_machine_name(pid, name);
 }
 
 _public_ int sd_pid_get_slice(pid_t pid, char **slice) {
 
-        if (pid < 0)
-                return -EINVAL;
-        if (!slice)
-                return -EINVAL;
+        assert_return(pid >= 0, -EINVAL);
+        assert_return(slice, -EINVAL);
 
         return cg_pid_get_slice(pid, slice);
 }
 
 _public_ int sd_pid_get_owner_uid(pid_t pid, uid_t *uid) {
 
-        if (pid < 0)
-                return -EINVAL;
-
-        if (!uid)
-                return -EINVAL;
+        assert_return(pid >= 0, -EINVAL);
+        assert_return(uid, -EINVAL);
 
         return cg_pid_get_owner_uid(pid, uid);
 }
@@ -98,8 +85,7 @@ _public_ int sd_uid_get_state(uid_t uid, char**state) {
         char *p, *s = NULL;
         int r;
 
-        if (!state)
-                return -EINVAL;
+        assert_return(state, -EINVAL);
 
         if (asprintf(&p, "/run/systemd/users/%lu", (unsigned long) uid) < 0)
                 return -ENOMEM;
@@ -132,8 +118,7 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
         int r;
         const char *variable;
 
-        if (!seat)
-                return -EINVAL;
+        assert_return(seat, -EINVAL);
 
         variable = require_active ? "ACTIVE_UID" : "UIDS";
 
@@ -273,8 +258,7 @@ _public_ int sd_session_get_state(const char *session, char **state) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
-        if (!state)
-                return -EINVAL;
+        assert_return(state, -EINVAL);
 
         r = file_of_session(session, &p);
         if (r < 0)
@@ -297,8 +281,7 @@ _public_ int sd_session_get_uid(const char *session, uid_t *uid) {
         int r;
         _cleanup_free_ char *p = NULL, *s = NULL;
 
-        if (!uid)
-                return -EINVAL;
+        assert_return(uid, -EINVAL);
 
         r = file_of_session(session, &p);
         if (r < 0)
@@ -321,8 +304,7 @@ static int session_get_string(const char *session, const char *field, char **val
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
-        if (!value)
-                return -EINVAL;
+        assert_return(value, -EINVAL);
 
         r = file_of_session(session, &p);
         if (r < 0)
@@ -412,8 +394,7 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
         _cleanup_free_ char *p = NULL, *s = NULL, *t = NULL;
         int r;
 
-        if (!session && !uid)
-                return -EINVAL;
+        assert_return(session || uid, -EINVAL);
 
         r = file_of_seat(seat, &p);
         if (r < 0)
@@ -636,8 +617,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         int fd, k;
         bool good = false;
 
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
         if (fd < 0)
@@ -695,8 +675,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
 _public_ sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m) {
         int fd;
 
-        if (!m)
-                return NULL;
+        assert_return(m, NULL);
 
         fd = MONITOR_TO_FD(m);
         close_nointr(fd);
@@ -706,24 +685,21 @@ _public_ sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m) {
 
 _public_ int sd_login_monitor_flush(sd_login_monitor *m) {
 
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         return flush_fd(MONITOR_TO_FD(m));
 }
 
 _public_ int sd_login_monitor_get_fd(sd_login_monitor *m) {
 
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         return MONITOR_TO_FD(m);
 }
 
 _public_ int sd_login_monitor_get_events(sd_login_monitor *m) {
 
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         /* For now we will only return POLLIN here, since we don't
          * need anything else ever for inotify.  However, let's have
@@ -734,10 +710,8 @@ _public_ int sd_login_monitor_get_events(sd_login_monitor *m) {
 
 _public_ int sd_login_monitor_get_timeout(sd_login_monitor *m, uint64_t *timeout_usec) {
 
-        if (!m)
-                return -EINVAL;
-        if (!timeout_usec)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(timeout_usec, -EINVAL);
 
         /* For now we will only return (uint64_t) -1, since we don't
          * need any timeout. However, let's have this API to keep our

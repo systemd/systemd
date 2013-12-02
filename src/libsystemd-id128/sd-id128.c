@@ -31,8 +31,7 @@
 _public_ char *sd_id128_to_string(sd_id128_t id, char s[33]) {
         unsigned n;
 
-        if (!s)
-                return NULL;
+        assert_return(s, NULL);
 
         for (n = 0; n < 16; n++) {
                 s[n*2] = hexchar(id.bytes[n] >> 4);
@@ -49,10 +48,8 @@ _public_ int sd_id128_from_string(const char s[], sd_id128_t *ret) {
         sd_id128_t t;
         bool is_guid = false;
 
-        if (!s)
-                return -EINVAL;
-        if (!ret)
-                return -EINVAL;
+        assert_return(s, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         for (n = 0, i = 0; n < 16;) {
                 int a, b;
@@ -116,8 +113,7 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
         unsigned j;
         sd_id128_t t;
 
-        if (!ret)
-                return -EINVAL;
+        assert_return(ret, -EINVAL);
 
         if (saved_machine_id_valid) {
                 *ret = saved_machine_id;
@@ -167,8 +163,7 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
         sd_id128_t t;
         char *p;
 
-        if (!ret)
-                return -EINVAL;
+        assert_return(ret, -EINVAL);
 
         if (saved_boot_id_valid) {
                 *ret = saved_boot_id;
@@ -218,8 +213,7 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
         sd_id128_t t;
         ssize_t k;
 
-        if (!ret)
-                return -EINVAL;
+        assert_return(ret, -EINVAL);
 
         fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
