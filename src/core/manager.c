@@ -2172,7 +2172,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if (startswith(l, "kdbus-fd=")) {
                         int fd;
 
-                        if (safe_atoi(l + 9, &fd) < 0 || !fdset_contains(fds, fd))
+                        if (safe_atoi(l + 9, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
                                 log_debug("Failed to parse kdbus fd: %s", l + 9);
                         else {
                                 if (m->kdbus_fd >= 0)
