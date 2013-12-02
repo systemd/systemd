@@ -312,6 +312,11 @@ static int method_callbacks_run(
                                 "Invalid arguments '%s' to call %s.%s(), expecting '%s'.",
                                 signature, c->interface, c->member, strempty(c->vtable->x.method.signature));
 
+        /* Keep track what the signature of the reply to this message
+         * should be, so that this can be enforced when sealing the
+         * reply. */
+        m->enforced_reply_signature = strempty(c->vtable->x.method.result);
+
         if (c->vtable->x.method.handler) {
                 r = c->vtable->x.method.handler(bus, m, u, &error);
                 return bus_maybe_reply_error(m, r, &error);

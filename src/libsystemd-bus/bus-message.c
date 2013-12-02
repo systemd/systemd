@@ -568,6 +568,7 @@ static int message_new_reply(
         }
 
         t->dont_send = !!(call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED);
+        t->enforced_reply_signature = call->enforced_reply_signature;
 
         *m = t;
         return 0;
@@ -3961,6 +3962,13 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
 
         if (m->poisoned)
                 return -ESTALE;
+
+        /* In vtables the return signature of method calls is listed,
+         * let's check if they match if this is a response */
+        if (m->header->type == SD_BUS_MESSAGE_METHOD_RETURN &&
+            m->enforced_reply_signature &&
+            !streq(strempty(m->root_container.signature), m->enforced_reply_signature))
+                return -ENOMSG;
 
         /* If there's a non-trivial signature set, then add it in here */
         if (!isempty(m->root_container.signature)) {

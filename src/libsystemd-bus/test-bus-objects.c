@@ -61,6 +61,9 @@ static int something_handler(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
 
         log_info("AlterSomething() called, got %s, returning %s", s, n);
 
+        /* This should fail, since the return type doesn't match */
+        assert_se(sd_bus_reply_method_return(m, "u", 4711) == -ENOMSG);
+
         r = sd_bus_reply_method_return(m, "s", n);
         assert_se(r >= 0);
 

@@ -116,6 +116,11 @@ struct sd_bus_message {
 
         char *peeked_signature;
 
+        /* If set replies to this message must carry the signature
+         * specified here to successfully seal. This is initialized
+         * from the vtable data */
+        const char *enforced_reply_signature;
+
         usec_t timeout;
 
         char sender_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
