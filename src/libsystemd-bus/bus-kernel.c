@@ -1074,6 +1074,13 @@ int bus_kernel_create_bus(const char *name, char **s) {
                 return -errno;
         }
 
+        /* The higher 32bit of the flags field are considered
+         * 'incompatible flags'. Refuse them all for now. */
+        if (make->flags > 0xFFFFFFFFULL) {
+                close_nointr_nofail(fd);
+                return -ENOTSUP;
+        }
+
         if (s) {
                 char *p;
 
@@ -1116,6 +1123,13 @@ int bus_kernel_create_namespace(const char *name, char **s) {
         if (ioctl(fd, KDBUS_CMD_NS_MAKE, make) < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
+        }
+
+        /* The higher 32bit of the flags field are considered
+         * 'incompatible flags'. Refuse them all for now. */
+        if (make->flags > 0xFFFFFFFFULL) {
+                close_nointr_nofail(fd);
+                return -ENOTSUP;
         }
 
         if (s) {
