@@ -215,8 +215,33 @@ static int monitor(sd_bus *bus, char *argv[]) {
                         return r;
                 }
         }
+}
 
-        return -EINVAL;
+static int status(sd_bus *bus, char *argv[]) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        pid_t pid;
+        int r;
+
+        assert(bus);
+
+        if (strv_length(argv) != 2) {
+                log_error("Expects one argument.");
+                return -EINVAL;
+        }
+
+        r = parse_pid(argv[1], &pid);
+        if (r < 0)
+                r = sd_bus_get_owner(bus, argv[1], _SD_BUS_CREDS_ALL, &creds);
+        else
+                r = sd_bus_creds_new_from_pid(pid, _SD_BUS_CREDS_ALL, &creds);
+
+        if (r < 0) {
+                log_error("Failed to get credentials: %s", strerror(-r));
+                return r;
+        }
+
+        bus_creds_dump(creds, NULL);
+        return 0;
 }
 
 static int help(void) {
@@ -346,6 +371,9 @@ static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
 
         if (streq(argv[optind], "monitor"))
                 return monitor(bus, argv + optind);
+
+        if (streq(argv[optind], "status"))
+                return status(bus, argv + optind);
 
         if (streq(argv[optind], "help"))
                 return help();

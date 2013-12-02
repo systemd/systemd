@@ -28,14 +28,14 @@ int main(int argc, char *argv[]) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         int r;
 
-        r = sd_bus_creds_new_from_pid(0, _SD_BUS_CREDS_MAX, &creds);
+        r = sd_bus_creds_new_from_pid(0, _SD_BUS_CREDS_ALL, &creds);
         assert_se(r >= 0);
 
         bus_creds_dump(creds, NULL);
 
         creds = sd_bus_creds_unref(creds);
 
-        r = sd_bus_creds_new_from_pid(1, _SD_BUS_CREDS_MAX, &creds);
+        r = sd_bus_creds_new_from_pid(1, _SD_BUS_CREDS_ALL, &creds);
         if (r != -EACCES) {
                 assert_se(r >= 0);
                 putchar('\n');

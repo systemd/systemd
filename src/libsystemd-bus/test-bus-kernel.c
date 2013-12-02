@@ -64,10 +64,10 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         assert_se(sd_bus_negotiate_attach_timestamp(a, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_creds(a, _SD_BUS_CREDS_MAX) >= 0);
+        assert_se(sd_bus_negotiate_attach_creds(a, _SD_BUS_CREDS_ALL) >= 0);
 
         assert_se(sd_bus_negotiate_attach_timestamp(b, 1) >= 0);
-        assert_se(sd_bus_negotiate_attach_creds(b, _SD_BUS_CREDS_MAX) >= 0);
+        assert_se(sd_bus_negotiate_attach_creds(b, _SD_BUS_CREDS_ALL) >= 0);
 
         r = sd_bus_start(a);
         assert_se(r >= 0);

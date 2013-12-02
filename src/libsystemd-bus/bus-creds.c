@@ -126,7 +126,7 @@ _public_ int sd_bus_creds_new_from_pid(pid_t pid, uint64_t mask, sd_bus_creds **
         int r;
 
         assert_return(pid >= 0, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_MAX, -ENOTSUP);
+        assert_return(mask <= _SD_BUS_CREDS_ALL, -ENOTSUP);
         assert_return(ret, -EINVAL);
 
         if (pid == 0)

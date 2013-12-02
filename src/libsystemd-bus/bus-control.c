@@ -598,7 +598,7 @@ _public_ int sd_bus_get_owner(
 
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_MAX, -ENOTSUP);
+        assert_return(mask <= _SD_BUS_CREDS_ALL, -ENOTSUP);
         assert_return(mask == 0 || creds, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);

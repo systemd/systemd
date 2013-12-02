@@ -287,7 +287,7 @@ _public_ int sd_bus_negotiate_attach_timestamp(sd_bus *bus, int b) {
 
 _public_ int sd_bus_negotiate_attach_creds(sd_bus *bus, uint64_t mask) {
         assert_return(bus, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_MAX, -EINVAL);
+        assert_return(mask <= _SD_BUS_CREDS_ALL, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -2797,7 +2797,7 @@ _public_ int sd_bus_get_peer_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **re
         int r;
 
         assert_return(bus, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_MAX, -ENOTSUP);
+        assert_return(mask <= _SD_BUS_CREDS_ALL, -ENOTSUP);
         assert_return(ret, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);

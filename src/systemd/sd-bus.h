@@ -72,7 +72,7 @@ enum {
         SD_BUS_CREDS_AUDIT_LOGIN_UID  = 1ULL << 21,
         SD_BUS_CREDS_UNIQUE_NAME      = 1ULL << 22,
         SD_BUS_CREDS_WELL_KNOWN_NAMES = 1ULL << 23,
-        _SD_BUS_CREDS_MAX             = (1ULL << 24) -1,
+        _SD_BUS_CREDS_ALL             = (1ULL << 24) -1,
 };
 
 /* Callbacks */
