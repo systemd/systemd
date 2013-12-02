@@ -480,15 +480,7 @@ int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *u
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_enter_container(message, 'a', "(sv)");
-        if (r < 0)
-                return r;
-
         r = bus_unit_set_properties(u, message, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, error);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_exit_container(message);
         if (r < 0)
                 return r;
 
