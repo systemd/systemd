@@ -1096,6 +1096,56 @@ int bus_kernel_create_bus(const char *name, char **s) {
         return fd;
 }
 
+int bus_kernel_create_starter(const char *bus, const char *name) {
+        struct kdbus_cmd_hello *hello;
+        struct kdbus_item *n;
+        char *p;
+        int fd;
+
+        assert(bus);
+        assert(name);
+
+        p = alloca(sizeof("/dev/kdbus/") - 1 + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + sizeof("/bus"));
+        sprintf(p, "/dev/kdbus/%lu-%s/bus", (unsigned long) getuid(), bus);
+
+        fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        hello = alloca0(ALIGN8(offsetof(struct kdbus_cmd_hello, items) +
+                               offsetof(struct kdbus_item, str) +
+                               strlen(name) + 1));
+
+        n = hello->items;
+        strcpy(n->str, name);
+        n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
+        n->type = KDBUS_ITEM_STARTER_NAME;
+
+        hello->size = ALIGN8(offsetof(struct kdbus_cmd_hello, items) + n->size);
+        hello->conn_flags = KDBUS_HELLO_STARTER;
+        hello->pool_size = KDBUS_POOL_SIZE;
+
+        if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        /* The higher 32bit of both flags fields are considered
+         * 'incompatible flags'. Refuse them all for now. */
+        if (hello->bus_flags > 0xFFFFFFFFULL ||
+            hello->conn_flags > 0xFFFFFFFFULL) {
+                close_nointr_nofail(fd);
+                return -ENOTSUP;
+        }
+
+        if (hello->bloom_size != BLOOM_SIZE) {
+                close_nointr_nofail(fd);
+                return -ENOTSUP;
+        }
+
+        return fd;
+}
+
 int bus_kernel_create_namespace(const char *name, char **s) {
         struct kdbus_cmd_ns_make *make;
         struct kdbus_item *n;

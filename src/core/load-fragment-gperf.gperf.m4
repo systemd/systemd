@@ -223,6 +223,9 @@ EXEC_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 m4_dnl
+BusName.Name,                    config_parse_string,                0,                             offsetof(BusName, name)
+BusName.Service,                 config_parse_busname_service,       0,                             0
+m4_dnl
 Mount.What,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.what)
 Mount.Where,                     config_parse_path,                  0,                             offsetof(Mount, where)
 Mount.Options,                   config_parse_string,                0,                             offsetof(Mount, parameters_fragment.options)

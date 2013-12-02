@@ -276,14 +276,15 @@ typedef enum UnitSetPropertiesMode {
 } UnitSetPropertiesMode;
 
 #include "service.h"
-#include "timer.h"
 #include "socket.h"
+#include "busname.h"
 #include "target.h"
+#include "snapshot.h"
 #include "device.h"
 #include "mount.h"
 #include "automount.h"
-#include "snapshot.h"
 #include "swap.h"
+#include "timer.h"
 #include "path.h"
 #include "slice.h"
 #include "scope.h"
@@ -462,15 +463,16 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
 #define UNIT_TRIGGER(u) ((Unit*) set_first((u)->dependencies[UNIT_TRIGGERS]))
 
-DEFINE_CAST(SOCKET, Socket);
-DEFINE_CAST(TIMER, Timer);
 DEFINE_CAST(SERVICE, Service);
+DEFINE_CAST(SOCKET, Socket);
+DEFINE_CAST(BUSNAME, BusName);
 DEFINE_CAST(TARGET, Target);
+DEFINE_CAST(SNAPSHOT, Snapshot);
 DEFINE_CAST(DEVICE, Device);
 DEFINE_CAST(MOUNT, Mount);
 DEFINE_CAST(AUTOMOUNT, Automount);
-DEFINE_CAST(SNAPSHOT, Snapshot);
 DEFINE_CAST(SWAP, Swap);
+DEFINE_CAST(TIMER, Timer);
 DEFINE_CAST(PATH, Path);
 DEFINE_CAST(SLICE, Slice);
 DEFINE_CAST(SCOPE, Scope);

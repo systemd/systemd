@@ -138,6 +138,8 @@ static void mount_init(Unit *u) {
         m->directory_mode = 0755;
 
         exec_context_init(&m->exec_context);
+        kill_context_init(&m->kill_context);
+        cgroup_context_init(&m->cgroup_context);
 
         if (unit_has_name(u, "-.mount")) {
                 /* Don't allow start/stop for root directory */
@@ -149,9 +151,6 @@ static void mount_init(Unit *u) {
                 m->exec_context.std_output = u->manager->default_std_output;
                 m->exec_context.std_error = u->manager->default_std_error;
         }
-
-        kill_context_init(&m->kill_context);
-        cgroup_context_init(&m->cgroup_context);
 
         /* We need to make sure that /bin/mount is always called in
          * the same process group as us, so that the autofs kernel
@@ -503,29 +502,22 @@ static int mount_verify(Mount *m) {
 
         b = unit_has_name(UNIT(m), e);
         if (!b) {
-                log_error_unit(UNIT(m)->id,
-                               "%s's Where setting doesn't match unit name. Refusing.",
-                               UNIT(m)->id);
+                log_error_unit(UNIT(m)->id, "%s's Where= setting doesn't match unit name. Refusing.", UNIT(m)->id);
                 return -EINVAL;
         }
 
         if (mount_point_is_api(m->where) || mount_point_ignore(m->where)) {
-                log_error_unit(UNIT(m)->id,
-                               "Cannot create mount unit for API file system %s. Refusing.",
-                               m->where);
+                log_error_unit(UNIT(m)->id, "Cannot create mount unit for API file system %s. Refusing.", m->where);
                 return -EINVAL;
         }
 
         if (UNIT(m)->fragment_path && !m->parameters_fragment.what) {
-                log_error_unit(UNIT(m)->id,
-                               "%s's What setting is missing. Refusing.", UNIT(m)->id);
+                log_error_unit(UNIT(m)->id, "%s's What setting is missing. Refusing.", UNIT(m)->id);
                 return -EBADMSG;
         }
 
         if (m->exec_context.pam_name && m->kill_context.kill_mode != KILL_CONTROL_GROUP) {
-                log_error_unit(UNIT(m)->id,
-                               "%s has PAM enabled. Kill mode must be set to control-group'. Refusing.",
-                               UNIT(m)->id);
+                log_error_unit(UNIT(m)->id, "%s has PAM enabled. Kill mode must be set to control-group'. Refusing.",UNIT(m)->id);
                 return -EINVAL;
         }
 
@@ -536,7 +528,9 @@ static int mount_add_extras(Mount *m) {
         Unit *u = UNIT(m);
         int r;
 
-        if (UNIT(m)->fragment_path)
+        assert(m);
+
+        if (u->fragment_path)
                 m->from_fragment = true;
 
         if (!m->where) {
@@ -551,7 +545,7 @@ static int mount_add_extras(Mount *m) {
         if (r < 0)
                 return r;
 
-        if (!UNIT(m)->description) {
+        if (!u->description) {
                 r = unit_set_description(u, m->where);
                 if (r < 0)
                         return r;
@@ -569,7 +563,7 @@ static int mount_add_extras(Mount *m) {
         if (r < 0)
                 return r;
 
-        if (UNIT(m)->default_dependencies) {
+        if (u->default_dependencies) {
                 r = mount_add_default_dependencies(m);
                 if (r < 0)
                         return r;
@@ -580,6 +574,10 @@ static int mount_add_extras(Mount *m) {
                 return r;
 
         r = mount_fix_timeouts(m);
+        if (r < 0)
+                return r;
+
+        r = unit_exec_context_defaults(u, &m->exec_context);
         if (r < 0)
                 return r;
 
@@ -604,10 +602,6 @@ static int mount_load(Unit *u) {
         /* This is a new unit? Then let's add in some extras */
         if (u->load_state == UNIT_LOADED) {
                 r = mount_add_extras(m);
-                if (r < 0)
-                        return r;
-
-                r = unit_exec_context_defaults(u, &m->exec_context);
                 if (r < 0)
                         return r;
         }

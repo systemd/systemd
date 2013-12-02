@@ -880,20 +880,22 @@ libsystemd_core_la_SOURCES = \
 	src/core/load-fragment.h \
 	src/core/service.c \
 	src/core/service.h \
-	src/core/automount.c \
-	src/core/automount.h \
-	src/core/mount.c \
-	src/core/mount.h \
-	src/core/swap.c \
-	src/core/swap.h \
-	src/core/device.c \
-	src/core/device.h \
+	src/core/socket.c \
+	src/core/socket.h \
+	src/core/busname.c \
+	src/core/busname.h \
 	src/core/target.c \
 	src/core/target.h \
 	src/core/snapshot.c \
 	src/core/snapshot.h \
-	src/core/socket.c \
-	src/core/socket.h \
+	src/core/device.c \
+	src/core/device.h \
+	src/core/mount.c \
+	src/core/mount.h \
+	src/core/automount.c \
+	src/core/automount.h \
+	src/core/swap.c \
+	src/core/swap.h \
 	src/core/timer.c \
 	src/core/timer.h \
 	src/core/path.c \
@@ -920,20 +922,22 @@ libsystemd_core_la_SOURCES = \
 	src/core/dbus-service.h \
 	src/core/dbus-socket.c \
 	src/core/dbus-socket.h \
-	src/core/dbus-timer.c \
-	src/core/dbus-timer.h \
+	src/core/dbus-busname.c \
+	src/core/dbus-busname.h \
 	src/core/dbus-target.c \
 	src/core/dbus-target.h \
+	src/core/dbus-snapshot.c \
+	src/core/dbus-snapshot.h \
+	src/core/dbus-device.c \
+	src/core/dbus-device.h \
 	src/core/dbus-mount.c \
 	src/core/dbus-mount.h \
 	src/core/dbus-automount.c \
 	src/core/dbus-automount.h \
 	src/core/dbus-swap.c \
 	src/core/dbus-swap.h \
-	src/core/dbus-snapshot.c \
-	src/core/dbus-snapshot.h \
-	src/core/dbus-device.c \
-	src/core/dbus-device.h \
+	src/core/dbus-timer.c \
+	src/core/dbus-timer.h \
 	src/core/dbus-path.c \
 	src/core/dbus-path.h \
 	src/core/dbus-slice.c \

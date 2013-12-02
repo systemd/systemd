@@ -116,10 +116,8 @@ Features:
 * libsystemd-bus:
   - default policy (allow uid == 0 and our own uid)
   - access policy as vtable flag
-  - enforce alignment of pointers passed in
   - when kdbus doesn't take our message without memfds, try again with memfds
   - implement translator service
-  - implement busname unit type in systemd
   - move to gvariant
   - implement monitor logic
   - properly map matches with well-known names against messages with unique names

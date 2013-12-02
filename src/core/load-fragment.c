@@ -1457,6 +1457,51 @@ int config_parse_service_timeout(const char *unit,
         return 0;
 }
 
+int config_parse_busname_service(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        BusName *n = data;
+        int r;
+        Unit *x;
+        _cleanup_free_ char *p = NULL;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = unit_name_printf(UNIT(n), rvalue, &p);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to resolve specifiers, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!endswith(p, ".service")) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Unit must be of type service, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = manager_load_unit(UNIT(n)->manager, p, NULL, &error, &x);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to load unit %s, ignoring: %s", rvalue, bus_error_message(&error, r));
+                return 0;
+        }
+
+        unit_ref_set(&n->service, x);
+
+        return 0;
+}
+
 int config_parse_unit_env_file(const char *unit,
                                const char *filename,
                                unsigned line,

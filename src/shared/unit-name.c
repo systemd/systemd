@@ -36,13 +36,14 @@
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = "service",
         [UNIT_SOCKET] = "socket",
+        [UNIT_BUSNAME] = "busname",
         [UNIT_TARGET] = "target",
+        [UNIT_SNAPSHOT] = "snapshot",
         [UNIT_DEVICE] = "device",
         [UNIT_MOUNT] = "mount",
         [UNIT_AUTOMOUNT] = "automount",
-        [UNIT_SNAPSHOT] = "snapshot",
-        [UNIT_TIMER] = "timer",
         [UNIT_SWAP] = "swap",
+        [UNIT_TIMER] = "timer",
         [UNIT_PATH] = "path",
         [UNIT_SLICE] = "slice",
         [UNIT_SCOPE] = "scope"
@@ -441,7 +442,7 @@ char *unit_name_from_path_instance(const char *prefix, const char *path, const c
 }
 
 char *unit_name_to_path(const char *name) {
-        char *w, *e;
+        _cleanup_free_ char *w = NULL;
 
         assert(name);
 
@@ -449,10 +450,7 @@ char *unit_name_to_path(const char *name) {
         if (!w)
                 return NULL;
 
-        e = unit_name_path_unescape(w);
-        free(w);
-
-        return e;
+        return unit_name_path_unescape(w);
 }
 
 char *unit_dbus_path_from_name(const char *name) {

@@ -62,6 +62,7 @@ int bus_kernel_read_message(sd_bus *bus);
 
 int bus_kernel_create_bus(const char *name, char **s);
 int bus_kernel_create_namespace(const char *name, char **s);
+int bus_kernel_create_starter(const char *bus, const char *name);
 
 int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size);
 void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t size);
