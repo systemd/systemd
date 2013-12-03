@@ -127,7 +127,7 @@ int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
         return 0;
 }
 
-int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, unsigned int type, unsigned int flags, sd_rtnl_message **ret) {
+int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, unsigned type, unsigned flags, sd_rtnl_message **ret) {
         struct ifinfomsg *ifi;
         int r;
 
@@ -218,6 +218,21 @@ int sd_rtnl_message_link_get_ifindex(sd_rtnl_message *m, int *ifindex) {
         ifi = NLMSG_DATA(m->hdr);
 
         *ifindex = ifi->ifi_index;
+
+        return 0;
+}
+
+int sd_rtnl_message_link_get_flags(sd_rtnl_message *m, unsigned *flags) {
+        struct ifinfomsg *ifi;
+
+        assert_return(m, -EINVAL);
+        assert_return(flags, -EINVAL);
+        assert_return(m->hdr->nlmsg_type == RTM_NEWLINK || m->hdr->nlmsg_type == RTM_DELLINK ||
+                      m->hdr->nlmsg_type == RTM_GETLINK || m->hdr->nlmsg_type == RTM_SETLINK, -EINVAL);
+
+        ifi = NLMSG_DATA(m->hdr);
+
+        *flags = ifi->ifi_flags;
 
         return 0;
 }
