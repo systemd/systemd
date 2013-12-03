@@ -214,7 +214,7 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 
         if (optind < argc) {
                 const char *cmd = argv[optind++];
-                if(streq(cmd, "list"))
+                if (streq(cmd, "list"))
                         arg_action = ACTION_LIST;
                 else if (streq(cmd, "dump"))
                         arg_action = ACTION_DUMP;

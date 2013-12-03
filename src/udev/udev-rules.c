@@ -431,7 +431,7 @@ static void dump_rules(struct udev_rules *rules)
                   rules->token_cur * sizeof(struct token),
                   rules->buf_count,
                   rules->buf_cur);
-        for(i = 0; i < rules->token_cur; i++)
+        for (i = 0; i < rules->token_cur; i++)
                 dump_token(rules, &rules->tokens[i]);
 }
 #else

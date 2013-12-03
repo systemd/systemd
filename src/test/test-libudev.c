@@ -36,14 +36,12 @@
 
 static void log_fn(struct udev *udev,
                    int priority, const char *file, int line, const char *fn,
-                   const char *format, va_list args)
-{
+                   const char *format, va_list args) {
         printf("test-libudev: %s %s:%d ", fn, file, line);
         vprintf(format, args);
 }
 
-static void print_device(struct udev_device *device)
-{
+static void print_device(struct udev_device *device) {
         const char *str;
         dev_t devnum;
         int count;
@@ -116,8 +114,7 @@ static void print_device(struct udev_device *device)
         printf("\n");
 }
 
-static int test_device(struct udev *udev, const char *syspath)
-{
+static int test_device(struct udev *udev, const char *syspath) {
         _cleanup_udev_device_unref_ struct udev_device *device;
 
         printf("looking at device: %s\n", syspath);
@@ -131,8 +128,7 @@ static int test_device(struct udev *udev, const char *syspath)
         return 0;
 }
 
-static int test_device_parents(struct udev *udev, const char *syspath)
-{
+static int test_device_parents(struct udev *udev, const char *syspath) {
         _cleanup_udev_device_unref_ struct udev_device *device;
         struct udev_device *device_parent;
 
@@ -158,8 +154,7 @@ static int test_device_parents(struct udev *udev, const char *syspath)
         return 0;
 }
 
-static int test_device_devnum(struct udev *udev)
-{
+static int test_device_devnum(struct udev *udev) {
         dev_t devnum = makedev(1, 3);
         struct udev_device *device;
 
@@ -172,8 +167,7 @@ static int test_device_devnum(struct udev *udev)
         return 0;
 }
 
-static int test_device_subsys_name(struct udev *udev)
-{
+static int test_device_subsys_name(struct udev *udev) {
         struct udev_device *device;
 
         printf("looking up device: 'block':'sda'\n");
@@ -206,8 +200,7 @@ static int test_device_subsys_name(struct udev *udev)
         return 0;
 }
 
-static int test_enumerate_print_list(struct udev_enumerate *enumerate)
-{
+static int test_enumerate_print_list(struct udev_enumerate *enumerate) {
         struct udev_list_entry *list_entry;
         int count = 0;
 
@@ -228,8 +221,7 @@ static int test_enumerate_print_list(struct udev_enumerate *enumerate)
         return count;
 }
 
-static int test_monitor(struct udev *udev)
-{
+static int test_monitor(struct udev *udev) {
         struct udev_monitor *udev_monitor = NULL;
         int fd_ep;
         int fd_udev = -1;
@@ -308,8 +300,7 @@ out:
         return 0;
 }
 
-static int test_queue(struct udev *udev)
-{
+static int test_queue(struct udev *udev) {
         struct udev_queue *udev_queue;
         unsigned long long int seqnum;
         struct udev_list_entry *list_entry;
@@ -347,8 +338,7 @@ static int test_queue(struct udev *udev)
         return 0;
 }
 
-static int test_enumerate(struct udev *udev, const char *subsystem)
-{
+static int test_enumerate(struct udev *udev, const char *subsystem) {
         struct udev_enumerate *udev_enumerate;
 
         printf("enumerate '%s'\n", subsystem == NULL ? "<all>" : subsystem);
@@ -443,8 +433,7 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
         assert(hwdb == NULL);
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
         struct udev *udev = NULL;
         static const struct option options[] = {
                 { "syspath", required_argument, NULL, 'p' },

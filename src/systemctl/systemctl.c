@@ -1152,7 +1152,7 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
 
                 for (i = level - 1; i >= 0; i--) {
                         len += 2;
-                        if(len > max_len - 3 && !arg_full) {
+                        if (len > max_len - 3 && !arg_full) {
                                 printf("%s...\n",max_len % 2 ? "" : " ");
                                 return 0;
                         }
@@ -1160,7 +1160,7 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
                 }
                 len += 2;
 
-                if(len > max_len - 3 && !arg_full) {
+                if (len > max_len - 3 && !arg_full) {
                         printf("%s...\n",max_len % 2 ? "" : " ");
                         return 0;
                 }
@@ -1174,7 +1174,7 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
         }
 
         n = ellipsize(name, max_len-len, 100);
-        if(!n)
+        if (!n)
                 return log_oom();
 
         printf("%s\n", n);
@@ -1334,7 +1334,7 @@ static int list_dependencies_one(
 
                 if (arg_all || unit_name_to_type(*c) == UNIT_TARGET) {
                        r = list_dependencies_one(bus, *c, level + 1, &u, (branches << 1) | (c[1] == NULL ? 0 : 1));
-                       if(r < 0)
+                       if (r < 0)
                                return r;
                 }
         }
@@ -1814,7 +1814,7 @@ static int wait_for_jobs(sd_bus *bus, Set *s) {
                 return log_oom();
 
         while (!set_isempty(s)) {
-                for(;;) {
+                for (;;) {
                         r = sd_bus_process(bus, NULL);
                         if (r < 0)
                                 return r;
@@ -4916,7 +4916,7 @@ static int help_types(void) {
         const char *t;
 
         puts("Available unit types:");
-        for(i = 0; i < _UNIT_TYPE_MAX; i++) {
+        for (i = 0; i < _UNIT_TYPE_MAX; i++) {
                 t = unit_type_to_string(i);
                 if (t)
                         puts(t);

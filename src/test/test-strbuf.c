@@ -85,8 +85,7 @@ static void test_strbuf(void) {
         strbuf_cleanup(sb);
 }
 
-int main(int argc, const char *argv[])
-{
+int main(int argc, const char *argv[]) {
         test_strbuf();
 
         return 0;

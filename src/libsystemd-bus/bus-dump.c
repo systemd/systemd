@@ -117,7 +117,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
 
         fprintf(f, "  MESSAGE \"%s\" {\n", strempty(m->root_container.signature));
 
-        for(;;) {
+        for (;;) {
                 _cleanup_free_ char *prefix = NULL;
                 const char *contents = NULL;
                 char type;

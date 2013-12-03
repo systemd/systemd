@@ -114,7 +114,7 @@ static void change_runlevel(Server *s, int runlevel) {
         assert(s);
 
         target = translate_runlevel(runlevel, &isolate);
-        if(!target) {
+        if (!target) {
                 log_warning("Got request for unknown runlevel %c, ignoring.", runlevel);
                 return;
         }

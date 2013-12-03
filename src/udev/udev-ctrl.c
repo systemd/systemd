@@ -359,7 +359,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
         udev_ctrl_connection_ref(conn);
 
         /* wait for the incoming message */
-        for(;;) {
+        for (;;) {
                 struct pollfd pfd[1];
                 int r;
 

@@ -334,7 +334,7 @@ static int get_mac(struct udev_device *device, bool want_random, struct ether_ad
 
         srandom(seed);
 
-        for(i = 0; i < ETH_ALEN; i++) {
+        for (i = 0; i < ETH_ALEN; i++) {
                 mac->ether_addr_octet[i] = random();
         }
 

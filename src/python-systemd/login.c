@@ -140,8 +140,7 @@ typedef struct {
 } Monitor;
 static PyTypeObject MonitorType;
 
-static void Monitor_dealloc(Monitor* self)
-{
+static void Monitor_dealloc(Monitor* self) {
         sd_login_monitor_unref(self->monitor);
         Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -153,8 +152,7 @@ PyDoc_STRVAR(Monitor__doc__,
              "descriptor which can be integrated in an external event loop.\n"
              "See man:sd_login_monitor_new(3) for the details about what\n"
              "can be monitored.");
-static int Monitor_init(Monitor *self, PyObject *args, PyObject *keywds)
-{
+static int Monitor_init(Monitor *self, PyObject *args, PyObject *keywds) {
         const char *category = NULL;
         int r;
 
@@ -175,8 +173,7 @@ PyDoc_STRVAR(Monitor_fileno__doc__,
              "fileno() -> int\n\n"
              "Get a file descriptor to poll for events.\n"
              "This method wraps sd_login_monitor_get_fd(3).");
-static PyObject* Monitor_fileno(Monitor *self, PyObject *args)
-{
+static PyObject* Monitor_fileno(Monitor *self, PyObject *args) {
         int fd = sd_login_monitor_get_fd(self->monitor);
         set_error(fd, NULL, NULL);
         if (fd < 0)
@@ -190,8 +187,7 @@ PyDoc_STRVAR(Monitor_get_events__doc__,
              "Returns a mask of poll() events to wait for on the file\n"
              "descriptor returned by .fileno().\n\n"
              "See man:sd_login_monitor_get_events(3) for further discussion.");
-static PyObject* Monitor_get_events(Monitor *self, PyObject *args)
-{
+static PyObject* Monitor_get_events(Monitor *self, PyObject *args) {
         int r = sd_login_monitor_get_events(self->monitor);
         set_error(r, NULL, NULL);
         if (r < 0)
@@ -208,8 +204,7 @@ PyDoc_STRVAR(Monitor_get_timeout__doc__,
              "The return value must be converted to a relative timeout in\n"
              "milliseconds if it is to be used as an argument for poll().\n"
              "See man:sd_login_monitor_get_timeout(3) for further discussion.");
-static PyObject* Monitor_get_timeout(Monitor *self, PyObject *args)
-{
+static PyObject* Monitor_get_timeout(Monitor *self, PyObject *args) {
         int r;
         uint64_t t;
 
@@ -231,8 +226,7 @@ PyDoc_STRVAR(Monitor_get_timeout_ms__doc__,
              "Returns a timeout value suitable for usage in poll(), the value\n"
              "returned by .get_timeout() converted to relative ms, or -1 if\n"
              "no timeout is necessary.");
-static PyObject* Monitor_get_timeout_ms(Monitor *self, PyObject *args)
-{
+static PyObject* Monitor_get_timeout_ms(Monitor *self, PyObject *args) {
         int r;
         uint64_t t;
 
@@ -250,8 +244,7 @@ PyDoc_STRVAR(Monitor_close__doc__,
              "Free resources allocated by this Monitor object.\n"
              "This method invokes sd_login_monitor_unref().\n"
              "See man:sd_login_monitor_unref(3).");
-static PyObject* Monitor_close(Monitor *self, PyObject *args)
-{
+static PyObject* Monitor_close(Monitor *self, PyObject *args) {
         assert(self);
         assert(!args);
 
@@ -266,8 +259,7 @@ PyDoc_STRVAR(Monitor_flush__doc__,
              "Reset the wakeup state of the monitor object.\n"
              "This method invokes sd_login_monitor_flush().\n"
              "See man:sd_login_monitor_flush(3).");
-static PyObject* Monitor_flush(Monitor *self, PyObject *args)
-{
+static PyObject* Monitor_flush(Monitor *self, PyObject *args) {
         assert(self);
         assert(!args);
 
@@ -282,8 +274,7 @@ PyDoc_STRVAR(Monitor___enter____doc__,
              "__enter__() -> self\n\n"
              "Part of the context manager protocol.\n"
              "Returns self.\n");
-static PyObject* Monitor___enter__(PyObject *self, PyObject *args)
-{
+static PyObject* Monitor___enter__(PyObject *self, PyObject *args) {
         assert(self);
         assert(!args);
 
@@ -296,8 +287,7 @@ PyDoc_STRVAR(Monitor___exit____doc__,
              "__exit__(type, value, traceback) -> None\n\n"
              "Part of the context manager protocol.\n"
              "Closes the monitor..\n");
-static PyObject* Monitor___exit__(Monitor *self, PyObject *args)
-{
+static PyObject* Monitor___exit__(Monitor *self, PyObject *args) {
         return Monitor_close(self, args);
 }
 

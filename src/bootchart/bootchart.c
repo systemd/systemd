@@ -234,8 +234,7 @@ static int parse_args(int argc, char *argv[]) {
         return 0;
 }
 
-static void do_journal_append(char *file)
-{
+static void do_journal_append(char *file) {
         struct iovec iovec[5];
         int r, f, j = 0;
         ssize_t n;

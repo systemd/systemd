@@ -740,7 +740,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
                 }
         }
 
-        if(!to_print)
+        if (!to_print)
                 return r;
 
         STRV_FOREACH(c, deps) {

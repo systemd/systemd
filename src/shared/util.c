@@ -5379,7 +5379,7 @@ bool is_locale_utf8(void) {
                 goto out;
         }
 
-        if(streq(set, "UTF-8")) {
+        if (streq(set, "UTF-8")) {
                 cached_answer = true;
                 goto out;
         }

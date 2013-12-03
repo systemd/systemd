@@ -509,7 +509,7 @@ static void svg_pss_graph(void) {
                         continue;
 
                 enc_name = xml_comment_encode(ps->name);
-                if(!enc_name)
+                if (!enc_name)
                         continue;
 
                 svg("<!-- %s [%d] pss=", enc_name, ps->pid);
@@ -1009,7 +1009,7 @@ static void svg_ps_bars(void) {
                 int t;
 
                 enc_name = xml_comment_encode(ps->name);
-                if(!enc_name)
+                if (!enc_name)
                         continue;
 
                 /* leave some trace of what we actually filtered etc. */

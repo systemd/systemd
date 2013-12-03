@@ -159,7 +159,7 @@ static bool is_pci_multifunction(struct udev_device *dev) {
         if ((config[PCI_HEADER_TYPE] & 0x80) != 0)
                 multi = true;
 out:
-        if(f)
+        if (f)
                 fclose(f);
         return multi;
 }

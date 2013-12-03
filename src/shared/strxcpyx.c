@@ -29,8 +29,7 @@
 #include <string.h>
 #include "strxcpyx.h"
 
-size_t strpcpy(char **dest, size_t size, const char *src)
-{
+size_t strpcpy(char **dest, size_t size, const char *src) {
         size_t len;
 
         len = strlen(src);
@@ -48,8 +47,7 @@ size_t strpcpy(char **dest, size_t size, const char *src)
         return size;
 }
 
-size_t strpcpyf(char **dest, size_t size, const char *src, ...)
-{
+size_t strpcpyf(char **dest, size_t size, const char *src, ...) {
         va_list va;
         int i;
 
@@ -67,8 +65,7 @@ size_t strpcpyf(char **dest, size_t size, const char *src, ...)
         return size;
 }
 
-size_t strpcpyl(char **dest, size_t size, const char *src, ...)
-{
+size_t strpcpyl(char **dest, size_t size, const char *src, ...) {
         va_list va;
 
         va_start(va, src);
@@ -80,8 +77,7 @@ size_t strpcpyl(char **dest, size_t size, const char *src, ...)
         return size;
 }
 
-size_t strscpy(char *dest, size_t size, const char *src)
-{
+size_t strscpy(char *dest, size_t size, const char *src) {
         char *s;
 
         s = dest;

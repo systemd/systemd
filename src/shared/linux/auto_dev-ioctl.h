@@ -118,8 +118,7 @@ struct autofs_dev_ioctl {
 	char path[0];
 };
 
-static inline void init_autofs_dev_ioctl(struct autofs_dev_ioctl *in)
-{
+static inline void init_autofs_dev_ioctl(struct autofs_dev_ioctl *in) {
 	memset(in, 0, sizeof(struct autofs_dev_ioctl));
 	in->ver_major = AUTOFS_DEV_IOCTL_VERSION_MAJOR;
 	in->ver_minor = AUTOFS_DEV_IOCTL_VERSION_MINOR;

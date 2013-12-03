@@ -51,8 +51,7 @@ static const char conf_file_dirs[] =
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
-                             const char *fn, const char *format, va_list args)
-{
+                             const char *fn, const char *format, va_list args) {
         log_metav(priority, file, line, fn, format, args);
 }
 #pragma GCC diagnostic pop

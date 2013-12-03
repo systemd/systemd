@@ -2,7 +2,7 @@
 - 8ch indent, no tabs
 
 - Variables and functions *must* be static, unless they have a
-  protoype, and are supposed to be exported.
+  prototype, and are supposed to be exported.
 
 - structs in MixedCase, variables + functions in lower_case
 
