@@ -110,10 +110,10 @@ static int bus_request_name_dbus1(sd_bus *bus, const char *name, unsigned flags)
                 return -EEXIST;
         else if (ret == BUS_NAME_IN_QUEUE)
                 return 0;
-        else
-                return -EIO;
+        else if (ret == BUS_NAME_PRIMARY_OWNER)
+                return 1;
 
-        return 1;
+        return -EIO;
 }
 
 _public_ int sd_bus_request_name(sd_bus *bus, const char *name, unsigned flags) {
