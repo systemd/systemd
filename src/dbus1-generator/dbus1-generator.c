@@ -183,6 +183,11 @@ static int add_dbus(const char *path, const char *fname, const char *type) {
                 return 0;
         }
 
+        if (streq(name, "org.freedesktop.systemd1")) {
+                log_debug("Skipping %s, identified as systemd.", p);
+                return 0;
+        }
+
         if (service) {
                 if (!unit_name_is_valid(service, false)) {
                         log_warning("Unit name %s is not valid, ignoring.", service);
@@ -193,7 +198,7 @@ static int add_dbus(const char *path, const char *fname, const char *type) {
                         return 0;
                 }
         } else {
-                if (!exec) {
+                if (streq(exec, "/bin/false") || !exec) {
                         log_warning("Neither service name nor binary path specified, ignoring %s.", p);
                         return 0;
                 }
@@ -219,7 +224,7 @@ static int parse_dbus_fragments(void) {
                 type = "session";
         } else if (r == -ENOENT) {
                 p = "/usr/share/dbus-1/system-services";
-                type = "systemd";
+                type = "system";
         } else if (r < 0) {
                 log_error("Failed to determine whether we are running as user or system instance: %s", strerror(-r));
                 return r;
