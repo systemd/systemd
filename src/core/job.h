@@ -97,7 +97,8 @@ enum JobResult {
         JOB_TIMEOUT,             /* JobTimeout elapsed */
         JOB_FAILED,              /* Job failed */
         JOB_DEPENDENCY,          /* A required dependency job did not result in JOB_DONE */
-        JOB_SKIPPED,             /* JOB_RELOAD of inactive unit; negative result of JOB_VERIFY_ACTIVE */
+        JOB_SKIPPED,             /* Negative result of JOB_VERIFY_ACTIVE */
+        JOB_INVALID,             /* JOB_RELOAD of inactive unit */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -1
 };

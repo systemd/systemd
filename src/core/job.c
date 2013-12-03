@@ -508,7 +508,7 @@ int job_run_and_invalidate(Job *j) {
                         else if (t == UNIT_ACTIVATING)
                                 r = -EAGAIN;
                         else
-                                r = -ENOEXEC;
+                                r = -EBADR;
                         break;
                 }
 
@@ -537,8 +537,10 @@ int job_run_and_invalidate(Job *j) {
         if (j) {
                 if (r == -EALREADY)
                         r = job_finish_and_invalidate(j, JOB_DONE, true);
-                else if (r == -ENOEXEC)
+                else if (r == -EBADR)
                         r = job_finish_and_invalidate(j, JOB_SKIPPED, true);
+                else if (r == -ENOEXEC)
+                        r = job_finish_and_invalidate(j, JOB_INVALID, true);
                 else if (r == -EAGAIN) {
                         j->state = JOB_WAITING;
                         m->n_running_jobs--;
@@ -764,7 +766,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
                 goto finish;
         }
 
-        if (result == JOB_FAILED)
+        if (result == JOB_FAILED || result == JOB_INVALID)
                 j->manager->n_failed_jobs ++;
 
         job_uninstall(j);
@@ -1119,7 +1121,8 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_TIMEOUT] = "timeout",
         [JOB_FAILED] = "failed",
         [JOB_DEPENDENCY] = "dependency",
-        [JOB_SKIPPED] = "skipped"
+        [JOB_SKIPPED] = "skipped",
+        [JOB_INVALID] = "invalid",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);
