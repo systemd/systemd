@@ -219,6 +219,7 @@ LOCAL_FS_TARGET_WANTS =
 MULTI_USER_TARGET_WANTS =
 SYSINIT_TARGET_WANTS =
 SOCKETS_TARGET_WANTS =
+BUSNAMES_TARGET_WANTS =
 TIMERS_TARGET_WANTS =
 
 SYSTEM_UNIT_ALIASES =
@@ -237,6 +238,7 @@ install-target-wants-hook:
 	what="$(MULTI_USER_TARGET_WANTS)" && wants=multi-user.target && $(add-wants)
 	what="$(SYSINIT_TARGET_WANTS)" && wants=sysinit.target && $(add-wants)
 	what="$(SOCKETS_TARGET_WANTS)" && wants=sockets.target && $(add-wants)
+	what="$(BUSNAMES_TARGET_WANTS)" && wants=busnames.target && $(add-wants)
 	what="$(TIMERS_TARGET_WANTS)" && wants=timers.target && $(add-wants)
 	what="$(SLICES_TARGET_WANTS)" && wants=slices.target && $(add-wants)
 
@@ -3615,6 +3617,9 @@ rootlibexec_PROGRAMS += \
 nodist_systemunit_DATA += \
 	units/systemd-hostnamed.service
 
+dist_systemunit_DATA += \
+	units/org.freedesktop.hostname1.busname
+
 dist_dbuspolicy_DATA += \
 	src/hostname/org.freedesktop.hostname1.conf
 
@@ -3626,6 +3631,9 @@ polkitpolicy_files += \
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-hostnamed.service dbus-org.freedesktop.hostname1.service
+
+BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.hostname1.busname
 
 hostnamectl_SOURCES = \
 	src/hostname/hostnamectl.c
@@ -3668,6 +3676,9 @@ systemd_localed_LDADD = \
 nodist_systemunit_DATA += \
 	units/systemd-localed.service
 
+dist_systemunit_DATA += \
+	units/org.freedesktop.locale1.busname
+
 rootlibexec_PROGRAMS += \
 	systemd-localed
 
@@ -3682,6 +3693,9 @@ polkitpolicy_files += \
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-localed.service dbus-org.freedesktop.locale1.service
+
+BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.locale1.busname
 
 dist_pkgdata_DATA += \
 	src/locale/kbd-model-map
@@ -3742,6 +3756,9 @@ dist_dbuspolicy_DATA += \
 nodist_systemunit_DATA += \
 	units/systemd-timedated.service
 
+dist_systemunit_DATA += \
+	units/org.freedesktop.timedate1.busname
+
 polkitpolicy_files += \
 	src/timedate/org.freedesktop.timedate1.policy
 
@@ -3751,6 +3768,9 @@ INSTALL_DIRS += \
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-timedated.service dbus-org.freedesktop.timedate1.service
+
+BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.timedate1.busname
 
 timedatectl_SOURCES = \
 	src/timedate/timedatectl.c
@@ -3850,7 +3870,8 @@ nodist_systemunit_DATA += \
 	units/systemd-machined.service
 
 dist_systemunit_DATA += \
-	units/machine.slice
+	units/machine.slice \
+	units/org.freedesktop.machine1.busname
 
 dist_dbussystemservice_DATA += \
 	src/machine/org.freedesktop.machine1.service
@@ -3863,6 +3884,9 @@ dist_zshcompletion_DATA += \
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-machined.service dbus-org.freedesktop.machine1.service
+
+BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.machine1.busname
 
 EXTRA_DIST += \
 	units/systemd-machined.service.in
@@ -4137,7 +4161,8 @@ nodist_systemunit_DATA += \
 	units/systemd-user-sessions.service
 
 dist_systemunit_DATA += \
-	units/user.slice
+	units/user.slice \
+	units/org.freedesktop.login1.busname
 
 dist_dbussystemservice_DATA += \
 	src/login/org.freedesktop.login1.service
@@ -4172,6 +4197,9 @@ MULTI_USER_TARGET_WANTS += \
 
 SYSTEM_UNIT_ALIASES += \
 	systemd-logind.service dbus-org.freedesktop.login1.service
+
+BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.login1.busname
 
 if ENABLE_MULTI_SEAT_X
 
@@ -4675,7 +4703,8 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-pamconfdir=$$dc_install_base/$(pamconfdir) \
 	--with-rootprefix=$$dc_install_base \
-	--disable-split-usr
+	--disable-split-usr \
+	--enable-kdbus
 
 if HAVE_SYSV_COMPAT
 DISTCHECK_CONFIGURE_FLAGS += \
