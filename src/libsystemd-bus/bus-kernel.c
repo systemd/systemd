@@ -1211,3 +1211,19 @@ int bus_kernel_create_namespace(const char *name, char **s) {
 
         return fd;
 }
+
+int bus_kernel_monitor(sd_bus *bus) {
+        struct kdbus_cmd_monitor cmd_monitor;
+        int r;
+
+        assert(bus);
+
+        cmd_monitor.id = 0;
+        cmd_monitor.flags = KDBUS_MONITOR_ENABLE;
+
+        r = ioctl(bus->input_fd, KDBUS_CMD_MONITOR, &cmd_monitor);
+        if (r < 0)
+                return -errno;
+
+        return 1;
+}

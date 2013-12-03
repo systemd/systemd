@@ -73,3 +73,5 @@ int bus_kernel_parse_unique_name(const char *s, uint64_t *id);
 
 int kdbus_translate_request_name_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags);
 int kdbus_translate_attach_flags(uint64_t sd_bus_flags, uint64_t *kdbus_flags);
+
+int bus_kernel_monitor(sd_bus *bus);
