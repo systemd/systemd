@@ -294,7 +294,7 @@ int main(int argc, char *argv[]) {
                 path = "/usr/share/dbus-1/system-services";
                 type = "system";
                 units = SYSTEM_DATA_UNIT_PATH;
-        } else if (r < 0) {
+        } else {
                 log_error("Failed to determine whether we are running as user or system instance: %s", strerror(-r));
                 return r;
         }
