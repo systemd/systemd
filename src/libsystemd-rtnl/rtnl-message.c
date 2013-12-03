@@ -615,8 +615,8 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         else if ((size_t) k < sizeof(struct nlmsghdr) ||
                         (size_t) k < m->hdr->nlmsg_len)
                 k = -EIO; /* too small (we do accept too big though) */
-        else if (m->hdr->nlmsg_pid != nl->sockaddr.nl.nl_pid)
-                k = 0; /* not for us */
+        else if (m->hdr->nlmsg_pid && m->hdr->nlmsg_pid != nl->sockaddr.nl.nl_pid)
+                k = 0; /* not broadcast and not for us */
 
         if (k > 0)
                 switch (m->hdr->nlmsg_type) {
