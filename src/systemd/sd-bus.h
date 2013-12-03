@@ -235,7 +235,7 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete);
 int sd_bus_get_unique_name(sd_bus *bus, const char **unique);
 int sd_bus_request_name(sd_bus *bus, const char *name, unsigned flags);
 int sd_bus_release_name(sd_bus *bus, const char *name);
-int sd_bus_list_names(sd_bus *bus, char ***l); /* free the results */
+int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable); /* free the results */
 int sd_bus_get_owner(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds); /* unref the result! */
 int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);
 

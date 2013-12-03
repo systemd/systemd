@@ -52,14 +52,14 @@ static void pager_open_if_enabled(void) {
 }
 
 static int list_bus_names(sd_bus *bus, char **argv) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
         char **i;
         int r;
         size_t max_i = 0;
 
         assert(bus);
 
-        r = sd_bus_list_names(bus, &l);
+        r = sd_bus_list_names(bus, &acquired, &activatable);
         if (r < 0) {
                 log_error("Failed to list names: %s", strerror(-r));
                 return r;
@@ -67,9 +67,13 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
         pager_open_if_enabled();
 
-        strv_sort(l);
+        strv_sort(acquired);
+        strv_sort(activatable);
 
-        STRV_FOREACH(i, l)
+        STRV_FOREACH(i, acquired)
+                max_i = MAX(max_i, strlen(*i));
+
+        STRV_FOREACH(i, activatable)
                 max_i = MAX(max_i, strlen(*i));
 
         printf("%-*s %*s %-*s %-*s %-*s",
@@ -80,7 +84,24 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         else
                 putchar('\n');
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH(i, activatable) {
+
+                /* Skip the bus driver */
+                if (streq(*i, "org.freedesktop.DBus"))
+                        continue;
+
+                if (strv_contains(acquired, *i))
+                        continue;
+
+                printf("%-*s", (int) max_i, *i);
+                printf("          - -               -                (activation)        ");
+                if (arg_no_machine)
+                        putchar('\n');
+                else
+                        puts(" -");
+        }
+
+        STRV_FOREACH(i, acquired) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 sd_id128_t mid;
 

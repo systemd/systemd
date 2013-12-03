@@ -200,102 +200,142 @@ _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 return bus_release_name_dbus1(bus, name);
 }
 
-static int bus_list_names_kernel(sd_bus *bus, char ***l) {
-        _cleanup_free_ struct kdbus_cmd_name_list *cmd = NULL;
+static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
+        struct kdbus_cmd_name_list cmd = {};
         struct kdbus_name_list *name_list;
         struct kdbus_cmd_name *name;
-        char **x = NULL;
         int r;
 
-        cmd = malloc0(sizeof(struct kdbus_cmd_name_list));
-        if (!cmd)
-                return -ENOMEM;
+        /* Caller will free half-constructed list on failure... */
 
-        cmd->size = sizeof(struct kdbus_cmd_name_list);
-        cmd->flags = KDBUS_NAME_LIST_UNIQUE | KDBUS_NAME_LIST_NAMES;
+        cmd.size = sizeof(struct kdbus_cmd_name_list);
+        cmd.flags = flags;
 
-        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_LIST, cmd);
+        r = ioctl(bus->input_fd, KDBUS_CMD_NAME_LIST, &cmd);
         if (r < 0)
                 return -errno;
 
-        name_list = (struct kdbus_name_list *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
+        name_list = (struct kdbus_name_list *) ((uint8_t *) bus->kdbus_buffer + cmd.offset);
 
         KDBUS_PART_FOREACH(name, name_list, names) {
-                char *n;
 
-                if (name->size > sizeof(*name))
-                        n = name->name;
-                else
-                        asprintf(&n, ":1.%llu", (unsigned long long) name->id);
+                if (name->size > sizeof(*name)) {
+                        r = strv_extend(x, name->name);
+                        if (r < 0)
+                                return -ENOMEM;
+                } else {
+                        char *n;
 
-                r = strv_extend(&x, n);
-                if (r < 0)
-                        return -ENOMEM;
+                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0)
+                                return -ENOMEM;
+
+                        r = strv_push(x, n);
+                        if (r < 0) {
+                                free(n);
+                                return -ENOMEM;
+                        }
+                }
+
         }
 
-        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_FREE, &cmd->offset);
+        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_FREE, &cmd.offset);
         if (r < 0)
                 return -errno;
 
-        *l = x;
         return 0;
 }
 
-static int bus_list_names_dbus1(sd_bus *bus, char ***l) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply1 = NULL, *reply2 = NULL;
-        char **x = NULL;
+static int bus_list_names_kernel(sd_bus *bus, char ***acquired, char ***activatable) {
+        _cleanup_strv_free_ char **x = NULL, **y = NULL;
         int r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "ListNames",
-                        NULL,
-                        &reply1,
-                        NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "ListActivatableNames",
-                        NULL,
-                        &reply2,
-                        NULL);
-        if (r < 0)
-                return r;
-
-        r = bus_message_read_strv_extend(reply1, &x);
-        if (r < 0) {
-                strv_free(x);
-                return r;
+        if (acquired) {
+                r = kernel_get_list(bus, KDBUS_NAME_LIST_UNIQUE | KDBUS_NAME_LIST_NAMES, &x);
+                if (r < 0)
+                        return r;
         }
 
-        r = bus_message_read_strv_extend(reply2, &x);
-        if (r < 0) {
-                strv_free(x);
-                return r;
+        if (activatable) {
+                r = kernel_get_list(bus, KDBUS_NAME_LIST_STARTERS, &y);
+                if (r < 0)
+                        return r;
+
+                *activatable = y;
+                y = NULL;
         }
 
-        *l = strv_uniq(x);
+        if (acquired) {
+                *acquired = x;
+                x = NULL;
+        }
+
         return 0;
 }
 
-_public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
+static int bus_list_names_dbus1(sd_bus *bus, char ***acquired, char ***activatable) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **x = NULL, **y = NULL;
+        int r;
+
+        if (acquired) {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "ListNames",
+                                NULL,
+                                &reply,
+                                NULL);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_strv(reply, &x);
+                if (r < 0)
+                        return r;
+
+                reply = sd_bus_message_unref(reply);
+        }
+
+        if (activatable) {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "ListActivatableNames",
+                                NULL,
+                                &reply,
+                                NULL);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_strv(reply, &y);
+                if (r < 0)
+                        return r;
+
+                *activatable = y;
+                y = NULL;
+        }
+
+        if (acquired) {
+                *acquired = x;
+                x = NULL;
+        }
+
+        return 0;
+}
+
+_public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable) {
         assert_return(bus, -EINVAL);
-        assert_return(l, -EINVAL);
+        assert_return(acquired || activatable, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (bus->is_kernel)
-                return bus_list_names_kernel(bus, l);
+                return bus_list_names_kernel(bus, acquired, activatable);
         else
-                return bus_list_names_dbus1(bus, l);
+                return bus_list_names_dbus1(bus, acquired, activatable);
 }
 
 static int bus_get_owner_kdbus(
