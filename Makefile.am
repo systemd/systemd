@@ -393,6 +393,7 @@ dist_systemunit_DATA = \
 	units/sigpwr.target \
 	units/sleep.target \
 	units/sockets.target \
+	units/busnames.target \
 	units/timers.target \
 	units/paths.target \
 	units/suspend.target \
