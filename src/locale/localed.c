@@ -1094,15 +1094,10 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
                 return r;
         }
 
-        r = sd_bus_request_name(bus, "org.freedesktop.locale1", SD_BUS_NAME_DO_NOT_QUEUE);
+        r = sd_bus_request_name(bus, "org.freedesktop.locale1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_DO_NOT_QUEUE);
         if (r < 0) {
                 log_error("Failed to register name: %s", strerror(-r));
                 return r;
-        }
-
-        if (r != SD_BUS_NAME_PRIMARY_OWNER) {
-                log_error("Failed to acquire name.");
-                return -EEXIST;
         }
 
         r = sd_bus_attach_event(bus, event, 0);

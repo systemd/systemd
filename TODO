@@ -130,6 +130,7 @@ Features:
   - longer term:
     * priority queues
     * priority inheritance
+  - sort out error codes for sd_bus_release_name()
 
 * sd-event
   - allow multiple signal handlers per signal

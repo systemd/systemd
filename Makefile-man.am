@@ -20,6 +20,7 @@ MANPAGES += \
 	man/sd-id128.3 \
 	man/sd-journal.3 \
 	man/sd_booted.3 \
+	man/sd_bus_request_name.3 \
 	man/sd_id128_get_machine.3 \
 	man/sd_id128_randomize.3 \
 	man/sd_id128_to_string.3 \
@@ -131,6 +132,7 @@ MANPAGES_ALIAS += \
 	man/init.1 \
 	man/poweroff.8 \
 	man/reboot.8 \
+	man/sd_bus_release_name.3 \
 	man/sd_id128_equal.3 \
 	man/sd_id128_from_string.3 \
 	man/sd_id128_get_boot.3 \
@@ -232,6 +234,7 @@ man/SD_WARNING.3: man/sd-daemon.3
 man/init.1: man/systemd.1
 man/poweroff.8: man/halt.8
 man/reboot.8: man/halt.8
+man/sd_bus_release_name.3: man/sd_bus_request_name.3
 man/sd_id128_equal.3: man/sd-id128.3
 man/sd_id128_from_string.3: man/sd_id128_to_string.3
 man/sd_id128_get_boot.3: man/sd_id128_get_machine.3
@@ -387,6 +390,9 @@ man/poweroff.html: man/halt.html
 	$(html-alias)
 
 man/reboot.html: man/halt.html
+	$(html-alias)
+
+man/sd_bus_release_name.html: man/sd_bus_request_name.html
 	$(html-alias)
 
 man/sd_id128_equal.html: man/sd-id128.html

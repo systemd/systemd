@@ -50,352 +50,252 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         return 0;
 }
 
-_public_ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
+static int bus_request_name_kernel(sd_bus *bus, const char *name, unsigned flags) {
+        struct kdbus_cmd_name *n;
+        size_t l;
+        int r;
+
+        assert(bus);
+        assert(name);
+
+        l = strlen(name);
+        n = alloca0(offsetof(struct kdbus_cmd_name, name) + l + 1);
+        n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
+        kdbus_translate_request_name_flags(flags, (uint64_t *) &n->flags);
+        memcpy(n->name, name, l+1);
+
+#ifdef HAVE_VALGRIND_MEMCHECK_H
+        VALGRIND_MAKE_MEM_DEFINED(n, n->size);
+#endif
+
+        r = ioctl(bus->input_fd, KDBUS_CMD_NAME_ACQUIRE, n);
+        if (r < 0)
+                return -errno;
+
+        if (n->flags & KDBUS_NAME_IN_QUEUE)
+                return 0;
+
+        return 1;
+}
+
+static int bus_request_name_dbus1(sd_bus *bus, const char *name, unsigned flags) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         uint32_t ret;
         int r;
 
+        assert(bus);
+        assert(name);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.DBus",
+                        "/",
+                        "org.freedesktop.DBus",
+                        "RequestName",
+                        NULL,
+                        &reply,
+                        "su",
+                        name,
+                        flags);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(reply, "u", &ret);
+        if (r < 0)
+                return r;
+
+        if (ret == SD_BUS_NAME_ALREADY_OWNER)
+                return -EALREADY;
+        else if (ret == SD_BUS_NAME_EXISTS)
+                return -EEXIST;
+        else if (ret == SD_BUS_NAME_IN_QUEUE)
+                return 0;
+        else
+                return -EIO;
+
+        return 1;
+}
+
+_public_ int sd_bus_request_name(sd_bus *bus, const char *name, unsigned flags) {
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
         assert_return(bus->bus_client, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_DO_NOT_QUEUE)), -EINVAL);
 
-        if (bus->is_kernel) {
-                struct kdbus_cmd_name *n;
-                size_t l;
+        if (bus->is_kernel)
+                return bus_request_name_kernel(bus, name, flags);
+        else
+                return bus_request_name_dbus1(bus, name, flags);
+}
 
-                l = strlen(name);
-                n = alloca0(offsetof(struct kdbus_cmd_name, name) + l + 1);
-                n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
-                kdbus_translate_request_name_flags(flags, (uint64_t *) &n->flags);
-                memcpy(n->name, name, l+1);
+static int bus_release_name_kernel(sd_bus *bus, const char *name) {
+        struct kdbus_cmd_name *n;
+        size_t l;
+        int r;
+
+        assert(bus);
+        assert(name);
+
+        l = strlen(name);
+        n = alloca0(offsetof(struct kdbus_cmd_name, name) + l + 1);
+        n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
+        memcpy(n->name, name, l+1);
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
-                VALGRIND_MAKE_MEM_DEFINED(n, n->size);
+        VALGRIND_MAKE_MEM_DEFINED(n, n->size);
 #endif
+        r = ioctl(bus->input_fd, KDBUS_CMD_NAME_RELEASE, n);
+        if (r < 0)
+                return -errno;
 
-                r = ioctl(bus->input_fd, KDBUS_CMD_NAME_ACQUIRE, n);
-                if (r < 0) {
-                        if (errno == -EALREADY)
-                                return SD_BUS_NAME_ALREADY_OWNER;
+        return n->flags;
+}
 
-                        if (errno == -EEXIST)
-                                return SD_BUS_NAME_EXISTS;
+static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        uint32_t ret;
+        int r;
 
-                        return -errno;
-                }
+        assert(bus);
+        assert(name);
 
-                if (n->flags & KDBUS_NAME_IN_QUEUE)
-                        return SD_BUS_NAME_IN_QUEUE;
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.DBus",
+                        "/",
+                        "org.freedesktop.DBus",
+                        "ReleaseName",
+                        NULL,
+                        &reply,
+                        "s",
+                        name);
+        if (r < 0)
+                return r;
 
-                return SD_BUS_NAME_PRIMARY_OWNER;
-        } else {
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.DBus",
-                                "/",
-                                "org.freedesktop.DBus",
-                                "RequestName",
-                                NULL,
-                                &reply,
-                                "su",
-                                name,
-                                flags);
-                if (r < 0)
-                        return r;
+        r = sd_bus_message_read(reply, "u", &ret);
+        if (r < 0)
+                return r;
+        if (ret == SD_BUS_NAME_NON_EXISTENT)
+                return -ENOENT;
+        if (ret == SD_BUS_NAME_NOT_OWNER)
+                return -EADDRNOTAVAIL;
+        if (ret == SD_BUS_NAME_RELEASED)
+                return 0;
 
-                r = sd_bus_message_read(reply, "u", &ret);
-                if (r < 0)
-                        return r;
-
-                return ret;
-        }
+        return -EINVAL;
 }
 
 _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        uint32_t ret;
-        int r;
-
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
         assert_return(bus->bus_client, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        if (bus->is_kernel) {
-                struct kdbus_cmd_name *n;
-                size_t l;
-
-                l = strlen(name);
-                n = alloca0(offsetof(struct kdbus_cmd_name, name) + l + 1);
-                n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
-                memcpy(n->name, name, l+1);
-
-#ifdef HAVE_VALGRIND_MEMCHECK_H
-                VALGRIND_MAKE_MEM_DEFINED(n, n->size);
-#endif
-                r = ioctl(bus->input_fd, KDBUS_CMD_NAME_RELEASE, n);
-                if (r < 0)
-                        return -errno;
-
-                return n->flags;
-        } else {
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.DBus",
-                                "/",
-                                "org.freedesktop.DBus",
-                                "ReleaseName",
-                                NULL,
-                                &reply,
-                                "s",
-                                name);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_read(reply, "u", &ret);
-                if (r < 0)
-                        return r;
-        }
-
-        return ret;
+        if (bus->is_kernel)
+                return bus_release_name_kernel(bus, name);
+        else
+                return bus_release_name_dbus1(bus, name);
 }
 
-_public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
+static int bus_list_names_kernel(sd_bus *bus, char ***l) {
+        _cleanup_free_ struct kdbus_cmd_name_list *cmd = NULL;
+        struct kdbus_name_list *name_list;
+        struct kdbus_cmd_name *name;
+        char **x = NULL;
+        int r;
+
+        cmd = malloc0(sizeof(struct kdbus_cmd_name_list));
+        if (!cmd)
+                return -ENOMEM;
+
+        cmd->size = sizeof(struct kdbus_cmd_name_list);
+        cmd->flags = KDBUS_NAME_LIST_UNIQUE | KDBUS_NAME_LIST_NAMES;
+
+        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_LIST, cmd);
+        if (r < 0)
+                return -errno;
+
+        name_list = (struct kdbus_name_list *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
+
+        KDBUS_PART_FOREACH(name, name_list, names) {
+                char *n;
+
+                if (name->size > sizeof(*name))
+                        n = name->name;
+                else
+                        asprintf(&n, ":1.%llu", (unsigned long long) name->id);
+
+                r = strv_extend(&x, n);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_FREE, &cmd->offset);
+        if (r < 0)
+                return -errno;
+
+        *l = x;
+        return 0;
+}
+
+static int bus_list_names_dbus1(sd_bus *bus, char ***l) {
         _cleanup_bus_message_unref_ sd_bus_message *reply1 = NULL, *reply2 = NULL;
         char **x = NULL;
         int r;
 
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.DBus",
+                        "/",
+                        "org.freedesktop.DBus",
+                        "ListNames",
+                        NULL,
+                        &reply1,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.DBus",
+                        "/",
+                        "org.freedesktop.DBus",
+                        "ListActivatableNames",
+                        NULL,
+                        &reply2,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        r = bus_message_read_strv_extend(reply1, &x);
+        if (r < 0) {
+                strv_free(x);
+                return r;
+        }
+
+        r = bus_message_read_strv_extend(reply2, &x);
+        if (r < 0) {
+                strv_free(x);
+                return r;
+        }
+
+        *l = strv_uniq(x);
+        return 0;
+}
+
+_public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
         assert_return(bus, -EINVAL);
         assert_return(l, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        if (bus->is_kernel) {
-                _cleanup_free_ struct kdbus_cmd_name_list *cmd = NULL;
-                struct kdbus_name_list *name_list;
-                struct kdbus_cmd_name *name;
-
-                cmd = malloc0(sizeof(struct kdbus_cmd_name_list));
-                if (!cmd)
-                        return -ENOMEM;
-
-                cmd->size = sizeof(struct kdbus_cmd_name_list);
-                cmd->flags = KDBUS_NAME_LIST_UNIQUE | KDBUS_NAME_LIST_NAMES;
-
-                r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_LIST, cmd);
-                if (r < 0)
-                        return -errno;
-
-                name_list = (struct kdbus_name_list *) ((uint8_t *) bus->kdbus_buffer + cmd->offset);
-
-                KDBUS_PART_FOREACH(name, name_list, names) {
-                        char *n;
-
-                        if (name->size > sizeof(*name))
-                                n = name->name;
-                        else
-                                asprintf(&n, ":1.%llu", (unsigned long long) name->id);
-
-                        r = strv_extend(&x, n);
-                        if (r < 0)
-                                return -ENOMEM;
-                }
-
-                r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_FREE, &cmd->offset);
-                if (r < 0)
-                        return -errno;
-
-                *l = x;
-        } else {
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.DBus",
-                                "/",
-                                "org.freedesktop.DBus",
-                                "ListNames",
-                                NULL,
-                                &reply1,
-                                NULL);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.DBus",
-                                "/",
-                                "org.freedesktop.DBus",
-                                "ListActivatableNames",
-                                NULL,
-                                &reply2,
-                                NULL);
-                if (r < 0)
-                        return r;
-
-                r = bus_message_read_strv_extend(reply1, &x);
-                if (r < 0) {
-                        strv_free(x);
-                        return r;
-                }
-
-                r = bus_message_read_strv_extend(reply2, &x);
-                if (r < 0) {
-                        strv_free(x);
-                        return r;
-                }
-
-                *l = strv_uniq(x);
-        }
-
-        return 0;
-}
-
-static int bus_get_owner_dbus(
-                sd_bus *bus,
-                const char *name,
-                uint64_t mask,
-                sd_bus_creds **creds) {
-
-        _cleanup_bus_message_unref_ sd_bus_message *reply_unique = NULL, *reply = NULL;
-        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
-        const char *unique = NULL;
-        pid_t pid = 0;
-        int r;
-
-        /* Only query the owner if the caller wants to know it or if
-         * the caller just wants to check whether a name exists */
-        if ((mask & SD_BUS_CREDS_UNIQUE_NAME) || mask == 0) {
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.DBus",
-                                "/",
-                                "org.freedesktop.DBus",
-                                "GetNameOwner",
-                                NULL,
-                                &reply_unique,
-                                "s",
-                                name);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_read(reply_unique, "s", &unique);
-                if (r < 0)
-                        return r;
-        }
-
-        if (mask != 0) {
-                c = bus_creds_new();
-                if (!c)
-                        return -ENOMEM;
-
-                if ((mask & SD_BUS_CREDS_UNIQUE_NAME) && unique) {
-                        c->unique_name = strdup(unique);
-                        if (!c->unique_name)
-                                return -ENOMEM;
-
-                        c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
-                }
-
-                if (mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_GID|
-                            SD_BUS_CREDS_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
-                            SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
-                            SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
-                            SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)) {
-                        uint32_t u;
-
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.DBus",
-                                        "/",
-                                        "org.freedesktop.DBus",
-                                        "GetConnectionUnixProcessID",
-                                        NULL,
-                                        &reply,
-                                        "s",
-                                        unique ? unique : name);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_bus_message_read(reply, "u", &u);
-                        if (r < 0)
-                                return r;
-
-                        pid = u;
-                        if (mask & SD_BUS_CREDS_PID) {
-                                c->pid = u;
-                                c->mask |= SD_BUS_CREDS_PID;
-                        }
-
-                        reply = sd_bus_message_unref(reply);
-                }
-
-                if (mask & SD_BUS_CREDS_UID) {
-                        uint32_t u;
-
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.DBus",
-                                        "/",
-                                        "org.freedesktop.DBus",
-                                        "GetConnectionUnixUser",
-                                        NULL,
-                                        &reply,
-                                        "s",
-                                        unique ? unique : name);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_bus_message_read(reply, "u", &u);
-                        if (r < 0)
-                                return r;
-
-                        c->uid = u;
-                        c->mask |= SD_BUS_CREDS_UID;
-
-                        reply = sd_bus_message_unref(reply);
-                }
-
-                if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
-                        const void *p;
-                        size_t sz;
-
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.DBus",
-                                        "/",
-                                        "org.freedesktop.DBus",
-                                        "GetConnectionSELinuxSecurityContext",
-                                        NULL,
-                                        &reply,
-                                        "s",
-                                        unique ? unique : name);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_bus_message_read_array(reply, 'y', &p, &sz);
-                        if (r < 0)
-                                return r;
-
-                        c->label = strndup(p, sz);
-                        if (!c->label)
-                                return -ENOMEM;
-
-                        c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
-                }
-
-                r = bus_creds_add_more(c, mask, pid, 0);
-                if (r < 0)
-                        return r;
-        }
-
-        if (creds) {
-                *creds = c;
-                c = NULL;
-        }
-
-        return 0;
+        if (bus->is_kernel)
+                return bus_list_names_kernel(bus, l);
+        else
+                return bus_list_names_dbus1(bus, l);
 }
 
 static int bus_get_owner_kdbus(
@@ -591,6 +491,152 @@ fail:
         return r;
 }
 
+static int bus_get_owner_dbus1(
+                sd_bus *bus,
+                const char *name,
+                uint64_t mask,
+                sd_bus_creds **creds) {
+
+        _cleanup_bus_message_unref_ sd_bus_message *reply_unique = NULL, *reply = NULL;
+        _cleanup_bus_creds_unref_ sd_bus_creds *c = NULL;
+        const char *unique = NULL;
+        pid_t pid = 0;
+        int r;
+
+        /* Only query the owner if the caller wants to know it or if
+         * the caller just wants to check whether a name exists */
+        if ((mask & SD_BUS_CREDS_UNIQUE_NAME) || mask == 0) {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "GetNameOwner",
+                                NULL,
+                                &reply_unique,
+                                "s",
+                                name);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(reply_unique, "s", &unique);
+                if (r < 0)
+                        return r;
+        }
+
+        if (mask != 0) {
+                c = bus_creds_new();
+                if (!c)
+                        return -ENOMEM;
+
+                if ((mask & SD_BUS_CREDS_UNIQUE_NAME) && unique) {
+                        c->unique_name = strdup(unique);
+                        if (!c->unique_name)
+                                return -ENOMEM;
+
+                        c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
+                }
+
+                if (mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_PID_STARTTIME|SD_BUS_CREDS_GID|
+                            SD_BUS_CREDS_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
+                            SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
+                            SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
+                            SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)) {
+                        uint32_t u;
+
+                        r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.DBus",
+                                        "/",
+                                        "org.freedesktop.DBus",
+                                        "GetConnectionUnixProcessID",
+                                        NULL,
+                                        &reply,
+                                        "s",
+                                        unique ? unique : name);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_read(reply, "u", &u);
+                        if (r < 0)
+                                return r;
+
+                        pid = u;
+                        if (mask & SD_BUS_CREDS_PID) {
+                                c->pid = u;
+                                c->mask |= SD_BUS_CREDS_PID;
+                        }
+
+                        reply = sd_bus_message_unref(reply);
+                }
+
+                if (mask & SD_BUS_CREDS_UID) {
+                        uint32_t u;
+
+                        r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.DBus",
+                                        "/",
+                                        "org.freedesktop.DBus",
+                                        "GetConnectionUnixUser",
+                                        NULL,
+                                        &reply,
+                                        "s",
+                                        unique ? unique : name);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_read(reply, "u", &u);
+                        if (r < 0)
+                                return r;
+
+                        c->uid = u;
+                        c->mask |= SD_BUS_CREDS_UID;
+
+                        reply = sd_bus_message_unref(reply);
+                }
+
+                if (mask & SD_BUS_CREDS_SELINUX_CONTEXT) {
+                        const void *p;
+                        size_t sz;
+
+                        r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.DBus",
+                                        "/",
+                                        "org.freedesktop.DBus",
+                                        "GetConnectionSELinuxSecurityContext",
+                                        NULL,
+                                        &reply,
+                                        "s",
+                                        unique ? unique : name);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_read_array(reply, 'y', &p, &sz);
+                        if (r < 0)
+                                return r;
+
+                        c->label = strndup(p, sz);
+                        if (!c->label)
+                                return -ENOMEM;
+
+                        c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
+                }
+
+                r = bus_creds_add_more(c, mask, pid, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        if (creds) {
+                *creds = c;
+                c = NULL;
+        }
+
+        return 0;
+}
+
 _public_ int sd_bus_get_owner(
                 sd_bus *bus,
                 const char *name,
@@ -607,7 +653,7 @@ _public_ int sd_bus_get_owner(
         if (bus->is_kernel)
                 return bus_get_owner_kdbus(bus, name, mask, creds);
         else
-                return bus_get_owner_dbus(bus, name, mask, creds);
+                return bus_get_owner_dbus1(bus, name, mask, creds);
 }
 
 static int add_name_change_match(sd_bus *bus,
@@ -778,6 +824,202 @@ static int add_name_change_match(sd_bus *bus,
         return 0;
 }
 
+static int bus_add_match_internal_kernel(
+                sd_bus *bus,
+                const char *match,
+                struct bus_match_component *components,
+                unsigned n_components,
+                uint64_t cookie) {
+
+        struct kdbus_cmd_match *m;
+        struct kdbus_item *item;
+        uint64_t bloom[BLOOM_SIZE/8];
+        size_t sz;
+        const char *sender = NULL;
+        size_t sender_length = 0;
+        uint64_t src_id = KDBUS_MATCH_SRC_ID_ANY;
+        bool using_bloom = false;
+        unsigned i;
+        bool matches_name_change = true;
+        const char *name_change_arg[3] = {};
+        int r;
+
+        assert(bus);
+        assert(match);
+
+        zero(bloom);
+
+        sz = offsetof(struct kdbus_cmd_match, items);
+
+        for (i = 0; i < n_components; i++) {
+                struct bus_match_component *c = &components[i];
+
+                switch (c->type) {
+
+                case BUS_MATCH_SENDER:
+                        if (!streq(c->value_str, "org.freedesktop.DBus"))
+                                matches_name_change = false;
+
+                        r = bus_kernel_parse_unique_name(c->value_str, &src_id);
+                        if (r < 0)
+                                return r;
+
+                        if (r > 0) {
+                                sender = c->value_str;
+                                sender_length = strlen(sender);
+                                sz += ALIGN8(offsetof(struct kdbus_item, str) + sender_length + 1);
+                        }
+
+                        break;
+
+                case BUS_MATCH_MESSAGE_TYPE:
+                        if (c->value_u8 != SD_BUS_MESSAGE_SIGNAL)
+                                matches_name_change = false;
+
+                        bloom_add_pair(bloom, "message-type", bus_message_type_to_string(c->value_u8));
+                        using_bloom = true;
+                        break;
+
+                case BUS_MATCH_INTERFACE:
+                        if (!streq(c->value_str, "org.freedesktop.DBus"))
+                                matches_name_change = false;
+
+                        bloom_add_pair(bloom, "interface", c->value_str);
+                        using_bloom = true;
+                        break;
+
+                case BUS_MATCH_MEMBER:
+                        if (!streq(c->value_str, "NameOwnerChanged"))
+                                matches_name_change = false;
+
+                        bloom_add_pair(bloom, "member", c->value_str);
+                        using_bloom = true;
+                        break;
+
+                case BUS_MATCH_PATH:
+                        if (!streq(c->value_str, "/org/freedesktop/DBus"))
+                                matches_name_change = false;
+
+                        bloom_add_pair(bloom, "path", c->value_str);
+                        using_bloom = true;
+                        break;
+
+                case BUS_MATCH_PATH_NAMESPACE:
+                        if (!streq(c->value_str, "/")) {
+                                bloom_add_pair(bloom, "path-slash-prefix", c->value_str);
+                                using_bloom = true;
+                        }
+                        break;
+
+                case BUS_MATCH_ARG...BUS_MATCH_ARG_LAST: {
+                        char buf[sizeof("arg")-1 + 2 + 1];
+
+                        if (c->type - BUS_MATCH_ARG < 3)
+                                name_change_arg[c->type - BUS_MATCH_ARG] = c->value_str;
+
+                        snprintf(buf, sizeof(buf), "arg%u", c->type - BUS_MATCH_ARG);
+                        bloom_add_pair(bloom, buf, c->value_str);
+                        using_bloom = true;
+                        break;
+                }
+
+                case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST: {
+                        char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
+
+                        snprintf(buf, sizeof(buf), "arg%u-slash-prefix", c->type - BUS_MATCH_ARG_PATH);
+                        bloom_add_pair(bloom, buf, c->value_str);
+                        using_bloom = true;
+                        break;
+                }
+
+                case BUS_MATCH_ARG_NAMESPACE...BUS_MATCH_ARG_NAMESPACE_LAST: {
+                        char buf[sizeof("arg")-1 + 2 + sizeof("-dot-prefix")];
+
+                        snprintf(buf, sizeof(buf), "arg%u-dot-prefix", c->type - BUS_MATCH_ARG_NAMESPACE);
+                        bloom_add_pair(bloom, buf, c->value_str);
+                        using_bloom = true;
+                        break;
+                }
+
+                case BUS_MATCH_DESTINATION:
+                        /* The bloom filter does not include
+                           the destination, since it is only
+                           available for broadcast messages
+                           which do not carry a destination
+                           since they are undirected. */
+                        break;
+
+                case BUS_MATCH_ROOT:
+                case BUS_MATCH_VALUE:
+                case BUS_MATCH_LEAF:
+                case _BUS_MATCH_NODE_TYPE_MAX:
+                case _BUS_MATCH_NODE_TYPE_INVALID:
+                        assert_not_reached("Invalid match type?");
+                }
+        }
+
+        if (using_bloom)
+                sz += ALIGN8(offsetof(struct kdbus_item, data64) + BLOOM_SIZE);
+
+        m = alloca0(sz);
+        m->size = sz;
+        m->cookie = cookie;
+        m->src_id = src_id;
+
+        item = m->items;
+
+        if (using_bloom) {
+                item->size = offsetof(struct kdbus_item, data64) + BLOOM_SIZE;
+                item->type = KDBUS_MATCH_BLOOM;
+                memcpy(item->data64, bloom, BLOOM_SIZE);
+
+                item = KDBUS_PART_NEXT(item);
+        }
+
+        if (sender) {
+                item->size = offsetof(struct kdbus_item, str) + sender_length + 1;
+                item->type = KDBUS_MATCH_SRC_NAME;
+                memcpy(item->str, sender, sender_length + 1);
+        }
+
+        r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+        if (r < 0)
+                return -errno;
+
+        if (matches_name_change) {
+
+                /* If this match could theoretically match
+                 * NameOwnerChanged messages, we need to
+                 * install a second non-bloom filter explitly
+                 * for it */
+
+                r = add_name_change_match(bus, cookie, name_change_arg[0], name_change_arg[1], name_change_arg[2]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int bus_add_match_internal_dbus1(
+                sd_bus *bus,
+                const char *match) {
+
+        assert(bus);
+        assert(match);
+
+        return sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.DBus",
+                        "/",
+                        "org.freedesktop.DBus",
+                        "AddMatch",
+                        NULL,
+                        NULL,
+                        "s",
+                        match);
+}
+
 int bus_add_match_internal(
                 sd_bus *bus,
                 const char *match,
@@ -785,187 +1027,54 @@ int bus_add_match_internal(
                 unsigned n_components,
                 uint64_t cookie) {
 
+        assert(bus);
+        assert(match);
+
+        if (bus->is_kernel)
+                return bus_add_match_internal_kernel(bus, match, components, n_components, cookie);
+        else
+                return bus_add_match_internal_dbus1(bus, match);
+}
+
+static int bus_remove_match_internal_kernel(
+                sd_bus *bus,
+                const char *match,
+                uint64_t cookie) {
+
+        struct kdbus_cmd_match m;
         int r;
 
         assert(bus);
         assert(match);
 
-        if (bus->is_kernel) {
-                struct kdbus_cmd_match *m;
-                struct kdbus_item *item;
-                uint64_t bloom[BLOOM_SIZE/8];
-                size_t sz;
-                const char *sender = NULL;
-                size_t sender_length = 0;
-                uint64_t src_id = KDBUS_MATCH_SRC_ID_ANY;
-                bool using_bloom = false;
-                unsigned i;
-                bool matches_name_change = true;
-                const char *name_change_arg[3] = {};
+        zero(m);
+        m.size = offsetof(struct kdbus_cmd_match, items);
+        m.cookie = cookie;
 
-                zero(bloom);
+        r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_REMOVE, &m);
+        if (r < 0)
+                return -errno;
 
-                sz = offsetof(struct kdbus_cmd_match, items);
+        return 0;
+}
 
-                for (i = 0; i < n_components; i++) {
-                        struct bus_match_component *c = &components[i];
+static int bus_remove_match_internal_dbus1(
+                sd_bus *bus,
+                const char *match) {
 
-                        switch (c->type) {
+        assert(bus);
+        assert(match);
 
-                        case BUS_MATCH_SENDER:
-                                if (!streq(c->value_str, "org.freedesktop.DBus"))
-                                        matches_name_change = false;
-
-                                r = bus_kernel_parse_unique_name(c->value_str, &src_id);
-                                if (r < 0)
-                                        return r;
-
-                                if (r > 0) {
-                                        sender = c->value_str;
-                                        sender_length = strlen(sender);
-                                        sz += ALIGN8(offsetof(struct kdbus_item, str) + sender_length + 1);
-                                }
-
-                                break;
-
-                        case BUS_MATCH_MESSAGE_TYPE:
-                                if (c->value_u8 != SD_BUS_MESSAGE_SIGNAL)
-                                        matches_name_change = false;
-
-                                bloom_add_pair(bloom, "message-type", bus_message_type_to_string(c->value_u8));
-                                using_bloom = true;
-                                break;
-
-                        case BUS_MATCH_INTERFACE:
-                                if (!streq(c->value_str, "org.freedesktop.DBus"))
-                                        matches_name_change = false;
-
-                                bloom_add_pair(bloom, "interface", c->value_str);
-                                using_bloom = true;
-                                break;
-
-                        case BUS_MATCH_MEMBER:
-                                if (!streq(c->value_str, "NameOwnerChanged"))
-                                        matches_name_change = false;
-
-                                bloom_add_pair(bloom, "member", c->value_str);
-                                using_bloom = true;
-                                break;
-
-                        case BUS_MATCH_PATH:
-                                if (!streq(c->value_str, "/org/freedesktop/DBus"))
-                                        matches_name_change = false;
-
-                                bloom_add_pair(bloom, "path", c->value_str);
-                                using_bloom = true;
-                                break;
-
-                        case BUS_MATCH_PATH_NAMESPACE:
-                                if (!streq(c->value_str, "/")) {
-                                        bloom_add_pair(bloom, "path-slash-prefix", c->value_str);
-                                        using_bloom = true;
-                                }
-                                break;
-
-                        case BUS_MATCH_ARG...BUS_MATCH_ARG_LAST: {
-                                char buf[sizeof("arg")-1 + 2 + 1];
-
-                                if (c->type - BUS_MATCH_ARG < 3)
-                                        name_change_arg[c->type - BUS_MATCH_ARG] = c->value_str;
-
-                                snprintf(buf, sizeof(buf), "arg%u", c->type - BUS_MATCH_ARG);
-                                bloom_add_pair(bloom, buf, c->value_str);
-                                using_bloom = true;
-                                break;
-                        }
-
-                        case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST: {
-                                char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
-
-                                snprintf(buf, sizeof(buf), "arg%u-slash-prefix", c->type - BUS_MATCH_ARG_PATH);
-                                bloom_add_pair(bloom, buf, c->value_str);
-                                using_bloom = true;
-                                break;
-                        }
-
-                        case BUS_MATCH_ARG_NAMESPACE...BUS_MATCH_ARG_NAMESPACE_LAST: {
-                                char buf[sizeof("arg")-1 + 2 + sizeof("-dot-prefix")];
-
-                                snprintf(buf, sizeof(buf), "arg%u-dot-prefix", c->type - BUS_MATCH_ARG_NAMESPACE);
-                                bloom_add_pair(bloom, buf, c->value_str);
-                                using_bloom = true;
-                                break;
-                        }
-
-                        case BUS_MATCH_DESTINATION:
-                                /* The bloom filter does not include
-                                   the destination, since it is only
-                                   available for broadcast messages
-                                   which do not carry a destination
-                                   since they are undirected. */
-                                break;
-
-                        case BUS_MATCH_ROOT:
-                        case BUS_MATCH_VALUE:
-                        case BUS_MATCH_LEAF:
-                        case _BUS_MATCH_NODE_TYPE_MAX:
-                        case _BUS_MATCH_NODE_TYPE_INVALID:
-                                assert_not_reached("Invalid match type?");
-                        }
-                }
-
-                if (using_bloom)
-                        sz += ALIGN8(offsetof(struct kdbus_item, data64) + BLOOM_SIZE);
-
-                m = alloca0(sz);
-                m->size = sz;
-                m->cookie = cookie;
-                m->src_id = src_id;
-
-                item = m->items;
-
-                if (using_bloom) {
-                        item->size = offsetof(struct kdbus_item, data64) + BLOOM_SIZE;
-                        item->type = KDBUS_MATCH_BLOOM;
-                        memcpy(item->data64, bloom, BLOOM_SIZE);
-
-                        item = KDBUS_PART_NEXT(item);
-                }
-
-                if (sender) {
-                        item->size = offsetof(struct kdbus_item, str) + sender_length + 1;
-                        item->type = KDBUS_MATCH_SRC_NAME;
-                        memcpy(item->str, sender, sender_length + 1);
-                }
-
-                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
-                if (r < 0)
-                        return -errno;
-
-                if (matches_name_change) {
-
-                        /* If this match could theoretically match
-                         * NameOwnerChanged messages, we need to
-                         * install a second non-bloom filter explitly
-                         * for it */
-
-                        r = add_name_change_match(bus, cookie, name_change_arg[0], name_change_arg[1], name_change_arg[2]);
-                        if (r < 0)
-                                return r;
-                }
-
-                return 0;
-        } else
-                return sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.DBus",
-                                "/",
-                                "org.freedesktop.DBus",
-                                "AddMatch",
-                                NULL,
-                                NULL,
-                                "s",
-                                match);
+        return sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.DBus",
+                        "/",
+                        "org.freedesktop.DBus",
+                        "RemoveMatch",
+                        NULL,
+                        NULL,
+                        "s",
+                        match);
 }
 
 int bus_remove_match_internal(
@@ -973,36 +1082,13 @@ int bus_remove_match_internal(
                 const char *match,
                 uint64_t cookie) {
 
-        int r;
-
         assert(bus);
         assert(match);
 
-        if (bus->is_kernel) {
-                struct kdbus_cmd_match m;
-
-                zero(m);
-                m.size = offsetof(struct kdbus_cmd_match, items);
-                m.cookie = cookie;
-
-                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_REMOVE, &m);
-                if (r < 0)
-                        return -errno;
-
-                return 0;
-
-        } else {
-                return sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.DBus",
-                                "/",
-                                "org.freedesktop.DBus",
-                                "RemoveMatch",
-                                NULL,
-                                NULL,
-                                "s",
-                                match);
-        }
+        if (bus->is_kernel)
+                return bus_remove_match_internal_kernel(bus, match, cookie);
+        else
+                return bus_remove_match_internal_dbus1(bus, match);
 }
 
 _public_ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
