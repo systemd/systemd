@@ -228,7 +228,6 @@ static int add_home(const char *path, const char *fstype) {
         if (!lnk)
                 return log_oom();
 
-
         mkdir_parents_label(lnk, 0755);
         if (symlink(unit, lnk) < 0) {
                 log_error("Failed to create symlink %s: %m", lnk);

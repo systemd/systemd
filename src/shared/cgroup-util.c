@@ -1337,35 +1337,40 @@ int cg_pid_get_session(pid_t pid, char **session) {
 
 int cg_path_get_owner_uid(const char *path, uid_t *uid) {
         _cleanup_free_ char *slice = NULL;
-        const char *e;
+        const char *start, *end;
         char *s;
+        uid_t u;
         int r;
 
         assert(path);
-        assert(uid);
 
         r = cg_path_get_slice(path, &slice);
         if (r < 0)
                 return r;
 
-        e = startswith(slice, "user-");
-        if (!e)
+        start = startswith(slice, "user-");
+        if (!start)
                 return -ENOENT;
-        if (!endswith(slice, ".slice"))
+        end = endswith(slice, ".slice");
+        if (!end)
                 return -ENOENT;
 
-        s = strndupa(e, strlen(e) - 6);
+        s = strndupa(start, end - start);
         if (!s)
-                return -ENOMEM;
+                return -ENOENT;
 
-        return parse_uid(s, uid);
+        if (parse_uid(s, &u) < 0)
+                return -EIO;
+
+        if (uid)
+                *uid = u;
+
+        return 0;
 }
 
 int cg_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
-
-        assert(uid);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)

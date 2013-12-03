@@ -1753,6 +1753,18 @@ systemd_gpt_auto_generator_CFLAGS = \
 endif
 
 # ------------------------------------------------------------------------------
+systemgenerator_PROGRAMS +=  \
+	systemd-dbus1-generator
+
+systemd_dbus1_generator_SOURCES = \
+	src/dbus1-generator/dbus1-generator.c
+
+systemd_dbus1_generator_LDADD = \
+	libsystemd-label.la \
+	libsystemd-shared.la \
+	libsystemd-bus-internal.la
+
+# ------------------------------------------------------------------------------
 systemd_rc_local_generator_SOURCES = \
 	src/rc-local-generator/rc-local-generator.c
 
