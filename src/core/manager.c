@@ -428,7 +428,7 @@ static int manager_setup_kdbus(Manager *m) {
                 return m->kdbus_fd;
         }
 
-        log_info("Successfully set up kdbus on %s", p);
+        log_debug("Successfully set up kdbus on %s", p);
 #endif
 
         return 0;

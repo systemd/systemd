@@ -439,8 +439,30 @@ int bus_open_system_systemd(sd_bus **_bus) {
         if (geteuid() != 0)
                 return sd_bus_open_system(_bus);
 
-        /* If we are root, then let's talk directly to the system
-         * instance, instead of going via the bus */
+        /* If we are root and kdbus is not available, then let's talk
+         * directly to the system instance, instead of going via the
+         * bus */
+
+#ifdef ENABLE_KDBUS
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_address(bus, "kernel:path=/dev/kdbus/0-system/bus");
+        if (r < 0)
+                return r;
+
+        bus->bus_client = true;
+
+        r = sd_bus_start(bus);
+        if (r >= 0) {
+                *_bus = bus;
+                bus = NULL;
+                return 0;
+        }
+
+        bus = sd_bus_unref(bus);
+#endif
 
         r = sd_bus_new(&bus);
         if (r < 0)
@@ -452,7 +474,7 @@ int bus_open_system_systemd(sd_bus **_bus) {
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return r;
+                return sd_bus_open_system(_bus);
 
         r = bus_check_peercred(bus);
         if (r < 0)
@@ -466,34 +488,53 @@ int bus_open_system_systemd(sd_bus **_bus) {
 
 int bus_open_user_systemd(sd_bus **_bus) {
         _cleanup_bus_unref_ sd_bus *bus = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *ee = NULL;
         const char *e;
         int r;
 
-        /* If we are supposed to talk to the instance, try via
-         * XDG_RUNTIME_DIR first, then fallback to normal bus
-         * access */
+        /* Try via kdbus first, and then directly */
 
         assert(_bus);
 
+#ifdef ENABLE_KDBUS
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&bus->address, "kernel:path=/dev/kdbus/%lu-user/bus", (unsigned long) getuid()) < 0)
+                return -ENOMEM;
+
+        bus->bus_client = true;
+
+        r = sd_bus_start(bus);
+        if (r >= 0) {
+                *_bus = bus;
+                bus = NULL;
+                return 0;
+        }
+
+        bus = sd_bus_unref(bus);
+#endif
+
         e = secure_getenv("XDG_RUNTIME_DIR");
         if (!e)
-                return sd_bus_open_user(_bus);
+                return sd_bus_open_system(_bus);
 
-        if (asprintf(&p, "unix:path=%s/systemd/private", e) < 0)
+        ee = bus_address_escape(e);
+        if (!ee)
                 return -ENOMEM;
 
         r = sd_bus_new(&bus);
         if (r < 0)
                 return r;
 
-        r = sd_bus_set_address(bus, p);
-        if (r < 0)
-                return r;
+        bus->address = strjoin("unix:path=", ee, "/systemd/private", NULL);
+        if (!bus->address)
+                return -ENOMEM;
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return r;
+                return sd_bus_open_system(_bus);
 
         r = bus_check_peercred(bus);
         if (r < 0)

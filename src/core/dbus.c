@@ -938,6 +938,10 @@ static int bus_init_private(Manager *m) {
         if (m->private_listen_fd >= 0)
                 return 0;
 
+        /* We don't need the private socket if we have kdbus */
+        if (m->kdbus_fd >= 0)
+                return 0;
+
         if (m->running_as == SYSTEMD_SYSTEM) {
 
                 /* We want the private bus only when running as init */
