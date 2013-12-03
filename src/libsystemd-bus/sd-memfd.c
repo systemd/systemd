@@ -39,8 +39,7 @@ _public_ int sd_memfd_new(sd_memfd **m) {
         sd_memfd *n;
         int fd;
 
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         kdbus = open("/dev/kdbus/control", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (kdbus < 0)
@@ -62,10 +61,8 @@ _public_ int sd_memfd_make(int fd, sd_memfd **m) {
         sd_memfd *n;
         uint64_t sz;
 
-        if (!m)
-                return -EINVAL;
-        if (fd < 0)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
 
         /* Check if this is a valid memfd */
         if (ioctl(fd, KDBUS_CMD_MEMFD_SIZE_GET, &sz) < 0)
@@ -94,17 +91,14 @@ _public_ void sd_memfd_free(sd_memfd *m) {
 }
 
 _public_ int sd_memfd_get_fd(sd_memfd *m) {
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         return m->fd;
 }
 
 _public_ int sd_memfd_get_file(sd_memfd *m, FILE **f) {
-        if (!m)
-                return -EINVAL;
-        if (!f)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(f, -EINVAL);
 
         if (!m->f) {
                 m->f = fdopen(m->fd, "r+");
@@ -119,8 +113,7 @@ _public_ int sd_memfd_get_file(sd_memfd *m, FILE **f) {
 _public_ int sd_memfd_dup_fd(sd_memfd *m) {
         int fd;
 
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         fd = fcntl(m->fd, F_DUPFD_CLOEXEC, 3);
         if (fd < 0)
@@ -133,12 +126,9 @@ _public_ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
         void *q;
         int sealed;
 
-        if (!m)
-                return -EINVAL;
-        if (size <= 0)
-                return -EINVAL;
-        if (!p)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(size > 0, -EINVAL);
+        assert_return(p, -EINVAL);
 
         sealed = sd_memfd_get_sealed(m);
         if (sealed < 0)
@@ -155,8 +145,7 @@ _public_ int sd_memfd_map(sd_memfd *m, uint64_t offset, size_t size, void **p) {
 _public_ int sd_memfd_set_sealed(sd_memfd *m, int b) {
         int r;
 
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         r = ioctl(m->fd, KDBUS_CMD_MEMFD_SEAL_SET, b);
         if (r < 0)
@@ -168,8 +157,7 @@ _public_ int sd_memfd_set_sealed(sd_memfd *m, int b) {
 _public_ int sd_memfd_get_sealed(sd_memfd *m) {
         int r, b;
 
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         r = ioctl(m->fd, KDBUS_CMD_MEMFD_SEAL_GET, &b);
         if (r < 0)
@@ -181,10 +169,8 @@ _public_ int sd_memfd_get_sealed(sd_memfd *m) {
 _public_ int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
         int r;
 
-        if (!m)
-                return -EINVAL;
-        if (!sz)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
+        assert_return(sz, -EINVAL);
 
         r = ioctl(m->fd, KDBUS_CMD_MEMFD_SIZE_GET, sz);
         if (r < 0)
@@ -196,8 +182,7 @@ _public_ int sd_memfd_get_size(sd_memfd *m, uint64_t *sz) {
 _public_ int sd_memfd_set_size(sd_memfd *m, uint64_t sz) {
         int r;
 
-        if (!m)
-                return -EINVAL;
+        assert_return(m, -EINVAL);
 
         r = ioctl(m->fd, KDBUS_CMD_MEMFD_SIZE_SET, &sz);
         if (r < 0)
