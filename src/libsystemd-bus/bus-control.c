@@ -178,10 +178,11 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
                 struct kdbus_name_list *name_list;
                 struct kdbus_cmd_name *name;
 
-                cmd = malloc0(sizeof(struct kdbus_cmd_name_list *));
+                cmd = malloc0(sizeof(struct kdbus_cmd_name_list));
                 if (!cmd)
                         return -ENOMEM;
 
+                cmd->size = sizeof(struct kdbus_cmd_name_list);
                 cmd->flags = KDBUS_NAME_LIST_UNIQUE | KDBUS_NAME_LIST_NAMES;
 
                 r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_LIST, cmd);
