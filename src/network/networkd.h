@@ -138,7 +138,6 @@ typedef enum LinkState {
         LINK_STATE_SET_ADDRESSES,
         LINK_STATE_ADDRESSES_SET,
         LINK_STATE_SET_ROUTES,
-        LINK_STATE_ROUTES_SET,
         LINK_STATE_CONFIGURED,
         LINK_STATE_FAILED,
         _LINK_STATE_MAX,
@@ -263,6 +262,8 @@ int link_new(Manager *manager, struct udev_device *device, Link **ret);
 void link_free(Link *link);
 int link_add(Manager *manager, struct udev_device *device);
 int link_configure(Link *link);
+
+int link_update_flags(Link *link, unsigned flags);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 #define _cleanup_link_free_ _cleanup_(link_freep)

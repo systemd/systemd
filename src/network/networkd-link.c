@@ -128,24 +128,7 @@ static int link_enter_configured(Link *link) {
 }
 
 static int link_enter_failed(Link *link) {
-        log_warning("Could not configure link '%s'", link->ifname);
-
         link->state = LINK_STATE_FAILED;
-
-        return 0;
-}
-
-static bool link_is_up(Link *link) {
-        return link->flags & IFF_UP;
-}
-
-static int link_enter_routes_set(Link *link) {
-        log_info("Routes set for link '%s'", link->ifname);
-
-        if (link_is_up(link))
-                return link_enter_configured(link);
-
-        link->state = LINK_STATE_ROUTES_SET;
 
         return 0;
 }
@@ -167,8 +150,10 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 log_warning("Could not set route on interface '%s': %s",
                             link->ifname, strerror(-r));
 
-        if (link->rtnl_messages == 0)
-                return link_enter_routes_set(link);
+        if (link->rtnl_messages == 0) {
+                log_info("Routes set for link '%s'", link->ifname);
+                link_enter_configured(link);
+        }
 
         return 1;
 }
@@ -185,12 +170,14 @@ static int link_enter_set_routes(Link *link) {
         link->state = LINK_STATE_SET_ROUTES;
 
         if (!link->network->routes)
-                return link_enter_routes_set(link);
+                return link_enter_configured(link);
 
         LIST_FOREACH(routes, route, link->network->routes) {
                 r = route_configure(route, link, &route_handler);
-                if (r < 0)
+                if (r < 0) {
+                        log_warning("Could not set routes for link '%s'", link->ifname);
                         return link_enter_failed(link);
+                }
 
                 link->rtnl_messages ++;
         }
@@ -199,8 +186,6 @@ static int link_enter_set_routes(Link *link) {
 }
 
 static int link_enter_addresses_set(Link *link) {
-        log_info("Addresses set for link '%s'", link->ifname);
-
         link->state = LINK_STATE_ADDRESSES_SET;
 
         return link_enter_set_routes(link);
@@ -223,8 +208,10 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
                 log_warning("Could not set address on interface '%s': %s",
                             link->ifname, strerror(-r));
 
-        if (link->rtnl_messages == 0)
+        if (link->rtnl_messages == 0) {
+                log_info("Addresses set for link '%s'", link->ifname);
                 link_enter_addresses_set(link);
+        }
 
         return 1;
 }
@@ -244,8 +231,10 @@ static int link_enter_set_addresses(Link *link) {
 
         LIST_FOREACH(addresses, address, link->network->addresses) {
                 r = address_configure(address, link, &address_handler);
-                if (r < 0)
+                if (r < 0) {
+                        log_warning("Could not set addresses for link '%s'", link->ifname);
                         return link_enter_failed(link);
+                }
 
                 link->rtnl_messages ++;
         }
@@ -253,21 +242,53 @@ static int link_enter_set_addresses(Link *link) {
         return 0;
 }
 
-static int link_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0)
+        if (r < 0) {
                 log_warning("Could not bring up interface '%s': %s",
                             link->ifname, strerror(-r));
+                link_enter_failed(link);
+        }
 
-        link->flags |= IFF_UP;
+        return 1;
+}
 
-        log_info("Link '%s' is up", link->ifname);
+static int link_get(Link *link) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
 
-        if (link->state == LINK_STATE_ROUTES_SET)
-                return link_enter_configured(link);
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        r = sd_rtnl_message_link_new(RTM_GETLINK, link->ifindex, 0, 0, &req);
+        if (r < 0) {
+                log_error("Could not allocate RTM_GETLINK message");
+                return r;
+        }
+
+        r = sd_rtnl_call_async(link->manager->rtnl, req, link_get_handler, link, 0, NULL);
+        if (r < 0) {
+                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
+static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0) {
+                log_warning("Could not bring up interface '%s': %s",
+                            link->ifname, strerror(-r));
+                link_enter_failed(link);
+        }
 
         return 1;
 }
@@ -286,7 +307,7 @@ static int link_up(Link *link) {
                 return r;
         }
 
-        r = sd_rtnl_call_async(link->manager->rtnl, req, link_handler, link, 0, NULL);
+        r = sd_rtnl_call_async(link->manager->rtnl, req, link_up_handler, link, 0, NULL);
         if (r < 0) {
                 log_error("Could not send rtnetlink message: %s", strerror(-r));
                 return r;
@@ -298,11 +319,11 @@ static int link_up(Link *link) {
 static int link_enter_bridge_joined(Link *link) {
         int r;
 
+        link->state = LINK_STATE_BRIDGE_JOINED;
+
         r = link_up(link);
         if (r < 0)
                 return link_enter_failed(link);
-
-        link->state = LINK_STATE_BRIDGE_JOINED;
 
         return link_enter_set_addresses(link);
 }
@@ -318,8 +339,11 @@ static int bridge_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0)
-                log_warning("Could not join interface '%s' to bridge: %s",
-                            link->ifname, strerror(-r));
+                log_warning("Could not join interface '%s' to bridge '%s': %s",
+                            link->ifname, link->network->bridge->name, strerror(-r));
+        else
+                log_info("Join interface '%s' to bridge: %s",
+                            link->ifname, link->network->bridge->name);
 
         link_enter_bridge_joined(link);
 
@@ -338,8 +362,11 @@ static int link_enter_join_bridge(Link *link) {
         link->state = LINK_STATE_JOIN_BRIDGE;
 
         r = bridge_join(link->network->bridge, link, &bridge_handler);
-        if (r < 0)
+        if (r < 0) {
+                log_warning("Could not join link '%s' to bridge '%s'", link->ifname,
+                            link->network->bridge->name);
                 return link_enter_failed(link);
+        }
 
         return 0;
 }
@@ -347,9 +374,31 @@ static int link_enter_join_bridge(Link *link) {
 int link_configure(Link *link) {
         int r;
 
+        r = link_get(link);
+        if (r < 0)
+                return link_enter_failed(link);
+
         r = link_enter_join_bridge(link);
         if (r < 0)
                 return link_enter_failed(link);
+
+        return 0;
+}
+
+int link_update_flags(Link *link, unsigned flags) {
+        assert(link);
+
+        if (link->flags & IFF_UP && !(flags & IFF_UP))
+                log_info("Interface '%s' is down", link->ifname);
+        else if (!(link->flags & IFF_UP) && flags & IFF_UP)
+                log_info("Interface '%s' is up", link->ifname);
+
+        if (link->flags & IFF_LOWER_UP && !(flags & IFF_LOWER_UP))
+                log_info("Interface '%s' is disconnected", link->ifname);
+        else if (!(link->flags & IFF_LOWER_UP) && flags & IFF_LOWER_UP)
+                log_info("Interface '%s' is connected", link->ifname);
+
+        link->flags = flags;
 
         return 0;
 }

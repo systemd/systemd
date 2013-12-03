@@ -35,7 +35,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_open(0, &m->rtnl);
+        r = sd_rtnl_open(RTMGRP_LINK | RTMGRP_IPV4_IFADDR, &m->rtnl);
         if (r < 0)
                 return r;
 
@@ -243,10 +243,39 @@ int manager_udev_listen(Manager *m) {
         return 0;
 }
 
+static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
+        Manager *m = userdata;
+        Link *link;
+        unsigned flags;
+        int r, ifindex;
+
+        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
+        if (r < 0)
+                return 0;
+
+        link = hashmap_get(m->links, &ifindex);
+        if (!link)
+                return 0;
+
+        r = sd_rtnl_message_link_get_flags(message, &flags);
+        if (r < 0)
+                return 0;
+
+        r = link_update_flags(link, flags);
+        if (r < 0)
+                return 0;
+
+        return 1;
+}
+
 int manager_rtnl_listen(Manager *m) {
         int r;
 
         r = sd_rtnl_attach_event(m->rtnl, m->event, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_add_match(m->rtnl, RTM_NEWLINK, &manager_rtnl_process_link, m);
         if (r < 0)
                 return r;
 

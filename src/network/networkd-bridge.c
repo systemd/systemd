@@ -132,15 +132,17 @@ static int bridge_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
                 log_warning("Bridge '%s' failed: %s", bridge->name, strerror(-r));
-                return bridge_enter_failed(bridge);
+                bridge_enter_failed(bridge);
+
+                return 1;
         }
 
         if (bridge->link)
-                return bridge_enter_ready(bridge);
+                bridge_enter_ready(bridge);
 
         bridge->state = BRIDGE_STATE_CREATED;
 
-        return 0;
+        return 1;
 }
 
 static int bridge_create(Bridge *bridge) {
