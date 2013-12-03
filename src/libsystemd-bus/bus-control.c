@@ -182,7 +182,7 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***l) {
                 if (!cmd)
                         return -ENOMEM;
 
-                cmd->flags = KDBUS_NAME_LIST_UNIQUE_NAMES;
+                cmd->flags = KDBUS_NAME_LIST_UNIQUE | KDBUS_NAME_LIST_NAMES;
 
                 r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_LIST, cmd);
                 if (r < 0)

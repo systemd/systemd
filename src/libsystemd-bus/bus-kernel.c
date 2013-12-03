@@ -830,7 +830,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         if (!m->destination) {
                 if (destination)
                         m->destination = destination;
-                else if (k->dst_id != KDBUS_DST_ID_WELL_KNOWN_NAME &&
+                else if (k->dst_id != KDBUS_DST_ID_NAME &&
                          k->dst_id != KDBUS_DST_ID_BROADCAST) {
                         snprintf(m->destination_buffer, sizeof(m->destination_buffer), ":1.%llu", (unsigned long long) k->dst_id);
                         m->destination = m->destination_buffer;
