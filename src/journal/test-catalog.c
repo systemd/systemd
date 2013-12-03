@@ -120,6 +120,28 @@ static void test_catalog_update(void) {
         assert(r >= 0);
 }
 
+static void test_catalog_file_lang(void) {
+        _cleanup_free_ char *lang = NULL, *lang2 = NULL, *lang3 = NULL;
+
+        assert_se(catalog_file_lang("systemd.de_DE.catalog", &lang) == 1);
+        assert_se(streq(lang, "de_DE"));
+
+        assert_se(catalog_file_lang("systemd..catalog", &lang2) == 0);
+        assert_se(lang2 == NULL);
+
+        assert_se(catalog_file_lang("systemd.fr.catalog", &lang2) == 1);
+        assert_se(streq(lang2, "fr"));
+
+        assert_se(catalog_file_lang("systemd.fr.catalog.gz", &lang3) == 0);
+        assert_se(lang3 == NULL);
+
+        assert_se(catalog_file_lang("systemd.01234567890123456789012345678901.catalog", &lang3) == 0);
+        assert_se(lang3 == NULL);
+
+        assert_se(catalog_file_lang("systemd.0123456789012345678901234567890.catalog", &lang3) == 1);
+        assert_se(streq(lang3, "0123456789012345678901234567890"));
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *text = NULL;
         int r;
@@ -143,6 +165,8 @@ int main(int argc, char *argv[]) {
 
         if (database)
                 unlink(database);
+
+        test_catalog_file_lang();
 
         return 0;
 }

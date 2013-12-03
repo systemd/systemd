@@ -217,11 +217,6 @@ Features:
 
 * think about window-manager-run-as-user-service problem: exit 0 → activate shutdown.target; exit != 0 → restart service
 
-* msgcatalog determine default language of entries from the catalog
-  file name. i.e. foobar.de_DE.catalog would set the default entry
-  name for the entries to de_DE if they aren't explicitly suffixed
-  individually.
-
 * use "log level" rather than "log priority" everywhere
 
 * timedate: have global on/off switches for auto-time (NTP), and auto-timezone that connman can subscribe to.
