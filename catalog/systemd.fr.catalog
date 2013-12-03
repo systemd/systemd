@@ -22,7 +22,7 @@
 # Le format du catalogue de messages est décrit (en anglais) içi :
 # http://www.freedesktop.org/wiki/Software/systemd/catalog
 
--- f77379a8490b408bbe5f6940505a777b fr
+-- f77379a8490b408bbe5f6940505a777b
 Subject: Le Journal a été démarré
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -30,7 +30,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Le processus du journal système a démarré, ouvert ses fichiers en écriture
 et est prêt à traiter les requêtes.
 
--- d93fb3c9c24d451a97cea615ce59c00b fr
+-- d93fb3c9c24d451a97cea615ce59c00b
 Subject: Le Journal a été arrêté
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -38,7 +38,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Le processus du journal système a été arrêté et tous ses fichiers actifs
 ont été fermés.
 
--- a596d6fe7bfa4994828e72309e95d61e fr
+-- a596d6fe7bfa4994828e72309e95d61e
 Subject: Des messages d'un service ont été supprimés
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -54,7 +54,7 @@ Les limites définissant ce comportement peuvent être configurées avec les
 paramètres RateLimitInterval= et RateLimitBurst= dans le fichier
 /etc/systemd/journald.conf. Voir journald.conf(5) pour plus de détails.
 
--- e9bf28e6e834481bb6f48f548ad13606 fr
+-- e9bf28e6e834481bb6f48f548ad13606
 Subject: Des messages du Journal ont été manqués
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -62,7 +62,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Des messages du noyau ont été manqués car le journal système n'a pas été
 capable de les traiter suffisament vite.
 
--- fc2e22bc6ee647b6b90729ab34a250b1 fr
+-- fc2e22bc6ee647b6b90729ab34a250b1
 Subject: Le processus @COREDUMP_PID@ (@COREDUMP_COMM@) a généré un fichier « core »
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -73,7 +73,7 @@ Le processus @COREDUMP_PID@ (@COREDUMP_COMM@) a planté et généré un fichier 
 Cela indique généralement une erreur de programmation dans le programme
 incriminé, et cela devrait être notifié à son concepteur comme un défaut (bug).
 
--- 8d45620c1a4348dbb17410da57c60c66 fr
+-- 8d45620c1a4348dbb17410da57c60c66
 Subject: Une nouvelle session @SESSION_ID@ a été créée pour l'utilisateur @USER_ID@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -84,7 +84,7 @@ l'identifiant (ID) @SESSION_ID@.
 
 Le processus maître de la session est @LEADER@.
 
--- 3354939424b4456d9802ca8333ed424a fr
+-- 3354939424b4456d9802ca8333ed424a
 Subject: La session @SESSION_ID@ s'est terminée
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -92,7 +92,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 La session d'identifiant (ID) @SESSION_ID@ s'est terminée.
 
--- fcbefc5da23d428093f97c82a9290f7b fr
+-- fcbefc5da23d428093f97c82a9290f7b
 Subject: Un nouveau poste (seat) @SEAT_ID@ est disponible
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -100,7 +100,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Un nouveau poste (seat) @SEAT_ID@ a été configuré et est maintenant disponible.
 
--- e7852bfe46784ed0accde04bc864c2d5 fr
+-- e7852bfe46784ed0accde04bc864c2d5
 Subject: Le poste (seat) @SEAT_ID@ a été retiré
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -108,7 +108,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 Le poste (seat) @SEAT_ID@ a été retiré et n'est plus disponible.
 
--- c7a787079b354eaaa9e77b371893cd27 fr
+-- c7a787079b354eaaa9e77b371893cd27
 Subject: Changement d'heure
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -116,14 +116,14 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 L'horloge système a été modifiée et positionnée à @REALTIME@ microsecondes
 après le 1er janvier 1970.
 
--- 45f82f4aef7a4bbf942ce861d1f20990 fr
+-- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Fuseau horaire modifié en @TIMEZONE@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Le fuseau horaire du système a été modifié et positionné à @TIMEZONE@.
 
--- b07a249cd024414a82dd00cd181378ff fr
+-- b07a249cd024414a82dd00cd181378ff
 Subject: Le démarrage du système est terminé
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -139,21 +139,21 @@ Le chargement du « RAM disk » initial a nécessité @INITRD_USEC@ microseconde
 
 Le chargement de l'espace utilisateur a nécessité @USERSPACE_USEC@ microsecondes.
 
--- 6bbd95ee977941e497c48be27c254128 fr
+-- 6bbd95ee977941e497c48be27c254128
 Subject: Le système entre dans l'état de repos (sleep state) @SLEEP@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Le système est maintenant à l'état de repos (sleep state) @SLEEP@.
 
--- 8811e6df2a8e40f58a94cea26f8ebf14 fr
+-- 8811e6df2a8e40f58a94cea26f8ebf14
 Subject: Le système sorti de l'état de repos (sleep state) @SLEEP@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 Le système est maintenant sorti de l'état de repos (sleep state) @SLEEP@.
 
--- 98268866d1d54a499c4e98921d93bc40 fr
+-- 98268866d1d54a499c4e98921d93bc40
 Subject: Arrêt du système amorcé
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -162,49 +162,49 @@ L'arrêt du système a été amorcé. L'arrêt a maintenant commencé, tous les
 services du système sont terminés et tous les systèmes de fichiers sont
 démontés.
 
--- 7d4958e842da4a758f6c1cdc7b36dcc5 fr
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: L'unité (unit) @UNIT@ a commencé à démarrer
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 L'unité (unit) @UNIT@ a commencé à démarrer.
 
--- 39f53479d3a045ac8e11786248231fbf fr
+-- 39f53479d3a045ac8e11786248231fbf
 Subject: L'unité (unit) @UNIT@ a terminé son démarrage
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 L'unité (unit) @UNIT@ a terminé son démarrage, avec le résultat @RESULT@.
 
--- de5b426a63be47a7b6ac3eaac82e2f6f fr
+-- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: L'unité (unit) @UNIT@ a commencé à s'arrêter
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 L'unité (unit) @UNIT@ a commencé à s'arrêter.
 
--- 9d1aaa27d60140bd96365438aad20286 fr
+-- 9d1aaa27d60140bd96365438aad20286
 Subject: L'unité (unit) @UNIT@ a terminé son arrêt
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 L'unité (unit) @UNIT@ a terminé son arrêt.
 
--- be02cf6855d2428ba40df7e9d022f03d fr
+-- be02cf6855d2428ba40df7e9d022f03d
 Subject: L'unité (unit) @UNIT@ a échoué
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 L'unité (unit) @UNIT@ a échoué, avec le résultat @RESULT@.
 
--- d34d037fff1847e6ae669a370e694725 fr
+-- d34d037fff1847e6ae669a370e694725
 Subject: L'unité (unit) @UNIT@ a commencé à recharger sa configuration
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 
 L'unité (unit) @UNIT@ a commencé à recharger sa configuration.
 
--- 7b05ebc668384222baa8881179cfda54 fr
+-- 7b05ebc668384222baa8881179cfda54
 Subject: L'unité (unit) @UNIT@ a terminé de recharger configuration
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -212,7 +212,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 L'unité (unit) @UNIT@ a terminé de recharger configuration,
 avec le résultat @RESULT@.
 
--- 641257651c1b4ec9a8624d7a40a9e1e7 fr
+-- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Le processus @EXECUTABLE@ n'a pas pu être exécuté
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -221,7 +221,7 @@ Le processus @EXECUTABLE@ n'a pas pu être exécuté, et a donc echoué.
 
 Le code d'erreur renvoyé est @ERRNO@.
 
--- 0027229ca0644181a76c4e92458afa2e fr
+-- 0027229ca0644181a76c4e92458afa2e
 Subject: Un ou plusieurs messages n'ont pas pu être transmis à syslog
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -231,7 +231,7 @@ s'exécutant conjointement avec journald. Cela indique généralement que
 l'implémentation de syslog utilisée n'a pas été capable de suivre la cadence
 du flux de messages.
 
--- 1dee0369c7fc4736b7099b38ecb46ee7 fr
+-- 1dee0369c7fc4736b7099b38ecb46ee7
 Subject: Le point de montage n'est pas vide
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -244,7 +244,7 @@ préalablement présents dans ce répertoire sont devenus inaccessibles.
 Pour atteindre ces fichiers, veuillez monter manuellement le système de
 fichiers sous-jacent à un autre emplacement.
 
--- 24d8d4452573402496068381a6312df2 fr
+-- 24d8d4452573402496068381a6312df2
 Subject: Une machine virtuelle ou un conteneur (container) a été démarré
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -252,7 +252,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 La machine virtuelle @NAME@ a été démarrée avec le PID maître @LEADER@,
 et est maintenant prête à l'emploi.
 
--- 58432bd3bace477cb514b56381b8a758 fr
+-- 58432bd3bace477cb514b56381b8a758
 Subject: Une machine virtuelle ou un conteneur (container) a été arrêté
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel

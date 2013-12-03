@@ -3248,9 +3248,9 @@ pkgconfiglib_DATA += \
 	src/journal/libsystemd-journal.pc
 
 dist_catalog_DATA = \
-	catalog/systemd-fr.catalog \
-	catalog/systemd-ru.catalog \
-	catalog/systemd-it.catalog \
+	catalog/systemd.fr.catalog \
+	catalog/systemd.ru.catalog \
+	catalog/systemd.it.catalog \
 	catalog/systemd.catalog
 
 SOCKETS_TARGET_WANTS += \

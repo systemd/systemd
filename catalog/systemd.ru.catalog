@@ -26,7 +26,7 @@
 # сообщения (на английском).
 
 # Subject: The Journal has been started
--- f77379a8490b408bbe5f6940505a777b ru
+-- f77379a8490b408bbe5f6940505a777b
 Subject: Запущена служба журналирования
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -35,7 +35,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 открыл для записи файлы журнала, и готов обрабатывать запросы.
 
 # Subject: The Journal has been stopped
--- d93fb3c9c24d451a97cea615ce59c00b ru
+-- d93fb3c9c24d451a97cea615ce59c00b
 Subject: Служба журналирования остановлена
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -44,7 +44,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 закрыл все свои файлы.
 
 # Subject: Messages from a service have been suppressed
--- a596d6fe7bfa4994828e72309e95d61e ru
+-- a596d6fe7bfa4994828e72309e95d61e
 Subject: Часть сообщений от службы пропущена
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -62,7 +62,7 @@ Documentation: man:journald.conf(5)
 journald.conf(5).
 
 # Subject: Journal messages have been missed
--- e9bf28e6e834481bb6f48f548ad13606 ru
+-- e9bf28e6e834481bb6f48f548ad13606
 Subject: Часть сообщений ядра пропущена
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -71,7 +71,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 журналирования не успела их обработать.
 
 # Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) dumped core
--- fc2e22bc6ee647b6b90729ab34a250b1 ru
+-- fc2e22bc6ee647b6b90729ab34a250b1
 Subject: Процесс @COREDUMP_PID@ (@COREDUMP_COMM@) сбросил дамп памяти
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -84,7 +84,7 @@ Documentation: man:core(5)
 Рекомендуется сообщить ее разработчикам о возникшей проблеме.
 
 # Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
--- 8d45620c1a4348dbb17410da57c60c66 ru
+-- 8d45620c1a4348dbb17410da57c60c66
 Subject: Для пользователя @USER_ID@ создан новый сеанс @SESSION_ID@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -95,7 +95,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Главный процесс нового сеанса имеет индентификатор @LEADER@.
 
 # Subject: A session @SESSION_ID@ has been terminated
--- 3354939424b4456d9802ca8333ed424a ru
+-- 3354939424b4456d9802ca8333ed424a
 Subject: Сеанс @SESSION_ID@ завершен
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -104,7 +104,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Сеанс с идентификатором @SESSION_ID@ завершился.
 
 # Subject: A new seat @SEAT_ID@ is now available
--- fcbefc5da23d428093f97c82a9290f7b ru
+-- fcbefc5da23d428093f97c82a9290f7b
 Subject: Добавлено новое рабочее место @SEAT_ID@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -114,7 +114,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 использованию.
 
 # Subject: A seat @SEAT_ID@ has now been removed
--- e7852bfe46784ed0accde04bc864c2d5 ru
+-- e7852bfe46784ed0accde04bc864c2d5
 Subject: Рабочее место @SEAT_ID@ отключено
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -123,7 +123,7 @@ Documentation: http://www.freedesktop.org/wiki/Software/systemd/multiseat
 Рабочее место (seat) @SEAT_ID@ было отключено.
 
 # Subject: Time change
--- c7a787079b354eaaa9e77b371893cd27 ru
+-- c7a787079b354eaaa9e77b371893cd27
 Subject: Переведены системные часы
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -132,7 +132,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 с момента 00:00:00 1 января 1970 года.
 
 # Subject: Time zone change to @TIMEZONE@
--- 45f82f4aef7a4bbf942ce861d1f20990 ru
+-- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Часовой пояс изменен на @TIMEZONE@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -140,7 +140,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Системный часовой пояс был изменен. Новое значение: @TIMEZONE@.
 
 # Subject: System start-up is now complete
--- b07a249cd024414a82dd00cd181378ff ru
+-- b07a249cd024414a82dd00cd181378ff
 Subject: Запуск системы завершен
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -157,7 +157,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Запуск системных служб занял @USERSPACE_USEC@ микросекунд.
 
 # Subject: System sleep state @SLEEP@ entered
--- 6bbd95ee977941e497c48be27c254128 ru
+-- 6bbd95ee977941e497c48be27c254128
 Subject: Система перешла в состояние сна (@SLEEP@)
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -165,7 +165,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Система была переведена в состояние сна (@SLEEP@).
 
 # Subject: System sleep state @SLEEP@ left
--- 8811e6df2a8e40f58a94cea26f8ebf14 ru
+-- 8811e6df2a8e40f58a94cea26f8ebf14
 Subject: Система вышла из состояния сна (@SLEEP@)
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -173,7 +173,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Система была выведена из состояния сна (@SLEEP@).
 
 # Subject: System shutdown initiated
--- 98268866d1d54a499c4e98921d93bc40 ru
+-- 98268866d1d54a499c4e98921d93bc40
 Subject: Подготовка системы к выключению
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -182,7 +182,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 службы, отмонтируются все файловые системы.
 
 # Subject: Unit @UNIT@ has begun with start-up
--- 7d4958e842da4a758f6c1cdc7b36dcc5 ru
+-- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: Начинается запуск юнита @UNIT@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -190,7 +190,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Начат процесс запуска юнита @UNIT@.
 
 # Subject: Unit @UNIT@ has finished start-up
--- 39f53479d3a045ac8e11786248231fbf ru
+-- 39f53479d3a045ac8e11786248231fbf
 Subject: Запуск юнита @UNIT@ завершен
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -200,7 +200,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Результат: @RESULT@.
 
 # Subject: Unit @UNIT@ has begun shutting down
--- de5b426a63be47a7b6ac3eaac82e2f6f ru
+-- de5b426a63be47a7b6ac3eaac82e2f6f
 Subject: Начинается остановка юнита @UNIT@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -208,7 +208,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Начат процесс остановки юнита @UNIT@.
 
 # Subject: Unit @UNIT@ has finished shutting down
--- 9d1aaa27d60140bd96365438aad20286 ru
+-- 9d1aaa27d60140bd96365438aad20286
 Subject: Завершена остановка юнита @UNIT@.
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -216,7 +216,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Процесс остановки юнита @UNIT@ был завершен.
 
 # Subject: Unit @UNIT@ has failed
--- be02cf6855d2428ba40df7e9d022f03d ru
+-- be02cf6855d2428ba40df7e9d022f03d
 Subject: Ошибка юнита @UNIT@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -226,7 +226,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Результат: @RESULT@.
 
 # Subject: Unit @UNIT@ has begun with reloading its configuration
--- d34d037fff1847e6ae669a370e694725 ru
+-- d34d037fff1847e6ae669a370e694725
 Subject: Юнит @UNIT@ начал перечитывать свои настройки
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -234,7 +234,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Юнит @UNIT@ начал процесс перечитывания своей конфигурации.
 
 # Subject: Unit @UNIT@ has finished reloading its configuration
--- 7b05ebc668384222baa8881179cfda54 ru
+-- 7b05ebc668384222baa8881179cfda54
 Subject: Юнит @UNIT@ завершил перечитывание своих настроек
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -244,7 +244,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Результат: @RESULT@.
 
 # Subject: Process @EXECUTABLE@ could not be executed
--- 641257651c1b4ec9a8624d7a40a9e1e7 ru
+-- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Не удалось запустить процесс @EXECUTABLE@
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -254,7 +254,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Код ошибки: @ERRNO@.
 
 # Subject: One or more messages could not be forwarded to syslog
--- 0027229ca0644181a76c4e92458afa2e ru
+-- 0027229ca0644181a76c4e92458afa2e
 Subject: Часть сообщений не удалось передать процессу syslog
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -265,7 +265,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 скоростью.
 
 # Subject: Mount point is not empty
--- 1dee0369c7fc4736b7099b38ecb46ee7 ru
+-- 1dee0369c7fc4736b7099b38ecb46ee7
 Subject: Каталог, являющийся точкой монтирования, не пуст
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -277,7 +277,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 перемонтировать нижележащую файловую систему в другую точку.
 
 # Subject: A virtual machine or container has been started
--- 24d8d4452573402496068381a6312df2 ru
+-- 24d8d4452573402496068381a6312df2
 Subject: Запущена виртуальная машина/контейнер
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
@@ -286,7 +286,7 @@ Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
 готова к работе.
 
 # Subject: A virtual machine or container has been terminated
--- 58432bd3bace477cb514b56381b8a758 ru
+-- 58432bd3bace477cb514b56381b8a758
 Subject: Остановлена виртуальная машина/контейнер
 Defined-By: systemd
 Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
