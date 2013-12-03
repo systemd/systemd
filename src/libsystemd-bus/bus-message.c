@@ -332,8 +332,8 @@ int bus_message_from_header(
         if (h->type == _SD_BUS_MESSAGE_TYPE_INVALID)
                 return -EBADMSG;
 
-        if (h->endian != SD_BUS_LITTLE_ENDIAN &&
-            h->endian != SD_BUS_BIG_ENDIAN)
+        if (h->endian != BUS_LITTLE_ENDIAN &&
+            h->endian != BUS_BIG_ENDIAN)
                 return -EBADMSG;
 
         a = ALIGN(sizeof(sd_bus_message)) + ALIGN(extra);
@@ -436,7 +436,7 @@ static sd_bus_message *message_new(sd_bus *bus, uint8_t type) {
 
         m->n_ref = 1;
         m->header = (struct bus_header*) ((uint8_t*) m + ALIGN(sizeof(struct sd_bus_message)));
-        m->header->endian = SD_BUS_NATIVE_ENDIAN;
+        m->header->endian = BUS_NATIVE_ENDIAN;
         m->header->type = type;
         m->header->version = bus ? bus->message_version : 1;
         m->allow_fds = !bus || bus->can_fds || (bus->state != BUS_HELLO && bus->state != BUS_RUNNING);
@@ -467,15 +467,15 @@ _public_ int sd_bus_message_new_signal(
         if (!t)
                 return -ENOMEM;
 
-        t->header->flags |= SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
+        t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
 
-        r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_PATH, SD_BUS_TYPE_OBJECT_PATH, path, &t->path);
+        r = message_append_field_string(t, BUS_MESSAGE_HEADER_PATH, SD_BUS_TYPE_OBJECT_PATH, path, &t->path);
         if (r < 0)
                 goto fail;
-        r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_INTERFACE, SD_BUS_TYPE_STRING, interface, &t->interface);
+        r = message_append_field_string(t, BUS_MESSAGE_HEADER_INTERFACE, SD_BUS_TYPE_STRING, interface, &t->interface);
         if (r < 0)
                 goto fail;
-        r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_MEMBER, SD_BUS_TYPE_STRING, member, &t->member);
+        r = message_append_field_string(t, BUS_MESSAGE_HEADER_MEMBER, SD_BUS_TYPE_STRING, member, &t->member);
         if (r < 0)
                 goto fail;
 
@@ -509,21 +509,21 @@ _public_ int sd_bus_message_new_method_call(
         if (!t)
                 return -ENOMEM;
 
-        r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_PATH, SD_BUS_TYPE_OBJECT_PATH, path, &t->path);
+        r = message_append_field_string(t, BUS_MESSAGE_HEADER_PATH, SD_BUS_TYPE_OBJECT_PATH, path, &t->path);
         if (r < 0)
                 goto fail;
-        r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_MEMBER, SD_BUS_TYPE_STRING, member, &t->member);
+        r = message_append_field_string(t, BUS_MESSAGE_HEADER_MEMBER, SD_BUS_TYPE_STRING, member, &t->member);
         if (r < 0)
                 goto fail;
 
         if (interface) {
-                r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_INTERFACE, SD_BUS_TYPE_STRING, interface, &t->interface);
+                r = message_append_field_string(t, BUS_MESSAGE_HEADER_INTERFACE, SD_BUS_TYPE_STRING, interface, &t->interface);
                 if (r < 0)
                         goto fail;
         }
 
         if (destination) {
-                r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, destination, &t->destination);
+                r = message_append_field_string(t, BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, destination, &t->destination);
                 if (r < 0)
                         goto fail;
         }
@@ -554,20 +554,20 @@ static int message_new_reply(
         if (!t)
                 return -ENOMEM;
 
-        t->header->flags |= SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
+        t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_serial = BUS_MESSAGE_SERIAL(call);
 
-        r = message_append_field_uint32(t, SD_BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_serial);
+        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_serial);
         if (r < 0)
                 goto fail;
 
         if (call->sender) {
-                r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, call->sender, &t->destination);
+                r = message_append_field_string(t, BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, call->sender, &t->destination);
                 if (r < 0)
                         goto fail;
         }
 
-        t->dont_send = !!(call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED);
+        t->dont_send = !!(call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED);
         t->enforced_reply_signature = call->enforced_reply_signature;
 
         *m = t;
@@ -600,7 +600,7 @@ _public_ int sd_bus_message_new_method_error(
         if (r < 0)
                 return r;
 
-        r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_ERROR_NAME, SD_BUS_TYPE_STRING, e->name, &t->error.name);
+        r = message_append_field_string(t, BUS_MESSAGE_HEADER_ERROR_NAME, SD_BUS_TYPE_STRING, e->name, &t->error.name);
         if (r < 0)
                 goto fail;
 
@@ -689,20 +689,20 @@ int bus_message_new_synthetic_error(
         if (!t)
                 return -ENOMEM;
 
-        t->header->flags |= SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
+        t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_serial = serial;
 
-        r = message_append_field_uint32(t, SD_BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_serial);
+        r = message_append_field_uint32(t, BUS_MESSAGE_HEADER_REPLY_SERIAL, t->reply_serial);
         if (r < 0)
                 goto fail;
 
         if (bus && bus->unique_name) {
-                r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, bus->unique_name, &t->destination);
+                r = message_append_field_string(t, BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, bus->unique_name, &t->destination);
                 if (r < 0)
                         goto fail;
         }
 
-        r = message_append_field_string(t, SD_BUS_MESSAGE_HEADER_ERROR_NAME, SD_BUS_TYPE_STRING, e->name, &t->error.name);
+        r = message_append_field_string(t, BUS_MESSAGE_HEADER_ERROR_NAME, SD_BUS_TYPE_STRING, e->name, &t->error.name);
         if (r < 0)
                 goto fail;
 
@@ -772,13 +772,13 @@ _public_ int sd_bus_message_get_reply_serial(sd_bus_message *m, uint64_t *serial
 _public_ int sd_bus_message_get_no_reply(sd_bus_message *m) {
         assert_return(m, -EINVAL);
 
-        return m->header->type == SD_BUS_MESSAGE_METHOD_CALL ? !!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED) : 0;
+        return m->header->type == SD_BUS_MESSAGE_METHOD_CALL ? !!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) : 0;
 }
 
 _public_ int sd_bus_message_get_no_auto_start(sd_bus_message *m) {
         assert_return(m, -EINVAL);
 
-        return !!(m->header->flags & SD_BUS_MESSAGE_NO_AUTO_START);
+        return !!(m->header->flags & BUS_MESSAGE_NO_AUTO_START);
 }
 
 _public_ const char *sd_bus_message_get_path(sd_bus_message *m) {
@@ -897,9 +897,9 @@ _public_ int sd_bus_message_set_no_reply(sd_bus_message *m, int b) {
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EPERM);
 
         if (b)
-                m->header->flags |= SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
+                m->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         else
-                m->header->flags &= ~SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
+                m->header->flags &= ~BUS_MESSAGE_NO_REPLY_EXPECTED;
 
         return 0;
 }
@@ -909,9 +909,9 @@ _public_ int sd_bus_message_set_no_auto_start(sd_bus_message *m, int b) {
         assert_return(!m->sealed, -EPERM);
 
         if (b)
-                m->header->flags |= SD_BUS_MESSAGE_NO_AUTO_START;
+                m->header->flags |= BUS_MESSAGE_NO_AUTO_START;
         else
-                m->header->flags &= ~SD_BUS_MESSAGE_NO_AUTO_START;
+                m->header->flags &= ~BUS_MESSAGE_NO_AUTO_START;
 
         return 0;
 }
@@ -3764,10 +3764,10 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         return r;
 
                 switch (*header) {
-                case _SD_BUS_MESSAGE_HEADER_INVALID:
+                case _BUS_MESSAGE_HEADER_INVALID:
                         return -EBADMSG;
 
-                case SD_BUS_MESSAGE_HEADER_PATH:
+                case BUS_MESSAGE_HEADER_PATH:
 
                         if (m->path)
                                 return -EBADMSG;
@@ -3778,7 +3778,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         r = message_peek_field_string(m, object_path_is_valid, &ri, &m->path);
                         break;
 
-                case SD_BUS_MESSAGE_HEADER_INTERFACE:
+                case BUS_MESSAGE_HEADER_INTERFACE:
 
                         if (m->interface)
                                 return -EBADMSG;
@@ -3789,7 +3789,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         r = message_peek_field_string(m, interface_name_is_valid, &ri, &m->interface);
                         break;
 
-                case SD_BUS_MESSAGE_HEADER_MEMBER:
+                case BUS_MESSAGE_HEADER_MEMBER:
 
                         if (m->member)
                                 return -EBADMSG;
@@ -3800,7 +3800,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         r = message_peek_field_string(m, member_name_is_valid, &ri, &m->member);
                         break;
 
-                case SD_BUS_MESSAGE_HEADER_ERROR_NAME:
+                case BUS_MESSAGE_HEADER_ERROR_NAME:
 
                         if (m->error.name)
                                 return -EBADMSG;
@@ -3814,7 +3814,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
                         break;
 
-                case SD_BUS_MESSAGE_HEADER_DESTINATION:
+                case BUS_MESSAGE_HEADER_DESTINATION:
 
                         if (m->destination)
                                 return -EBADMSG;
@@ -3825,7 +3825,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         r = message_peek_field_string(m, service_name_is_valid, &ri, &m->destination);
                         break;
 
-                case SD_BUS_MESSAGE_HEADER_SENDER:
+                case BUS_MESSAGE_HEADER_SENDER:
 
                         if (m->sender)
                                 return -EBADMSG;
@@ -3843,7 +3843,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         break;
 
 
-                case SD_BUS_MESSAGE_HEADER_SIGNATURE: {
+                case BUS_MESSAGE_HEADER_SIGNATURE: {
                         const char *s;
                         char *c;
 
@@ -3866,7 +3866,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         break;
                 }
 
-                case SD_BUS_MESSAGE_HEADER_REPLY_SERIAL:
+                case BUS_MESSAGE_HEADER_REPLY_SERIAL:
                         if (m->reply_serial != 0)
                                 return -EBADMSG;
 
@@ -3882,7 +3882,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
                         break;
 
-                case SD_BUS_MESSAGE_HEADER_UNIX_FDS:
+                case BUS_MESSAGE_HEADER_UNIX_FDS:
                         if (unix_fds != 0)
                                 return -EBADMSG;
 
@@ -3972,13 +3972,13 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
 
         /* If there's a non-trivial signature set, then add it in here */
         if (!isempty(m->root_container.signature)) {
-                r = message_append_field_signature(m, SD_BUS_MESSAGE_HEADER_SIGNATURE, m->root_container.signature, NULL);
+                r = message_append_field_signature(m, BUS_MESSAGE_HEADER_SIGNATURE, m->root_container.signature, NULL);
                 if (r < 0)
                         return r;
         }
 
         if (m->n_fds > 0) {
-                r = message_append_field_uint32(m, SD_BUS_MESSAGE_HEADER_UNIX_FDS, m->n_fds);
+                r = message_append_field_uint32(m, BUS_MESSAGE_HEADER_UNIX_FDS, m->n_fds);
                 if (r < 0)
                         return r;
         }
@@ -4017,7 +4017,7 @@ _public_ int sd_bus_message_set_destination(sd_bus_message *m, const char *desti
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->destination, -EEXIST);
 
-        return message_append_field_string(m, SD_BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, destination, &m->destination);
+        return message_append_field_string(m, BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, destination, &m->destination);
 }
 
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
@@ -4138,7 +4138,7 @@ bool bus_header_is_complete(struct bus_header *h, size_t size) {
                 return false;
 
         full = sizeof(struct bus_header) +
-                (h->endian == SD_BUS_NATIVE_ENDIAN ? h->fields_size : bswap_32(h->fields_size));
+                (h->endian == BUS_NATIVE_ENDIAN ? h->fields_size : bswap_32(h->fields_size));
 
         return size >= full;
 }
@@ -4149,10 +4149,10 @@ int bus_header_message_size(struct bus_header *h, size_t *sum) {
         assert(h);
         assert(sum);
 
-        if (h->endian == SD_BUS_NATIVE_ENDIAN) {
+        if (h->endian == BUS_NATIVE_ENDIAN) {
                 fs = h->fields_size;
                 bs = h->body_size;
-        } else if (h->endian == SD_BUS_REVERSE_ENDIAN) {
+        } else if (h->endian == BUS_REVERSE_ENDIAN) {
                 fs = bswap_32(h->fields_size);
                 bs = bswap_32(h->body_size);
         } else

@@ -103,7 +103,7 @@ _public_ int sd_bus_reply_method_return(
         assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(call->bus), -ECHILD);
 
-        if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+        if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
         r = sd_bus_message_new_method_return(call, &m);
@@ -137,7 +137,7 @@ _public_ int sd_bus_reply_method_error(
         assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(call->bus), -ECHILD);
 
-        if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+        if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
         r = sd_bus_message_new_method_error(call, e, &m);
@@ -162,7 +162,7 @@ _public_ int sd_bus_reply_method_errorf(
         assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(call->bus), -ECHILD);
 
-        if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+        if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
         va_start(ap, format);
@@ -185,7 +185,7 @@ _public_ int sd_bus_reply_method_errno(
         assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(call->bus), -ECHILD);
 
-        if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+        if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
         if (sd_bus_error_is_set(p))
@@ -211,7 +211,7 @@ _public_ int sd_bus_reply_method_errnof(
         assert_return(call->bus && BUS_IS_OPEN(call->bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(call->bus), -ECHILD);
 
-        if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+        if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
         va_start(ap, format);

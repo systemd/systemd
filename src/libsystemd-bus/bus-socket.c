@@ -874,10 +874,10 @@ static int bus_socket_read_message_need(sd_bus *bus, size_t *need) {
         b = ((const uint32_t*) bus->rbuffer)[3];
 
         e = ((const uint8_t*) bus->rbuffer)[0];
-        if (e == SD_BUS_LITTLE_ENDIAN) {
+        if (e == BUS_LITTLE_ENDIAN) {
                 a = le32toh(a);
                 b = le32toh(b);
-        } else if (e == SD_BUS_BIG_ENDIAN) {
+        } else if (e == BUS_BIG_ENDIAN) {
                 a = be32toh(a);
                 b = be32toh(b);
         } else

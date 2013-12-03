@@ -2004,7 +2004,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-util.h \
 	src/libsystemd-bus/sd-utf8.c \
 	src/libsystemd-bus/sd-event.c \
-	src/libsystemd-bus/event-util.h
+	src/libsystemd-bus/event-util.h \
+	src/libsystemd-bus/bus-protocol.h
 
 libsystemd_bus_la_LIBADD = \
 	libsystemd-id128-internal.la \

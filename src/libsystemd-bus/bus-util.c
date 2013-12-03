@@ -66,7 +66,7 @@ int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name) {
         if (r < 0)
                 return r;
 
-        if (r != SD_BUS_NAME_RELEASED)
+        if (r != BUS_NAME_RELEASED)
                 return -EIO;
 
         return 0;

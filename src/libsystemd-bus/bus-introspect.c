@@ -24,6 +24,7 @@
 #include "bus-introspect.h"
 #include "bus-signature.h"
 #include "bus-internal.h"
+#include "bus-protocol.h"
 
 int introspect_begin(struct introspect *i) {
         assert(i);
@@ -34,7 +35,7 @@ int introspect_begin(struct introspect *i) {
         if (!i->f)
                 return -ENOMEM;
 
-        fputs(SD_BUS_INTROSPECT_DOCTYPE
+        fputs(BUS_INTROSPECT_DOCTYPE
               "<node>\n", i->f);
 
         return 0;
@@ -43,12 +44,12 @@ int introspect_begin(struct introspect *i) {
 int introspect_write_default_interfaces(struct introspect *i, bool object_manager) {
         assert(i);
 
-        fputs(SD_BUS_INTROSPECT_INTERFACE_PEER
-              SD_BUS_INTROSPECT_INTERFACE_INTROSPECTABLE
-              SD_BUS_INTROSPECT_INTERFACE_PROPERTIES, i->f);
+        fputs(BUS_INTROSPECT_INTERFACE_PEER
+              BUS_INTROSPECT_INTERFACE_INTROSPECTABLE
+              BUS_INTROSPECT_INTERFACE_PROPERTIES, i->f);
 
         if (object_manager)
-                fputs(SD_BUS_INTROSPECT_INTERFACE_OBJECT_MANAGER, i->f);
+                fputs(BUS_INTROSPECT_INTERFACE_OBJECT_MANAGER, i->f);
 
         return 0;
 }

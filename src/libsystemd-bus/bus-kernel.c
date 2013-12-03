@@ -248,8 +248,8 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         memset(m->kdbus, 0, sz);
 
         m->kdbus->flags =
-                ((m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_FLAGS_EXPECT_REPLY) |
-                ((m->header->flags & SD_BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_FLAGS_NO_AUTO_START : 0);
+                ((m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED) ? 0 : KDBUS_MSG_FLAGS_EXPECT_REPLY) |
+                ((m->header->flags & BUS_MESSAGE_NO_AUTO_START) ? KDBUS_MSG_FLAGS_NO_AUTO_START : 0);
         m->kdbus->dst_id =
                 well_known ? 0 :
                 m->destination ? unique : KDBUS_DST_ID_BROADCAST;

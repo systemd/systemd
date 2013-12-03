@@ -104,11 +104,11 @@ static int bus_request_name_dbus1(sd_bus *bus, const char *name, unsigned flags)
         if (r < 0)
                 return r;
 
-        if (ret == SD_BUS_NAME_ALREADY_OWNER)
+        if (ret == BUS_NAME_ALREADY_OWNER)
                 return -EALREADY;
-        else if (ret == SD_BUS_NAME_EXISTS)
+        else if (ret == BUS_NAME_EXISTS)
                 return -EEXIST;
-        else if (ret == SD_BUS_NAME_IN_QUEUE)
+        else if (ret == BUS_NAME_IN_QUEUE)
                 return 0;
         else
                 return -EIO;
@@ -177,11 +177,11 @@ static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
         r = sd_bus_message_read(reply, "u", &ret);
         if (r < 0)
                 return r;
-        if (ret == SD_BUS_NAME_NON_EXISTENT)
+        if (ret == BUS_NAME_NON_EXISTENT)
                 return -ENOENT;
-        if (ret == SD_BUS_NAME_NOT_OWNER)
+        if (ret == BUS_NAME_NOT_OWNER)
                 return -EADDRNOTAVAIL;
-        if (ret == SD_BUS_NAME_RELEASED)
+        if (ret == BUS_NAME_RELEASED)
                 return 0;
 
         return -EINVAL;

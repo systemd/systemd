@@ -47,6 +47,7 @@
 #include "bus-objects.h"
 #include "bus-util.h"
 #include "bus-container.h"
+#include "bus-protocol.h"
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 
@@ -1408,7 +1409,7 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         /* If the serial number isn't kept, then we know that no reply
          * is expected */
         if (!serial && !m->sealed)
-                m->header->flags |= SD_BUS_MESSAGE_NO_REPLY_EXPECTED;
+                m->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
 
         r = bus_seal_message(bus, m);
         if (r < 0)
@@ -1524,7 +1525,7 @@ _public_ int sd_bus_call_async(
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(m, -EINVAL);
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
+        assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -1634,7 +1635,7 @@ _public_ int sd_bus_call(
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(m, -EINVAL);
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(!(m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
+        assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
         assert_return(!bus_error_is_dirty(error), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -1976,7 +1977,7 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
         if (!streq_ptr(m->interface, "org.freedesktop.DBus.Peer"))
                 return 0;
 
-        if (m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
+        if (m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 1;
 
         if (streq_ptr(m->member, "Ping"))

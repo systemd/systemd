@@ -30,6 +30,7 @@
 #include "kdbus.h"
 #include "time-util.h"
 #include "bus-creds.h"
+#include "bus-protocol.h"
 
 struct bus_container {
         char enclosing;
@@ -127,7 +128,7 @@ struct sd_bus_message {
         char destination_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
 };
 
-#define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != SD_BUS_NATIVE_ENDIAN)
+#define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != BUS_NATIVE_ENDIAN)
 
 static inline uint16_t BUS_MESSAGE_BSWAP16(sd_bus_message *m, uint16_t u) {
         return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_16(u) : u;
