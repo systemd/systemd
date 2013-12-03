@@ -742,42 +742,24 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 }
 
 static int bus_list_names(Manager *m, sd_bus *bus) {
-        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        const char *name;
+        _cleanup_strv_free_ char **names = NULL;
+        char **i;
         int r;
 
         assert(m);
         assert(bus);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/org/freedesktop/DBus",
-                        "org.freedesktop.DBus",
-                        "ListNames",
-                        &error, &reply,
-                        NULL);
+        r = sd_bus_list_names(bus, &names, NULL);
         if (r < 0) {
-                log_error("Failed to get initial list of names: %s", bus_error_message(&error, r));
+                log_error("Failed to get initial list of names: %s", strerror(-r));
                 return r;
         }
-
-        r = sd_bus_message_enter_container(reply, 'a', "s");
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         /* This is a bit hacky, we say the owner of the name is the
          * name itself, because we don't want the extra traffic to
          * figure out the real owner. */
-        while ((r = sd_bus_message_read(reply, "s", &name)) > 0)
-                manager_dispatch_bus_name_owner_changed(m, name, NULL, name);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
+        STRV_FOREACH(i, names)
+                manager_dispatch_bus_name_owner_changed(m, *i, NULL, *i);
 
         return 0;
 }
