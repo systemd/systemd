@@ -300,6 +300,10 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (k >= 0)
                 return 0;
 
+        /* Fail silently if the journal is not available */
+        if (errno == ENOENT)
+                return 0;
+
         if (errno != EMSGSIZE && errno != ENOBUFS)
                 return -errno;
 
