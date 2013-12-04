@@ -84,9 +84,9 @@ struct kdbus_timestamp {
 
 /**
  * struct kdbus_vec - I/O vector for kdbus payload items
- * @size:	The size of the vector
- * @address	Memory address for memory addresses
- * @offset	Offset in the in-message payload memory
+ * @size:		The size of the vector
+ * @address		Memory address for memory addresses
+ * @offset		Offset in the in-message payload memory
  */
 struct kdbus_vec {
 	__u64 size;
@@ -98,9 +98,9 @@ struct kdbus_vec {
 
 /**
  * struct kdbus_memfd - a kdbus memfd
- * @size:	The memfd's size
- * @fd:		The file descriptor number
- * @__pad:	Padding to make the struct aligned
+ * @size:		The memfd's size
+ * @fd:			The file descriptor number
+ * @__pad:		Padding to make the struct aligned
  */
 struct kdbus_memfd {
 	__u64 size;
@@ -152,8 +152,8 @@ enum {
 
 /**
  * struct kdbus_item - chain of data blocks
- * @size:	overall data record size
- * @type:	kdbus_item type of data
+ * @size	:	overall data record size
+ * @type:		kdbus_item type of data
  */
 struct kdbus_item {
 	KDBUS_PART_HEADER;
@@ -243,25 +243,25 @@ enum {
 
 /**
  * struct kdbus_policy_access - policy access item
- * @type:	One of KDBUS_POLICY_ACCESS_* types
- * @bits:	Access to grant. One of KDBUS_POLICY_*
- * @id:		For KDBUS_POLICY_ACCESS_USER, the uid
- * 		For KDBUS_POLICY_ACCESS_GROUP, the gid
+ * @type:		One of KDBUS_POLICY_ACCESS_* types
+ * @bits:		Access to grant. One of KDBUS_POLICY_*
+ * @id:			For KDBUS_POLICY_ACCESS_USER, the uid
+ * 			For KDBUS_POLICY_ACCESS_GROUP, the gid
  */
 struct kdbus_policy_access {
-	__u64 type;			/* USER, GROUP, WORLD */
-	__u64 bits;			/* RECV, SEND, OWN */
-	__u64 id;			/* uid, gid, 0 */
+	__u64 type;	/* USER, GROUP, WORLD */
+	__u64 bits;	/* RECV, SEND, OWN */
+	__u64 id;	/* uid, gid, 0 */
 };
 
 /**
  * struct kdbus_policy - a policy to upload
- * @size:	The total size of the structure
- * @type:	KDBUS_POLICY_NAME or KDBUS_POLICY_ACCESS
- * @name:	The well-known name to grant access to,
- * 		if @type is KDBUS_POLICY_NAME
- * @access:	The policy access details,
- * 		if @type is KDBUS_POLICY_ACCESS
+ * @size:		The total size of the structure
+ * @type:		KDBUS_POLICY_NAME or KDBUS_POLICY_ACCESS
+ * @name:		The well-known name to grant access to,
+ * 			if @type is KDBUS_POLICY_NAME
+ * @access:		The policy access details,
+ * 			if @type is KDBUS_POLICY_ACCESS
  */
 struct kdbus_policy {
 	KDBUS_PART_HEADER;
@@ -273,8 +273,8 @@ struct kdbus_policy {
 
 /**
  * struct kdbus_cmd_policy - a series of policies to upload
- * @size:	The total size of the structure
- * @policies:	The policies to upload
+ * @size:		The total size of the structure
+ * @policies:		The policies to upload
  *
  * A KDBUS_POLICY_NAME must always preceed a KDBUS_POLICY_ACCESS entry.
  * A new KDBUS_POLICY_NAME can be added after KDBUS_POLICY_ACCESS for
@@ -354,11 +354,11 @@ enum {
 enum {
 	_KDBUS_MAKE_NULL,
 	KDBUS_MAKE_NAME,
-	KDBUS_MAKE_CRED,	/* allow translator services which connect
-				 * to the bus on behalf of somebody else,
-				 * allow specifying the credentials of the
-				 * client to connect on behalf on. Needs
-				 * privileges */
+	KDBUS_MAKE_CRED,/* allow translator services which connect
+			 * to the bus on behalf of somebody else,
+			 * allow specifying the credentials of the
+			 * client to connect on behalf on. Needs
+			 * privileges */
 };
 
 /**
@@ -428,7 +428,7 @@ enum {
  * @flags:		Flags for a name entry (KDBUS_NAME_*)
  * @id:			Priviledged users may use this field to (de)register
  * 			names on behalf of other peers.
- * @conn_flags:		The flags of the owning connection
+ * @conn_flags:		The flags of the owning connection (KDBUS_HELLO_*)
  * @name:		The well-known name
  *
  * This structure is used with the KDBUS_CMD_NAME_ACQUIRE ioctl.
@@ -442,7 +442,6 @@ struct kdbus_cmd_name {
 	char name[0];
 };
 
-/* KDBUS_CMD_NAME_LIST */
 enum {
 	KDBUS_NAME_LIST_UNIQUE		= 1 <<  0,
 	KDBUS_NAME_LIST_NAMES		= 1 <<  1,
@@ -452,28 +451,22 @@ enum {
 
 /**
  * struct kdbus_cmd_name_list - request a list of name entries
- * @size	Total size of the struct
- * @flags:	Flags for the query (KDBUS_NAME_LIST_*)
- * @offset:	The returned offset in the caller's pool buffer.
- *		The user must use KDBUS_CMD_FREE to free the
- *		allocated memory.
- * @name	If KDBUS_NAME_LIST_QUEUED_OWNERS is set in @flags,
- * 		a name must be provided.
+ * @flags:		Flags for the query (KDBUS_NAME_LIST_*)
+ * @offset:		The returned offset in the caller's pool buffer.
+ *			The user must use KDBUS_CMD_FREE to free the
+ *			allocated memory.
  * 
  * This structure is used with the KDBUS_CMD_NAME_LIST ioctl.
- * Refer to the documentation for more information.
  */
 struct kdbus_cmd_name_list {
-	__u64 size;
 	__u64 flags;
 	__u64 offset;
-	char name[0];
 };
 
 /**
  * struct kdbus_name_list - information returned by KDBUS_CMD_NAME_LIST
- * @size:	The total size of the structure
- * @names:	A list of names
+ * @size:		The total size of the structure
+ * @names:		A list of names
  *
  * Note that the user is responsible for freeing the allocated memory with
  * the KDBUS_CMD_FREE ioctl.
@@ -483,20 +476,18 @@ struct kdbus_name_list {
 	struct kdbus_cmd_name names[0];
 };
 
-/* KDBUS_CMD_CONN_INFO */
-
 /**
  * struct kdbus_cmd_conn_info - struct used for KDBUS_CMD_CONN_INFO ioctl
- * @size:	The total size of the struct
- * @flags:	Query flags, currently unused
- * @id:		The 64-bit ID of the connection. If set to zero, passing
- * 		@name is required. kdbus will look up the name to determine
- * 		the ID in this case.
- * @offset:	Returned offset in the caller's pool buffer where the
- * 		kdbus_name_info struct result is stored. The user must
- * 		use KDBUS_CMD_FREE to free the allocated memory.
- * @name:	The optional well-known name to look up. Only needed in
- * 		case @if is zero.
+ * @size:		The total size of the struct
+ * @flags:		Query flags, currently unused
+ * @id:			The 64-bit ID of the connection. If set to zero, passing
+ * 			@name is required. kdbus will look up the name to determine
+ * 			the ID in this case.
+ * @offset:		Returned offset in the caller's pool buffer where the
+ * 			kdbus_name_info struct result is stored. The user must
+ * 			use KDBUS_CMD_FREE to free the allocated memory.
+ * @name:		The optional well-known name to look up. Only needed in
+ * 			case @if is zero.
  *
  * On success, the KDBUS_CMD_CONN_INFO ioctl will return 0 and @offset will
  * tell the user the offset in the connection pool buffer at which to find the
@@ -504,18 +495,18 @@ struct kdbus_name_list {
  */
 struct kdbus_cmd_conn_info {
 	__u64 size;
-	__u64 flags;			/* query flags */
-	__u64 id;			/* either ID, or 0 and name follows */
-	__u64 offset;			/* returned offset in the caller's buffer */
+	__u64 flags;
+	__u64 id;
+	__u64 offset;
 	char name[0];
 };
 
 /**
  * struct kdbus_conn_info - information returned by KDBUS_CMD_CONN_INFO
- * @size:	The total size of the struct
- * @id:		The connection's 64-bit ID
- * @flags:	The connection's flags
- * @items:	A list of struct kdbus_item
+ * @size:		The total size of the struct
+ * @id:			The connection's 64-bit ID
+ * @flags:		The connection's flags
+ * @items:		A list of struct kdbus_item
  *
  * Note that the user is responsible for freeing the allocated memory with
  * the KDBUS_CMD_FREE ioctl.
@@ -523,11 +514,10 @@ struct kdbus_cmd_conn_info {
 struct kdbus_conn_info {
 	__u64 size;
 	__u64 id;
-	__u64 flags;			/* connection flags */
-	struct kdbus_item items[0];	/* list of item records */
+	__u64 flags;
+	struct kdbus_item items[0];
 };
 
-/* KDBUS_CMD_MATCH_ADD/REMOVE */
 enum {
 	_KDBUS_MATCH_NULL,
 	KDBUS_MATCH_BLOOM,		/* Matches a mask blob against KDBUS_MSG_BLOOM */
@@ -541,15 +531,15 @@ enum {
 
 /**
  * struct kdbus_cmd_match - struct to add or remove matches
- * @size:	The total size of the struct
- * @id:		Priviledged users may (de)register matches on behalf
- * 		of other peers.
- * 		In other cases, set to 0.
- * @cookie:	Userspace supplied cookie. When removing, the cookie is
- * 		suffices as information
- * @src_id:	The source ID to match against. Use KDBUS_MATCH_SRC_ID_ANY or
- * 		any other value for a unique match.
- * @items:	A list of items for additional information
+ * @size:		The total size of the struct
+ * @id:			Priviledged users may (de)register matches on behalf
+ * 			of other peers.
+ * 			In other cases, set to 0.
+ * @cookie:		Userspace supplied cookie. When removing, the cookie is
+ * 			suffices as information
+ * @src_id:		The source ID to match against. Use KDBUS_MATCH_SRC_ID_ANY or
+ * 			any other value for a unique match.
+ * @items:		A list of items for additional information
  *
  * This structure is used with the KDBUS_CMD_ADD_MATCH and
  * KDBUS_CMD_REMOVE_MATCH ioctl. Refer to the documentation for more
@@ -557,22 +547,21 @@ enum {
  */
 struct kdbus_cmd_match {
 	__u64 size;
-	__u64 id;	/* We allow registration/deregestration of matches for other peers */
-	__u64 cookie;	/* userspace supplied cookie; when removing; kernel deletes everything with same cookie */
-	__u64 src_id;	/* ~0: any. other: exact unique match */
+	__u64 id;
+	__u64 cookie;
+	__u64 src_id;
 	struct kdbus_item items[0];
 };
 
-/* KDBUS_CMD_MONITOR */
 enum {
 	KDBUS_MONITOR_ENABLE		= 1 <<  0,
 };
 
 /**
  * struct kdbus_cmd_monitor - struct to enable or disable eavesdropping
- * @id:		Priviledged users may enable or disable the monitor feature
- * 		on behalf of other peers
- * @flags:	Use KDBUS_MONITOR_ENABLE to enable eavesdropping
+ * @id:			Priviledged users may enable or disable the monitor feature
+ * 			on behalf of other peers
+ * @flags:		Use KDBUS_MONITOR_ENABLE to enable eavesdropping
  *
  * This structure is used with the KDBUS_CMD_MONITOR ioctl.
  * Refer to the documentation for more information.

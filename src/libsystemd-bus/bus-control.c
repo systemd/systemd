@@ -208,7 +208,6 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
 
         /* Caller will free half-constructed list on failure... */
 
-        cmd.size = sizeof(struct kdbus_cmd_name_list);
         cmd.flags = flags;
 
         r = ioctl(bus->input_fd, KDBUS_CMD_NAME_LIST, &cmd);
