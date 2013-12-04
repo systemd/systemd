@@ -129,7 +129,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-m <replaceable>MACHINE</replaceable></option></term>
+                                <term><option>-M <replaceable>MACHINE</replaceable></option></term>
                                 <term><option>--machine=<replaceable>MACHINE</replaceable></option></term>
 
                                 <listitem><para>Limit control groups shown to
