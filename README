@@ -140,11 +140,6 @@ REQUIREMENTS:
         under all circumstances. In fact, systemd-hostnamed will warn
         if nss-myhostname is not installed.
 
-        Note that D-Bus can link against libsystemd-login.so, which
-        results in a cyclic build dependency. To accommodate for
-        this, please build D-Bus without systemd first, then build
-        systemd, then rebuild D-Bus with systemd support.
-
         To build HTML documentation for python-systemd using sphinx,
         please first install systemd (using 'make install'), and then
         invoke sphinx-build with 'make sphinx-<target>', with <target>
