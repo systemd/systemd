@@ -504,14 +504,11 @@ static int bus_get_owner_kdbus(
                         }
                         break;
 
-                case KDBUS_ITEM_NAMES:
+                case KDBUS_ITEM_NAME:
                         if (mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) {
-                                c->well_known_names_size = item->size - KDBUS_PART_HEADER_SIZE;
-                                c->well_known_names = memdup(item->data, c->well_known_names_size);
-                                if (!c->well_known_names) {
-                                        r = -ENOMEM;
+                                r = strv_extend(&c->well_known_names, item->name.name);
+                                if (r < 0)
                                         goto fail;
-                                }
 
                                 c->mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES;
                         }

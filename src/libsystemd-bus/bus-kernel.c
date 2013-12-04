@@ -28,6 +28,7 @@
 #include <sys/mman.h>
 
 #include "util.h"
+#include "strv.h"
 
 #include "bus-internal.h"
 #include "bus-message.h"
@@ -800,9 +801,10 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
                         destination = d->str;
                         break;
 
-                case KDBUS_ITEM_NAMES:
-                        m->creds.well_known_names = d->str;
-                        m->creds.well_known_names_size = l;
+                case KDBUS_ITEM_NAME:
+                        r = strv_extend(&m->creds.well_known_names, d->name.name);
+                        if (r < 0)
+                                goto fail;
                         m->creds.mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES & bus->creds_mask;
                         break;
 

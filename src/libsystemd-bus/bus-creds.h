@@ -61,9 +61,7 @@ struct sd_bus_creds {
 
         char *unique_name;
 
-        char *well_known_names;
-        size_t well_known_names_size;
-        char **well_known_names_array;
+        char **well_known_names;
 };
 
 sd_bus_creds* bus_creds_new(void);

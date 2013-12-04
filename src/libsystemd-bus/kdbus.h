@@ -27,7 +27,7 @@
 #define KDBUS_DST_ID_BROADCAST		(~0ULL)
 
 /**
- * struct KDBUS_PART_HEADER - header
+ * struct KDBUS_PART_HEADER - anonymous struct used as header
  * @size:		Size of element, excluding padding bytes
  * @type		Type of element
  *
@@ -81,10 +81,10 @@ struct kdbus_notify_id_change {
 
 /**
  * struct kdbus_creds - process credentials
- * @uid			User id
- * @gid			Group id
- * @pid			Process id
- * @tid			Thread id
+ * @uid			User ID
+ * @gid			Group ID
+ * @pid			Process ID
+ * @tid			Thread ID
  * @starttime		Starttime of the process
  *
  * The starttime of the process PID. This is useful to detect PID overruns
@@ -146,6 +146,16 @@ struct kdbus_memfd {
 	__u32 __pad;
 };
 
+/**
+ * struct kdbus_name - a registered well-known name with its flags
+ * @flags		flags from KDBUS_NAME_*
+ * @name		well-known name
+ */
+struct kdbus_name {
+	__u64 flags;
+	char name[0];
+};
+
 /* Message Item Types */
 enum {
 	_KDBUS_ITEM_NULL,
@@ -162,7 +172,7 @@ enum {
 
 	/* Filled in by kernelspace */
 	_KDBUS_ITEM_ATTACH_BASE	= 0x400,
-	KDBUS_ITEM_NAMES	= 0x400,/* NUL separated string list with well-known names of source */
+	KDBUS_ITEM_NAME		= 0x400,/* NUL separated string list with well-known names of source */
 	KDBUS_ITEM_STARTER_NAME,	/* Only used in HELLO for starter connection */
 	KDBUS_ITEM_TIMESTAMP,		/* .timestamp */
 
@@ -212,6 +222,7 @@ struct kdbus_item {
 		struct kdbus_creds creds;
 		struct kdbus_audit audit;
 		struct kdbus_timestamp timestamp;
+		struct kdbus_name name;
 
 		/* specific fields */
 		struct kdbus_memfd memfd;
@@ -354,7 +365,7 @@ enum {
  * 			KDBUS_CMD_BUS_MAKE ioctl. It's intended to be useful
  *			to do negotiation of features of the payload that is
  *			transferred (kernel → userspace)
- * @id:			The id of this connection (kernel → userspace)
+ * @id:			The ID of this connection (kernel → userspace)
  * @bloom_size:		The bloom filter size chosen by the owner
  * 			(kernel → userspace)
  * @pool_size:		Maximum size of the pool buffer (kernel → userspace)
@@ -559,10 +570,10 @@ struct kdbus_conn_info {
 enum {
 	_KDBUS_MATCH_NULL,
 	KDBUS_MATCH_BLOOM,		/* Matches a mask blob against KDBUS_MSG_BLOOM */
-	KDBUS_MATCH_SRC_NAME,		/* Matches a name string against KDBUS_MSG_SRC_NAMES */
-	KDBUS_MATCH_NAME_ADD,		/* Matches a name string against KDBUS_MSG_NAME_ADD */
-	KDBUS_MATCH_NAME_REMOVE,	/* Matches a name string against KDBUS_MSG_NAME_REMOVE */
-	KDBUS_MATCH_NAME_CHANGE,	/* Matches a name string against KDBUS_MSG_NAME_CHANGE */
+	KDBUS_MATCH_SRC_NAME,		/* Matches a name string against KDBUS_ITEM_NAME */
+	KDBUS_MATCH_NAME_ADD,		/* Matches a name string against KDBUS_ITEM_NAME_ADD */
+	KDBUS_MATCH_NAME_REMOVE,	/* Matches a name string against KDBUS_ITEM_NAME_REMOVE */
+	KDBUS_MATCH_NAME_CHANGE,	/* Matches a name string against KDBUS_ITEM_NAME_CHANGE */
 	KDBUS_MATCH_ID_ADD,		/* Matches an ID against KDBUS_MSG_ID_ADD */
 	KDBUS_MATCH_ID_REMOVE,		/* Matches an ID against KDBUS_MSG_ID_REMOVE */
 };

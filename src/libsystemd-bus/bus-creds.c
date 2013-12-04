@@ -50,7 +50,7 @@ void bus_creds_done(sd_bus_creds *c) {
         free(c->slice);
 
         strv_free(c->cmdline_array);
-        strv_free(c->well_known_names_array);
+        strv_free(c->well_known_names);
 }
 
 _public_ sd_bus_creds *sd_bus_creds_ref(sd_bus_creds *c) {
@@ -89,7 +89,6 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                         free(c->capability);
                         free(c->label);
                         free(c->unique_name);
-                        free(c->well_known_names);
                         free(c);
                 }
         } else {
@@ -385,15 +384,7 @@ _public_ int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***well_kno
         assert_return(well_known_names, -EINVAL);
         assert_return(c->mask & SD_BUS_CREDS_WELL_KNOWN_NAMES, -ENODATA);
 
-        assert(c->well_known_names);
-
-        if (!c->well_known_names_array) {
-                c->well_known_names_array = strv_parse_nulstr(c->well_known_names, c->well_known_names_size);
-                if (!c->well_known_names_array)
-                        return -ENOMEM;
-        }
-
-        *well_known_names = c->well_known_names_array;
+        *well_known_names = c->well_known_names;
         return 0;
 }
 
@@ -804,11 +795,9 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         }
 
         if (c->mask & mask & SD_BUS_CREDS_WELL_KNOWN_NAMES) {
-                n->well_known_names = memdup(c->well_known_names, c->well_known_names_size);
+                n->well_known_names = strv_copy(c->well_known_names);
                 if (!n->well_known_names)
                         return -ENOMEM;
-
-                n->well_known_names_size = c->well_known_names_size;
         }
 
         /* Get more data */
