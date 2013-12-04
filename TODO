@@ -671,6 +671,13 @@ Features:
    - improve container support, and add support for entering containers when reading
    - add support for more attribute types
 
+* networkd:
+   - unify and clarify logging, also use proper structured log messages
+   - add [Route] sections
+   - add more keys to [Address] sections
+   - add DHCPv4 support (and, longer term, other kinds of dynamic config)
+   - add proper initrd support (in particular generate .network/.link files based on /proc/cmdline)
+
 External:
 
 * dbus:
