@@ -248,7 +248,7 @@ static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         r = sd_rtnl_message_get_errno(m);
         if (r < 0) {
-                log_warning("Could not bring up interface '%s': %s",
+                log_warning("Could not get state of interface '%s': %s",
                             link->ifname, strerror(-r));
                 link_enter_failed(link);
         }
