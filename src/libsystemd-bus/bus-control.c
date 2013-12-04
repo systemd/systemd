@@ -363,6 +363,7 @@ static int bus_get_owner_kdbus(
                 cmd = alloca0(size);
                 strcpy(cmd->name, name);
         }
+        cmd->flags = KDBUS_ATTACH_NAMES;
 
         cmd->size = size;
         r = ioctl(bus->input_fd, KDBUS_CMD_CONN_INFO, cmd);

@@ -26,39 +26,77 @@
 #define KDBUS_MATCH_SRC_ID_ANY		(~0ULL)
 #define KDBUS_DST_ID_BROADCAST		(~0ULL)
 
-/* Common first elements in a structure which are used to iterate over
- * a list of elements. */
+/**
+ * struct KDBUS_PART_HEADER - header
+ * @size:		Size of element, excluding padding bytes
+ * @type		Type of element
+ *
+ * Common first elements in a structure, used to specify the type
+ * and size of the data.
+ * */
 #define KDBUS_PART_HEADER \
 	struct {							\
 		__u64 size;						\
 		__u64 type;						\
 	}
 
-/* Message sent from kernel to userspace, when the owner or starter of
- * a well-known name changes */
+/**
+ * struct kdbus_notify_name_change - name registry change message
+ * @old_id		Former owner of a name
+ * @new_id		New owner of a name
+ * @flags		flags from KDBUS_NAME_*
+ * @name		Well-known name
+ *
+ * Data attached to:
+ *   KDBUS_ITEM_NAME_ADD
+ *   KDBUS_ITEM_NAME_REMOVE
+ *   KDBUS_ITEM_NAME_CHANGE
+ *
+ * Sent from kernel to userspace when the owner or starter of
+ * a well-known name changes.
+ */
 struct kdbus_notify_name_change {
 	__u64 old_id;
 	__u64 new_id;
-	__u64 flags;			/* 0 or (possibly?) KDBUS_NAME_IN_QUEUE */
+	__u64 flags;
 	char name[0];
 };
 
+/**
+ * struct kdbus_notify_id_change - name registry change message
+ * @id			New or former owner of the name
+ * @flags		flags field from KDBUS_HELLO_*
+ *
+ * Data attached to:
+ *   KDBUS_ITEM_ID_ADD
+ *   KDBUS_ITEM_ID_REMOVE
+ *
+ * Sent from kernel to userspace when the owner or starter of
+ * a well-known name changes.
+ */
 struct kdbus_notify_id_change {
 	__u64 id;
-	__u64 flags;			/* The kernel flags field from KDBUS_HELLO */
+	__u64 flags;
 };
 
+/**
+ * struct kdbus_creds - process credentials
+ * @uid			User id
+ * @gid			Group id
+ * @pid			Process id
+ * @tid			Thread id
+ * @starttime		Starttime of the process
+ *
+ * The starttime of the process PID. This is useful to detect PID overruns
+ * from the client side. i.e. if you use the PID to look something up in
+ * /proc/$PID/ you can afterwards check the starttime field of it, to ensure
+ * you didn't run into a PID overrun.
+ */
 struct kdbus_creds {
 	__u64 uid;
 	__u64 gid;
 	__u64 pid;
 	__u64 tid;
-
-	/* The starttime of the process PID. This is useful to detect
-	PID overruns from the client side. i.e. if you use the PID to
-	look something up in /proc/$PID/ you can afterwards check the
-	starttime field of it to ensure you didn't run into a PID
-	ovretun. */
 	__u64 starttime;
 };
 
@@ -479,7 +517,7 @@ struct kdbus_name_list {
 /**
  * struct kdbus_cmd_conn_info - struct used for KDBUS_CMD_CONN_INFO ioctl
  * @size:		The total size of the struct
- * @flags:		Query flags, currently unused
+ * @flags:		KDBUS_ATTACH_* flags
  * @id:			The 64-bit ID of the connection. If set to zero, passing
  * 			@name is required. kdbus will look up the name to determine
  * 			the ID in this case.
@@ -487,7 +525,7 @@ struct kdbus_name_list {
  * 			kdbus_name_info struct result is stored. The user must
  * 			use KDBUS_CMD_FREE to free the allocated memory.
  * @name:		The optional well-known name to look up. Only needed in
- * 			case @if is zero.
+ * 			case @id is zero.
  *
  * On success, the KDBUS_CMD_CONN_INFO ioctl will return 0 and @offset will
  * tell the user the offset in the connection pool buffer at which to find the
