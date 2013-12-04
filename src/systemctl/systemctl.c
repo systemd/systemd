@@ -3690,7 +3690,6 @@ static int cat(sd_bus *bus, char **args) {
                 _cleanup_free_ char *fragment_path = NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
                 sd_bus_error error;
-                FILE *stdout;
                 char **path;
 
                 n = unit_name_mangle(*name);
@@ -3730,8 +3729,6 @@ static int cat(sd_bus *bus, char **args) {
                         log_warning("Failed to get DropInPaths: %s", bus_error_message(&error, r));
                         continue;
                 }
-
-                stdout = fdopen(STDOUT_FILENO, "a");
 
                 if (!isempty(fragment_path)) {
                         fprintf(stdout, "# %s\n", fragment_path);
