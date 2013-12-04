@@ -82,6 +82,7 @@ static enum dependency {
         DEPENDENCY_REVERSE,
         DEPENDENCY_AFTER,
         DEPENDENCY_BEFORE,
+        _DEPENDENCY_MAX
 } arg_dependency = DEPENDENCY_FORWARD;
 static const char *arg_job_mode = "replace";
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
@@ -1183,7 +1184,7 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
 
 static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, char ***deps) {
 
-        static const char *dependencies[] = {
+        static const char *dependencies[_DEPENDENCY_MAX] = {
                 [DEPENDENCY_FORWARD] = "Requires\0"
                                        "RequiresOverridable\0"
                                        "Requisite\0"
@@ -1206,7 +1207,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
         assert(bus);
         assert(name);
         assert(deps);
-        assert(arg_dependency < ELEMENTSOF(dependencies));
+        assert_cc(ELEMENTSOF(dependencies) == _DEPENDENCY_MAX);
 
         path = unit_dbus_path_from_name(name);
         if (!path)
