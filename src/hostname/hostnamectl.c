@@ -285,7 +285,7 @@ static int set_chassis(sd_bus *bus, char **args, unsigned n) {
         assert(args);
         assert(n == 2);
 
-        return set_simple_string(bus, "SetChasis", args[1]);
+        return set_simple_string(bus, "SetChassis", args[1]);
 }
 
 static int help(void) {
