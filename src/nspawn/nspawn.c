@@ -418,39 +418,46 @@ static int mount_binds(const char *dest, char **l, unsigned long flags) {
         char **x, **y;
 
         STRV_FOREACH_PAIR(x, y, l) {
-                _cleanup_free_ char *where = NULL;
+                char *where;
                 struct stat source_st, dest_st;
+                int r;
 
                 if (stat(*x, &source_st) < 0) {
                         log_error("failed to stat %s: %m", *x);
                         return -errno;
                 }
 
-                where = strjoin(dest, "/", *y, NULL);
-                if (!where)
-                        return log_oom();
-
-                if (stat(where, &dest_st) == 0) {
+                where = strappenda(dest, *y);
+                r = stat(where, &dest_st);
+                if (r == 0) {
                         if ((source_st.st_mode & S_IFMT) != (dest_st.st_mode & S_IFMT)) {
                                 log_error("The file types of %s and %s do not match. Refusing bind mount",
                                                 *x, where);
                                 return -EINVAL;
                         }
-                } else {
-                        /* Create the mount point, but be conservative -- refuse to create block
-                         * and char devices. */
-                        if (S_ISDIR(source_st.st_mode))
-                                mkdir_p_label(where, 0755);
-                        else if (S_ISFIFO(source_st.st_mode))
-                                mkfifo(where, 0644);
-                        else if (S_ISSOCK(source_st.st_mode))
-                                mknod(where, 0644 | S_IFSOCK, 0);
-                        else if (S_ISREG(source_st.st_mode))
-                                touch(where);
-                        else {
-                                log_error("Refusing to create mountpoint for file: %s", *x);
-                                return -ENOTSUP;
+                } else if (errno == ENOENT) {
+                        r = mkdir_parents_label(where, 0755);
+                        if (r < 0) {
+                                log_error("Failed to bind mount %s: %s", *x, strerror(-r));
+                                return r;
                         }
+                } else {
+                        log_error("Failed to bind mount %s: %s", *x, strerror(errno));
+                        return -errno;
+                }
+                /* Create the mount point, but be conservative -- refuse to create block
+                * and char devices. */
+                if (S_ISDIR(source_st.st_mode))
+                        mkdir_label(where, 0755);
+                else if (S_ISFIFO(source_st.st_mode))
+                        mkfifo(where, 0644);
+                else if (S_ISSOCK(source_st.st_mode))
+                        mknod(where, 0644 | S_IFSOCK, 0);
+                else if (S_ISREG(source_st.st_mode))
+                        touch(where);
+                else {
+                        log_error("Refusing to create mountpoint for file: %s", *x);
+                        return -ENOTSUP;
                 }
 
                 if (mount(*x, where, "bind", MS_BIND, NULL) < 0) {
