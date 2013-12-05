@@ -38,8 +38,6 @@ typedef struct ExecRuntime ExecRuntime;
 #include "util.h"
 #include "fdset.h"
 
-typedef struct Unit Unit;
-
 typedef enum ExecInput {
         EXEC_INPUT_NULL,
         EXEC_INPUT_TTY,
