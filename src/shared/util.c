@@ -5919,7 +5919,7 @@ int shall_restore_state(void) {
                 return 1;
 
         FOREACH_WORD_QUOTED(w, l, line, state)
-                if (l == 23 && memcmp(w, "systemd.restore_state=0", 23))
+                if (l == 23 && strneq(w, "systemd.restore_state=0", 23))
                         return 0;
 
         return 1;
