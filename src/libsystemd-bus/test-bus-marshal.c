@@ -163,9 +163,9 @@ int main(int argc, char *argv[]) {
                 dbus_error_init(&error);
 
                 w = dbus_message_demarshal(buffer, sz, &error);
-                if (!w) {
+                if (!w)
                         log_error("%s", error.message);
-                } else
+                else
                         dbus_message_unref(w);
         }
 #endif

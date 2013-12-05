@@ -21,16 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-
-#include "sd-bus.h"
-#include "sd-bus-protocol.h"
-
-bool bus_type_is_valid(char c);
-bool bus_type_is_valid_in_signature(char c);
-bool bus_type_is_basic(char c);
-bool bus_type_is_trivial(char c);
-bool bus_type_is_container(char c);
-
-int bus_type_get_alignment(char c);
-int bus_type_get_size(char c);
+int bus_gvariant_get_size(char c);
+int bus_gvariant_get_alignment(const char *signature);
+int bus_gvariant_is_fixed_size(const char *signature);

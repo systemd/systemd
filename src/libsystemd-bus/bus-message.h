@@ -41,6 +41,11 @@ struct bus_container {
 
         uint32_t *array_size;
         size_t before, begin;
+
+        size_t *offsets;
+        size_t n_offsets, n_allocated;
+
+        bool need_offsets;
 };
 
 struct bus_header {
@@ -93,6 +98,7 @@ struct sd_bus_message {
         bool free_fds:1;
         bool release_kdbus:1;
         bool poisoned:1;
+        bool is_gvariant:1;
 
         struct bus_header *header;
         struct bus_body_part body;
@@ -126,6 +132,9 @@ struct sd_bus_message {
 
         char sender_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
         char destination_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
+
+        size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
+        unsigned n_header_offsets;
 };
 
 #define BUS_MESSAGE_NEED_BSWAP(m) ((m)->header->endian != BUS_NATIVE_ENDIAN)

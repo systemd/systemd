@@ -104,6 +104,7 @@
 /test-bus-signature
 /test-bus-server
 /test-bus-zero-copy
+/test-bus-gvariant
 /test-calendarspec
 /test-catalog
 /test-cgroup

@@ -1,0 +1,59 @@
+How we use GVariant for serializing D-Bus messages
+--------------------------------------------------
+
+We stay as close to the original dbus1 framing as possible. dbus1 has
+the following framing:
+
+    1. A fixed header of "yyyyuu"
+    2. Additional header fields of "a(yv)"
+    3. Padding with NUL bytes to pad up to next 8byte boundary
+    4. The body
+
+Note that the body is not padded at the end, the complete message
+hence might have a non-aligned size. Reading multiple messages at once
+will hence result in possibly unaligned messages in memory.
+
+The header consists of the following:
+
+    y  Endianness, 'l' or 'B'
+    y  Message Type
+    y  Flags
+    y  Protocol version, '1'
+    u  Length of the body, i.e. the length of part 4 above
+    u  Serial number
+
+    = 12 bytes
+
+When using GVariant we keep the basic structure in place, only
+slightly extend the header, and define protocol version '2'. The new
+header:
+
+    y  Endianness, 'l' or 'B'
+    y  Message Type
+    y  Flags
+    y  Protocol version, '2'
+    u  Length of the body, i.e. the length of part 4 above
+    u  Serial number
+    u  Length of the additional header fields array
+
+    = 16 bytes
+
+This has the nice benefit that the beginning of the additional header
+fields array is aligned to an 8 byte boundary. Also, in dbus1
+marshalling arrays start with a length value of 32bit, which means in
+both dbus1 and gvariant marshallings the size of the header fields
+array will be at the same location between bytes 12 and 16. To
+visualize that:
+
+              0               4               8               12              16
+      Common: | E | T | F | V | Body Length   | Serial        | Fields Length |
+
+       dbus1: |                            ... (as above) ... | Fields array ...
+
+    gvariant: |                            ... (as above) ... | Fields Length | Fields array ...
+
+And that's already it.
+
+Note: on kdbus only native endian messages marshalled in gvariant may
+      be sent. If a client receives a message in non-native endianness
+      or in dbus1 marshalling it shall ignore the message.

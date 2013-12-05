@@ -1997,6 +1997,8 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/bus-introspect.h \
 	src/libsystemd-bus/bus-objects.c \
 	src/libsystemd-bus/bus-objects.h \
+	src/libsystemd-bus/bus-gvariant.c \
+	src/libsystemd-bus/bus-gvariant.h \
 	src/libsystemd-bus/bus-convenience.c \
 	src/libsystemd-bus/kdbus.h \
 	src/libsystemd-bus/sd-memfd.c \
@@ -2065,6 +2067,7 @@ tests += \
 	test-bus-objects \
 	test-bus-error \
 	test-bus-creds \
+	test-bus-gvariant \
 	test-event
 
 bin_PROGRAMS += \
@@ -2148,6 +2151,20 @@ test_bus_error_LDADD = \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-shared.la
+
+test_bus_gvariant_SOURCES = \
+	src/libsystemd-bus/test-bus-gvariant.c
+
+test_bus_gvariant_LDADD = \
+	libsystemd-bus-internal.la \
+	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
+	libsystemd-shared.la \
+	$(GLIB_LIBS)
+
+test_bus_gvariant_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(GLIB_CFLAGS)
 
 test_bus_creds_SOURCES = \
 	src/libsystemd-bus/test-bus-creds.c

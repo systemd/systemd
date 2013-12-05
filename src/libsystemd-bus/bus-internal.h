@@ -159,6 +159,7 @@ struct sd_bus {
         bool match_callbacks_modified:1;
         bool filter_callbacks_modified:1;
         bool nodes_modified:1;
+        bool use_gvariant:1;
 
         int use_memfd;
 
