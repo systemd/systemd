@@ -23,7 +23,7 @@ usage()
 {
     echo "Usage:"
     echo "        $0 add KERNEL-VERSION KERNEL-IMAGE"
-    echo "        $0 remove KERNEL-VERSION KERNEL-IMAGE"
+    echo "        $0 remove KERNEL-VERSION"
 }
 
 dropindirs_sort()
