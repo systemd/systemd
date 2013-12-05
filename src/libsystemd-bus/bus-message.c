@@ -1912,7 +1912,7 @@ static int bus_message_close_array(sd_bus_message *m, struct bus_container *c) {
                                 return -ENOMEM;
 
                         for (i = 0; i < c->n_offsets; i++) {
-                                uint16_t x = (uint16_t) (c->offsets[i] - c->begin);
+                                uint16_t x = htole16((uint16_t) (c->offsets[i] - c->begin));
                                 memcpy(a + (i*2), &x, 2);
                         }
 
@@ -1922,7 +1922,7 @@ static int bus_message_close_array(sd_bus_message *m, struct bus_container *c) {
                                 return -ENOMEM;
 
                         for (i = 0; i < c->n_offsets; i++) {
-                                uint32_t x = (uint32_t) (c->offsets[i] - c->begin);
+                                uint32_t x = htole32((uint32_t) (c->offsets[i] - c->begin));
                                 memcpy(a + (i*4), &x, 4);
                         }
                 } else {
@@ -1931,7 +1931,7 @@ static int bus_message_close_array(sd_bus_message *m, struct bus_container *c) {
                                 return -ENOMEM;
 
                         for (i = 0; i < c->n_offsets; i++) {
-                                uint64_t x = (uint64_t) (c->offsets[i] - c->begin);
+                                uint64_t x = htole64((uint64_t) (c->offsets[i] - c->begin));
                                 memcpy(a + (i*8), &x, 8);
                         }
                 }
@@ -2054,13 +2054,13 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
                         if (z == 1)
                                 ((uint8_t*) a)[k] = (uint8_t) v;
                         else if (z == 2) {
-                                uint16_t x = (uint16_t) v;
+                                uint16_t x = htole16((uint16_t) v);
                                 memcpy(a + k * 2, &x, 2);
                         } else if (z == 4) {
-                                uint32_t x = (uint32_t) v;
+                                uint32_t x = htole32((uint32_t) v);
                                 memcpy(a + k * 4, &x, 4);
                         } else if (z == 8) {
-                                uint64_t x = (uint64_t) v;
+                                uint64_t x = htole64((uint64_t) v);
                                 memcpy(a + k * 8, &x, 8);
                         } else
                                 assert_not_reached("Wrong offset width");
@@ -4392,13 +4392,13 @@ static int bus_message_close_header(sd_bus_message *m) {
                 if (z == 1)
                         ((uint8_t*) a)[i] = (uint8_t) m->header_offsets[i];
                 else if (z == 2) {
-                        uint16_t x = (uint16_t) m->header_offsets[i];
+                        uint16_t x = htole16((uint16_t) m->header_offsets[i]);
                         memcpy(a + 2*i, &x, 2);
                 } else if (z == 4) {
-                        uint32_t x = (uint32_t) m->header_offsets[i];
+                        uint32_t x = htole32((uint32_t) m->header_offsets[i]);
                         memcpy(a + 4*i, &x, 4);
                 } else if (z == 8) {
-                        uint64_t x = (uint64_t) m->header_offsets[i];
+                        uint64_t x = htole64((uint64_t) m->header_offsets[i]);
                         memcpy(a + 8*i, &x, 8);
                 } else
                         assert_not_reached("unknown type");

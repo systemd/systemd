@@ -89,7 +89,7 @@ static void test_marshal(void) {
         assert_se(sd_bus_open_system(&bus) >= 0);
         bus->use_gvariant = true; /* dirty hack */
 
-        assert_se(sd_bus_message_new_method_call(bus, "a.service.name", "/an/object/path", "an.interface.name", "AMethodName", &m) >= 0);
+        assert_se(sd_bus_message_new_method_call(bus, "a.service.name", "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works", "an.interface.name", "AMethodName", &m) >= 0);
 
         /* assert_se(sd_bus_message_append(m, "ssy(sts)v", "first-string-parameter", "second-string-parameter", 9, "a", (uint64_t) 7777, "b", "(su)", "xxx", 4712) >= 0);  */
         assert_se(sd_bus_message_append(m,
