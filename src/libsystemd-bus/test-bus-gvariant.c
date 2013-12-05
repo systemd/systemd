@@ -84,7 +84,6 @@ static void test_bus_gvariant_get_alignment(void) {
 static void test_marshal(void) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
-        _cleanup_free_ void *p = NULL;
 
         assert_se(sd_bus_open_system(&bus) >= 0);
         bus->use_gvariant = true; /* dirty hack */
