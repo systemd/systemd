@@ -519,18 +519,13 @@ static void busname_trigger_notify(Unit *u, Unit *other) {
 
         s = SERVICE(other);
 
-        if (s->state == SERVICE_FAILED) {
-                if (s->result == SERVICE_FAILURE_START_LIMIT)
-                        busname_enter_dead(n, BUSNAME_FAILURE_SERVICE_FAILED_PERMANENT);
-                else
-                        busname_enter_listening(n);
-        }
-
-        if (IN_SET(n->state,
-                   SERVICE_DEAD,
-                   SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
-                   SERVICE_STOP_POST, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                   SERVICE_AUTO_RESTART))
+        if (s->state == SERVICE_FAILED && s->result == SERVICE_FAILURE_START_LIMIT)
+                busname_enter_dead(n, BUSNAME_FAILURE_SERVICE_FAILED_PERMANENT);
+        else if (IN_SET(s->state,
+                        SERVICE_DEAD, SERVICE_FAILED,
+                        SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
+                        SERVICE_STOP_POST, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                        SERVICE_AUTO_RESTART))
                 busname_enter_listening(n);
 }
 
