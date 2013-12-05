@@ -2027,7 +2027,9 @@ pkgconfiglib_DATA += \
 	src/libsystemd-bus/libsystemd-bus.pc
 
 EXTRA_DIST += \
-	src/libsystemd-bus/libsystemd-bus.pc.in
+	src/libsystemd-bus/libsystemd-bus.pc.in \
+	src/libsystemd-bus/DIFFERENCES \
+	src/libsystemd-bus/GVARIANT-SERIALIZATION
 
 lib_LTLIBRARIES += \
 	libsystemd-bus.la
