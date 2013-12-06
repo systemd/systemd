@@ -89,7 +89,11 @@ static int start_interface(sd_rtnl *rtnl, int if_loopback, uint32_t ipv4_address
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
-        r = sd_rtnl_message_link_new(RTM_NEWLINK, if_loopback, 0, IFF_UP, &req);
+        r = sd_rtnl_message_link_new(RTM_NEWLINK, if_loopback, &req);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_link_set_flags(req, IFF_UP);
         if (r < 0)
                 return r;
 

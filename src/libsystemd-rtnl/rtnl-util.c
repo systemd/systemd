@@ -34,7 +34,7 @@ int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
         assert(ifindex > 0);
         assert(name);
 
-        r = sd_rtnl_message_link_new(RTM_SETLINK, ifindex, 0, 0, &message);
+        r = sd_rtnl_message_link_new(RTM_SETLINK, ifindex, &message);
         if (r < 0)
                 return r;
 
@@ -61,7 +61,7 @@ int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias,
         if (!alias && !mac && mtu == 0)
                 return 0;
 
-        r = sd_rtnl_message_link_new(RTM_SETLINK, ifindex, 0, 0, &message);
+        r = sd_rtnl_message_link_new(RTM_SETLINK, ifindex, &message);
         if (r < 0)
                 return r;
 

@@ -264,7 +264,7 @@ static int link_get(Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        r = sd_rtnl_message_link_new(RTM_GETLINK, link->ifindex, 0, 0, &req);
+        r = sd_rtnl_message_link_new(RTM_GETLINK, link->ifindex, &req);
         if (r < 0) {
                 log_error("Could not allocate RTM_GETLINK message");
                 return r;
@@ -301,9 +301,15 @@ static int link_up(Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        r = sd_rtnl_message_link_new(RTM_NEWLINK, link->ifindex, 0, IFF_UP, &req);
+        r = sd_rtnl_message_link_new(RTM_NEWLINK, link->ifindex, &req);
         if (r < 0) {
                 log_error("Could not allocate RTM_NEWLINK message");
+                return r;
+        }
+
+        r = sd_rtnl_message_link_set_flags(req, IFF_UP);
+        if (r < 0) {
+                log_error("Could not set link flags");
                 return r;
         }
 

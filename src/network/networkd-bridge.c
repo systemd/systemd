@@ -84,7 +84,7 @@ static int bridge_join_ready(Bridge *bridge, Link* link, sd_rtnl_message_handler
         assert(link);
         assert(callback);
 
-        r = sd_rtnl_message_link_new(RTM_SETLINK, link->ifindex, 0, 0, &req);
+        r = sd_rtnl_message_link_new(RTM_SETLINK, link->ifindex, &req);
         if (r < 0) {
                 log_error("Could not allocate RTM_SETLINK message: %s",
                           strerror(-r));
@@ -155,7 +155,7 @@ static int bridge_create(Bridge *bridge) {
         assert(bridge->manager);
         assert(bridge->manager->rtnl);
 
-        r = sd_rtnl_message_link_new(RTM_NEWLINK, 0, 0, 0, &req);
+        r = sd_rtnl_message_link_new(RTM_NEWLINK, 0, &req);
         if (r < 0) {
                 log_error("Could not allocate RTM_NEWLINK message: %s",
                           strerror(-r));

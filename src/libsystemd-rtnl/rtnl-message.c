@@ -160,7 +160,27 @@ int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
         return 0;
 }
 
-int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, unsigned type, unsigned flags, sd_rtnl_message **ret) {
+int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags) {
+        struct ifinfomsg *ifi;
+
+        ifi = NLMSG_DATA(m->hdr);
+
+        ifi->ifi_flags = flags;
+
+        return 0;
+}
+
+int sd_rtnl_message_link_set_type(sd_rtnl_message *m, unsigned type) {
+        struct ifinfomsg *ifi;
+
+        ifi = NLMSG_DATA(m->hdr);
+
+        ifi->ifi_type = type;
+
+        return 0;
+}
+
+int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, sd_rtnl_message **ret) {
         struct ifinfomsg *ifi;
         int r;
 
@@ -181,8 +201,6 @@ int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, unsigned type, unsi
 
         ifi->ifi_family = AF_UNSPEC;
         ifi->ifi_index = index;
-        ifi->ifi_type = type;
-        ifi->ifi_flags = flags;
         ifi->ifi_change = 0xffffffff;
 
         return 0;

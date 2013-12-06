@@ -64,8 +64,7 @@ int sd_rtnl_attach_event(sd_rtnl *nl, sd_event *e, int priority);
 int sd_rtnl_detach_event(sd_rtnl *nl);
 
 /* messages */
-int sd_rtnl_message_link_new(uint16_t msg_type, int index, unsigned int type,
-                             unsigned int flags, sd_rtnl_message **ret);
+int sd_rtnl_message_link_new(uint16_t msg_type, int index, sd_rtnl_message **ret);
 int sd_rtnl_message_addr_new(uint16_t msg_type, int index, unsigned char family,
                              unsigned char prefixlen, unsigned char flags,
                              unsigned char scope, sd_rtnl_message **ret);
@@ -80,6 +79,8 @@ sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
 int sd_rtnl_message_get_errno(sd_rtnl_message *m);
 int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type);
 
+int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags);
+int sd_rtnl_message_link_set_type(sd_rtnl_message *m, unsigned type);
 int sd_rtnl_message_link_get_ifindex(sd_rtnl_message *m, int *ifindex);
 int sd_rtnl_message_link_get_flags(sd_rtnl_message *m, unsigned *flags);
 
