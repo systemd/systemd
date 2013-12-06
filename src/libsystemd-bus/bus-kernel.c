@@ -1063,7 +1063,7 @@ int bus_kernel_create_bus(const char *name, char **s) {
         n = make->items;
         sprintf(n->str, "%lu-%s", (unsigned long) getuid(), name);
         n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
-        n->type = KDBUS_MAKE_NAME;
+        n->type = KDBUS_ITEM_MAKE_NAME;
 
         make->size = ALIGN8(offsetof(struct kdbus_cmd_bus_make, items) + n->size);
         make->flags = KDBUS_MAKE_POLICY_OPEN;
@@ -1166,7 +1166,7 @@ int bus_kernel_create_namespace(const char *name, char **s) {
         n = make->items;
         strcpy(n->str, name);
         n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
-        n->type = KDBUS_MAKE_NAME;
+        n->type = KDBUS_ITEM_MAKE_NAME;
 
         make->size = ALIGN8(offsetof(struct kdbus_cmd_ns_make, items) + n->size);
         make->flags = KDBUS_MAKE_POLICY_OPEN | KDBUS_MAKE_ACCESS_WORLD;
