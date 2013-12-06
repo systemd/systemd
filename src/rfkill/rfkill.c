@@ -95,8 +95,11 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        if (streq(argv[1], "load") && shall_restore_state()) {
+        if (streq(argv[1], "load")) {
                 _cleanup_free_ char *value = NULL;
+
+                if (!shall_restore_state())
+                        return EXIT_SUCCESS;
 
                 r = read_one_line_file(saved, &value);
                 if (r < 0) {
