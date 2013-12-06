@@ -653,6 +653,12 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
                                 if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct ifaddrmsg)))
                                         k = -EIO;
                                 break;
+                        case RTM_NEWROUTE:
+                        case RTM_DELROUTE:
+                        case RTM_GETROUTE:
+                                if (m->hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct rtmsg)))
+                                        k = -EIO;
+                                break;
                         case NLMSG_NOOP:
                                 k = 0;
                                 break;
