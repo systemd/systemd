@@ -304,7 +304,7 @@ static int process_match(sd_rtnl *rtnl, sd_rtnl_message *m) {
                 return r;
 
         LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks) {
-                if (type & c->types) {
+                if (type == c->type) {
                         r = c->callback(rtnl, m, c->userdata);
                         if (r != 0)
                                 return r;
@@ -825,22 +825,22 @@ int sd_rtnl_detach_event(sd_rtnl *rtnl) {
 }
 
 int sd_rtnl_add_match(sd_rtnl *rtnl,
-                      uint16_t types,
+                      uint16_t type,
                       sd_rtnl_message_handler_t callback,
                       void *userdata) {
         struct match_callback *c;
 
         assert_return(rtnl, -EINVAL);
         assert_return(callback, -EINVAL);
-        assert_return(types, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
+        assert_return(message_type_is_link(type) || message_type_is_addr(type) || message_type_is_route(type), -ENOTSUP);
 
         c = new0(struct match_callback, 1);
         if (!c)
                 return -ENOMEM;
 
         c->callback = callback;
-        c->types = types;
+        c->type = type;
         c->userdata = userdata;
 
         LIST_PREPEND(match_callbacks, rtnl->match_callbacks, c);
@@ -849,7 +849,7 @@ int sd_rtnl_add_match(sd_rtnl *rtnl,
 }
 
 int sd_rtnl_remove_match(sd_rtnl *rtnl,
-                         uint16_t types,
+                         uint16_t type,
                          sd_rtnl_message_handler_t callback,
                          void *userdata) {
         struct match_callback *c;
@@ -859,7 +859,7 @@ int sd_rtnl_remove_match(sd_rtnl *rtnl,
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
 
         LIST_FOREACH(match_callbacks, c, rtnl->match_callbacks)
-                if (c->callback == callback && c->types == types && c->userdata == userdata) {
+                if (c->callback == callback && c->type == type && c->userdata == userdata) {
                         LIST_REMOVE(match_callbacks, rtnl->match_callbacks, c);
                         free(c);
 

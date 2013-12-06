@@ -39,7 +39,7 @@ struct reply_callback {
 
 struct match_callback {
         sd_rtnl_message_handler_t callback;
-        uint16_t types;
+        uint16_t type;
         void *userdata;
 
         LIST_FIELDS(struct match_callback, match_callbacks);

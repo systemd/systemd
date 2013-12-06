@@ -235,14 +235,12 @@ static void test_match(void) {
 
         assert(sd_rtnl_open(0, &rtnl) >= 0);
 
-        assert(sd_rtnl_add_match(rtnl, 0, &link_handler, NULL) == -EINVAL);
+        assert(sd_rtnl_add_match(rtnl, RTM_NEWLINK, &link_handler, NULL) >= 0);
+        assert(sd_rtnl_add_match(rtnl, RTM_NEWLINK, &link_handler, NULL) >= 0);
 
-        assert(sd_rtnl_add_match(rtnl, RTMGRP_LINK, &link_handler, NULL) >= 0);
-        assert(sd_rtnl_add_match(rtnl, RTMGRP_LINK, &link_handler, NULL) >= 0);
-
-        assert(sd_rtnl_remove_match(rtnl, RTMGRP_LINK, &link_handler, NULL) == 1);
-        assert(sd_rtnl_remove_match(rtnl, RTMGRP_LINK, &link_handler, NULL) == 1);
-        assert(sd_rtnl_remove_match(rtnl, RTMGRP_LINK, &link_handler, NULL) == 0);
+        assert(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 1);
+        assert(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 1);
+        assert(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 0);
 }
 
 int main(void) {
