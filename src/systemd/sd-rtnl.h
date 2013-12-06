@@ -95,6 +95,8 @@ int sd_rtnl_message_close_container(sd_rtnl_message *m);
 
 int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data);
 
+int sd_rtnl_message_rewind(sd_rtnl_message *m);
+
 _SD_END_DECLARATIONS;
 
 #endif

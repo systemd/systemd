@@ -42,15 +42,15 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
         assert(sd_rtnl_message_append(message, IFLA_ADDRESS, ether_aton(mac)) >= 0);
         assert(sd_rtnl_message_append(message, IFLA_MTU, &mtu) >= 0);
 
-        assert(sd_rtnl_message_read(message, &type, &data) >= 0);
+        assert(sd_rtnl_message_read(message, &type, &data) > 0);
         assert(type == IFLA_IFNAME);
         assert(streq(name, (char *) data));
 
-        assert(sd_rtnl_message_read(message, &type, &data) >= 0);
+        assert(sd_rtnl_message_read(message, &type, &data) > 0);
         assert(type == IFLA_ADDRESS);
         assert(streq(mac, ether_ntoa(data)));
 
-        assert(sd_rtnl_message_read(message, &type, &data) >= 0);
+        assert(sd_rtnl_message_read(message, &type, &data) > 0);
         assert(type == IFLA_MTU);
         assert(mtu == *(unsigned int *) data);
 
