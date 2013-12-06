@@ -1405,6 +1405,7 @@ static int method_enable_unit_files_generic(
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
+        char **i;
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
         UnitFileScope scope;
@@ -1414,13 +1415,22 @@ static int method_enable_unit_files_generic(
         assert(message);
         assert(m);
 
-        r = selinux_access_check(bus, message, verb, error);
-        if (r < 0)
-                return r;
-
         r = sd_bus_message_read_strv(message, &l);
         if (r < 0)
                 return r;
+
+#ifdef HAVE_SELINUX
+        STRV_FOREACH(i, l) {
+                Unit *u;
+
+                u = manager_get_unit(m, *i);
+                if (u) {
+                        r = selinux_unit_access_check(u, bus, message, verb, error);
+                        if (r < 0)
+                                return r;
+                }
+        }
+#endif
 
         r = sd_bus_message_read(message, "bb", &runtime, &force);
         if (r < 0)
