@@ -403,18 +403,12 @@ enum {
 enum {
 	_KDBUS_MAKE_NULL,
 	KDBUS_MAKE_NAME,
-	KDBUS_MAKE_CRED,/* allow translator services which connect
-			 * to the bus on behalf of somebody else,
-			 * allow specifying the credentials of the
-			 * client to connect on behalf on. Needs
-			 * privileges */
 };
 
 /**
  * struct kdbus_cmd_bus_make - struct to make a bus
  * @size:		The total size of the struct
- * @flags:		FIXME
- * @bus_flags:
+ * @flags:		Properties for the bus to create
  * @bloom_filter:	Size of the bloom filter for this bus
  * @items:		Items describing details such as the name of the bus
  *
@@ -424,7 +418,6 @@ enum {
 struct kdbus_cmd_bus_make {
 	__u64 size;
 	__u64 flags;
-	__u64 bus_flags;
 	__u64 bloom_size;
 	struct kdbus_item items[0];
 };

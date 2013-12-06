@@ -1067,7 +1067,6 @@ int bus_kernel_create_bus(const char *name, char **s) {
 
         make->size = ALIGN8(offsetof(struct kdbus_cmd_bus_make, items) + n->size);
         make->flags = KDBUS_MAKE_POLICY_OPEN;
-        make->bus_flags = 0;
         make->bloom_size = BLOOM_SIZE;
         assert_cc(BLOOM_SIZE % 8 == 0);
 
