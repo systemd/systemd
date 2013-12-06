@@ -86,6 +86,11 @@ struct sd_rtnl {
 int message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message **ret);
 uint32_t message_get_serial(sd_rtnl_message *m);
 int message_seal(sd_rtnl *nl, sd_rtnl_message *m);
+
+bool message_type_is_link(uint16_t type);
+bool message_type_is_addr(uint16_t type);
+bool message_type_is_route(uint16_t type);
+
 int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
 int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret);
 

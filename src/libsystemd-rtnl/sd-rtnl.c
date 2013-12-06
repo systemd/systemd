@@ -75,6 +75,8 @@ int sd_rtnl_open(uint32_t groups, sd_rtnl **ret) {
         socklen_t addrlen;
         int r;
 
+        assert_return(ret, -EINVAL);
+
         r = sd_rtnl_new(&rtnl);
         if (r < 0)
                 return r;
@@ -315,6 +317,8 @@ static int process_match(sd_rtnl *rtnl, sd_rtnl_message *m) {
 static int process_running(sd_rtnl *rtnl, sd_rtnl_message **ret) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *m = NULL;
         int r;
+
+        assert(rtnl);
 
         r = process_timeout(rtnl);
         if (r != 0)

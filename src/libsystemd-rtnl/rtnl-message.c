@@ -91,6 +91,40 @@ int message_new_synthetic_error(int error, uint32_t serial, sd_rtnl_message **re
         return 0;
 }
 
+bool message_type_is_route(uint16_t type) {
+        switch (type) {
+                case RTM_NEWROUTE:
+                case RTM_GETROUTE:
+                case RTM_DELROUTE:
+                        return true;
+                default:
+                        return false;
+        }
+}
+
+bool message_type_is_link(uint16_t type) {
+        switch (type) {
+                case RTM_NEWLINK:
+                case RTM_SETLINK:
+                case RTM_GETLINK:
+                case RTM_DELLINK:
+                        return true;
+                default:
+                        return false;
+        }
+}
+
+bool message_type_is_addr(uint16_t type) {
+        switch (type) {
+                case RTM_NEWADDR:
+                case RTM_GETADDR:
+                case RTM_DELADDR:
+                        return true;
+                default:
+                        return false;
+        }
+}
+
 int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
                               unsigned char rtm_dst_len, unsigned char rtm_src_len,
                               unsigned char rtm_tos, unsigned char rtm_table,
@@ -99,8 +133,7 @@ int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
         struct rtmsg *rtm;
         int r;
 
-        assert_return(nlmsg_type == RTM_NEWROUTE || nlmsg_type == RTM_DELROUTE ||
-                      nlmsg_type == RTM_GETROUTE, -EINVAL);
+        assert_return(message_type_is_route(nlmsg_type), -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(ret, NLMSG_SPACE(sizeof(struct rtmsg)));
@@ -131,8 +164,7 @@ int sd_rtnl_message_link_new(uint16_t nlmsg_type, int index, unsigned type, unsi
         struct ifinfomsg *ifi;
         int r;
 
-        assert_return(nlmsg_type == RTM_NEWLINK || nlmsg_type == RTM_DELLINK ||
-                      nlmsg_type == RTM_SETLINK || nlmsg_type == RTM_GETLINK, -EINVAL);
+        assert_return(message_type_is_link(nlmsg_type), -EINVAL);
         assert_return(nlmsg_type == RTM_NEWLINK || index > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -160,7 +192,7 @@ int sd_rtnl_message_addr_new(uint16_t nlmsg_type, int index, unsigned char famil
         struct ifaddrmsg *ifa;
         int r;
 
-        assert_return(nlmsg_type == RTM_NEWADDR || nlmsg_type == RTM_DELADDR || nlmsg_type == RTM_GETADDR, -EINVAL);
+        assert_return(message_type_is_addr(nlmsg_type), -EINVAL);
         assert_return(index > 0, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -211,9 +243,9 @@ int sd_rtnl_message_link_get_ifindex(sd_rtnl_message *m, int *ifindex) {
         struct ifinfomsg *ifi;
 
         assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
         assert_return(ifindex, -EINVAL);
-        assert_return(m->hdr->nlmsg_type == RTM_NEWLINK || m->hdr->nlmsg_type == RTM_DELLINK ||
-                      m->hdr->nlmsg_type == RTM_GETLINK || m->hdr->nlmsg_type == RTM_SETLINK, -EINVAL);
 
         ifi = NLMSG_DATA(m->hdr);
 
@@ -226,9 +258,9 @@ int sd_rtnl_message_link_get_flags(sd_rtnl_message *m, unsigned *flags) {
         struct ifinfomsg *ifi;
 
         assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
         assert_return(flags, -EINVAL);
-        assert_return(m->hdr->nlmsg_type == RTM_NEWLINK || m->hdr->nlmsg_type == RTM_DELLINK ||
-                      m->hdr->nlmsg_type == RTM_GETLINK || m->hdr->nlmsg_type == RTM_SETLINK, -EINVAL);
 
         ifi = NLMSG_DATA(m->hdr);
 
@@ -406,18 +438,13 @@ int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type) {
 
         sd_rtnl_message_get_type(m, &rtm_type);
 
-        switch (rtm_type) {
-                case RTM_NEWLINK:
-                case RTM_SETLINK:
-                case RTM_GETLINK:
-                case RTM_DELLINK:
-                        if (type == IFLA_LINKINFO)
-                                return add_rtattr(m, type, NULL, 0);
-                        else
-                                return -ENOTSUP;
-                default:
+        if (message_type_is_link(rtm_type)) {
+                if (type == IFLA_LINKINFO)
+                        return add_rtattr(m, type, NULL, 0);
+                else
                         return -ENOTSUP;
-        }
+        } else
+                return -ENOTSUP;
 
         return 0;
 }
@@ -519,6 +546,7 @@ int sd_rtnl_message_read(sd_rtnl_message *m, unsigned short *type, void **data) 
 
 uint32_t message_get_serial(sd_rtnl_message *m) {
         assert(m);
+        assert(m->hdr);
 
         return m->hdr->nlmsg_seq;
 }
@@ -527,6 +555,7 @@ int sd_rtnl_message_get_errno(sd_rtnl_message *m) {
         struct nlmsgerr *err;
 
         assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
 
         if (m->hdr->nlmsg_type != NLMSG_ERROR)
                 return 0;
@@ -537,6 +566,10 @@ int sd_rtnl_message_get_errno(sd_rtnl_message *m) {
 }
 
 int message_seal(sd_rtnl *nl, sd_rtnl_message *m) {
+        assert(nl);
+        assert(m);
+        assert(m->hdr);
+
         if (m->sealed)
                 return -EPERM;
 
@@ -547,8 +580,8 @@ int message_seal(sd_rtnl *nl, sd_rtnl_message *m) {
 }
 
 static int message_receive_need(sd_rtnl *rtnl, size_t *need) {
-        assert_return(rtnl, -EINVAL);
-        assert_return(need, -EINVAL);
+        assert(rtnl);
+        assert(need);
 
         /* ioctl(rtnl->fd, FIONREAD, &need)
            Does not appear to work on netlink sockets. libnl uses
@@ -576,8 +609,9 @@ int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m) {
         };
         ssize_t k;
 
-        assert_return(nl, -EINVAL);
-        assert_return(m, -EINVAL);
+        assert(nl);
+        assert(m);
+        assert(m->hdr);
 
         k = sendto(nl->fd, m->hdr, m->hdr->nlmsg_len,
                         0, &addr.sa, sizeof(addr));
@@ -603,8 +637,8 @@ int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret) {
         ssize_t k;
         size_t need;
 
-        assert_return(nl, -EINVAL);
-        assert_return(ret, -EINVAL);
+        assert(nl);
+        assert(ret);
 
         r = message_receive_need(nl, &need);
         if (r < 0)
