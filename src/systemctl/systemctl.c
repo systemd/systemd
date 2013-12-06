@@ -2145,7 +2145,7 @@ static int start_unit(sd_bus *bus, char **args) {
 
                         q = start_unit_one(bus, method, *name, mode, &error, s);
                         if (q < 0) {
-                                r = translate_bus_error_to_exit_status(r, &error);
+                                r = translate_bus_error_to_exit_status(q, &error);
                                 sd_bus_error_free(&error);
                         }
                 }
