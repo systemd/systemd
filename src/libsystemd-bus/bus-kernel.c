@@ -462,7 +462,7 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
         off = (uint8_t *)k - (uint8_t *)bus->kdbus_buffer;
         ioctl(bus->input_fd, KDBUS_CMD_FREE, &off);
 
-        KDBUS_PART_FOREACH(d, k, items) {
+        KDBUS_ITEM_FOREACH(d, k, items) {
 
                 if (d->type == KDBUS_ITEM_FDS)
                         close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
@@ -589,7 +589,7 @@ static int bus_kernel_translate_message(sd_bus *bus, struct kdbus_msg *k) {
         assert(k);
         assert(k->payload_type == KDBUS_PAYLOAD_KERNEL);
 
-        KDBUS_PART_FOREACH(d, k, items) {
+        KDBUS_ITEM_FOREACH(d, k, items) {
                 if (d->type >= _KDBUS_ITEM_KERNEL_BASE && d->type < _KDBUS_ITEM_KERNEL_BASE + ELEMENTSOF(translate)) {
                         if (found)
                                 return -EBADMSG;
@@ -620,7 +620,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         assert(k);
         assert(k->payload_type == KDBUS_PAYLOAD_DBUS1);
 
-        KDBUS_PART_FOREACH(d, k, items) {
+        KDBUS_ITEM_FOREACH(d, k, items) {
                 size_t l;
 
                 l = d->size - offsetof(struct kdbus_item, data);
@@ -680,7 +680,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         if (r < 0)
                 return r;
 
-        KDBUS_PART_FOREACH(d, k, items) {
+        KDBUS_ITEM_FOREACH(d, k, items) {
                 size_t l;
 
                 l = d->size - offsetof(struct kdbus_item, data);

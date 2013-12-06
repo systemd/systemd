@@ -216,7 +216,7 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
 
         name_list = (struct kdbus_name_list *) ((uint8_t *) bus->kdbus_buffer + cmd.offset);
 
-        KDBUS_PART_FOREACH(name, name_list, names) {
+        KDBUS_ITEM_FOREACH(name, name_list, names) {
 
                 if (name->size > sizeof(*name)) {
                         r = strv_extend(x, name->name);
@@ -383,7 +383,7 @@ static int bus_get_owner_kdbus(
                 c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
         }
 
-        KDBUS_PART_FOREACH(item, conn_info, items) {
+        KDBUS_ITEM_FOREACH(item, conn_info, items) {
 
                 switch (item->type) {
 
@@ -439,7 +439,7 @@ static int bus_get_owner_kdbus(
 
                 case KDBUS_ITEM_CMDLINE:
                         if (mask & SD_BUS_CREDS_CMDLINE) {
-                                c->cmdline_size = item->size - KDBUS_PART_HEADER_SIZE;
+                                c->cmdline_size = item->size - KDBUS_ITEM_HEADER_SIZE;
                                 c->cmdline = memdup(item->data, c->cmdline_size);
                                 if (!c->cmdline) {
                                         r = -ENOMEM;
@@ -471,7 +471,7 @@ static int bus_get_owner_kdbus(
                              SD_BUS_CREDS_INHERITABLE_CAPS | SD_BUS_CREDS_BOUNDING_CAPS) & mask;
 
                         if (m) {
-                                c->capability_size = item->size - KDBUS_PART_HEADER_SIZE;
+                                c->capability_size = item->size - KDBUS_ITEM_HEADER_SIZE;
                                 c->capability = memdup(item->data, c->capability_size);
                                 if (!c->capability) {
                                         r = -ENOMEM;
@@ -1010,7 +1010,7 @@ static int bus_add_match_internal_kernel(
                 item->type = KDBUS_MATCH_BLOOM;
                 memcpy(item->data64, bloom, BLOOM_SIZE);
 
-                item = KDBUS_PART_NEXT(item);
+                item = KDBUS_ITEM_NEXT(item);
         }
 
         if (sender) {

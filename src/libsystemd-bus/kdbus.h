@@ -27,25 +27,11 @@
 #define KDBUS_DST_ID_BROADCAST		(~0ULL)
 
 /**
- * struct KDBUS_PART_HEADER - anonymous struct used as header
- * @size:		Size of element, excluding padding bytes
- * @type		Type of element
- *
- * Common first elements in a structure, used to specify the type
- * and size of the data.
- * */
-#define KDBUS_PART_HEADER \
-	struct {							\
-		__u64 size;						\
-		__u64 type;						\
-	}
-
-/**
  * struct kdbus_notify_name_change - name registry change message
- * @old_id		Former owner of a name
- * @new_id		New owner of a name
- * @flags		flags from KDBUS_NAME_*
- * @name		Well-known name
+ * @old_id:		Former owner of a name
+ * @new_id:		New owner of a name
+ * @flags:		flags from KDBUS_NAME_*
+ * @name:		Well-known name
  *
  * Data attached to:
  *   KDBUS_ITEM_NAME_ADD
@@ -64,8 +50,8 @@ struct kdbus_notify_name_change {
 
 /**
  * struct kdbus_notify_id_change - name registry change message
- * @id			New or former owner of the name
- * @flags		flags field from KDBUS_HELLO_*
+ * @id:			New or former owner of the name
+ * @flags:		flags field from KDBUS_HELLO_*
  *
  * Data attached to:
  *   KDBUS_ITEM_ID_ADD
@@ -81,11 +67,11 @@ struct kdbus_notify_id_change {
 
 /**
  * struct kdbus_creds - process credentials
- * @uid			User ID
- * @gid			Group ID
- * @pid			Process ID
- * @tid			Thread ID
- * @starttime		Starttime of the process
+ * @uid:		User ID
+ * @gid:		Group ID
+ * @pid:		Process ID
+ * @tid:		Thread ID
+ * @starttime:		Starttime of the process
  *
  * The starttime of the process PID. This is useful to detect PID overruns
  * from the client side. i.e. if you use the PID to look something up in
@@ -102,8 +88,8 @@ struct kdbus_creds {
 
 /**
  * struct kdbus_audit - audit information
- * @sessionid		The audit session ID
- * @loginuid		The audit login uid
+ * @sessionid:		The audit session ID
+ * @loginuid:		The audit login uid
  */
 struct kdbus_audit {
 	__u64 sessionid;
@@ -123,8 +109,8 @@ struct kdbus_timestamp {
 /**
  * struct kdbus_vec - I/O vector for kdbus payload items
  * @size:		The size of the vector
- * @address		Memory address for memory addresses
- * @offset		Offset in the in-message payload memory
+ * @address:		Memory address for memory addresses
+ * @offset:		Offset in the in-message payload memory
  */
 struct kdbus_vec {
 	__u64 size;
@@ -148,12 +134,41 @@ struct kdbus_memfd {
 
 /**
  * struct kdbus_name - a registered well-known name with its flags
- * @flags		flags from KDBUS_NAME_*
- * @name		well-known name
+ * @flags:		flags from KDBUS_NAME_*
+ * @name:		well-known name
  */
 struct kdbus_name {
 	__u64 flags;
 	char name[0];
+};
+
+/**
+ * struct kdbus_policy_access - policy access item
+ * @type:		One of KDBUS_POLICY_ACCESS_* types
+ * @bits:		Access to grant. One of KDBUS_POLICY_*
+ * @id:			For KDBUS_POLICY_ACCESS_USER, the uid
+ * 			For KDBUS_POLICY_ACCESS_GROUP, the gid
+ */
+struct kdbus_policy_access {
+	__u64 type;	/* USER, GROUP, WORLD */
+	__u64 bits;	/* RECV, SEND, OWN */
+	__u64 id;	/* uid, gid, 0 */
+};
+
+/*
+ * struct kdbus_policy - a policy to upload
+ * @size:		The total size of the structure
+ * @type:		KDBUS_POLICY_NAME or KDBUS_POLICY_ACCESS
+ * @name:		The well-known name to grant access to,
+ * 			if @type is KDBUS_POLICY_NAME
+ * @access:		The policy access details,
+ * 			if @type is KDBUS_POLICY_ACCESS
+ */
+struct kdbus_policy {
+	union {
+		struct kdbus_policy_access access;
+		char name[0];
+	};
 };
 
 /* Message Item Types */
@@ -161,8 +176,8 @@ enum {
 	_KDBUS_ITEM_NULL,
 
 	/* Filled in by userspace */
-	_KDBUS_ITEM_USER_BASE	= 1,
-	KDBUS_ITEM_PAYLOAD_VEC	= 1,	/* .data_vec, reference to memory area */
+	_KDBUS_ITEM_USER_BASE,
+	KDBUS_ITEM_PAYLOAD_VEC	= _KDBUS_ITEM_USER_BASE,
 	KDBUS_ITEM_PAYLOAD_OFF,		/* .data_vec, reference to memory area */
 	KDBUS_ITEM_PAYLOAD_MEMFD,	/* file descriptor of a special data file */
 	KDBUS_ITEM_FDS,			/* .data_fds of file descriptors */
@@ -170,13 +185,15 @@ enum {
 	KDBUS_ITEM_DST_NAME,		/* destination's well-known name, in .str */
 	KDBUS_ITEM_PRIORITY,		/* queue priority for message */
 
+	_KDBUS_ITEM_POLICY_BASE	= 0x400,
+	KDBUS_ITEM_POLICY_NAME = _KDBUS_ITEM_POLICY_BASE,
+	KDBUS_ITEM_POLICY_ACCESS,
+
 	/* Filled in by kernelspace */
-	_KDBUS_ITEM_ATTACH_BASE	= 0x400,
-	KDBUS_ITEM_NAME		= 0x400,/* NUL separated string list with well-known names of source */
+	_KDBUS_ITEM_ATTACH_BASE	= 0x600,
+	KDBUS_ITEM_NAME		= _KDBUS_ITEM_ATTACH_BASE,
 	KDBUS_ITEM_STARTER_NAME,	/* Only used in HELLO for starter connection */
 	KDBUS_ITEM_TIMESTAMP,		/* .timestamp */
-
-	/* when appended to a message, the following items refer to the sender */
 	KDBUS_ITEM_CREDS,		/* .creds */
 	KDBUS_ITEM_PID_COMM,		/* optional, in .str */
 	KDBUS_ITEM_TID_COMM,		/* optional, in .str */
@@ -189,7 +206,7 @@ enum {
 
 	/* Special messages from kernel, consisting of one and only one of these data blocks */
 	_KDBUS_ITEM_KERNEL_BASE	= 0x800,
-	KDBUS_ITEM_NAME_ADD	= 0x800,/* .name_change */
+	KDBUS_ITEM_NAME_ADD	= _KDBUS_ITEM_KERNEL_BASE,
 	KDBUS_ITEM_NAME_REMOVE,		/* .name_change */
 	KDBUS_ITEM_NAME_CHANGE,		/* .name_change */
 	KDBUS_ITEM_ID_ADD,		/* .id_change */
@@ -198,13 +215,14 @@ enum {
 	KDBUS_ITEM_REPLY_DEAD,		/* dito */
 };
 
-/**
+/*
  * struct kdbus_item - chain of data blocks
- * @size	:	overall data record size
+ * @size:	:	overall data record size
  * @type:		kdbus_item type of data
  */
 struct kdbus_item {
-	KDBUS_PART_HEADER;
+	__u64 size;
+	__u64 type;
 	union {
 		/* inline data */
 		__u8 data[0];
@@ -229,6 +247,7 @@ struct kdbus_item {
 		int fds[0];
 		struct kdbus_notify_name_change name_change;
 		struct kdbus_notify_id_change id_change;
+		struct kdbus_policy policy;
 	};
 };
 
@@ -272,12 +291,6 @@ struct kdbus_msg {
 };
 
 enum {
-	_KDBUS_POLICY_NULL,
-	KDBUS_POLICY_NAME,
-	KDBUS_POLICY_ACCESS,
-};
-
-enum {
 	_KDBUS_POLICY_ACCESS_NULL,
 	KDBUS_POLICY_ACCESS_USER,
 	KDBUS_POLICY_ACCESS_GROUP,
@@ -291,36 +304,6 @@ enum {
 };
 
 /**
- * struct kdbus_policy_access - policy access item
- * @type:		One of KDBUS_POLICY_ACCESS_* types
- * @bits:		Access to grant. One of KDBUS_POLICY_*
- * @id:			For KDBUS_POLICY_ACCESS_USER, the uid
- * 			For KDBUS_POLICY_ACCESS_GROUP, the gid
- */
-struct kdbus_policy_access {
-	__u64 type;	/* USER, GROUP, WORLD */
-	__u64 bits;	/* RECV, SEND, OWN */
-	__u64 id;	/* uid, gid, 0 */
-};
-
-/**
- * struct kdbus_policy - a policy to upload
- * @size:		The total size of the structure
- * @type:		KDBUS_POLICY_NAME or KDBUS_POLICY_ACCESS
- * @name:		The well-known name to grant access to,
- * 			if @type is KDBUS_POLICY_NAME
- * @access:		The policy access details,
- * 			if @type is KDBUS_POLICY_ACCESS
- */
-struct kdbus_policy {
-	KDBUS_PART_HEADER;
-	union {
-		char name[0];
-		struct kdbus_policy_access access;
-	};
-};
-
-/**
  * struct kdbus_cmd_policy - a series of policies to upload
  * @size:		The total size of the structure
  * @policies:		The policies to upload
@@ -331,7 +314,7 @@ struct kdbus_policy {
  */
 struct kdbus_cmd_policy {
 	__u64 size;
-	struct kdbus_policy policies[0];
+	struct kdbus_item policies[0];
 };
 
 /* Flags for struct kdbus_cmd_hello */
@@ -370,7 +353,7 @@ enum {
  * 			(kernel → userspace)
  * @pool_size:		Maximum size of the pool buffer (kernel → userspace)
  * @id128:		Unique 128-bit ID of the bus (kernel → userspace)
- * @items;		A list of items
+ * @items:		A list of items
  *
  * This struct is used with the KDBUS_CMD_HELLO ioctl. See the ioctl
  * documentation for more information.
@@ -409,7 +392,7 @@ enum {
  * struct kdbus_cmd_bus_make - struct to make a bus
  * @size:		The total size of the struct
  * @flags:		Properties for the bus to create
- * @bloom_filter:	Size of the bloom filter for this bus
+ * @bloom_size:		Size of the bloom filter for this bus
  * @items:		Items describing details such as the name of the bus
  *
  * This structure is used with the KDBUS_CMD_BUS_MAKE ioctl. Refer to the
