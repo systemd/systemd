@@ -192,17 +192,48 @@ struct kdbus_policy {
 	};
 };
 
-/* item types to chain data in lists of items */
+/**
+ * enum kdbus_item_type - item types to chain data in a list
+ * @KDBUS_ITEM_PAYLOAD_VEC:	Vevtor to data
+ * @KDBUS_ITEM_PAYLOAD_OFF:	Data at returned offset in the pool
+ * @KDBUS_ITEM_PAYLOAD_MEMFD:	Data as sealed memfd
+ * @KDBUS_ITEM_FDS:		Attached file descriptors
+ * @KDBUS_ITEM_BLOOM:		For broadcasts, carries bloom filter
+ * @KDBUS_ITEM_DST_NAME:	Destination's well-known name
+ * @KDBUS_ITEM_PRIORITY:	Queue priority for message
+ * @KDBUS_ITEM_MAKE_NAME:	Name of namespace, bus, endpoint
+ * @KDBUS_ITEM_POLICY_NAME:	Policy in struct kdbus_policy
+ * @KDBUS_ITEM_POLICY_ACCESS:	Policy in struct kdbus_policy
+ * @KDBUS_ITEM_NAME:		Well-know name with flags
+ * @KDBUS_ITEM_STARTER_NAME:	Well-known name for the starter
+ * @KDBUS_ITEM_TIMESTAMP:	Timestamp
+ * @KDBUS_ITEM_CREDS:		Process credential
+ * @KDBUS_ITEM_PID_COMM:	Process ID "comm" identifier
+ * @KDBUS_ITEM_TID_COMM:	Thread ID "comm" identifier
+ * @KDBUS_ITEM_EXE:		The path of the executable
+ * @KDBUS_ITEM_CMDLINE:		The process command line
+ * @KDBUS_ITEM_CGROUP:		The croup membership
+ * @KDBUS_ITEM_CAPS:		The process capabilities
+ * @KDBUS_ITEM_SECLABEL:	The security label
+ * @KDBUS_ITEM_AUDIT:		The audit IDs
+ * @KDBUS_ITEM_NAME_ADD:	Notify in struct kdbus_notify_name_change
+ * @KDBUS_ITEM_NAME_REMOVE:	Notify in struct kdbus_notify_name_change
+ * @KDBUS_ITEM_NAME_CHANGE:	Notify in struct kdbus_notify_name_change
+ * @KDBUS_ITEM_ID_ADD:		Notify in struct kdbus_notify_id_change
+ * @KDBUS_ITEM_ID_REMOVE:	Notify in struct kdbus_notify_id_change
+ * @KDBUS_ITEM_REPLY_TIMEOUT:	Timeout has been reached
+ * @KDBUS_ITEM_REPLY_DEAD:	Destiantion died
+ */
 enum kdbus_item_type {
 	_KDBUS_ITEM_NULL,
 	_KDBUS_ITEM_USER_BASE,
-	KDBUS_ITEM_PAYLOAD_VEC	= _KDBUS_ITEM_USER_BASE, /* .data_vec */
-	KDBUS_ITEM_PAYLOAD_OFF,		/* data at returned offset in the pool */
-	KDBUS_ITEM_PAYLOAD_MEMFD,	/* data as sealed memfd */
-	KDBUS_ITEM_FDS,			/* attached file descriptors */
-	KDBUS_ITEM_BLOOM,		/* for broadcasts, carries bloom filter */
-	KDBUS_ITEM_DST_NAME,		/* destination's well-known name */
-	KDBUS_ITEM_PRIORITY,		/* queue priority for message */
+	KDBUS_ITEM_PAYLOAD_VEC	= _KDBUS_ITEM_USER_BASE,
+	KDBUS_ITEM_PAYLOAD_OFF,
+	KDBUS_ITEM_PAYLOAD_MEMFD,
+	KDBUS_ITEM_FDS,
+	KDBUS_ITEM_BLOOM,
+	KDBUS_ITEM_DST_NAME,
+	KDBUS_ITEM_PRIORITY,
 	KDBUS_ITEM_MAKE_NAME,
 
 	_KDBUS_ITEM_POLICY_BASE	= 0x400,
@@ -223,15 +254,14 @@ enum kdbus_item_type {
 	KDBUS_ITEM_SECLABEL,
 	KDBUS_ITEM_AUDIT,
 
-	/* Special messages from kernel */
 	_KDBUS_ITEM_KERNEL_BASE	= 0x800,
 	KDBUS_ITEM_NAME_ADD	= _KDBUS_ITEM_KERNEL_BASE,
-	KDBUS_ITEM_NAME_REMOVE,		/* .name_change */
-	KDBUS_ITEM_NAME_CHANGE,		/* .name_change */
-	KDBUS_ITEM_ID_ADD,		/* .id_change */
-	KDBUS_ITEM_ID_REMOVE,		/* .id_change */
-	KDBUS_ITEM_REPLY_TIMEOUT,	/* empty, reply_cookie is filled in */
-	KDBUS_ITEM_REPLY_DEAD,		/* dito */
+	KDBUS_ITEM_NAME_REMOVE,
+	KDBUS_ITEM_NAME_CHANGE,
+	KDBUS_ITEM_ID_ADD,
+	KDBUS_ITEM_ID_REMOVE,
+	KDBUS_ITEM_REPLY_TIMEOUT,
+	KDBUS_ITEM_REPLY_DEAD,
 };
 
 /**
@@ -504,6 +534,13 @@ struct kdbus_cmd_ns_make {
 	struct kdbus_item items[0];
 };
 
+/**
+ * enum kdbus_name_flags - properties of a well-known name
+ * @KDBUS_NAME_REPLACE_EXISTING:	Try to replace name of other connections
+ * @KDBUS_NAME_QUEUE:			Name should be queued if busy
+ * @KDBUS_NAME_ALLOW_REPLACEMENT:	Allow the replacement of the name
+ * @KDBUS_NAME_IN_QUEUE:		Name is queued
+ */
 enum kdbus_name_flags {
 	/* userspace → kernel */
 	KDBUS_NAME_REPLACE_EXISTING		= 1 <<  0,
@@ -534,6 +571,13 @@ struct kdbus_cmd_name {
 	char name[0];
 };
 
+/**
+ * enum kdbus_name_list_flags - what to include into the returned list
+ * @KDBUS_NAME_LIST_UNIQUE:	All active connections
+ * @KDBUS_NAME_LIST_NAMES:	All known well-known names
+ * @KDBUS_NAME_LIST_STARTERS:	All connections which are starter connections
+ * @KDBUS_NAME_LIST_QUEUED:	All queued-up names
+ */
 enum kdbus_name_list_flags {
 	KDBUS_NAME_LIST_UNIQUE		= 1 <<  0,
 	KDBUS_NAME_LIST_NAMES		= 1 <<  1,
@@ -655,6 +699,10 @@ struct kdbus_cmd_match {
 	struct kdbus_item items[0];
 };
 
+/**
+ * enum kdbus_monitor_flags - flags for monitoring
+ * @KDBUS_MONITOR_ENABLE:	Enable monitoring
+ */
 enum kdbus_monitor_flags {
 	KDBUS_MONITOR_ENABLE		= 1 <<  0,
 };
