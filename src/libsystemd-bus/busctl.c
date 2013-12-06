@@ -283,6 +283,8 @@ static int help(void) {
                "Commands:\n"
                "  list                    List bus names\n"
                "  monitor [SERVICE...]    Show bus traffic\n",
+               "  status ENDPOINT         Show endpoint status\n",
+               "  help                    Show this help\n",
                program_invocation_short_name);
 
         return 0;
