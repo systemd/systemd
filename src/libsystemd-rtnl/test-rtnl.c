@@ -65,9 +65,7 @@ static void test_route(void) {
         void *data;
         int r;
 
-        r = sd_rtnl_message_route_new(RTM_NEWROUTE, AF_INET, 0, 0, 0,
-                                      RT_TABLE_MAIN, RT_SCOPE_UNIVERSE, RTPROT_BOOT,
-                                      RTN_UNICAST, 0, &req);
+        r = sd_rtnl_message_route_new(RTM_NEWROUTE, AF_INET, &req);
         if (r < 0) {
                 log_error("Could not create RTM_NEWROUTE message: %s", strerror(-r));
                 return;

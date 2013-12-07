@@ -125,15 +125,23 @@ bool message_type_is_addr(uint16_t type) {
         }
 }
 
+int sd_rtnl_message_route_set_dst_prefixlen(sd_rtnl_message *m, unsigned char prefixlen) {
+        struct rtmsg *rtm;
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        rtm->rtm_dst_len = prefixlen;
+
+        return 0;
+}
+
 int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
-                              unsigned char rtm_dst_len, unsigned char rtm_src_len,
-                              unsigned char rtm_tos, unsigned char rtm_table,
-                              unsigned char rtm_scope, unsigned char rtm_protocol,
-                              unsigned char rtm_type, unsigned rtm_flags, sd_rtnl_message **ret) {
+                              sd_rtnl_message **ret) {
         struct rtmsg *rtm;
         int r;
 
         assert_return(message_type_is_route(nlmsg_type), -EINVAL);
+        assert_return(rtm_family == AF_INET || rtm_family == AF_INET6, -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(ret, NLMSG_SPACE(sizeof(struct rtmsg)));
@@ -148,14 +156,10 @@ int sd_rtnl_message_route_new(uint16_t nlmsg_type, unsigned char rtm_family,
         rtm = NLMSG_DATA((*ret)->hdr);
 
         rtm->rtm_family = rtm_family;
-        rtm->rtm_dst_len = rtm_dst_len;
-        rtm->rtm_src_len = rtm_src_len;
-        rtm->rtm_tos = rtm_tos;
-        rtm->rtm_table = rtm_table;
-        rtm->rtm_protocol = rtm_protocol;
-        rtm->rtm_scope = rtm_scope;
-        rtm->rtm_type = rtm_type;
-        rtm->rtm_flags = rtm_flags;
+        rtm->rtm_scope = RT_SCOPE_UNIVERSE;
+        rtm->rtm_type = RTN_UNICAST;
+        rtm->rtm_table = RT_TABLE_MAIN;
+        rtm->rtm_protocol = RTPROT_BOOT;
 
         return 0;
 }

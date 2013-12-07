@@ -86,9 +86,7 @@ int route_configure(Route *route, Link *link,
         assert(link->ifindex > 0);
         assert(route->family == AF_INET || route->family == AF_INET6);
 
-        r = sd_rtnl_message_route_new(RTM_NEWROUTE, route->family, route->dst_prefixlen,
-                                      0, 0, RT_TABLE_MAIN, RT_SCOPE_UNIVERSE,
-                                      RTPROT_BOOT, RTN_UNICAST, 0, &req);
+        r = sd_rtnl_message_route_new(RTM_NEWROUTE, route->family, &req);
         if (r < 0) {
                 log_error("Could not create RTM_NEWROUTE message: %s", strerror(-r));
                 return r;
@@ -103,6 +101,12 @@ int route_configure(Route *route, Link *link,
         r = sd_rtnl_message_append(req, RTA_DST, &route->dst_addr);
         if (r < 0) {
                 log_error("Could not append RTA_DST attribute: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
+        if (r < 0) {
+                log_error("Could not set destination prefix length: %s", strerror(-r));
                 return r;
         }
 
