@@ -175,7 +175,7 @@
                                                 separated by a '/' character. The format of the address must
                                                 be as described in
                                                 <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                                .</para>
+                                                . This is a short-hand for an [Address] section only containing an Address key (see below).</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -183,7 +183,7 @@
                                         <listitem>
                                                 <para>The gateway address, which must be in the format described in
                                                 <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                                .</para>
+                                                . This is a short-hand for a [Route] section only containing a Gateway key.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
