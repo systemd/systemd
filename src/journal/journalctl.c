@@ -658,7 +658,7 @@ static int add_matches(sd_journal *j, char **args) {
                                 if (executable_is_script(path, &interpreter) > 0) {
                                         _cleanup_free_ char *comm;
 
-                                        comm = strndup(path_get_file_name(path), 15);
+                                        comm = strndup(basename(path), 15);
                                         if (!comm)
                                                 return log_oom();
 

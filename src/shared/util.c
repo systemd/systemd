@@ -59,6 +59,7 @@
 #include <langinfo.h>
 #include <locale.h>
 #include <libgen.h>
+#undef basename
 
 #include "macro.h"
 #include "util.h"
@@ -3961,8 +3962,8 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
         if (!t)
                 return -ENOMEM;
 
-        fn = path_get_file_name(path);
-        k = fn-path;
+        fn = basename(path);
+        k = fn - path;
         memcpy(t, path, k);
         t[k] = '.';
         stpcpy(stpcpy(t+k+1, fn), "XXXXXX");
@@ -4147,7 +4148,7 @@ int symlink_atomic(const char *from, const char *to) {
         if (!t)
                 return -ENOMEM;
 
-        fn = path_get_file_name(to);
+        fn = basename(to);
         k = fn-to;
         memcpy(t, to, k);
         t[k] = '.';

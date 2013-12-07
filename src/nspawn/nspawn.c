@@ -1096,7 +1096,7 @@ int main(int argc, char *argv[]) {
         path_kill_slashes(arg_directory);
 
         if (!arg_machine) {
-                arg_machine = strdup(path_get_file_name(arg_directory));
+                arg_machine = strdup(basename(arg_directory));
                 if (!arg_machine) {
                         log_oom();
                         goto finish;

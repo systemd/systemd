@@ -45,18 +45,6 @@ bool is_path(const char *p) {
         return !!strchr(p, '/');
 }
 
-char *path_get_file_name(const char *p) {
-        char *r;
-
-        assert(p);
-
-        r = strrchr(p, '/');
-        if (r)
-                return r + 1;
-
-        return (char*) p;
-}
-
 int path_get_parent(const char *path, char **_r) {
         const char *e, *a = NULL, *b = NULL, *p;
         char *r;

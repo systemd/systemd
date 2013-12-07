@@ -276,10 +276,10 @@ static int remove_marked_symlinks_fd(
 
                         found =
                                 set_get(remove_symlinks_to, dest) ||
-                                set_get(remove_symlinks_to, path_get_file_name(dest));
+                                set_get(remove_symlinks_to, basename(dest));
 
                         if (unit_name_is_instance(p))
-                                found = found && strv_contains(files, path_get_file_name(p));
+                                found = found && strv_contains(files, basename(p));
 
                         if (found) {
 
@@ -451,7 +451,7 @@ static int find_symlinks_fd(
                         if (path_is_absolute(name))
                                 found_dest = path_equal(dest, name);
                         else
-                                found_dest = streq(path_get_file_name(dest), name);
+                                found_dest = streq(basename(dest), name);
 
                         if (found_path && found_dest) {
                                 _cleanup_free_ char *t = NULL;
@@ -718,7 +718,7 @@ int unit_file_link(
                 char *fn;
                 struct stat st;
 
-                fn = path_get_file_name(*i);
+                fn = basename(*i);
 
                 if (!path_is_absolute(*i) ||
                     !unit_name_is_valid(fn, true)) {
@@ -861,7 +861,7 @@ static int install_info_add(
         assert(name || path);
 
         if (!name)
-                name = path_get_file_name(path);
+                name = basename(path);
 
         if (!unit_name_is_valid(name, true))
                 return -EINVAL;
@@ -1429,7 +1429,7 @@ static int install_context_mark_for_removal(
                         char *unit_file;
 
                         if (i->path) {
-                                unit_file = path_get_file_name(i->path);
+                                unit_file = basename(i->path);
 
                                 if (unit_name_is_instance(unit_file))
                                         /* unit file named as instance exists, thus all symlinks
@@ -1647,7 +1647,7 @@ int unit_file_get_default(
                 else if (r < 0)
                         return r;
                 else
-                        n = strdup(path_get_file_name(tmp));
+                        n = strdup(basename(tmp));
 
                 if (!n)
                         return -ENOMEM;
@@ -2007,7 +2007,7 @@ int unit_file_get_list(
                                 f->state = UNIT_FILE_STATIC;
 
                 found:
-                        r = hashmap_put(h, path_get_file_name(f->path), f);
+                        r = hashmap_put(h, basename(f->path), f);
                         if (r < 0)
                                 return r;
                         f = NULL; /* prevent cleanup */

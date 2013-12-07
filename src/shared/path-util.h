@@ -34,7 +34,6 @@
 
 bool is_path(const char *p) _pure_;
 char** path_split_and_make_absolute(const char *p);
-char* path_get_file_name(const char *p) _pure_;
 int path_get_parent(const char *path, char **parent);
 bool path_is_absolute(const char *p) _pure_;
 char* path_make_absolute(const char *p, const char *prefix);

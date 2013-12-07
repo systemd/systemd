@@ -251,7 +251,7 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                 if (!p)
                         return -ENOMEM;
 
-                k = hashmap_put(h, path_get_file_name(p), p);
+                k = hashmap_put(h, basename(p), p);
                 if (k < 0) {
                         free(p);
                         if (k != -EEXIST)
@@ -303,7 +303,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
 
                 path_kill_slashes(p);
 
-                k = hashmap_put(top, path_get_file_name(p), p);
+                k = hashmap_put(top, basename(p), p);
                 if (k >= 0) {
                         p = strdup(p);
                         if (!p)
@@ -313,8 +313,8 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                         return k;
                 }
 
-                free(hashmap_remove(bottom, path_get_file_name(p)));
-                k = hashmap_put(bottom, path_get_file_name(p), p);
+                free(hashmap_remove(bottom, basename(p)));
+                k = hashmap_put(bottom, basename(p), p);
                 if (k < 0) {
                         free(p);
                         return k;

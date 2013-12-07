@@ -415,7 +415,7 @@ static int nftw_cb(
             !endswith(fpath, ".map.gz"))
                 return 0;
 
-        p = strdup(path_get_file_name(fpath));
+        p = strdup(basename(fpath));
         if (!p)
                 return log_oom();
 

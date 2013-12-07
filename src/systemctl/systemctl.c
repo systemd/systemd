@@ -980,7 +980,7 @@ static int compare_unit_file_list(const void *a, const void *b) {
                         return r;
         }
 
-        return strcasecmp(path_get_file_name(u->path), path_get_file_name(v->path));
+        return strcasecmp(basename(u->path), basename(v->path));
 }
 
 static bool output_show_unit_file(const UnitFileList *u) {
@@ -1000,7 +1000,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 if (!output_show_unit_file(u))
                         continue;
 
-                max_id_len = MAX(max_id_len, strlen(path_get_file_name(u->path)));
+                max_id_len = MAX(max_id_len, strlen(basename(u->path)));
                 state_cols = MAX(state_cols, strlen(unit_file_state_to_string(u->state)));
         }
 
@@ -1041,7 +1041,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 } else
                         on = off = "";
 
-                id = path_get_file_name(u->path);
+                id = basename(u->path);
 
                 e = arg_full ? NULL : ellipsize(id, id_cols, 33);
 
@@ -2688,7 +2688,7 @@ static void print_status_info(
 
                         last = ! (*(dropin + 1) && startswith(*(dropin + 1), dir));
 
-                        printf("%s%s", path_get_file_name(*dropin), last ? "\n" : ", ");
+                        printf("%s%s", basename(*dropin), last ? "\n" : ", ");
                 }
         }
 
@@ -4404,7 +4404,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!isempty(arg_root))
                         argv[c++] = q = strappend("--root=", arg_root);
 
-                argv[c++] = path_get_file_name(p);
+                argv[c++] = basename(p);
                 argv[c++] =
                         streq(verb, "enable") ? "on" :
                         streq(verb, "disable") ? "off" : "--level=5";

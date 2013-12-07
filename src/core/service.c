@@ -790,7 +790,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        r = sysv_translate_facility(n, path_get_file_name(path), &m);
+                                        r = sysv_translate_facility(n, basename(path), &m);
                                         free(n);
 
                                         if (r < 0)
@@ -842,7 +842,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        r = sysv_translate_facility(n, path_get_file_name(path), &m);
+                                        r = sysv_translate_facility(n, basename(path), &m);
                                         if (r < 0) {
                                                 log_error_unit(u->id,
                                                                "[%s:%u] Failed to translate LSB dependency %s, ignoring: %s",

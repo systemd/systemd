@@ -1848,7 +1848,7 @@ static const char *resolve_template(Unit *u, const char *name, const char*path, 
         assert(p);
 
         if (!name)
-                name = path_get_file_name(path);
+                name = basename(path);
 
         if (!unit_name_is_template(name)) {
                 *p = NULL;
@@ -2615,7 +2615,7 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
         if (u->unit_file_state < 0 && u->fragment_path)
                 u->unit_file_state = unit_file_get_state(
                                 u->manager->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
-                                NULL, path_get_file_name(u->fragment_path));
+                                NULL, basename(u->fragment_path));
 
         return u->unit_file_state;
 }

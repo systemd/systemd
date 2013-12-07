@@ -50,10 +50,10 @@ static void test_path(void) {
         assert_se(is_path("a/b"));
         assert_se(!is_path("."));
 
-        assert_se(streq(path_get_file_name("./aa/bb/../file.da."), "file.da."));
-        assert_se(streq(path_get_file_name("/aa///.file"), ".file"));
-        assert_se(streq(path_get_file_name("/aa///file..."), "file..."));
-        assert_se(streq(path_get_file_name("file.../"), ""));
+        assert_se(streq(basename("./aa/bb/../file.da."), "file.da."));
+        assert_se(streq(basename("/aa///.file"), ".file"));
+        assert_se(streq(basename("/aa///file..."), "file..."));
+        assert_se(streq(basename("file.../"), ""));
 
 #define test_parent(x, y) {                                \
                 char _cleanup_free_ *z = NULL;             \

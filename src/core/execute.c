@@ -41,6 +41,7 @@
 #include <linux/seccomp-bpf.h>
 #include <glob.h>
 #include <libgen.h>
+#undef basename
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
@@ -908,7 +909,7 @@ static void rename_process_from_path(const char *path) {
         /* This resulting string must fit in 10 chars (i.e. the length
          * of "/sbin/init") to look pretty in /bin/ps */
 
-        p = path_get_file_name(path);
+        p = basename(path);
         if (isempty(p)) {
                 rename_process("(...)");
                 return;
@@ -1197,13 +1198,13 @@ int exec_spawn(ExecCommand *command,
                         goto fail_child;
                 }
 
-                err = setup_output(context, STDOUT_FILENO, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
+                err = setup_output(context, STDOUT_FILENO, socket_fd, basename(command->path), unit_id, apply_tty_stdin);
                 if (err < 0) {
                         r = EXIT_STDOUT;
                         goto fail_child;
                 }
 
-                err = setup_output(context, STDERR_FILENO, socket_fd, path_get_file_name(command->path), unit_id, apply_tty_stdin);
+                err = setup_output(context, STDERR_FILENO, socket_fd, basename(command->path), unit_id, apply_tty_stdin);
                 if (err < 0) {
                         r = EXIT_STDERR;
                         goto fail_child;
