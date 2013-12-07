@@ -110,12 +110,12 @@ int route_configure(Route *route, Link *link,
                         log_error("Could not append RTA_DST attribute: %s", strerror(-r));
                         return r;
                 }
-        }
 
-        r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
-        if (r < 0) {
-                log_error("Could not set destination prefix length: %s", strerror(-r));
-                return r;
+                r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
+                if (r < 0) {
+                        log_error("Could not set destination prefix length: %s", strerror(-r));
+                        return r;
+                }
         }
 
         r = sd_rtnl_message_append_u32(req, RTA_OIF, link->ifindex);
@@ -204,20 +204,9 @@ int config_parse_destination(const char *unit,
 
         /* Destination=address/prefixlen */
 
-        /* prefixlen */
+        /* address */
         e = strchr(rvalue, '/');
         if (e) {
-                unsigned i;
-                r = safe_atou(e + 1, &i);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Route destination prefix length is invalid, "
-                                   "ignoring assignment: %s", e + 1);
-                        return 0;
-                }
-
-                n->dst_prefixlen = (unsigned char) i;
-
                 address = strndup(rvalue, e - rvalue);
                 if (!address)
                         return log_oom();
@@ -232,6 +221,30 @@ int config_parse_destination(const char *unit,
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Destination is invalid, ignoring assignment: %s", address);
                 return 0;
+        }
+
+        /* prefixlen */
+        if (e) {
+                unsigned i;
+
+                r = safe_atou(e + 1, &i);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Route destination prefix length is invalid, "
+                                   "ignoring assignment: %s", e + 1);
+                        return 0;
+                }
+
+                n->dst_prefixlen = (unsigned char) i;
+        } else {
+                switch (n->family) {
+                        case AF_INET:
+                                n->dst_prefixlen = 32;
+                                break;
+                        case AF_INET6:
+                                n->dst_prefixlen = 128;
+                                break;
+                }
         }
 
         n = NULL;

@@ -209,6 +209,24 @@
                                                 <para>An address label.</para>
                                         </listitem>
                                 </varlistentry>
+                        </variablelist>
+
+                        <para>The <literal>[Route]</literal> section accepts the following keys:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Gateway</varname></term>
+                                        <listitem>
+                                                <para>As in the <literal>[Network]</literal> section.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Destination</varname></term>
+                                        <listitem>
+                                                <para>The destination prefix of the route. Possibly followed by a slash and the
+                                                prefixlength, if ommitted a full-length host route is assumed.</para>
+                                        </listitem>
+                                </varlistentry>
                        </variablelist>
                 </refsect2>
         </refsect1>
