@@ -70,6 +70,7 @@ EOF
         setup_testsuite
 
         install_dmevent
+        generate_module_dependencies
         cat >$initdir/etc/crypttab <<EOF
 $DM_NAME UUID=$ID_FS_UUID /etc/varkey
 EOF
