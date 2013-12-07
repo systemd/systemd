@@ -526,22 +526,26 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
       <variablelist>
         <varlistentry>
-          <term><command>list-units</command></term>
+          <term><command>list-units <optional><replaceable>PATTERN...</replaceable></optional></command></term>
 
           <listitem>
             <para>List known units (subject to limitations specified
-            with <option>-t</option>).</para>
+            with <option>-t</option>). If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only
+            units matching one of them are shown.</para>
 
             <para>This is the default command.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-sockets</command></term>
+          <term><command>list-sockets <optional><replaceable>PATTERN...</replaceable></optional></command></term>
 
           <listitem>
-            <para>List socket units ordered by the listening address. Produces output
-            similar to
+            <para>List socket units ordered by the listening address.
+            If one or more <replaceable>PATTERN</replaceable>s are
+            specified, only socket units matching one of them are
+            shown. Produces output similar to
             <programlisting>
 LISTEN           UNIT                        ACTIVATES
 /dev/initctl     systemd-initctl.socket      systemd-initctl.service
@@ -561,10 +565,13 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-timers</command></term>
+          <term><command>list-timers <optional><replaceable>PATTERN...</replaceable></optional></command></term>
 
           <listitem>
-            <para>List timer units ordered by the time they elapse next.</para>
+            <para>List timer units ordered by the time they elapse
+            next. If one or more <replaceable>PATTERN</replaceable>s
+            are specified, only units matching one of them are shown.
+            </para>
 
             <para>See also the options <option>--all</option> and
             <option>--failed</option>.</para>
@@ -814,10 +821,13 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
       <variablelist>
         <varlistentry>
-          <term><command>list-unit-files</command></term>
+          <term><command>list-unit-files <optional><replaceable>PATTERN...</replaceable></optional></command></term>
 
           <listitem>
-            <para>List installed unit files.</para>
+            <para>List installed unit files. If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only
+            units whose filename (just the last component of the path)
+            matches one of them are shown.</para>
           </listitem>
         </varlistentry>
 
@@ -1013,10 +1023,12 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
       <variablelist>
         <varlistentry>
-          <term><command>list-jobs</command></term>
+          <term><command>list-jobs <optional><replaceable>PATTERN...</replaceable></optional></command></term>
 
           <listitem>
-            <para>List jobs that are in progress.</para>
+            <para>List jobs that are in progress. If one or more
+            <replaceable>PATTERN</replaceable>s are specified, only
+            jobs for units matching one of them are shown.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1036,7 +1048,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
       <variablelist>
         <varlistentry>
-          <term><command>snapshot [<replaceable>NAME</replaceable>]</command></term>
+          <term><command>snapshot <optional><replaceable>NAME</replaceable></optional></command></term>
 
           <listitem>
             <para>Create a snapshot. If a snapshot name is specified,
@@ -1281,7 +1293,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>switch-root <replaceable>ROOT</replaceable> [<replaceable>INIT</replaceable>]</command></term>
+          <term><command>switch-root <replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></command></term>
 
           <listitem>
             <para>Switches to a different root directory and executes a

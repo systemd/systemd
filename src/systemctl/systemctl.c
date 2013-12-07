@@ -37,6 +37,7 @@
 #include <sys/stat.h>
 #include <stddef.h>
 #include <sys/prctl.h>
+#include <fnmatch.h>
 
 #include "sd-daemon.h"
 #include "sd-shutdown.h"
@@ -139,6 +140,12 @@ static int daemon_reload(sd_bus *bus, char **args);
 static int halt_now(enum action a);
 
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet);
+
+static char** strv_skip_first(char **strv) {
+        if (strv_length(strv) > 0)
+                return strv + 1;
+        return NULL;
+}
 
 static void pager_open_if_enabled(void) {
 
@@ -280,7 +287,7 @@ static int compare_unit_info(const void *a, const void *b) {
         return strcasecmp(u->id, v->id);
 }
 
-static bool output_show_unit(const UnitInfo *u) {
+static bool output_show_unit(const UnitInfo *u, char **patterns) {
         const char *dot;
 
         if (!strv_isempty(arg_states))
@@ -289,13 +296,22 @@ static bool output_show_unit(const UnitInfo *u) {
                         strv_contains(arg_states, u->sub_state) ||
                         strv_contains(arg_states, u->active_state);
 
+        if (!strv_isempty(patterns)) {
+                char **pattern;
+
+                STRV_FOREACH(pattern, patterns)
+                        if (fnmatch(*pattern, u->id, FNM_NOESCAPE) == 0)
+                                return true;
+                return false;
+        }
+
         return (!arg_types || ((dot = strrchr(u->id, '.')) &&
                                strv_find(arg_types, dot+1))) &&
                 (arg_all || !(streq(u->active_state, "inactive")
                               || u->following[0]) || u->job_id > 0);
 }
 
-static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
+static void output_units_list(const UnitInfo *unit_infos, unsigned c, char** patterns) {
         unsigned id_len, max_id_len, load_len, active_len, sub_len, job_len, desc_len;
         const UnitInfo *u;
         unsigned n_shown = 0;
@@ -309,7 +325,7 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
         desc_len = 0;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
-                if (!output_show_unit(u))
+                if (!output_show_unit(u, patterns))
                         continue;
 
                 max_id_len = MAX(max_id_len, strlen(u->id));
@@ -358,7 +374,7 @@ static void output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 const char *on_loaded, *off_loaded, *on = "";
                 const char *on_active, *off_active, *off = "";
 
-                if (!output_show_unit(u))
+                if (!output_show_unit(u, patterns))
                         continue;
 
                 if (!n_shown && !arg_no_legend) {
@@ -504,7 +520,7 @@ static int list_units(sd_bus *bus, char **args) {
                 return r;
 
         qsort_safe(unit_infos, r, sizeof(UnitInfo), compare_unit_info);
-        output_units_list(unit_infos, r);
+        output_units_list(unit_infos, r, strv_skip_first(args));
 
         return 0;
 }
@@ -693,7 +709,7 @@ static int list_sockets(sd_bus *bus, char **args) {
                 _cleanup_strv_free_ char **listening = NULL, **triggered = NULL;
                 int i, c;
 
-                if (!output_show_unit(u))
+                if (!output_show_unit(u, strv_skip_first(args)))
                         continue;
 
                 if (!endswith(u->id, ".socket"))
@@ -910,7 +926,7 @@ static int list_timers(sd_bus *bus, char **args) {
                 dual_timestamp next;
                 usec_t m;
 
-                if (!output_show_unit(u))
+                if (!output_show_unit(u, strv_skip_first(args)))
                         continue;
 
                 if (!endswith(u->id, ".timer"))
@@ -983,13 +999,22 @@ static int compare_unit_file_list(const void *a, const void *b) {
         return strcasecmp(basename(u->path), basename(v->path));
 }
 
-static bool output_show_unit_file(const UnitFileList *u) {
+static bool output_show_unit_file(const UnitFileList *u, char **patterns) {
         const char *dot;
+
+        if (!strv_isempty(patterns)) {
+                char **pattern;
+
+                STRV_FOREACH(pattern, patterns)
+                        if (fnmatch(*pattern, basename(u->path), FNM_NOESCAPE) == 0)
+                                return true;
+                return false;
+        }
 
         return !arg_types || ((dot = strrchr(u->path, '.')) && strv_find(arg_types, dot+1));
 }
 
-static void output_unit_file_list(const UnitFileList *units, unsigned c) {
+static void output_unit_file_list(const UnitFileList *units, unsigned c, char **patterns) {
         unsigned max_id_len, id_cols, state_cols, n_shown = 0;
         const UnitFileList *u;
 
@@ -997,7 +1022,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
         state_cols = sizeof("STATE")-1;
 
         for (u = units; u < units + c; u++) {
-                if (!output_show_unit_file(u))
+                if (!output_show_unit_file(u, patterns))
                         continue;
 
                 max_id_len = MAX(max_id_len, strlen(basename(u->path)));
@@ -1024,7 +1049,7 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 const char *on, *off;
                 const char *id;
 
-                if (!output_show_unit_file(u))
+                if (!output_show_unit_file(u, patterns))
                         continue;
 
                 n_shown++;
@@ -1137,7 +1162,7 @@ static int list_unit_files(sd_bus *bus, char **args) {
 
         if (c > 0) {
                 qsort(units, c, sizeof(UnitFileList), compare_unit_file_list);
-                output_unit_file_list(units, c);
+                output_unit_file_list(units, c, strv_skip_first(args));
         }
 
         return 0;
@@ -1511,7 +1536,7 @@ struct job_info {
         const char *name, *type, *state;
 };
 
-static void output_jobs_list(const struct job_info* jobs, unsigned n) {
+static void output_jobs_list(const struct job_info* jobs, unsigned n, bool skipped) {
         unsigned id_len, unit_len, type_len, state_len;
         const struct job_info *j;
         const char *on, *off;
@@ -1523,7 +1548,7 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n) {
                 on = ansi_highlight_green();
                 off = ansi_highlight_off();
 
-                printf("%sNo jobs running.%s\n", on, off);
+                printf("%sNo jobs %s.%s\n", on, skipped ? "listed" : "running", off);
                 return;
         }
 
@@ -1581,6 +1606,19 @@ static void output_jobs_list(const struct job_info* jobs, unsigned n) {
         }
 }
 
+static bool output_show_job(struct job_info *job, char **patterns) {
+        if (!strv_isempty(patterns)) {
+                char **pattern;
+
+                STRV_FOREACH(pattern, patterns)
+                        if (fnmatch(*pattern, job->name, FNM_NOESCAPE) == 0)
+                                return true;
+                return false;
+        }
+
+        return true;
+}
+
 static int list_jobs(sd_bus *bus, char **args) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
@@ -1590,6 +1628,7 @@ static int list_jobs(sd_bus *bus, char **args) {
         unsigned c = 0;
         uint32_t id;
         int r;
+        bool skipped = false;
 
         r = sd_bus_call_method(
                         bus,
@@ -1610,16 +1649,17 @@ static int list_jobs(sd_bus *bus, char **args) {
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_read(reply, "(usssoo)", &id, &name, &type, &state, &job_path, &unit_path)) > 0) {
+                struct job_info job = { id, name, type, state };
+
+                if (!output_show_job(&job, strv_skip_first(args))) {
+                        skipped = true;
+                        continue;
+                }
 
                 if (!GREEDY_REALLOC(jobs, size, c + 1))
                         return log_oom();
 
-                jobs[c++] = (struct job_info) {
-                        id,
-                        name,
-                        type,
-                        state
-                };
+                jobs[c++] = job;
         }
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -1628,7 +1668,7 @@ static int list_jobs(sd_bus *bus, char **args) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        output_jobs_list(jobs, c);
+        output_jobs_list(jobs, c, skipped);
         return r;
 }
 
@@ -3661,7 +3701,7 @@ static int show_all(
         for (u = unit_infos; u < unit_infos + c; u++) {
                 _cleanup_free_ char *p = NULL;
 
-                if (!output_show_unit(u))
+                if (!output_show_unit(u, NULL))
                         continue;
 
                 p = unit_dbus_path_from_name(u->id);
@@ -4770,9 +4810,9 @@ static int systemctl_help(void) {
                "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
                "                      verbose, export, json, json-pretty, json-sse, cat)\n\n"
                "Unit Commands:\n"
-               "  list-units                      List loaded units\n"
-               "  list-sockets                    List loaded sockets ordered by address\n"
-               "  list-timers                     List loaded timers ordered by next elapse\n"
+               "  list-units [PATTERN...]         List loaded units\n"
+               "  list-sockets [PATTERN...]       List loaded sockets ordered by address\n"
+               "  list-timers [PATTERN...]        List loaded timers ordered by next elapse\n"
                "  start [NAME...]                 Start (activate) one or more units\n"
                "  stop [NAME...]                  Stop (deactivate) one or more units\n"
                "  reload [NAME...]                Reload one or more units\n"
@@ -4799,7 +4839,7 @@ static int systemctl_help(void) {
                "                                  or wanted by this unit or by which this\n"
                "                                  unit is required or wanted\n\n"
                "Unit File Commands:\n"
-               "  list-unit-files                 List installed unit files\n"
+               "  list-unit-files [PATTERN...]    List installed unit files\n"
                "  enable [NAME...]                Enable one or more unit files\n"
                "  disable [NAME...]               Disable one or more unit files\n"
                "  reenable [NAME...]              Reenable one or more unit files\n"
@@ -4813,7 +4853,7 @@ static int systemctl_help(void) {
                "  get-default                     Get the name of the default target\n"
                "  set-default NAME                Set the default target\n\n"
                "Job Commands:\n"
-               "  list-jobs                       List jobs\n"
+               "  list-jobs [PATTERN...]          List jobs\n"
                "  cancel [JOB...]                 Cancel all, one, or more jobs\n\n"
                "Snapshot Commands:\n"
                "  snapshot [NAME]                 Create a snapshot\n"
@@ -5749,11 +5789,11 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 const int argc;
                 int (* const dispatch)(sd_bus *bus, char **args);
         } verbs[] = {
-                { "list-units",            LESS,  1, list_units        },
-                { "list-unit-files",       EQUAL, 1, list_unit_files   },
-                { "list-sockets",          LESS,  1, list_sockets      },
-                { "list-timers",           LESS,  1, list_timers       },
-                { "list-jobs",             EQUAL, 1, list_jobs         },
+                { "list-units",            MORE,  0, list_units        },
+                { "list-unit-files",       MORE,  1, list_unit_files   },
+                { "list-sockets",          MORE,  1, list_sockets      },
+                { "list-timers",           MORE,  1, list_timers       },
+                { "list-jobs",             MORE,  1, list_jobs         },
                 { "clear-jobs",            EQUAL, 1, daemon_reload     },
                 { "cancel",                MORE,  2, cancel_job        },
                 { "start",                 MORE,  2, start_unit        },
