@@ -10,12 +10,63 @@ KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 BASICTOOLS="sh bash setsid loadkeys setfont login sushell sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe"
 DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort"
 
+function find_qemu_bin() {
+    # SUSE and Red Hat call the binary qemu-kvm
+    # Debian and Gentoo call it kvm
+    [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a kvm qemu-kvm 2>/dev/null | grep '^/' -m1)
+
+    [ "$ARCH" ] || ARCH=$(uname -m)
+    case $ARCH in
+    x86_64)
+        # QEMU's own build system calls it qemu-system-x86_64
+        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-x86_64 2>/dev/null | grep '^/' -m1)
+        ;;
+    i*86)
+        # new i386 version of QEMU
+        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu-system-i386 2>/dev/null | grep '^/' -m1)
+
+        # i386 version of QEMU
+        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a qemu 2>/dev/null | grep '^/' -m1)
+        ;;
+    esac
+
+    if [ ! -e "$QEMU_BIN" ]; then
+        echo "Could not find a suitable QEMU binary" >&2
+        return 1
+    fi
+}
+
 run_qemu() {
-    qemu-kvm \
-        -hda $TESTDIR/rootdisk.img \
-        -m 512M -nographic \
-        -net none -kernel /boot/vmlinuz-$KERNEL_VER \
-        -append "root=/dev/sda1 systemd.log_level=debug raid=noautodetect loglevel=2 init=/usr/lib/systemd/systemd ro console=ttyS0,115200n81 selinux=0 $DEBUGFAIL" || return 1
+    [ "$KERNEL_BIN" ] || KERNEL_BIN=/boot/vmlinuz-$KERNEL_VER
+    [ "$INITRD" ]     || INITRD=/boot/initramfs-${KERNEL_VER}.img
+    [ "$QEMU_SMP" ]   || QEMU_SMP=1
+
+    find_qemu_bin || return 1
+
+    KERNEL_APPEND="root=/dev/sda1 \
+systemd.log_level=debug \
+raid=noautodetect \
+loglevel=2 \
+init=/usr/lib/systemd/systemd \
+ro \
+console=ttyS0 \
+selinux=0 \
+$KERNEL_APPEND \
+"
+
+    QEMU_OPTIONS="-machine accel=kvm:tcg \
+-smp $QEMU_SMP \
+-net none \
+-m 512M \
+-nographic \
+-kernel $KERNEL_BIN \
+"
+
+    if [ "$INITRD" ]; then
+        QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
+    fi
+
+    $QEMU_BIN $QEMU_OPTIONS -append "$KERNEL_APPEND" $TESTDIR/rootdisk.img || return 1
 }
 
 run_nspawn() {
@@ -1041,10 +1092,6 @@ inst_libdir_file() {
             done
         done
     fi
-}
-
-check_qemu() {
-    command -v qemu-kvm &>/dev/null && [[ -c /dev/kvm ]]
 }
 
 check_nspawn() {

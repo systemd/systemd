@@ -5,9 +5,6 @@ TEST_DESCRIPTION="Basic systemd setup"
 
 . $TEST_BASE_DIR/test-functions
 
-# Uncomment this to debug failures
-#DEBUGFAIL="systemd.unit=multi-user.target"
-
 check_result_qemu() {
     ret=1
     mkdir -p $TESTDIR/root
@@ -23,11 +20,10 @@ check_result_qemu() {
 }
 
 test_run() {
-    if check_qemu ; then
-        run_qemu
+    if run_qemu; then
         check_result_qemu || return 1
     else
-        dwarn "can't run qemu-kvm, skipping"
+        dwarn "can't run QEMU, skipping"
     fi
     if check_nspawn; then
         run_nspawn

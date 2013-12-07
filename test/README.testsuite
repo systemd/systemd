@@ -25,11 +25,24 @@ $ make all
 $ cd test/TEST-01-BASIC
 $ sudo make clean setup run
 
-If you want to log in the testsuite virtual machine, you can specify
-additional kernel command line parameter with $DEBUGFAIL.
+QEMU
+====
 
-$ sudo make DEBUGFAIL="systemd.unit=multi-user.target" clean setup run
+If you want to log in the testsuite virtual machine, you can specify
+additional kernel command line parameter with $KERNEL_APPEND.
+
+$ sudo make KERNEL_APPEND="systemd.unit=multi-user.target" clean setup run
 
 you can even skip the "clean" and "setup" if you want to run the machine again.
 
-$ sudo make DEBUGFAIL="systemd.unit=multi-user.target" run
+$ sudo make KERNEL_APPEND="systemd.unit=multi-user.target" run
+
+You can specify a different kernel and initramfs with $KERNEL_BIN and $INITRD.
+(Fedora's default kernel path and initramfs are used by default)
+
+$ sudo make KERNEL_BIN=/boot/vmlinuz-foo INITRD=/boot/initramfs-bar clean check
+
+A script will try to find your QEMU binary. If you want to specify a different
+one you can use $QEMU_BIN.
+
+$ sudo make QEMU_BIN=/path/to/qemu/qemu-kvm clean check
