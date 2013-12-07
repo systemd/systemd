@@ -1843,59 +1843,85 @@ static int enable_wait_for_jobs(sd_bus *bus) {
         return 0;
 }
 
+static int bus_process_wait(sd_bus *bus) {
+        int r;
+
+        for (;;) {
+                r = sd_bus_process(bus, NULL);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 0;
+                r = sd_bus_wait(bus, (uint64_t) -1);
+                if (r < 0)
+                        return r;
+        }
+}
+
+static int check_wait_response(WaitData *d) {
+        int r = 0;
+
+        assert(d->result);
+
+        if (!arg_quiet) {
+                if (streq(d->result, "timeout"))
+                        log_error("Job for %s timed out.", strna(d->name));
+                else if (streq(d->result, "canceled"))
+                        log_error("Job for %s canceled.", strna(d->name));
+                else if (streq(d->result, "dependency"))
+                        log_error("A dependency job for %s failed. See 'journalctl -xn' for details.", strna(d->name));
+                else if (!streq(d->result, "done") && !streq(d->result, "skipped"))
+                        log_error("Job for %s failed. See 'systemctl status %s' and 'journalctl -xn' for details.", strna(d->name), strna(d->name));
+        }
+
+        if (streq(d->result, "timeout"))
+                r = -ETIME;
+        else if (streq(d->result, "canceled"))
+                r = -ECANCELED;
+        else if (streq(d->result, "dependency"))
+                r = -EIO;
+        else if (!streq(d->result, "done") && !streq(d->result, "skipped"))
+                r = -EIO;
+
+        return r;
+}
+
 static int wait_for_jobs(sd_bus *bus, Set *s) {
         WaitData d = { .set = s };
-        int r;
+        int r = 0, q;
 
         assert(bus);
         assert(s);
 
-        r = sd_bus_add_filter(bus, wait_filter, &d);
-        if (r < 0)
+        q = sd_bus_add_filter(bus, wait_filter, &d);
+        if (q < 0)
                 return log_oom();
 
         while (!set_isempty(s)) {
-                for (;;) {
-                        r = sd_bus_process(bus, NULL);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                break;
-                        r = sd_bus_wait(bus, (uint64_t) -1);
-                        if (r < 0)
-                                return r;
+                q = bus_process_wait(bus);
+                if (q < 0)
+                        return q;
+
+                if (d.result) {
+                        q = check_wait_response(&d);
+                        /* Return the first error as it is most likely to be
+                         * meaningful. */
+                        if (q < 0 && r == 0)
+                                r = q;
                 }
 
-                if (!d.result)
-                        goto free_name;
-
-                if (!arg_quiet) {
-                        if (streq(d.result, "timeout"))
-                                log_error("Job for %s timed out.", strna(d.name));
-                        else if (streq(d.result, "canceled"))
-                                log_error("Job for %s canceled.", strna(d.name));
-                        else if (streq(d.result, "dependency"))
-                                log_error("A dependency job for %s failed. See 'journalctl -xn' for details.", strna(d.name));
-                        else if (!streq(d.result, "done") && !streq(d.result, "skipped"))
-                                log_error("Job for %s failed. See 'systemctl status %s' and 'journalctl -xn' for details.", strna(d.name), strna(d.name));
-                }
-
-                if (streq_ptr(d.result, "timeout"))
-                        r = -ETIME;
-                else if (streq_ptr(d.result, "canceled"))
-                        r = -ECANCELED;
-                else if (!streq_ptr(d.result, "done") && !streq_ptr(d.result, "skipped"))
-                        r = -EIO;
+                free(d.name);
+                d.name = NULL;
 
                 free(d.result);
                 d.result = NULL;
-
-        free_name:
-                free(d.name);
-                d.name = NULL;
         }
 
-        return sd_bus_remove_filter(bus, wait_filter, &d);
+        q = sd_bus_remove_filter(bus, wait_filter, &d);
+        if (q < 0 && r == 0)
+                r = q;
+
+        return r;
 }
 
 static int check_one_unit(sd_bus *bus, const char *name, const char *good_states, bool quiet) {
