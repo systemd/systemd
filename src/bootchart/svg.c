@@ -705,7 +705,6 @@ static void svg_io_bo_bar(void) {
                 double tot;
                 double pbo;
 
-                tot = 0;
                 pbo = 0;
 
                 start = MAX(i - ((range / 2) - 1), 0);
