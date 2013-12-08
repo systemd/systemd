@@ -5813,9 +5813,13 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 } argc_cmp;
                 const int argc;
                 int (* const dispatch)(sd_bus *bus, char **args);
+                const enum {
+                        NOBUS = 1,
+                        FORCE,
+                } bus;
         } verbs[] = {
                 { "list-units",            MORE,  0, list_units        },
-                { "list-unit-files",       MORE,  1, list_unit_files   },
+                { "list-unit-files",       MORE,  1, list_unit_files,  NOBUS },
                 { "list-sockets",          MORE,  1, list_sockets      },
                 { "list-timers",           MORE,  1, list_timers       },
                 { "list-jobs",             MORE,  1, list_jobs         },
@@ -5848,9 +5852,9 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "show-environment",      EQUAL, 1, show_environment  },
                 { "set-environment",       MORE,  2, set_environment   },
                 { "unset-environment",     MORE,  2, set_environment   },
-                { "halt",                  EQUAL, 1, start_special     },
-                { "poweroff",              EQUAL, 1, start_special     },
-                { "reboot",                EQUAL, 1, start_special     },
+                { "halt",                  EQUAL, 1, start_special,    FORCE },
+                { "poweroff",              EQUAL, 1, start_special,    FORCE },
+                { "reboot",                EQUAL, 1, start_special,    FORCE },
                 { "kexec",                 EQUAL, 1, start_special     },
                 { "suspend",               EQUAL, 1, start_special     },
                 { "hibernate",             EQUAL, 1, start_special     },
@@ -5860,53 +5864,50 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 { "emergency",             EQUAL, 1, start_special     },
                 { "exit",                  EQUAL, 1, start_special     },
                 { "reset-failed",          MORE,  1, reset_failed      },
-                { "enable",                MORE,  2, enable_unit       },
-                { "disable",               MORE,  2, enable_unit       },
-                { "is-enabled",            MORE,  2, unit_is_enabled   },
-                { "reenable",              MORE,  2, enable_unit       },
-                { "preset",                MORE,  2, enable_unit       },
-                { "mask",                  MORE,  2, enable_unit       },
-                { "unmask",                MORE,  2, enable_unit       },
-                { "link",                  MORE,  2, enable_unit       },
+                { "enable",                MORE,  2, enable_unit,      NOBUS },
+                { "disable",               MORE,  2, enable_unit,      NOBUS },
+                { "is-enabled",            MORE,  2, unit_is_enabled,  NOBUS },
+                { "reenable",              MORE,  2, enable_unit,      NOBUS },
+                { "preset",                MORE,  2, enable_unit,      NOBUS },
+                { "mask",                  MORE,  2, enable_unit,      NOBUS },
+                { "unmask",                MORE,  2, enable_unit,      NOBUS },
+                { "link",                  MORE,  2, enable_unit,      NOBUS },
                 { "switch-root",           MORE,  2, switch_root       },
                 { "list-dependencies",     LESS,  2, list_dependencies },
-                { "set-default",           EQUAL, 2, set_default       },
-                { "get-default",           EQUAL, 1, get_default       },
+                { "set-default",           EQUAL, 2, set_default,      NOBUS },
+                { "get-default",           EQUAL, 1, get_default,      NOBUS },
                 { "set-property",          MORE,  3, set_property      },
-        };
+                {}
+        }, *verb = verbs;
 
         int left;
-        unsigned i;
 
         assert(argc >= 0);
         assert(argv);
 
         left = argc - optind;
 
-        if (left <= 0)
-                /* Special rule: no arguments means "list-units" */
-                i = 0;
-        else {
+        /* Special rule: no arguments (left == 0) means "list-units" */
+        if (left > 0) {
                 if (streq(argv[optind], "help") && !argv[optind+1]) {
                         log_error("This command expects one or more "
                                   "unit names. Did you mean --help?");
                         return -EINVAL;
                 }
 
-                for (i = 0; i < ELEMENTSOF(verbs); i++)
-                        if (streq(argv[optind], verbs[i].verb))
-                                break;
+                for (; verb->verb; verb++)
+                        if (streq(argv[optind], verb->verb))
+                                goto found;
 
-                if (i >= ELEMENTSOF(verbs)) {
-                        log_error("Unknown operation '%s'.", argv[optind]);
-                        return -EINVAL;
-                }
+                log_error("Unknown operation '%s'.", argv[optind]);
+                return -EINVAL;
         }
+found:
 
-        switch (verbs[i].argc_cmp) {
+        switch (verb->argc_cmp) {
 
         case EQUAL:
-                if (left != verbs[i].argc) {
+                if (left != verb->argc) {
                         log_error("Invalid number of arguments.");
                         return -EINVAL;
                 }
@@ -5914,7 +5915,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 break;
 
         case MORE:
-                if (left < verbs[i].argc) {
+                if (left < verb->argc) {
                         log_error("Too few arguments.");
                         return -EINVAL;
                 }
@@ -5922,7 +5923,7 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
                 break;
 
         case LESS:
-                if (left > verbs[i].argc) {
+                if (left > verb->argc) {
                         log_error("Too many arguments.");
                         return -EINVAL;
                 }
@@ -5935,39 +5936,25 @@ static int systemctl_main(sd_bus *bus, int argc, char *argv[], int bus_error) {
 
         /* Require a bus connection for all operations but
          * enable/disable */
-        if (!streq(verbs[i].verb, "enable") &&
-            !streq(verbs[i].verb, "disable") &&
-            !streq(verbs[i].verb, "is-enabled") &&
-            !streq(verbs[i].verb, "list-unit-files") &&
-            !streq(verbs[i].verb, "reenable") &&
-            !streq(verbs[i].verb, "preset") &&
-            !streq(verbs[i].verb, "mask") &&
-            !streq(verbs[i].verb, "unmask") &&
-            !streq(verbs[i].verb, "link") &&
-            !streq(verbs[i].verb, "set-default") &&
-            !streq(verbs[i].verb, "get-default")) {
+        if (verb->bus == NOBUS) {
+                if (!bus && !avoid_bus()) {
+                        log_error("Failed to get D-Bus connection: %s", strerror(-bus_error));
+                        return -EIO;
+                }
 
+        } else {
                 if (running_in_chroot() > 0) {
                         log_info("Running in chroot, ignoring request.");
                         return 0;
                 }
 
-                if (((!streq(verbs[i].verb, "reboot") &&
-                      !streq(verbs[i].verb, "halt") &&
-                      !streq(verbs[i].verb, "poweroff")) || arg_force <= 0) && !bus) {
-                        log_error("Failed to get D-Bus connection: %s", strerror (-bus_error));
-                        return -EIO;
-                }
-
-        } else {
-
-                if (!bus && !avoid_bus()) {
-                        log_error("Failed to get D-Bus connection: %s", strerror (-bus_error));
+                if ((verb->bus != FORCE || arg_force <= 0) && !bus) {
+                        log_error("Failed to get D-Bus connection: %s", strerror(-bus_error));
                         return -EIO;
                 }
         }
 
-        return verbs[i].dispatch(bus, argv + optind);
+        return verb->dispatch(bus, argv + optind);
 }
 
 static int send_shutdownd(usec_t t, char mode, bool dry_run, bool warn, const char *message) {
