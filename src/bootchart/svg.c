@@ -68,16 +68,16 @@ static double idletime = -1.0;
 static int pfiltered = 0;
 static int pcount = 0;
 static int kcount = 0;
-static float psize = 0;
-static float ksize = 0;
-static float esize = 0;
+static double psize = 0;
+static double ksize = 0;
+static double esize = 0;
 static struct list_sample_data *sampledata;
 static struct list_sample_data *prev_sampledata;
 extern struct list_sample_data *head;
 
 static void svg_header(void) {
-        float w;
-        float h;
+        double w;
+        double h;
         struct list_sample_data *sampledata_last;
 
         sampledata = head;
