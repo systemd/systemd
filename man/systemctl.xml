@@ -443,7 +443,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
         <listitem>
           <para>When used with <command>enable</command>,
-          <command>disable</command>, <command>is-enabled</command>
+          <command>disable</command>,
           (and related commands), make changes only temporarily, so
           that they are lost on the next reboot. This will have the
           effect that changes are not made in subdirectories of
@@ -920,10 +920,64 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
           <listitem>
             <para>Checks whether any of the specified unit files are
-            enabled (as with <command>enable</command>). Returns an exit
-            code of 0 if at least one is enabled, non-zero
-            otherwise. Prints the current enable status. To suppress
-            this output, use <option>--quiet</option>.</para>
+            enabled (as with <command>enable</command>). Returns an
+            exit code of 0 if at least one is enabled, non-zero
+            otherwise. Prints the current enable status (see table).
+            To suppress this output, use <option>--quiet</option>.
+            </para>
+
+            <table>
+              <title>
+                <command>is-enabled</command> output
+              </title>
+
+              <tgroup cols='3'>
+                <thead>
+                  <row>
+                    <entry>Printed string</entry>
+                    <entry>Meaning</entry>
+                    <entry>Return value</entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry><literal>enabled</literal></entry>
+                    <entry morerows='1'>Enabled through a symlink in <filename>.wants</filename> directory (permanently or just in <filename>/run</filename>)</entry>
+                    <entry morerows='1'>0</entry>
+                  </row>
+                  <row>
+                    <entry><literal>enabled-runtime</literal></entry>
+                  </row>
+                  <row>
+                    <entry><literal>linked</literal></entry>
+                    <entry morerows='1'>Made available through a symlink to the unit file (permanently or just in <filename>/run</filename>)</entry>
+                    <entry morerows='1'>1</entry>
+                  </row>
+                  <row>
+                    <entry><literal>linked-runtime</literal></entry>
+                  </row>
+                  <row>
+                    <entry><literal>masked</literal></entry>
+                    <entry morerows='1'>Disabled entirely (permanently or just in <filename>/run</filename>)</entry>
+                    <entry morerows='1'>1</entry>
+                  </row>
+                  <row>
+                    <entry><literal>masked-runtime</literal></entry>
+                  </row>
+                  <row>
+                    <entry><literal>static</literal></entry>
+                    <entry>Unit is not enabled, but has no provisions for enabling in [Install] section</entry>
+                    <entry>1</entry>
+                  </row>
+                  <row>
+                    <entry><literal>disabled</literal></entry>
+                    <entry>Unit is not enabled</entry>
+                    <entry>1</entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+
           </listitem>
         </varlistentry>
 
