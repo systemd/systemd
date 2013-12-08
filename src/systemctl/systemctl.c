@@ -4766,7 +4766,7 @@ static int unit_is_enabled(sd_bus *bus, char **args) {
                                         "GetUnitFileState",
                                         &error,
                                         &reply,
-                                        "s", name);
+                                        "s", *name);
                         if (r < 0) {
                                 log_error("Failed to get unit file state for %s: %s", *name, bus_error_message(&error, r));
                                 return r;
