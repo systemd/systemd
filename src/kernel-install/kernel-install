@@ -21,9 +21,9 @@
 
 usage()
 {
-    echo "Usage:" >&2
-    echo "        $0 add <kernel-version> <kernel-image>" >&2
-    echo "        $0 remove <kernel-version> <kernel-image>" >&2
+    echo "Usage:"
+    echo "        $0 add KERNEL-VERSION KERNEL-IMAGE"
+    echo "        $0 remove KERNEL-VERSION KERNEL-IMAGE"
 }
 
 dropindirs_sort()
@@ -54,6 +54,13 @@ dropindirs_sort()
 
 export LC_COLLATE=C
 
+for i in "$@"; do
+    if [ "$i" == "--help" -o "$i" == "-h" ]; then
+        usage
+        exit 0
+    fi
+done
+
 if [[ "${0##*/}" == 'installkernel' ]]; then
     COMMAND='add'
 else
@@ -75,7 +82,7 @@ if ! [[ $MACHINE_ID ]]; then
 fi
 
 if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
-    usage
+    echo "Not enough arguments" >&2
     exit 1
 fi
 
@@ -90,8 +97,8 @@ readarray -t PLUGINS < <(
 
 case $COMMAND in
     add)
-        if [[ ! $KERNEL_IMAGE ]]; then
-            usage
+        if [[ ! "$KERNEL_IMAGE" ]]; then
+            echo "Command 'add' requires an argument" >&2
             exit 1
         fi
 
@@ -121,7 +128,7 @@ case $COMMAND in
         ;;
 
     *)
-        usage
+        echo "Unknown command '$COMMAND'" >&2
         exit 1
         ;;
 esac
