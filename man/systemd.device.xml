@@ -102,28 +102,35 @@
                 <variablelist class='udev-directives'>
                         <varlistentry>
                                 <term><varname>SYSTEMD_WANTS=</varname></term>
+                                <term><varname>SYSTEMD_USER_WANTS=</varname></term>
                                 <listitem><para>Adds dependencies of
-                                type <varname>Wants</varname> from
-                                the device unit to all listed units. This
-                                may be used to activate arbitrary
-                                units when a specific device becomes
-                                available. Note that this and the
+                                type <varname>Wants</varname> from the
+                                device unit to all listed units. The
+                                first form is used by the system
+                                systemd instance, the second by user
+                                systemd instances. Those settings may
+                                be used to activate arbitrary units
+                                when a specific device becomes
+                                available.</para>
+
+                                <para>Note that this and the
                                 other tags are not taken into account
                                 unless the device is tagged with the
                                 <literal>systemd</literal> string in
                                 the udev database, because otherwise
-                                the device is not exposed as systemd
-                                unit (see above). Note that systemd
-                                will only act on
-                                <varname>Wants</varname> dependencies
-                                when a device first becomes active, it
-                                will not act on them if they are added
-                                to devices that are already
-                                active. Use
+                                the device is not exposed as a systemd
+                                unit (see above).</para>
+
+                                <para>Note that systemd will only act
+                                on <varname>Wants</varname>
+                                dependencies when a device first
+                                becomes active. It will not act on
+                                them if they are added to devices that
+                                are already active. Use
                                 <varname>SYSTEMD_READY=</varname> (see
                                 below) to influence on which udev
-                                event to trigger the device
-                                dependencies.</para></listitem>
+                                event to trigger the dependencies.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -142,11 +149,13 @@
                                 even if it shows up in the udev
                                 tree. If this property is unset or set
                                 to 1, the device will be considered
-                                plugged the moment it shows up in the
+                                plugged if it visible in the
                                 udev tree. This property has no
                                 influence on the behavior when a
                                 device disappears from the udev
-                                tree. This option is useful to support
+                                tree.</para>
+
+                                <para>This option is useful to support
                                 devices that initially show up in an
                                 uninitialized state in the tree, and
                                 for which a <literal>changed</literal>
