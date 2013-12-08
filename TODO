@@ -4,8 +4,6 @@ Bugfixes:
     $ systemctl enable getty@.service
     ln -s '/usr/lib/systemd/system/getty@.service' '/etc/systemd/system/getty.target.wants/getty@.service'
 
-* swap units that are activated by one name but shown in the kernel under another are semi-broken
-
 * Dangling symlinks of .automount unit files in .wants/ directories, set up
   automount points even when the original .automount file did not exist
   anymore. Only the .mount unit was still around.
