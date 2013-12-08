@@ -340,6 +340,7 @@ void stdout_stream_free(StdoutStream *s) {
 #endif
 
         free(s->identifier);
+        free(s->unit_id);
         free(s);
 }
 
