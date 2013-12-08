@@ -410,21 +410,20 @@ static int help(void) {
 
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system time and date settings.\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "     --no-ask-password   Do not prompt for password\n"
-               "  -H --host=[USER@]HOST  Operate on remote host\n"
-               "  -M --machine=CONTAINER Operate on local container\n"
-               "     --adjust-system-clock\n"
-               "                         Adjust system clock when changing local RTC mode\n\n"
+               "  -h --help                Show this help\n"
+               "     --version             Show package version\n"
+               "     --no-pager            Do not pipe output into a pager\n"
+               "     --no-ask-password     Do not prompt for password\n"
+               "  -H --host=[USER@]HOST    Operate on remote host\n"
+               "  -M --machine=CONTAINER   Operate on local container\n"
+               "     --adjust-system-clock Adjust system clock when changing local RTC mode\n\n"
                "Commands:\n"
-               "  status                 Show current time settings\n"
-               "  set-time TIME          Set system time\n"
-               "  set-timezone ZONE      Set system timezone\n"
-               "  list-timezones         Show known timezones\n"
-               "  set-local-rtc BOOL     Control whether RTC is in local time\n"
-               "  set-ntp BOOL           Control whether NTP is enabled\n",
+               "  status                   Show current time settings\n"
+               "  set-time TIME            Set system time\n"
+               "  set-timezone ZONE        Set system timezone\n"
+               "  list-timezones           Show known timezones\n"
+               "  set-local-rtc BOOL       Control whether RTC is in local time\n"
+               "  set-ntp BOOL             Control whether NTP is enabled\n",
                program_invocation_short_name);
 
         return 0;

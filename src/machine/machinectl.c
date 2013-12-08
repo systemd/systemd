@@ -639,11 +639,11 @@ static int help(void) {
                "  -s --signal=SIGNAL     Which signal to send\n\n"
                "Commands:\n"
                "  list                   List running VMs and containers\n"
-               "  status [NAME...]       Show VM/container status\n"
-               "  show [NAME...]         Show properties of one or more VMs/containers\n"
-               "  terminate [NAME...]    Terminate one or more VMs/containers\n"
-               "  kill [NAME...]         Send signal to processes of a VM/container\n"
-               "  login [NAME]           Get a login prompt on a container\n",
+               "  status NAME...         Show VM/container status\n"
+               "  show NAME...           Show properties of one or more VMs/containers\n"
+               "  terminate NAME...      Terminate one or more VMs/containers\n"
+               "  kill NAME...           Send signal to processes of a VM/container\n"
+               "  login NAME             Get a login prompt on a container\n",
                program_invocation_short_name);
 
         return 0;

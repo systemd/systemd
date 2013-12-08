@@ -201,7 +201,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>session-status [ID...]</command></term>
+                                <term><command>session-status</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
@@ -214,7 +214,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>show-session [ID...]</command></term>
+                                <term><command>show-session</command> <optional><replaceable>ID</replaceable>...</optional></term>
 
                                 <listitem><para>Show properties of one
                                 or more sessions or the manager
@@ -237,7 +237,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>activate [ID...]</command></term>
+                                <term><command>activate</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Activate one or more
                                 sessions. This brings one or more
@@ -248,12 +248,13 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>lock-session [ID...]</command></term>
-                                <term><command>unlock-session [ID...]</command></term>
+                                <term><command>lock-session</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>unlock-session</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Activates/deactivates
                                 the screen lock on one or more
-                                sessions, if the session supports it.</para></listitem>
+                                sessions, if the session supports it.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -262,22 +263,22 @@
 
                                 <listitem><para>Activates/deactivates
                                 the screen lock on all current
-                                sessions supporting
-                                it.</para></listitem>
+                                sessions supporting it.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>terminate-session [ID...]</command></term>
+                                <term><command>terminate-session</command> <replaceable>ID</replaceable>...</term>
 
-                                <listitem><para>Terminates a
-                                session. This kills all processes of
-                                the session and deallocates all
-                                resources attached to the
-                                session.</para></listitem>
+                                <listitem><para>Terminates a session.
+                                This kills all processes of the
+                                session and deallocates all resources
+                                attached to the session.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>kill-session [ID...]</command></term>
+                                <term><command>kill-session</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Send a signal to one
                                 or more processes of the session. Use
@@ -295,7 +296,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>user-status [USER...]</command></term>
+                                <term><command>user-status</command> <replaceable>USER</replaceable>...</term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
@@ -303,14 +304,14 @@
                                 intended to generate human-readable
                                 output. If you are looking for
                                 computer-parsable output, use
-                                <command>show-user</command>
-                                instead. Users may be specified by
-                                their usernames or numeric user
-                                IDs.</para></listitem>
+                                <command>show-user</command> instead.
+                                Users may be specified by their
+                                usernames or numeric user IDs.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>show-user [USER...]</command></term>
+                                <term><command>show-user</command> <optional><replaceable>USER</replaceable>...</optional></term>
 
                                 <listitem><para>Show properties of one
                                 or more users or the manager
@@ -333,13 +334,13 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>enable-linger [USER...]</command></term>
-                                <term><command>disable-linger [USER...]</command></term>
+                                <term><command>enable-linger</command> <replaceable>USER</replaceable>...</term>
+                                <term><command>disable-linger</command> <replaceable>USER</replaceable>...</term>
 
                                 <listitem><para>Enable/disable user
                                 lingering for one or more users. If
                                 enabled for a specific user, a user
-                                manager is spawned for him/her at
+                                manager is spawned for the user at
                                 boot and kept around after
                                 logouts. This allows users who are not
                                 logged in to run long-running
@@ -347,18 +348,18 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>terminate-user [USER...]</command></term>
+                                <term><command>terminate-user</command> <replaceable>USER</replaceable>...</term>
 
                                 <listitem><para>Terminates all
                                 sessions of a user. This kills all
                                 processes of all sessions of the user
                                 and deallocates all runtime resources
-                                attached to the
-                                user.</para></listitem>
+                                attached to the user.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>kill-user [USER...]</command></term>
+                                <term><command>kill-user</command> <replaceable>USER</replaceable>...</term>
 
                                 <listitem><para>Send a signal to all
                                 processes of a user. Use
@@ -375,7 +376,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>seat-status [NAME...]</command></term>
+                                <term><command>seat-status</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
@@ -388,7 +389,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>show-seat [NAME...]</command></term>
+                                <term><command>show-seat</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Show properties of one
                                 or more seats or the manager
@@ -411,7 +412,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>attach [NAME] [DEVICE...]</command></term>
+                                <term><command>attach</command> <replaceable>NAME</replaceable> <replaceable>DEVICE</replaceable>...</term>
 
                                 <listitem><para>Persistently attach
                                 one or more devices to a seat. The
@@ -444,12 +445,12 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>terminate-seat [NAME...]</command></term>
+                                <term><command>terminate-seat</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Terminates all
                                 sessions on a seat. This kills all
-                                processes of all sessions on a seat and
-                                deallocates all runtime resources
+                                processes of all sessions on the seat
+                                and deallocates all runtime resources
                                 attached to them.</para></listitem>
                         </varlistentry>
                 </variablelist>

@@ -202,7 +202,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>status [ID...]</command></term>
+                                <term><command>status</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
@@ -215,7 +215,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>show [ID...]</command></term>
+                                <term><command>show</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Show properties of one
                                 or more registered virtual machines or
@@ -239,7 +239,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>terminate [ID...]</command></term>
+                                <term><command>terminate</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Terminates a virtual
                                 machine or container. This kills all
@@ -250,7 +250,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>kill [ID...]</command></term>
+                                <term><command>kill</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Send a signal to one
                                 or more processes of the virtual
@@ -265,7 +265,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>login [ID]</command></term>
+                                <term><command>login</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Open a terminal login
                                 session to a container. This will

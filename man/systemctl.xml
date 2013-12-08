@@ -526,7 +526,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
       <variablelist>
         <varlistentry>
-          <term><command>list-units <optional><replaceable>PATTERN...</replaceable></optional></command></term>
+          <term><command>list-units <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
 
           <listitem>
             <para>List known units (subject to limitations specified
@@ -539,7 +539,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-sockets <optional><replaceable>PATTERN...</replaceable></optional></command></term>
+          <term><command>list-sockets <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
 
           <listitem>
             <para>List socket units ordered by the listening address.
@@ -565,7 +565,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-timers <optional><replaceable>PATTERN...</replaceable></optional></command></term>
+          <term><command>list-timers <optional><replaceable>PATTERN</replaceable>...</optional></command></term>
 
           <listitem>
             <para>List timer units ordered by the time they elapse
@@ -708,7 +708,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>status [<replaceable>NAME</replaceable>...|<replaceable>PID</replaceable>...]</command></term>
+          <term><command>status</command> <optional><replaceable>NAME</replaceable>...|<replaceable>PID</replaceable>...]</optional></term>
 
           <listitem>
             <para>Show terse runtime status information about one or
@@ -724,7 +724,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>show [<replaceable>NAME</replaceable>...|<replaceable>JOB</replaceable>...]</command></term>
+          <term><command>show</command> <optional><replaceable>NAME</replaceable>...|<replaceable>JOB</replaceable>...</optional></term>
 
           <listitem>
             <para>Show properties of one or more units, jobs, or the
