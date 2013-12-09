@@ -3847,6 +3847,19 @@ lib_LTLIBRARIES += \
 endif
 
 # ------------------------------------------------------------------------------
+test_dhcp_client_SOURCES = \
+	src/libsystemd-dhcp/protocol.h \
+	src/systemd/sd-dhcp-client.h \
+	src/libsystemd-dhcp/dhcp-client.c \
+	src/libsystemd-dhcp/test-dhcp-client.c
+
+test_dhcp_client_LDADD = \
+	libsystemd-shared.la
+
+tests += \
+	test-dhcp-client
+
+# ------------------------------------------------------------------------------
 if ENABLE_MACHINED
 systemd_machined_SOURCES = \
 	src/machine/machined.c \
