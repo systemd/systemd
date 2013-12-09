@@ -55,6 +55,11 @@ struct DHCPPacket {
 
 typedef struct DHCPPacket DHCPPacket;
 
+enum {
+        DHCP_PORT_SERVER                        = 67,
+        DHCP_PORT_CLIENT                        = 68,
+};
+
 enum DHCPState {
         DHCP_STATE_INIT                         = 0,
         DHCP_STATE_SELECTING                    = 1,
@@ -100,5 +105,6 @@ enum {
         DHCP_OPTION_OVERLOAD                    = 52,
         DHCP_OPTION_MESSAGE_TYPE                = 53,
         DHCP_OPTION_PARAMETER_REQUEST_LIST      = 55,
+        DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
         DHCP_OPTION_END                         = 255,
 };
