@@ -56,6 +56,7 @@ struct sd_dhcp_client {
         struct ether_addr mac_addr;
         uint32_t xid;
         usec_t start_time;
+        unsigned int attempt;
         DHCPLease *lease;
 };
 
@@ -150,6 +151,8 @@ static int client_stop(sd_dhcp_client *client, int error)
         client->fd = -1;
 
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
+
+        client->attempt = 1;
 
         switch (client->state) {
 
@@ -252,6 +255,28 @@ static uint16_t client_checksum(void *buf, int len)
         return ~((sum & 0xffff) + (sum >> 16));
 }
 
+static void client_append_ip_headers(DHCPPacket *packet, uint16_t len)
+{
+        packet->ip.version = IPVERSION;
+        packet->ip.ihl = DHCP_IP_SIZE / 4;
+        packet->ip.tot_len = htobe16(len);
+
+        packet->ip.protocol = IPPROTO_UDP;
+        packet->ip.saddr = INADDR_ANY;
+        packet->ip.daddr = INADDR_BROADCAST;
+
+        packet->udp.source = htobe16(DHCP_PORT_CLIENT);
+        packet->udp.dest = htobe16(DHCP_PORT_SERVER);
+        packet->udp.len = htobe16(len - DHCP_IP_SIZE);
+
+        packet->ip.check = packet->udp.len;
+        packet->udp.check = client_checksum(&packet->ip.ttl, len - 8);
+
+        packet->ip.ttl = IPDEFTTL;
+        packet->ip.check = 0;
+        packet->ip.check = client_checksum(&packet->ip, DHCP_IP_SIZE);
+}
+
 static int client_send_discover(sd_dhcp_client *client, uint16_t secs)
 {
         int err = 0;
@@ -284,29 +309,55 @@ static int client_send_discover(sd_dhcp_client *client, uint16_t secs)
         if (err < 0)
                 return err;
 
-        discover->ip.version = IPVERSION;
-        discover->ip.ihl = sizeof(discover->ip) >> 2;
-        discover->ip.tot_len = htobe16(len);
-
-        discover->ip.protocol = IPPROTO_UDP;
-        discover->ip.saddr = INADDR_ANY;
-        discover->ip.daddr = INADDR_BROADCAST;
-
-        discover->udp.source = htobe16(DHCP_PORT_CLIENT);
-        discover->udp.dest = htobe16(DHCP_PORT_SERVER);
-        discover->udp.len = htobe16(len - sizeof(discover->ip));
-
-        discover->ip.check = discover->udp.len;
-        discover->udp.check = client_checksum(&discover->ip.ttl,
-                                              len - 8);
-
-        discover->ip.ttl = IPDEFTTL;
-        discover->ip.check = 0;
-        discover->ip.check = client_checksum(&discover->ip,
-                                             sizeof(discover->ip));
+        client_append_ip_headers(discover, len);
 
         err = dhcp_network_send_raw_socket(client->fd, &client->link,
                                            discover, len);
+
+        return err;
+}
+
+static int client_send_request(sd_dhcp_client *client, uint16_t secs)
+{
+        _cleanup_free_ DHCPPacket *request;
+        size_t optlen, len;
+        int err;
+        uint8_t *opt;
+
+        optlen = DHCP_CLIENT_MIN_OPTIONS_SIZE;
+        len = DHCP_MESSAGE_SIZE + optlen;
+
+        request = malloc0(len);
+        if (!request)
+                return -ENOMEM;
+
+        err = client_packet_init(client, DHCP_REQUEST, &request->dhcp, secs,
+                                 &opt, &optlen);
+        if (err < 0)
+                return err;
+
+        if (client->state == DHCP_STATE_REQUESTING) {
+                err = dhcp_option_append(&opt, &optlen,
+                                         DHCP_OPTION_REQUESTED_IP_ADDRESS,
+                                         4, &client->lease->address);
+                if (err < 0)
+                        return err;
+
+                err = dhcp_option_append(&opt, &optlen,
+                                         DHCP_OPTION_SERVER_IDENTIFIER,
+                                         4, &client->lease->server_address);
+                if (err < 0)
+                        return err;
+        }
+
+        err = dhcp_option_append(&opt, &optlen, DHCP_OPTION_END, 0, NULL);
+        if (err < 0)
+                return err;
+
+        client_append_ip_headers(request, len);
+
+        err = dhcp_network_send_raw_socket(client->fd, &client->link,
+                                           request, len);
 
         return err;
 }
@@ -319,32 +370,50 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
         uint16_t secs;
         int err = 0;
 
+        secs = (usec - client->start_time) / USEC_PER_SEC;
+
+        if (client->attempt < 64)
+                client->attempt *= 2;
+
+        next_timeout = usec + (client->attempt - 1) * USEC_PER_SEC +
+                (random_u() & 0x1fffff);
+
+        err = sd_event_add_monotonic(client->event, next_timeout,
+                                     10 * USEC_PER_MSEC,
+                                     client_timeout_resend, client,
+                                     &client->timeout_resend);
+        if (err < 0)
+                goto error;
+
         switch (client->state) {
         case DHCP_STATE_INIT:
+                err = client_send_discover(client, secs);
+                if (err >= 0) {
+                        client->state = DHCP_STATE_SELECTING;
+                        client->attempt = 1;
+                } else {
+                        if (client->attempt >= 64)
+                                goto error;
+                }
+
+                break;
+
         case DHCP_STATE_SELECTING:
-
-                if (!client->start_time)
-                        client->start_time = usec;
-
-                secs = (usec - client->start_time) / USEC_PER_SEC;
-
-                next_timeout = usec + 2 * USEC_PER_SEC + (random() & 0x1fffff);
-
-                err = sd_event_add_monotonic(client->event, next_timeout,
-                                             10 * USEC_PER_MSEC,
-                                             client_timeout_resend, client,
-                                             &client->timeout_resend);
-                if (err < 0)
+                err = client_send_discover(client, secs);
+                if (err < 0 && client->attempt >= 64)
                         goto error;
 
-                if (client_send_discover(client, secs) >= 0)
-                        client->state = DHCP_STATE_SELECTING;
+                break;
+
+        case DHCP_STATE_REQUESTING:
+                err = client_send_request(client, secs);
+                if (err < 0 && client->attempt >= 64)
+                         goto error;
 
                 break;
 
         case DHCP_STATE_INIT_REBOOT:
         case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_REQUESTING:
         case DHCP_STATE_BOUND:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
@@ -468,11 +537,16 @@ static int client_receive_raw_message(sd_event_source *s, int fd,
         sd_dhcp_client *client = userdata;
         uint8_t buf[sizeof(DHCPPacket) + DHCP_CLIENT_MIN_OPTIONS_SIZE];
         int buflen = sizeof(buf);
-        int len;
+        int len, err = 0;
         DHCPPacket *message;
+        usec_t time_now;
 
         len = read(fd, &buf, buflen);
         if (len < 0)
+                return 0;
+
+        err = sd_event_get_now_monotonic(client->event, &time_now);
+        if (err < 0)
                 goto error;
 
         message = (DHCPPacket *)&buf;
@@ -482,15 +556,18 @@ static int client_receive_raw_message(sd_event_source *s, int fd,
 
                 if (client_receive_offer(client, message, len) >= 0) {
 
-                        client->receive_message =
-                                sd_event_source_unref(client->receive_message);
-                        close(client->fd);
-                        client->fd = -1;
-
                         client->timeout_resend =
                                 sd_event_source_unref(client->timeout_resend);
 
                         client->state = DHCP_STATE_REQUESTING;
+                        client->attempt = 1;
+
+                        err = sd_event_add_monotonic(client->event, time_now, 0,
+                                                     client_timeout_resend,
+                                                     client,
+                                                     &client->timeout_resend);
+                        if (err < 0)
+                                goto error;
                 }
 
                 break;
@@ -507,6 +584,9 @@ static int client_receive_raw_message(sd_event_source *s, int fd,
         }
 
 error:
+        if (err < 0)
+                return client_stop(client, err);
+
         return 0;
 }
 
@@ -535,7 +615,8 @@ int sd_dhcp_client_start(sd_dhcp_client *client)
         if (err < 0)
                 goto error;
 
-        err = sd_event_add_monotonic(client->event, now(CLOCK_MONOTONIC), 0,
+        client->start_time = now(CLOCK_MONOTONIC);
+        err = sd_event_add_monotonic(client->event, client->start_time, 0,
                                      client_timeout_resend, client,
                                      &client->timeout_resend);
         if (err < 0)
@@ -568,6 +649,7 @@ sd_dhcp_client *sd_dhcp_client_new(sd_event *event)
         client->state = DHCP_STATE_INIT;
         client->index = -1;
         client->fd = -1;
+        client->attempt = 1;
 
         client->req_opts_size = ELEMENTSOF(default_req_opts);
 
