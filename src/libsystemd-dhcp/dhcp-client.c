@@ -63,6 +63,8 @@ struct sd_dhcp_client {
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
         sd_event_source *timeout_expire;
+        sd_dhcp_client_cb_t cb;
+        void *userdata;
         DHCPLease *lease;
 };
 
@@ -74,6 +76,17 @@ static const uint8_t default_req_opts[] = {
         DHCP_OPTION_DOMAIN_NAME_SERVER,
         DHCP_OPTION_NTP_SERVER,
 };
+
+int sd_dhcp_client_set_callback(sd_dhcp_client *client, sd_dhcp_client_cb_t cb,
+                                void *userdata)
+{
+        assert_return(client, -EINVAL);
+
+        client->cb = cb;
+        client->userdata = userdata;
+
+        return 0;
+}
 
 int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option)
 {
@@ -143,8 +156,99 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client,
         return 0;
 }
 
+int sd_dhcp_client_get_address(sd_dhcp_client *client, struct in_addr *addr)
+{
+        assert_return(client, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        switch (client->state) {
+        case DHCP_STATE_INIT:
+        case DHCP_STATE_SELECTING:
+        case DHCP_STATE_INIT_REBOOT:
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
+                return -EADDRNOTAVAIL;
+
+        case DHCP_STATE_BOUND:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+                addr->s_addr = client->lease->address;
+
+                break;
+        }
+
+        return 0;
+}
+
+int sd_dhcp_client_get_netmask(sd_dhcp_client *client, struct in_addr *addr)
+{
+        assert_return(client, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        switch (client->state) {
+        case DHCP_STATE_INIT:
+        case DHCP_STATE_SELECTING:
+        case DHCP_STATE_INIT_REBOOT:
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
+                return -EADDRNOTAVAIL;
+
+        case DHCP_STATE_BOUND:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+                addr->s_addr = client->lease->subnet_mask;
+
+                break;
+        }
+
+        return 0;
+}
+
+int sd_dhcp_client_prefixlen(const struct in_addr *addr)
+{
+        int len = 0;
+        uint32_t mask;
+
+        assert_return(addr, -EADDRNOTAVAIL);
+
+        mask = be32toh(addr->s_addr);
+        while (mask) {
+                len++;
+                mask = mask << 1;
+        }
+
+        return len;
+}
+
+int sd_dhcp_client_get_router(sd_dhcp_client *client, struct in_addr *addr)
+{
+        assert_return(client, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        switch (client->state) {
+        case DHCP_STATE_INIT:
+        case DHCP_STATE_SELECTING:
+        case DHCP_STATE_INIT_REBOOT:
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
+                return -EADDRNOTAVAIL;
+
+        case DHCP_STATE_BOUND:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+                addr->s_addr = client->lease->router;
+
+                break;
+        }
+
+        return 0;
+}
+
 static int client_notify(sd_dhcp_client *client, int event)
 {
+        if (client->cb)
+                client->cb(client, event, client->userdata);
+
         return 0;
 }
 
@@ -168,6 +272,8 @@ static int client_stop(sd_dhcp_client *client, int error)
         client->timeout_expire = sd_event_source_unref(client->timeout_expire);
 
         client->attempt = 1;
+
+        client_notify(client, error);
 
         switch (client->state) {
 
@@ -463,6 +569,10 @@ error:
 static int client_timeout_expire(sd_event_source *s, uint64_t usec,
                                  void *userdata)
 {
+        sd_dhcp_client *client = userdata;
+
+        client_stop(client, DHCP_EVENT_EXPIRED);
+
         return 0;
 }
 
@@ -848,7 +958,7 @@ error:
 
 int sd_dhcp_client_stop(sd_dhcp_client *client)
 {
-        return client_stop(client, 0);
+        return client_stop(client, DHCP_EVENT_STOP);
 }
 
 sd_dhcp_client *sd_dhcp_client_new(sd_event *event)

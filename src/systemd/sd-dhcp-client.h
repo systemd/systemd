@@ -28,12 +28,20 @@
 #include "sd-event.h"
 
 enum {
+        DHCP_EVENT_STOP                         = 0,
         DHCP_EVENT_NO_LEASE                     = 1,
         DHCP_EVENT_IP_ACQUIRE                   = 2,
         DHCP_EVENT_IP_CHANGE                    = 3,
+        DHCP_EVENT_EXPIRED                      = 4,
 };
 
 typedef struct sd_dhcp_client sd_dhcp_client;
+
+typedef void (*sd_dhcp_client_cb_t)(sd_dhcp_client *client, int event,
+                                    void *userdata);
+int sd_dhcp_client_set_callback(sd_dhcp_client *client, sd_dhcp_client_cb_t cb,
+                                void *userdata);
+
 
 int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option);
 int sd_dhcp_client_set_request_address(sd_dhcp_client *client,
@@ -41,6 +49,11 @@ int sd_dhcp_client_set_request_address(sd_dhcp_client *client,
 int sd_dhcp_client_set_index(sd_dhcp_client *client, int interface_index);
 int sd_dhcp_client_set_mac(sd_dhcp_client *client,
                            const struct ether_addr *addr);
+
+int sd_dhcp_client_get_address(sd_dhcp_client *client, struct in_addr *addr);
+int sd_dhcp_client_get_netmask(sd_dhcp_client *client, struct in_addr *addr);
+int sd_dhcp_client_prefixlen(const struct in_addr *addr);
+int sd_dhcp_client_get_router(sd_dhcp_client *client, struct in_addr *addr);
 
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
