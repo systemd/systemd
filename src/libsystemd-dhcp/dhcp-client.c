@@ -33,6 +33,8 @@
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
 struct DHCPLease {
+        uint32_t t1;
+        uint32_t t2;
         uint32_t lifetime;
         uint32_t address;
         uint32_t server_address;
@@ -57,6 +59,10 @@ struct sd_dhcp_client {
         uint32_t xid;
         usec_t start_time;
         unsigned int attempt;
+        usec_t request_sent;
+        sd_event_source *timeout_t1;
+        sd_event_source *timeout_t2;
+        sd_event_source *timeout_expire;
         DHCPLease *lease;
 };
 
@@ -157,6 +163,10 @@ static int client_stop(sd_dhcp_client *client, int error)
 
         client->timeout_resend = sd_event_source_unref(client->timeout_resend);
 
+        client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
+        client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
+        client->timeout_expire = sd_event_source_unref(client->timeout_expire);
+
         client->attempt = 1;
 
         switch (client->state) {
@@ -164,6 +174,7 @@ static int client_stop(sd_dhcp_client *client, int error)
         case DHCP_STATE_INIT:
         case DHCP_STATE_SELECTING:
         case DHCP_STATE_REQUESTING:
+        case DHCP_STATE_BOUND:
 
                 client->start_time = 0;
                 client->state = DHCP_STATE_INIT;
@@ -171,7 +182,6 @@ static int client_stop(sd_dhcp_client *client, int error)
 
         case DHCP_STATE_INIT_REBOOT:
         case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_BOUND:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
 
@@ -427,6 +437,8 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec,
                 if (err < 0 && client->attempt >= 64)
                          goto error;
 
+                client->request_sent = usec;
+
                 break;
 
         case DHCP_STATE_INIT_REBOOT:
@@ -445,6 +457,22 @@ error:
 
         /* Errors were dealt with when stopping the client, don't spill
            errors into the event loop handler */
+        return 0;
+}
+
+static int client_timeout_expire(sd_event_source *s, uint64_t usec,
+                                 void *userdata)
+{
+        return 0;
+}
+
+static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata)
+{
+        return 0;
+}
+
+static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata)
+{
         return 0;
 }
 
@@ -479,6 +507,22 @@ static int client_parse_offer(uint8_t code, uint8_t len, const uint8_t *option,
         case DHCP_OPTION_ROUTER:
                 if (len >= 4)
                         memcpy(&lease->router, option, 4);
+
+                break;
+
+        case DHCP_OPTION_RENEWAL_T1_TIME:
+                if (len == 4) {
+                        memcpy(&val, option, 4);
+                        lease->t1 = be32toh(val);
+                }
+
+                break;
+
+        case DHCP_OPTION_REBINDING_T2_TIME:
+                if (len == 4) {
+                        memcpy(&val, option, 4);
+                        lease->t2 = be32toh(val);
+                }
 
                 break;
         }
@@ -610,6 +654,72 @@ error:
         return r;
 }
 
+static uint64_t client_compute_timeout(uint64_t request_sent,
+                                       uint32_t lifetime)
+{
+        return request_sent + (lifetime - 3) * USEC_PER_SEC +
+                + (random_u() & 0x1fffff);
+}
+
+static int client_set_lease_timeouts(sd_dhcp_client *client, uint64_t usec)
+{
+        int err;
+        uint64_t next_timeout;
+
+        if (client->lease->lifetime < 10)
+                return -EINVAL;
+
+        if (!client->lease->t1)
+                client->lease->t1 = client->lease->lifetime / 2;
+
+        next_timeout = client_compute_timeout(client->request_sent,
+                                              client->lease->t1);
+        if (next_timeout < usec)
+                return -EINVAL;
+
+        err = sd_event_add_monotonic(client->event, next_timeout,
+                                     10 * USEC_PER_MSEC,
+                                     client_timeout_t1, client,
+                                     &client->timeout_t1);
+        if (err < 0)
+                return err;
+
+        if (!client->lease->t2)
+                client->lease->t2 = client->lease->lifetime * 7 / 8;
+
+        if (client->lease->t2 < client->lease->t1)
+                return -EINVAL;
+
+        if (client->lease->lifetime < client->lease->t2)
+                return -EINVAL;
+
+        next_timeout = client_compute_timeout(client->request_sent,
+                                              client->lease->t2);
+        if (next_timeout < usec)
+                return -EINVAL;
+
+        err = sd_event_add_monotonic(client->event, next_timeout,
+                                     10 * USEC_PER_MSEC,
+                                     client_timeout_t2, client,
+                                     &client->timeout_t2);
+        if (err < 0)
+                return err;
+
+        next_timeout = client_compute_timeout(client->request_sent,
+                                              client->lease->lifetime);
+        if (next_timeout < usec)
+                return -EINVAL;
+
+        err = sd_event_add_monotonic(client->event, next_timeout,
+                                     10 * USEC_PER_MSEC,
+                                     client_timeout_expire, client,
+                                     &client->timeout_expire);
+        if (err < 0)
+                return err;
+
+        return 0;
+}
+
 static int client_receive_raw_message(sd_event_source *s, int fd,
                                       uint32_t revents, void *userdata)
 {
@@ -665,6 +775,10 @@ static int client_receive_raw_message(sd_event_source *s, int fd,
                         client->attempt = 1;
 
                         client->last_addr = client->lease->address;
+
+                        r = client_set_lease_timeouts(client, time_now);
+                        if (r < 0 )
+                                goto error;
 
                         client_notify(client, DHCP_EVENT_IP_ACQUIRE);
 

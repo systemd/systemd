@@ -112,6 +112,8 @@ enum {
         DHCP_OPTION_SERVER_IDENTIFIER           = 54,
         DHCP_OPTION_PARAMETER_REQUEST_LIST      = 55,
         DHCP_OPTION_MAXIMUM_MESSAGE_SIZE        = 57,
+        DHCP_OPTION_RENEWAL_T1_TIME             = 58,
+        DHCP_OPTION_REBINDING_T2_TIME           = 59,
         DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
         DHCP_OPTION_END                         = 255,
 };
