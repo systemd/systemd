@@ -3033,9 +3033,6 @@ static int message_peek_body(
         assert(rindex);
         assert(align > 0);
 
-        if (message_end_of_array(m, *rindex))
-                return 0;
-
         start = ALIGN_TO((size_t) *rindex, align);
         padding = start - *rindex;
         end = start + nbytes;
@@ -3063,7 +3060,7 @@ static int message_peek_body(
         if (ret)
                 *ret = q;
 
-        return 1;
+        return 0;
 }
 
 static bool validate_nul(const char *s, size_t l) {
@@ -3142,7 +3139,7 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         bool ok;
 
                         r = message_peek_body(m, &rindex, 1, c->item_size, &q);
-                        if (r <= 0)
+                        if (r < 0)
                                 return r;
 
                         if (type == SD_BUS_TYPE_STRING)
@@ -3169,7 +3166,7 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         assert(align > 0);
 
                         r = message_peek_body(m, &rindex, align, c->item_size, &q);
-                        if (r <= 0)
+                        if (r < 0)
                                 return r;
 
                         switch (type) {
@@ -3233,15 +3230,13 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         bool ok;
 
                         r = message_peek_body(m, &rindex, 4, 4, &q);
-                        if (r <= 0)
+                        if (r < 0)
                                 return r;
 
                         l = BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q);
                         r = message_peek_body(m, &rindex, 1, l+1, &q);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
-                                return -EBADMSG;
 
                         if (type == SD_BUS_TYPE_OBJECT_PATH)
                                 ok = validate_object_path(q, l);
@@ -3257,15 +3252,13 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         uint8_t l;
 
                         r = message_peek_body(m, &rindex, 1, 1, &q);
-                        if (r <= 0)
+                        if (r < 0)
                                 return r;
 
                         l = *(uint8_t*) q;
                         r = message_peek_body(m, &rindex, 1, l+1, &q);
                         if (r < 0)
                                 return r;
-                        if (r == 0)
-                                return -EBADMSG;
 
                         if (!validate_signature(q, l))
                                 return -EBADMSG;
@@ -3283,7 +3276,7 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                         assert(sz > 0);
 
                         r = message_peek_body(m, &rindex, align, sz, &q);
-                        if (r <= 0)
+                        if (r < 0)
                                 return r;
 
                         switch (type) {
@@ -3382,7 +3375,7 @@ static int bus_message_enter_array(
                 /* dbus1 */
 
                 r = message_peek_body(m, &rindex, 4, 4, &q);
-                if (r <= 0)
+                if (r < 0)
                         return r;
 
                 if (BUS_MESSAGE_BSWAP32(m, *(uint32_t*) q) > BUS_ARRAY_MAX_SIZE)
@@ -3395,8 +3388,6 @@ static int bus_message_enter_array(
                 r = message_peek_body(m, &rindex, alignment, 0, NULL);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -EBADMSG;
 
                 *array_size = (uint32_t*) q;
 
@@ -3425,8 +3416,6 @@ static int bus_message_enter_array(
                 r = message_peek_body(m, &where, 1, sz, &q);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -EBADMSG;
 
                 framing = read_word_le(q, sz);
                 if (framing > c->item_size - sz)
@@ -3440,8 +3429,6 @@ static int bus_message_enter_array(
                 r = message_peek_body(m, &where, 1, *n_offsets * sz, &q);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -EBADMSG;
 
                 *offsets = new(size_t, *n_offsets);
                 if (!*offsets)
@@ -3512,8 +3499,6 @@ static int bus_message_enter_variant(
                 r = message_peek_body(m, &where, 1, 1+k, &q);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -EBADMSG;
 
                 if (*(char*) q != 0)
                         return -EBADMSG;
@@ -3527,15 +3512,11 @@ static int bus_message_enter_variant(
                 r = message_peek_body(m, &rindex, 1, 1, &q);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -EBADMSG;
 
                 l = *(uint8_t*) q;
                 r = message_peek_body(m, &rindex, 1, l+1, &q);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -EBADMSG;
 
                 if (!validate_signature(q, l))
                         return -EBADMSG;
@@ -3613,8 +3594,6 @@ static int build_struct_offsets(
         r = message_peek_body(m, &where, 1, n_variable * sz, &q);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return -EBADMSG;
 
         v = n_variable;
 
@@ -3704,7 +3683,7 @@ static int enter_struct_or_dict_entry(
 
                 /* dbus1 */
                 r = message_peek_body(m, &m->rindex, 8, 0, NULL);
-                if (r <= 0)
+                if (r < 0)
                         return r;
 
         } else if (c->item_size <= 0) {
@@ -3823,7 +3802,7 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
 
                 /* Allow entering into anonymous containers */
                 r = sd_bus_message_peek_type(m, &tt, &cc);
-                if (r <= 0)
+                if (r < 0)
                         return r;
 
                 if (type != 0 && type != tt)
@@ -4076,8 +4055,6 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                                         r = message_peek_body(m, &where, 1, k, &q);
                                         if (r < 0)
                                                 return r;
-                                        if (r == 0)
-                                                goto eof;
 
                                         if (*(char*) q == 0)
                                                 break;
@@ -4102,15 +4079,11 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                                 r = message_peek_body(m, &rindex, 1, 1, &q);
                                 if (r < 0)
                                         return r;
-                                if (r == 0)
-                                        goto eof;
 
                                 l = *(uint8_t*) q;
                                 r = message_peek_body(m, &rindex, 1, l+1, &q);
                                 if (r < 0)
                                         return r;
-                                if (r == 0)
-                                        return -EBADMSG;
 
                                 if (!validate_signature(q, l))
                                         return -EBADMSG;
@@ -4540,7 +4513,7 @@ _public_ int sd_bus_message_read_array(sd_bus_message *m,
                 if (align < 0)
                         return align;
 
-                sz = c->item_size;
+                sz = c->end - c->begin;
         } else {
                 align = bus_type_get_alignment(type);
                 if (align < 0)
@@ -4557,10 +4530,6 @@ _public_ int sd_bus_message_read_array(sd_bus_message *m,
                 r = message_peek_body(m, &m->rindex, align, sz, &p);
                 if (r < 0)
                         goto fail;
-                if (r == 0) {
-                        r = -EBADMSG;
-                        goto fail;
-                }
         }
 
         r = sd_bus_message_exit_container(m);
