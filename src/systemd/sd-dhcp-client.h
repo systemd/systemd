@@ -34,6 +34,7 @@ int sd_dhcp_client_set_index(sd_dhcp_client *client, int interface_index);
 int sd_dhcp_client_set_mac(sd_dhcp_client *client,
                            const struct ether_addr *addr);
 
+int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
 sd_dhcp_client *sd_dhcp_client_new(void);
 
