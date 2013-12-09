@@ -161,9 +161,7 @@ static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz, b
         size_t old_size, new_size, start;
 
         assert(m);
-
-        if (m->poisoned)
-                return NULL;
+        assert_return(!m->poisoned, NULL);
 
         old_size = sizeof(struct bus_header) + m->header->fields_size;
         start = ALIGN_TO(old_size, align);
@@ -989,9 +987,7 @@ struct bus_body_part *message_append_part(sd_bus_message *m) {
         struct bus_body_part *part;
 
         assert(m);
-
-        if (m->poisoned)
-                return NULL;
+        assert_return(!m->poisoned, NULL);
 
         if (m->n_body_parts <= 0) {
                 part = &m->body;
@@ -1138,9 +1134,7 @@ static void *message_extend_body(sd_bus_message *m, size_t align, size_t sz, boo
         assert(m);
         assert(align > 0);
         assert(!m->sealed);
-
-        if (m->poisoned)
-                return NULL;
+        assert_return(!m->poisoned, NULL);
 
         start_body = ALIGN_TO((size_t) m->header->body_size, align);
         end_body = start_body + sz;

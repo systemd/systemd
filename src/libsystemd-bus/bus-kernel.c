@@ -321,9 +321,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         int r;
 
         assert(b);
-
-        if (b->is_server)
-                return -EINVAL;
+        assert_return(!b->is_server, -EINVAL);
 
         b->use_memfd = 1;
 
@@ -375,9 +373,7 @@ int bus_kernel_connect(sd_bus *b) {
         assert(b->input_fd < 0);
         assert(b->output_fd < 0);
         assert(b->kernel);
-
-        if (b->is_server)
-                return -EINVAL;
+        assert_return(!b->is_server, -EINVAL);
 
         b->input_fd = open(b->kernel, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (b->input_fd < 0)
@@ -918,9 +914,7 @@ int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size) {
 
         assert(address);
         assert(size);
-
-        if (!bus || !bus->is_kernel)
-                return -ENOTSUP;
+        assert_return(bus && bus->is_kernel, -ENOTSUP);
 
         assert_se(pthread_mutex_lock(&bus->memfd_cache_mutex) >= 0);
 
