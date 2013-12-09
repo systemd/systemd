@@ -111,6 +111,7 @@ enum {
         DHCP_OPTION_MESSAGE_TYPE                = 53,
         DHCP_OPTION_SERVER_IDENTIFIER           = 54,
         DHCP_OPTION_PARAMETER_REQUEST_LIST      = 55,
+        DHCP_OPTION_MAXIMUM_MESSAGE_SIZE        = 57,
         DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
         DHCP_OPTION_END                         = 255,
 };

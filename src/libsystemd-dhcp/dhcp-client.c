@@ -186,6 +186,7 @@ static int client_packet_init(sd_dhcp_client *client, uint8_t type,
                               uint8_t **opt, size_t *optlen)
 {
         int err;
+        be16_t max_size;
 
         *opt = (uint8_t *)(message + 1);
 
@@ -227,6 +228,17 @@ static int client_packet_init(sd_dhcp_client *client, uint8_t type,
                                          DHCP_OPTION_PARAMETER_REQUEST_LIST,
                                          client->req_opts_size,
                                          client->req_opts);
+                if (err < 0)
+                        return err;
+
+                /* Some DHCP servers will send bigger DHCP packets than the
+                   defined default size unless the Maximum Messge Size option
+                   is explicitely set */
+                max_size = htobe16(DHCP_IP_UDP_SIZE + DHCP_MESSAGE_SIZE +
+                                   DHCP_CLIENT_MIN_OPTIONS_SIZE);
+                err = dhcp_option_append(opt, optlen,
+                                         DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
+                                         2, &max_size);
                 if (err < 0)
                         return err;
         }
