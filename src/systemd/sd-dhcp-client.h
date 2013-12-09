@@ -27,6 +27,12 @@
 
 #include "sd-event.h"
 
+enum {
+        DHCP_EVENT_NO_LEASE                     = 1,
+        DHCP_EVENT_IP_ACQUIRE                   = 2,
+        DHCP_EVENT_IP_CHANGE                    = 3,
+};
+
 typedef struct sd_dhcp_client sd_dhcp_client;
 
 int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option);
