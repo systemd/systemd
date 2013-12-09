@@ -2662,6 +2662,112 @@ _public_ int sd_bus_message_append_strv(sd_bus_message *m, char **l) {
         return sd_bus_message_close_container(m);
 }
 
+static int bus_message_close_header(sd_bus_message *m) {
+        uint8_t *a;
+        size_t sz, i;
+
+        assert(m);
+
+        if (!BUS_MESSAGE_IS_GVARIANT(m))
+                return 0;
+
+        if (m->n_header_offsets < 1)
+                return 0;
+
+        assert(m->header->fields_size == m->header_offsets[m->n_header_offsets-1]);
+
+        sz = determine_word_size(m->header->fields_size, m->n_header_offsets);
+
+        a = message_extend_fields(m, 1, sz * m->n_header_offsets, false);
+        if (!a)
+                return -ENOMEM;
+
+        for (i = 0; i < m->n_header_offsets; i++)
+                write_word_le(a + sz*i, sz, m->header_offsets[i]);
+
+        return 0;
+}
+
+int bus_message_seal(sd_bus_message *m, uint64_t serial) {
+        struct bus_body_part *part;
+        size_t l, a;
+        unsigned i;
+        int r;
+
+        assert(m);
+
+        if (m->sealed)
+                return -EPERM;
+
+        if (m->n_containers > 0)
+                return -EBADMSG;
+
+        if (m->poisoned)
+                return -ESTALE;
+
+        /* In vtables the return signature of method calls is listed,
+         * let's check if they match if this is a response */
+        if (m->header->type == SD_BUS_MESSAGE_METHOD_RETURN &&
+            m->enforced_reply_signature &&
+            !streq(strempty(m->root_container.signature), m->enforced_reply_signature))
+                return -ENOMSG;
+
+        /* If gvariant marshalling is used we need to close the body structure */
+        r = bus_message_close_struct(m, &m->root_container, false);
+        if (r < 0)
+                return r;
+
+        /* If there's a non-trivial signature set, then add it in here */
+        if (!isempty(m->root_container.signature)) {
+                r = message_append_field_signature(m, BUS_MESSAGE_HEADER_SIGNATURE, m->root_container.signature, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (m->n_fds > 0) {
+                r = message_append_field_uint32(m, BUS_MESSAGE_HEADER_UNIX_FDS, m->n_fds);
+                if (r < 0)
+                        return r;
+        }
+
+        r = bus_message_close_header(m);
+        if (r < 0)
+                return r;
+
+        m->header->serial = serial;
+
+        /* Add padding at the end of the fields part, since we know
+         * the body needs to start at an 8 byte alignment. We made
+         * sure we allocated enough space for this, so all we need to
+         * do here is to zero it out. */
+        l = BUS_MESSAGE_FIELDS_SIZE(m);
+        a = ALIGN8(l) - l;
+        if (a > 0)
+                memset((uint8_t*) BUS_MESSAGE_FIELDS(m) + l, 0, a);
+
+        /* If this is something we can send as memfd, then let's seal
+        the memfd now. Note that we can send memfds as payload only
+        for directed messages, and not for broadcasts. */
+        if (m->destination && m->bus && m->bus->use_memfd) {
+                MESSAGE_FOREACH_PART(part, i, m)
+                        if (part->memfd >= 0 && !part->sealed && (part->size > MEMFD_MIN_SIZE || m->bus->use_memfd < 0)) {
+                                bus_body_part_unmap(part);
+
+                                if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SEAL_SET, 1) >= 0)
+                                        part->sealed = true;
+                        }
+        }
+
+        m->root_container.end = BUS_MESSAGE_BODY_SIZE(m);
+        m->root_container.index = 0;
+        m->root_container.offset_index = 0;
+        m->root_container.item_size = m->root_container.n_offsets > 0 ? m->root_container.offsets[0] : 0;
+
+        m->sealed = true;
+
+        return 0;
+}
+
 int bus_body_part_map(struct bus_body_part *part) {
         void *p;
         size_t psz;
@@ -5031,112 +5137,6 @@ int bus_message_parse_fields(sd_bus_message *m) {
         /* Try to read the error message, but if we can't it's a non-issue */
         if (m->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
                 sd_bus_message_read(m, "s", &m->error.message);
-
-        return 0;
-}
-
-static int bus_message_close_header(sd_bus_message *m) {
-        uint8_t *a;
-        size_t sz, i;
-
-        assert(m);
-
-        if (!BUS_MESSAGE_IS_GVARIANT(m))
-                return 0;
-
-        if (m->n_header_offsets < 1)
-                return 0;
-
-        assert(m->header->fields_size == m->header_offsets[m->n_header_offsets-1]);
-
-        sz = determine_word_size(m->header->fields_size, m->n_header_offsets);
-
-        a = message_extend_fields(m, 1, sz * m->n_header_offsets, false);
-        if (!a)
-                return -ENOMEM;
-
-        for (i = 0; i < m->n_header_offsets; i++)
-                write_word_le(a + sz*i, sz, m->header_offsets[i]);
-
-        return 0;
-}
-
-int bus_message_seal(sd_bus_message *m, uint64_t serial) {
-        struct bus_body_part *part;
-        size_t l, a;
-        unsigned i;
-        int r;
-
-        assert(m);
-
-        if (m->sealed)
-                return -EPERM;
-
-        if (m->n_containers > 0)
-                return -EBADMSG;
-
-        if (m->poisoned)
-                return -ESTALE;
-
-        /* In vtables the return signature of method calls is listed,
-         * let's check if they match if this is a response */
-        if (m->header->type == SD_BUS_MESSAGE_METHOD_RETURN &&
-            m->enforced_reply_signature &&
-            !streq(strempty(m->root_container.signature), m->enforced_reply_signature))
-                return -ENOMSG;
-
-        /* If gvariant marshalling is used we need to close the body structure */
-        r = bus_message_close_struct(m, &m->root_container, false);
-        if (r < 0)
-                return r;
-
-        /* If there's a non-trivial signature set, then add it in here */
-        if (!isempty(m->root_container.signature)) {
-                r = message_append_field_signature(m, BUS_MESSAGE_HEADER_SIGNATURE, m->root_container.signature, NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        if (m->n_fds > 0) {
-                r = message_append_field_uint32(m, BUS_MESSAGE_HEADER_UNIX_FDS, m->n_fds);
-                if (r < 0)
-                        return r;
-        }
-
-        r = bus_message_close_header(m);
-        if (r < 0)
-                return r;
-
-        m->header->serial = serial;
-
-        /* Add padding at the end of the fields part, since we know
-         * the body needs to start at an 8 byte alignment. We made
-         * sure we allocated enough space for this, so all we need to
-         * do here is to zero it out. */
-        l = BUS_MESSAGE_FIELDS_SIZE(m);
-        a = ALIGN8(l) - l;
-        if (a > 0)
-                memset((uint8_t*) BUS_MESSAGE_FIELDS(m) + l, 0, a);
-
-        /* If this is something we can send as memfd, then let's seal
-        the memfd now. Note that we can send memfds as payload only
-        for directed messages, and not for broadcasts. */
-        if (m->destination && m->bus && m->bus->use_memfd) {
-                MESSAGE_FOREACH_PART(part, i, m)
-                        if (part->memfd >= 0 && !part->sealed && (part->size > MEMFD_MIN_SIZE || m->bus->use_memfd < 0)) {
-                                bus_body_part_unmap(part);
-
-                                if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SEAL_SET, 1) >= 0)
-                                        part->sealed = true;
-                        }
-        }
-
-        m->root_container.end = BUS_MESSAGE_BODY_SIZE(m);
-        m->root_container.index = 0;
-        m->root_container.offset_index = 0;
-        m->root_container.item_size = m->root_container.n_offsets > 0 ? m->root_container.offsets[0] : 0;
-
-        m->sealed = true;
 
         return 0;
 }
