@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
+#include <stdio.h>
 
 #include "dhcp-protocol.h"
 #include "sd-dhcp-client.h"
@@ -73,9 +74,48 @@ static void test_request_basic(void)
         assert(sd_dhcp_client_set_request_option(client, 44) == 0);
 }
 
+static uint16_t client_checksum(void *buf, int len)
+{
+        uint32_t sum;
+        uint16_t *check;
+        int i;
+        uint8_t *odd;
+
+        sum = 0;
+        check = buf;
+
+        for (i = 0; i < len / 2 ; i++)
+                sum += check[i];
+
+        if (len & 0x01) {
+                odd = buf;
+                sum += odd[len];
+        }
+
+        return ~((sum & 0xffff) + (sum >> 16));
+}
+
+static void test_checksum(void)
+{
+        uint8_t buf[20] = {
+                0x45, 0x00, 0x02, 0x40, 0x00, 0x00, 0x00, 0x00,
+                0x40, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0xff, 0xff, 0xff, 0xff
+        };
+
+        uint8_t check[2] = {
+                0x78, 0xae
+        };
+
+        uint16_t *val = (uint16_t *)check;
+
+        assert(client_checksum(&buf, 20) == *val);
+}
+
 int main(int argc, char *argv[])
 {
         test_request_basic();
+        test_checksum();
 
         return 0;
 }
