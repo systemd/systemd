@@ -22,10 +22,15 @@
 ***/
 
 #include <stdint.h>
+#include <linux/if_packet.h>
+
+#include "socket-util.h"
 
 #include "dhcp-protocol.h"
 
-int dhcp_network_send_raw_packet(int index, const void *packet, size_t len);
+int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link);
+int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
+                                 const void *packet, size_t len);
 
 int dhcp_option_append(uint8_t **buf, size_t *buflen, uint8_t code,
                        size_t optlen, const void *optval);

@@ -30,26 +30,36 @@
 
 #include "dhcp-internal.h"
 
-int dhcp_network_send_raw_packet(int index, const void *packet, size_t len)
-{
-        _cleanup_close_ int s;
-        union sockaddr_union link = {};
+int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
+ {
+        int s;
 
-        s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC, htons(ETH_P_IP));
+        s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK,
+                   htons(ETH_P_IP));
         if (s < 0)
                 return -errno;
 
-        link.ll.sll_family = AF_PACKET;
-        link.ll.sll_protocol = htons(ETH_P_IP);
-        link.ll.sll_ifindex =  index;
-        link.ll.sll_halen = ETH_ALEN;
-        memset(&link.ll.sll_addr, 0xff, ETH_ALEN);
+        link->ll.sll_family = AF_PACKET;
+        link->ll.sll_protocol = htons(ETH_P_IP);
+        link->ll.sll_ifindex =  index;
+        link->ll.sll_halen = ETH_ALEN;
+        memset(link->ll.sll_addr, 0xff, ETH_ALEN);
 
-        if (bind(s, &link.sa, sizeof(link.ll)) < 0)
+        if (bind(s, &link->sa, sizeof(link->ll)) < 0) {
+                close(s);
                 return -errno;
+        }
 
-        if (sendto(s, packet, len, 0, &link.sa, sizeof(link.ll)) < 0)
-                return -errno;
+        return s;
+}
 
-        return 0;
+int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
+                                 const void *packet, size_t len)
+{
+        int err = 0;
+
+        if (sendto(s, packet, len, 0, &link->sa, sizeof(link->ll)) < 0)
+                err = -errno;
+
+        return err;
 }

@@ -23,8 +23,12 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "util.h"
+#include "socket-util.h"
 
 #include "dhcp-protocol.h"
 #include "dhcp-internal.h"
@@ -33,6 +37,8 @@
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
 };
+
+static int test_fd[2];
 
 static void test_request_basic(sd_event *e)
 {
@@ -125,14 +131,15 @@ static int check_options(uint8_t code, uint8_t len, const uint8_t *option,
         return 0;
 }
 
-int dhcp_network_send_raw_packet(int index, const void *packet, size_t len)
+int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
+                                 const void *packet, size_t len)
 {
         size_t size;
         _cleanup_free_ DHCPPacket *discover;
         uint16_t ip_check, udp_check;
         int res;
 
-        assert(index == 42);
+        assert(s >= 0);
         assert(packet);
 
         size = sizeof(DHCPPacket) + 4;
@@ -146,8 +153,8 @@ int dhcp_network_send_raw_packet(int index, const void *packet, size_t len)
         assert(discover->ip.protocol == IPPROTO_UDP);
         assert(discover->ip.saddr == INADDR_ANY);
         assert(discover->ip.daddr == INADDR_BROADCAST);
-        assert(discover->udp.source == ntohs(DHCP_PORT_CLIENT));
-        assert(discover->udp.dest == ntohs(DHCP_PORT_SERVER));
+        assert(discover->udp.source == be16toh(DHCP_PORT_CLIENT));
+        assert(discover->udp.dest == be16toh(DHCP_PORT_SERVER));
 
         ip_check = discover->ip.check;
 
@@ -172,6 +179,14 @@ int dhcp_network_send_raw_packet(int index, const void *packet, size_t len)
         return 575;
 }
 
+int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
+{
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, test_fd) < 0)
+                return -errno;
+
+        return test_fd[0];
+}
+
 static void test_discover_message(sd_event *e)
 {
         sd_dhcp_client *client;
@@ -188,6 +203,9 @@ static void test_discover_message(sd_event *e)
         res = sd_dhcp_client_start(client);
 
         assert(res == 0 || res == -EINPROGRESS);
+
+        close(test_fd[0]);
+        close(test_fd[1]);
 }
 
 int main(int argc, char *argv[])

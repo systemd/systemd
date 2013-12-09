@@ -55,6 +55,10 @@ struct DHCPPacket {
 
 typedef struct DHCPPacket DHCPPacket;
 
+#define DHCP_IP_SIZE            (int32_t)(sizeof(struct iphdr))
+#define DHCP_IP_UDP_SIZE        (int32_t)(sizeof(struct udphdr) + DHCP_IP_SIZE)
+#define DHCP_MESSAGE_SIZE       (int32_t)(sizeof(DHCPMessage))
+
 enum {
         DHCP_PORT_SERVER                        = 67,
         DHCP_PORT_CLIENT                        = 68,
@@ -102,8 +106,10 @@ enum {
         DHCP_OPTION_DOMAIN_NAME                 = 15,
         DHCP_OPTION_NTP_SERVER                  = 42,
         DHCP_OPTION_REQUESTED_IP_ADDRESS        = 50,
+        DHCP_OPTION_IP_ADDRESS_LEASE_TIME       = 51,
         DHCP_OPTION_OVERLOAD                    = 52,
         DHCP_OPTION_MESSAGE_TYPE                = 53,
+        DHCP_OPTION_SERVER_IDENTIFIER           = 54,
         DHCP_OPTION_PARAMETER_REQUEST_LIST      = 55,
         DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
         DHCP_OPTION_END                         = 255,
