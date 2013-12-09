@@ -27,6 +27,7 @@
 #include <net/if.h>
 #include <asm/types.h>
 #include <linux/netlink.h>
+#include <linux/if_packet.h>
 
 #include "macro.h"
 #include "util.h"
@@ -38,6 +39,7 @@ union sockaddr_union {
         struct sockaddr_un un;
         struct sockaddr_nl nl;
         struct sockaddr_storage storage;
+        struct sockaddr_ll ll;
 };
 
 typedef struct SocketAddress {
