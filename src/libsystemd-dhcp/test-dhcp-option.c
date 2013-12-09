@@ -289,6 +289,76 @@ static void test_options(struct option_desc *desc)
                 printf("DHCP type %s\n", dhcp_type(res));
 }
 
+static uint8_t result[64] = {
+        'A', 'B', 'C', 'D',
+};
+
+static uint8_t options[64] = {
+        'A', 'B', 'C', 'D',
+        160, 2, 0x11, 0x12,
+        0,
+        31, 8, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38,
+        0,
+        55, 3, 0x51, 0x52, 0x53,
+        17, 7, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
+        255
+};
+
+static void test_option_set(void)
+{
+        size_t len, oldlen;
+        int pos, i;
+        uint8_t *opt;
+
+        assert(dhcp_option_append(NULL, NULL, 0, 0, NULL) == -EINVAL);
+
+        len = 0;
+        opt = &result[0];
+        assert(dhcp_option_append(&opt, NULL, 0, 0, NULL) == -EINVAL);
+        assert(opt == &result[0] && len == 0);
+
+        assert(dhcp_option_append(&opt, &len, DHCP_OPTION_PAD,
+                                  0, NULL) == -ENOBUFS);
+        assert(opt == &result[0] && len == 0);
+
+        opt = &result[4];
+        len = 1;
+        assert(dhcp_option_append(&opt, &len, DHCP_OPTION_PAD,
+                                    0, NULL) >= 0);
+        assert(opt == &result[5] && len == 0);
+
+        pos = 4;
+        len = 60;
+        while (pos < 64 && options[pos] != DHCP_OPTION_END) {
+                opt = &result[pos];
+                oldlen = len;
+
+                assert(dhcp_option_append(&opt, &len, options[pos],
+                                          options[pos + 1],
+                                          &options[pos + 2]) >= 0);
+
+                if (options[pos] == DHCP_OPTION_PAD) {
+                        assert(opt == &result[pos + 1]);
+                        assert(len == oldlen - 1);
+                        pos++;
+                } else {
+                        assert(opt == &result[pos + 2 + options[pos + 1]]);
+                        assert(len == oldlen - 2 - options[pos + 1]);
+                        pos += 2 + options[pos + 1];
+                }
+        }
+
+        for (i = 0; i < pos; i++) {
+                if (verbose)
+                        printf("%2d: 0x%02x(0x%02x)\n", i, result[i],
+                               options[i]);
+                assert(result[i] == options[i]);
+        }
+
+        if (verbose)
+                printf ("\n");
+}
+
 int main(int argc, char *argv[])
 {
         unsigned int i;
@@ -300,6 +370,8 @@ int main(int argc, char *argv[])
 
         for (i = 0; i < ELEMENTSOF(option_tests); i++)
                 test_options(&option_tests[i]);
+
+        test_option_set();
 
         return 0;
 }
