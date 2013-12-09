@@ -331,8 +331,7 @@ enum kdbus_msg_flags {
  */
 enum kdbus_payload_type {
 	KDBUS_PAYLOAD_KERNEL,
-	KDBUS_PAYLOAD_DBUS1	= 0x4442757356657231ULL, /* 'DBusVer1' */
-	KDBUS_PAYLOAD_GVARIANT	= 0x4756617269616e74ULL, /* 'GVariant' */
+        KDBUS_PAYLOAD_DBUS	= 0x4442757356657231ULL, /* 'DBusVer1' */
 };
 
 /**
@@ -591,7 +590,7 @@ enum kdbus_name_list_flags {
  * @offset:		The returned offset in the caller's pool buffer.
  *			The user must use KDBUS_CMD_FREE to free the
  *			allocated memory.
- * 
+ *
  * This structure is used with the KDBUS_CMD_NAME_LIST ioctl.
  */
 struct kdbus_cmd_name_list {

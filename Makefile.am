@@ -2162,11 +2162,15 @@ test_bus_gvariant_LDADD = \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
 	libsystemd-shared.la \
-	$(GLIB_LIBS)
+	libsystemd-bus-dump.la \
+	libsystemd-capability.la \
+	$(GLIB_LIBS) \
+	$(CAP_LIBS)
 
 test_bus_gvariant_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(GLIB_CFLAGS)
+	$(CAP_CFLAGS)
 
 test_bus_creds_SOURCES = \
 	src/libsystemd-bus/test-bus-creds.c

@@ -34,18 +34,20 @@
 
 struct bus_container {
         char enclosing;
+        bool need_offsets:1;
 
+        /* Indexes into the signature  string */
         unsigned index, saved_index;
-
         char *signature;
 
+        size_t before, begin, end;
+
+        /* dbus1: pointer to the array size value, if this is a value */
         uint32_t *array_size;
-        size_t before, begin;
 
-        size_t *offsets;
-        size_t n_offsets, n_allocated;
-
-        bool need_offsets;
+        /* gvariant: list of offsets to end of children if this is struct/dict entry/array */
+        size_t *offsets, n_offsets, n_offsets_allocated, offset_index;
+        size_t item_size;
 };
 
 struct bus_header {
@@ -98,7 +100,6 @@ struct sd_bus_message {
         bool free_fds:1;
         bool release_kdbus:1;
         bool poisoned:1;
-        bool is_gvariant:1;
 
         struct bus_header *header;
         struct bus_body_part body;
@@ -178,6 +179,10 @@ static inline uint32_t BUS_MESSAGE_BODY_BEGIN(sd_bus_message *m) {
 
 static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
         return (uint8_t*) m->header + sizeof(struct bus_header);
+}
+
+static inline bool BUS_MESSAGE_IS_GVARIANT(sd_bus_message *m) {
+        return m->header->version == 2;
 }
 
 int bus_message_seal(sd_bus_message *m, uint64_t serial);

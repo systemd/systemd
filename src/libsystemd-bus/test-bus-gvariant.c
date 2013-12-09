@@ -29,9 +29,11 @@
 #include "bus-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "bus-dump.h"
 
 static void test_bus_gvariant_is_fixed_size(void) {
         assert(bus_gvariant_is_fixed_size("") > 0);
+        assert(bus_gvariant_is_fixed_size("()") > 0);
         assert(bus_gvariant_is_fixed_size("y") > 0);
         assert(bus_gvariant_is_fixed_size("u") > 0);
         assert(bus_gvariant_is_fixed_size("b") > 0);
@@ -54,8 +56,41 @@ static void test_bus_gvariant_is_fixed_size(void) {
         assert(bus_gvariant_is_fixed_size("((u)yyy(b(iiivi)))") == 0);
 }
 
+static void test_bus_gvariant_get_size(void) {
+        assert(bus_gvariant_get_size("") == 0);
+        assert(bus_gvariant_get_size("()") == 0);
+        assert(bus_gvariant_get_size("y") == 1);
+        assert(bus_gvariant_get_size("u") == 4);
+        assert(bus_gvariant_get_size("b") == 1);
+        assert(bus_gvariant_get_size("n") == 2);
+        assert(bus_gvariant_get_size("q") == 2);
+        assert(bus_gvariant_get_size("i") == 4);
+        assert(bus_gvariant_get_size("t") == 8);
+        assert(bus_gvariant_get_size("d") == 8);
+        assert(bus_gvariant_get_size("s") < 0);
+        assert(bus_gvariant_get_size("o") < 0);
+        assert(bus_gvariant_get_size("g") < 0);
+        assert(bus_gvariant_get_size("h") == 4);
+        assert(bus_gvariant_get_size("ay") < 0);
+        assert(bus_gvariant_get_size("v") < 0);
+        assert(bus_gvariant_get_size("(u)") == 4);
+        assert(bus_gvariant_get_size("(uuuuy)") == 20);
+        assert(bus_gvariant_get_size("(uusuuy)") < 0);
+        assert(bus_gvariant_get_size("a{ss}") < 0);
+        assert(bus_gvariant_get_size("((u)yyy(b(iiii)))") == 28);
+        assert(bus_gvariant_get_size("((u)yyy(b(iiivi)))") < 0);
+        assert(bus_gvariant_get_size("((b)(t))") == 16);
+        assert(bus_gvariant_get_size("((b)(b)(t))") == 16);
+        assert(bus_gvariant_get_size("(bt)") == 16);
+        assert(bus_gvariant_get_size("((t)(b))") == 16);
+        assert(bus_gvariant_get_size("(tb)") == 16);
+        assert(bus_gvariant_get_size("((b)(b))") == 2);
+        assert(bus_gvariant_get_size("((t)(t))") == 16);
+}
+
 static void test_bus_gvariant_get_alignment(void) {
         assert(bus_gvariant_get_alignment("") == 1);
+        assert(bus_gvariant_get_alignment("()") == 1);
         assert(bus_gvariant_get_alignment("y") == 1);
         assert(bus_gvariant_get_alignment("b") == 1);
         assert(bus_gvariant_get_alignment("u") == 4);
@@ -79,18 +114,32 @@ static void test_bus_gvariant_get_alignment(void) {
         assert(bus_gvariant_get_alignment("(ss)") == 1);
         assert(bus_gvariant_get_alignment("(ssu)") == 4);
         assert(bus_gvariant_get_alignment("a(ssu)") == 4);
+        assert(bus_gvariant_get_alignment("(u)") == 4);
+        assert(bus_gvariant_get_alignment("(uuuuy)") == 4);
+        assert(bus_gvariant_get_alignment("(uusuuy)") == 4);
+        assert(bus_gvariant_get_alignment("a{ss}") == 1);
+        assert(bus_gvariant_get_alignment("((u)yyy(b(iiii)))") == 4);
+        assert(bus_gvariant_get_alignment("((u)yyy(b(iiivi)))") == 8);
+        assert(bus_gvariant_get_alignment("((b)(t))") == 8);
+        assert(bus_gvariant_get_alignment("((b)(b)(t))") == 8);
+        assert(bus_gvariant_get_alignment("(bt)") == 8);
+        assert(bus_gvariant_get_alignment("((t)(b))") == 8);
+        assert(bus_gvariant_get_alignment("(tb)") == 8);
+        assert(bus_gvariant_get_alignment("((b)(b))") == 1);
+        assert(bus_gvariant_get_alignment("((t)(t))") == 8);
 }
 
 static void test_marshal(void) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL, *n = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_free_ void *blob;
+        size_t sz;
 
         assert_se(sd_bus_open_system(&bus) >= 0);
-        bus->use_gvariant = true; /* dirty hack */
+        bus->message_version = 2; /* dirty hack to enable gvariant*/
 
         assert_se(sd_bus_message_new_method_call(bus, "a.service.name", "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works", "an.interface.name", "AMethodName", &m) >= 0);
 
-        /* assert_se(sd_bus_message_append(m, "ssy(sts)v", "first-string-parameter", "second-string-parameter", 9, "a", (uint64_t) 7777, "b", "(su)", "xxx", 4712) >= 0);  */
         assert_se(sd_bus_message_append(m,
                                         "a(usv)", 2,
                                         4711, "first-string-parameter", "(st)", "X", (uint64_t) 1111,
@@ -121,11 +170,20 @@ static void test_marshal(void) {
         }
 #endif
 
+        assert_se(bus_message_dump(m, NULL, true) >= 0);
+
+        assert_se(bus_message_get_blob(m, &blob, &sz) >= 0);
+
+        assert_se(bus_message_from_malloc(NULL, blob, sz, NULL, 0, NULL, NULL, &n) >= 0);
+        blob = NULL;
+
+        assert_se(bus_message_dump(n, NULL, true) >= 0);
 }
 
 int main(int argc, char *argv[]) {
 
         test_bus_gvariant_is_fixed_size();
+        test_bus_gvariant_get_size();
         test_bus_gvariant_get_alignment();
         test_marshal();
 

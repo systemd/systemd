@@ -254,7 +254,7 @@ static int bus_message_setup_kmsg(sd_bus *b, sd_bus_message *m) {
         m->kdbus->dst_id =
                 well_known ? 0 :
                 m->destination ? unique : KDBUS_DST_ID_BROADCAST;
-        m->kdbus->payload_type = KDBUS_PAYLOAD_DBUS1;
+        m->kdbus->payload_type = KDBUS_PAYLOAD_DBUS;
         m->kdbus->cookie = m->header->serial;
 
         m->kdbus->timeout_ns = m->timeout * NSEC_PER_USEC;
@@ -618,7 +618,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
 
         assert(bus);
         assert(k);
-        assert(k->payload_type == KDBUS_PAYLOAD_DBUS1);
+        assert(k->payload_type == KDBUS_PAYLOAD_DBUS);
 
         KDBUS_ITEM_FOREACH(d, k, items) {
                 size_t l;
@@ -885,7 +885,7 @@ int bus_kernel_read_message(sd_bus *bus) {
         }
         k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + off);
 
-        if (k->payload_type == KDBUS_PAYLOAD_DBUS1)
+        if (k->payload_type == KDBUS_PAYLOAD_DBUS)
                 r = bus_kernel_make_message(bus, k);
         else if (k->payload_type == KDBUS_PAYLOAD_KERNEL)
                 r = bus_kernel_translate_message(bus, k);

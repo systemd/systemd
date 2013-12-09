@@ -21,6 +21,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int bus_gvariant_get_size(char c);
+int bus_gvariant_get_size(const char *signature);
 int bus_gvariant_get_alignment(const char *signature);
 int bus_gvariant_is_fixed_size(const char *signature);

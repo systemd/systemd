@@ -57,3 +57,7 @@ And that's already it.
 Note: on kdbus only native endian messages marshalled in gvariant may
       be sent. If a client receives a message in non-native endianness
       or in dbus1 marshalling it shall ignore the message.
+
+Note: The GVariant "MAYBE" type is not supported, so that messages can
+      be fully converted forth and back between dbus1 and gvariant
+      representations.
