@@ -3865,7 +3865,8 @@ libsystemd_dhcp_la_LDFLAGS = \
 	$(AM_LDFLAGS)
 
 libsystemd_dhcp_la_LIBADD = \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-bus.la
 
 test_dhcp_option_SOURCES = \
 	src/libsystemd-dhcp/dhcp-protocol.h \
@@ -3885,7 +3886,8 @@ test_dhcp_client_SOURCES = \
 	src/libsystemd-dhcp/test-dhcp-client.c
 
 test_dhcp_client_LDADD = \
-	libsystemd-shared.la
+	libsystemd-shared.la \
+	libsystemd-bus.la
 
 tests += \
 	test-dhcp-option \
