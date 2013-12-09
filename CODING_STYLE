@@ -4,7 +4,8 @@
 - Variables and functions *must* be static, unless they have a
   prototype, and are supposed to be exported.
 
-- structs in MixedCase, variables + functions in lower_case
+- structs in MixedCase (with exceptions, such as public API structs),
+  variables + functions in lower_case.
 
 - The destructors always unregister the object from the next bigger
   object, not the other way around
@@ -22,30 +23,35 @@
   more than one cause, it *really* should have "int" as return value
   for the error code.
 
-- Don't bother with error checking if writing to stdout/stderr worked.
+- Don't bother with error checking whether writing to stdout/stderr
+  worked.
 
 - Do not log errors from "library" code, only do so from "main
-  program" code.
+  program" code. (With one exception: it's OK to log with DEBUG level
+  from any code, with the exception of maybe inner loops).
 
 - Always check OOM. There's no excuse. In program code you can use
-  "log_oom()" for then printing a short message.
+  "log_oom()" for then printing a short message, but not in "library" code.
 
 - Do not issue NSS requests (that includes user name and host name
-  lookups) from the main daemon as this might trigger deadlocks when
-  those lookups involve synchronously talking to services that we
-  would need to start up
+  lookups) from PID 1 as this might trigger deadlocks when those
+  lookups involve synchronously talking to services that we would need
+  to start up
 
-- Don't synchronously talk to any other service, due to risk of
-  deadlocks
+- Don't synchronously talk to any other service from PID 1, due to
+  risk of deadlocks
 
 - Avoid fixed sized string buffers, unless you really know the maximum
   size and that maximum size is small. They are a source of errors,
-  since they result in strings to be truncated. Often it is nicer to
-  use dynamic memory, or alloca(). If you do allocate fixed size
-  strings on the stack, then it's probably only OK if you either use a
-  maximum size such as LINE_MAX, or count in detail the maximum size a
-  string can have. Or in other words, if you use "char buf[256]" then
-  you are likely doing something wrong!
+  since they possibly result in truncated strings. Often it is nicer
+  to use dynamic memory, alloca() or VLAs. If you do allocate fixed
+  size strings on the stack, then it's probably only OK if you either
+  use a maximum size such as LINE_MAX, or count in detail the maximum
+  size a string can have. (DECIMAL_STR_MAX and DECIMAL_STR_WIDTH
+  macros are your friends for this!)
+
+  Or in other words, if you use "char buf[256]" then you are likely
+  doing something wrong!
 
 - Stay uniform. For example, always use "usec_t" for time
   values. Don't usec mix msec, and usec and whatnot.
@@ -113,11 +119,51 @@
   }
 
 - Use "goto" for cleaning up, and only use it for that. i.e. you may
-  only jump to the end of a function, and little else.
+  only jump to the end of a function, and little else. Never jump
+  backwards!
 
 - Think about the types you use. If a value cannot sensibly be
   negative don't use "int", but use "unsigned".
 
 - Don't use types like "short". They *never* make sense. Use ints,
   longs, long longs, all in unsigned+signed fashion, and the fixed
-  size types uint32_t and so on, but nothing else.
+  size types uint32_t and so on, as well as size_t but nothing else.
+
+- Public API calls (i.e. functions exported by our shared libraries)
+  must be marked "_public_" and need to be prefixed with "sd_". No
+  other functions should be prefixed like that.
+
+- In public API calls you *must* validate all your input arguments for
+  programming error with assert_return() and return a sensible return
+  code. In all other calls it is recommended to check for programming
+  errors with a more brutal assert(). We are more forgiving to public
+  users then for ourselves! Note that assert() and assert_return()
+  really only should be used for detecting programming errors, not for
+  runtime errors. assert() and assert_return() by usage of _likely_()
+  inform the compiler that he shouldn't expect these checks to fail,
+  and they inform fellow programmers about the expected validity and
+  range of parameters.
+
+- Never use strtol(), atoi() and similar calls. Use safe_atoli(),
+  safe_atou32() and suchlike instead. They are much nicer to use in
+  most cases and correctly check for parsing errors.
+
+- For every function you add, think about whether it is a "logging"
+  function or a "non-logging" function. "Logging" functions do logging
+  on their own, "non-logging" function never log on their own and
+  expect their callers to log. All functions in "library" code,
+  i.e. in src/shared/ and suchlike must be "non-logging". Everytime a
+  "logging" function calls a "non-logging" function it should log
+  about the resulting errors. If a "logging" function calls another
+  "logging" function, then it should not generate log messages, so
+  that log messages are not generated twice for the same errors.
+
+- Avoid static variables, except for caches and very few other
+  cases. Think about thread-safety! While most of our code is never
+  used in threaded environments at least the library code should make
+  sure it works correctly in them. Instead of doing a lot of locking
+  for that we tend to prefer using TLS to do per-thread caching (which
+  only works for small, fixed-size cache objects), or we disable
+  caching for any thread that is not the main thread. Use
+  is_main_thread() to detect whether the calling thread is the main
+  thread.
