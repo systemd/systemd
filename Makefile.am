@@ -3847,6 +3847,26 @@ lib_LTLIBRARIES += \
 endif
 
 # ------------------------------------------------------------------------------
+libsystemd_dhcp_la_SOURCES = \
+	src/systemd/sd-dhcp-client.h \
+	src/libsystemd-dhcp/dhcp-protocol.h \
+	src/libsystemd-dhcp/dhcp-internal.h \
+	src/libsystemd-dhcp/dhcp-network.c \
+	src/libsystemd-dhcp/dhcp-option.c \
+	src/libsystemd-dhcp/dhcp-client.c
+
+noinst_LTLIBRARIES += \
+	libsystemd-dhcp.la
+
+libsystemd_dhcp_la_CFLAGS = \
+	$(AM_CFLAGS)
+
+libsystemd_dhcp_la_LDFLAGS = \
+	$(AM_LDFLAGS)
+
+libsystemd_dhcp_la_LIBADD = \
+	libsystemd-shared.la
+
 test_dhcp_option_SOURCES = \
 	src/libsystemd-dhcp/dhcp-protocol.h \
 	src/libsystemd-dhcp/dhcp-internal.h \
