@@ -45,6 +45,7 @@ REQUIREMENTS:
           CONFIG_EPOLL
           CONFIG_NET
           CONFIG_SYSFS
+          CONFIG_PROC_FS
 
         Linux kernel >= 3.8 for Smack support
 
@@ -75,9 +76,7 @@ REQUIREMENTS:
           CONFIG_TMPFS_XATTR
           CONFIG_SECCOMP
 
-        For systemd-bootchart, a kernel with procfs support and
-        several proc output options enabled is required:
-          CONFIG_PROC_FS
+        For systemd-bootchart, several proc debug interfaces are required:
           CONFIG_SCHEDSTATS
           CONFIG_SCHED_DEBUG
 
