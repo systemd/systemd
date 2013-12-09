@@ -120,8 +120,8 @@ int sd_dhcp_client_set_mac(sd_dhcp_client *client,
 }
 
 static int client_packet_init(sd_dhcp_client *client, uint8_t type,
-                              DHCPMessage *message, uint8_t **opt,
-                              size_t *optlen)
+                              DHCPMessage *message, uint16_t secs,
+                              uint8_t **opt, size_t *optlen)
 {
         int err;
 
@@ -135,6 +135,10 @@ static int client_packet_init(sd_dhcp_client *client, uint8_t type,
         message->htype = 1;
         message->hlen = ETHER_ADDR_LEN;
         message->xid = htobe32(client->xid);
+
+        /* Although 'secs' field is a SHOULD in RFC 2131, certain DHCP servers
+           refuse to issue an DHCP lease if 'secs' is set to zero */
+        message->secs = htobe16(secs);
 
         memcpy(&message->chaddr, &client->mac_addr, ETH_ALEN);
         (*opt)[0] = 0x63;
@@ -189,7 +193,7 @@ static uint16_t client_checksum(void *buf, int len)
         return ~((sum & 0xffff) + (sum >> 16));
 }
 
-static int client_send_discover(sd_dhcp_client *client)
+static int client_send_discover(sd_dhcp_client *client, uint16_t secs)
 {
         int err = 0;
         _cleanup_free_ DHCPPacket *discover;
@@ -205,7 +209,7 @@ static int client_send_discover(sd_dhcp_client *client)
                 return -ENOMEM;
 
         err = client_packet_init(client, DHCP_DISCOVER, &discover->dhcp,
-                                 &opt, &optlen);
+                                 secs, &opt, &optlen);
         if (err < 0)
                 return err;
 
@@ -256,7 +260,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client)
 
         client->xid = random_u();
 
-        return client_send_discover(client);
+        return client_send_discover(client, 0);
 }
 
 sd_dhcp_client *sd_dhcp_client_new(void)
