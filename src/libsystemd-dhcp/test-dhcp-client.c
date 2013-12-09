@@ -24,8 +24,15 @@
 #include <errno.h>
 #include <stdio.h>
 
+#include "util.h"
+
 #include "dhcp-protocol.h"
+#include "dhcp-internal.h"
 #include "sd-dhcp-client.h"
+
+static struct ether_addr mac_addr = {
+        .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
+};
 
 static void test_request_basic(void)
 {
@@ -112,10 +119,83 @@ static void test_checksum(void)
         assert(client_checksum(&buf, 20) == *val);
 }
 
+static int check_options(uint8_t code, uint8_t len, const uint8_t *option,
+                void *user_data)
+{
+        return 0;
+}
+
+int dhcp_network_send_raw_packet(int index, const void *packet, size_t len)
+{
+        size_t size;
+        _cleanup_free_ DHCPPacket *discover;
+        uint16_t ip_check, udp_check;
+        int res;
+
+        assert(index == 42);
+        assert(packet);
+
+        size = sizeof(DHCPPacket) + 4;
+        assert(len > size);
+
+        discover = memdup(packet, len);
+
+        assert(memcmp(discover->dhcp.chaddr,
+                      &mac_addr.ether_addr_octet, 6) == 0);
+        assert(discover->ip.ttl == IPDEFTTL);
+        assert(discover->ip.protocol == IPPROTO_UDP);
+        assert(discover->ip.saddr == INADDR_ANY);
+        assert(discover->ip.daddr == INADDR_BROADCAST);
+        assert(discover->udp.source == ntohs(DHCP_PORT_CLIENT));
+        assert(discover->udp.dest == ntohs(DHCP_PORT_SERVER));
+
+        ip_check = discover->ip.check;
+
+        discover->ip.ttl = 0;
+        discover->ip.check = discover->udp.len;
+
+        udp_check = ~client_checksum(&discover->ip.ttl, len - 8);
+        assert(udp_check == 0xffff);
+
+        discover->ip.ttl = IPDEFTTL;
+        discover->ip.check = ip_check;
+
+        ip_check = ~client_checksum(&discover->ip, sizeof(discover->ip));
+        assert(ip_check == 0xffff);
+
+        size = len - sizeof(struct iphdr) - sizeof(struct udphdr);
+
+        res = dhcp_option_parse(&discover->dhcp, size, check_options, NULL);
+        if (res < 0)
+                return res;
+
+        return 575;
+}
+
+static void test_discover_message(void)
+{
+        sd_dhcp_client *client;
+        int res;
+
+        client = sd_dhcp_client_new();
+        assert(client);
+
+        assert(sd_dhcp_client_set_index(client, 42) >= 0);
+        assert(sd_dhcp_client_set_mac(client, &mac_addr) >= 0);
+
+        assert(sd_dhcp_client_set_request_option(client, 248) >= 0);
+
+        res = sd_dhcp_client_start(client);
+
+        assert(res == 0 || res == -EINPROGRESS);
+}
+
 int main(int argc, char *argv[])
 {
         test_request_basic();
         test_checksum();
+
+        test_discover_message();
 
         return 0;
 }

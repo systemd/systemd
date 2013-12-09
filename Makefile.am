@@ -3880,6 +3880,8 @@ test_dhcp_client_SOURCES = \
 	src/libsystemd-dhcp/dhcp-protocol.h \
 	src/systemd/sd-dhcp-client.h \
 	src/libsystemd-dhcp/dhcp-client.c \
+	src/libsystemd-dhcp/dhcp-internal.h \
+	src/libsystemd-dhcp/dhcp-option.c \
 	src/libsystemd-dhcp/test-dhcp-client.c
 
 test_dhcp_client_LDADD = \
