@@ -34,11 +34,11 @@ static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
 };
 
-static void test_request_basic(void)
+static void test_request_basic(sd_event *e)
 {
         sd_dhcp_client *client;
 
-        client = sd_dhcp_client_new();
+        client = sd_dhcp_client_new(e);
 
         assert(client);
 
@@ -172,12 +172,12 @@ int dhcp_network_send_raw_packet(int index, const void *packet, size_t len)
         return 575;
 }
 
-static void test_discover_message(void)
+static void test_discover_message(sd_event *e)
 {
         sd_dhcp_client *client;
         int res;
 
-        client = sd_dhcp_client_new();
+        client = sd_dhcp_client_new(e);
         assert(client);
 
         assert(sd_dhcp_client_set_index(client, 42) >= 0);
@@ -192,10 +192,15 @@ static void test_discover_message(void)
 
 int main(int argc, char *argv[])
 {
-        test_request_basic();
+        sd_event *e;
+
+        assert(sd_event_new(&e) >= 0);
+
+        test_request_basic(e);
         test_checksum();
 
-        test_discover_message();
+        test_discover_message(e);
+        sd_event_run(e, (uint64_t) -1);
 
         return 0;
 }

@@ -34,12 +34,15 @@
 
 struct sd_dhcp_client {
         DHCPState state;
+        sd_event *event;
+        sd_event_source *timeout_resend;
         int index;
         uint8_t *req_opts;
         size_t req_opts_size;
         uint32_t last_addr;
         struct ether_addr mac_addr;
         uint32_t xid;
+        usec_t start_time;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -124,6 +127,8 @@ static int client_stop(sd_dhcp_client *client, int error)
         assert_return(client, -EINVAL);
         assert_return(client->state != DHCP_STATE_INIT &&
                       client->state != DHCP_STATE_INIT_REBOOT, -EALREADY);
+
+        client->timeout_resend = sd_event_source_unref(client->timeout_resend);
 
         switch (client->state) {
 
@@ -278,8 +283,61 @@ static int client_send_discover(sd_dhcp_client *client, uint16_t secs)
         return 0;
 }
 
+static int client_timeout_resend(sd_event_source *s, uint64_t usec,
+                                 void *userdata)
+{
+        sd_dhcp_client *client = userdata;
+        usec_t next_timeout;
+        uint16_t secs;
+        int err = 0;
+
+        switch (client->state) {
+        case DHCP_STATE_INIT:
+        case DHCP_STATE_SELECTING:
+
+                if (!client->start_time)
+                        client->start_time = usec;
+
+                secs = (usec - client->start_time) / USEC_PER_SEC;
+
+                next_timeout = usec + 2 * USEC_PER_SEC + (random() & 0x1fffff);
+
+                err = sd_event_add_monotonic(client->event, next_timeout,
+                                             10 * USEC_PER_MSEC,
+                                             client_timeout_resend, client,
+                                             &client->timeout_resend);
+                if (err < 0)
+                        goto error;
+
+                if (client_send_discover(client, secs) >= 0)
+                        client->state = DHCP_STATE_SELECTING;
+
+                break;
+
+        case DHCP_STATE_INIT_REBOOT:
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
+        case DHCP_STATE_BOUND:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+
+                break;
+        }
+
+        return 0;
+
+error:
+        client_stop(client, err);
+
+        /* Errors were dealt with when stopping the client, don't spill
+           errors into the event loop handler */
+        return 0;
+}
+
 int sd_dhcp_client_start(sd_dhcp_client *client)
 {
+        int err;
+
         assert_return(client, -EINVAL);
         assert_return(client->index >= 0, -EINVAL);
         assert_return(client->state == DHCP_STATE_INIT ||
@@ -287,7 +345,18 @@ int sd_dhcp_client_start(sd_dhcp_client *client)
 
         client->xid = random_u();
 
-        return client_send_discover(client, 0);
+        err = sd_event_add_monotonic(client->event, now(CLOCK_MONOTONIC), 0,
+                                     client_timeout_resend, client,
+                                     &client->timeout_resend);
+        if (err < 0)
+                goto error;
+
+        return 0;
+
+error:
+        client_stop(client, err);
+
+        return err;
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client)
@@ -295,14 +364,17 @@ int sd_dhcp_client_stop(sd_dhcp_client *client)
         return client_stop(client, 0);
 }
 
-sd_dhcp_client *sd_dhcp_client_new(void)
+sd_dhcp_client *sd_dhcp_client_new(sd_event *event)
 {
         sd_dhcp_client *client;
+
+        assert_return(event, NULL);
 
         client = new0(sd_dhcp_client, 1);
         if (!client)
                 return NULL;
 
+        client->event = sd_event_ref(event);
         client->state = DHCP_STATE_INIT;
         client->index = -1;
 
