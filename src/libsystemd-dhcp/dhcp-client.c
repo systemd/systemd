@@ -961,6 +961,19 @@ int sd_dhcp_client_stop(sd_dhcp_client *client)
         return client_stop(client, DHCP_EVENT_STOP);
 }
 
+sd_dhcp_client *sd_dhcp_client_free(sd_dhcp_client *client)
+{
+        assert_return(client, NULL);
+
+        sd_dhcp_client_stop(client);
+
+        sd_event_unref(client->event);
+        free(client->req_opts);
+        free(client);
+
+        return NULL;
+}
+
 sd_dhcp_client *sd_dhcp_client_new(sd_event *event)
 {
         sd_dhcp_client *client;

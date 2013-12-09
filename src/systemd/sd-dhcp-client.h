@@ -57,6 +57,7 @@ int sd_dhcp_client_get_router(sd_dhcp_client *client, struct in_addr *addr);
 
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
+sd_dhcp_client *sd_dhcp_client_free(sd_dhcp_client *client);
 sd_dhcp_client *sd_dhcp_client_new(sd_event *event);
 
 #endif
