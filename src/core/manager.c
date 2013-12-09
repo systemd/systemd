@@ -22,9 +22,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
-#include <sys/epoll.h>
 #include <signal.h>
-#include <sys/signalfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <sys/poll.h>
