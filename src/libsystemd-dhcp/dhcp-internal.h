@@ -25,6 +25,8 @@
 
 #include "dhcp-protocol.h"
 
+int dhcp_network_send_raw_packet(int index, const void *packet, size_t len);
+
 int dhcp_option_append(uint8_t **buf, size_t *buflen, uint8_t code,
                        size_t optlen, const void *optval);
 
