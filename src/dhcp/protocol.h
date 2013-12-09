@@ -1,0 +1,104 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
+
+#pragma once
+
+/***
+  This file is part of systemd.
+
+  Copyright (C) 2013 Intel Corporation. All rights reserved.
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+***/
+
+#include <netinet/udp.h>
+#include <netinet/ip.h>
+#include <stdint.h>
+
+#include "macro.h"
+#include "sparse-endian.h"
+
+struct DHCPMessage {
+        uint8_t op;
+        uint8_t htype;
+        uint8_t hlen;
+        uint8_t hops;
+        be32_t xid;
+        be16_t secs;
+        be16_t flags;
+        uint32_t ciaddr;
+        uint32_t yiaddr;
+        uint32_t siaddr;
+        uint32_t giaddr;
+        uint8_t chaddr[16];
+        uint8_t sname[64];
+        uint8_t file[128];
+} _packed_;
+
+typedef struct DHCPMessage DHCPMessage;
+
+struct DHCPPacket {
+        struct iphdr ip;
+        struct udphdr udp;
+        DHCPMessage dhcp;
+} _packed_;
+
+typedef struct DHCPPacket DHCPPacket;
+
+enum DHCPState {
+        DHCP_STATE_INIT                         = 0,
+        DHCP_STATE_SELECTING                    = 1,
+        DHCP_STATE_INIT_REBOOT                  = 2,
+        DHCP_STATE_REBOOTING                    = 3,
+        DHCP_STATE_REQUESTING                   = 4,
+        DHCP_STATE_BOUND                        = 5,
+        DHCP_STATE_RENEWING                     = 6,
+        DHCP_STATE_REBINDING                    = 7,
+};
+
+typedef enum DHCPState DHCPState;
+
+enum {
+        BOOTREQUEST                             = 1,
+        BOOTREPLY                               = 2,
+};
+
+enum {
+        DHCP_DISCOVER                           = 1,
+        DHCP_OFFER                              = 2,
+        DHCP_REQUEST                            = 3,
+        DHCP_DECLINE                            = 4,
+        DHCP_ACK                                = 5,
+        DHCP_NAK                                = 6,
+        DHCP_RELEASE                            = 7,
+};
+
+enum {
+        DHCP_OVERLOAD_FILE                      = 1,
+        DHCP_OVERLOAD_SNAME                     = 2,
+};
+
+enum {
+        DHCP_OPTION_PAD                         = 0,
+        DHCP_OPTION_SUBNET_MASK                 = 1,
+        DHCP_OPTION_ROUTER                      = 3,
+        DHCP_OPTION_DOMAIN_NAME_SERVER          = 6,
+        DHCP_OPTION_HOST_NAME                   = 12,
+        DHCP_OPTION_DOMAIN_NAME                 = 15,
+        DHCP_OPTION_NTP_SERVER                  = 42,
+        DHCP_OPTION_REQUESTED_IP_ADDRESS        = 50,
+        DHCP_OPTION_OVERLOAD                    = 52,
+        DHCP_OPTION_MESSAGE_TYPE                = 53,
+        DHCP_OPTION_PARAMETER_REQUEST_LIST      = 55,
+        DHCP_OPTION_END                         = 255,
+};
