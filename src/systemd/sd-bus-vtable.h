@@ -46,6 +46,7 @@ enum {
         SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE    = 1ULL << 2,
         SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY = 1ULL << 3,
         SD_BUS_VTABLE_UNPRIVILEGED             = 1ULL << 4,
+        SD_BUS_VTABLE_HIDDEN                   = 1ULL << 5,
         _SD_BUS_VTABLE_CAPABILITY_MASK         = 0xFFFFULL << 40
 };
 

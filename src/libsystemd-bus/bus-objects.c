@@ -633,8 +633,14 @@ static int vtable_append_all_properties(
         assert(path);
         assert(c);
 
+        if (c->vtable[0].flags & SD_BUS_VTABLE_HIDDEN)
+                return 1;
+
         for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
                 if (v->type != _SD_BUS_VTABLE_PROPERTY && v->type != _SD_BUS_VTABLE_WRITABLE_PROPERTY)
+                        continue;
+
+                if (v->flags & SD_BUS_VTABLE_HIDDEN)
                         continue;
 
                 r = sd_bus_message_open_container(reply, 'e', "sv");
@@ -852,6 +858,9 @@ static int process_introspect(
                         continue;
 
                 empty = false;
+
+                if (c->vtable[0].flags & SD_BUS_VTABLE_HIDDEN)
+                        continue;
 
                 if (!streq_ptr(previous_interface, c->interface)) {
 

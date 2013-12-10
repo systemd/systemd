@@ -121,6 +121,9 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
 
         for (; v->type != _SD_BUS_VTABLE_END; v++) {
 
+                if (v->type != _SD_BUS_VTABLE_START && (v->flags & SD_BUS_VTABLE_HIDDEN))
+                        continue;
+
                 switch (v->type) {
 
                 case _SD_BUS_VTABLE_START:
