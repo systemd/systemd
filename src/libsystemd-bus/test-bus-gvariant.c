@@ -178,6 +178,15 @@ static void test_marshal(void) {
         blob = NULL;
 
         assert_se(bus_message_dump(n, NULL, true) >= 0);
+
+        m = sd_bus_message_unref(m);
+
+        assert_se(sd_bus_message_new_method_call(bus, "a.x", "/a/x", "a.x", "Ax", &m) >= 0);
+
+        assert_se(sd_bus_message_append(m, "as", 0) >= 0);
+
+        assert_se(bus_message_seal(m, 4712) >= 0);
+        assert_se(bus_message_dump(m, NULL, true) >= 0);
 }
 
 int main(int argc, char *argv[]) {
