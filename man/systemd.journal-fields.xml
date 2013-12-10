@@ -51,14 +51,14 @@
                 <title>Description</title>
 
                 <para>Entries in the journal resemble an environment
-                block in their syntax, however with fields that can
+                block in their syntax but with fields that can
                 include binary data. Primarily, fields are formatted
                 UTF-8 text strings, and binary formatting is used only
                 where formatting as UTF-8 text strings makes little
                 sense. New fields may freely be defined by
                 applications, but a few fields have special
                 meaning. All fields with special meanings are
-                optional. In some cases fields may appear more than
+                optional. In some cases, fields may appear more than
                 once per entry.</para>
         </refsect1>
 
@@ -176,7 +176,7 @@
                                 <term><varname>_UID=</varname></term>
                                 <term><varname>_GID=</varname></term>
                                 <listitem>
-                                        <para>The process, user and
+                                        <para>The process, user, and
                                         group ID of the process the
                                         journal entry originates from
                                         formatted as a decimal
@@ -190,7 +190,7 @@
                                 <term><varname>_CMDLINE=</varname></term>
                                 <listitem>
                                         <para>The name, the executable
-                                        path and the command line of
+                                        path, and the command line of
                                         the process the journal entry
                                         originates from.</para>
                                 </listitem>
@@ -389,12 +389,12 @@
                                         the major and minor of the
                                         device node, separated by <literal>:</literal>
                                         and prefixed by <literal>b</literal>. Similar
-                                        for character devices, but
+                                        for character devices but
                                         prefixed by <literal>c</literal>. For network
-                                        devices the interface index,
+                                        devices, this is the interface index
                                         prefixed by <literal>n</literal>. For all other
-                                        devices <literal>+</literal> followed by the
-                                        subsystem name, followed by
+                                        devices, this is the subsystem name
+                                        prefixed by <literal>+</literal>, followed by
                                         <literal>:</literal>, followed by the kernel
                                         device name.</para>
                                 </listitem>
