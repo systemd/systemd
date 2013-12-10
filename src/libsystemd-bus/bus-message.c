@@ -2026,7 +2026,7 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
         if (!BUS_MESSAGE_IS_GVARIANT(m))
                 return 0;
 
-        p = c->signature;
+        p = strempty(c->signature);
         while (*p != 0) {
                 size_t n;
 
@@ -2074,7 +2074,7 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
                 if (!a)
                         return -ENOMEM;
 
-                p = c->signature;
+                p = strempty(c->signature);
                 for (i = 0, j = 0; i < c->n_offsets; i++) {
                         unsigned k;
                         size_t n;
@@ -3554,12 +3554,20 @@ static int build_struct_offsets(
         int r;
 
         assert(m);
-        assert(signature);
         assert(item_size);
         assert(offsets);
         assert(n_offsets);
 
+        if (isempty(signature)) {
+                *item_size = 0;
+                *offsets = NULL;
+                *n_offsets = 0;
+                return 0;
+        }
+
         sz = determine_word_size(size, 0);
+        if (sz <= 0)
+                return -EBADMSG;
 
         /* First, loop over signature and count variable elements and
          * elements in general. We use this to know how large the
@@ -5281,7 +5289,7 @@ _public_ const char* sd_bus_message_get_signature(sd_bus_message *m, int complet
         assert_return(m, NULL);
 
         c = complete ? &m->root_container : message_get_container(m);
-        return c->signature ?: "";
+        return strempty(c->signature);
 }
 
 _public_ int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all) {
