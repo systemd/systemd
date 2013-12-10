@@ -750,6 +750,8 @@ static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
         return sd_bus_reply_method_return(m, NULL);
 }
 
+#include <sys/capability.h>
+
 static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Timezone", "s", NULL, offsetof(Context, zone), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -759,10 +761,10 @@ static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_PROPERTY("NTPSynchronized", "b", property_get_ntp_sync, 0, 0),
         SD_BUS_PROPERTY("TimeUSec", "t", property_get_time, 0, 0),
         SD_BUS_PROPERTY("RTCTimeUSec", "t", property_get_rtc_time, 0, 0),
-        SD_BUS_METHOD("SetTime", "xbb", NULL, method_set_time, 0),
-        SD_BUS_METHOD("SetTimezone", "sb", NULL, method_set_timezone, 0),
-        SD_BUS_METHOD("SetLocalRTC", "bbb", NULL, method_set_local_rtc, 0),
-        SD_BUS_METHOD("SetNTP", "bb", NULL, method_set_ntp, 0),
+        SD_BUS_METHOD("SetTime", "xbb", NULL, method_set_time, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetTimezone", "sb", NULL, method_set_timezone, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLocalRTC", "bbb", NULL, method_set_local_rtc, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetNTP", "bb", NULL, method_set_ntp, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 

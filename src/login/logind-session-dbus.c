@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <sys/capability.h>
 
 #include "util.h"
 #include "strv.h"
@@ -455,17 +456,17 @@ const sd_bus_vtable session_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
-        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, 0),
-        SD_BUS_METHOD("Activate", NULL, NULL, method_activate, 0),
+        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("Activate", NULL, NULL, method_activate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Lock", NULL, NULL, method_lock, 0),
         SD_BUS_METHOD("Unlock", NULL, NULL, method_lock, 0),
-        SD_BUS_METHOD("SetIdleHint", "b", NULL, method_set_idle_hint, 0),
-        SD_BUS_METHOD("Kill", "si", NULL, method_kill, 0),
-        SD_BUS_METHOD("TakeControl", "b", NULL, method_take_control, 0),
-        SD_BUS_METHOD("ReleaseControl", NULL, NULL, method_release_control, 0),
-        SD_BUS_METHOD("TakeDevice", "uu", "hb", method_take_device, 0),
-        SD_BUS_METHOD("ReleaseDevice", "uu", NULL, method_release_device, 0),
-        SD_BUS_METHOD("PauseDeviceComplete", "uu", NULL, method_pause_device_complete, 0),
+        SD_BUS_METHOD("SetIdleHint", "b", NULL, method_set_idle_hint, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Kill", "si", NULL, method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("TakeControl", "b", NULL, method_take_control, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ReleaseControl", NULL, NULL, method_release_control, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("TakeDevice", "uu", "hb", method_take_device, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ReleaseDevice", "uu", NULL, method_release_device, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("PauseDeviceComplete", "uu", NULL, method_pause_device_complete, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL("PauseDevice", "uus", 0),
         SD_BUS_SIGNAL("ResumeDevice", "uuh", 0),

@@ -31,28 +31,32 @@ typedef struct sd_bus_vtable sd_bus_vtable;
 #include "sd-bus.h"
 
 enum {
-        _SD_BUS_VTABLE_START = '<',
-        _SD_BUS_VTABLE_END = '>',
-        _SD_BUS_VTABLE_METHOD = 'M',
-        _SD_BUS_VTABLE_SIGNAL = 'S',
-        _SD_BUS_VTABLE_PROPERTY = 'P',
+        _SD_BUS_VTABLE_START             = '<',
+        _SD_BUS_VTABLE_END               = '>',
+        _SD_BUS_VTABLE_METHOD            = 'M',
+        _SD_BUS_VTABLE_SIGNAL            = 'S',
+        _SD_BUS_VTABLE_PROPERTY          = 'P',
         _SD_BUS_VTABLE_WRITABLE_PROPERTY = 'W',
-        _SD_BUS_VTABLE_CHILDREN = 'C'
+        _SD_BUS_VTABLE_CHILDREN          = 'C',
 };
 
 enum {
-        SD_BUS_VTABLE_DEPRECATED = 1,
-        SD_BUS_VTABLE_METHOD_NO_REPLY = 2,
-        SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE = 4,
-        SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY = 8,
+        SD_BUS_VTABLE_DEPRECATED               = 1ULL << 0,
+        SD_BUS_VTABLE_METHOD_NO_REPLY          = 1ULL << 1,
+        SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE    = 1ULL << 2,
+        SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY = 1ULL << 3,
+        SD_BUS_VTABLE_UNPRIVILEGED             = 1ULL << 4,
+        _SD_BUS_VTABLE_CAPABILITY_MASK         = 0xFFFFULL << 40
 };
+
+#define SD_BUS_VTABLE_CAPABILITY(x) ((uint64_t) (((x)+1) & 0xFFFF) << 40)
 
 struct sd_bus_vtable {
         /* Please do not initialize this structure directly, use the
          * macros below instead */
 
-        int type;
-        int flags;
+        uint8_t type:8;
+        uint64_t flags:56;
         union {
                 struct {
                         size_t element_size;

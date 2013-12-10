@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <sys/capability.h>
 
 #include "util.h"
 #include "bus-util.h"
@@ -248,8 +249,8 @@ const sd_bus_vtable seat_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
-        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, 0),
-        SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, 0),
+        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END
 };

@@ -318,6 +318,15 @@ _public_ int sd_bus_set_anonymous(sd_bus *bus, int b) {
         return 0;
 }
 
+_public_ int sd_bus_set_trusted(sd_bus *bus, int b) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        bus->trusted = !!b;
+        return 0;
+}
+
 static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         const char *s;
         int r;
@@ -1005,6 +1014,11 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
 
         b->bus_client = true;
 
+        /* Let's do per-method access control on the system bus. We
+         * need the caller's UID and capability set for that. */
+        b->trusted = false;
+        b->attach_flags |= KDBUS_ATTACH_CAPS | KDBUS_ATTACH_CREDS;
+
         r = sd_bus_start(b);
         if (r < 0)
                 goto fail;
@@ -1064,6 +1078,10 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
         }
 
         b->bus_client = true;
+
+        /* We don't do any per-method access control on the user
+         * bus. */
+        b->trusted = true;
 
         r = sd_bus_start(b);
         if (r < 0)

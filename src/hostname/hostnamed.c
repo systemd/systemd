@@ -546,11 +546,11 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("PrettyHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_METHOD("SetHostname", "sb", NULL, method_set_hostname, 0),
-        SD_BUS_METHOD("SetStaticHostname", "sb", NULL, method_set_static_hostname, 0),
-        SD_BUS_METHOD("SetPrettyHostname", "sb", NULL, method_set_pretty_hostname, 0),
-        SD_BUS_METHOD("SetIconName", "sb", NULL, method_set_icon_name, 0),
-        SD_BUS_METHOD("SetChassis", "sb", NULL, method_set_chassis, 0),
+        SD_BUS_METHOD("SetHostname", "sb", NULL, method_set_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetStaticHostname", "sb", NULL, method_set_static_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetPrettyHostname", "sb", NULL, method_set_pretty_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetIconName", "sb", NULL, method_set_icon_name, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetChassis", "sb", NULL, method_set_chassis, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 

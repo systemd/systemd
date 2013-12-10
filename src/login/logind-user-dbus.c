@@ -21,10 +21,10 @@
 
 #include <errno.h>
 #include <string.h>
+#include <sys/capability.h>
 
 #include "strv.h"
 #include "bus-util.h"
-
 #include "logind.h"
 #include "logind-user.h"
 
@@ -229,8 +229,8 @@ const sd_bus_vtable user_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Linger", "b", property_get_linger, 0, 0),
 
-        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, 0),
-        SD_BUS_METHOD("Kill", "i", NULL, method_kill, 0),
+        SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("Kill", "i", NULL, method_kill, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
 
         SD_BUS_VTABLE_END
 };

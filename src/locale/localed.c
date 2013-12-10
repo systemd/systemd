@@ -1068,9 +1068,9 @@ static const sd_bus_vtable locale_vtable[] = {
         SD_BUS_PROPERTY("X11Options", "s", NULL, offsetof(Context, x11_options), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("VConsoleKeymap", "s", NULL, offsetof(Context, vc_keymap), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("VConsoleKeymapToggle", "s", NULL, offsetof(Context, vc_keymap_toggle), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_METHOD("SetLocale", "asb", NULL, method_set_locale, 0),
-        SD_BUS_METHOD("SetVConsoleKeyboard", "ssbb", NULL, method_set_vc_keyboard, 0),
-        SD_BUS_METHOD("SetX11Keyboard", "ssssbb", NULL, method_set_x11_keyboard, 0),
+        SD_BUS_METHOD("SetLocale", "asb", NULL, method_set_locale, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetVConsoleKeyboard", "ssbb", NULL, method_set_vc_keyboard, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetX11Keyboard", "ssssbb", NULL, method_set_x11_keyboard, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 

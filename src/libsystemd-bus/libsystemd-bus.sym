@@ -25,6 +25,7 @@ global:
         sd_bus_set_bus_client;
         sd_bus_set_server;
         sd_bus_set_anonymous;
+        sd_bus_set_trusted;
         sd_bus_negotiate_fds;
         sd_bus_negotiate_attach_timestamp;
         sd_bus_negotiate_attach_creds;

@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/capability.h>
+
 #include "strv.h"
 #include "set.h"
 #include "bus-internal.h"
@@ -264,6 +266,64 @@ static int node_callbacks_run(
         return 0;
 }
 
+#define CAPABILITY_SHIFT(x) (((x) >> __builtin_ctzll(_SD_BUS_VTABLE_CAPABILITY_MASK)) & 0xFFFF)
+
+static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c, sd_bus_error *error) {
+        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        uint64_t cap;
+        uid_t uid;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(c);
+
+        /* If the entire bus is trusted let's grant access */
+        if (bus->trusted)
+                return 0;
+
+        /* If the member is marked UNPRIVILEGED let's grant access */
+        if (c->vtable->flags & SD_BUS_VTABLE_UNPRIVILEGED)
+                return 0;
+
+        /* If we are not connected to kdbus we cannot retrieve the
+         * effective capability set without race. Since we need this
+         * for a security decision we cannot use racy data, hence
+         * don't request it. */
+        if (bus->is_kernel)
+                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID|SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
+        else
+                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds);
+        if (r < 0)
+                return r;
+
+        /* Check have the caller has the requested capability
+         * set. Note that the flags value contains the capability
+         * number plus one, which we need to subtract here. We do this
+         * so that we have 0 as special value for "default
+         * capability". */
+        cap = CAPABILITY_SHIFT(c->vtable->flags);
+        if (cap == 0)
+                cap = CAPABILITY_SHIFT(c->parent->vtable[0].flags);
+        if (cap == 0)
+                cap = CAP_SYS_ADMIN;
+        else
+                cap --;
+
+        r = sd_bus_creds_has_effective_cap(creds, cap);
+        if (r > 0)
+                return 1;
+
+        /* Caller has same UID as us, then let's grant access */
+        r = sd_bus_creds_get_uid(creds, &uid);
+        if (r >= 0) {
+                if (uid == getuid())
+                        return 1;
+        }
+
+        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Access to %s.%s() not permitted.", c->interface, c->member);
+}
+
 static int method_callbacks_run(
                 sd_bus *bus,
                 sd_bus_message *m,
@@ -283,6 +343,10 @@ static int method_callbacks_run(
 
         if (require_fallback && !c->parent->is_fallback)
                 return 0;
+
+        r = check_access(bus, m, c, &error);
+        if (r < 0)
+                return bus_maybe_reply_error(m, r, &error);
 
         r = node_vtable_get_userdata(bus, m->path, c->parent, &u, &error);
         if (r <= 0)
@@ -498,6 +562,11 @@ static int property_get_set_callbacks_run(
                 if (r < 0)
                         return r;
 
+                /* Note that we do not do an access check here. Read
+                 * access to properties is always unrestricted, since
+                 * PropertiesChanged signals broadcast contents
+                 * anyway. */
+
                 r = invoke_property_get(bus, c->vtable, m->path, c->interface, c->member, reply, u, &error);
                 if (r < 0)
                         return bus_maybe_reply_error(m, r, &error);
@@ -524,6 +593,10 @@ static int property_get_set_callbacks_run(
                 r = sd_bus_message_enter_container(m, 'v', c->vtable->x.property.signature);
                 if (r < 0)
                         return r;
+
+                r = check_access(bus, m, c, &error);
+                if (r < 0)
+                        return bus_maybe_reply_error(m, r, &error);
 
                 r = invoke_property_set(bus, c->vtable, m->path, c->interface, c->member, m, u, &error);
                 if (r < 0)
@@ -1199,11 +1272,11 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
         if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return 0;
 
-        if (!m->path)
-                return 0;
-
         if (hashmap_isempty(bus->nodes))
                 return 0;
+
+        assert(m->path);
+        assert(m->member);
 
         pl = strlen(m->path);
         do {
@@ -1636,7 +1709,8 @@ static int add_object_vtable_internal(
                             !signature_is_single(v->x.property.signature, false) ||
                             !(v->x.property.get || bus_type_is_basic(v->x.property.signature[0]) || streq(v->x.property.signature, "as")) ||
                             v->flags & SD_BUS_VTABLE_METHOD_NO_REPLY ||
-                            (v->flags & SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY && !(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE))) {
+                            (v->flags & SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY && !(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE)) ||
+                            (v->flags & SD_BUS_VTABLE_UNPRIVILEGED && v->type == _SD_BUS_VTABLE_PROPERTY)) {
                                 r = -EINVAL;
                                 goto fail;
                         }
@@ -1666,7 +1740,8 @@ static int add_object_vtable_internal(
                 case _SD_BUS_VTABLE_SIGNAL:
 
                         if (!member_name_is_valid(v->x.signal.member) ||
-                            !signature_is_valid(strempty(v->x.signal.signature), false)) {
+                            !signature_is_valid(strempty(v->x.signal.signature), false) ||
+                            v->flags & SD_BUS_VTABLE_UNPRIVILEGED) {
                                 r = -EINVAL;
                                 goto fail;
                         }

@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <sys/capability.h>
 
 #include "sd-id128.h"
 #include "sd-messages.h"
@@ -342,12 +343,12 @@ static int method_kill_machine(sd_bus *bus, sd_bus_message *message, void *userd
 
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("GetMachine", "s", "o", method_get_machine, 0),
-        SD_BUS_METHOD("GetMachineByPID", "u", "o", method_get_machine_by_pid, 0),
-        SD_BUS_METHOD("ListMachines", NULL, "a(ssso)", method_list_machines, 0),
+        SD_BUS_METHOD("GetMachine", "s", "o", method_get_machine, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetMachineByPID", "u", "o", method_get_machine_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListMachines", NULL, "a(ssso)", method_list_machines, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CreateMachine", "sayssusa(sv)", "o", method_create_machine, 0),
-        SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, 0),
-        SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, 0),
+        SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
+        SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
         SD_BUS_SIGNAL("MachineRemoved", "so", 0),
         SD_BUS_VTABLE_END

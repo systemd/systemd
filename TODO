@@ -112,8 +112,6 @@ Features:
   ReadOnlyDirectories=... for whitelisting files for a service.
 
 * libsystemd-bus:
-  - default policy (allow uid == 0 and our own uid)
-  - access policy as vtable flag
   - when kdbus doesn't take our message without memfds, try again with memfds
   - implement translator service
   - implement monitor logic

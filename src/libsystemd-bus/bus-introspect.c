@@ -77,7 +77,7 @@ static void introspect_write_flags(struct introspect *i, int type, int flags) {
         if (flags & SD_BUS_VTABLE_DEPRECATED)
                 fputs("   <annotation name=\"org.freedesktop.DBus.Deprecated\" value=\"true\"/>\n", i->f);
 
-        if (type == _SD_BUS_VTABLE_METHOD && flags & SD_BUS_VTABLE_METHOD_NO_REPLY)
+        if (type == _SD_BUS_VTABLE_METHOD && (flags & SD_BUS_VTABLE_METHOD_NO_REPLY))
                 fputs("   <annotation name=\"org.freedesktop.DBus.Method.NoReply\" value=\"true\"/>\n", i->f);
 
         if (type == _SD_BUS_VTABLE_PROPERTY || type == _SD_BUS_VTABLE_WRITABLE_PROPERTY) {
@@ -86,6 +86,9 @@ static void introspect_write_flags(struct introspect *i, int type, int flags) {
                 else if (flags & SD_BUS_VTABLE_PROPERTY_INVALIDATE_ONLY)
                         fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"invalidates\"/>\n", i->f);
         }
+
+        if ((type == _SD_BUS_VTABLE_METHOD || type == _SD_BUS_VTABLE_WRITABLE_PROPERTY) && (flags & SD_BUS_VTABLE_UNPRIVILEGED))
+                fputs("   <annotation name=\"org.freedesktop.systemd1.Unprivileged\" value=\"true\"/>\n", i->f);
 }
 
 static int introspect_write_arguments(struct introspect *i, const char *signature, const char *direction) {
