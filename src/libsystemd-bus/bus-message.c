@@ -2404,10 +2404,12 @@ _public_ int sd_bus_message_append_array_space(
 
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
-        assert_return(bus_type_is_trivial(type), -EINVAL);
+        assert_return(bus_type_is_trivial(type) && type != SD_BUS_TYPE_BOOLEAN, -EINVAL);
         assert_return(ptr || size == 0, -EINVAL);
         assert_return(!m->poisoned, -ESTALE);
 
+        /* alignment and size of the trivial types (except bool) is
+         * identical for gvariant and dbus1 marshalling */
         align = bus_type_get_alignment(type);
         sz = bus_type_get_size(type);
 
@@ -2554,8 +2556,8 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
         part->size = size;
         copy_fd = -1;
 
-        message_extend_containers(m, size);
         m->header->body_size += size;
+        message_extend_containers(m, size);
 
         return sd_bus_message_close_container(m);
 }
@@ -2969,8 +2971,12 @@ static int container_next_item(sd_bus_message *m, struct bus_container *c, size_
                         *rindex = ALIGN_TO(c->offsets[c->offset_index], alignment);
                         c->item_size = c->offsets[c->offset_index+1] - *rindex;
                 } else {
+
+                        if (c->offset_index+1 >= (c->end-c->begin)/sz)
+                                goto end;
+
                         /* Fixed-size array */
-                        *rindex += sz;
+                        *rindex = c->begin + (c->offset_index+1) * sz;
                         c->item_size = sz;
                 }
 
