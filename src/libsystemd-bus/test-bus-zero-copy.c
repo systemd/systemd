@@ -87,14 +87,17 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_append_array_space(m, 'y', FIRST_ARRAY, (void**) &p);
         assert_se(r >= 0);
 
-        memset(p, 'L', FIRST_ARRAY);
+        p[0] = '<';
+        memset(p+1, 'L', FIRST_ARRAY-2);
+        p[FIRST_ARRAY-1] = '>';
 
         r = sd_memfd_new_and_map(&f, STRING_SIZE, (void**) &s);
         assert_se(r >= 0);
 
-        for (i = 0; i < STRING_SIZE-1; i++)
+        s[0] = '<';
+        for (i = 1; i < STRING_SIZE-2; i++)
                 s[i] = '0' + (i % 10);
-
+        s[STRING_SIZE-2] = '>';
         s[STRING_SIZE-1] = 0;
         munmap(s, STRING_SIZE);
 
@@ -110,7 +113,9 @@ int main(int argc, char *argv[]) {
         r = sd_memfd_new_and_map(&f, SECOND_ARRAY, (void**) &p);
         assert_se(r >= 0);
 
-        memset(p, 'P', SECOND_ARRAY);
+        p[0] = '<';
+        memset(p+1, 'P', SECOND_ARRAY-2);
+        p[SECOND_ARRAY-1] = '>';
         munmap(p, SECOND_ARRAY);
 
         r = sd_memfd_get_size(f, &sz);
@@ -151,22 +156,28 @@ int main(int argc, char *argv[]) {
         assert_se(r > 0);
         assert_se(l == FIRST_ARRAY);
 
-        for (i = 0; i < l; i++)
+        assert_se(p[0] == '<');
+        for (i = 1; i < l-1; i++)
                 assert_se(p[i] == 'L');
+        assert_se(p[l-1] == '>');
 
         r = sd_bus_message_read(m, "s", &s);
         assert_se(r > 0);
 
-        for (i = 0; i < STRING_SIZE-1; i++)
+        assert_se(s[0] == '<');
+        for (i = 1; i < STRING_SIZE-2; i++)
                 assert_se(s[i] == (char) ('0' + (i % 10)));
+        assert_se(s[STRING_SIZE-2] == '>');
         assert_se(s[STRING_SIZE-1] == 0);
 
         r = sd_bus_message_read_array(m, 'y', (const void**) &p, &l);
         assert_se(r > 0);
         assert_se(l == SECOND_ARRAY);
 
-        for (i = 0; i < l; i++)
+        assert_se(p[0] == '<');
+        for (i = 1; i < l-1; i++)
                 assert_se(p[i] == 'P');
+        assert_se(p[l-1] == '>');
 
         r = sd_bus_message_exit_container(m);
         assert_se(r > 0);
