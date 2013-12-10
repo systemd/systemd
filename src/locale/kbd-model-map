@@ -39,7 +39,7 @@ ro			ro	pc105		-		terminate:ctrl_alt_bksp
 us-acentos		us	pc105		intl		terminate:ctrl_alt_bksp
 pt-latin1		pt	pc105		-		terminate:ctrl_alt_bksp
 ro-std-cedilla		ro	pc105		std_cedilla	terminate:ctrl_alt_bksp
-tj			tj	pc105		-		terminate:ctrl_alt_bksp
+tj_alt-UTF8		tj	pc105		-		terminate:ctrl_alt_bksp
 de-latin1-nodeadkeys	de	pc105		nodeadkeys	terminate:ctrl_alt_bksp
 no			no	pc105		-		terminate:ctrl_alt_bksp
 bg_bds-utf8		bg,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
