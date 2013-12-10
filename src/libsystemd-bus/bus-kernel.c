@@ -418,8 +418,10 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
 
                         if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
                                 sd_bus_error_setf(&error, SD_BUS_ERROR_SERVICE_UNKNOWN, "Destination %s not known", m->destination);
-                        else
+                        else {
+                                log_debug("Could not deliver message to %s as destination is not known. Ignoring.", m->destination);
                                 return 0;
+                        }
 
                 } else if (errno == EADDRNOTAVAIL) {
 
@@ -427,8 +429,10 @@ int bus_kernel_write_message(sd_bus *bus, sd_bus_message *m) {
 
                         if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
                                 sd_bus_error_setf(&error, SD_BUS_ERROR_SERVICE_UNKNOWN, "Activation of %s not requested", m->destination);
-                        else
+                        else {
+                                log_debug("Could not deliver message to %s as destination is not activated. Ignoring.", m->destination);
                                 return 0;
+                        }
                 } else
                         return -errno;
 
@@ -897,7 +901,7 @@ int bus_kernel_read_message(sd_bus *bus) {
 
                 /* Anybody can send us invalid messages, let's just drop them. */
                 if (r == -EBADMSG || r == -EPROTOTYPE) {
-                        log_error("Ignoring invalid message: %s", strerror(-r));
+                        log_debug("Ignoring invalid message: %s", strerror(-r));
                         r = 0;
                 }
 
