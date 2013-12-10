@@ -3911,6 +3911,7 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
 
 _public_ int sd_bus_message_exit_container(sd_bus_message *m) {
         struct bus_container *c;
+        unsigned saved;
         int r;
 
         assert_return(m, -EINVAL);
@@ -3942,7 +3943,10 @@ _public_ int sd_bus_message_exit_container(sd_bus_message *m) {
 
         c = message_get_container(m);
 
+        saved = c->index;
+        c->index = c->saved_index;
         r = container_next_item(m, c, &m->rindex);
+        c->index = saved;
         if (r < 0)
                 return r;
 
