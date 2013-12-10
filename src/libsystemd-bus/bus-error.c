@@ -39,7 +39,8 @@ static int bus_error_name_to_errno(const char *name) {
         const char *p;
         int r;
 
-        assert_return(name, EINVAL);
+        if (!name)
+                return EINVAL;
 
         p = startswith(name, "System.Error.");
         if (p) {
