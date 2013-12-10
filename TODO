@@ -116,7 +116,6 @@ Features:
   - access policy as vtable flag
   - when kdbus doesn't take our message without memfds, try again with memfds
   - implement translator service
-  - move to gvariant
   - implement monitor logic
   - properly map matches with well-known names against messages with unique names
   - when triggering property change events, allow a NULL strv indicate that all properties listed as such are send out as changed
