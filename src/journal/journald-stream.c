@@ -76,7 +76,7 @@ struct StdoutStream {
 
 static int stdout_stream_log(StdoutStream *s, const char *p) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 5];
-        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL;
+        _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL;
         unsigned n = 0;
         int priority;
         char *label = NULL;
@@ -129,12 +129,6 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
 #endif
 
         server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, s->unit_id, priority, 0);
-
-        free(message);
-        free(syslog_priority);
-        free(syslog_facility);
-        free(syslog_identifier);
-
         return 0;
 }
 
