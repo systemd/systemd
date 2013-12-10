@@ -4851,7 +4851,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
         uint32_t unix_fds = 0;
         void *offsets = NULL;
         unsigned n_offsets = 0;
-        size_t sz;
+        size_t sz = 0;
         unsigned i = 0;
 
         assert(m);
