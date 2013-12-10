@@ -821,3 +821,21 @@ bluetooth:v010F*
 
 bluetooth:v0110*
  ID_VENDOR_FROM_DATABASE=Nippon Seiki Co., Ltd.
+
+bluetooth:v0111*
+ ID_VENDOR_FROM_DATABASE=Steelseries ApS
+
+bluetooth:v0112*
+ ID_VENDOR_FROM_DATABASE=vyzybl Inc.
+
+bluetooth:v0113*
+ ID_VENDOR_FROM_DATABASE=Openbrain Technologies, Co., Ltd.
+
+bluetooth:v0114*
+ ID_VENDOR_FROM_DATABASE=Xensr
+
+bluetooth:v0115*
+ ID_VENDOR_FROM_DATABASE=e.solutions
+
+bluetooth:v0116*
+ ID_VENDOR_FROM_DATABASE=1OAK Technologies
