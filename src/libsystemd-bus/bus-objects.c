@@ -1284,6 +1284,10 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
         if (hashmap_isempty(bus->nodes))
                 return 0;
 
+        /* Never respond to broadcast messages */
+        if (bus->bus_client && !m->destination)
+                return 0;
+
         assert(m->path);
         assert(m->member);
 
