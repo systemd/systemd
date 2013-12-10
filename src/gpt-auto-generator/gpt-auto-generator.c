@@ -24,7 +24,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/statfs.h>
-#include <blkid.h>
+#include <blkid/blkid.h>
 
 #ifdef HAVE_LINUX_BTRFS_H
 #include <linux/btrfs.h>

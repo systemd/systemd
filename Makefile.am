@@ -1349,10 +1349,9 @@ test_cgroup_LDADD = \
 test_cgroup_mask_SOURCES = \
 	src/test/test-cgroup-mask.c
 
-test_cgroup_mask_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS) \
-	-D"STR(s)=\#s" -D"TEST_DIR=STR($(abs_top_srcdir)/test/)"
+test_cgroup_mask_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DTEST_DIR=\"$(abs_top_srcdir)/test\"
 
 test_cgroup_mask_LDADD = \
 	libsystemd-core.la \
@@ -1416,9 +1415,9 @@ test_watchdog_LDADD = \
 test_sched_prio_SOURCES = \
 	src/test/test-sched-prio.c
 
-test_sched_prio_CFLAGS = \
-	$(AM_CFLAGS) \
-	-D"STR(s)=\#s" -D"TEST_DIR=STR($(abs_top_srcdir)/test/)"
+test_sched_prio_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DTEST_DIR=\"$(abs_top_srcdir)/test\"
 
 test_sched_prio_LDADD = \
 	libsystemd-core.la \
@@ -3058,8 +3057,8 @@ test_mmap_cache_LDADD = \
 test_catalog_SOURCES = \
 	src/journal/test-catalog.c
 
-test_catalog_CFLAGS = \
-	$(AM_CFLAGS) \
+test_catalog_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
 	-DCATALOG_DIR=\"$(abs_top_srcdir)/catalog\"
 
 test_catalog_LDADD = \
@@ -3317,8 +3316,11 @@ systemd_journal_gatewayd_LDADD = \
 
 systemd_journal_gatewayd_CFLAGS = \
 	$(AM_CFLAGS) \
-	-DDOCUMENT_ROOT=\"$(gatewayddocumentrootdir)\" \
 	$(MICROHTTPD_CFLAGS)
+
+systemd_journal_gatewayd_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DDOCUMENT_ROOT=\"$(gatewayddocumentrootdir)\"
 
 dist_systemunit_DATA += \
 	units/systemd-journal-gatewayd.socket
