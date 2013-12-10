@@ -72,7 +72,9 @@ _public_ sd_bus_creds *sd_bus_creds_ref(sd_bus_creds *c) {
 }
 
 _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
-        assert_return(c, NULL);
+
+        if (!c)
+                return NULL;
 
         if (c->allocated) {
                 assert(c->n_ref > 0);

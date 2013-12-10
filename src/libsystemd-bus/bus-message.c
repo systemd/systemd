@@ -791,7 +791,9 @@ _public_ sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
 }
 
 _public_ sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
-        assert_return(m, NULL);
+
+        if (!m)
+                return NULL;
 
         assert(m->n_ref > 0);
         m->n_ref--;

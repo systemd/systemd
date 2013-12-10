@@ -1214,7 +1214,9 @@ _public_ sd_bus *sd_bus_ref(sd_bus *bus) {
 }
 
 _public_ sd_bus *sd_bus_unref(sd_bus *bus) {
-        assert_return(bus, NULL);
+
+        if (!bus)
+                return NULL;
 
         if (REFCNT_DEC(bus->n_ref) <= 0)
                 bus_free(bus);
