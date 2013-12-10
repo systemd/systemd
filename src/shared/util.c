@@ -5792,12 +5792,18 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need) {
         size_t a;
         void *q;
 
+        assert(p);
         assert(allocated);
 
         if (*allocated >= need)
                 return *p;
 
         a = MAX(64u, need * 2);
+
+        /* check for overflows */
+        if (a < need)
+                return NULL;
+
         q = realloc(*p, a);
         if (!q)
                 return NULL;
@@ -5808,8 +5814,13 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need) {
 }
 
 void* greedy_realloc0(void **p, size_t *allocated, size_t need) {
-        size_t prev = *allocated;
+        size_t prev;
         uint8_t *q;
+
+        assert(p);
+        assert(allocated);
+
+        prev = *allocated;
 
         q = greedy_realloc(p, allocated, need);
         if (!q)
