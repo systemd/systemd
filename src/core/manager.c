@@ -2211,10 +2211,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         }
 
 finish:
-        if (ferror(f)) {
+        if (ferror(f))
                 r = -EIO;
-                goto finish;
-        }
 
         assert(m->n_reloading > 0);
         m->n_reloading --;
