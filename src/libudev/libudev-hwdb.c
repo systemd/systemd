@@ -277,38 +277,38 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
 
         hwdb->f = fopen("/etc/udev/hwdb.bin", "re");
         if (!hwdb->f) {
-                log_debug("error reading /etc/udev/hwdb.bin: %m");
+                udev_dbg(udev, "error reading /etc/udev/hwdb.bin: %m");
                 udev_hwdb_unref(hwdb);
                 return NULL;
         }
 
         if (fstat(fileno(hwdb->f), &hwdb->st) < 0 ||
             (size_t)hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8) {
-                log_debug("error reading /etc/udev/hwdb.bin: %m");
+                udev_dbg(udev, "error reading /etc/udev/hwdb.bin: %m");
                 udev_hwdb_unref(hwdb);
                 return NULL;
         }
 
         hwdb->map = mmap(0, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
         if (hwdb->map == MAP_FAILED) {
-                log_debug("error mapping /etc/udev/hwdb.bin: %m");
+                udev_dbg(udev, "error mapping /etc/udev/hwdb.bin: %m");
                 udev_hwdb_unref(hwdb);
                 return NULL;
         }
 
         if (memcmp(hwdb->map, sig, sizeof(hwdb->head->signature)) != 0 ||
             (size_t)hwdb->st.st_size != le64toh(hwdb->head->file_size)) {
-                log_debug("error recognizing the format of /etc/udev/hwdb.bin");
+                udev_dbg(udev, "error recognizing the format of /etc/udev/hwdb.bin");
                 udev_hwdb_unref(hwdb);
                 return NULL;
         }
 
-        log_debug("=== trie on-disk ===\n");
-        log_debug("tool version:          %"PRIu64, le64toh(hwdb->head->tool_version));
-        log_debug("file size:        %8llu bytes\n", (unsigned long long) hwdb->st.st_size);
-        log_debug("header size       %8"PRIu64" bytes\n", le64toh(hwdb->head->header_size));
-        log_debug("strings           %8"PRIu64" bytes\n", le64toh(hwdb->head->strings_len));
-        log_debug("nodes             %8"PRIu64" bytes\n", le64toh(hwdb->head->nodes_len));
+        udev_dbg(udev, "=== trie on-disk ===\n");
+        udev_dbg(udev, "tool version:          %"PRIu64, le64toh(hwdb->head->tool_version));
+        udev_dbg(udev, "file size:        %8llu bytes\n", (unsigned long long) hwdb->st.st_size);
+        udev_dbg(udev, "header size       %8"PRIu64" bytes\n", le64toh(hwdb->head->header_size));
+        udev_dbg(udev, "strings           %8"PRIu64" bytes\n", le64toh(hwdb->head->strings_len));
+        udev_dbg(udev, "nodes             %8"PRIu64" bytes\n", le64toh(hwdb->head->nodes_len));
         return hwdb;
 }
 
