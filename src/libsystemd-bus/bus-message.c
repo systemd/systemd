@@ -1131,9 +1131,7 @@ static void message_extend_containers(sd_bus_message *m, size_t expand) {
 }
 
 static void *message_extend_body(sd_bus_message *m, size_t align, size_t sz, bool add_offset) {
-        struct bus_body_part *part = NULL;
-        size_t start_body, end_body, padding, start_part, end_part, added;
-        bool add_new_part;
+        size_t start_body, end_body, padding, added;
         void *p;
         int r;
 
@@ -1156,54 +1154,61 @@ static void *message_extend_body(sd_bus_message *m, size_t align, size_t sz, boo
                 return NULL;
         }
 
-        add_new_part =
-                m->n_body_parts <= 0 ||
-                m->body_end->sealed ||
-                padding != ALIGN_TO(m->body_end->size, align) - m->body_end->size;
+        if (added > 0) {
+                struct bus_body_part *part = NULL;
+                bool add_new_part;
 
-        if (add_new_part) {
-                if (padding > 0) {
+                add_new_part =
+                        m->n_body_parts <= 0 ||
+                        m->body_end->sealed ||
+                        padding != ALIGN_TO(m->body_end->size, align) - m->body_end->size;
+
+                if (add_new_part) {
+                        if (padding > 0) {
+                                part = message_append_part(m);
+                                if (!part)
+                                        return NULL;
+
+                                part_zero(part, padding);
+                        }
+
                         part = message_append_part(m);
                         if (!part)
                                 return NULL;
 
-                        part_zero(part, padding);
+                        r = part_make_space(m, part, sz, &p);
+                        if (r < 0)
+                                return NULL;
+                } else {
+                        struct bus_container *c;
+                        void *op;
+                        size_t os, start_part, end_part;
+
+                        part = m->body_end;
+                        op = part->data;
+                        os = part->size;
+
+                        start_part = ALIGN_TO(part->size, align);
+                        end_part = start_part + sz;
+
+                        r = part_make_space(m, part, end_part, &p);
+                        if (r < 0)
+                                return NULL;
+
+                        if (padding > 0) {
+                                memset(p, 0, padding);
+                                p = (uint8_t*) p + padding;
+                        }
+
+                        /* Readjust pointers */
+                        for (c = m->containers; c < m->containers + m->n_containers; c++)
+                                c->array_size = adjust_pointer(c->array_size, op, os, part->data);
+
+                        m->error.message = (const char*) adjust_pointer(m->error.message, op, os, part->data);
                 }
-
-                part = message_append_part(m);
-                if (!part)
-                        return NULL;
-
-                r = part_make_space(m, part, sz, &p);
-                if (r < 0)
-                        return NULL;
-        } else {
-                struct bus_container *c;
-                void *op;
-                size_t os;
-
-                part = m->body_end;
-                op = part->data;
-                os = part->size;
-
-                start_part = ALIGN_TO(part->size, align);
-                end_part = start_part + sz;
-
-                r = part_make_space(m, part, end_part, &p);
-                if (r < 0)
-                        return NULL;
-
-                if (padding > 0) {
-                        memset(p, 0, padding);
-                        p = (uint8_t*) p + padding;
-                }
-
-                /* Readjust pointers */
-                for (c = m->containers; c < m->containers + m->n_containers; c++)
-                        c->array_size = adjust_pointer(c->array_size, op, os, part->data);
-
-                m->error.message = (const char*) adjust_pointer(m->error.message, op, os, part->data);
-        }
+        } else
+                /* Return something that is not NULL and is aligned */
+                p = (uint8_t *) NULL + align;
 
         m->header->body_size = end_body;
         message_extend_containers(m, added);
