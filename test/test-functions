@@ -124,18 +124,18 @@ install_missing_libraries() {
 }
 
 create_empty_image() {
-    rm -f $TESTDIR/rootdisk.img
+    rm -f "$TESTDIR/rootdisk.img"
     # Create the blank file to use as a root filesystem
-    dd if=/dev/null of=$TESTDIR/rootdisk.img bs=1M seek=200
+    dd if=/dev/null of="$TESTDIR/rootdisk.img" bs=1M seek=200
     LOOPDEV=$(losetup --show -P -f $TESTDIR/rootdisk.img)
-    [ -b $LOOPDEV ] || return 1
+    [ -b "$LOOPDEV" ] || return 1
     echo "LOOPDEV=$LOOPDEV" >> $STATEFILE
-    sfdisk -C 6400 -H 2 -S 32 -L $LOOPDEV <<EOF
+    sfdisk -C 6400 -H 2 -S 32 -L "$LOOPDEV" <<EOF
 ,3200
 ,
 EOF
 
-    mkfs.ext3 -L systemd ${LOOPDEV}p1
+    mkfs.ext3 -L systemd "${LOOPDEV}p1"
 }
 
 check_result_nspawn() {
