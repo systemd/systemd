@@ -5085,9 +5085,6 @@ int bus_message_parse_fields(sd_bus_message *m) {
         if (m->n_fds != unix_fds)
                 return -EBADMSG;
 
-        if (isempty(m->root_container.signature) != (BUS_MESSAGE_BODY_SIZE(m) == 0))
-                return -EBADMSG;
-
         switch (m->header->type) {
 
         case SD_BUS_MESSAGE_SIGNAL:
