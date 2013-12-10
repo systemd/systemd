@@ -623,6 +623,9 @@ int bus_socket_setup(sd_bus *b) {
         if (getsockopt(b->input_fd, SOL_SOCKET, SO_PEERCRED, &b->ucred, &l) >= 0 && l >= sizeof(b->ucred))
                 b->ucred_valid = b->ucred.pid > 0;
 
+        b->is_kernel = false;
+        b->message_version = 1;
+
         return 0;
 }
 
@@ -764,6 +767,10 @@ int bus_socket_exec(sd_bus *b) {
 
         close_nointr_nofail(s[1]);
         b->output_fd = b->input_fd = s[0];
+
+        r = bus_socket_setup(b);
+        if (r < 0)
+                return r;
 
         return bus_socket_start_auth(b);
 }

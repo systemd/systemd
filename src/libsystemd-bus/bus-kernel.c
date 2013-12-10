@@ -362,6 +362,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         b->is_kernel = true;
         b->bus_client = true;
         b->can_fds = !!(hello.conn_flags & KDBUS_HELLO_ACCEPT_FD);
+        b->message_version = 2;
 
         /* the kernel told us the UUID of the underlying bus */
         memcpy(b->server_id.bytes, hello.id128, sizeof(b->server_id.bytes));
@@ -676,6 +677,12 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         if (n_bytes != total)
                 return -EBADMSG;
 
+        /* on kdbus we only speak native endian gvariant, never dbus1
+         * marshalling or reverse endian */
+        if (h->version != 2 ||
+            h->endian != BUS_NATIVE_ENDIAN)
+                return -EPROTOTYPE;
+
         r = bus_message_from_header(bus, h, sizeof(struct bus_header), fds, n_fds, NULL, seclabel, 0, &m);
         if (r < 0)
                 return r;
@@ -885,9 +892,16 @@ int bus_kernel_read_message(sd_bus *bus) {
         }
         k = (struct kdbus_msg *)((uint8_t *)bus->kdbus_buffer + off);
 
-        if (k->payload_type == KDBUS_PAYLOAD_DBUS)
+        if (k->payload_type == KDBUS_PAYLOAD_DBUS) {
                 r = bus_kernel_make_message(bus, k);
-        else if (k->payload_type == KDBUS_PAYLOAD_KERNEL)
+
+                /* Anybody can send us invalid messages, let's just drop them. */
+                if (r == -EBADMSG || r == -EPROTOTYPE) {
+                        log_error("Ignoring invalid message: %s", strerror(-r));
+                        r = 0;
+                }
+
+        } else if (k->payload_type == KDBUS_PAYLOAD_KERNEL)
                 r = bus_kernel_translate_message(bus, k);
         else
                 r = 0;
