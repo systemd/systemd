@@ -27,7 +27,6 @@
 #include <errno.h>
 
 #include "strv.h"
-
 #include "sd-bus.h"
 #include "bus-internal.h"
 #include "bus-message.h"

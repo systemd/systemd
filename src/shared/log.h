@@ -136,6 +136,12 @@ _noreturn_ void log_assert_failed_unreachable(
                 int line,
                 const char *func);
 
+void log_assert_failed_return(
+                const char *text,
+                const char *file,
+                int line,
+                const char *func);
+
 #define log_full(level, ...) \
 do { \
         if (log_get_max_level() >= (level)) \

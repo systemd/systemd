@@ -687,7 +687,7 @@ int log_meta_object(
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-_noreturn_ static void log_assert(const char *text, const char *file, int line, const char *func, const char *format) {
+static void log_assert(int level, const char *text, const char *file, int line, const char *func, const char *format) {
         static char buffer[LINE_MAX];
 
         snprintf(buffer, sizeof(buffer), format, text, file, line, func);
@@ -695,17 +695,22 @@ _noreturn_ static void log_assert(const char *text, const char *file, int line, 
         char_array_0(buffer);
         log_abort_msg = buffer;
 
-        log_dispatch(LOG_CRIT, file, line, func, NULL, NULL, buffer);
-        abort();
+        log_dispatch(level, file, line, func, NULL, NULL, buffer);
 }
 #pragma GCC diagnostic pop
 
 _noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func) {
-        log_assert(text, file, line, func, "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
+        log_assert(LOG_CRIT, text, file, line, func, "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
+        abort();
 }
 
 _noreturn_ void log_assert_failed_unreachable(const char *text, const char *file, int line, const char *func) {
-        log_assert(text, file, line, func, "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
+        log_assert(LOG_CRIT, text, file, line, func, "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
+        abort();
+}
+
+void log_assert_failed_return(const char *text, const char *file, int line, const char *func) {
+        log_assert(LOG_DEBUG, text, file, line, func, "Assertion '%s' failed at %s:%u, function %s(). Ignoring.");
 }
 
 int log_oom_internal(const char *file, int line, const char *func) {

@@ -153,10 +153,12 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 #define assert_cc(expr) struct UNIQUE(_assert_struct_) { char x[(expr) ? 0 : -1]; };
 #endif
 
-#define assert_return(expr, r)                    \
-        do {                                      \
-                if (_unlikely_(!(expr)))          \
-                        return (r);               \
+#define assert_return(expr, r)                                          \
+        do {                                                            \
+                if (_unlikely_(!(expr))) {                              \
+                        log_assert_failed_return(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+                        return (r);                                     \
+                }                                                       \
         } while (false)
 
 #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))

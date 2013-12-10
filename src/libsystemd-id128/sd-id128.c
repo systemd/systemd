@@ -23,10 +23,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "sd-id128.h"
-
 #include "util.h"
 #include "macro.h"
+#include "sd-id128.h"
 
 _public_ char *sd_id128_to_string(sd_id128_t id, char s[33]) {
         unsigned n;
