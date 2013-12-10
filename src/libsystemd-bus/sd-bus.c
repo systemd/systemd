@@ -2645,7 +2645,9 @@ fail:
 
 _public_ int sd_bus_detach_event(sd_bus *bus) {
         assert_return(bus, -EINVAL);
-        assert_return(bus->event, -ENXIO);
+
+        if (!bus->event)
+                return 0;
 
         if (bus->input_io_event_source) {
                 sd_event_source_set_enabled(bus->input_io_event_source, SD_EVENT_OFF);
@@ -2670,7 +2672,7 @@ _public_ int sd_bus_detach_event(sd_bus *bus) {
         if (bus->event)
                 bus->event = sd_event_unref(bus->event);
 
-        return 0;
+        return 1;
 }
 
 _public_ sd_event* sd_bus_get_event(sd_bus *bus) {
