@@ -237,7 +237,7 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         return e;
 }
 
-void syslog_parse_priority(char **p, int *priority, bool with_facility) {
+void syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         int a = 0, b = 0, c = 0;
         int k;
 
@@ -366,7 +366,7 @@ void server_process_syslog_message(
         assert(buf);
 
         orig = buf;
-        syslog_parse_priority((char**) &buf, &priority, true);
+        syslog_parse_priority(&buf, &priority, true);
 
         if (s->forward_to_syslog)
                 forward_syslog_raw(s, priority, orig, ucred, tv);
