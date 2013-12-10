@@ -126,6 +126,10 @@ Features:
     * priority queues
     * priority inheritance
   - sort out error codes for sd_bus_release_name(), distuingish: successful removal from foreign name, from non-existing name
+  - bug in kdbus: nameownerchange is not generated for names, only ids.
+  - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
+  - kdbus: we need a way to distuingish messages we got due to monitoring from normal messages, since we want to bind methods only to the latter
+  - figure out what to do when fields in the kdbus header and in the payload header do not match
 
 * sd-event
   - allow multiple signal handlers per signal
