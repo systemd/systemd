@@ -1894,9 +1894,7 @@ _public_ int sd_bus_message_open_container(
 }
 
 static size_t determine_word_size(size_t sz, size_t extra) {
-        if (sz <= 0 && extra == 0)
-                return 0;
-        else if (sz + extra <= 0xFF)
+        if (sz + extra <= 0xFF)
                 return 1;
         else if (sz + extra*2 <= 0xFFFF)
                 return 2;
