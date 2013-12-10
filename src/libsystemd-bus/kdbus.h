@@ -330,7 +330,7 @@ enum kdbus_msg_flags {
  */
 enum kdbus_payload_type {
 	KDBUS_PAYLOAD_KERNEL,
-	KDBUS_PAYLOAD_DBUS	= 0x4442757356657231ULL, /* 'DBusVer1' */
+	KDBUS_PAYLOAD_DBUS	= 0x4442757344427573ULL, /* 'DBusDBus' */
 };
 
 /**
@@ -485,8 +485,7 @@ enum kdbus_make_flags {
  * @bloom_size:		Size of the bloom filter for this bus
  * @items:		Items describing details such as the name of the bus
  *
- * This structure is used with the KDBUS_CMD_BUS_MAKE ioctl. Refer to the
- * documentation for more information.
+ * This structure is used with the KDBUS_CMD_BUS_MAKE ioctl.
  */
 struct kdbus_cmd_bus_make {
 	__u64 size;
@@ -502,8 +501,7 @@ struct kdbus_cmd_bus_make {
  * @items:		Items describing details such as the
  * 			name of the endpoint
  *
- * This structure is used with the KDBUS_CMD_EP_MAKE ioctl. Refer to the
- * documentation for more information.
+ * This structure is used with the KDBUS_CMD_EP_MAKE ioctl.
  */
 struct kdbus_cmd_ep_make {
 	__u64 size;
@@ -518,8 +516,7 @@ struct kdbus_cmd_ep_make {
  * @items:		Items describing details such as the
  * 			name of the namespace
  *
- * This structure is used with the KDBUS_CMD_NS_MAKE ioctl. Refer to the
- * documentation for more information.
+ * This structure is used with the KDBUS_CMD_NS_MAKE ioctl.
  */
 struct kdbus_cmd_ns_make {
 	__u64 size;
@@ -554,7 +551,6 @@ enum kdbus_name_flags {
  * @name:		The well-known name
  *
  * This structure is used with the KDBUS_CMD_NAME_ACQUIRE ioctl.
- * Refer to the documentation for more information.
  */
 struct kdbus_cmd_name {
 	__u64 size;
@@ -681,8 +677,7 @@ enum kdbus_match_type {
  * @items:		A list of items for additional information
  *
  * This structure is used with the KDBUS_CMD_ADD_MATCH and
- * KDBUS_CMD_REMOVE_MATCH ioctl. Refer to the documentation for more
- * information.
+ * KDBUS_CMD_REMOVE_MATCH ioctl.
  */
 struct kdbus_cmd_match {
 	__u64 size;
@@ -707,7 +702,6 @@ enum kdbus_monitor_flags {
  * @flags:		Use KDBUS_MONITOR_ENABLE to enable eavesdropping
  *
  * This structure is used with the KDBUS_CMD_MONITOR ioctl.
- * Refer to the documentation for more information.
  */
 struct kdbus_cmd_monitor {
 	__u64 id;
@@ -817,6 +811,8 @@ enum kdbus_ioctl_type {
 /*
  * errno - api error codes
  * @E2BIG:		A message contains too many records or items.
+ * @EADDRINUSE:		A well-known bus name is already taken by another
+ * 			connection.
  * @EADDRNOTAVAIL:	A message flagged not to activate a service, addressed
  * 			a service which is not currently running.
  * @EAGAIN:		No messages are queued at the moment.
@@ -824,8 +820,6 @@ enum kdbus_ioctl_type {
  * @EBADFD:		A bus connection is in a corrupted state.
  * @EBADMSG:		Passed data contains a combination of conflicting or
  * 			inconsistent types.
- * @EBUSY:		A well-known bus name is already taken by another
- * 			connection.
  * @ECOMM:		A peer does not accept the file descriptors addressed
  * 			to it.
  * @EDESTADDRREQ:	The well-known bus name is required but missing.
