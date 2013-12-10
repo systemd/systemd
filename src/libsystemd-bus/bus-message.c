@@ -3061,7 +3061,7 @@ static int message_peek_body(
         }
 
         part = find_part(m, start, nbytes, (void**) &q);
-        if (!part || !q)
+        if (!part || (nbytes > 0 && !q))
                 return -EBADMSG;
 
         *rindex = end;
