@@ -1379,8 +1379,9 @@ static usec_t sleep_between(sd_event *e, usec_t a, usec_t b) {
           We implement this by waking up everywhere at the same time
           within any given minute if we can, synchronised via the
           perturbation value determined from the boot ID. If we can't,
-          then we try to find the same spot in every 1s and then 250ms
-          step. Otherwise, we pick the last possible time to wake up.
+          then we try to find the same spot in every 10s, then 1s and
+          then 250ms step. Otherwise, we pick the last possible time
+          to wake up.
         */
 
         c = (b / USEC_PER_MINUTE) * USEC_PER_MINUTE + e->perturb;
@@ -1389,6 +1390,17 @@ static usec_t sleep_between(sd_event *e, usec_t a, usec_t b) {
                         return b;
 
                 c -= USEC_PER_MINUTE;
+        }
+
+        if (c >= a)
+                return c;
+
+        c = (b / (USEC_PER_SEC*10)) * (USEC_PER_SEC*10) + (e->perturb % (USEC_PER_SEC*10));
+        if (c >= b) {
+                if (_unlikely_(c < USEC_PER_SEC*10))
+                        return b;
+
+                c -= USEC_PER_SEC*10;
         }
 
         if (c >= a)
