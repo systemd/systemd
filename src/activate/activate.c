@@ -99,6 +99,17 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 }
         }
 
+        /* Close logging and all other descriptors */
+        if (arg_listen) {
+                int except[3 + n];
+
+                for (fd = 0; fd < SD_LISTEN_FDS_START + n; fd++)
+                        except[fd] = fd;
+
+                log_close();
+                close_all_fds(except, 3 + n);
+        }
+
         /** Note: we leak some fd's on error here. I doesn't matter
          *  much, since the program will exit immediately anyway, but
          *  would be a pain to fix.
@@ -108,6 +119,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
 
                 fd = make_socket_fd(*address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
                 if (fd < 0) {
+                        log_open();
                         log_error("Failed to open '%s': %s", *address, strerror(-fd));
                         return fd;
                 }
@@ -115,6 +127,9 @@ static int open_sockets(int *epoll_fd, bool accept) {
                 assert(fd == SD_LISTEN_FDS_START + count);
                 count ++;
         }
+
+        if (arg_listen)
+                log_open();
 
         *epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (*epoll_fd < 0) {
@@ -270,10 +285,10 @@ static void sigchld_hdl(int sig, siginfo_t *t, void *data) {
 
 static int install_chld_handler(void) {
         int r;
-        struct sigaction act;
-        zero(act);
-        act.sa_flags = SA_SIGINFO;
-        act.sa_sigaction = sigchld_hdl;
+        struct sigaction act = {
+                .sa_flags = SA_SIGINFO,
+                .sa_sigaction = sigchld_hdl,
+        };
 
         r = sigaction(SIGCHLD, &act, 0);
         if (r < 0)
