@@ -114,7 +114,17 @@ typedef struct boot_id_t {
         uint64_t last;
 } boot_id_t;
 
+static void pager_open_if_enabled(void) {
+
+        if (arg_no_pager)
+                return;
+
+        pager_open(arg_pager_end);
+}
+
 static int help(void) {
+
+        pager_open_if_enabled();
 
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
@@ -1647,8 +1657,8 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        if (!arg_no_pager && !arg_follow)
-                pager_open(arg_pager_end);
+        if (!arg_follow)
+                pager_open_if_enabled();
 
         if (!arg_quiet) {
                 usec_t start, end;
