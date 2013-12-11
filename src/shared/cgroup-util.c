@@ -1082,42 +1082,42 @@ int cg_get_root_path(char **path) {
         return 0;
 }
 
-int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup) {
+int cg_pid_get_path_shifted(pid_t pid, const char *root, char **cgroup) {
         _cleanup_free_ char *cg_root = NULL;
         char *cg_process, *p;
         int r;
 
-        r = cg_get_root_path(&cg_root);
-        if (r < 0)
-                return r;
+        assert(pid >= 0);
+        assert(cgroup);
+
+        if (!root) {
+                /* If the root was specified let's use that, otherwise
+                 * let's determine it from PID 1 */
+
+                r = cg_get_root_path(&cg_root);
+                if (r < 0)
+                        return r;
+
+                root = cg_root;
+        }
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cg_process);
         if (r < 0)
                 return r;
 
-        p = path_startswith(cg_process, cg_root);
-        if (p)
-                p--;
-        else
-                p = cg_process;
+        p = path_startswith(cg_process, root);
+        if (p) {
+                char *c;
 
-        if (cgroup) {
-                char* c;
+                c = strdup(p - 1);
+                free(cg_process);
 
-                c = strdup(p);
-                if (!c) {
-                        free(cg_process);
+                if (!c)
                         return -ENOMEM;
-                }
 
                 *cgroup = c;
-        }
-
-        if (root) {
-                cg_process[p-cg_process] = 0;
-                *root = cg_process;
         } else
-                free(cg_process);
+                *cgroup = cg_process;
 
         return 0;
 }

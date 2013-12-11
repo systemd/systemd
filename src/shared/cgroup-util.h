@@ -103,7 +103,7 @@ int cg_path_get_user_unit(const char *path, char **unit);
 int cg_path_get_machine_name(const char *path, char **machine);
 int cg_path_get_slice(const char *path, char **slice);
 
-int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup);
+int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **cgroup);
 
 int cg_pid_get_session(pid_t pid, char **session);
 int cg_pid_get_owner_uid(pid_t pid, uid_t *uid);

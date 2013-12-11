@@ -136,6 +136,9 @@ typedef struct Server {
         char machine_id_field[sizeof("_MACHINE_ID=") + 32];
         char boot_id_field[sizeof("_BOOT_ID=") + 32];
         char *hostname_field;
+
+        /* Cached cgroup root, so that we don't have to query that all the time */
+        char *cgroup_root;
 } Server;
 
 #define N_IOVEC_META_FIELDS 20

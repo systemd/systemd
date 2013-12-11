@@ -1616,8 +1616,8 @@ static int add_current_paths(sd_journal *j) {
          * treat them as fatal. */
 
         HASHMAP_FOREACH(f, j->files, i) {
-                int r;
                 _cleanup_free_ char *dir;
+                int r;
 
                 dir = dirname_malloc(f->path);
                 if (!dir)

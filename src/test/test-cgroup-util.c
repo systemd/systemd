@@ -140,7 +140,7 @@ static void test_proc(void) {
         assert_se(d);
 
         FOREACH_DIRENT(de, d, break) {
-                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *prefix = NULL, *slice = NULL;
+                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *slice = NULL;
                 pid_t pid;
                 uid_t uid = (uid_t) -1;
 
@@ -156,7 +156,7 @@ static void test_proc(void) {
                         continue;
 
                 cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &path);
-                cg_pid_get_path_shifted(pid, &prefix, &path_shifted);
+                cg_pid_get_path_shifted(pid, NULL, &path_shifted);
                 cg_pid_get_owner_uid(pid, &uid);
                 cg_pid_get_session(pid, &session);
                 cg_pid_get_unit(pid, &unit);
@@ -164,10 +164,9 @@ static void test_proc(void) {
                 cg_pid_get_machine_name(pid, &machine);
                 cg_pid_get_slice(pid, &slice);
 
-                printf("%lu\t%s\t%s\t%s\t%lu\t%s\t%s\t%s\t%s\t%s\n",
+                printf("%lu\t%s\t%s\t%lu\t%s\t%s\t%s\t%s\t%s\n",
                        (unsigned long) pid,
                        path,
-                       prefix,
                        path_shifted,
                        (unsigned long) uid,
                        session,

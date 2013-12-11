@@ -622,7 +622,7 @@ static void dispatch_message_real(
                 }
 #endif
 
-                r = cg_pid_get_path_shifted(ucred->pid, NULL, &c);
+                r = cg_pid_get_path_shifted(ucred->pid, s->cgroup_root, &c);
                 if (r >= 0) {
                         char *session = NULL;
 
@@ -743,7 +743,7 @@ static void dispatch_message_real(
                 }
 #endif
 
-                r = cg_pid_get_path_shifted(object_pid, NULL, &c);
+                r = cg_pid_get_path_shifted(object_pid, s->cgroup_root, &c);
                 if (r >= 0) {
                         x = strappenda("OBJECT_SYSTEMD_CGROUP=", c);
                         IOVEC_SET_STRING(iovec[n++], x);
@@ -878,7 +878,7 @@ void server_dispatch_message(
         if (!ucred)
                 goto finish;
 
-        r = cg_pid_get_path_shifted(ucred->pid, NULL, &path);
+        r = cg_pid_get_path_shifted(ucred->pid, s->cgroup_root, &path);
         if (r < 0)
                 goto finish;
 
@@ -1563,6 +1563,10 @@ int server_init(Server *s) {
         if (!s->rate_limit)
                 return -ENOMEM;
 
+        r = cg_get_root_path(&s->cgroup_root);
+        if (r < 0)
+                return r;
+
         server_cache_hostname(s);
         server_cache_boot_id(s);
         server_cache_machine_id(s);
@@ -1643,6 +1647,7 @@ void server_done(Server *s) {
 
         free(s->buffer);
         free(s->tty_path);
+        free(s->cgroup_root);
 
         if (s->mmap)
                 mmap_cache_unref(s->mmap);
