@@ -41,7 +41,9 @@ static void test_parse_env_file(void) {
         char **i;
         unsigned k;
 
-        assert_se(mktemp(p));
+        fd = mkstemp(p);
+        assert_se(fd >= 0);
+        close(fd);
 
         fd = mkostemp(t, O_CLOEXEC);
         assert_se(fd >= 0);
@@ -152,7 +154,9 @@ static void test_parse_multiline_env_file(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
 
-        assert_se(mktemp(p));
+        fd = mkstemp(p);
+        assert_se(fd >= 0);
+        close(fd);
 
         fd = mkostemp(t, O_CLOEXEC);
         assert_se(fd >= 0);
