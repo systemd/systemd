@@ -29,8 +29,9 @@
 #include "bus-container.h"
 
 int bus_container_connect(sd_bus *b) {
-        _cleanup_free_ char *p = NULL, *s = NULL, *ns = NULL, *root = NULL, *class = NULL;
+        _cleanup_free_ char *s = NULL, *ns = NULL, *root = NULL, *class = NULL;
         _cleanup_close_ int nsfd = -1, rootfd = -1;
+        char *p;
         siginfo_t si;
         pid_t leader, child;
         int r;
@@ -39,10 +40,7 @@ int bus_container_connect(sd_bus *b) {
         assert(b->input_fd < 0);
         assert(b->output_fd < 0);
 
-        p = strappend("/run/systemd/machines/", b->machine);
-        if (!p)
-                return -ENOMEM;
-
+        p = strappenda("/run/systemd/machines/", b->machine);
         r = parse_env_file(p, NEWLINE, "LEADER", &s, "CLASS", &class, NULL);
         if (r == -ENOENT)
                 return -EHOSTDOWN;

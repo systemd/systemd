@@ -38,7 +38,7 @@ int output_journal(
                 OutputFlags flags,
                 bool *ellipsized);
 
-int add_match_this_boot(sd_journal *j);
+int add_match_this_boot(sd_journal *j, const char *machine);
 
 int add_matches_for_unit(
                 sd_journal *j,

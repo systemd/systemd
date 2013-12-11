@@ -46,6 +46,7 @@
                 <refname>sd_journal_open</refname>
                 <refname>sd_journal_open_directory</refname>
                 <refname>sd_journal_open_files</refname>
+                <refname>sd_journal_open_container</refname>
                 <refname>sd_journal_close</refname>
                 <refname>sd_journal</refname>
                 <refname>SD_JOURNAL_LOCAL_ONLY</refname>
@@ -76,6 +77,13 @@
                                 <funcdef>int <function>sd_journal_open_files</function></funcdef>
                                 <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
                                 <paramdef>const char** <parameter>paths</parameter></paramdef>
+                                <paramdef>int <parameter>flags</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_journal_open_container</function></funcdef>
+                                <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
+                                <paramdef>const char* <parameter>machine</parameter></paramdef>
                                 <paramdef>int <parameter>flags</parameter></paramdef>
                         </funcprototype>
 
@@ -130,6 +138,13 @@
                 useful for debugging, because individual journal files
                 can be rotated at any moment, and the opening of
                 specific files is inherently racy.</para>
+
+                <para><function>sd_journal_open_container()</function>
+                is similar to <function>sd_journal_open()</function>
+                but opens the journal files of a running
+                OS container. The specified machine name refers to a
+                container that is registered with
+                <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
                 <para><varname>sd_journal</varname> objects cannot be
                 used in the child after a fork. Functions which take a
@@ -230,7 +245,8 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

@@ -24,12 +24,14 @@
 #include <errno.h>
 #include <sys/poll.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "logs-show.h"
 #include "log.h"
 #include "util.h"
 #include "utf8.h"
 #include "hashmap.h"
+#include "fileio.h"
 #include "journal-internal.h"
 
 /* up to three lines (each up to 100 characters),
@@ -1112,17 +1114,113 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         return r;
 }
 
-int add_match_this_boot(sd_journal *j) {
+static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
+        _cleanup_free_ char *leader = NULL, *class = NULL;
+        _cleanup_close_pipe_ int sock[2] = { -1, -1 };
+        _cleanup_close_ int nsfd = -1;
+        const char *p, *ns;
+        pid_t pid, child;
+        siginfo_t si;
+        char buf[37];
+        ssize_t k;
+        int r;
+
+        assert(machine);
+        assert(boot_id);
+
+        if (!filename_is_safe(machine))
+                return -EINVAL;
+
+        p = strappenda("/run/systemd/machines/", machine);
+
+        r = parse_env_file(p, NEWLINE, "LEADER", &leader, "CLASS", &class, NULL);
+        if (r < 0)
+                return r;
+        if (!leader)
+                return -ENODATA;
+        if (!streq_ptr(class, "container"))
+                return -EIO;
+        r = parse_pid(leader, &pid);
+        if (r < 0)
+                return r;
+
+        ns = procfs_file_alloca(pid, "ns/mnt");
+
+        nsfd = open(ns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (nsfd < 0)
+                return -errno;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sock) < 0)
+                return -errno;
+
+        child = fork();
+        if (child < 0)
+                return -errno;
+
+        if (child == 0) {
+                int fd;
+
+                close_nointr_nofail(sock[0]);
+                sock[0] = -1;
+
+                r = setns(nsfd, CLONE_NEWNS);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                fd = open("/proc/sys/kernel/random/boot_id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        _exit(EXIT_FAILURE);
+
+                k = loop_read(fd, buf, 36, false);
+                close_nointr_nofail(fd);
+                if (k != 36)
+                        _exit(EXIT_FAILURE);
+
+                k = send(sock[1], buf, 36, MSG_NOSIGNAL);
+                if (k != 36)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        close_nointr_nofail(sock[1]);
+        sock[1] = -1;
+
+        k = recv(sock[0], buf, 36, 0);
+        if (k != 36)
+                return -EIO;
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return r < 0 ? r : -EIO;
+
+        buf[36] = 0;
+        r = sd_id128_from_string(buf, boot_id);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int add_match_this_boot(sd_journal *j, const char *machine) {
         char match[9+32+1] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
         assert(j);
 
-        r = sd_id128_get_boot(&boot_id);
-        if (r < 0) {
-                log_error("Failed to get boot id: %s", strerror(-r));
-                return r;
+        if (machine) {
+                r = get_boot_id_for_machine(machine, &boot_id);
+                if (r < 0) {
+                        log_error("Failed to get boot id of container %s: %s", machine, strerror(-r));
+                        return r;
+                }
+        } else {
+                r = sd_id128_get_boot(&boot_id);
+                if (r < 0) {
+                        log_error("Failed to get boot id: %s", strerror(-r));
+                        return r;
+                }
         }
 
         sd_id128_to_string(boot_id, match + 9);
@@ -1166,7 +1264,7 @@ int show_journal_by_unit(
         if (r < 0)
                 return r;
 
-        r = add_match_this_boot(j);
+        r = add_match_this_boot(j, NULL);
         if (r < 0)
                 return r;
 

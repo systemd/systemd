@@ -648,6 +648,16 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-M</option></term>
+                                <term><option>--machine=</option></term>
+
+                                <listitem><para>Show messages from a
+                                running, local container. Specify a
+                                container name to connect
+                                to.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-D <replaceable>DIR</replaceable></option></term>
                                 <term><option>--directory=<replaceable>DIR</replaceable></option></term>
 

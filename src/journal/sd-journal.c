@@ -41,6 +41,7 @@
 #include "missing.h"
 #include "catalog.h"
 #include "replace-var.h"
+#include "fileio.h"
 
 #define JOURNAL_FILES_MAX 1024
 
@@ -1465,7 +1466,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         return 0;
 }
 
-static int add_root_directory(sd_journal *j, const char *p) {
+static int add_root_directory(sd_journal *j, const char *p, const char *prefix) {
         _cleanup_closedir_ DIR *d = NULL;
         Directory *m;
         int r;
@@ -1476,6 +1477,9 @@ static int add_root_directory(sd_journal *j, const char *p) {
         if ((j->flags & SD_JOURNAL_RUNTIME_ONLY) &&
             !path_startswith(p, "/run"))
                 return -EINVAL;
+
+        if (prefix)
+                p = strappenda(prefix, p);
 
         d = opendir(p);
         if (!d)
@@ -1576,7 +1580,7 @@ static int remove_directory(sd_journal *j, Directory *d) {
         return 0;
 }
 
-static int add_search_paths(sd_journal *j) {
+static int add_search_paths(sd_journal *j, const char *prefix) {
         int r;
         const char search_paths[] =
                 "/run/log/journal\0"
@@ -1589,7 +1593,7 @@ static int add_search_paths(sd_journal *j) {
          * what's actually accessible, and ignore the rest. */
 
         NULSTR_FOREACH(p, search_paths) {
-                r = add_root_directory(j, p);
+                r = add_root_directory(j, p, prefix);
                 if (r < 0 && r != -ENOENT) {
                         r = set_put_error(j, r);
                         if (r < 0)
@@ -1619,7 +1623,7 @@ static int add_current_paths(sd_journal *j) {
                 if (!dir)
                         return -ENOMEM;
 
-                r = add_root_directory(j, dir);
+                r = add_root_directory(j, dir, NULL);
                 if (r < 0) {
                         set_put_error(j, r);
                         return r;
@@ -1684,18 +1688,13 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
         int r;
 
         assert_return(ret, -EINVAL);
-
-        if (flags & ~(SD_JOURNAL_LOCAL_ONLY|
-                      SD_JOURNAL_RUNTIME_ONLY|
-                      SD_JOURNAL_SYSTEM|
-                      SD_JOURNAL_CURRENT_USER))
-                return -EINVAL;
+        assert_return((flags & ~(SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_RUNTIME_ONLY|SD_JOURNAL_SYSTEM|SD_JOURNAL_CURRENT_USER)) == 0, -EINVAL);
 
         j = journal_new(flags, NULL);
         if (!j)
                 return -ENOMEM;
 
-        r = add_search_paths(j);
+        r = add_search_paths(j, NULL);
         if (r < 0)
                 goto fail;
 
@@ -1705,6 +1704,45 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 fail:
         sd_journal_close(j);
 
+        return r;
+}
+
+_public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
+        _cleanup_free_ char *root = NULL, *class = NULL;
+        sd_journal *j;
+        char *p;
+        int r;
+
+        assert_return(machine, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return((flags & ~(SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM)) == 0, -EINVAL);
+        assert_return(filename_is_safe(machine), -EINVAL);
+
+        p = strappenda("/run/systemd/machines/", machine);
+        r = parse_env_file(p, NEWLINE, "ROOT", &root, "CLASS", &class, NULL);
+        if (r == -ENOENT)
+                return -EHOSTDOWN;
+        if (r < 0)
+                return r;
+        if (!root)
+                return -ENODATA;
+
+        if (!streq_ptr(class, "container"))
+                return -EIO;
+
+        j = journal_new(flags, NULL);
+        if (!j)
+                return -ENOMEM;
+
+        r = add_search_paths(j, root);
+        if (r < 0)
+                goto fail;
+
+        *ret = j;
+        return 0;
+
+fail:
+        sd_journal_close(j);
         return r;
 }
 
@@ -1720,7 +1758,7 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         if (!j)
                 return -ENOMEM;
 
-        r = add_root_directory(j, path);
+        r = add_root_directory(j, path, NULL);
         if (r < 0) {
                 set_put_error(j, r);
                 goto fail;
@@ -2083,9 +2121,9 @@ _public_ int sd_journal_get_fd(sd_journal *j) {
         if (j->no_new_files)
                 r = add_current_paths(j);
         else if (j->path)
-                r = add_root_directory(j, j->path);
+                r = add_root_directory(j, j->path, NULL);
         else
-                r = add_search_paths(j);
+                r = add_search_paths(j, NULL);
         if (r < 0)
                 return r;
 

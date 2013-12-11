@@ -764,6 +764,9 @@ static int parse_container_address(sd_bus *b, const char **p, char **guid) {
         if (!machine)
                 return -EINVAL;
 
+        if (!filename_is_safe(machine))
+                return -EINVAL;
+
         free(b->machine);
         b->machine = machine;
         machine = NULL;

@@ -109,3 +109,8 @@ LIBSYSTEMD_JOURNAL_205 {
 global:
         sd_journal_open_files;
 } LIBSYSTEMD_JOURNAL_202;
+
+LIBSYSTEMD_JOURNAL_209 {
+global:
+        sd_journal_open_container;
+} LIBSYSTEMD_JOURNAL_205;

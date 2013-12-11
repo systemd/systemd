@@ -30,6 +30,8 @@ External:
 
 Features:
 
+* libsystemd-journal returns the object created as first param in sd_journal_new(), sd_bus_new() and suchlike as last...
+
 * cgroups:
   - implement system-wide DefaultCPUAccounting=1 switch (and similar for blockio, memory?)
   - implement per-slice CPUFairScheduling=1 switch
