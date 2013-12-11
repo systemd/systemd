@@ -25,6 +25,4 @@
 
 int server_open_stdout_socket(Server *s);
 
-int stdout_stream_new(Server *s);
 void stdout_stream_free(StdoutStream *s);
-int stdout_stream_process(StdoutStream *s);

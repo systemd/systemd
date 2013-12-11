@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include "sd-event.h"
 #include "journal-file.h"
 #include "hashmap.h"
 #include "util.h"
@@ -54,12 +55,22 @@ typedef enum SplitMode {
 typedef struct StdoutStream StdoutStream;
 
 typedef struct Server {
-        int epoll_fd;
-        int signal_fd;
         int syslog_fd;
         int native_fd;
         int stdout_fd;
         int dev_kmsg_fd;
+
+        sd_event *event;
+
+        sd_event_source *syslog_event_source;
+        sd_event_source *native_event_source;
+        sd_event_source *stdout_event_source;
+        sd_event_source *dev_kmsg_event_source;
+        sd_event_source *sync_event_source;
+        sd_event_source *sigusr1_event_source;
+        sd_event_source *sigusr2_event_source;
+        sd_event_source *sigterm_event_source;
+        sd_event_source *sigint_event_source;
 
         JournalFile *runtime_journal;
         JournalFile *system_journal;
@@ -118,7 +129,6 @@ typedef struct Server {
 
         struct udev *udev;
 
-        int sync_timer_fd;
         bool sync_scheduled;
 } Server;
 
@@ -152,5 +162,5 @@ void server_vacuum(Server *s);
 void server_rotate(Server *s);
 int server_schedule_sync(Server *s, int priority);
 int server_flush_to_var(Server *s);
-int process_event(Server *s, struct epoll_event *ev);
 void server_maybe_append_tags(Server *s);
+int process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata);

@@ -369,7 +369,6 @@ void server_process_native_file(
 int server_open_native_socket(Server*s) {
         union sockaddr_union sa;
         int one, r;
-        struct epoll_event ev;
 
         assert(s);
 
@@ -420,12 +419,10 @@ int server_open_native_socket(Server*s) {
                 return -errno;
         }
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.fd = s->native_fd;
-        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->native_fd, &ev) < 0) {
-                log_error("Failed to add native server fd to epoll object: %m");
-                return -errno;
+        r = sd_event_add_io(s->event, s->native_fd, EPOLLIN, process_datagram, s, &s->native_event_source);
+        if (r < 0) {
+                log_error("Failed to add native server fd to event loop: %s", strerror(-r));
+                return r;
         }
 
         return 0;

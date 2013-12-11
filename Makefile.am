@@ -2952,7 +2952,9 @@ systemd_journald_SOURCES = \
 	src/journal/journald-server.h
 
 systemd_journald_LDADD = \
-	libsystemd-journal-core.la
+	libsystemd-journal-core.la \
+	libsystemd-bus-internal.la \
+	libsystemd-shared.la
 
 systemd_cat_SOURCES = \
 	src/journal/cat.c

@@ -418,7 +418,6 @@ void server_process_syslog_message(
 
 int server_open_syslog_socket(Server *s) {
         int one, r;
-        struct epoll_event ev;
 
         assert(s);
 
@@ -469,12 +468,10 @@ int server_open_syslog_socket(Server *s) {
                 return -errno;
         }
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.fd = s->syslog_fd;
-        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->syslog_fd, &ev) < 0) {
-                log_error("Failed to add syslog server fd to epoll object: %m");
-                return -errno;
+        r = sd_event_add_io(s->event, s->syslog_fd, EPOLLIN, process_datagram, s, &s->syslog_event_source);
+        if (r < 0) {
+                log_error("Failed to add syslog server fd to event loop: %s", strerror(-r));
+                return r;
         }
 
         return 0;
