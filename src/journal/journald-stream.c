@@ -293,7 +293,8 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
 
         if ((revents|EPOLLIN|EPOLLHUP) != (EPOLLIN|EPOLLHUP)) {
                 log_error("Got invalid event from epoll for stdout stream: %"PRIx32, revents);
-                return -EIO;
+                r = -EIO;
+                goto terminate;
         }
 
         l = read(s->fd, s->buffer+s->length, sizeof(s->buffer)-1-s->length);
@@ -303,25 +304,23 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                         return 0;
 
                 log_warning("Failed to read from stream: %m");
-                goto fail;
+                r = -errno;
+                goto terminate;
         }
 
         if (l == 0) {
                 r = stdout_stream_scan(s, true);
-                if (r < 0)
-                        goto fail;
-
-                return 0;
+                goto terminate;
         }
 
         s->length += l;
         r = stdout_stream_scan(s, false);
         if (r < 0)
-                goto fail;
+                goto terminate;
 
         return 1;
 
-fail:
+terminate:
         stdout_stream_free(s);
         return 0;
 }
