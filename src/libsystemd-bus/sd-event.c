@@ -1555,6 +1555,10 @@ static int process_child(sd_event *e) {
            don't care about. Since this is O(n) this means that if you
            have a lot of processes you probably want to handle SIGCHLD
            yourself.
+
+           We do not reap the children here (by using WNOWAIT), this
+           is only done after the event source is dispatched so that
+           the callback still sees the process as a zombie.
         */
 
         HASHMAP_FOREACH(s, e->child_sources, i) {
@@ -1567,11 +1571,27 @@ static int process_child(sd_event *e) {
                         continue;
 
                 zero(s->child.siginfo);
-                r = waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG|s->child.options);
+                r = waitid(P_PID, s->child.pid, &s->child.siginfo,
+                           WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | s->child.options);
                 if (r < 0)
                         return -errno;
 
                 if (s->child.siginfo.si_pid != 0) {
+                        bool zombie =
+                                s->child.siginfo.si_code == CLD_EXITED ||
+                                s->child.siginfo.si_code == CLD_KILLED ||
+                                s->child.siginfo.si_code == CLD_DUMPED;
+
+                        if (!zombie && (s->child.options & WEXITED)) {
+                                /* If the child isn't dead then let's
+                                 * immediately remove the state change
+                                 * from the queue, since there's no
+                                 * benefit in leaving it queued */
+
+                                assert(s->child.options & (WSTOPPED|WCONTINUED));
+                                waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG|(s->child.options & (WSTOPPED|WCONTINUED)));
+                        }
+
                         r = source_set_pending(s, true);
                         if (r < 0)
                                 return r;
@@ -1625,7 +1645,6 @@ static int process_signal(sd_event *e, uint32_t events) {
                         return r;
         }
 
-
         return 0;
 }
 
@@ -1667,9 +1686,21 @@ static int source_dispatch(sd_event_source *s) {
                 r = s->signal.callback(s, &s->signal.siginfo, s->userdata);
                 break;
 
-        case SOURCE_CHILD:
+        case SOURCE_CHILD: {
+                bool zombie;
+
+                zombie = s->child.siginfo.si_code == CLD_EXITED ||
+                         s->child.siginfo.si_code == CLD_KILLED ||
+                         s->child.siginfo.si_code == CLD_DUMPED;
+
                 r = s->child.callback(s, &s->child.siginfo, s->userdata);
+
+                /* Now, reap the PID for good. */
+                if (zombie)
+                        waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG|WEXITED);
+
                 break;
+        }
 
         case SOURCE_DEFER:
                 r = s->defer.callback(s, s->userdata);

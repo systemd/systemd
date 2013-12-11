@@ -45,9 +45,11 @@ Features:
   - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
   - ensure scope units may be started only a single time
 
-* switch to SipHash for hashmaps/sets?
+* code cleanup
+  - get rid of readdir_r/dirent_storage stuff, it's unnecessary on Linux
+  - we probably should replace the left-over uses of strv_append() and replace them by strv_push() or strv_extend()
 
-* general: get rid of readdir_r/dirent_storage stuff, it's unnecessary on Linux
+* switch to SipHash for hashmaps/sets?
 
 * when we detect low battery and no AC on boot, show pretty splash and refuse boot
 
@@ -70,8 +72,6 @@ Features:
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
 
 * Add a new Distribute=$NUMBER key to socket units that makes use of SO_REUSEPORT to distribute network traffic on $NUMBER instances
-
-* we probably should replace the left-over uses of strv_append() and replace them by strv_push() or strv_extend()
 
 * move config_parse_path_strv() out of conf-parser.c
 
@@ -137,7 +137,6 @@ Features:
     but do not return anything up to the event loop caller. Instead
     add parameter to sd_event_request_quit() to take retval. This way
     errors rippling upwards are the option, not the default
-  - child pid handling: first invoke waitid(WNOHANG) and call event handler, only afterwards reap the process
   - native support for watchdog stuff
 
 * in the final killing spree, detect processes from the root directory, and
