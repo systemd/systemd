@@ -70,12 +70,15 @@
                 since no device-specific options may be
                 configured.</para>
 
-                <para>systemd will automatically create dynamic device
-                units for all kernel devices that are marked with the
-                "systemd" udev tag (by default all block and network
-                devices, and a few others). This may be used to define
-                dependencies between devices and other
-                units.</para>
+                <para>systemd will dynamically create device units for
+                all kernel devices that are marked with the "systemd"
+                udev tag (by default all block and network devices,
+                and a few others). This may be used to define
+                dependencies between devices and other units. To tag a
+                udev device use <literal>TAG+="systemd"</literal> in
+                the udev rules file, see
+                <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                for details.</para>
 
                 <para>Device units are named after the
                 <filename>/sys</filename> and
@@ -93,7 +96,7 @@
 
                 <para>The settings of device units may either be
                 configured via unit files, or directly from the udev
-                database (which is recommended). The following udev
+                database (which is recommended). The following udev device
                 properties are understood by systemd:</para>
 
                 <variablelist class='udev-directives'>
@@ -101,16 +104,26 @@
                                 <term><varname>SYSTEMD_WANTS=</varname></term>
                                 <listitem><para>Adds dependencies of
                                 type <varname>Wants</varname> from
-                                this unit to all listed units. This
+                                the device unit to all listed units. This
                                 may be used to activate arbitrary
-                                units, when a specific device becomes
+                                units when a specific device becomes
                                 available. Note that this and the
                                 other tags are not taken into account
                                 unless the device is tagged with the
                                 <literal>systemd</literal> string in
                                 the udev database, because otherwise
                                 the device is not exposed as systemd
-                                unit.</para></listitem>
+                                unit (see above). Note that systemd
+                                will only act on
+                                <varname>Wants</varname> dependencies
+                                when a device first becomes active, it
+                                will not act on them if they are added
+                                to devices that are already
+                                active. Use
+                                <varname>SYSTEMD_READY=</varname> (see
+                                below) to influence on which udev
+                                event to trigger the device
+                                dependencies.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -135,10 +148,14 @@
                                 device disappears from the udev
                                 tree. This option is useful to support
                                 devices that initially show up in an
-                                uninitialized state in the tree, and for
-                                which a changed event is generated the
-                                moment they are fully set
-                                up.</para></listitem>
+                                uninitialized state in the tree, and
+                                for which a <literal>changed</literal>
+                                event is generated the moment they are
+                                fully set up. Note that
+                                <varname>SYSTEMD_WANTS=</varname> (see
+                                above) is not acted on as long as
+                                <varname>SYSTEMD_READY=0</varname> is
+                                set for a device.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
