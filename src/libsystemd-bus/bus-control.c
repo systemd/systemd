@@ -203,6 +203,7 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
         struct kdbus_cmd_name_list cmd = {};
         struct kdbus_name_list *name_list;
         struct kdbus_cmd_name *name;
+        uint64_t previous_id = 0;
         int r;
 
         /* Caller will free half-constructed list on failure... */
@@ -217,11 +218,7 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
 
         KDBUS_ITEM_FOREACH(name, name_list, names) {
 
-                if (name->size > sizeof(*name)) {
-                        r = strv_extend(x, name->name);
-                        if (r < 0)
-                                return -ENOMEM;
-                } else {
+                if ((flags & KDBUS_NAME_LIST_UNIQUE) && name->id != previous_id) {
                         char *n;
 
                         if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0)
@@ -232,8 +229,15 @@ static int kernel_get_list(sd_bus *bus, uint64_t flags, char ***x) {
                                 free(n);
                                 return -ENOMEM;
                         }
+
+                        previous_id = name->id;
                 }
 
+                if (name->size > sizeof(*name)) {
+                        r = strv_extend(x, name->name);
+                        if (r < 0)
+                                return -ENOMEM;
+                }
         }
 
         r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_FREE, &cmd.offset);
