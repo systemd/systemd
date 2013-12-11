@@ -59,6 +59,8 @@ Manager *manager_new(void) {
                 return NULL;
         }
 
+        sd_event_set_watchdog(m->event, true);
+
         return m;
 }
 

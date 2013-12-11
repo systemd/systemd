@@ -24,6 +24,7 @@
 #include <sys/wait.h>
 
 #include "sd-id128.h"
+#include "sd-daemon.h"
 #include "macro.h"
 #include "prioq.h"
 #include "hashmap.h"
@@ -43,7 +44,8 @@ typedef enum EventSourceType {
         SOURCE_SIGNAL,
         SOURCE_CHILD,
         SOURCE_DEFER,
-        SOURCE_QUIT
+        SOURCE_QUIT,
+        SOURCE_WATCHDOG
 } EventSourceType;
 
 struct sd_event_source {
@@ -105,6 +107,7 @@ struct sd_event {
         int signal_fd;
         int realtime_fd;
         int monotonic_fd;
+        int watchdog_fd;
 
         Prioq *pending;
         Prioq *prepare;
@@ -139,9 +142,12 @@ struct sd_event {
 
         bool quit_requested:1;
         bool need_process_child:1;
+        bool watchdog:1;
 
         pid_t tid;
         sd_event **default_event_ptr;
+
+        usec_t watchdog_last, watchdog_period;
 };
 
 static int pending_prioq_compare(const void *a, const void *b) {
@@ -323,6 +329,9 @@ static void event_free(sd_event *e) {
         if (e->monotonic_fd >= 0)
                 close_nointr_nofail(e->monotonic_fd);
 
+        if (e->watchdog_fd >= 0)
+                close_nointr_nofail(e->watchdog_fd);
+
         prioq_free(e->pending);
         prioq_free(e->prepare);
         prioq_free(e->monotonic_earliest);
@@ -348,7 +357,7 @@ _public_ int sd_event_new(sd_event** ret) {
                 return -ENOMEM;
 
         e->n_ref = 1;
-        e->signal_fd = e->realtime_fd = e->monotonic_fd = e->epoll_fd = -1;
+        e->signal_fd = e->realtime_fd = e->monotonic_fd = e->watchdog_fd = e->epoll_fd = -1;
         e->realtime_next = e->monotonic_next = (usec_t) -1;
         e->original_pid = getpid();
 
@@ -1422,8 +1431,8 @@ static int event_arm_timer(
         usec_t t;
         int r;
 
-        assert_se(e);
-        assert_se(next);
+        assert(e);
+        assert(next);
 
         a = prioq_peek(earliest);
         if (!a || a->enabled == SD_EVENT_OFF) {
@@ -1462,7 +1471,7 @@ static int event_arm_timer(
 
         r = timerfd_settime(timer_fd, TFD_TIMER_ABSTIME, &its, NULL);
         if (r < 0)
-                return r;
+                return -errno;
 
         *next = t;
         return 0;
@@ -1484,7 +1493,6 @@ static int flush_timer(sd_event *e, int fd, uint32_t events, usec_t *next) {
 
         assert(e);
         assert(fd >= 0);
-        assert(next);
 
         assert_return(events == EPOLLIN, -EIO);
 
@@ -1499,7 +1507,8 @@ static int flush_timer(sd_event *e, int fd, uint32_t events, usec_t *next) {
         if (ss != sizeof(x))
                 return -EIO;
 
-        *next = (usec_t) -1;
+        if (next)
+                *next = (usec_t) -1;
 
         return 0;
 }
@@ -1782,6 +1791,43 @@ static sd_event_source* event_next_pending(sd_event *e) {
         return p;
 }
 
+static int arm_watchdog(sd_event *e) {
+        struct itimerspec its = {};
+        usec_t t;
+        int r;
+
+        assert(e);
+        assert(e->watchdog_fd >= 0);
+
+        t = sleep_between(e,
+                          e->watchdog_last + (e->watchdog_period / 2),
+                          e->watchdog_last + (e->watchdog_period * 3 / 4));
+
+        timespec_store(&its.it_value, t);
+
+        r = timerfd_settime(e->watchdog_fd, TFD_TIMER_ABSTIME, &its, NULL);
+        if (r < 0)
+                return -errno;
+
+        return 0;
+}
+
+static int process_watchdog(sd_event *e) {
+        assert(e);
+
+        if (!e->watchdog)
+                return 0;
+
+        /* Don't notify watchdog too often */
+        if (e->watchdog_last + e->watchdog_period / 4 > e->timestamp.monotonic)
+                return 0;
+
+        sd_notify(false, "WATCHDOG=1");
+        e->watchdog_last = e->timestamp.monotonic;
+
+        return arm_watchdog(e);
+}
+
 _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         struct epoll_event ev_queue[EPOLL_QUEUE_MAX];
         sd_event_source *p;
@@ -1831,12 +1877,18 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
                         r = flush_timer(e, e->realtime_fd, ev_queue[i].events, &e->realtime_next);
                 else if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_SIGNAL))
                         r = process_signal(e, ev_queue[i].events);
+                else if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_WATCHDOG))
+                        r = flush_timer(e, e->watchdog_fd, ev_queue[i].events, NULL);
                 else
                         r = process_io(e, ev_queue[i].data.ptr, ev_queue[i].events);
 
                 if (r < 0)
                         goto finish;
         }
+
+        r = process_watchdog(e);
+        if (r < 0)
+                goto finish;
 
         r = process_timer(e, e->timestamp.monotonic, e->monotonic_earliest, e->monotonic_latest);
         if (r < 0)
@@ -1969,4 +2021,64 @@ _public_ int sd_event_get_tid(sd_event *e, pid_t *tid) {
         }
 
         return -ENXIO;
+}
+
+_public_ int sd_event_set_watchdog(sd_event *e, int b) {
+        int r;
+
+        assert_return(e, -EINVAL);
+
+        if (e->watchdog == !!b)
+                return e->watchdog;
+
+        if (b) {
+                struct epoll_event ev = {};
+                const char *env;
+
+                env = getenv("WATCHDOG_USEC");
+                if (!env)
+                        return false;
+
+                r = safe_atou64(env, &e->watchdog_period);
+                if (r < 0)
+                        return r;
+                if (e->watchdog_period <= 0)
+                        return -EIO;
+
+                /* Issue first ping immediately */
+                sd_notify(false, "WATCHDOG=1");
+                e->watchdog_last = now(CLOCK_MONOTONIC);
+
+                e->watchdog_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
+                if (e->watchdog_fd < 0)
+                        return -errno;
+
+                r = arm_watchdog(e);
+                if (r < 0)
+                        goto fail;
+
+                ev.events = EPOLLIN;
+                ev.data.ptr = INT_TO_PTR(SOURCE_WATCHDOG);
+
+                r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, e->watchdog_fd, &ev);
+                if (r < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+        } else {
+                if (e->watchdog_fd >= 0) {
+                        epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, e->watchdog_fd, NULL);
+                        close_nointr_nofail(e->watchdog_fd);
+                        e->watchdog_fd = -1;
+                }
+        }
+
+        e->watchdog = !!b;
+        return e->watchdog;
+
+fail:
+        close_nointr_nofail(e->watchdog_fd);
+        e->watchdog_fd = -1;
+        return r;
 }

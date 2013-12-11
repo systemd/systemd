@@ -93,6 +93,7 @@ int sd_event_get_quit(sd_event *e);
 int sd_event_request_quit(sd_event *e);
 int sd_event_get_now_realtime(sd_event *e, uint64_t *usec);
 int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec);
+int sd_event_set_watchdog(sd_event *e, int b);
 
 sd_event_source* sd_event_source_ref(sd_event_source *s);
 sd_event_source* sd_event_source_unref(sd_event_source *s);

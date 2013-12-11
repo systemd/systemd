@@ -165,6 +165,8 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_event_default(&e) >= 0);
 
+        assert_se(sd_event_set_watchdog(e, true) >= 0);
+
         got_a = false, got_b = false, got_c = false, got_d = 0;
 
         /* Add a oneshot handler, trigger it, re-enable it, and trigger

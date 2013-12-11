@@ -35,6 +35,8 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        sd_event_set_watchdog(m->event, true);
+
         r = sd_rtnl_open(RTMGRP_LINK | RTMGRP_IPV4_IFADDR, &m->rtnl);
         if (r < 0)
                 return r;

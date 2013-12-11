@@ -137,7 +137,6 @@ Features:
     but do not return anything up to the event loop caller. Instead
     add parameter to sd_event_request_quit() to take retval. This way
     errors rippling upwards are the option, not the default
-  - native support for watchdog stuff
 
 * in the final killing spree, detect processes from the root directory, and
   complain loudly if they have argv[0][0] == '@' set.
@@ -311,6 +310,7 @@ Features:
     boot, and causes the journal to be moved back to /run on shutdown,
     so that we don't keep /var busy. This needs to happen synchronously,
     hence doing this via signals is not going to work.
+  - port to sd-event, enable watchdog from event loop
 
 * document:
   - document that deps in [Unit] sections ignore Alias= fileds in

@@ -652,10 +652,12 @@ test_rtnl_SOURCES = \
 test_rtnl_LDADD = \
 	libsystemd-rtnl.la \
 	libsystemd-bus-internal.la \
+	libsystemd-daemon-internal.la \
 	libsystemd-id128-internal.la \
 	libsystemd-shared.la
 
-tests += test-rtnl
+tests += \
+	test-rtnl
 
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
@@ -3966,10 +3968,12 @@ test_network_LDADD = \
 	libudev-internal.la \
 	libsystemd-bus-internal.la \
 	libsystemd-id128-internal.la \
+	libsystemd-daemon-internal.la \
 	libsystemd-rtnl.la \
 	libsystemd-shared.la
 
-tests += test-network
+tests += \
+	test-network
 
 EXTRA_DIST += \
 	src/network/networkd-gperf.gperf \

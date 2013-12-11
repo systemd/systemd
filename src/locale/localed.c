@@ -1137,6 +1137,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        sd_event_set_watchdog(event, true);
+
         r = connect_bus(&context, event, &bus);
         if (r < 0)
                 goto finish;

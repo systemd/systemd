@@ -632,6 +632,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        sd_event_set_watchdog(event, true);
+
         n = sd_listen_fds(1);
         if (n < 0) {
                 log_error("Failed to receive sockets from parent.");
