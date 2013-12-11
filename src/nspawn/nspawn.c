@@ -1067,6 +1067,7 @@ int main(int argc, char *argv[]) {
         _cleanup_close_pipe_ int kmsg_socket_pair[2] = { -1, -1 };
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_free_ char *kdbus_namespace = NULL;
+        const char *ns;
 
         log_parse_environment();
         log_open();
@@ -1167,7 +1168,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        kdbus_fd = bus_kernel_create_namespace(arg_machine, &kdbus_namespace);
+        ns = strappenda("machine-", arg_machine);
+        kdbus_fd = bus_kernel_create_namespace(ns, &kdbus_namespace);
         if (r < 0)
                 log_debug("Failed to create kdbus namespace: %s", strerror(-r));
         else

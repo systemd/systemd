@@ -1142,12 +1142,17 @@ _public_ int sd_bus_open_system_container(const char *machine, sd_bus **ret) {
 
         assert_return(machine, -EINVAL);
         assert_return(ret, -EINVAL);
+        assert_return(filename_is_safe(machine), -EINVAL);
 
         e = bus_address_escape(machine);
         if (!e)
                 return -ENOMEM;
 
+#ifdef ENABLE_KDBUS
+        p = strjoin("kernel:path=/dev/kdbus/ns/machine-", e, "/0-system/bus;x-container:machine=", e, NULL);
+#else
         p = strjoin("x-container:machine=", e, NULL);
+#endif
         if (!p)
                 return -ENOMEM;
 
