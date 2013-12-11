@@ -395,6 +395,50 @@ void server_vacuum(Server *s) {
         s->cached_available_space_timestamp = 0;
 }
 
+static void server_cache_machine_id(Server *s) {
+        sd_id128_t id;
+        int r;
+
+        assert(s);
+
+        r = sd_id128_get_machine(&id);
+        if (r < 0)
+                return;
+
+        sd_id128_to_string(id, stpcpy(s->machine_id_field, "_MACHINE_ID="));
+}
+
+static void server_cache_boot_id(Server *s) {
+        sd_id128_t id;
+        int r;
+
+        assert(s);
+
+        r = sd_id128_get_boot(&id);
+        if (r < 0)
+                return;
+
+        sd_id128_to_string(id, stpcpy(s->boot_id_field, "_BOOT_ID="));
+}
+
+static void server_cache_hostname(Server *s) {
+        _cleanup_free_ char *t = NULL;
+        char *x;
+
+        assert(s);
+
+        t = gethostname_malloc();
+        if (!t)
+                return;
+
+        x = strappend("_HOSTNAME=", t);
+        if (!x)
+                return;
+
+        free(s->hostname_field);
+        s->hostname_field = x;
+}
+
 bool shall_try_append_again(JournalFile *f, int r) {
 
         /* -E2BIG            Hit configured limit
@@ -499,15 +543,12 @@ static void dispatch_message_real(
                 gid[sizeof("_GID=") + DECIMAL_STR_MAX(gid_t)],
                 owner_uid[sizeof("_SYSTEMD_OWNER_UID=") + DECIMAL_STR_MAX(uid_t)],
                 source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)],
-                boot_id[sizeof("_BOOT_ID=") + 32] = "_BOOT_ID=",
-                machine_id[sizeof("_MACHINE_ID=") + 32] = "_MACHINE_ID=",
                 o_uid[sizeof("OBJECT_UID=") + DECIMAL_STR_MAX(uid_t)],
                 o_gid[sizeof("OBJECT_GID=") + DECIMAL_STR_MAX(gid_t)],
                 o_owner_uid[sizeof("OBJECT_SYSTEMD_OWNER_UID=") + DECIMAL_STR_MAX(uid_t)];
         uid_t object_uid;
         gid_t object_gid;
         char *x;
-        sd_id128_t id;
         int r;
         char *t, *c;
         uid_t realuid = 0, owner = 0, journal_uid;
@@ -744,24 +785,14 @@ static void dispatch_message_real(
         /* Note that strictly speaking storing the boot id here is
          * redundant since the entry includes this in-line
          * anyway. However, we need this indexed, too. */
-        r = sd_id128_get_boot(&id);
-        if (r >= 0) {
-                sd_id128_to_string(id, boot_id + strlen("_BOOT_ID="));
-                IOVEC_SET_STRING(iovec[n++], boot_id);
-        }
+        if (!isempty(s->boot_id_field))
+                IOVEC_SET_STRING(iovec[n++], s->boot_id_field);
 
-        r = sd_id128_get_machine(&id);
-        if (r >= 0) {
-                sd_id128_to_string(id, machine_id + strlen("_MACHINE_ID="));
-                IOVEC_SET_STRING(iovec[n++], machine_id);
-        }
+        if (!isempty(s->machine_id_field))
+                IOVEC_SET_STRING(iovec[n++], s->machine_id_field);
 
-        t = gethostname_malloc();
-        if (t) {
-                x = strappenda("_HOSTNAME=", t);
-                free(t);
-                IOVEC_SET_STRING(iovec[n++], x);
-        }
+        if (!isempty(s->hostname_field))
+                IOVEC_SET_STRING(iovec[n++], s->hostname_field);
 
         assert(n <= m);
 
@@ -1367,13 +1398,48 @@ int server_schedule_sync(Server *s, int priority) {
         return 0;
 }
 
+static int dispatch_hostname_change(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        Server *s = userdata;
+
+        assert(s);
+
+        server_cache_hostname(s);
+        return 0;
+}
+
+static int server_open_hostname(Server *s) {
+        int r;
+
+        assert(s);
+
+        s->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY|O_NOCTTY);
+        if (s->hostname_fd < 0) {
+                log_error("Failed to open /proc/sys/kernel/hostname: %m");
+                return -errno;
+        }
+
+        r = sd_event_add_io(s->event, s->hostname_fd, 0, dispatch_hostname_change, s, &s->hostname_event_source);
+        if (r < 0) {
+                log_error("Failed to register hostname fd in event loop: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_event_source_set_priority(s->hostname_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
+        if (r < 0) {
+                log_error("Failed to adjust priority of host name event source: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
 int server_init(Server *s) {
         int n, r, fd;
 
         assert(s);
 
         zero(*s);
-        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = -1;
+        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->hostname_fd = -1;
         s->compress = true;
         s->seal = true;
 
@@ -1481,6 +1547,10 @@ int server_init(Server *s) {
         if (r < 0)
                 return r;
 
+        r = server_open_hostname(s);
+        if (r < 0)
+                return r;
+
         r = setup_signals(s);
         if (r < 0)
                 return r;
@@ -1492,6 +1562,10 @@ int server_init(Server *s) {
         s->rate_limit = journal_rate_limit_new(s->rate_limit_interval, s->rate_limit_burst);
         if (!s->rate_limit)
                 return -ENOMEM;
+
+        server_cache_hostname(s);
+        server_cache_boot_id(s);
+        server_cache_machine_id(s);
 
         r = system_journal_open(s);
         if (r < 0)
@@ -1543,6 +1617,7 @@ void server_done(Server *s) {
         sd_event_source_unref(s->sigusr2_event_source);
         sd_event_source_unref(s->sigterm_event_source);
         sd_event_source_unref(s->sigint_event_source);
+        sd_event_source_unref(s->hostname_event_source);
         sd_event_unref(s->event);
 
         if (s->syslog_fd >= 0)
@@ -1556,6 +1631,9 @@ void server_done(Server *s) {
 
         if (s->dev_kmsg_fd >= 0)
                 close_nointr_nofail(s->dev_kmsg_fd);
+
+        if (s->hostname_fd >= 0)
+                close_nointr_nofail(s->hostname_fd);
 
         if (s->rate_limit)
                 journal_rate_limit_free(s->rate_limit);

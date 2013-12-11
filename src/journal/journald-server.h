@@ -59,6 +59,7 @@ typedef struct Server {
         int native_fd;
         int stdout_fd;
         int dev_kmsg_fd;
+        int hostname_fd;
 
         sd_event *event;
 
@@ -71,6 +72,7 @@ typedef struct Server {
         sd_event_source *sigusr2_event_source;
         sd_event_source *sigterm_event_source;
         sd_event_source *sigint_event_source;
+        sd_event_source *hostname_event_source;
 
         JournalFile *runtime_journal;
         JournalFile *system_journal;
@@ -130,6 +132,10 @@ typedef struct Server {
         struct udev *udev;
 
         bool sync_scheduled;
+
+        char machine_id_field[sizeof("_MACHINE_ID=") + 32];
+        char boot_id_field[sizeof("_BOOT_ID=") + 32];
+        char *hostname_field;
 } Server;
 
 #define N_IOVEC_META_FIELDS 20
