@@ -12,6 +12,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=default.target
 Before=shutdown.target
+ConditionVirtualization=no
 
 [Service]
 Type=oneshot
