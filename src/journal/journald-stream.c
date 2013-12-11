@@ -334,8 +334,10 @@ void stdout_stream_free(StdoutStream *s) {
                 LIST_REMOVE(stdout_stream, s->server->stdout_streams, s);
         }
 
-        if (s->event_source)
+        if (s->event_source) {
+                sd_event_source_set_enabled(s->event_source, SD_EVENT_OFF);
                 s->event_source = sd_event_source_unref(s->event_source);
+        }
 
         if (s->fd >= 0)
                 close_nointr_nofail(s->fd);
