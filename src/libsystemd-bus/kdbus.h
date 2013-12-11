@@ -527,18 +527,17 @@ struct kdbus_cmd_ns_make {
 /**
  * enum kdbus_name_flags - properties of a well-known name
  * @KDBUS_NAME_REPLACE_EXISTING:	Try to replace name of other connections
- * @KDBUS_NAME_QUEUE:			Name should be queued if busy
  * @KDBUS_NAME_ALLOW_REPLACEMENT:	Allow the replacement of the name
+ * @KDBUS_NAME_QUEUE:			Name should be queued if busy
  * @KDBUS_NAME_IN_QUEUE:		Name is queued
+ * @KDBUS_NAME_STARTER:			Name is owned by a starter connection
  */
 enum kdbus_name_flags {
-	/* userspace → kernel */
 	KDBUS_NAME_REPLACE_EXISTING		= 1 <<  0,
-	KDBUS_NAME_QUEUE			= 1 <<  1,
-	KDBUS_NAME_ALLOW_REPLACEMENT		= 1 <<  2,
-
-	/* kernel → userspace */
-	KDBUS_NAME_IN_QUEUE			= 1 << 16,
+	KDBUS_NAME_ALLOW_REPLACEMENT		= 1 <<  1,
+	KDBUS_NAME_QUEUE			= 1 <<  2,
+	KDBUS_NAME_IN_QUEUE			= 1 <<  3,
+	KDBUS_NAME_STARTER			= 1 <<  4,
 };
 
 /**
@@ -609,7 +608,7 @@ struct kdbus_name_list {
  * 			@name is required. kdbus will look up the name to determine
  * 			the ID in this case.
  * @offset:		Returned offset in the caller's pool buffer where the
- * 			kdbus_name_info struct result is stored. The user must
+ * 			kdbus_conn_info struct result is stored. The user must
  * 			use KDBUS_CMD_FREE to free the allocated memory.
  * @name:		The optional well-known name to look up. Only needed in
  * 			case @id is zero.

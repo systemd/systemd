@@ -514,7 +514,7 @@ static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_
         assert(k);
         assert(d);
 
-        if (d->name_change.flags != 0)
+        if (d->name_change.flags & (KDBUS_NAME_IN_QUEUE|KDBUS_NAME_STARTER))
                 return 0;
 
         if (d->type == KDBUS_ITEM_NAME_ADD)
