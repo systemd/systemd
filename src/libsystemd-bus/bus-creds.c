@@ -157,7 +157,9 @@ _public_ int sd_bus_creds_new_from_pid(pid_t pid, uint64_t mask, sd_bus_creds **
 _public_ int sd_bus_creds_get_uid(sd_bus_creds *c, uid_t *uid) {
         assert_return(c, -EINVAL);
         assert_return(uid, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_UID, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_UID))
+                return -ENODATA;
 
         *uid = c->uid;
         return 0;
@@ -166,7 +168,9 @@ _public_ int sd_bus_creds_get_uid(sd_bus_creds *c, uid_t *uid) {
 _public_ int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid) {
         assert_return(c, -EINVAL);
         assert_return(gid, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_UID, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_UID))
+                return -ENODATA;
 
         *gid = c->gid;
         return 0;
@@ -175,7 +179,9 @@ _public_ int sd_bus_creds_get_gid(sd_bus_creds *c, gid_t *gid) {
 _public_ int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *pid) {
         assert_return(c, -EINVAL);
         assert_return(pid, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_PID, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_PID))
+                return -ENODATA;
 
         assert(c->pid > 0);
         *pid = c->pid;
@@ -185,7 +191,9 @@ _public_ int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *pid) {
 _public_ int sd_bus_creds_get_tid(sd_bus_creds *c, pid_t *tid) {
         assert_return(c, -EINVAL);
         assert_return(tid, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_TID, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_TID))
+                return -ENODATA;
 
         assert(c->tid > 0);
         *tid = c->tid;
@@ -195,7 +203,9 @@ _public_ int sd_bus_creds_get_tid(sd_bus_creds *c, pid_t *tid) {
 _public_ int sd_bus_creds_get_pid_starttime(sd_bus_creds *c, uint64_t *usec) {
         assert_return(c, -EINVAL);
         assert_return(usec, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_PID_STARTTIME, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_PID_STARTTIME))
+                return -ENODATA;
 
         assert(c->pid_starttime > 0);
         *usec = c->pid_starttime;
@@ -204,7 +214,9 @@ _public_ int sd_bus_creds_get_pid_starttime(sd_bus_creds *c, uint64_t *usec) {
 
 _public_ int sd_bus_creds_get_selinux_context(sd_bus_creds *c, const char **ret) {
         assert_return(c, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_SELINUX_CONTEXT, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_SELINUX_CONTEXT))
+                return -ENODATA;
 
         assert(c->label);
         *ret = c->label;
@@ -214,7 +226,9 @@ _public_ int sd_bus_creds_get_selinux_context(sd_bus_creds *c, const char **ret)
 _public_ int sd_bus_creds_get_comm(sd_bus_creds *c, const char **ret) {
         assert_return(c, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_COMM, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_COMM))
+                return -ENODATA;
 
         assert(c->comm);
         *ret = c->comm;
@@ -224,7 +238,9 @@ _public_ int sd_bus_creds_get_comm(sd_bus_creds *c, const char **ret) {
 _public_ int sd_bus_creds_get_tid_comm(sd_bus_creds *c, const char **ret) {
         assert_return(c, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_TID_COMM, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_TID_COMM))
+                return -ENODATA;
 
         assert(c->tid_comm);
         *ret = c->tid_comm;
@@ -234,7 +250,9 @@ _public_ int sd_bus_creds_get_tid_comm(sd_bus_creds *c, const char **ret) {
 _public_ int sd_bus_creds_get_exe(sd_bus_creds *c, const char **ret) {
         assert_return(c, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_EXE, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_EXE))
+                return -ENODATA;
 
         assert(c->exe);
         *ret = c->exe;
@@ -244,7 +262,9 @@ _public_ int sd_bus_creds_get_exe(sd_bus_creds *c, const char **ret) {
 _public_ int sd_bus_creds_get_cgroup(sd_bus_creds *c, const char **ret) {
         assert_return(c, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_CGROUP, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_CGROUP))
+                return -ENODATA;
 
         assert(c->cgroup);
         *ret = c->cgroup;
@@ -256,7 +276,9 @@ _public_ int sd_bus_creds_get_unit(sd_bus_creds *c, const char **ret) {
 
         assert_return(c, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_UNIT, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_UNIT))
+                return -ENODATA;
 
         assert(c->cgroup);
 
@@ -275,7 +297,9 @@ _public_ int sd_bus_creds_get_user_unit(sd_bus_creds *c, const char **ret) {
 
         assert_return(c, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_USER_UNIT, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_USER_UNIT))
+                return -ENODATA;
 
         assert(c->cgroup);
 
@@ -294,7 +318,9 @@ _public_ int sd_bus_creds_get_slice(sd_bus_creds *c, const char **ret) {
 
         assert_return(c, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_SLICE, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_SLICE))
+                return -ENODATA;
 
         assert(c->cgroup);
 
@@ -313,7 +339,9 @@ _public_ int sd_bus_creds_get_session(sd_bus_creds *c, const char **ret) {
 
         assert_return(c, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_SESSION, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_SESSION))
+                return -ENODATA;
 
         assert(c->cgroup);
 
@@ -330,7 +358,9 @@ _public_ int sd_bus_creds_get_session(sd_bus_creds *c, const char **ret) {
 _public_ int sd_bus_creds_get_owner_uid(sd_bus_creds *c, uid_t *uid) {
         assert_return(c, -EINVAL);
         assert_return(uid, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_OWNER_UID, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_OWNER_UID))
+                return -ENODATA;
 
         assert(c->cgroup);
 
@@ -340,7 +370,9 @@ _public_ int sd_bus_creds_get_owner_uid(sd_bus_creds *c, uid_t *uid) {
 _public_ int sd_bus_creds_get_cmdline(sd_bus_creds *c, char ***cmdline) {
         assert_return(c, -EINVAL);
         assert_return(c->cmdline, -ESRCH);
-        assert_return(c->mask & SD_BUS_CREDS_CMDLINE, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_CMDLINE))
+                return -ENODATA;
 
         assert(c->cmdline);
 
@@ -357,7 +389,9 @@ _public_ int sd_bus_creds_get_cmdline(sd_bus_creds *c, char ***cmdline) {
 _public_ int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *sessionid) {
         assert_return(c, -EINVAL);
         assert_return(sessionid, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_AUDIT_SESSION_ID, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_AUDIT_SESSION_ID))
+                return -ENODATA;
 
         *sessionid = c->audit_session_id;
         return 0;
@@ -366,7 +400,9 @@ _public_ int sd_bus_creds_get_audit_session_id(sd_bus_creds *c, uint32_t *sessio
 _public_ int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *uid) {
         assert_return(c, -EINVAL);
         assert_return(uid, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_AUDIT_LOGIN_UID, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_AUDIT_LOGIN_UID))
+                return -ENODATA;
 
         *uid = c->audit_login_uid;
         return 0;
@@ -375,7 +411,9 @@ _public_ int sd_bus_creds_get_audit_login_uid(sd_bus_creds *c, uid_t *uid) {
 _public_ int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **unique_name) {
         assert_return(c, -EINVAL);
         assert_return(unique_name, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_UNIQUE_NAME, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_UNIQUE_NAME))
+                return -ENODATA;
 
         *unique_name = c->unique_name;
         return 0;
@@ -384,7 +422,9 @@ _public_ int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **unique_n
 _public_ int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***well_known_names) {
         assert_return(c, -EINVAL);
         assert_return(well_known_names, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_WELL_KNOWN_NAMES, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_WELL_KNOWN_NAMES))
+                return -ENODATA;
 
         *well_known_names = c->well_known_names;
         return 0;
@@ -406,7 +446,9 @@ static int has_cap(sd_bus_creds *c, unsigned offset, int capability) {
 _public_ int sd_bus_creds_has_effective_cap(sd_bus_creds *c, int capability) {
         assert_return(c, -EINVAL);
         assert_return(capability >= 0, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_EFFECTIVE_CAPS, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_EFFECTIVE_CAPS))
+                return -ENODATA;
 
         return has_cap(c, CAP_OFFSET_EFFECTIVE, capability);
 }
@@ -414,7 +456,9 @@ _public_ int sd_bus_creds_has_effective_cap(sd_bus_creds *c, int capability) {
 _public_ int sd_bus_creds_has_permitted_cap(sd_bus_creds *c, int capability) {
         assert_return(c, -EINVAL);
         assert_return(capability >= 0, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_PERMITTED_CAPS, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_PERMITTED_CAPS))
+                return -ENODATA;
 
         return has_cap(c, CAP_OFFSET_PERMITTED, capability);
 }
@@ -422,7 +466,9 @@ _public_ int sd_bus_creds_has_permitted_cap(sd_bus_creds *c, int capability) {
 _public_ int sd_bus_creds_has_inheritable_cap(sd_bus_creds *c, int capability) {
         assert_return(c, -EINVAL);
         assert_return(capability >= 0, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_INHERITABLE_CAPS, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_INHERITABLE_CAPS))
+                return -ENODATA;
 
         return has_cap(c, CAP_OFFSET_INHERITABLE, capability);
 }
@@ -430,7 +476,9 @@ _public_ int sd_bus_creds_has_inheritable_cap(sd_bus_creds *c, int capability) {
 _public_ int sd_bus_creds_has_bounding_cap(sd_bus_creds *c, int capability) {
         assert_return(c, -EINVAL);
         assert_return(capability >= 0, -EINVAL);
-        assert_return(c->mask & SD_BUS_CREDS_BOUNDING_CAPS, -ENODATA);
+
+        if (!(c->mask & SD_BUS_CREDS_BOUNDING_CAPS))
+                return -ENODATA;
 
         return has_cap(c, CAP_OFFSET_BOUNDING, capability);
 }
