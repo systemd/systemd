@@ -98,6 +98,7 @@ struct Directory {
 
 struct sd_journal {
         char *path;
+        char *prefix;
 
         Hashmap *files;
         MMapCache *mmap;
