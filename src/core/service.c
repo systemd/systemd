@@ -123,6 +123,8 @@ static int service_dispatch_io(sd_event_source *source, int fd, uint32_t events,
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata);
 
+static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
+
 static void service_init(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -242,26 +244,16 @@ static void service_stop_watchdog(Service *s) {
         assert(s);
 
         s->watchdog_event_source = sd_event_source_unref(s->watchdog_event_source);
-        s->watchdog_timestamp = (struct dual_timestamp) { 0, 0 };
+        s->watchdog_timestamp = DUAL_TIMESTAMP_NULL;
 }
 
-static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
-
-static void service_handle_watchdog(Service *s) {
-        usec_t nw;
+static void service_start_watchdog(Service *s) {
         int r;
 
         assert(s);
 
-        if (s->watchdog_usec == 0)
+        if (s->watchdog_usec <= 0)
                 return;
-
-        nw = now(CLOCK_MONOTONIC);
-        if (nw >=  s->watchdog_timestamp.monotonic + s->watchdog_usec) {
-                log_error_unit(UNIT(s)->id, "%s watchdog timeout!", UNIT(s)->id);
-                service_enter_signal(s, SERVICE_STOP_SIGKILL, SERVICE_FAILURE_WATCHDOG);
-                return;
-        }
 
         if (s->watchdog_event_source) {
                 r = sd_event_source_set_time(s->watchdog_event_source, s->watchdog_timestamp.monotonic + s->watchdog_usec);
@@ -270,21 +262,19 @@ static void service_handle_watchdog(Service *s) {
                         return;
                 }
 
-                r = sd_event_source_set_enabled(s->watchdog_event_source, SD_EVENT_ON);
+                r = sd_event_source_set_enabled(s->watchdog_event_source, SD_EVENT_ONESHOT);
         } else
                 r = sd_event_add_monotonic(UNIT(s)->manager->event, s->watchdog_timestamp.monotonic + s->watchdog_usec, 0, service_dispatch_watchdog, s, &s->watchdog_event_source);
 
         if (r < 0)
-                log_warning_unit(UNIT(s)->id,
-                                 "%s failed to install watchdog timer: %s",
-                                 UNIT(s)->id, strerror(-r));
+                log_warning_unit(UNIT(s)->id, "%s failed to install watchdog timer: %s", UNIT(s)->id, strerror(-r));
 }
 
 static void service_reset_watchdog(Service *s) {
         assert(s);
 
         dual_timestamp_get(&s->watchdog_timestamp);
-        service_handle_watchdog(s);
+        service_start_watchdog(s);
 }
 
 static void service_done(Unit *u) {
@@ -1477,6 +1467,7 @@ static int service_search_main_pid(Service *s) {
 static void service_set_state(Service *s, ServiceState state) {
         ServiceState old_state;
         const UnitActiveState *table;
+
         assert(s);
 
         table = s->type == SERVICE_IDLE ? state_translation_table_idle : state_translation_table;
@@ -1486,62 +1477,43 @@ static void service_set_state(Service *s, ServiceState state) {
 
         service_unwatch_pid_file(s);
 
-        if (state != SERVICE_START_PRE &&
-            state != SERVICE_START &&
-            state != SERVICE_START_POST &&
-            state != SERVICE_RELOAD &&
-            state != SERVICE_STOP &&
-            state != SERVICE_STOP_SIGTERM &&
-            state != SERVICE_STOP_SIGKILL &&
-            state != SERVICE_STOP_POST &&
-            state != SERVICE_FINAL_SIGTERM &&
-            state != SERVICE_FINAL_SIGKILL &&
-            state != SERVICE_AUTO_RESTART)
+        if (!IN_SET(state,
+                    SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
+                    SERVICE_RELOAD,
+                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                    SERVICE_AUTO_RESTART))
                 s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 
-        if (state != SERVICE_START &&
-            state != SERVICE_START_POST &&
-            state != SERVICE_RUNNING &&
-            state != SERVICE_RELOAD &&
-            state != SERVICE_STOP &&
-            state != SERVICE_STOP_SIGTERM &&
-            state != SERVICE_STOP_SIGKILL) {
+        if (!IN_SET(state,
+                    SERVICE_START, SERVICE_START_POST,
+                    SERVICE_RUNNING, SERVICE_RELOAD,
+                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL)) {
                 service_unwatch_main_pid(s);
                 s->main_command = NULL;
         }
 
-        if (state != SERVICE_START_PRE &&
-            state != SERVICE_START &&
-            state != SERVICE_START_POST &&
-            state != SERVICE_RELOAD &&
-            state != SERVICE_STOP &&
-            state != SERVICE_STOP_SIGTERM &&
-            state != SERVICE_STOP_SIGKILL &&
-            state != SERVICE_STOP_POST &&
-            state != SERVICE_FINAL_SIGTERM &&
-            state != SERVICE_FINAL_SIGKILL) {
+        if (!IN_SET(state,
+                    SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
+                    SERVICE_RELOAD,
+                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
                 service_unwatch_control_pid(s);
                 s->control_command = NULL;
                 s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
         }
 
-        if (state != SERVICE_START_PRE &&
-            state != SERVICE_START &&
-            state != SERVICE_START_POST &&
-            state != SERVICE_RUNNING &&
-            state != SERVICE_RELOAD &&
-            state != SERVICE_STOP &&
-            state != SERVICE_STOP_SIGTERM &&
-            state != SERVICE_STOP_SIGKILL &&
-            state != SERVICE_STOP_POST &&
-            state != SERVICE_FINAL_SIGTERM &&
-            state != SERVICE_FINAL_SIGKILL &&
+        if (!IN_SET(state,
+                    SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
+                    SERVICE_RUNNING, SERVICE_RELOAD,
+                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL) &&
             !(state == SERVICE_DEAD && UNIT(s)->job)) {
                 service_close_socket_fd(s);
                 service_connection_unref(s);
         }
 
-        if (state == SERVICE_STOP || state == SERVICE_STOP_SIGTERM)
+        if (IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                 service_stop_watchdog(s);
 
         /* For the inactive states unit_notify() will trim the cgroup,
@@ -1566,10 +1538,7 @@ static void service_set_state(Service *s, ServiceState state) {
         }
 
         if (old_state != state)
-                log_debug_unit(UNIT(s)->id,
-                               "%s changed %s -> %s", UNIT(s)->id,
-                               service_state_to_string(old_state),
-                               service_state_to_string(state));
+                log_debug_unit(UNIT(s)->id, "%s changed %s -> %s", UNIT(s)->id, service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
         s->reload_result = SERVICE_SUCCESS;
@@ -1650,9 +1619,8 @@ static int service_coldplug(Unit *u) {
                                         return r;
                         }
 
-                if (s->deserialized_state == SERVICE_START_POST ||
-                    s->deserialized_state == SERVICE_RUNNING)
-                        service_handle_watchdog(s);
+                if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
+                        service_start_watchdog(s);
 
                 service_set_state(s, s->deserialized_state);
         }
@@ -2102,9 +2070,7 @@ static void service_enter_start_post(Service *s) {
         assert(s);
 
         service_unwatch_control_pid(s);
-
-        if (s->watchdog_usec > 0)
-                service_reset_watchdog(s);
+        service_reset_watchdog(s);
 
         s->control_command = s->exec_command[SERVICE_EXEC_START_POST];
         if (s->control_command) {
@@ -2646,8 +2612,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 }
         }
         if (dual_timestamp_is_set(&s->watchdog_timestamp))
-                dual_timestamp_serialize(f, "watchdog-timestamp",
-                                         &s->watchdog_timestamp);
+                dual_timestamp_serialize(f, "watchdog-timestamp", &s->watchdog_timestamp);
 
         if (s->forbid_restart)
                 unit_serialize_item(u, f, "forbid-restart", yes_no(s->forbid_restart));
@@ -3305,7 +3270,9 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         assert(s);
         assert(source == s->watchdog_event_source);
 
-        service_handle_watchdog(s);
+        log_error_unit(UNIT(s)->id, "%s watchdog timeout!", UNIT(s)->id);
+        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_WATCHDOG);
+
         return 0;
 }
 
@@ -3446,11 +3413,10 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 }
 
         }
+
         if (strv_find(tags, "WATCHDOG=1")) {
-                log_debug_unit(u->id,
-                               "%s: got WATCHDOG=1", u->id);
-                if (dual_timestamp_is_set(&s->watchdog_timestamp))
-                        service_reset_watchdog(s);
+                log_debug_unit(u->id, "%s: got WATCHDOG=1", u->id);
+                service_reset_watchdog(s);
         }
 
         /* Notify clients about changed status or main pid */
