@@ -48,15 +48,28 @@ static int quit_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_
 
 int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name) {
         _cleanup_free_ char *match = NULL;
+        const char *unique;
         int r;
 
         assert(e);
         assert(bus);
         assert(name);
 
-        r = asprintf(&match, "type='signal',sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',member='NameLost',arg0='%s'", name);
+        r = sd_bus_get_unique_name(bus, &unique);
         if (r < 0)
                 return r;
+
+        r = asprintf(&match,
+                     "sender='org.freedesktop.DBus',"
+                     "type='signal',"
+                     "interface='org.freedesktop.DBus',"
+                     "member='NameOwnerChanged',"
+                     "path='/org/freedesktop/DBus',"
+                     "arg0='%s',"
+                     "arg1='%s',"
+                     "arg2=''", name, unique);
+        if (r < 0)
+                return -ENOMEM;
 
         r = sd_bus_add_match(bus, match, quit_callback, e);
         if (r < 0)
@@ -65,9 +78,6 @@ int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name) {
         r = sd_bus_release_name(bus, name);
         if (r < 0)
                 return r;
-
-        if (r != BUS_NAME_RELEASED)
-                return -EIO;
 
         return 0;
 }
