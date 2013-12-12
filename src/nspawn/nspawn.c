@@ -804,13 +804,10 @@ static int setup_hostname(void) {
 }
 
 static int setup_journal(const char *directory) {
-        sd_id128_t machine_id;
+        sd_id128_t machine_id, this_id;
         _cleanup_free_ char *p = NULL, *b = NULL, *q = NULL, *d = NULL;
         char *id;
         int r;
-
-        if (arg_link_journal == LINK_NO)
-                return 0;
 
         p = strappend(directory, "/etc/machine-id");
         if (!p)
@@ -834,6 +831,24 @@ static int setup_journal(const char *directory) {
                 log_error("Failed to parse machine ID from %s: %s", p, strerror(-r));
                 return r;
         }
+
+        r = sd_id128_get_machine(&this_id);
+        if (r < 0) {
+                log_error("Failed to retrieve machine ID: %s", strerror(-r));
+                return r;
+        }
+
+        if (sd_id128_equal(machine_id, this_id)) {
+                log_full(arg_link_journal == LINK_AUTO ? LOG_WARNING : LOG_ERR,
+                         "Host and machine ids are equal (%s): refusing to link journals", id);
+                if (arg_link_journal == LINK_AUTO)
+                        return 0;
+                return
+                        -EEXIST;
+        }
+
+        if (arg_link_journal == LINK_NO)
+                return 0;
 
         free(p);
         p = strappend("/var/log/journal/", id);
