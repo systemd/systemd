@@ -22,8 +22,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <endian.h>
-
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -64,14 +62,6 @@ enum {
         SD_BUS_TYPE_DICT_ENTRY       = 'e', /* not actually used in signatures */
         SD_BUS_TYPE_DICT_ENTRY_BEGIN = '{',
         SD_BUS_TYPE_DICT_ENTRY_END   = '}',
-};
-
-/* RequestName parameters */
-
-enum  {
-        SD_BUS_NAME_ALLOW_REPLACEMENT = 1,
-        SD_BUS_NAME_REPLACE_EXISTING = 2,
-        SD_BUS_NAME_DO_NOT_QUEUE = 4
 };
 
 /* Well-known errors. Note that this is only a sanitized subset of the

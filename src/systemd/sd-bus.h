@@ -75,6 +75,12 @@ enum {
         _SD_BUS_CREDS_ALL             = (1ULL << 24) -1,
 };
 
+enum {
+        SD_BUS_NAME_REPLACE_EXISTING  = 1ULL << 0,
+        SD_BUS_NAME_ALLOW_REPLACEMENT = 1ULL << 1,
+        SD_BUS_NAME_QUEUE             = 1ULL << 2,
+};
+
 /* Callbacks */
 
 typedef int (*sd_bus_message_handler_t)(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
@@ -234,7 +240,7 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete);
 /* Bus management */
 
 int sd_bus_get_unique_name(sd_bus *bus, const char **unique);
-int sd_bus_request_name(sd_bus *bus, const char *name, unsigned flags);
+int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags);
 int sd_bus_release_name(sd_bus *bus, const char *name);
 int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable); /* free the results */
 int sd_bus_get_owner(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds); /* unref the result! */

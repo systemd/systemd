@@ -49,7 +49,7 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         return 0;
 }
 
-static int bus_request_name_kernel(sd_bus *bus, const char *name, unsigned flags) {
+static int bus_request_name_kernel(sd_bus *bus, const char *name, uint64_t flags) {
         struct kdbus_cmd_name *n;
         size_t l;
         int r;
@@ -77,13 +77,20 @@ static int bus_request_name_kernel(sd_bus *bus, const char *name, unsigned flags
         return 1;
 }
 
-static int bus_request_name_dbus1(sd_bus *bus, const char *name, unsigned flags) {
+static int bus_request_name_dbus1(sd_bus *bus, const char *name, uint64_t flags) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        uint32_t ret;
+        uint32_t ret, param = 0;
         int r;
 
         assert(bus);
         assert(name);
+
+        if (flags & SD_BUS_NAME_ALLOW_REPLACEMENT)
+                param |= BUS_NAME_ALLOW_REPLACEMENT;
+        if (flags & SD_BUS_NAME_REPLACE_EXISTING)
+                param |= BUS_NAME_REPLACE_EXISTING;
+        if (!(flags & SD_BUS_NAME_QUEUE))
+                param |= BUS_NAME_DO_NOT_QUEUE;
 
         r = sd_bus_call_method(
                         bus,
@@ -95,7 +102,7 @@ static int bus_request_name_dbus1(sd_bus *bus, const char *name, unsigned flags)
                         &reply,
                         "su",
                         name,
-                        flags);
+                        param);
         if (r < 0)
                 return r;
 
@@ -115,13 +122,13 @@ static int bus_request_name_dbus1(sd_bus *bus, const char *name, unsigned flags)
         return -EIO;
 }
 
-_public_ int sd_bus_request_name(sd_bus *bus, const char *name, unsigned flags) {
+_public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) {
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
         assert_return(bus->bus_client, -EINVAL);
         assert_return(BUS_IS_OPEN(bus->state), -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
-        assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_DO_NOT_QUEUE)), -EINVAL);
+        assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_QUEUE)), -EINVAL);
 
         if (bus->is_kernel)
                 return bus_request_name_kernel(bus, name, flags);

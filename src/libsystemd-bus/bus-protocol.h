@@ -60,6 +60,14 @@ enum {
         _BUS_MESSAGE_HEADER_MAX
 };
 
+/* RequestName parameters */
+
+enum  {
+        BUS_NAME_ALLOW_REPLACEMENT = 1,
+        BUS_NAME_REPLACE_EXISTING = 2,
+        BUS_NAME_DO_NOT_QUEUE = 4
+};
+
 /* RequestName returns */
 enum  {
         BUS_NAME_PRIMARY_OWNER = 1,

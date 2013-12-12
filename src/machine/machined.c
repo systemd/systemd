@@ -219,7 +219,7 @@ static int manager_connect_bus(Manager *m) {
                 return r;
         }
 
-        r = sd_bus_request_name(m->bus, "org.freedesktop.machine1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_DO_NOT_QUEUE);
+        r = sd_bus_request_name(m->bus, "org.freedesktop.machine1", 0);
         if (r < 0) {
                 log_error("Failed to register name: %s", strerror(-r));
                 return r;
