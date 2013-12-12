@@ -1754,6 +1754,8 @@ _public_ int sd_bus_call(
                 r = bus_poll(bus, true, left);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        return -ETIMEDOUT;
 
                 r = dispatch_wqueue(bus);
                 if (r < 0) {
