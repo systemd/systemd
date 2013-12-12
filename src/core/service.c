@@ -263,8 +263,17 @@ static void service_start_watchdog(Service *s) {
                 }
 
                 r = sd_event_source_set_enabled(s->watchdog_event_source, SD_EVENT_ONESHOT);
-        } else
+        } else {
                 r = sd_event_add_monotonic(UNIT(s)->manager->event, s->watchdog_timestamp.monotonic + s->watchdog_usec, 0, service_dispatch_watchdog, s, &s->watchdog_event_source);
+                if (r < 0) {
+                        log_warning_unit(UNIT(s)->id, "%s failed to add watchdog timer: %s", UNIT(s)->id, strerror(-r));
+                        return;
+                }
+
+                /* Let's process everything else which might be a sign
+                 * of living before we consider a service died. */
+                r = sd_event_source_set_priority(s->watchdog_event_source, SD_EVENT_PRIORITY_IDLE);
+        }
 
         if (r < 0)
                 log_warning_unit(UNIT(s)->id, "%s failed to install watchdog timer: %s", UNIT(s)->id, strerror(-r));
