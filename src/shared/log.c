@@ -690,6 +690,9 @@ int log_meta_object(
 static void log_assert(int level, const char *text, const char *file, int line, const char *func, const char *format) {
         static char buffer[LINE_MAX];
 
+        if (_likely_(LOG_PRI(level) > log_max_level))
+                return;
+
         snprintf(buffer, sizeof(buffer), format, text, file, line, func);
 
         char_array_0(buffer);
