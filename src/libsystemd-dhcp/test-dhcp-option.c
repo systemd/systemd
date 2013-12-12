@@ -198,6 +198,7 @@ static int test_options_cb(uint8_t code, uint8_t len, const uint8_t *option,
                         *descpos = -1;
         }
 
+        assert(descpos);
         assert(*descpos != -1);
 
         optcode = descoption[*descpos];

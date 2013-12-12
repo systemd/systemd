@@ -367,7 +367,7 @@ static void test_strv_foreach_backwards(void) {
         assert_se(a);
 
         STRV_FOREACH_BACKWARDS(check, a) {
-                assert_se(streq(*check, input_table_multiple[i--]));
+                assert_se(streq_ptr(*check, input_table_multiple[i--]));
         }
 }
 
