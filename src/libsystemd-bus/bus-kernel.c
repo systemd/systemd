@@ -363,6 +363,7 @@ int bus_kernel_take_fd(sd_bus *b) {
         b->bus_client = true;
         b->can_fds = !!(hello.conn_flags & KDBUS_HELLO_ACCEPT_FD);
         b->message_version = 2;
+        b->message_endian = BUS_NATIVE_ENDIAN;
 
         /* the kernel told us the UUID of the underlying bus */
         memcpy(b->server_id.bytes, hello.id128, sizeof(b->server_id.bytes));

@@ -147,6 +147,7 @@ struct sd_bus {
         enum bus_state state;
         int input_fd, output_fd;
         int message_version;
+        int message_endian;
 
         bool is_kernel:1;
         bool can_fds:1;

@@ -625,6 +625,7 @@ int bus_socket_setup(sd_bus *b) {
 
         b->is_kernel = false;
         b->message_version = 1;
+        b->message_endian = 0;
 
         return 0;
 }

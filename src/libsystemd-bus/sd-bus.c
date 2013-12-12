@@ -1280,7 +1280,12 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m) {
         assert(b);
         assert(m);
 
-        if (m->header->version > b->message_version)
+        if (b->message_version != 0 &&
+            m->header->version != b->message_version)
+                return -EPERM;
+
+        if (b->message_endian != 0 &&
+            m->header->endian != b->message_endian)
                 return -EPERM;
 
         if (m->sealed) {
@@ -1297,9 +1302,6 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m) {
 int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
         assert(b);
         assert(m);
-
-        if (m->header->version > b->message_version)
-                return -EPERM;
 
         /* The bus specification says the serial number cannot be 0,
          * hence let's fill something in for synthetic messages. Since
