@@ -131,13 +131,10 @@ Features:
   - longer term:
     * priority queues
     * priority inheritance
+  - fix sd-event hookup when we connect to multiple servers one after the other
 
 * sd-event
   - allow multiple signal handlers per signal
-  - when a handler returns an error, just turn off its event source,
-    but do not return anything up to the event loop caller. Instead
-    add parameter to sd_event_request_quit() to take retval. This way
-    errors rippling upwards are the option, not the default
   - when dispatching an event source then _unref() on it should remove it from the epoll
 
 * in the final killing spree, detect processes from the root directory, and

@@ -52,7 +52,7 @@ int bus_map_all_properties(sd_bus *bus,
                            const struct bus_properties_map *map,
                            void *userdata);
 
-int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name);
+int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name);
 
 int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout);
 

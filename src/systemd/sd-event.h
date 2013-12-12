@@ -53,7 +53,7 @@ enum {
 enum {
         SD_EVENT_PASSIVE,
         SD_EVENT_RUNNING,
-        SD_EVENT_QUITTING,
+        SD_EVENT_EXITING,
         SD_EVENT_FINISHED
 };
 
@@ -82,15 +82,15 @@ int sd_event_add_realtime(sd_event *e, uint64_t usec, uint64_t accuracy, sd_even
 int sd_event_add_signal(sd_event *e, int sig, sd_event_signal_handler_t callback, void *userdata, sd_event_source **s);
 int sd_event_add_child(sd_event *e, pid_t pid, int options, sd_event_child_handler_t callback, void *userdata, sd_event_source **s);
 int sd_event_add_defer(sd_event *e, sd_event_handler_t callback, void *userdata, sd_event_source **s);
-int sd_event_add_quit(sd_event *e, sd_event_handler_t callback, void *userdata, sd_event_source **s);
+int sd_event_add_exit(sd_event *e, sd_event_handler_t callback, void *userdata, sd_event_source **s);
 
 int sd_event_run(sd_event *e, uint64_t timeout);
 int sd_event_loop(sd_event *e);
+int sd_event_exit(sd_event *e, int code);
 
 int sd_event_get_state(sd_event *e);
 int sd_event_get_tid(sd_event *e, pid_t *tid);
-int sd_event_get_quit(sd_event *e);
-int sd_event_request_quit(sd_event *e);
+int sd_event_get_exit_code(sd_event *e, int *code);
 int sd_event_get_now_realtime(sd_event *e, uint64_t *usec);
 int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec);
 int sd_event_set_watchdog(sd_event *e, int b);

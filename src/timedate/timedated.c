@@ -863,8 +863,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = 0;
-
 finish:
         context_free(&context, bus);
 

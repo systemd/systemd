@@ -35,18 +35,18 @@
 #include "bus-util.h"
 #include "bus-internal.h"
 
-static int quit_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+static int name_owner_change_callback(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_event *e = userdata;
 
         assert(bus);
         assert(m);
         assert(e);
 
-        sd_event_request_quit(e);
+        sd_event_exit(e, 0);
         return 1;
 }
 
-int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name) {
+int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
         _cleanup_free_ char *match = NULL;
         const char *unique;
         int r;
@@ -54,6 +54,11 @@ int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name) {
         assert(e);
         assert(bus);
         assert(name);
+
+        /* We unregister the name here and then wait for the
+         * NameOwnerChanged signal for this event to arrive before we
+         * quit. We do this in order to make sure that any queued
+         * requests are still processed before we really exit. */
 
         r = sd_bus_get_unique_name(bus, &unique);
         if (r < 0)
@@ -71,7 +76,7 @@ int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name) {
         if (r < 0)
                 return -ENOMEM;
 
-        r = sd_bus_add_match(bus, match, quit_callback, e);
+        r = sd_bus_add_match(bus, match, name_owner_change_callback, e);
         if (r < 0)
                 return r;
 
@@ -84,7 +89,7 @@ int bus_async_unregister_and_quit(sd_event *e, sd_bus *bus, const char *name) {
 
 int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout) {
         bool exiting = false;
-        int r;
+        int r, code;
 
         assert(e);
         assert(bus);
@@ -103,7 +108,7 @@ int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t 
                         return r;
 
                 if (r == 0 && !exiting) {
-                        r = bus_async_unregister_and_quit(e, bus, name);
+                        r = bus_async_unregister_and_exit(e, bus, name);
                         if (r < 0)
                                 return r;
 
@@ -111,7 +116,11 @@ int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t 
                 }
         }
 
-        return 0;
+        r = sd_event_get_exit_code(e, &code);
+        if (r < 0)
+                return r;
+
+        return code;
 }
 
 int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {

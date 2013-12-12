@@ -1243,7 +1243,7 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
 
         log_info("Received SIG%s", signal_to_string(si->ssi_signo));
 
-        sd_event_request_quit(s->event);
+        sd_event_exit(s->event, 0);
         return 0;
 }
 

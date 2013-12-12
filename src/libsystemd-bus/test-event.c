@@ -63,7 +63,7 @@ static int child_handler(sd_event_source *s, const siginfo_t *si, void *userdata
 
         assert(userdata == INT_TO_PTR('f'));
 
-        assert_se(sd_event_request_quit(sd_event_source_get_event(s)) >= 0);
+        assert_se(sd_event_exit(sd_event_source_get_event(s), 0) >= 0);
         sd_event_source_unref(s);
 
         return 1;
@@ -143,12 +143,12 @@ static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         return 2;
 }
 
-static bool got_quit = false;
+static bool got_exit = false;
 
-static int quit_handler(sd_event_source *s, void *userdata) {
+static int exit_handler(sd_event_source *s, void *userdata) {
         log_info("got quit handler on %c", PTR_TO_INT(userdata));
 
-        got_quit = true;
+        got_exit = true;
 
         return 3;
 }
@@ -183,7 +183,7 @@ int main(int argc, char *argv[]) {
         assert_se(sd_event_add_io(e, a[0], EPOLLIN, io_handler, INT_TO_PTR('a'), &x) >= 0);
         assert_se(sd_event_add_io(e, b[0], EPOLLIN, io_handler, INT_TO_PTR('b'), &y) >= 0);
         assert_se(sd_event_add_monotonic(e, 0, 0, time_handler, INT_TO_PTR('c'), &z) >= 0);
-        assert_se(sd_event_add_quit(e, quit_handler, INT_TO_PTR('g'), &q) >= 0);
+        assert_se(sd_event_add_exit(e, exit_handler, INT_TO_PTR('g'), &q) >= 0);
 
         assert_se(sd_event_source_set_priority(x, 99) >= 0);
         assert_se(sd_event_source_set_enabled(y, SD_EVENT_ONESHOT) >= 0);

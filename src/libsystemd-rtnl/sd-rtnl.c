@@ -743,7 +743,7 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-static int quit_callback(sd_event_source *event, void *userdata) {
+static int exit_callback(sd_event_source *event, void *userdata) {
         sd_rtnl *rtnl = userdata;
 
         assert(event);
@@ -790,7 +790,7 @@ int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_quit(rtnl->event, quit_callback, rtnl, &rtnl->quit_event_source);
+        r = sd_event_add_exit(rtnl->event, exit_callback, rtnl, &rtnl->exit_event_source);
         if (r < 0)
                 goto fail;
 
@@ -811,8 +811,8 @@ int sd_rtnl_detach_event(sd_rtnl *rtnl) {
         if (rtnl->time_event_source)
                 rtnl->time_event_source = sd_event_source_unref(rtnl->time_event_source);
 
-        if (rtnl->quit_event_source)
-                rtnl->quit_event_source = sd_event_source_unref(rtnl->quit_event_source);
+        if (rtnl->exit_event_source)
+                rtnl->exit_event_source = sd_event_source_unref(rtnl->exit_event_source);
 
         if (rtnl->event)
                 rtnl->event = sd_event_unref(rtnl->event);

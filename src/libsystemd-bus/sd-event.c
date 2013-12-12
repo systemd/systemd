@@ -44,7 +44,7 @@ typedef enum EventSourceType {
         SOURCE_SIGNAL,
         SOURCE_CHILD,
         SOURCE_DEFER,
-        SOURCE_QUIT,
+        SOURCE_EXIT,
         SOURCE_WATCHDOG
 } EventSourceType;
 
@@ -96,7 +96,7 @@ struct sd_event_source {
                 struct {
                         sd_event_handler_t callback;
                         unsigned prioq_index;
-                } quit;
+                } exit;
         };
 };
 
@@ -132,7 +132,7 @@ struct sd_event {
         Hashmap *child_sources;
         unsigned n_enabled_child_sources;
 
-        Prioq *quit;
+        Prioq *exit;
 
         pid_t original_pid;
 
@@ -140,9 +140,11 @@ struct sd_event {
         dual_timestamp timestamp;
         int state;
 
-        bool quit_requested:1;
+        bool exit_requested:1;
         bool need_process_child:1;
         bool watchdog:1;
+
+        int exit_code;
 
         pid_t tid;
         sd_event **default_event_ptr;
@@ -284,11 +286,11 @@ static int latest_time_prioq_compare(const void *a, const void *b) {
         return 0;
 }
 
-static int quit_prioq_compare(const void *a, const void *b) {
+static int exit_prioq_compare(const void *a, const void *b) {
         const sd_event_source *x = a, *y = b;
 
-        assert(x->type == SOURCE_QUIT);
-        assert(y->type == SOURCE_QUIT);
+        assert(x->type == SOURCE_EXIT);
+        assert(y->type == SOURCE_EXIT);
 
         /* Enabled ones first */
         if (x->enabled != SD_EVENT_OFF && y->enabled == SD_EVENT_OFF)
@@ -338,7 +340,7 @@ static void event_free(sd_event *e) {
         prioq_free(e->monotonic_latest);
         prioq_free(e->realtime_earliest);
         prioq_free(e->realtime_latest);
-        prioq_free(e->quit);
+        prioq_free(e->exit);
 
         free(e->signal_sources);
 
@@ -515,8 +517,8 @@ static void source_free(sd_event_source *s) {
                         /* nothing */
                         break;
 
-                case SOURCE_QUIT:
-                        prioq_remove(s->event->quit, s, &s->quit.prioq_index);
+                case SOURCE_EXIT:
+                        prioq_remove(s->event->exit, s, &s->exit.prioq_index);
                         break;
                 }
 
@@ -536,7 +538,7 @@ static int source_set_pending(sd_event_source *s, bool b) {
         int r;
 
         assert(s);
-        assert(s->type != SOURCE_QUIT);
+        assert(s->type != SOURCE_EXIT);
 
         if (s->pending == b)
                 return 0;
@@ -934,7 +936,7 @@ _public_ int sd_event_add_defer(
         return 0;
 }
 
-_public_ int sd_event_add_quit(
+_public_ int sd_event_add_exit(
                 sd_event *e,
                 sd_event_handler_t callback,
                 void *userdata,
@@ -949,22 +951,22 @@ _public_ int sd_event_add_quit(
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        if (!e->quit) {
-                e->quit = prioq_new(quit_prioq_compare);
-                if (!e->quit)
+        if (!e->exit) {
+                e->exit = prioq_new(exit_prioq_compare);
+                if (!e->exit)
                         return -ENOMEM;
         }
 
-        s = source_new(e, SOURCE_QUIT);
+        s = source_new(e, SOURCE_EXIT);
         if (!s)
                 return -ENOMEM;
 
-        s->quit.callback = callback;
+        s->exit.callback = callback;
         s->userdata = userdata;
-        s->quit.prioq_index = PRIOQ_IDX_NULL;
+        s->exit.prioq_index = PRIOQ_IDX_NULL;
         s->enabled = SD_EVENT_ONESHOT;
 
-        r = prioq_put(s->event->quit, s, &s->quit.prioq_index);
+        r = prioq_put(s->event->exit, s, &s->exit.prioq_index);
         if (r < 0) {
                 source_free(s);
                 return r;
@@ -1005,7 +1007,7 @@ _public_ sd_event *sd_event_source_get_event(sd_event_source *s) {
 
 _public_ int sd_event_source_get_pending(sd_event_source *s) {
         assert_return(s, -EINVAL);
-        assert_return(s->type != SOURCE_QUIT, -EDOM);
+        assert_return(s->type != SOURCE_EXIT, -EDOM);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
@@ -1096,8 +1098,8 @@ _public_ int sd_event_source_set_priority(sd_event_source *s, int priority) {
         if (s->prepare)
                 prioq_reshuffle(s->event->prepare, s, &s->prepare_index);
 
-        if (s->type == SOURCE_QUIT)
-                prioq_reshuffle(s->event->quit, s, &s->quit.prioq_index);
+        if (s->type == SOURCE_EXIT)
+                prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
 
         return 0;
 }
@@ -1168,9 +1170,9 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
 
                         break;
 
-                case SOURCE_QUIT:
+                case SOURCE_EXIT:
                         s->enabled = m;
-                        prioq_reshuffle(s->event->quit, s, &s->quit.prioq_index);
+                        prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
                         break;
 
                 case SOURCE_DEFER:
@@ -1223,9 +1225,9 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                         }
                         break;
 
-                case SOURCE_QUIT:
+                case SOURCE_EXIT:
                         s->enabled = m;
-                        prioq_reshuffle(s->event->quit, s, &s->quit.prioq_index);
+                        prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
                         break;
 
                 case SOURCE_DEFER:
@@ -1321,7 +1323,7 @@ _public_ int sd_event_source_set_prepare(sd_event_source *s, sd_event_handler_t 
         int r;
 
         assert_return(s, -EINVAL);
-        assert_return(s->type != SOURCE_QUIT, -EDOM);
+        assert_return(s->type != SOURCE_EXIT, -EDOM);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
@@ -1673,9 +1675,9 @@ static int source_dispatch(sd_event_source *s) {
         int r = 0;
 
         assert(s);
-        assert(s->pending || s->type == SOURCE_QUIT);
+        assert(s->pending || s->type == SOURCE_EXIT);
 
-        if (s->type != SOURCE_DEFER && s->type != SOURCE_QUIT) {
+        if (s->type != SOURCE_DEFER && s->type != SOURCE_EXIT) {
                 r = source_set_pending(s, false);
                 if (r < 0)
                         return r;
@@ -1727,14 +1729,18 @@ static int source_dispatch(sd_event_source *s) {
                 r = s->defer.callback(s, s->userdata);
                 break;
 
-        case SOURCE_QUIT:
-                r = s->quit.callback(s, s->userdata);
+        case SOURCE_EXIT:
+                r = s->exit.callback(s, s->userdata);
                 break;
         }
 
-        sd_event_source_unref(s);
+        if (r < 0) {
+                log_debug("Event source %p returned error, disabling: %s", s, strerror(-r));
+                sd_event_source_set_enabled(s, SD_EVENT_OFF);
+        }
 
-        return r;
+        sd_event_source_unref(s);
+        return 1;
 }
 
 static int event_prepare(sd_event *e) {
@@ -1764,13 +1770,13 @@ static int event_prepare(sd_event *e) {
         return 0;
 }
 
-static int dispatch_quit(sd_event *e) {
+static int dispatch_exit(sd_event *e) {
         sd_event_source *p;
         int r;
 
         assert(e);
 
-        p = prioq_peek(e->quit);
+        p = prioq_peek(e->exit);
         if (!p || p->enabled == SD_EVENT_OFF) {
                 e->state = SD_EVENT_FINISHED;
                 return 0;
@@ -1778,7 +1784,7 @@ static int dispatch_quit(sd_event *e) {
 
         sd_event_ref(e);
         e->iteration++;
-        e->state = SD_EVENT_QUITTING;
+        e->state = SD_EVENT_EXITING;
 
         r = source_dispatch(p);
 
@@ -1850,8 +1856,8 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(e->state == SD_EVENT_PASSIVE, -EBUSY);
 
-        if (e->quit_requested)
-                return dispatch_quit(e);
+        if (e->exit_requested)
+                return dispatch_exit(e);
 
         sd_event_ref(e);
         e->iteration++;
@@ -1946,7 +1952,7 @@ _public_ int sd_event_loop(sd_event *e) {
                         goto finish;
         }
 
-        r = 0;
+        r = e->exit_code;
 
 finish:
         sd_event_unref(e);
@@ -1960,19 +1966,26 @@ _public_ int sd_event_get_state(sd_event *e) {
         return e->state;
 }
 
-_public_ int sd_event_get_quit(sd_event *e) {
+_public_ int sd_event_get_exit_code(sd_event *e, int *code) {
         assert_return(e, -EINVAL);
+        assert_return(code, -EINVAL);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        return e->quit_requested;
+        if (!e->exit_requested)
+                return -ENODATA;
+
+        *code = e->exit_code;
+        return 0;
 }
 
-_public_ int sd_event_request_quit(sd_event *e) {
+_public_ int sd_event_exit(sd_event *e, int code) {
         assert_return(e, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        e->quit_requested = true;
+        e->exit_requested = true;
+        e->exit_code = code;
+
         return 0;
 }
 

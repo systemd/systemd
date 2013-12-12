@@ -74,7 +74,7 @@ struct sd_rtnl {
 
         sd_event_source *io_event_source;
         sd_event_source *time_event_source;
-        sd_event_source *quit_event_source;
+        sd_event_source *exit_event_source;
         sd_event *event;
 };
 

@@ -2646,7 +2646,7 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_quit(bus->event, quit_callback, bus, &bus->quit_event_source);
+        r = sd_event_add_exit(bus->event, quit_callback, bus, &bus->quit_event_source);
         if (r < 0)
                 goto fail;
 
