@@ -515,12 +515,12 @@ static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_
         assert(k);
         assert(d);
 
-        if (d->type == KDBUS_ITEM_NAME_ADD || (d->name_change.old_flags & (KDBUS_NAME_IN_QUEUE|KDBUS_NAME_STARTER)))
+        if (d->type == KDBUS_ITEM_NAME_ADD || (d->name_change.old_flags & (KDBUS_NAME_IN_QUEUE|KDBUS_NAME_ACTIVATOR)))
                 old_owner[0] = 0;
         else
                 sprintf(old_owner, ":1.%llu", (unsigned long long) d->name_change.old_id);
 
-        if (d->type == KDBUS_ITEM_NAME_REMOVE || (d->name_change.new_flags & (KDBUS_NAME_IN_QUEUE|KDBUS_NAME_STARTER))) {
+        if (d->type == KDBUS_ITEM_NAME_REMOVE || (d->name_change.new_flags & (KDBUS_NAME_IN_QUEUE|KDBUS_NAME_ACTIVATOR))) {
 
                 if (isempty(old_owner))
                         return 0;
@@ -1140,10 +1140,10 @@ int bus_kernel_create_starter(const char *bus, const char *name) {
         n = hello->items;
         strcpy(n->str, name);
         n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
-        n->type = KDBUS_ITEM_STARTER_NAME;
+        n->type = KDBUS_ITEM_ACTIVATOR_NAME;
 
         hello->size = ALIGN8(offsetof(struct kdbus_cmd_hello, items) + n->size);
-        hello->conn_flags = KDBUS_HELLO_STARTER;
+        hello->conn_flags = KDBUS_HELLO_ACTIVATOR;
         hello->pool_size = KDBUS_POOL_SIZE;
 
         if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0) {

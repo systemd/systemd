@@ -265,7 +265,7 @@ static int bus_list_names_kernel(sd_bus *bus, char ***acquired, char ***activata
         }
 
         if (activatable) {
-                r = kernel_get_list(bus, KDBUS_NAME_LIST_STARTERS, &y);
+                r = kernel_get_list(bus, KDBUS_NAME_LIST_ACTIVATORS, &y);
                 if (r < 0)
                         return r;
 
