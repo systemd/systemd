@@ -2695,7 +2695,7 @@ static int bus_message_close_header(sd_bus_message *m) {
         return 0;
 }
 
-int bus_message_seal(sd_bus_message *m, uint64_t serial) {
+int bus_message_seal(sd_bus_message *m, uint64_t serial, usec_t timeout) {
         struct bus_body_part *part;
         size_t l, a;
         unsigned i;
@@ -2742,6 +2742,7 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial) {
                 return r;
 
         m->header->serial = serial;
+        m->timeout = m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED ? 0 : timeout;
 
         /* Add padding at the end of the fields part, since we know
          * the body needs to start at an 8 byte alignment. We made

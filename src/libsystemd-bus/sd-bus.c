@@ -1276,7 +1276,7 @@ _public_ int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *server_id) {
         return 0;
 }
 
-static int bus_seal_message(sd_bus *b, sd_bus_message *m) {
+static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
         assert(b);
         assert(m);
 
@@ -1296,7 +1296,10 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m) {
                 return 0;
         }
 
-        return bus_message_seal(m, ++b->serial);
+        if (timeout == 0)
+                timeout = BUS_DEFAULT_TIMEOUT;
+
+        return bus_message_seal(m, ++b->serial, timeout);
 }
 
 int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
@@ -1311,7 +1314,7 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
          * than (uint64_t) -1 since dbus1 only had 32bit identifiers,
          * even though kdbus can do 64bit. */
 
-        return bus_message_seal(m, 0xFFFFFFFFULL);
+        return bus_message_seal(m, 0xFFFFFFFFULL, 0);
 }
 
 static int bus_write_message(sd_bus *bus, sd_bus_message *message, size_t *idx) {
@@ -1441,7 +1444,7 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
         if (!serial && !m->sealed)
                 m->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
 
-        r = bus_seal_message(bus, m);
+        r = bus_seal_message(bus, m, 0);
         if (r < 0)
                 return r;
 
@@ -1516,9 +1519,6 @@ static usec_t calc_elapse(uint64_t usec) {
         if (usec == (uint64_t) -1)
                 return 0;
 
-        if (usec == 0)
-                usec = BUS_DEFAULT_TIMEOUT;
-
         return now(CLOCK_MONOTONIC) + usec;
 }
 
@@ -1563,13 +1563,11 @@ _public_ int sd_bus_call_async(
         if (r < 0)
                 return r;
 
-        if (usec != (uint64_t) -1) {
-                r = prioq_ensure_allocated(&bus->reply_callbacks_prioq, timeout_compare);
-                if (r < 0)
-                        return r;
-        }
+        r = prioq_ensure_allocated(&bus->reply_callbacks_prioq, timeout_compare);
+        if (r < 0)
+                return r;
 
-        r = bus_seal_message(bus, m);
+        r = bus_seal_message(bus, m, usec);
         if (r < 0)
                 return r;
 
@@ -1580,7 +1578,7 @@ _public_ int sd_bus_call_async(
         c->callback = callback;
         c->userdata = userdata;
         c->serial = BUS_MESSAGE_SERIAL(m);
-        c->timeout = calc_elapse(usec);
+        c->timeout = calc_elapse(m->timeout);
 
         r = hashmap_put(bus->reply_callbacks, &c->serial, c);
         if (r < 0) {
@@ -1675,11 +1673,15 @@ _public_ int sd_bus_call(
 
         i = bus->rqueue_size;
 
+        r = bus_seal_message(bus, m, usec);
+        if (r < 0)
+                return r;
+
         r = sd_bus_send(bus, m, &serial);
         if (r < 0)
                 return r;
 
-        timeout = calc_elapse(usec);
+        timeout = calc_elapse(m->timeout);
 
         for (;;) {
                 usec_t left;

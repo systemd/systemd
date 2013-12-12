@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_append(m, "u", 4711);
         assert_se(r >= 0);
 
-        r = bus_message_seal(m, 55);
+        r = bus_message_seal(m, 55, 0);
         assert_se(r >= 0);
 
         bus_message_dump(m, stdout, true);

@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_append_array(m, 'u', NULL, 0);
         assert_se(r >= 0);
 
-        r = bus_message_seal(m, 4711);
+        r = bus_message_seal(m, 4711, 0);
         assert_se(r >= 0);
 
         bus_message_dump(m, stdout, true);
@@ -253,7 +253,7 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_copy(copy, m, true);
         assert_se(r >= 0);
 
-        r = bus_message_seal(copy, 4712);
+        r = bus_message_seal(copy, 4712, 0);
         assert_se(r >= 0);
 
         fclose(ms);

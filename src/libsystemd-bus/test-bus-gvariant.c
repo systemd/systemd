@@ -145,7 +145,7 @@ static void test_marshal(void) {
                                         4711, "first-string-parameter", "(st)", "X", (uint64_t) 1111,
                                         4712, "second-string-parameter", "(a(si))", 2, "Y", 5, "Z", 6) >= 0);
 
-        assert_se(bus_message_seal(m, 4711) >= 0);
+        assert_se(bus_message_seal(m, 4711, 0) >= 0);
 
 #ifdef HAVE_GLIB
         {
@@ -185,7 +185,7 @@ static void test_marshal(void) {
 
         assert_se(sd_bus_message_append(m, "as", 0) >= 0);
 
-        assert_se(bus_message_seal(m, 4712) >= 0);
+        assert_se(bus_message_seal(m, 4712, 0) >= 0);
         assert_se(bus_message_dump(m, NULL, true) >= 0);
 }
 
