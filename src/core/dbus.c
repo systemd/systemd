@@ -801,7 +801,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
          * after the new connection is set up and the name installed
          * to allow clients to synchronously wait for reexecution to
          * finish */
-        r = sd_bus_request_name(bus,"org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_DO_NOT_QUEUE);
+        r = sd_bus_request_name(bus,"org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_DO_NOT_QUEUE|SD_BUS_NAME_ALLOW_REPLACEMENT);
         if (r < 0) {
                 log_error("Failed to register name: %s", strerror(-r));
                 return r;
