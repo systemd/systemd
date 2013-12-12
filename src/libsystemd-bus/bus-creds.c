@@ -369,11 +369,11 @@ _public_ int sd_bus_creds_get_owner_uid(sd_bus_creds *c, uid_t *uid) {
 
 _public_ int sd_bus_creds_get_cmdline(sd_bus_creds *c, char ***cmdline) {
         assert_return(c, -EINVAL);
-        assert_return(c->cmdline, -ESRCH);
 
         if (!(c->mask & SD_BUS_CREDS_CMDLINE))
                 return -ENODATA;
 
+        assert_return(c->cmdline, -ESRCH);
         assert(c->cmdline);
 
         if (!c->cmdline_array) {
