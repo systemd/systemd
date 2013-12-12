@@ -755,6 +755,14 @@ int bus_match_parse(
                         escaped = false;
                 }
 
+                if (!value) {
+                        value = strdup("");
+                        if (!value) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+                }
+
                 if (t == BUS_MATCH_MESSAGE_TYPE) {
                         r = bus_message_type_from_string(value, &u);
                         if (r < 0)
