@@ -514,17 +514,18 @@ static int translate_name_change(sd_bus *bus, struct kdbus_msg *k, struct kdbus_
         assert(k);
         assert(d);
 
-        if (d->name_change.flags & (KDBUS_NAME_IN_QUEUE|KDBUS_NAME_STARTER))
-                return 0;
-
-        if (d->type == KDBUS_ITEM_NAME_ADD)
+        if (d->type == KDBUS_ITEM_NAME_ADD || (d->name_change.old_flags & (KDBUS_NAME_IN_QUEUE|KDBUS_NAME_STARTER)))
                 old_owner[0] = 0;
         else
                 sprintf(old_owner, ":1.%llu", (unsigned long long) d->name_change.old_id);
 
-        if (d->type == KDBUS_ITEM_NAME_REMOVE)
+        if (d->type == KDBUS_ITEM_NAME_REMOVE || (d->name_change.new_flags & (KDBUS_NAME_IN_QUEUE|KDBUS_NAME_STARTER))) {
+
+                if (isempty(old_owner))
+                        return 0;
+
                 new_owner[0] = 0;
-        else
+        } else
                 sprintf(new_owner, ":1.%llu", (unsigned long long) d->name_change.new_id);
 
         return push_name_owner_changed(bus, d->name_change.name, old_owner, new_owner);
