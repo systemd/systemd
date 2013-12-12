@@ -98,6 +98,7 @@ static void print_status_info(const StatusInfo *i) {
         char s[32];
         struct tm tm;
         time_t sec;
+        bool have_time = false;
         char *zc, *zn;
         time_t t, tc, tn;
         int dn;
@@ -112,17 +113,29 @@ static void print_status_info(const StatusInfo *i) {
                 unsetenv("TZ");
         }
 
-        sec = (time_t) (i->time / USEC_PER_SEC);
+        if (i->time != 0) {
+                sec = (time_t) (i->time / USEC_PER_SEC);
+                have_time = true;
+        } else if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                sec = time(NULL);
+                have_time = true;
+        } else
+                fprintf(stderr, "Warning: could not get time from timedated and not operating locally.\n\n");
 
-        zero(tm);
-        assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) > 0);
-        char_array_0(a);
-        printf("      Local time: %s\n", a);
+        if (have_time) {
+                zero(tm);
+                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) > 0);
+                char_array_0(a);
+                printf("      Local time: %s\n", a);
 
-        zero(tm);
-        assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) > 0);
-        char_array_0(a);
-        printf("  Universal time: %s\n", a);
+                zero(tm);
+                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) > 0);
+                char_array_0(a);
+                printf("  Universal time: %s\n", a);
+        } else {
+                printf("      Local time: %s\n", "n/a");
+                printf("  Universal time: %s\n", "n/a");
+        }
 
         if (i->rtc_time > 0) {
                 time_t rtc_sec;
@@ -133,7 +146,7 @@ static void print_status_info(const StatusInfo *i) {
                 char_array_0(a);
                 printf("        RTC time: %s\n", a);
         } else
-                printf("        RTC time: n/a\n");
+                printf("        RTC time: %s\n", "n/a");
 
         zero(tm);
         assert_se(strftime(a, sizeof(a), "%Z, %z", localtime_r(&sec, &tm)) > 0);
@@ -151,8 +164,8 @@ static void print_status_info(const StatusInfo *i) {
                          &tc, &zc, &is_dstc,
                          &tn, &dn, &zn, &is_dstn);
         if (r < 0)
-                printf("      DST active: n/a\n");
-        else {
+                printf("      DST active: %s\n", "n/a");
+        else if (have_time) {
                 printf("      DST active: %s\n", yes_no(is_dstc));
 
                 t = tc - 1;
@@ -183,7 +196,8 @@ static void print_status_info(const StatusInfo *i) {
 
                 free(zc);
                 free(zn);
-        }
+        } else
+                printf("      DST active: %s\n", yes_no(is_dstc));
 
         if (i->rtc_local)
                 fputs("\n" ANSI_HIGHLIGHT_ON
