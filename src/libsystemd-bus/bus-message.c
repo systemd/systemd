@@ -4152,7 +4152,7 @@ _public_ int sd_bus_message_rewind(sd_bus_message *m, int complete) {
         }
 
         c->offset_index = 0;
-        c->item_size = c->n_offsets > 0 ? c->offsets[0] : c->end;
+        c->item_size = (c->n_offsets > 0 ? c->offsets[0] : c->end) - c->begin;
 
         return !isempty(c->signature);
 }
