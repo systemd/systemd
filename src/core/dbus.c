@@ -211,6 +211,7 @@ failed:
         return 0;
 }
 
+#ifdef HAVE_SELINUX
 static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *verb, *path;
@@ -276,6 +277,7 @@ static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, 
 
         return 0;
 }
+#endif
 
 static int bus_job_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = userdata;
@@ -534,11 +536,13 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
         assert(m);
         assert(bus);
 
+#ifdef HAVE_SELINUX
         r = sd_bus_add_filter(bus, selinux_filter, m);
         if (r < 0) {
                 log_error("Failed to add SELinux access filter: %s", strerror(-r));
                 return r;
         }
+#endif
 
         r = sd_bus_add_object_vtable(bus, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", bus_manager_vtable, m);
         if (r < 0) {
