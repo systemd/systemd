@@ -741,7 +741,7 @@ static int add_name_change_match(sd_bus *bus,
                         return 0;
         }
 
-        if (old_owner) {
+        if (!isempty(old_owner)) {
                 r = bus_kernel_parse_unique_name(old_owner, &old_owner_id);
                 if (r < 0)
                         return 0;
@@ -751,7 +751,7 @@ static int add_name_change_match(sd_bus *bus,
                         return 0;
         }
 
-        if (new_owner) {
+        if (!isempty(new_owner)) {
                 r = bus_kernel_parse_unique_name(new_owner, &new_owner_id);
                 if (r < 0)
                         return r;
