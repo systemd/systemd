@@ -791,7 +791,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
                 return r;
         }
 
-        r = sd_bus_request_name(bus, "org.freedesktop.timedate1", SD_BUS_NAME_REPLACE_EXISTING);
+        r = sd_bus_request_name(bus, "org.freedesktop.timedate1", 0);
         if (r < 0) {
                 log_error("Failed to register name: %s", strerror(-r));
                 return r;
