@@ -727,7 +727,7 @@ static int manager_connect_bus(Manager *m) {
                 return r;
         }
 
-        r = sd_bus_request_name(m->bus, "org.freedesktop.login1", 0);
+        r = sd_bus_request_name(m->bus, "org.freedesktop.login1", SD_BUS_NAME_REPLACE_EXISTING);
         if (r < 0) {
                 log_error("Failed to register name: %s", strerror(-r));
                 return r;

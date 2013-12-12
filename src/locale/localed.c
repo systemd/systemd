@@ -1094,7 +1094,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
                 return r;
         }
 
-        r = sd_bus_request_name(bus, "org.freedesktop.locale1", 0);
+        r = sd_bus_request_name(bus, "org.freedesktop.locale1", SD_BUS_NAME_REPLACE_EXISTING);
         if (r < 0) {
                 log_error("Failed to register name: %s", strerror(-r));
                 return r;

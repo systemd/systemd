@@ -1020,7 +1020,7 @@ int kdbus_translate_request_name_flags(uint64_t flags, uint64_t *kdbus_flags) {
         if (flags & SD_BUS_NAME_REPLACE_EXISTING)
                 f |= KDBUS_NAME_REPLACE_EXISTING;
 
-        if (!(flags & SD_BUS_NAME_QUEUE))
+        if (flags & SD_BUS_NAME_QUEUE)
                 f |= KDBUS_NAME_QUEUE;
 
         *kdbus_flags = f;
