@@ -798,9 +798,6 @@ libsystemd_units_la_SOURCES = \
 	src/shared/specifier.c \
 	src/shared/specifier.h
 
-libsystemd_units_la_CFLAGS = \
-	$(AM_CFLAGS)
-
 # ------------------------------------------------------------------------------
 noinst_LTLIBRARIES += \
 	libsystemd-label.la
@@ -1563,11 +1560,10 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 if ENABLE_TMPFILES
 systemd_tmpfiles_SOURCES = \
-	src/tmpfiles/tmpfiles.c \
-	src/shared/specifier.c \
-	src/shared/specifier.h
+	src/tmpfiles/tmpfiles.c
 
 systemd_tmpfiles_LDADD = \
+	libsystemd-units.la \
 	libsystemd-label.la \
 	libsystemd-capability.la \
 	libsystemd-id128-internal.la \
@@ -2049,7 +2045,7 @@ libsystemd_bus_dump_la_SOURCES = \
 	src/libsystemd-bus/bus-dump.h
 
 libsystemd_bus_dump_la_CFLAGS = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
 	$(CAP_CFLAGS)
 
 noinst_LTLIBRARIES += \
@@ -3858,12 +3854,6 @@ libsystemd_dhcp_la_SOURCES = \
 noinst_LTLIBRARIES += \
 	libsystemd-dhcp.la
 
-libsystemd_dhcp_la_CFLAGS = \
-	$(AM_CFLAGS)
-
-libsystemd_dhcp_la_LDFLAGS = \
-	$(AM_LDFLAGS)
-
 libsystemd_dhcp_la_LIBADD = \
 	libsystemd-shared.la \
 	libsystemd-bus.la
@@ -3871,21 +3861,20 @@ libsystemd_dhcp_la_LIBADD = \
 test_dhcp_option_SOURCES = \
 	src/libsystemd-dhcp/dhcp-protocol.h \
 	src/libsystemd-dhcp/dhcp-internal.h \
-	src/libsystemd-dhcp/dhcp-option.c \
 	src/libsystemd-dhcp/test-dhcp-option.c
 
 test_dhcp_option_LDADD = \
+	libsystemd-dhcp.la \
 	libsystemd-shared.la
 
 test_dhcp_client_SOURCES = \
 	src/libsystemd-dhcp/dhcp-protocol.h \
 	src/systemd/sd-dhcp-client.h \
-	src/libsystemd-dhcp/dhcp-client.c \
 	src/libsystemd-dhcp/dhcp-internal.h \
-	src/libsystemd-dhcp/dhcp-option.c \
 	src/libsystemd-dhcp/test-dhcp-client.c
 
 test_dhcp_client_LDADD = \
+	libsystemd-dhcp.la \
 	libsystemd-shared.la \
 	libsystemd-bus.la
 
