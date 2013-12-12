@@ -931,7 +931,8 @@ int bus_map_all_properties(sd_bus *bus,
         assert(path);
         assert(map);
 
-        r = sd_bus_call_method( bus,
+        r = sd_bus_call_method(
+                        bus,
                         destination,
                         path,
                         "org.freedesktop.DBus.Properties",
