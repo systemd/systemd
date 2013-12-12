@@ -106,9 +106,9 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>SD_BUS_NAME_DO_NOT_QUEUE</varname></term>
+                                <term><varname>SD_BUS_NAME_QUEUE</varname></term>
 
-                                <listitem><para>Do not queue name
+                                <listitem><para>Queue name
                                 acquisition when the name is already
                                 taken.</para></listitem>
                         </varlistentry>
@@ -126,16 +126,15 @@
                 integer. On failure, these calls return a negative
                 errno-style error code.</para>
 
-                <para><function>sd_bus_request_name()</function> will
-                return 0 when the name is already taken by another
-                peer and the client has been added to the queue for
-                the name, unless
-                <varname>SD_BUS_NAME_DO_NOT_QUEUE</varname> has been
-                set. The caller can subscribe to
-                <literal>NameOwnerChanged</literal> signals to be
-                notified when the name is successfully
-                acquired. <function>sd_bus_request_name()</function> returns
-                &gt; 0 when the name has been
+                <para>If <varname>SD_BUS_NAME_QUEUE</varname> is
+                specified <function>sd_bus_request_name()</function>
+                will return 0 when the name is already taken by
+                another peer and the client has been added to the
+                queue for the name. In that case the caller can
+                subscribe to <literal>NameOwnerChanged</literal>
+                signals to be notified when the name is successfully
+                acquired. <function>sd_bus_request_name()</function>
+                returns &gt; 0 when the name has immediately been
                 acquired successfully.</para>
         </refsect1>
 
