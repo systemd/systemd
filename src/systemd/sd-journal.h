@@ -42,7 +42,7 @@ int sd_journal_send(const char *format, ...) _sd_printf_(1, 0) _sd_sentinel_;
 int sd_journal_sendv(const struct iovec *iov, int n);
 int sd_journal_perror(const char *message);
 
-/* Used by the macros below. Don't call this directly. */
+/* Used by the macros below. You probably don't want to call this directly. */
 int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_(5, 6);
 int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) _sd_printf_(5, 0);
 int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_(4, 0) _sd_sentinel_;
