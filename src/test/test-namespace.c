@@ -119,13 +119,25 @@ static void test_netns(void) {
 }
 
 int main(int argc, char *argv[]) {
-        test_tmpdir("abcd.service",
-                    "/tmp/systemd-abcd.service-",
-                    "/var/tmp/systemd-abcd.service-");
+        sd_id128_t bid;
+        char boot_id[SD_ID128_STRING_MAX];
+        _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *zz = NULL;
 
-        test_tmpdir("sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device",
-                    "/tmp/systemd-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-",
-                    "/var/tmp/systemd-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
+        assert_se(sd_id128_get_boot(&bid) >= 0);
+        sd_id128_to_string(bid, boot_id);
+
+        x = strjoin("/tmp/systemd-private-", boot_id, "-abcd.service-", NULL);
+        y = strjoin("/var/tmp/systemd-private-", boot_id, "-abcd.service-", NULL);
+        assert_se(x && y);
+
+        test_tmpdir("abcd.service", x, y);
+
+        z = strjoin("/tmp/systemd-private-", boot_id, "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-", NULL);
+        zz = strjoin("/var/tmp/systemd-private-", boot_id, "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-", NULL);
+
+        assert_se(z && zz);
+
+        test_tmpdir("sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device", z, zz);
 
         test_netns();
 

@@ -278,12 +278,22 @@ fail:
 
 static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
         _cleanup_free_ char *x = NULL;
+        char bid[SD_ID128_STRING_MAX];
+        sd_id128_t boot_id;
+        int r;
 
         assert(id);
         assert(prefix);
         assert(path);
 
-        x = strjoin(prefix, "/systemd-", id, "-XXXXXX", NULL);
+        /* We include the boot id in the directory so that after a
+         * reboot we can easily identify obsolete directories. */
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0)
+                return r;
+
+        x = strjoin(prefix, "/systemd-private-", sd_id128_to_string(boot_id, bid), "-", id, "-XXXXXX", NULL);
         if (!x)
                 return -ENOMEM;
 
