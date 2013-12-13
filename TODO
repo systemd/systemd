@@ -425,7 +425,6 @@ Features:
   - nspawn: investigate whether we can support the same as LXC's
     lxc.network.type=phys mode, and pass through entire network
     interfaces to the container
-  - nspawn: maybe add a way to drop additional caps, in addition to add additional caps
   - nspawn: maybe explicitly reset loginuid?
   - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters, selinux exec context
   - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
@@ -433,6 +432,7 @@ Features:
     SOCK_RAW, NETLINK_AUDIT) fail the the appropriate error code that
     makes the audit userspace to think auditing is not available in the
     kernel.
+  - support taking a btrfs snapshot at startup and dropping it afterwards
 
 * cryptsetup:
   - cryptsetup-generator: allow specification of passwords in crypttab itself

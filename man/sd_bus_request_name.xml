@@ -56,7 +56,7 @@
                                 <funcdef>int <function>sd_bus_request_name</function></funcdef>
                                 <paramdef>sd_bus* <parameter>bus</parameter></paramdef>
                                 <paramdef>const char *<parameter>name</parameter></paramdef>
-                                <paramdef>unsigned <parameter>flags</parameter></paramdef>
+                                <paramdef>uint64_t <parameter>flags</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
@@ -64,8 +64,6 @@
                                 <paramdef>sd_bus* <parameter>bus</parameter></paramdef>
                                 <paramdef>const char *<parameter>name</parameter></paramdef>
                         </funcprototype>
-
-
                 </funcsynopsis>
         </refsynopsisdiv>
 
@@ -162,6 +160,24 @@
                                 specify SD_BUS_NAME_ALLOW_REPLACEMENT
                                 while acquiring the
                                 name.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>-ESRCH</varname></term>
+
+                                <listitem><para>It was attemted to
+                                release a name that is currently not
+                                registered on the
+                                bus.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>-EADDRINUSE</varname></term>
+
+                                <listitem><para>It was attemted to
+                                release a name that is owned by a
+                                different peer on the
+                                bus.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
