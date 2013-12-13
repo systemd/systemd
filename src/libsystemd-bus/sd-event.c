@@ -1036,6 +1036,42 @@ _public_ int sd_event_source_get_io_fd(sd_event_source *s) {
         return s->io.fd;
 }
 
+_public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
+        int r;
+
+        assert_return(s, -EINVAL);
+        assert_return(fd >= 0, -EINVAL);
+        assert_return(s->type == SOURCE_IO, -EDOM);
+        assert_return(!event_pid_changed(s->event), -ECHILD);
+
+        if (s->io.fd == fd)
+                return 0;
+
+        if (s->enabled == SD_EVENT_OFF) {
+                s->io.fd = fd;
+                s->io.registered = false;
+        } else {
+                int saved_fd;
+
+                saved_fd = s->io.fd;
+                assert(s->io.registered);
+
+                s->io.fd = fd;
+                s->io.registered = false;
+
+                r = source_io_register(s, s->enabled, s->io.events);
+                if (r < 0) {
+                        s->io.fd = saved_fd;
+                        s->io.registered = true;
+                        return r;
+                }
+
+                epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, saved_fd, NULL);
+        }
+
+        return 0;
+}
+
 _public_ int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events) {
         assert_return(s, -EINVAL);
         assert_return(events, -EINVAL);

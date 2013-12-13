@@ -108,6 +108,7 @@ int sd_event_source_set_enabled(sd_event_source *s, int enabled);
 void* sd_event_source_get_userdata(sd_event_source *s);
 void* sd_event_source_set_userdata(sd_event_source *s, void *userdata);
 int sd_event_source_get_io_fd(sd_event_source *s);
+int sd_event_source_set_io_fd(sd_event_source *s, int fd);
 int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events);
 int sd_event_source_set_io_events(sd_event_source *s, uint32_t events);
 int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents);
