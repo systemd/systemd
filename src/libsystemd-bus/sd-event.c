@@ -58,6 +58,7 @@ struct sd_event_source {
         EventSourceType type:4;
         int enabled:3;
         bool pending:1;
+        bool dispatching:1;
 
         int priority;
         unsigned pending_index;
@@ -993,8 +994,21 @@ _public_ sd_event_source* sd_event_source_unref(sd_event_source *s) {
         assert(s->n_ref >= 1);
         s->n_ref--;
 
-        if (s->n_ref <= 0)
-                source_free(s);
+        if (s->n_ref <= 0) {
+                /* Here's a special hack: when we are called from a
+                 * dispatch handler we won't free the event source
+                 * immediately, but we will detach the fd from the
+                 * epoll. This way it is safe for the caller to unref
+                 * the event source and immediately close the fd, but
+                 * we still retain a valid event source object after
+                 * the callback. */
+
+                if (s->dispatching) {
+                        if (s->type == SOURCE_IO)
+                                source_io_unregister(s);
+                } else
+                        source_free(s);
+        }
 
         return NULL;
 }
@@ -1689,7 +1703,7 @@ static int source_dispatch(sd_event_source *s) {
                         return r;
         }
 
-        sd_event_source_ref(s);
+        s->dispatching = true;
 
         switch (s->type) {
 
@@ -1734,12 +1748,16 @@ static int source_dispatch(sd_event_source *s) {
                 break;
         }
 
-        if (r < 0) {
-                log_debug("Event source %p returned error, disabling: %s", s, strerror(-r));
-                sd_event_source_set_enabled(s, SD_EVENT_OFF);
-        }
+        s->dispatching = false;
 
-        sd_event_source_unref(s);
+        if (r < 0)
+                log_debug("Event source %p returned error, disabling: %s", s, strerror(-r));
+
+        if (s->n_ref == 0)
+                source_free(s);
+        else if (r < 0)
+                sd_event_source_set_enabled(s, SD_EVENT_OFF);
+
         return 1;
 }
 
@@ -1761,10 +1779,18 @@ static int event_prepare(sd_event *e) {
                         return r;
 
                 assert(s->prepare);
-                r = s->prepare(s, s->userdata);
-                if (r < 0)
-                        return r;
 
+                s->dispatching = true;
+                r = s->prepare(s, s->userdata);
+                s->dispatching = false;
+
+                if (r < 0)
+                        log_debug("Prepare callback of event source %p returned error, disabling: %s", s, strerror(-r));
+
+                if (s->n_ref == 0)
+                        source_free(s);
+                else if (r < 0)
+                        sd_event_source_set_enabled(s, SD_EVENT_OFF);
         }
 
         return 0;

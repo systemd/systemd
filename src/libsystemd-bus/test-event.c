@@ -28,8 +28,14 @@ static int prepare_handler(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-static bool got_a, got_b, got_c;
+static bool got_a, got_b, got_c, got_unref;
 static unsigned got_d;
+
+static int unref_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_event_source_unref(s);
+        got_unref = true;
+        return 0;
+}
 
 static int io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
 
@@ -155,17 +161,25 @@ static int exit_handler(sd_event_source *s, void *userdata) {
 
 int main(int argc, char *argv[]) {
         sd_event *e = NULL;
-        sd_event_source *w = NULL, *x = NULL, *y = NULL, *z = NULL, *q = NULL;
+        sd_event_source *w = NULL, *x = NULL, *y = NULL, *z = NULL, *q = NULL, *t = NULL;
         static const char ch = 'x';
-        int a[2] = { -1, -1 }, b[2] = { -1, -1}, d[2] = { -1, -1};
+        int a[2] = { -1, -1 }, b[2] = { -1, -1}, d[2] = { -1, -1}, k[2] = { -1, -1 };
 
         assert_se(pipe(a) >= 0);
         assert_se(pipe(b) >= 0);
         assert_se(pipe(d) >= 0);
+        assert_se(pipe(k) >= 0);
 
         assert_se(sd_event_default(&e) >= 0);
 
         assert_se(sd_event_set_watchdog(e, true) >= 0);
+
+        /* Test whether we cleanly can destroy an io event source from its own handler */
+        got_unref = false;
+        assert_se(sd_event_add_io(e, k[0], EPOLLIN, unref_handler, NULL, &t) >= 0);
+        assert_se(write(k[1], &ch, 1) == 1);
+        assert_se(sd_event_run(e, (uint64_t) -1) >= 1);
+        assert_se(got_unref);
 
         got_a = false, got_b = false, got_c = false, got_d = 0;
 
@@ -227,6 +241,8 @@ int main(int argc, char *argv[]) {
 
         close_pipe(a);
         close_pipe(b);
+        close_pipe(d);
+        close_pipe(k);
 
         return 0;
 }

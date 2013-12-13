@@ -134,8 +134,7 @@ Features:
   - fix sd-event hookup when we connect to multiple servers one after the other
 
 * sd-event
-  - allow multiple signal handlers per signal
-  - when dispatching an event source then _unref() on it should remove it from the epoll
+  - allow multiple signal handlers per signal?
 
 * in the final killing spree, detect processes from the root directory, and
   complain loudly if they have argv[0][0] == '@' set.
