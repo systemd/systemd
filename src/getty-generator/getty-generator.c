@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
                                         t = tty;
 
                                 /* Then, make sure it's actually a pty */
-                                t = path_startswith(tty, "pts/");
+                                t = path_startswith(t, "pts/");
                                 if (!t)
                                         continue;
 
