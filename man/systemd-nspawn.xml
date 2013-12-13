@@ -380,6 +380,21 @@
                                 creates read-only bind
                                 mount.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--setenv=</option></term>
+
+                                <listitem><para>Specifies an
+                                environment variable assignment to
+                                pass to the init process in the
+                                container, in the format
+                                <literal>NAME=VALUE</literal>. This
+                                may be used to override the default
+                                variables or to set additional
+                                variables. This parameter may be used
+                                more than once.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
         </refsect1>

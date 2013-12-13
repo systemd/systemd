@@ -62,6 +62,7 @@
 #include "bus-error.h"
 #include "ptyfwd.h"
 #include "bus-kernel.h"
+#include "env-util.h"
 
 #ifndef TTY_GID
 #define TTY_GID 5
@@ -111,6 +112,7 @@ static uint64_t arg_retain =
         (1ULL << CAP_AUDIT_CONTROL);
 static char **arg_bind = NULL;
 static char **arg_bind_ro = NULL;
+static char **arg_setenv = NULL;
 
 static int help(void) {
 
@@ -133,7 +135,8 @@ static int help(void) {
                "  -j                       Equivalent to --link-journal=host\n"
                "     --bind=PATH[:PATH]    Bind mount a file or directory from the host into\n"
                "                           the container\n"
-               "     --bind-ro=PATH[:PATH] Similar, but creates a read-only bind mount\n",
+               "     --bind-ro=PATH[:PATH] Similar, but creates a read-only bind mount\n"
+               "     --setenv=NAME=VALUE   Pass an environment variable to PID 1\n",
                program_invocation_short_name);
 
         return 0;
@@ -150,7 +153,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DROP_CAPABILITY,
                 ARG_LINK_JOURNAL,
                 ARG_BIND,
-                ARG_BIND_RO
+                ARG_BIND_RO,
+                ARG_SETENV,
         };
 
         static const struct option options[] = {
@@ -169,6 +173,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-ro",         required_argument, NULL, ARG_BIND_RO         },
                 { "machine",         required_argument, NULL, 'M'                 },
                 { "slice",           required_argument, NULL, 'S'                 },
+                { "setenv",          required_argument, NULL, ARG_SETENV          },
                 {}
         };
 
@@ -330,6 +335,23 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_oom();
 
+                        break;
+                }
+
+                case ARG_SETENV: {
+                        char **n;
+
+                        if (!env_assignment_is_valid(optarg)) {
+                                log_error("Environment variable assignment '%s' is not valid.", optarg);
+                                return -EINVAL;
+                        }
+
+                        n = strv_env_set(arg_setenv, optarg);
+                        if (!n)
+                                return log_oom();
+
+                        strv_free(arg_setenv);
+                        arg_setenv = n;
                         break;
                 }
 
@@ -1232,6 +1254,7 @@ int main(int argc, char *argv[]) {
                                 NULL, /* LISTEN_PID */
                                 NULL
                         };
+                        char **env_use;
 
                         envp[n_env] = strv_find_prefix(environ, "TERM=");
                         if (envp[n_env])
@@ -1459,6 +1482,19 @@ int main(int argc, char *argv[]) {
 
                         setup_hostname();
 
+                        if (!strv_isempty(arg_setenv)) {
+                                char **n;
+
+                                n = strv_env_merge(2, envp, arg_setenv);
+                                if (!n) {
+                                        log_oom();
+                                        goto child_fail;
+                                }
+
+                                env_use = n;
+                        } else
+                                env_use = (char**) envp;
+
                         if (arg_boot) {
                                 char **a;
                                 size_t l;
@@ -1470,18 +1506,18 @@ int main(int argc, char *argv[]) {
                                 memcpy(a + 1, argv + optind, l * sizeof(char*));
 
                                 a[0] = (char*) "/usr/lib/systemd/systemd";
-                                execve(a[0], a, (char**) envp);
+                                execve(a[0], a, env_use);
 
                                 a[0] = (char*) "/lib/systemd/systemd";
-                                execve(a[0], a, (char**) envp);
+                                execve(a[0], a, env_use);
 
                                 a[0] = (char*) "/sbin/init";
-                                execve(a[0], a, (char**) envp);
+                                execve(a[0], a, env_use);
                         } else if (argc > optind)
-                                execvpe(argv[optind], argv + optind, (char**) envp);
+                                execvpe(argv[optind], argv + optind, env_use);
                         else {
                                 chdir(home ? home : "/root");
-                                execle("/bin/bash", "-bash", NULL, (char**) envp);
+                                execle("/bin/bash", "-bash", NULL, env_use);
                         }
 
                         log_error("execv() failed: %m");
@@ -1552,6 +1588,7 @@ finish:
 
         free(arg_directory);
         free(arg_machine);
+        free(arg_setenv);
 
         return r;
 }
