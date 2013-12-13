@@ -34,6 +34,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "logind.h"
+#include "udev-util.h"
 
 Manager *manager_new(void) {
         Manager *m;
@@ -490,9 +491,8 @@ static int manager_enumerate_inhibitors(Manager *m) {
 }
 
 static int manager_dispatch_seat_udev(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         Manager *m = userdata;
-        struct udev_device *d;
-        int r;
 
         assert(m);
 
@@ -500,16 +500,13 @@ static int manager_dispatch_seat_udev(sd_event_source *s, int fd, uint32_t reven
         if (!d)
                 return -ENOMEM;
 
-        r = manager_process_seat_device(m, d);
-        udev_device_unref(d);
-
-        return r;
+        manager_process_seat_device(m, d);
+        return 0;
 }
 
 static int manager_dispatch_device_udev(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         Manager *m = userdata;
-        struct udev_device *d;
-        int r;
 
         assert(m);
 
@@ -517,16 +514,13 @@ static int manager_dispatch_device_udev(sd_event_source *s, int fd, uint32_t rev
         if (!d)
                 return -ENOMEM;
 
-        r = manager_process_seat_device(m, d);
-        udev_device_unref(d);
-
-        return r;
+        manager_process_seat_device(m, d);
+        return 0;
 }
 
 static int manager_dispatch_vcsa_udev(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         Manager *m = userdata;
-        struct udev_device *d;
-        int r = 0;
         const char *name;
 
         assert(m);
@@ -541,17 +535,14 @@ static int manager_dispatch_vcsa_udev(sd_event_source *s, int fd, uint32_t reven
          * VTs, to make sure our auto VTs never go away. */
 
         if (name && startswith(name, "vcsa") && streq_ptr(udev_device_get_action(d), "remove"))
-                r = seat_preallocate_vts(m->seat0);
+                seat_preallocate_vts(m->seat0);
 
-        udev_device_unref(d);
-
-        return r;
+        return 0;
 }
 
 static int manager_dispatch_button_udev(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
         Manager *m = userdata;
-        struct udev_device *d;
-        int r;
 
         assert(m);
 
@@ -559,10 +550,8 @@ static int manager_dispatch_button_udev(sd_event_source *s, int fd, uint32_t rev
         if (!d)
                 return -ENOMEM;
 
-        r = manager_process_button_device(m, d);
-        udev_device_unref(d);
-
-        return r;
+        manager_process_button_device(m, d);
+        return 0;
 }
 
 static int manager_dispatch_console(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -573,7 +562,6 @@ static int manager_dispatch_console(sd_event_source *s, int fd, uint32_t revents
         assert(m->console_active_fd == fd);
 
         seat_read_active_vt(m->seat0);
-
         return 0;
 }
 

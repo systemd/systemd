@@ -1631,7 +1631,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         if (sigchld)
-                return manager_dispatch_sigchld(m);
+                manager_dispatch_sigchld(m);
 
         return 0;
 }

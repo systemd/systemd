@@ -462,6 +462,7 @@ fail:
 }
 
 static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_free_ char *peer = NULL;
         Context *context = userdata;
         int nfd = -1, r;
 
@@ -471,24 +472,24 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(context);
 
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
-        if (nfd >= 0) {
-                _cleanup_free_ char *peer = NULL;
-
+        if (nfd < 0) {
+                if (errno != -EAGAIN)
+                        log_warning("Failed to accept() socket: %m");
+        } else {
                 getpeername_pretty(nfd, &peer);
                 log_debug("New connection from %s", strna(peer));
 
                 r = add_connection_socket(context, sd_event_source_get_event(s), nfd);
                 if (r < 0) {
+                        log_error("Failed to accept connection, ignoring: %s", strerror(-r));
                         close_nointr_nofail(fd);
-                        return r;
                 }
-
-        } else if (errno != -EAGAIN)
-                log_warning("Failed to accept() socket: %m");
+        }
 
         r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
         if (r < 0) {
-                log_error("Error %d while re-enabling listener with ONESHOT: %s", r, strerror(-r));
+                log_error("Error while re-enabling listener with ONESHOT: %s", strerror(-r));
+                sd_event_exit(sd_event_source_get_event(s), r);
                 return r;
         }
 

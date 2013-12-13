@@ -293,7 +293,6 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
 
         if ((revents|EPOLLIN|EPOLLHUP) != (EPOLLIN|EPOLLHUP)) {
                 log_error("Got invalid event from epoll for stdout stream: %"PRIx32, revents);
-                r = -EIO;
                 goto terminate;
         }
 
@@ -304,12 +303,11 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                         return 0;
 
                 log_warning("Failed to read from stream: %m");
-                r = -errno;
                 goto terminate;
         }
 
         if (l == 0) {
-                r = stdout_stream_scan(s, true);
+                stdout_stream_scan(s, true);
                 goto terminate;
         }
 
@@ -391,7 +389,6 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         len = sizeof(stream->ucred);
         if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &stream->ucred, &len) < 0) {
                 log_error("Failed to determine peer credentials: %m");
-                r = -errno;
                 goto fail;
         }
 
@@ -404,7 +401,6 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
         if (shutdown(fd, SHUT_WR) < 0) {
                 log_error("Failed to shutdown writing side of socket: %m");
-                r = -errno;
                 goto fail;
         }
 
@@ -428,7 +424,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 
 fail:
         stdout_stream_free(stream);
-        return r;
+        return 0;
 }
 
 int server_open_stdout_socket(Server *s) {
