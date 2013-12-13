@@ -184,9 +184,9 @@ static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
         if (r < 0)
                 return r;
         if (ret == BUS_NAME_NON_EXISTENT)
-                return -ENOENT;
+                return -ESRCH;
         if (ret == BUS_NAME_NOT_OWNER)
-                return -EADDRNOTAVAIL;
+                return -EADDRINUSE;
         if (ret == BUS_NAME_RELEASED)
                 return 0;
 
