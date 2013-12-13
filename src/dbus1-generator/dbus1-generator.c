@@ -28,7 +28,7 @@
 #include "unit-name.h"
 #include "cgroup-util.h"
 
-static const char *arg_dest = "/tmp";
+static const char *arg_dest_late = "/tmp", *arg_dest = "/tmp";
 
 static int create_dbus_files(
                 const char *path,
@@ -52,7 +52,7 @@ static int create_dbus_files(
                 if (!s)
                         return log_oom();
 
-                a = strjoin(arg_dest, "/", s, NULL);
+                a = strjoin(arg_dest_late, "/", s, NULL);
                 if (!a)
                         return log_oom();
 
@@ -98,7 +98,7 @@ static int create_dbus_files(
                 service = s;
         }
 
-        b = strjoin(arg_dest, "/", name, ".busname", NULL);
+        b = strjoin(arg_dest_late, "/", name, ".busname", NULL);
         if (!b)
                 return log_oom();
 
@@ -127,7 +127,7 @@ static int create_dbus_files(
                 return -errno;
         }
 
-        lnk = strjoin(arg_dest, "/" SPECIAL_BUSNAMES_TARGET ".wants/", name, ".busname", NULL);
+        lnk = strjoin(arg_dest_late, "/" SPECIAL_BUSNAMES_TARGET ".wants/", name, ".busname", NULL);
         if (!lnk)
                 return log_oom();
 
@@ -264,6 +264,21 @@ static int link_busnames_target(const char *units) {
         return 0;
 }
 
+static int link_compatibility(const char *units) {
+        const char *f, *t;
+
+        f = strappenda(units, "/systemd-socket-proxy.socket");
+        t = strappenda(arg_dest, "/" SPECIAL_DBUS_SOCKET);
+
+        mkdir_parents_label(t, 0755);
+        if (symlink(f, t) < 0) {
+                log_error("Failed to create symlink %s: %m", t);
+                return -errno;
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         const char *path, *type, *units;
         int r, q;
@@ -273,8 +288,10 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        if (argc > 1)
-                arg_dest = argv[3];
+        if (argc > 1) {
+                arg_dest = argv[1];
+                arg_dest_late = argv[3];
+        }
 
         log_set_target(LOG_TARGET_SAFE);
         log_parse_environment();
@@ -303,6 +320,10 @@ int main(int argc, char *argv[]) {
 
         /* FIXME: One day this should just be pulled in statically from basic.target */
         q = link_busnames_target(units);
+        if (q < 0)
+                r = q;
+
+        q = link_compatibility(units);
         if (q < 0)
                 r = q;
 

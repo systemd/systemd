@@ -40,18 +40,20 @@
 #include "bus-util.h"
 #include "build.h"
 
-#define DEFAULT_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
-
-const char *arg_bus_path = DEFAULT_BUS_PATH;
+#ifdef ENABLE_KDBUS
+const char *arg_bus_path = "kernel:path=/dev/kdbus/0-system/bus;unix:path=/run/dbus/system_bus_socket";
+#else
+const char *arg_bus_path = "unix:path=/run/dbus/system_bus_socket";
+#endif
 
 static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
-               "STDIO or socket-activatable proxy to a given DBus endpoint.\n\n"
+               "Connection STDIO or a socket to a given bus address.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "  -p --bus-path=PATH     Path to the kernel bus (default: %s)\n",
-               program_invocation_short_name, DEFAULT_BUS_PATH);
+               "  -p --bus-path=PATH     Bus address to forward to (default: %s)\n",
+               program_invocation_short_name, arg_bus_path);
 
         return 0;
 }
