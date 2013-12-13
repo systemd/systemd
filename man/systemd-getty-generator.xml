@@ -61,9 +61,14 @@
                 subsystem. It will also instantiate
                 <filename>serial-getty@.service</filename> instances
                 for virtualizer consoles, if execution in a
-                virtualized environment is detected. This should
-                ensure that the user is shown a login prompt at the
-                right place, regardless in which environment the
+                virtualized environment is detected. Finally, it will
+                instantiate
+                <filename>container-getty@.service</filename>
+                instances for additional container pseudo TTYs as
+                requested by the container manager (see <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface/"><filename>Container Interface</filename></ulink>). This
+                should ensure that the user is shown a login prompt at
+                the right place, regardless in which environment the
                 system is started. For example, it is sufficient to
                 redirect the kernel console with a kernel command line
                 argument such as <varname>console=</varname> to get
