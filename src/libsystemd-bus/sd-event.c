@@ -1371,6 +1371,17 @@ _public_ void* sd_event_source_get_userdata(sd_event_source *s) {
         return s->userdata;
 }
 
+_public_ void *sd_event_source_set_userdata(sd_event_source *s, void *userdata) {
+        void *ret;
+
+        assert_return(s, NULL);
+
+        ret = s->userdata;
+        s->userdata = userdata;
+
+        return ret;
+}
+
 static usec_t sleep_between(sd_event *e, usec_t a, usec_t b) {
         usec_t c;
         assert(e);
@@ -2078,6 +2089,7 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
         int r;
 
         assert_return(e, -EINVAL);
+        assert_return(!event_pid_changed(e), -ECHILD);
 
         if (e->watchdog == !!b)
                 return e->watchdog;
@@ -2132,4 +2144,11 @@ fail:
         close_nointr_nofail(e->watchdog_fd);
         e->watchdog_fd = -1;
         return r;
+}
+
+_public_ int sd_event_get_watchdog(sd_event *e) {
+        assert_return(e, -EINVAL);
+        assert_return(!event_pid_changed(e), -ECHILD);
+
+        return e->watchdog;
 }

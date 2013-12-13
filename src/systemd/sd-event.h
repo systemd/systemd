@@ -94,6 +94,7 @@ int sd_event_get_exit_code(sd_event *e, int *code);
 int sd_event_get_now_realtime(sd_event *e, uint64_t *usec);
 int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec);
 int sd_event_set_watchdog(sd_event *e, int b);
+int sd_event_get_watchdog(sd_event *e);
 
 sd_event_source* sd_event_source_ref(sd_event_source *s);
 sd_event_source* sd_event_source_unref(sd_event_source *s);
@@ -105,6 +106,7 @@ int sd_event_source_set_priority(sd_event_source *s, int priority);
 int sd_event_source_get_enabled(sd_event_source *s, int *enabled);
 int sd_event_source_set_enabled(sd_event_source *s, int enabled);
 void* sd_event_source_get_userdata(sd_event_source *s);
+void* sd_event_source_set_userdata(sd_event_source *s, void *userdata);
 int sd_event_source_get_io_fd(sd_event_source *s);
 int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events);
 int sd_event_source_set_io_events(sd_event_source *s, uint32_t events);
