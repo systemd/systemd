@@ -398,8 +398,8 @@ static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int openpt_in_namespace(pid_t pid, int flags) {
+        _cleanup_close_pipe_ int pair[2] = { -1, -1 };
         _cleanup_close_ int nsfd = -1, rootfd = -1;
-        _cleanup_close_pipe_ int sock[2] = { -1, -1 };
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -410,23 +410,14 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         };
         struct cmsghdr *cmsg;
         int master = -1, r;
-        char *ns, *root;
         pid_t child;
         siginfo_t si;
 
-        ns = procfs_file_alloca(pid, "ns/mnt");
+        r = namespace_open(pid, &nsfd, &rootfd);
+        if (r < 0)
+                return r;
 
-        nsfd = open(ns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (nsfd < 0)
-                return -errno;
-
-        root = procfs_file_alloca(pid, "root");
-
-        rootfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (rootfd < 0)
-                return -errno;
-
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sock) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
         child = fork();
@@ -434,17 +425,11 @@ static int openpt_in_namespace(pid_t pid, int flags) {
                 return -errno;
 
         if (child == 0) {
-                close_nointr_nofail(sock[0]);
-                sock[0] = -1;
+                close_nointr_nofail(pair[0]);
+                pair[0] = -1;
 
-                r = setns(nsfd, CLONE_NEWNS);
+                r = namespace_enter(nsfd, rootfd);
                 if (r < 0)
-                        _exit(EXIT_FAILURE);
-
-                if (fchdir(rootfd) < 0)
-                        _exit(EXIT_FAILURE);
-
-                if (chroot(".") < 0)
                         _exit(EXIT_FAILURE);
 
                 master = posix_openpt(flags);
@@ -459,18 +444,16 @@ static int openpt_in_namespace(pid_t pid, int flags) {
 
                 mh.msg_controllen = cmsg->cmsg_len;
 
-                r = sendmsg(sock[1], &mh, MSG_NOSIGNAL);
-                close_nointr_nofail(master);
-                if (r < 0)
+                if (sendmsg(pair[1], &mh, MSG_NOSIGNAL) < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(EXIT_SUCCESS);
         }
 
-        close_nointr_nofail(sock[1]);
-        sock[1] = -1;
+        close_nointr_nofail(pair[1]);
+        pair[1] = -1;
 
-        if (recvmsg(sock[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
+        if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
                 return -errno;
 
         for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))

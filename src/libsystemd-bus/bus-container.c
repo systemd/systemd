@@ -28,51 +28,23 @@
 #include "bus-socket.h"
 #include "bus-container.h"
 
-int bus_container_connect(sd_bus *b) {
-        _cleanup_free_ char *s = NULL, *ns = NULL, *root = NULL, *class = NULL;
+int bus_container_connect_socket(sd_bus *b) {
         _cleanup_close_ int nsfd = -1, rootfd = -1;
-        char *p;
-        siginfo_t si;
         pid_t leader, child;
+        siginfo_t si;
         int r;
 
         assert(b);
         assert(b->input_fd < 0);
         assert(b->output_fd < 0);
 
-        p = strappenda("/run/systemd/machines/", b->machine);
-        r = parse_env_file(p, NEWLINE, "LEADER", &s, "CLASS", &class, NULL);
-        if (r == -ENOENT)
-                return -EHOSTDOWN;
+        r = container_get_leader(b->machine, &leader);
         if (r < 0)
                 return r;
-        if (!s)
-                return -EIO;
 
-        if (!streq_ptr(class, "container"))
-                return -EIO;
-
-        r = parse_pid(s, &leader);
+        r = namespace_open(leader, &nsfd, &rootfd);
         if (r < 0)
                 return r;
-        if (leader <= 1)
-                return -EIO;
-
-        r = asprintf(&ns, "/proc/%lu/ns/mnt", (unsigned long) leader);
-        if (r < 0)
-                return -ENOMEM;
-
-        nsfd = open(ns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (nsfd < 0)
-                return -errno;
-
-        r = asprintf(&root, "/proc/%lu/root", (unsigned long) leader);
-        if (r < 0)
-                return -ENOMEM;
-
-        rootfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (rootfd < 0)
-                return -errno;
 
         b->input_fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (b->input_fd < 0)
@@ -89,14 +61,9 @@ int bus_container_connect(sd_bus *b) {
                 return -errno;
 
         if (child == 0) {
-                r = setns(nsfd, CLONE_NEWNS);
+
+                r = namespace_enter(nsfd, rootfd);
                 if (r < 0)
-                        _exit(255);
-
-                if (fchdir(rootfd) < 0)
-                        _exit(255);
-
-                if (chroot(".") < 0)
                         _exit(255);
 
                 r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
@@ -107,7 +74,7 @@ int bus_container_connect(sd_bus *b) {
                         _exit(255);
                 }
 
-                _exit(0);
+                _exit(EXIT_SUCCESS);
         }
 
         r = wait_for_terminate(child, &si);
@@ -120,8 +87,108 @@ int bus_container_connect(sd_bus *b) {
         if (si.si_status == 1)
                 return 1;
 
-        if (si.si_status != 0)
+        if (si.si_status != EXIT_SUCCESS)
                 return -EIO;
 
         return bus_socket_start_auth(b);
+}
+
+int bus_container_connect_kernel(sd_bus *b) {
+        _cleanup_close_pipe_ int pair[2] = { -1, -1 };
+        _cleanup_close_ int nsfd = -1, rootfd = -1;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        pid_t leader, child;
+        siginfo_t si;
+        int r;
+        _cleanup_close_ int fd = -1;
+
+        assert(b);
+        assert(b->input_fd < 0);
+        assert(b->output_fd < 0);
+
+        r = container_get_leader(b->machine, &leader);
+        if (r < 0)
+                return r;
+
+        r = namespace_open(leader, &nsfd, &rootfd);
+        if (r < 0)
+                return r;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+                return -errno;
+
+        child = fork();
+        if (child < 0)
+                return -errno;
+
+        if (child == 0) {
+                close_nointr_nofail(pair[0]);
+                pair[0] = -1;
+
+                r = namespace_enter(nsfd, rootfd);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                fd = open(b->kernel, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                if (fd < 0)
+                        _exit(EXIT_FAILURE);
+
+                cmsg = CMSG_FIRSTHDR(&mh);
+                cmsg->cmsg_level = SOL_SOCKET;
+                cmsg->cmsg_type = SCM_RIGHTS;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+                memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
+
+                mh.msg_controllen = cmsg->cmsg_len;
+
+                if (sendmsg(pair[1], &mh, MSG_NOSIGNAL) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        close_nointr_nofail(pair[1]);
+        pair[1] = -1;
+
+        if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
+                return -errno;
+
+        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+                        int *fds;
+                        unsigned n_fds;
+
+                        fds = (int*) CMSG_DATA(cmsg);
+                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+                        if (n_fds != 1) {
+                                close_many(fds, n_fds);
+                                return -EIO;
+                        }
+
+                        fd = fds[0];
+                }
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return r;
+
+        if (si.si_code != CLD_EXITED)
+                return -EIO;
+
+        if (si.si_status != EXIT_SUCCESS)
+                return -EIO;
+
+        b->input_fd = b->output_fd = fd;
+        fd = -1;
+
+        return bus_kernel_take_fd(b);
 }

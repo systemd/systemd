@@ -789,3 +789,8 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size,
 }
 
 int proc_cmdline(char **ret);
+
+int container_get_leader(const char *machine, pid_t *pid);
+
+int namespace_open(pid_t pid, int *namespace_fd, int *root_fd);
+int namespace_enter(int namespace_fd, int root_fd);

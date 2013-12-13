@@ -740,7 +740,7 @@ static int parse_kernel_address(sd_bus *b, const char **p, char **guid) {
         return 0;
 }
 
-static int parse_container_address(sd_bus *b, const char **p, char **guid) {
+static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) {
         _cleanup_free_ char *machine = NULL;
         int r;
 
@@ -778,6 +778,49 @@ static int parse_container_address(sd_bus *b, const char **p, char **guid) {
         b->sockaddr.un.sun_family = AF_UNIX;
         strncpy(b->sockaddr.un.sun_path, "/var/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
         b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + sizeof("/var/run/dbus/system_bus_socket") - 1;
+
+        return 0;
+}
+
+static int parse_container_kernel_address(sd_bus *b, const char **p, char **guid) {
+        _cleanup_free_ char *machine = NULL;
+        int r;
+
+        assert(b);
+        assert(p);
+        assert(*p);
+        assert(guid);
+
+        while (**p != 0 && **p != ';') {
+                r = parse_address_key(p, "guid", guid);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "machine", &machine);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                skip_address_key(p);
+        }
+
+        if (!machine)
+                return -EINVAL;
+
+        if (!filename_is_safe(machine))
+                return -EINVAL;
+
+        free(b->machine);
+        b->machine = machine;
+        machine = NULL;
+
+        free(b->kernel);
+        b->kernel = strdup("/dev/kdbus/0-system/bus");
+        if (!b->kernel)
+                return -ENOMEM;
 
         return 0;
 }
@@ -855,10 +898,18 @@ static int bus_parse_next_address(sd_bus *b) {
                                 return r;
 
                         break;
-                } else if (startswith(a, "x-container:")) {
+                } else if (startswith(a, "x-container-unix:")) {
 
-                        a += 12;
-                        r = parse_container_address(b, &a, &guid);
+                        a += 17;
+                        r = parse_container_unix_address(b, &a, &guid);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                } else if (startswith(a, "x-container-kernel:")) {
+
+                        a += 19;
+                        r = parse_container_kernel_address(b, &a, &guid);
                         if (r < 0)
                                 return r;
 
@@ -892,10 +943,12 @@ static int bus_start_address(sd_bus *b) {
 
                 if (b->exec_path)
                         r = bus_socket_exec(b);
+                else if (b->machine && b->kernel)
+                        r = bus_container_connect_kernel(b);
+                else if (b->machine && b->sockaddr.sa.sa_family != AF_UNSPEC)
+                        r = bus_container_connect_socket(b);
                 else if (b->kernel)
                         r = bus_kernel_connect(b);
-                else if (b->machine)
-                        r = bus_container_connect(b);
                 else if (b->sockaddr.sa.sa_family != AF_UNSPEC)
                         r = bus_socket_connect(b);
                 else
@@ -1144,9 +1197,9 @@ _public_ int sd_bus_open_system_container(const char *machine, sd_bus **ret) {
                 return -ENOMEM;
 
 #ifdef ENABLE_KDBUS
-        p = strjoin("kernel:path=/dev/kdbus/ns/machine-", e, "/0-system/bus;x-container:machine=", e, NULL);
+        p = strjoin("x-container-kernel:machine=", e, ";x-container-unix:machine=", e, NULL);
 #else
-        p = strjoin("x-container:machine=", e, NULL);
+        p = strjoin("x-container-unix:machine=", e, NULL);
 #endif
         if (!p)
                 return -ENOMEM;

@@ -2680,31 +2680,28 @@ int unit_load_fragment(Unit *u) {
 
         /* Look for a template */
         if (u->load_state == UNIT_STUB && u->instance) {
-                char *k;
+                _cleanup_free_ char *k;
 
                 k = unit_name_template(u->id);
                 if (!k)
                         return -ENOMEM;
 
                 r = load_from_path(u, k);
-                free(k);
-
                 if (r < 0)
                         return r;
 
                 if (u->load_state == UNIT_STUB)
                         SET_FOREACH(t, u->names, i) {
+                                _cleanup_free_ char *z = NULL;
 
                                 if (t == u->id)
                                         continue;
 
-                                k = unit_name_template(t);
-                                if (!k)
+                                z = unit_name_template(t);
+                                if (!z)
                                         return -ENOMEM;
 
-                                r = load_from_path(u, k);
-                                free(k);
-
+                                r = load_from_path(u, z);
                                 if (r < 0)
                                         return r;
 

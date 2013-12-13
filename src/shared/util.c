@@ -5951,3 +5951,76 @@ int proc_cmdline(char **ret) {
 
         return 1;
 }
+
+int container_get_leader(const char *machine, pid_t *pid) {
+        _cleanup_free_ char *s = NULL, *class = NULL;
+        const char *p;
+        pid_t leader;
+        int r;
+
+        assert(machine);
+        assert(pid);
+
+        p = strappenda("/run/systemd/machines/", machine);
+        r = parse_env_file(p, NEWLINE, "LEADER", &s, "CLASS", &class, NULL);
+        if (r == -ENOENT)
+                return -EHOSTDOWN;
+        if (r < 0)
+                return r;
+        if (!s)
+                return -EIO;
+
+        if (!streq_ptr(class, "container"))
+                return -EIO;
+
+        r = parse_pid(s, &leader);
+        if (r < 0)
+                return r;
+        if (leader <= 1)
+                return -EIO;
+
+        *pid = leader;
+        return 0;
+}
+
+int namespace_open(pid_t pid, int *namespace_fd, int *root_fd) {
+        _cleanup_close_ int nsfd = -1;
+        const char *ns, *root;
+        int rfd;
+
+        assert(pid >= 0);
+        assert(namespace_fd);
+        assert(root_fd);
+
+        ns = procfs_file_alloca(pid, "ns/mnt");
+        nsfd = open(ns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (nsfd < 0)
+                return -errno;
+
+        root = procfs_file_alloca(pid, "root");
+        rfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (rfd < 0)
+                return -errno;
+
+        *namespace_fd = nsfd;
+        *root_fd = rfd;
+        nsfd = -1;
+
+        return 0;
+}
+
+int namespace_enter(int namespace_fd, int root_fd) {
+        assert(namespace_fd >= 0);
+        assert(root_fd >= 0);
+
+        if (setns(namespace_fd, CLONE_NEWNS) < 0)
+                return -errno;
+
+        if (fchdir(root_fd) < 0)
+                return -errno;
+
+        if (chroot(".") < 0)
+                return -errno;
+
+        return 0;
+}
