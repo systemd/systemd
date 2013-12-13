@@ -29,6 +29,7 @@
 #include "unit-name.h"
 #include "virt.h"
 #include "fileio.h"
+#include "path-util.h"
 
 static const char *arg_dest = "/tmp";
 
@@ -77,6 +78,20 @@ static int add_serial_getty(const char *tty) {
         return add_symlink("serial-getty@.service", n);
 }
 
+static int add_container_getty(const char *tty) {
+        _cleanup_free_ char *n = NULL;
+
+        assert(tty);
+
+        log_debug("Automatically adding container getty for /dev/pts/%s.", tty);
+
+        n = unit_name_replace_instance("container-getty@.service", tty);
+        if (!n)
+                return log_oom();
+
+        return add_symlink("container-getty@.service", n);
+}
+
 int main(int argc, char *argv[]) {
 
         static const char virtualization_consoles[] =
@@ -86,6 +101,7 @@ int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *active = NULL;
         const char *j;
+        int r;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -102,10 +118,43 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
         if (detect_container(NULL) > 0) {
+                _cleanup_free_ char *container_ttys = NULL;
+
                 log_debug("Automatically adding console shell.");
 
                 if (add_symlink("console-getty.service", "console-getty.service") < 0)
                         return EXIT_FAILURE;
+
+                /* When $container_ttys is set for PID 1, spawn
+                 * gettys on all ptys named therein. Note that despite
+                 * the variable name we only support ptys here. */
+
+                r = getenv_for_pid(1, "container_ttys", &container_ttys);
+                if (r >= 0) {
+                        char *w, *state;
+                        size_t l;
+
+                        FOREACH_WORD(w, l, container_ttys, state) {
+                                const char *t;
+                                char tty[l + 1];
+
+                                memcpy(tty, w, l);
+                                tty[l] = 0;
+
+                                /* First strip off /dev/ if it is specified */
+                                t = path_startswith(tty, "/dev/");
+                                if (!t)
+                                        t = tty;
+
+                                /* Then, make sure it's actually a pty */
+                                t = path_startswith(tty, "pts/");
+                                if (!t)
+                                        continue;
+
+                                if (add_container_getty(t) < 0)
+                                        return EXIT_FAILURE;
+                        }
+                }
 
                 /* Don't add any further magic if we are in a container */
                 return EXIT_SUCCESS;
