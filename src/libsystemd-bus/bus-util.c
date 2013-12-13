@@ -212,8 +212,12 @@ int bus_verify_polkit(
                 }
 
                 r = sd_bus_message_enter_container(reply, 'r', "bba{ss}");
-                if (r >= 0)
-                        r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
+                if (r < 0)
+                        return r;
 
                 if (authorized)
                         return 1;
@@ -997,6 +1001,8 @@ int bus_map_all_properties(sd_bus *bus,
                                 r = prop->set(bus, member, m, &error, v);
                         else
                                 r = map_basic(bus, member, m, &error, v);
+                        if (r < 0)
+                                return r;
 
                         r = sd_bus_message_exit_container(m);
                         if (r < 0)
