@@ -2236,8 +2236,10 @@ _public_ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
         switch (bus->state) {
 
         case BUS_UNSET:
-        case BUS_CLOSED:
                 return -ENOTCONN;
+
+        case BUS_CLOSED:
+                return -ECONNRESET;
 
         case BUS_OPENING:
                 r = bus_socket_process_opening(bus);
