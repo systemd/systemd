@@ -251,6 +251,7 @@ struct sd_bus {
         sd_event_source *time_event_source;
         sd_event_source *quit_event_source;
         sd_event *event;
+        int event_priority;
 
         sd_bus_message *current;
 

@@ -50,9 +50,13 @@
 #include "bus-protocol.h"
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
+static int attach_io_events(sd_bus *b);
+static void detach_io_events(sd_bus *b);
 
 static void bus_close_fds(sd_bus *b) {
         assert(b);
+
+        detach_io_events(b);
 
         if (b->input_fd >= 0)
                 close_nointr_nofail(b->input_fd);
@@ -882,36 +886,27 @@ static int bus_start_address(sd_bus *b) {
         assert(b);
 
         for (;;) {
-                sd_bus_close(b);
+                bool skipped = false;
 
-                if (b->exec_path) {
+                bus_close_fds(b);
 
+                if (b->exec_path)
                         r = bus_socket_exec(b);
-                        if (r >= 0)
-                                return r;
-
-                        b->last_connect_error = -r;
-                } else if (b->kernel) {
-
+                else if (b->kernel)
                         r = bus_kernel_connect(b);
-                        if (r >= 0)
-                                return r;
-
-                        b->last_connect_error = -r;
-
-                } else if (b->machine) {
-
+                else if (b->machine)
                         r = bus_container_connect(b);
-                        if (r >= 0)
-                                return r;
-
-                        b->last_connect_error = -r;
-
-                } else if (b->sockaddr.sa.sa_family != AF_UNSPEC) {
-
+                else if (b->sockaddr.sa.sa_family != AF_UNSPEC)
                         r = bus_socket_connect(b);
-                        if (r >= 0)
-                                return r;
+                else
+                        skipped = true;
+
+                if (!skipped) {
+                        if (r >= 0) {
+                                r = attach_io_events(b);
+                                if (r >= 0)
+                                        return r;
+                        }
 
                         b->last_connect_error = -r;
                 }
@@ -2598,6 +2593,66 @@ static int quit_callback(sd_event_source *event, void *userdata) {
         return 1;
 }
 
+static int attach_io_events(sd_bus *bus) {
+        int r;
+
+        assert(bus);
+
+        if (bus->input_fd < 0)
+                return 0;
+
+        if (!bus->event)
+                return 0;
+
+        if (!bus->input_io_event_source) {
+                r = sd_event_add_io(bus->event, bus->input_fd, 0, io_callback, bus, &bus->input_io_event_source);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_prepare(bus->input_io_event_source, prepare_callback);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(bus->input_io_event_source, bus->event_priority);
+        } else
+                r = sd_event_source_set_io_fd(bus->input_io_event_source, bus->input_fd);
+
+        if (r < 0)
+                return r;
+
+        if (bus->output_fd != bus->input_fd) {
+                assert(bus->output_fd >= 0);
+
+                if (!bus->output_io_event_source) {
+                        r = sd_event_add_io(bus->event, bus->output_fd, 0, io_callback, bus, &bus->output_io_event_source);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_event_source_set_priority(bus->output_io_event_source, bus->event_priority);
+                } else
+                        r = sd_event_source_set_io_fd(bus->output_io_event_source, bus->output_fd);
+
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static void detach_io_events(sd_bus *bus) {
+        assert(bus);
+
+        if (bus->input_io_event_source) {
+                sd_event_source_set_enabled(bus->input_io_event_source, SD_EVENT_OFF);
+                bus->input_io_event_source = sd_event_source_unref(bus->input_io_event_source);
+        }
+
+        if (bus->output_io_event_source) {
+                sd_event_source_set_enabled(bus->output_io_event_source, SD_EVENT_OFF);
+                bus->output_io_event_source = sd_event_source_unref(bus->output_io_event_source);
+        }
+}
+
 _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
         int r;
 
@@ -2616,27 +2671,7 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
                         return r;
         }
 
-        r = sd_event_add_io(bus->event, bus->input_fd, 0, io_callback, bus, &bus->input_io_event_source);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_priority(bus->input_io_event_source, priority);
-        if (r < 0)
-                goto fail;
-
-        if (bus->output_fd != bus->input_fd) {
-                r = sd_event_add_io(bus->event, bus->output_fd, 0, io_callback, bus, &bus->output_io_event_source);
-                if (r < 0)
-                        goto fail;
-
-                r = sd_event_source_set_priority(bus->output_io_event_source, priority);
-                if (r < 0)
-                        goto fail;
-        }
-
-        r = sd_event_source_set_prepare(bus->input_io_event_source, prepare_callback);
-        if (r < 0)
-                goto fail;
+        bus->event_priority = priority;
 
         r = sd_event_add_monotonic(bus->event, 0, 0, time_callback, bus, &bus->time_event_source);
         if (r < 0)
@@ -2647,6 +2682,10 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
                 goto fail;
 
         r = sd_event_add_exit(bus->event, quit_callback, bus, &bus->quit_event_source);
+        if (r < 0)
+                goto fail;
+
+        r = attach_io_events(bus);
         if (r < 0)
                 goto fail;
 
@@ -2663,15 +2702,7 @@ _public_ int sd_bus_detach_event(sd_bus *bus) {
         if (!bus->event)
                 return 0;
 
-        if (bus->input_io_event_source) {
-                sd_event_source_set_enabled(bus->input_io_event_source, SD_EVENT_OFF);
-                bus->input_io_event_source = sd_event_source_unref(bus->input_io_event_source);
-        }
-
-        if (bus->output_io_event_source) {
-                sd_event_source_set_enabled(bus->output_io_event_source, SD_EVENT_OFF);
-                bus->output_io_event_source = sd_event_source_unref(bus->output_io_event_source);
-        }
+        detach_io_events(bus);
 
         if (bus->time_event_source) {
                 sd_event_source_set_enabled(bus->time_event_source, SD_EVENT_OFF);
