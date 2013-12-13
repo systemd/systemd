@@ -521,6 +521,9 @@ static void source_free(sd_event_source *s) {
                 case SOURCE_EXIT:
                         prioq_remove(s->event->exit, s, &s->exit.prioq_index);
                         break;
+
+                case SOURCE_WATCHDOG:
+                        assert_not_reached("Wut? I shouldn't exist.");
                 }
 
                 if (s->pending)
@@ -1228,6 +1231,9 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                 case SOURCE_DEFER:
                         s->enabled = m;
                         break;
+
+                case SOURCE_WATCHDOG:
+                        assert_not_reached("Wut? I shouldn't exist.");
                 }
 
         } else {
@@ -1283,6 +1289,9 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                 case SOURCE_DEFER:
                         s->enabled = m;
                         break;
+
+                case SOURCE_WATCHDOG:
+                        assert_not_reached("Wut? I shouldn't exist.");
                 }
         }
 
@@ -1793,6 +1802,9 @@ static int source_dispatch(sd_event_source *s) {
         case SOURCE_EXIT:
                 r = s->exit.callback(s, s->userdata);
                 break;
+
+        case SOURCE_WATCHDOG:
+                assert_not_reached("Wut? I shouldn't exist.");
         }
 
         s->dispatching = false;
