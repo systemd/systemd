@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
                  * the variable name we only support ptys here. */
 
                 r = getenv_for_pid(1, "container_ttys", &container_ttys);
-                if (r >= 0) {
+                if (r > 0) {
                         char *w, *state;
                         size_t l;
 
