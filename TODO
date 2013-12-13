@@ -127,11 +127,9 @@ Features:
   - kdbus: matches against source or destination pids for an "strace -p"-like feel. Problem: The PID info needs to be available in userspace too...
   - kdbus: we need a way to distuingish messages we got due to monitoring from normal messages, since we want to bind methods only to the latter
   - kdbus: when we do "systemctl daemon-reexec" the call doesn't get properly cancelled
-  - figure out what to do when fields in the kdbus header and in the payload header do not match
   - longer term:
     * priority queues
     * priority inheritance
-  - fix sd-event hookup when we connect to multiple servers one after the other
 
 * sd-event
   - allow multiple signal handlers per signal?

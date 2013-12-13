@@ -834,6 +834,7 @@ static int bus_kernel_make_message(sd_bus *bus, struct kdbus_msg *k) {
         if (r < 0)
                 goto fail;
 
+        /* Override information from the user header with data from the kernel */
         if (k->src_id == KDBUS_SRC_ID_KERNEL)
                 m->sender = "org.freedesktop.DBus";
         else {
