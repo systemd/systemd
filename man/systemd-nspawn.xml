@@ -432,6 +432,17 @@
         </refsect1>
 
         <refsect1>
+                <title>Example 5</title>
+
+                <programlisting># btrfs subvolume snapshot / /.tmp
+# systemd-nspawn --private-network -D /.tmp -b</programlisting>
+
+                <para>This runs a copy of the host system in a
+                btrfs snapshot.</para>
+        </refsect1>
+
+
+        <refsect1>
                 <title>Exit status</title>
 
                 <para>The exit code of the program executed in the
