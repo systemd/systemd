@@ -34,7 +34,7 @@
 
 #include "sd-event.h"
 
-#define EPOLL_QUEUE_MAX 64
+#define EPOLL_QUEUE_MAX 512U
 #define DEFAULT_ACCURACY_USEC (250 * USEC_PER_MSEC)
 
 typedef enum EventSourceType {
@@ -151,6 +151,8 @@ struct sd_event {
         sd_event **default_event_ptr;
 
         usec_t watchdog_last, watchdog_period;
+
+        unsigned n_sources;
 };
 
 static int pending_prioq_compare(const void *a, const void *b) {
@@ -316,6 +318,7 @@ static int exit_prioq_compare(const void *a, const void *b) {
 
 static void event_free(sd_event *e) {
         assert(e);
+        assert(e->n_sources == 0);
 
         if (e->default_event_ptr)
                 *(e->default_event_ptr) = NULL;
@@ -470,6 +473,8 @@ static void source_free(sd_event_source *s) {
         assert(s);
 
         if (s->event) {
+                assert(s->event->n_sources > 0);
+
                 switch (s->type) {
 
                 case SOURCE_IO:
@@ -532,6 +537,7 @@ static void source_free(sd_event_source *s) {
                 if (s->prepare)
                         prioq_remove(s->event->prepare, s, &s->prepare_index);
 
+                s->event->n_sources--;
                 sd_event_unref(s->event);
         }
 
@@ -584,6 +590,8 @@ static sd_event_source *source_new(sd_event *e, EventSourceType type) {
         s->event = sd_event_ref(e);
         s->type = type;
         s->pending_index = s->prepare_index = PRIOQ_IDX_NULL;
+
+        e->n_sources ++;
 
         return s;
 }
@@ -1932,7 +1940,8 @@ static int process_watchdog(sd_event *e) {
 }
 
 _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
-        struct epoll_event ev_queue[EPOLL_QUEUE_MAX];
+        struct epoll_event *ev_queue;
+        unsigned ev_queue_max;
         sd_event_source *p;
         int r, i, m;
 
@@ -1962,8 +1971,10 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
 
         if (event_next_pending(e) || e->need_process_child)
                 timeout = 0;
+        ev_queue_max = CLAMP(e->n_sources, 1U, EPOLL_QUEUE_MAX);
+        ev_queue = newa(struct epoll_event, ev_queue_max);
 
-        m = epoll_wait(e->epoll_fd, ev_queue, EPOLL_QUEUE_MAX,
+        m = epoll_wait(e->epoll_fd, ev_queue, ev_queue_max,
                        timeout == (uint64_t) -1 ? -1 : (int) ((timeout + USEC_PER_MSEC - 1) / USEC_PER_MSEC));
         if (m < 0) {
                 r = errno == EAGAIN || errno == EINTR ? 0 : -errno;
