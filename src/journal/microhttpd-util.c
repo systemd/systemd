@@ -27,6 +27,9 @@
 #include "macro.h"
 #include "util.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+_printf_(2,0)
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         _cleanup_free_ char *f;
         if (asprintf(&f, "microhttpd: %s", fmt) <= 0) {
@@ -35,3 +38,4 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         }
         log_metav(LOG_INFO, NULL, 0, NULL, f, ap);
 }
+#pragma GCC diagnostic pop

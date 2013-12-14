@@ -64,6 +64,7 @@ static int load_module(struct udev *udev, const char *alias)
         return err;
 }
 
+_printf_(6,0)
 static void udev_kmod_log(void *data, int priority, const char *file, int line,
                           const char *fn, const char *format, va_list args)
 {

@@ -65,6 +65,7 @@ void udev_log(struct udev *udev,
         va_end(args);
 }
 
+_printf_(6,0)
 static void log_stderr(struct udev *udev,
                        int priority, const char *file, int line, const char *fn,
                        const char *format, va_list args)

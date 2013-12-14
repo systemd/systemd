@@ -34,6 +34,7 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+_printf_(6,0)
 static void log_fn(struct udev *udev,
                    int priority, const char *file, int line, const char *fn,
                    const char *format, va_list args) {

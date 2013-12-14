@@ -131,6 +131,7 @@ static int respond_oom_internal(struct MHD_Connection *connection) {
 
 #define respond_oom(connection) log_oom(), respond_oom_internal(connection)
 
+_printf_(3,4)
 static int respond_error(
                 struct MHD_Connection *connection,
                 unsigned code,

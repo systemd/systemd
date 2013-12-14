@@ -32,6 +32,7 @@
 
 #include "udev.h"
 
+_printf_(2,3)
 static int path_prepend(char **path, const char *fmt, ...)
 {
         va_list va;

@@ -610,6 +610,8 @@ _pure_ static const char *job_get_status_message_format_try_harder(Unit *u, JobT
         return NULL;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         const char *format;
 
@@ -676,6 +678,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                         unit_status_printf(u, ANSI_HIGHLIGHT_ON " INFO " ANSI_HIGHLIGHT_OFF, "%s is not active.");
         }
 }
+#pragma GCC diagnostic pop
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"

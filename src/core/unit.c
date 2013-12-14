@@ -1125,6 +1125,8 @@ _pure_ static const char *unit_get_status_message_format_try_harder(Unit *u, Job
         return NULL;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void unit_status_print_starting_stopping(Unit *u, JobType t) {
         const char *format;
 
@@ -1139,6 +1141,7 @@ static void unit_status_print_starting_stopping(Unit *u, JobType t) {
 
         unit_status_printf(u, "", format);
 }
+#pragma GCC diagnostic pop
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"

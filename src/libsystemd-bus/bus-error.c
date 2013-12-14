@@ -250,6 +250,7 @@ finish:
         return -bus_error_name_to_errno(name);
 }
 
+_printf_(3,0)
 int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_list ap) {
 
         if (!name)
@@ -463,6 +464,7 @@ _public_ int sd_bus_error_set_errno(sd_bus_error *e, int error) {
         return -error;
 }
 
+_printf_(3,0)
 int bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_list ap) {
         int r;
 
