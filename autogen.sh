@@ -54,10 +54,10 @@ args="$args \
 fi
 
 if [ "x$1" = "xc" ]; then
-        ./configure CFLAGS='-g -O0' --enable-kdbus $args
+        ./configure CFLAGS='-g -O0 -ftrapv' --enable-kdbus $args
         make clean
 elif [ "x$1" = "xg" ]; then
-        ./configure CFLAGS='-g -Og' --enable-kdbus $args
+        ./configure CFLAGS='-g -Og -ftrapv' --enable-kdbus $args
         make clean
 else
         echo
@@ -65,6 +65,6 @@ else
         echo "Initialized build system. For a common configuration please run:"
         echo "----------------------------------------------------------------"
         echo
-        echo "./configure CFLAGS='-g -O0' --enable-kdbus $args"
+        echo "./configure CFLAGS='-g -O0 -ftrapv' --enable-kdbus $args"
         echo
 fi
