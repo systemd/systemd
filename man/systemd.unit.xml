@@ -120,6 +120,17 @@
                 <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
                 </para>
 
+                <para>Various settings are allowed to be specified
+                more than once, in which case the interpretation
+                depends on the setting. Often, multiple settings form
+                a list, and setting to an empty value "resets", which
+                means that previous assignments are ignored. When this
+                is allowed, it is mentioned in the description of the
+                setting. Note that using multiple assignments to the
+                same value makes the unit file incompatible with
+                parsers for the XDG <filename>.desktop</filename> file
+                format.</para>
+
                 <para>Unit files are loaded from a set of paths
                 determined during compilation, described in the next section.
                 </para>

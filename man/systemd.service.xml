@@ -321,11 +321,7 @@
                                 (these semicolons must be passed as
                                 separate words). Alternatively, this
                                 directive may be specified more than
-                                once with the same effect. However,
-                                the latter syntax is not recommended
-                                for compatibility with parsers
-                                suitable for XDG
-                                <filename>.desktop</filename> files.
+                                once with the same effect.
                                 Lone semicolons may be escaped as
                                 <literal>\;</literal>. If the empty
                                 string is assigned to this option, the
