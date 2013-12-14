@@ -1116,10 +1116,8 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
 }
 
 static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
-        _cleanup_free_ char *leader = NULL, *class = NULL;
-        _cleanup_close_pipe_ int sock[2] = { -1, -1 };
-        _cleanup_close_ int nsfd = -1;
-        const char *p, *ns;
+        _cleanup_close_pipe_ int pair[2] = { -1, -1 };
+        _cleanup_close_ int nsfd = -1, rootfd = -1;
         pid_t pid, child;
         siginfo_t si;
         char buf[37];
@@ -1132,26 +1130,15 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (!filename_is_safe(machine))
                 return -EINVAL;
 
-        p = strappenda("/run/systemd/machines/", machine);
-
-        r = parse_env_file(p, NEWLINE, "LEADER", &leader, "CLASS", &class, NULL);
-        if (r < 0)
-                return r;
-        if (!leader)
-                return -ENODATA;
-        if (!streq_ptr(class, "container"))
-                return -EIO;
-        r = parse_pid(leader, &pid);
+        r = container_get_leader(machine, &pid);
         if (r < 0)
                 return r;
 
-        ns = procfs_file_alloca(pid, "ns/mnt");
+        r = namespace_open(pid, &nsfd, &rootfd);
+        if (r < 0)
+                return r;
 
-        nsfd = open(ns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (nsfd < 0)
-                return -errno;
-
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sock) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
         child = fork();
@@ -1161,10 +1148,10 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (child == 0) {
                 int fd;
 
-                close_nointr_nofail(sock[0]);
-                sock[0] = -1;
+                close_nointr_nofail(pair[0]);
+                pair[0] = -1;
 
-                r = setns(nsfd, CLONE_NEWNS);
+                r = namespace_enter(nsfd, rootfd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -1177,17 +1164,17 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
                 if (k != 36)
                         _exit(EXIT_FAILURE);
 
-                k = send(sock[1], buf, 36, MSG_NOSIGNAL);
+                k = send(pair[1], buf, 36, MSG_NOSIGNAL);
                 if (k != 36)
                         _exit(EXIT_FAILURE);
 
                 _exit(EXIT_SUCCESS);
         }
 
-        close_nointr_nofail(sock[1]);
-        sock[1] = -1;
+        close_nointr_nofail(pair[1]);
+        pair[1] = -1;
 
-        k = recv(sock[0], buf, 36, 0);
+        k = recv(pair[0], buf, 36, 0);
         if (k != 36)
                 return -EIO;
 
