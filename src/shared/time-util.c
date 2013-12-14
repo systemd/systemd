@@ -142,11 +142,10 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         if (u == (usec_t) -1) {
                 tv->tv_sec = (time_t) -1;
                 tv->tv_usec = (suseconds_t) -1;
-                return tv;
+        } else {
+                tv->tv_sec = (time_t) (u / USEC_PER_SEC);
+                tv->tv_usec = (suseconds_t) (u % USEC_PER_SEC);
         }
-
-        tv->tv_sec = (time_t) (u / USEC_PER_SEC);
-        tv->tv_usec = (suseconds_t) (u % USEC_PER_SEC);
 
         return tv;
 }

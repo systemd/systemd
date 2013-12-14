@@ -126,7 +126,10 @@ static int create_log_socket(int type) {
         /* We need a blocking fd here since we'd otherwise lose
         messages way too early. However, let's not hang forever in the
         unlikely case of a deadlock. */
-        timeval_store(&tv, 1*USEC_PER_MINUTE);
+        if (getpid() == 1)
+                timeval_store(&tv, 10 * USEC_PER_MSEC);
+        else
+                timeval_store(&tv, 10 * USEC_PER_SEC);
         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
         return fd;
