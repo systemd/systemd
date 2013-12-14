@@ -120,6 +120,9 @@ int link_add(Manager *m, struct udev_device *device) {
 }
 
 static int link_enter_configured(Link *link) {
+        assert(link);
+        assert(link->state == LINK_STATE_SETTING_ROUTES);
+
         log_info("Link '%s' configured", link->ifname);
 
         link->state = LINK_STATE_CONFIGURED;
@@ -127,10 +130,10 @@ static int link_enter_configured(Link *link) {
         return 0;
 }
 
-static int link_enter_failed(Link *link) {
-        link->state = LINK_STATE_FAILED;
+static void link_enter_failed(Link *link) {
+        assert(link);
 
-        return 0;
+        link->state = LINK_STATE_FAILED;
 }
 
 static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
@@ -138,7 +141,7 @@ static int route_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         int r;
 
         assert(link->rtnl_messages > 0);
-        assert(link->state == LINK_STATE_SET_ROUTES || link->state == LINK_STATE_FAILED);
+        assert(link->state == LINK_STATE_SETTING_ROUTES || link->state == LINK_STATE_FAILED);
 
         link->rtnl_messages --;
 
@@ -165,9 +168,9 @@ static int link_enter_set_routes(Link *link) {
         assert(link);
         assert(link->network);
         assert(link->rtnl_messages == 0);
-        assert(link->state == LINK_STATE_ADDRESSES_SET);
+        assert(link->state == LINK_STATE_SETTING_ADDRESSES);
 
-        link->state = LINK_STATE_SET_ROUTES;
+        link->state = LINK_STATE_SETTING_ROUTES;
 
         if (!link->network->routes)
                 return link_enter_configured(link);
@@ -176,7 +179,8 @@ static int link_enter_set_routes(Link *link) {
                 r = route_configure(route, link, &route_handler);
                 if (r < 0) {
                         log_warning("Could not set routes for link '%s'", link->ifname);
-                        return link_enter_failed(link);
+                        link_enter_failed(link);
+                        return r;
                 }
 
                 link->rtnl_messages ++;
@@ -185,18 +189,12 @@ static int link_enter_set_routes(Link *link) {
         return 0;
 }
 
-static int link_enter_addresses_set(Link *link) {
-        link->state = LINK_STATE_ADDRESSES_SET;
-
-        return link_enter_set_routes(link);
-}
-
 static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
         assert(link->rtnl_messages > 0);
-        assert(link->state == LINK_STATE_SET_ADDRESSES || link->state == LINK_STATE_FAILED);
+        assert(link->state == LINK_STATE_SETTING_ADDRESSES || link->state == LINK_STATE_FAILED);
 
         link->rtnl_messages --;
 
@@ -210,7 +208,7 @@ static int address_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
 
         if (link->rtnl_messages == 0) {
                 log_info("Addresses set for link '%s'", link->ifname);
-                link_enter_addresses_set(link);
+                link_enter_set_routes(link);
         }
 
         return 1;
@@ -222,58 +220,23 @@ static int link_enter_set_addresses(Link *link) {
 
         assert(link);
         assert(link->network);
+        assert(link->state == LINK_STATE_JOINING_BRIDGE);
         assert(link->rtnl_messages == 0);
 
-        if (!link->network->addresses)
-                return link_enter_addresses_set(link);
+        link->state = LINK_STATE_SETTING_ADDRESSES;
 
-        link->state = LINK_STATE_SET_ADDRESSES;
+        if (!link->network->addresses)
+                return link_enter_set_routes(link);
 
         LIST_FOREACH(addresses, address, link->network->addresses) {
                 r = address_configure(address, link, &address_handler);
                 if (r < 0) {
                         log_warning("Could not set addresses for link '%s'", link->ifname);
-                        return link_enter_failed(link);
+                        link_enter_failed(link);
+                        return r;
                 }
 
                 link->rtnl_messages ++;
-        }
-
-        return 0;
-}
-
-static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        Link *link = userdata;
-        int r;
-
-        r = sd_rtnl_message_get_errno(m);
-        if (r < 0) {
-                log_warning("Could not get state of interface '%s': %s",
-                            link->ifname, strerror(-r));
-                link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-static int link_get(Link *link) {
-        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        r = sd_rtnl_message_link_new(RTM_GETLINK, link->ifindex, &req);
-        if (r < 0) {
-                log_error("Could not allocate RTM_GETLINK message");
-                return r;
-        }
-
-        r = sd_rtnl_call_async(link->manager->rtnl, req, link_get_handler, link, 0, NULL);
-        if (r < 0) {
-                log_error("Could not send rtnetlink message: %s", strerror(-r));
-                return r;
         }
 
         return 0;
@@ -322,36 +285,48 @@ static int link_up(Link *link) {
         return 0;
 }
 
-static int link_enter_bridge_joined(Link *link) {
+static int link_bridge_joined(Link *link) {
         int r;
 
-        link->state = LINK_STATE_BRIDGE_JOINED;
+        assert(link);
+        assert(link->state == LINK_STATE_JOINING_BRIDGE);
 
         r = link_up(link);
-        if (r < 0)
-                return link_enter_failed(link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return r;
+        }
 
-        return link_enter_set_addresses(link);
+        r = link_enter_set_addresses(link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return r;
+        }
+
+        return 0;
 }
 
 static int bridge_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         Link *link = userdata;
         int r;
 
-        assert(link->state == LINK_STATE_JOIN_BRIDGE || link->state == LINK_STATE_FAILED);
+        assert(link->state == LINK_STATE_JOINING_BRIDGE || link->state == LINK_STATE_FAILED);
+        assert(link->network);
 
         if (link->state == LINK_STATE_FAILED)
                 return 1;
 
         r = sd_rtnl_message_get_errno(m);
-        if (r < 0)
+        if (r < 0) {
                 log_warning("Could not join interface '%s' to bridge '%s': %s",
                             link->ifname, link->network->bridge->name, strerror(-r));
-        else
+                link_enter_failed(link);
+                return 1;
+        } else
                 log_info("Join interface '%s' to bridge: %s",
                             link->ifname, link->network->bridge->name);
 
-        link_enter_bridge_joined(link);
+        link_bridge_joined(link);
 
         return 1;
 }
@@ -361,17 +336,56 @@ static int link_enter_join_bridge(Link *link) {
 
         assert(link);
         assert(link->network);
+        assert(link->state == _LINK_STATE_INVALID);
+
+        link->state = LINK_STATE_JOINING_BRIDGE;
 
         if (!link->network->bridge)
-                return link_enter_bridge_joined(link);
-
-        link->state = LINK_STATE_JOIN_BRIDGE;
+                return link_bridge_joined(link);
 
         r = bridge_join(link->network->bridge, link, &bridge_handler);
         if (r < 0) {
                 log_warning("Could not join link '%s' to bridge '%s'", link->ifname,
                             link->network->bridge->name);
-                return link_enter_failed(link);
+                link_enter_failed(link);
+                return r;
+        }
+
+        return 0;
+}
+
+static int link_get_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+        Link *link = userdata;
+        int r;
+
+        r = sd_rtnl_message_get_errno(m);
+        if (r < 0) {
+                log_warning("Could not get state of interface '%s': %s",
+                            link->ifname, strerror(-r));
+                link_enter_failed(link);
+        }
+
+        return 1;
+}
+
+static int link_get(Link *link) {
+        _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        r = sd_rtnl_message_link_new(RTM_GETLINK, link->ifindex, &req);
+        if (r < 0) {
+                log_error("Could not allocate RTM_GETLINK message");
+                return r;
+        }
+
+        r = sd_rtnl_call_async(link->manager->rtnl, req, link_get_handler, link, 0, NULL);
+        if (r < 0) {
+                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                return r;
         }
 
         return 0;
@@ -380,13 +394,19 @@ static int link_enter_join_bridge(Link *link) {
 int link_configure(Link *link) {
         int r;
 
+        assert(link);
+        assert(link->network);
+        assert(link->state == _LINK_STATE_INVALID);
+
         r = link_get(link);
-        if (r < 0)
-                return link_enter_failed(link);
+        if (r < 0) {
+                link_enter_failed(link);
+                return r;
+        }
 
         r = link_enter_join_bridge(link);
         if (r < 0)
-                return link_enter_failed(link);
+                return r;
 
         return 0;
 }
