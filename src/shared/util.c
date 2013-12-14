@@ -6022,5 +6022,11 @@ int namespace_enter(int namespace_fd, int root_fd) {
         if (chroot(".") < 0)
                 return -errno;
 
+        if (setresgid(0, 0, 0) < 0)
+                return -errno;
+
+        if (setresuid(0, 0, 0) < 0)
+                return -errno;
+
         return 0;
 }
