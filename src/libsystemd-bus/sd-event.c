@@ -1569,12 +1569,21 @@ static int event_arm_timer(
         return 0;
 }
 
-static int process_io(sd_event *e, sd_event_source *s, uint32_t events) {
+static int process_io(sd_event *e, sd_event_source *s, uint32_t revents) {
         assert(e);
         assert(s);
         assert(s->type == SOURCE_IO);
 
-        s->io.revents = events;
+        /* If the event source was already pending, we just OR in the
+         * new revents, otherwise we reset the value. The ORing is
+         * necessary to handle EPOLLONESHOT events properly where
+         * readability might happen independently of writability, and
+         * we need to keep track of both */
+
+        if (s->pending)
+                s->io.revents |= revents;
+        else
+                s->io.revents = revents;
 
         return source_set_pending(s, true);
 }
