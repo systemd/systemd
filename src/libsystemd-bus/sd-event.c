@@ -1605,7 +1605,7 @@ static int flush_timer(sd_event *e, int fd, uint32_t events, usec_t *next) {
                 return -errno;
         }
 
-        if (ss != sizeof(x))
+        if (_unlikely_(ss != sizeof(x)))
                 return -EIO;
 
         if (next)
@@ -1733,7 +1733,7 @@ static int process_signal(sd_event *e, uint32_t events) {
                         return -errno;
                 }
 
-                if (ss != sizeof(si))
+                if (_unlikely_(ss != sizeof(si)))
                         return -EIO;
 
                 read_one = true;
