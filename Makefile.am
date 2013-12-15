@@ -4966,3 +4966,6 @@ tests += \
 	test-libsystemd-journal-sym \
 	test-libsystemd-login-sym \
 	test-libudev-sym
+
+cppcheck:
+	cppcheck --enable=all $(top_srcdir)
