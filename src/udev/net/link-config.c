@@ -149,7 +149,7 @@ void link_config_ctx_free(link_config_ctx *ctx) {
 
 static int load_link(link_config_ctx *ctx, const char *filename) {
         link_config *link;
-        FILE *file;
+        _cleanup_fclose_ FILE *file;
         int r;
 
         file = fopen(filename, "re");

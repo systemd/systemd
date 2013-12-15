@@ -1338,7 +1338,8 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
 static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
         struct node *n, *parent;
         const char *e;
-        char *s, *p;
+        _cleanup_free_ char *s = NULL;
+        char *p;
         int r;
 
         assert(bus);
@@ -1366,10 +1367,8 @@ static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
                 p = strndupa(path, MAX(1, path - e));
 
                 parent = bus_node_allocate(bus, p);
-                if (!parent) {
-                        free(s);
+                if (!parent)
                         return NULL;
-                }
         }
 
         n = new0(struct node, 1);
@@ -1378,10 +1377,11 @@ static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
 
         n->parent = parent;
         n->path = s;
+        s = NULL; /* do not free */
 
         r = hashmap_put(bus->nodes, s, n);
         if (r < 0) {
-                free(s);
+                free(n->path);
                 free(n);
                 return NULL;
         }

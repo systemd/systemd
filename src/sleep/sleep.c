@@ -57,15 +57,14 @@ static int write_mode(char **modes) {
         return r;
 }
 
-static int write_state(FILE *f0, char **states) {
-        FILE _cleanup_fclose_ *f = f0;
+static int write_state(FILE **f, char **states) {
         char **state;
         int r = 0;
 
         STRV_FOREACH(state, states) {
                 int k;
 
-                k = write_string_to_file(f, *state);
+                k = write_string_to_file(*f, *state);
                 if (k == 0)
                         return 0;
                 log_debug("Failed to write '%s' to /sys/power/state: %s",
@@ -73,9 +72,9 @@ static int write_state(FILE *f0, char **states) {
                 if (r == 0)
                         r = k;
 
-                fclose(f);
-                f = fopen("/sys/power/state", "we");
-                if (!f) {
+                fclose(*f);
+                *f = fopen("/sys/power/state", "we");
+                if (!*f) {
                         log_error("Failed to open /sys/power/state: %m");
                         return -errno;
                 }
@@ -87,7 +86,7 @@ static int write_state(FILE *f0, char **states) {
 static int execute(char **modes, char **states) {
         char* arguments[4];
         int r;
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         const char* note = strappenda("SLEEP=", arg_verb);
 
         /* This file is opened first, so that if we hit an error,
@@ -115,7 +114,7 @@ static int execute(char **modes, char **states) {
                    note,
                    NULL);
 
-        r = write_state(f, states);
+        r = write_state(&f, states);
         if (r < 0)
                 return r;
 
