@@ -51,7 +51,7 @@ static int node_vtable_get_userdata(
                 if (r < 0)
                         return r;
                 if (sd_bus_error_is_set(error))
-                        return sd_bus_error_get_errno(error);
+                        return -sd_bus_error_get_errno(error);
                 if (r == 0)
                         return r;
         }
@@ -117,7 +117,7 @@ static int add_enumerated_to_set(
                 if (r < 0)
                         return r;
                 if (sd_bus_error_is_set(error))
-                        return sd_bus_error_get_errno(error);
+                        return -sd_bus_error_get_errno(error);
 
                 STRV_FOREACH(k, children) {
                         if (r < 0) {
@@ -419,7 +419,7 @@ static int invoke_property_get(
                 if (r < 0)
                         return r;
                 if (sd_bus_error_is_set(error))
-                        return sd_bus_error_get_errno(error);
+                        return -sd_bus_error_get_errno(error);
                 return r;
         }
 
@@ -475,7 +475,7 @@ static int invoke_property_set(
                 if (r < 0)
                         return r;
                 if (sd_bus_error_is_set(error))
-                        return sd_bus_error_get_errno(error);
+                        return -sd_bus_error_get_errno(error);
                 return r;
         }
 

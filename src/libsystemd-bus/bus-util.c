@@ -328,7 +328,7 @@ int bus_verify_polkit_async(
                         if (sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN))
                                 return -EACCES;
 
-                        return sd_bus_error_get_errno(e);
+                        return -sd_bus_error_get_errno(e);
                 }
 
                 r = sd_bus_message_enter_container(q->reply, 'r', "bba{ss}");
