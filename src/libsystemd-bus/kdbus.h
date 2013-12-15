@@ -414,14 +414,18 @@ struct kdbus_cmd_policy {
 
 /**
  * enum kdbus_hello_flags - flags for struct kdbus_cmd_hello
- * @KDBUS_HELLO_ACTIVATOR:		The connection registers a name for activation
- * 				by well-know name
  * @KDBUS_HELLO_ACCEPT_FD:	The connection allows the receiving of
  * 				any passed file descriptors
+ * @KDBUS_HELLO_ACTIVATOR:	Special-purpose connection which registers
+ * 				a well-know name for a process to be started
+ * 				when traffic arrives
+ * @KDBUS_HELLO_MONITOR:	Special-purpose connection to monitor
+ * 				bus traffic
  */
 enum kdbus_hello_flags {
-	KDBUS_HELLO_ACTIVATOR		=  1 <<  0,
-	KDBUS_HELLO_ACCEPT_FD		=  1 <<  1,
+	KDBUS_HELLO_ACCEPT_FD		=  1 <<  0,
+	KDBUS_HELLO_ACTIVATOR		=  1 <<  1,
+	KDBUS_HELLO_MONITOR		=  1 <<  2,
 };
 
 /**
@@ -699,27 +703,6 @@ struct kdbus_cmd_match {
 };
 
 /**
- * enum kdbus_monitor_flags - flags for monitoring
- * @KDBUS_MONITOR_ENABLE:	Enable monitoring
- */
-enum kdbus_monitor_flags {
-	KDBUS_MONITOR_ENABLE		= 1 <<  0,
-};
-
-/**
- * struct kdbus_cmd_monitor - struct to enable or disable eavesdropping
- * @id:			Privileged users may enable or disable the monitor feature
- * 			on behalf of other peers
- * @flags:		Use KDBUS_MONITOR_ENABLE to enable eavesdropping
- *
- * This structure is used with the KDBUS_CMD_MONITOR ioctl.
- */
-struct kdbus_cmd_monitor {
-	__u64 id;
-	__u64 flags;
-};
-
-/**
  * enum kdbus_ioctl_type - Ioctl API
  * @KDBUS_CMD_BUS_MAKE:		After opening the "control" device node, this
  * 				command creates a new bus with the specified
@@ -756,9 +739,6 @@ struct kdbus_cmd_monitor {
  * @KDBUS_CMD_MATCH_ADD:	Install a match which broadcast messages should
  * 				be delivered to the connection.
  * @KDBUS_CMD_MATCH_REMOVE:	Remove a current match for broadcast messages.
- * @KDBUS_CMD_MONITOR:		Monitor the bus and receive all transmitted
- * 				messages. Privileges are required for this
- * 				operation.
  * @KDBUS_CMD_EP_POLICY_SET:	Set the policy of an endpoint. It is used to
  * 				restrict the access for endpoints created with
  * 				KDBUS_CMD_EP_MAKE.
@@ -808,7 +788,6 @@ enum kdbus_ioctl_type {
 
 	KDBUS_CMD_MATCH_ADD =		_IOW (KDBUS_IOC_MAGIC, 0x70, struct kdbus_cmd_match),
 	KDBUS_CMD_MATCH_REMOVE =	_IOW (KDBUS_IOC_MAGIC, 0x71, struct kdbus_cmd_match),
-	KDBUS_CMD_MONITOR =		_IOW (KDBUS_IOC_MAGIC, 0x72, struct kdbus_cmd_monitor),
 
 	KDBUS_CMD_EP_POLICY_SET =	_IOW (KDBUS_IOC_MAGIC, 0x80, struct kdbus_cmd_policy),
 

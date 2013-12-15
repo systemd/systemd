@@ -1219,18 +1219,37 @@ int bus_kernel_create_namespace(const char *name, char **s) {
         return fd;
 }
 
-int bus_kernel_monitor(sd_bus *bus) {
-        struct kdbus_cmd_monitor cmd_monitor;
-        int r;
+int bus_kernel_create_monitor(const char *bus) {
+        struct kdbus_cmd_hello *hello;
+        char *p;
+        int fd;
 
         assert(bus);
 
-        cmd_monitor.id = 0;
-        cmd_monitor.flags = KDBUS_MONITOR_ENABLE;
+        p = alloca(sizeof("/dev/kdbus/") - 1 + DECIMAL_STR_MAX(uid_t) + 1 + strlen(bus) + sizeof("/bus"));
+        sprintf(p, "/dev/kdbus/%lu-%s/bus", (unsigned long) getuid(), bus);
 
-        r = ioctl(bus->input_fd, KDBUS_CMD_MONITOR, &cmd_monitor);
-        if (r < 0)
+        fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
                 return -errno;
 
-        return 1;
+        hello = alloca0(sizeof(struct kdbus_cmd_hello));
+        hello->size = sizeof(struct kdbus_cmd_hello);
+        hello->conn_flags = KDBUS_HELLO_ACTIVATOR;
+        hello->pool_size = KDBUS_POOL_SIZE;
+
+        if (ioctl(fd, KDBUS_CMD_HELLO, hello) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        /* The higher 32bit of both flags fields are considered
+         * 'incompatible flags'. Refuse them all for now. */
+        if (hello->bus_flags > 0xFFFFFFFFULL ||
+            hello->conn_flags > 0xFFFFFFFFULL) {
+                close_nointr_nofail(fd);
+                return -ENOTSUP;
+        }
+
+        return fd;
 }
