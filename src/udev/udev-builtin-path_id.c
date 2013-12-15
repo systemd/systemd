@@ -71,9 +71,9 @@ static int format_lun_number(struct udev_device *dev, char **path)
 
         /* address method 0, peripheral device addressing with bus id of zero */
         if (lun < 256)
-                return path_prepend(path, "lun-%d", lun);
+                return path_prepend(path, "lun-%lu", lun);
         /* handle all other lun addressing methods by using a variant of the original lun format */
-        return path_prepend(path, "lun-0x%04x%04x00000000", (lun & 0xffff), (lun >> 16) & 0xffff);
+        return path_prepend(path, "lun-0x%04lx%04lx00000000", lun & 0xffff, (lun >> 16) & 0xffff);
 }
 
 static struct udev_device *skip_subsystem(struct udev_device *dev, const char *subsys)
