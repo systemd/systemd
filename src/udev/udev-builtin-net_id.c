@@ -166,23 +166,17 @@ out:
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         struct udev *udev = udev_device_get_udev(names->pcidev);
-        unsigned int domain;
-        unsigned int bus;
-        unsigned int slot;
-        unsigned int func;
-        unsigned int dev_id = 0;
+        unsigned domain, bus, slot, func, dev_id = 0;
         size_t l;
         char *s;
         const char *attr;
         struct udev_device *pci = NULL;
-        char slots[256];
-        DIR *dir;
+        char slots[256], str[256];
+        _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
-        char str[256];
-        int hotplug_slot = 0;
-        int err = 0;
+        int hotplug_slot = 0, err = 0;
 
-        if (sscanf(udev_device_get_sysname(names->pcidev), "%x:%x:%x.%d", &domain, &bus, &slot, &func) != 4)
+        if (sscanf(udev_device_get_sysname(names->pcidev), "%x:%x:%x.%u", &domain, &bus, &slot, &func) != 4)
                 return -ENOENT;
 
         /* kernel provided multi-device index */
@@ -239,7 +233,6 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 if (hotplug_slot > 0)
                         break;
         }
-        closedir(dir);
 
         if (hotplug_slot > 0) {
                 s = names->pci_slot;
@@ -341,11 +334,11 @@ static int names_bcma(struct udev_device *dev, struct netnames *names) {
                 return -ENOENT;
 
         /* bus num:core num */
-        if (sscanf(udev_device_get_sysname(bcmadev), "bcma%*d:%d", &core) != 1)
+        if (sscanf(udev_device_get_sysname(bcmadev), "bcma%*u:%u", &core) != 1)
                 return -EINVAL;
         /* suppress the common core == 0 */
         if (core > 0)
-                snprintf(names->bcma_core, sizeof(names->bcma_core), "b%d", core);
+                snprintf(names->bcma_core, sizeof(names->bcma_core), "b%u", core);
 
         names->type = NET_BCMA;
         return 0;

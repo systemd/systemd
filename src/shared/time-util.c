@@ -383,7 +383,7 @@ void dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
         assert(value);
         assert(t);
 
-        if (sscanf(value, "%lli %llu", &a, &b) != 2)
+        if (sscanf(value, "%llu %llu", &a, &b) != 2)
                 log_debug("Failed to parse finish timestamp value %s", value);
         else {
                 t->realtime = a;
