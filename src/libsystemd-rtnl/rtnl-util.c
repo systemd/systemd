@@ -38,7 +38,7 @@ int rtnl_set_link_name(sd_rtnl *rtnl, int ifindex, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_append(message, IFLA_IFNAME, name);
+        r = sd_rtnl_message_append_string(message, IFLA_IFNAME, name);
         if (r < 0)
                 return r;
 
@@ -66,7 +66,7 @@ int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias,
                 return r;
 
         if (alias) {
-                r = sd_rtnl_message_append(message, IFLA_IFALIAS, alias);
+                r = sd_rtnl_message_append_string(message, IFLA_IFALIAS, alias);
                 if (r < 0)
                         return r;
 
@@ -75,7 +75,7 @@ int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias,
         }
 
         if (mac) {
-                r = sd_rtnl_message_append(message, IFLA_ADDRESS, mac);
+                r = sd_rtnl_message_append_ether_addr(message, IFLA_ADDRESS, mac);
                 if (r < 0)
                         return r;
 
@@ -83,7 +83,7 @@ int rtnl_set_link_properties(sd_rtnl *rtnl, int ifindex, const char *alias,
         }
 
         if (mtu > 0) {
-                r = sd_rtnl_message_append(message, IFLA_MTU, &mtu);
+                r = sd_rtnl_message_append_u32(message, IFLA_MTU, mtu);
                 if (r < 0)
                         return r;
 

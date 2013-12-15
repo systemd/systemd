@@ -38,9 +38,9 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
 
         /* we'd really like to test NEWLINK, but let's not mess with the running kernel */
         assert(sd_rtnl_message_link_new(RTM_GETLINK, ifindex, &message) >= 0);
-        assert(sd_rtnl_message_append(message, IFLA_IFNAME, name) >= 0);
-        assert(sd_rtnl_message_append(message, IFLA_ADDRESS, ether_aton(mac)) >= 0);
-        assert(sd_rtnl_message_append(message, IFLA_MTU, &mtu) >= 0);
+        assert(sd_rtnl_message_append_string(message, IFLA_IFNAME, name) >= 0);
+        assert(sd_rtnl_message_append_ether_addr(message, IFLA_ADDRESS, ether_aton(mac)) >= 0);
+        assert(sd_rtnl_message_append_u32(message, IFLA_MTU, mtu) >= 0);
 
         assert(sd_rtnl_message_read(message, &type, &data) > 0);
         assert(type == IFLA_IFNAME);
@@ -59,7 +59,7 @@ static void test_link_configure(sd_rtnl *rtnl, int ifindex) {
 
 static void test_route(void) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req;
-        uint32_t addr = htonl(INADDR_LOOPBACK);
+        struct in_addr addr;
         uint32_t index = 2;
         uint16_t type;
         void *data;
@@ -71,13 +71,15 @@ static void test_route(void) {
                 return;
         }
 
-        r = sd_rtnl_message_append(req, RTA_GATEWAY, &addr);
+        addr.s_addr = htonl(INADDR_LOOPBACK);
+
+        r = sd_rtnl_message_append_in_addr(req, RTA_GATEWAY, &addr);
         if (r < 0) {
                 log_error("Could not append RTA_GATEWAY attribute: %s", strerror(-r));
                 return;
         }
 
-        r = sd_rtnl_message_append(req, RTA_OIF, &index);
+        r = sd_rtnl_message_append_u32(req, RTA_OIF, index);
         if (r < 0) {
                 log_error("Could not append RTA_OIF attribute: %s", strerror(-r));
                 return;
@@ -85,7 +87,7 @@ static void test_route(void) {
 
         assert(sd_rtnl_message_read(req, &type, &data) > 0);
         assert(type == RTA_GATEWAY);
-        assert(*(uint32_t *) data == addr);
+        assert(((struct in_addr *)data)->s_addr == addr.s_addr);
 
         assert(sd_rtnl_message_read(req, &type, &data) > 0);
         assert(type == RTA_OIF);
@@ -213,7 +215,7 @@ static void test_container(void) {
 
         assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO) >= 0);
         assert(sd_rtnl_message_open_container(m, IFLA_LINKINFO) == -EINVAL);
-        assert(sd_rtnl_message_append(m, IFLA_INFO_KIND, "kind") >= 0);
+        assert(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "kind") >= 0);
         assert(sd_rtnl_message_close_container(m) >= 0);
         assert(sd_rtnl_message_close_container(m) == -EINVAL);
 
@@ -295,7 +297,7 @@ int main(void) {
         assert(sd_rtnl_message_link_new(RTM_GETLINK, if_loopback, &m) >= 0);
         assert(m);
 
-        assert(sd_rtnl_message_append(m, IFLA_MTU, &mtu) >= 0);
+        assert(sd_rtnl_message_append_u32(m, IFLA_MTU, mtu) >= 0);
         assert(sd_rtnl_message_read(m, &type, (void **) &mtu_reply) == 1);
 
         assert(type == IFLA_MTU);

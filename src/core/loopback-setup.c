@@ -47,7 +47,7 @@ static int pipe_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
         return r == -EEXIST ? 0 : r;
 }
 
-static int add_adresses(sd_rtnl *rtnl, int if_loopback, uint32_t ipv4_address, int *counter) {
+static int add_addresses(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_address, int *counter) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *ipv4 = NULL, *ipv6 = NULL;
         int r;
 
@@ -55,7 +55,7 @@ static int add_adresses(sd_rtnl *rtnl, int if_loopback, uint32_t ipv4_address, i
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_append(ipv4, IFA_LOCAL, &ipv4_address);
+        r = sd_rtnl_message_append_in_addr(ipv4, IFA_LOCAL, ipv4_address);
         if (r < 0)
                 return r;
 
@@ -72,7 +72,7 @@ static int add_adresses(sd_rtnl *rtnl, int if_loopback, uint32_t ipv4_address, i
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_append(ipv6, IFA_LOCAL, &in6addr_loopback);
+        r = sd_rtnl_message_append_in6_addr(ipv6, IFA_LOCAL, &in6addr_loopback);
         if (r < 0)
                 return r;
 
@@ -85,7 +85,7 @@ static int add_adresses(sd_rtnl *rtnl, int if_loopback, uint32_t ipv4_address, i
         return 0;
 }
 
-static int start_interface(sd_rtnl *rtnl, int if_loopback, uint32_t ipv4_address, int *counter) {
+static int start_interface(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_address, int *counter) {
         _cleanup_sd_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         int r;
 
@@ -97,7 +97,7 @@ static int start_interface(sd_rtnl *rtnl, int if_loopback, uint32_t ipv4_address
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_append(req, IFA_LOCAL, &ipv4_address);
+        r = sd_rtnl_message_append_in_addr(req, IFA_LOCAL, ipv4_address);
         if (r < 0)
                 return r;
 
@@ -140,22 +140,24 @@ int loopback_setup(void) {
         _cleanup_sd_rtnl_unref_ sd_rtnl *rtnl = NULL;
         int r, if_loopback, counter = 0;
         bool eperm = false;
-        uint32_t ipv4_address = htonl(INADDR_LOOPBACK);
+        struct in_addr ipv4_address;
 
         errno = 0;
         if_loopback = (int) if_nametoindex("lo");
         if (if_loopback <= 0)
                 return errno ? -errno : -ENODEV;
 
+        ipv4_address.s_addr = htonl(INADDR_LOOPBACK);
+
         r = sd_rtnl_open(0, &rtnl);
         if (r < 0)
                 return r;
 
-        r = add_adresses(rtnl, if_loopback, ipv4_address, &counter);
+        r = add_addresses(rtnl, if_loopback, &ipv4_address, &counter);
         if (r < 0)
                 return r;
 
-        r = start_interface(rtnl, if_loopback, ipv4_address, &counter);
+        r = start_interface(rtnl, if_loopback, &ipv4_address, &counter);
         if (r < 0)
                 return r;
 

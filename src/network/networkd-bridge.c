@@ -91,7 +91,7 @@ static int bridge_join_ready(Bridge *bridge, Link* link, sd_rtnl_message_handler
                 return r;
         }
 
-        r = sd_rtnl_message_append(req, IFLA_MASTER, &bridge->link->ifindex);
+        r = sd_rtnl_message_append_u32(req, IFLA_MASTER, bridge->link->ifindex);
         if (r < 0) {
                 log_error("Could not append IFLA_MASTER attribute: %s",
                           strerror(-r));
@@ -162,7 +162,7 @@ static int bridge_create(Bridge *bridge) {
                 return r;
         }
 
-        r = sd_rtnl_message_append(req, IFLA_IFNAME, bridge->name);
+        r = sd_rtnl_message_append_string(req, IFLA_IFNAME, bridge->name);
         if (r < 0) {
                 log_error("Could not append IFLA_IFNAME attribute: %s",
                           strerror(-r));
@@ -176,7 +176,7 @@ static int bridge_create(Bridge *bridge) {
                 return r;
         }
 
-        r = sd_rtnl_message_append(req, IFLA_INFO_KIND, "bridge");
+        r = sd_rtnl_message_append_string(req, IFLA_INFO_KIND, "bridge");
         if (r < 0) {
                 log_error("Could not append IFLA_INFO_KIND attribute: %s",
                           strerror(-r));

@@ -95,7 +95,10 @@ int address_configure(Address *address, Link *link,
                 return r;
         }
 
-        r = sd_rtnl_message_append(req, IFA_LOCAL, &address->in_addr);
+        if (address->family == AF_INET)
+                r = sd_rtnl_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
+        else if (address->family == AF_INET6)
+                r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
         if (r < 0) {
                 log_error("Could not append IFA_LOCAL attribute: %s",
                           strerror(-r));
@@ -107,7 +110,7 @@ int address_configure(Address *address, Link *link,
 
                 broadcast.s_addr = address->in_addr.in.s_addr | address->netmask.s_addr;
 
-                r = sd_rtnl_message_append(req, IFA_BROADCAST, &broadcast);
+                r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &broadcast);
                 if (r < 0) {
                         log_error("Could not append IFA_BROADCAST attribute: %s",
                                   strerror(-r));
@@ -116,7 +119,7 @@ int address_configure(Address *address, Link *link,
         }
 
         if (address->label) {
-                r = sd_rtnl_message_append(req, IFA_LABEL, address->label);
+                r = sd_rtnl_message_append_string(req, IFA_LABEL, address->label);
                 if (r < 0) {
                         log_error("Could not append IFA_LABEL attribute: %s",
                                   strerror(-r));

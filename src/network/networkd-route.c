@@ -92,16 +92,24 @@ int route_configure(Route *route, Link *link,
                 return r;
         }
 
-        r = sd_rtnl_message_append(req, RTA_GATEWAY, &route->in_addr);
+        if (route->family == AF_INET)
+                r = sd_rtnl_message_append_in_addr(req, RTA_GATEWAY, &route->in_addr.in);
+        else if (route->family == AF_INET6)
+                r = sd_rtnl_message_append_in6_addr(req, RTA_GATEWAY, &route->in_addr.in6);
         if (r < 0) {
                 log_error("Could not append RTA_GATEWAY attribute: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_rtnl_message_append(req, RTA_DST, &route->dst_addr);
-        if (r < 0) {
-                log_error("Could not append RTA_DST attribute: %s", strerror(-r));
-                return r;
+        if (route->dst_prefixlen) {
+                if (route->family == AF_INET)
+                        r = sd_rtnl_message_append_in_addr(req, RTA_DST, &route->dst_addr.in);
+                else if (route->family == AF_INET6)
+                        r = sd_rtnl_message_append_in6_addr(req, RTA_DST, &route->dst_addr.in6);
+                if (r < 0) {
+                        log_error("Could not append RTA_DST attribute: %s", strerror(-r));
+                        return r;
+                }
         }
 
         r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
@@ -110,7 +118,7 @@ int route_configure(Route *route, Link *link,
                 return r;
         }
 
-        r = sd_rtnl_message_append(req, RTA_OIF, &link->ifindex);
+        r = sd_rtnl_message_append_u32(req, RTA_OIF, link->ifindex);
         if (r < 0) {
                 log_error("Could not append RTA_OIF attribute: %s", strerror(-r));
                 return r;

@@ -23,6 +23,8 @@
 ***/
 
 #include <inttypes.h>
+#include <netinet/in.h>
+#include <netinet/ether.h>
 
 #include "sd-event.h"
 #include "_sd-common.h"
@@ -89,7 +91,12 @@ int sd_rtnl_message_link_get_flags(sd_rtnl_message *m, unsigned *flags);
 
 int sd_rtnl_message_route_set_dst_prefixlen(sd_rtnl_message *m, unsigned char prefixlen);
 
-int sd_rtnl_message_append(sd_rtnl_message *m, unsigned short type, const void *data);
+int sd_rtnl_message_append_string(sd_rtnl_message *m, unsigned short type, const char *data);
+int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t data);
+int sd_rtnl_message_append_in_addr(sd_rtnl_message *m, unsigned short type, const struct in_addr *data);
+int sd_rtnl_message_append_in6_addr(sd_rtnl_message *m, unsigned short type, const struct in6_addr *data);
+int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, const struct ether_addr *data);
+
 int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type);
 int sd_rtnl_message_close_container(sd_rtnl_message *m);
 
