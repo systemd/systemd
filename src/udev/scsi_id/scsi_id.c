@@ -18,13 +18,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
 #include <syslog.h>
-#include <stdarg.h>
 #include <ctype.h>
 #include <getopt.h>
 #include <sys/stat.h>
@@ -32,34 +33,31 @@
 #include "libudev.h"
 #include "libudev-private.h"
 #include "scsi_id.h"
+#include "udev-util.h"
 
 static const struct option options[] = {
-        { "device", required_argument, NULL, 'd' },
-        { "config", required_argument, NULL, 'f' },
-        { "page", required_argument, NULL, 'p' },
-        { "blacklisted", no_argument, NULL, 'b' },
-        { "whitelisted", no_argument, NULL, 'g' },
-        { "replace-whitespace", no_argument, NULL, 'u' },
-        { "sg-version", required_argument, NULL, 's' },
-        { "verbose", no_argument, NULL, 'v' },
-        { "version", no_argument, NULL, 'V' },
-        { "export", no_argument, NULL, 'x' },
-        { "help", no_argument, NULL, 'h' },
+        { "device",             required_argument, NULL, 'd' },
+        { "config",             required_argument, NULL, 'f' },
+        { "page",               required_argument, NULL, 'p' },
+        { "blacklisted",        no_argument,       NULL, 'b' },
+        { "whitelisted",        no_argument,       NULL, 'g' },
+        { "replace-whitespace", no_argument,       NULL, 'u' },
+        { "sg-version",         required_argument, NULL, 's' },
+        { "verbose",            no_argument,       NULL, 'v' },
+        { "version",            no_argument,       NULL, 'V' },
+        { "export",             no_argument,       NULL, 'x' },
+        { "help",               no_argument,       NULL, 'h' },
         {}
 };
 
-static const char short_options[] = "d:f:ghip:uvVx";
-static const char dev_short_options[] = "bgp:";
-
-static int all_good;
-static int dev_specified;
+static bool all_good = false;
+static bool dev_specified = false;
 static char config_file[MAX_PATH_LEN] = "/etc/scsi_id.config";
-static enum page_code default_page_code;
+static enum page_code default_page_code = PAGE_UNSPECIFIED;
 static int sg_version = 4;
-static int use_stderr;
-static int debug;
-static int reformat_serial;
-static int export;
+static int debug = 0;
+static bool reformat_serial = false;
+static bool export = false;
 static char vendor_str[64];
 static char model_str[64];
 static char vendor_enc_str[256];
@@ -173,7 +171,7 @@ static int get_file_options(struct udev *udev,
                             int *argc, char ***newargv)
 {
         char *buffer;
-        FILE *fd;
+        _cleanup_fclose_ FILE *f;
         char *buf;
         char *str1;
         char *vendor_in, *model_in, *options_in; /* read in from file */
@@ -181,11 +179,11 @@ static int get_file_options(struct udev *udev,
         int c;
         int retval = 0;
 
-        fd = fopen(config_file, "re");
-        if (fd == NULL) {
-                if (errno == ENOENT) {
+        f = fopen(config_file, "re");
+        if (f == NULL) {
+                if (errno == ENOENT)
                         return 1;
-                } else {
+                else {
                         log_error("can't open %s: %m\n", config_file);
                         return -1;
                 }
@@ -197,17 +195,15 @@ static int get_file_options(struct udev *udev,
          * points into this buffer for its strings).
          */
         buffer = malloc(MAX_BUFFER_LEN);
-        if (!buffer) {
-                fclose(fd);
+        if (!buffer)
                 return log_oom();
-        }
 
         *newargv = NULL;
         lineno = 0;
         while (1) {
                 vendor_in = model_in = options_in = NULL;
 
-                buf = fgets(buffer, MAX_BUFFER_LEN, fd);
+                buf = fgets(buffer, MAX_BUFFER_LEN, f);
                 if (buf == NULL)
                         break;
                 lineno++;
@@ -268,10 +264,10 @@ static int get_file_options(struct udev *udev,
                 if (vendor == NULL) {
                         if (vendor_in == NULL)
                                 break;
-                } else if ((vendor_in && strneq(vendor, vendor_in,
-                                                 strlen(vendor_in))) &&
-                           (!model_in || (strneq(model, model_in,
-                                                  strlen(model_in))))) {
+                } else if (vendor_in &&
+                           strneq(vendor, vendor_in, strlen(vendor_in)) &&
+                           (!model_in ||
+                            (strneq(model, model_in, strlen(model_in))))) {
                                 /*
                                  * Matched vendor and optionally model.
                                  *
@@ -314,12 +310,11 @@ static int get_file_options(struct udev *udev,
         }
         if (retval != 0)
                 free(buffer);
-        fclose(fd);
         return retval;
 }
 
 static int set_options(struct udev *udev,
-                       int argc, char **argv, const char *short_opts,
+                       int argc, char **argv,
                        char *maj_min_dev)
 {
         int option;
@@ -330,23 +325,15 @@ static int set_options(struct udev *udev,
          * file) we have to reset this back to 1.
          */
         optind = 1;
-        while (1) {
-                option = getopt_long(argc, argv, short_opts, options, NULL);
-                if (option == -1)
-                        break;
-
+        while ((option = getopt_long(argc, argv, "d:f:ghp:uvVx", options, NULL)) >= 0)
                 switch (option) {
                 case 'b':
-                        all_good = 0;
+                        all_good = false;
                         break;
 
                 case 'd':
-                        dev_specified = 1;
+                        dev_specified = true;
                         strscpy(maj_min_dev, MAX_PATH_LEN, optarg);
-                        break;
-
-                case 'e':
-                        use_stderr = 1;
                         break;
 
                 case 'f':
@@ -354,18 +341,18 @@ static int set_options(struct udev *udev,
                         break;
 
                 case 'g':
-                        all_good = 1;
+                        all_good = true;
                         break;
 
                 case 'h':
-                        printf("Usage: scsi_id OPTIONS <device>\n"
+                        printf("Usage: scsi_id [OPTION...] DEVICE\n"
                                "  --device=                     device node for SG_IO commands\n"
                                "  --config=                     location of config file\n"
                                "  --page=0x80|0x83|pre-spc3-83  SCSI page (0x80, 0x83, pre-spc3-83)\n"
                                "  --sg-version=3|4              use SGv3 or SGv4\n"
                                "  --blacklisted                 threat device as blacklisted\n"
                                "  --whitelisted                 threat device as whitelisted\n"
-                               "  --replace-whitespace          replace all whitespaces by underscores\n"
+                               "  --replace-whitespace          replace all whitespace by underscores\n"
                                "  --verbose                     verbose logging\n"
                                "  --version                     print version\n"
                                "  --export                      print values as environment keys\n"
@@ -373,13 +360,13 @@ static int set_options(struct udev *udev,
                         exit(0);
 
                 case 'p':
-                        if (streq(optarg, "0x80")) {
+                        if (streq(optarg, "0x80"))
                                 default_page_code = PAGE_80;
-                        } else if (streq(optarg, "0x83")) {
+                        else if (streq(optarg, "0x83"))
                                 default_page_code = PAGE_83;
-                        } else if (streq(optarg, "pre-spc3-83")) {
+                        else if (streq(optarg, "pre-spc3-83"))
                                 default_page_code = PAGE_83_PRE_SPC3;
-                        } else {
+                        else {
                                 log_error("Unknown page code '%s'\n", optarg);
                                 return -1;
                         }
@@ -394,11 +381,7 @@ static int set_options(struct udev *udev,
                         break;
 
                 case 'u':
-                        reformat_serial = 1;
-                        break;
-
-                case 'x':
-                        export = 1;
+                        reformat_serial = true;
                         break;
 
                 case 'v':
@@ -410,14 +393,22 @@ static int set_options(struct udev *udev,
                         exit(0);
                         break;
 
+                case 'x':
+                        export = true;
+                        break;
+
+                case '?':
+                        return -1;
+
                 default:
-                        exit(1);
+                        assert_not_reached("Unknown option");
                 }
-        }
+
         if (optind < argc && !dev_specified) {
-                dev_specified = 1;
+                dev_specified = true;
                 strscpy(maj_min_dev, MAX_PATH_LEN, argv[optind]);
         }
+
         return 0;
 }
 
@@ -436,7 +427,7 @@ static int per_dev_options(struct udev *udev,
 
         optind = 1; /* reset this global extern */
         while (retval == 0) {
-                option = getopt_long(newargc, newargv, dev_short_options, options, NULL);
+                option = getopt_long(newargc, newargv, "bgp:", options, NULL);
                 if (option == -1)
                         break;
 
@@ -505,12 +496,10 @@ static int set_inq_values(struct udev *udev, struct scsi_id_device *dev_scsi, co
  */
 static int scsi_id(struct udev *udev, char *maj_min_dev)
 {
-        struct scsi_id_device dev_scsi;
+        struct scsi_id_device dev_scsi = {};
         int good_dev;
         int page_code;
         int retval = 0;
-
-        memset(&dev_scsi, 0x00, sizeof(struct scsi_id_device));
 
         if (set_inq_values(udev, &dev_scsi, maj_min_dev) < 0) {
                 retval = 1;
@@ -584,11 +573,11 @@ out:
 
 int main(int argc, char **argv)
 {
-        struct udev *udev;
+        _cleanup_udev_unref_ struct udev *udev;
         int retval = 0;
         char maj_min_dev[MAX_PATH_LEN];
         int newargc;
-        char **newargv;
+        char **newargv = NULL;
 
         udev = udev_new();
         if (udev == NULL)
@@ -600,24 +589,24 @@ int main(int argc, char **argv)
         /*
          * Get config file options.
          */
-        newargv = NULL;
         retval = get_file_options(udev, NULL, NULL, &newargc, &newargv);
         if (retval < 0) {
                 retval = 1;
                 goto exit;
         }
-        if (newargv && (retval == 0)) {
-                if (set_options(udev, newargc, newargv, short_options, maj_min_dev) < 0) {
+        if (retval == 0) {
+                assert(newargv);
+
+                if (set_options(udev, newargc, newargv, maj_min_dev) < 0) {
                         retval = 2;
                         goto exit;
                 }
-                free(newargv);
         }
 
         /*
          * Get command line options (overriding any config file settings).
          */
-        if (set_options(udev, argc, argv, short_options, maj_min_dev) < 0)
+        if (set_options(udev, argc, argv, maj_min_dev) < 0)
                 exit(1);
 
         if (!dev_specified) {
@@ -629,7 +618,10 @@ int main(int argc, char **argv)
         retval = scsi_id(udev, maj_min_dev);
 
 exit:
-        udev_unref(udev);
+        if (newargv) {
+                free(newargv[0]);
+                free(newargv);
+        }
         log_close();
         return retval;
 }
