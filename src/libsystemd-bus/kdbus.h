@@ -371,7 +371,7 @@ struct kdbus_msg {
 		__u64 timeout_ns;
 	};
 	struct kdbus_item items[0];
-};
+} __attribute__((aligned(8)));
 
 /**
  * enum kdbus_policy_access_type - permissions of a policy record
@@ -410,7 +410,7 @@ enum kdbus_policy_type {
 struct kdbus_cmd_policy {
 	__u64 size;
 	struct kdbus_item policies[0];
-};
+} __attribute__((aligned(8)));
 
 /**
  * enum kdbus_hello_flags - flags for struct kdbus_cmd_hello
@@ -485,7 +485,7 @@ struct kdbus_cmd_hello {
 	__u64 pool_size;
 	__u8 id128[16];
 	struct kdbus_item items[0];
-};
+} __attribute__((aligned(8)));
 
 /* Flags for KDBUS_CMD_{BUS,EP,NS}_MAKE */
 enum kdbus_make_flags {
@@ -508,7 +508,7 @@ struct kdbus_cmd_bus_make {
 	__u64 flags;
 	__u64 bloom_size;
 	struct kdbus_item items[0];
-};
+} __attribute__((aligned(8)));
 
 /**
  * struct kdbus_cmd_ep_make - struct to make an endpoint
@@ -523,7 +523,7 @@ struct kdbus_cmd_ep_make {
 	__u64 size;
 	__u64 flags;
 	struct kdbus_item items[0];
-};
+} __attribute__((aligned(8)));
 
 /**
  * struct kdbus_cmd_ns_make - struct to make a namespace
@@ -538,7 +538,7 @@ struct kdbus_cmd_ns_make {
 	__u64 size;
 	__u64 flags;
 	struct kdbus_item items[0];
-};
+} __attribute__((aligned(8)));
 
 /**
  * enum kdbus_name_flags - properties of a well-known name
@@ -573,7 +573,7 @@ struct kdbus_cmd_name {
 	__u64 id;
 	__u64 conn_flags;
 	char name[0];
-};
+} __attribute__((aligned(8)));
 
 /**
  * enum kdbus_name_list_flags - what to include into the returned list
@@ -601,7 +601,7 @@ enum kdbus_name_list_flags {
 struct kdbus_cmd_name_list {
 	__u64 flags;
 	__u64 offset;
-};
+} __attribute__((aligned(8)));
 
 /**
  * struct kdbus_name_list - information returned by KDBUS_CMD_NAME_LIST
@@ -639,7 +639,7 @@ struct kdbus_cmd_conn_info {
 	__u64 id;
 	__u64 offset;
 	char name[0];
-};
+} __attribute__((aligned(8)));
 
 /**
  * struct kdbus_conn_info - information returned by KDBUS_CMD_CONN_INFO
@@ -700,7 +700,7 @@ struct kdbus_cmd_match {
 	__u64 cookie;
 	__u64 src_id;
 	struct kdbus_item items[0];
-};
+} __attribute__((aligned(8)));
 
 /**
  * enum kdbus_ioctl_type - Ioctl API
