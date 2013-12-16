@@ -197,6 +197,8 @@ static void busname_unwatch_fd(BusName *n) {
 static void busname_close_fd(BusName *n) {
         assert(n);
 
+        busname_unwatch_fd(n);
+
         if (n->starter_fd <= 0)
                 return;
 
@@ -333,6 +335,11 @@ static void busname_enter_running(BusName *n) {
 
         if (unit_stop_pending(UNIT(n))) {
                 log_debug_unit(UNIT(n)->id, "Suppressing activation request on %s since unit stop is scheduled.", UNIT(n)->id);
+
+                /* Flush all queued activation reqeuest by closing and reopening the connection */
+
+                busname_close_fd(n);
+                busname_enter_listening(n);
                 return;
         }
 

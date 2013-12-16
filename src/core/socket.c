@@ -1475,6 +1475,13 @@ static void socket_enter_running(Socket *s, int cfd) {
                         /* Flush all sockets by closing and reopening them */
                         socket_close_fds(s);
 
+                        r = socket_open_fds(s);
+                        if (r < 0) {
+                                log_warning_unit(UNIT(s)->id, "%s failed to listen on sockets: %s", UNIT(s)->id, strerror(-r));
+                                socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+                                return;
+                        }
+
                         r = socket_watch_fds(s);
                         if (r < 0) {
                                 log_warning_unit(UNIT(s)->id, "%s failed to watch sockets: %s", UNIT(s)->id, strerror(-r));
