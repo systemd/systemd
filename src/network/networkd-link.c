@@ -301,9 +301,9 @@ static int link_up(Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        r = sd_rtnl_message_link_new(RTM_NEWLINK, link->ifindex, &req);
+        r = sd_rtnl_message_link_new(RTM_SETLINK, link->ifindex, &req);
         if (r < 0) {
-                log_error("Could not allocate RTM_NEWLINK message");
+                log_error("Could not allocate RTM_SETLINK message");
                 return r;
         }
 
