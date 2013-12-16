@@ -2116,7 +2116,7 @@ _public_ int sd_event_get_now_monotonic(sd_event *e, uint64_t *usec) {
 
 _public_ int sd_event_default(sd_event **ret) {
 
-        static __thread sd_event *default_event = NULL;
+        static thread_local sd_event *default_event = NULL;
         sd_event *e;
         int r;
 

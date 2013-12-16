@@ -413,7 +413,7 @@ bool manager_is_inhibited(
 }
 
 const char *inhibit_what_to_string(InhibitWhat w) {
-        static __thread char buffer[97];
+        static thread_local char buffer[97];
         char *p;
 
         if (w < 0 || w >= _INHIBIT_WHAT_MAX)

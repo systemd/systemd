@@ -86,7 +86,7 @@ static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
 size_t page_size(void) {
-        static __thread size_t pgsz = 0;
+        static thread_local size_t pgsz = 0;
         long r;
 
         if (_likely_(pgsz > 0))
@@ -4580,7 +4580,7 @@ char *strjoin(const char *x, ...) {
 }
 
 bool is_main_thread(void) {
-        static __thread int cached = 0;
+        static thread_local int cached = 0;
 
         if (_unlikely_(cached == 0))
                 cached = getpid() == gettid() ? 1 : -1;
@@ -4798,7 +4798,7 @@ static const char *const __signal_table[] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(__signal, int);
 
 const char *signal_to_string(int signo) {
-        static __thread char buf[sizeof("RTMIN+")-1 + DECIMAL_STR_MAX(int) + 1];
+        static thread_local char buf[sizeof("RTMIN+")-1 + DECIMAL_STR_MAX(int) + 1];
         const char *name;
 
         name = __signal_to_string(signo);

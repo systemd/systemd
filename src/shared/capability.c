@@ -55,8 +55,8 @@ int have_effective_cap(int value) {
 }
 
 unsigned long cap_last_cap(void) {
-        static __thread unsigned long saved;
-        static __thread bool valid = false;
+        static thread_local unsigned long saved;
+        static thread_local bool valid = false;
         unsigned long p;
 
         if (valid)

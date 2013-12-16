@@ -150,8 +150,8 @@ static int detect_vm_dmi(const char **_id) {
 /* Returns a short identifier for the various VM implementations */
 int detect_vm(const char **id) {
         _cleanup_free_ char *hvtype = NULL, *cpuinfo_contents = NULL;
-        static __thread int cached_found = -1;
-        static __thread const char *cached_id = NULL;
+        static thread_local int cached_found = -1;
+        static thread_local const char *cached_id = NULL;
         const char *_id = NULL;
         int r;
 
@@ -215,8 +215,8 @@ finish:
 
 int detect_container(const char **id) {
 
-        static __thread int cached_found = -1;
-        static __thread const char *cached_id = NULL;
+        static thread_local int cached_found = -1;
+        static thread_local const char *cached_id = NULL;
 
         _cleanup_free_ char *e = NULL;
         const char *_id = NULL;

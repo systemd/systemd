@@ -104,8 +104,8 @@ static sd_id128_t make_v4_uuid(sd_id128_t id) {
 }
 
 _public_ int sd_id128_get_machine(sd_id128_t *ret) {
-        static __thread sd_id128_t saved_machine_id;
-        static __thread bool saved_machine_id_valid = false;
+        static thread_local sd_id128_t saved_machine_id;
+        static thread_local bool saved_machine_id_valid = false;
         _cleanup_close_ int fd = -1;
         char buf[33];
         ssize_t k;
@@ -153,8 +153,8 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
 }
 
 _public_ int sd_id128_get_boot(sd_id128_t *ret) {
-        static __thread sd_id128_t saved_boot_id;
-        static __thread bool saved_boot_id_valid = false;
+        static thread_local sd_id128_t saved_boot_id;
+        static thread_local bool saved_boot_id_valid = false;
         _cleanup_close_ int fd = -1;
         char buf[36];
         ssize_t k;

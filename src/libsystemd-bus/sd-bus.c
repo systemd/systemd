@@ -2813,13 +2813,13 @@ static int bus_default(int (*bus_open)(sd_bus **), sd_bus **default_bus, sd_bus 
 }
 
 _public_ int sd_bus_default_system(sd_bus **ret) {
-        static __thread sd_bus *default_system_bus = NULL;
+        static thread_local sd_bus *default_system_bus = NULL;
 
         return bus_default(sd_bus_open_system, &default_system_bus, ret);
 }
 
 _public_ int sd_bus_default_user(sd_bus **ret) {
-        static __thread sd_bus *default_user_bus = NULL;
+        static thread_local sd_bus *default_user_bus = NULL;
 
         return bus_default(sd_bus_open_user, &default_user_bus, ret);
 }

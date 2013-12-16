@@ -480,7 +480,7 @@ static int join_path(const char *controller, const char *path, const char *suffi
 
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs) {
         const char *p;
-        static __thread bool good = false;
+        static thread_local bool good = false;
 
         assert(fs);
 
