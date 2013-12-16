@@ -3743,10 +3743,9 @@ static int show_all(
 }
 
 static int cat(sd_bus *bus, char **args) {
+        _cleanup_free_ char *unit = NULL, *n = NULL;
         int r = 0;
         char **name;
-
-        _cleanup_free_ char *unit = NULL, *n = NULL;
 
         assert(bus);
         assert(args);
@@ -3754,9 +3753,9 @@ static int cat(sd_bus *bus, char **args) {
         pager_open_if_enabled();
 
         STRV_FOREACH(name, args+1) {
-                _cleanup_free_ char *fragment_path = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
-                sd_bus_error error;
+                _cleanup_free_ char *fragment_path = NULL;
                 char **path;
 
                 n = unit_name_mangle(*name);
@@ -3800,6 +3799,7 @@ static int cat(sd_bus *bus, char **args) {
                 if (!isempty(fragment_path)) {
                         fprintf(stdout, "# %s\n", fragment_path);
                         fflush(stdout);
+
                         r = sendfile_full(STDOUT_FILENO, fragment_path);
                         if (r < 0) {
                                 log_warning("Failed to cat %s: %s", fragment_path, strerror(-r));
@@ -3812,6 +3812,7 @@ static int cat(sd_bus *bus, char **args) {
                                 isempty(fragment_path) && path == dropin_paths ? "" : "\n",
                                 *path);
                         fflush(stdout);
+
                         r = sendfile_full(STDOUT_FILENO, *path);
                         if (r < 0) {
                                 log_warning("Failed to cat %s: %s", *path, strerror(-r));
