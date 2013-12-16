@@ -143,6 +143,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wno-missing-field-initializers \
         -Wno-unused-result \
         -Werror=overflow \
+        -Wdate-time \
         -ffast-math \
         -fno-common \
         -fdiagnostics-show-option \
