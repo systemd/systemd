@@ -32,7 +32,7 @@
 
 static pid_t pager_pid = 0;
 
-_noreturn_ static void pager_fallback(void) {
+noreturn static void pager_fallback(void) {
         ssize_t n;
 
         do {

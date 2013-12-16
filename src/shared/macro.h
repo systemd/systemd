@@ -30,7 +30,6 @@
 #define _printf_(a,b) __attribute__ ((format (printf, a, b)))
 #define _alloc_(...) __attribute__ ((alloc_size(__VA_ARGS__)))
 #define _sentinel_ __attribute__ ((sentinel))
-#define _noreturn_ __attribute__((noreturn))
 #define _unused_ __attribute__ ((unused))
 #define _destructor_ __attribute__ ((destructor))
 #define _pure_ __attribute__ ((pure))
@@ -300,7 +299,8 @@ do {                                                                    \
                 _found;                                                 \
         })
 
-/* Define C11 thread_local attribute even on older compilers */
+/* Define C11 thread_local attribute even on older gcc compiler
+ * version */
 #ifndef thread_local
 /*
  * Don't break on glibc < 2.16 that doesn't define __STDC_NO_THREADS__
@@ -310,6 +310,16 @@ do {                                                                    \
 #define thread_local _Thread_local
 #else
 #define thread_local __thread
+#endif
+#endif
+
+/* Define C11 noreturn without <stdnoreturn.h> and even on older gcc
+ * compiler versions */
+#ifndef noreturn
+#if __STDC_VERSION__ >= 201112L
+#define noreturn _Noreturn
+#else
+#define noreturn __attribute__((noreturn))
 #endif
 #endif
 

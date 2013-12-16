@@ -112,7 +112,7 @@ static FILE* serialization = NULL;
 static void nop_handler(int sig) {
 }
 
-_noreturn_ static void crash(int sig) {
+noreturn static void crash(int sig) {
 
         if (getpid() != 1)
                 /* Pass this on immediately, if this is not PID 1 */

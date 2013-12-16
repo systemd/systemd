@@ -3469,7 +3469,7 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
         return -EPROTO;
 }
 
-_noreturn_ void freeze(void) {
+noreturn void freeze(void) {
 
         /* Make sure nobody waits for us on a socket anymore */
         close_all_fds(NULL, 0);

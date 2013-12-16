@@ -426,7 +426,7 @@ char *normalize_env_assignment(const char *s);
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 int wait_for_terminate_and_warn(const char *name, pid_t pid);
 
-_noreturn_ void freeze(void);
+noreturn void freeze(void);
 
 bool null_or_empty(struct stat *st) _pure_;
 int null_or_empty_path(const char *fn);

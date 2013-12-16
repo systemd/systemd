@@ -124,13 +124,13 @@ int log_dump_internal(
                 const char *func,
                 char *buffer);
 
-_noreturn_ void log_assert_failed(
+noreturn void log_assert_failed(
                 const char *text,
                 const char *file,
                 int line,
                 const char *func);
 
-_noreturn_ void log_assert_failed_unreachable(
+noreturn void log_assert_failed_unreachable(
                 const char *text,
                 const char *file,
                 int line,

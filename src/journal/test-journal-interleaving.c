@@ -36,7 +36,7 @@
 
 static bool arg_keep = false;
 
-_noreturn_ static void log_assert_errno(const char *text, int eno, const char *file, int line, const char *func) {
+noreturn static void log_assert_errno(const char *text, int eno, const char *file, int line, const char *func) {
         log_meta(LOG_CRIT, file, line, func,
                  "'%s' failed at %s:%u (%s): %s.",
                  text, file, line, func, strerror(eno));
