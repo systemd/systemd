@@ -276,6 +276,12 @@ static int link_compatibility(const char *units) {
                 return -errno;
         }
 
+        t = strappenda(arg_dest, "/" SPECIAL_DBUS_SERVICE);
+        if (symlink("/dev/null", t) < 0) {
+                log_error("Failed to mask %s: %m", t);
+                return -errno;
+        }
+
         return 0;
 }
 
