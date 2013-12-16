@@ -121,7 +121,7 @@ static void test_catalog_update(void) {
 }
 
 static void test_catalog_file_lang(void) {
-        _cleanup_free_ char *lang = NULL, *lang2 = NULL, *lang3 = NULL;
+        _cleanup_free_ char *lang = NULL, *lang2 = NULL, *lang3 = NULL, *lang4 = NULL;
 
         assert_se(catalog_file_lang("systemd.de_DE.catalog", &lang) == 1);
         assert_se(streq(lang, "de_DE"));
@@ -140,6 +140,12 @@ static void test_catalog_file_lang(void) {
 
         assert_se(catalog_file_lang("systemd.0123456789012345678901234567890.catalog", &lang3) == 1);
         assert_se(streq(lang3, "0123456789012345678901234567890"));
+
+        assert_se(catalog_file_lang("/x/y/systemd.catalog", &lang4) == 0);
+        assert_se(lang4 == NULL);
+
+        assert_se(catalog_file_lang("/x/y/systemd.ru_RU.catalog", &lang4) == 1);
+        assert_se(streq(lang4, "ru_RU"));
 }
 
 int main(int argc, char *argv[]) {
@@ -149,6 +155,8 @@ int main(int argc, char *argv[]) {
         setlocale(LC_ALL, "de_DE.UTF-8");
 
         log_set_max_level(LOG_DEBUG);
+
+        test_catalog_file_lang();
 
         test_catalog_importing();
 
@@ -165,8 +173,6 @@ int main(int argc, char *argv[]) {
 
         if (database)
                 unlink(database);
-
-        test_catalog_file_lang();
 
         return 0;
 }

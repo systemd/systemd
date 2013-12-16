@@ -150,10 +150,10 @@ int catalog_file_lang(const char* filename, char **lang) {
                 return 0;
 
         beg = end - 1;
-        while (beg > filename && *beg != '.')
+        while (beg > filename && *beg != '.' && *beg != '/' && end - beg < 32)
                 beg --;
 
-        if (beg <= filename || end <= beg + 1 || end - beg > 32)
+        if (*beg != '.' || end <= beg + 1)
                 return 0;
 
         _lang = strndup(beg + 1, end - beg - 1);
