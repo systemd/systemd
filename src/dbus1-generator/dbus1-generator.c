@@ -267,7 +267,7 @@ static int link_busnames_target(const char *units) {
 static int link_compatibility(const char *units) {
         const char *f, *t;
 
-        f = strappenda(units, "/systemd-socket-proxy.socket");
+        f = strappenda(units, "/systemd-bus-proxyd.socket");
         t = strappenda(arg_dest, "/" SPECIAL_DBUS_SOCKET);
 
         mkdir_parents_label(t, 0755);
