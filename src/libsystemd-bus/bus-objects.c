@@ -1379,7 +1379,7 @@ static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
         n->path = s;
         s = NULL; /* do not free */
 
-        r = hashmap_put(bus->nodes, s, n);
+        r = hashmap_put(bus->nodes, n->path, n);
         if (r < 0) {
                 free(n->path);
                 free(n);
