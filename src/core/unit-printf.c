@@ -83,11 +83,10 @@ static int specifier_instance_unescaped(char specifier, void *data, void *userda
 
         assert(u);
 
-        if (u->instance)
-                n = unit_name_unescape(u->instance);
-        else
-                n = strdup("");
+        if (!u->instance)
+                return -ENOTSUP;
 
+        n = unit_name_unescape(u->instance);
         if (!n)
                 return -ENOMEM;
 
@@ -105,7 +104,6 @@ static int specifier_filename(char specifier, void *data, void *userdata, char *
                 n = unit_name_path_unescape(u->instance);
         else
                 n = unit_name_to_path(u->id);
-
         if (!n)
                 return -ENOMEM;
 
@@ -119,7 +117,10 @@ static int specifier_cgroup(char specifier, void *data, void *userdata, char **r
 
         assert(u);
 
-        n = unit_default_cgroup_path(u);
+        if (u->cgroup_path)
+                n = strdup(u->cgroup_path);
+        else
+                n = unit_default_cgroup_path(u);
         if (!n)
                 return -ENOMEM;
 
@@ -156,63 +157,81 @@ static int specifier_cgroup_root(char specifier, void *data, void *userdata, cha
 
 static int specifier_runtime(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
+        const char *e;
         char *n = NULL;
 
         assert(u);
 
-        if (u->manager->running_as == SYSTEMD_USER) {
-                const char *e;
-
+        if (u->manager->running_as == SYSTEMD_SYSTEM)
+                e = "/run";
+        else {
                 e = getenv("XDG_RUNTIME_DIR");
-                if (e) {
-                        n = strdup(e);
-                        if (!n)
-                                return -ENOMEM;
-                }
+                if (!e)
+                        return -ENOTSUP;
         }
 
-        if (!n) {
-                n = strdup("/run");
-                if (!n)
-                        return -ENOMEM;
-        }
+        n = strdup(e);
+        if (!n)
+                return -ENOMEM;
 
         *ret = n;
         return 0;
 }
 
 static int specifier_user_name(char specifier, void *data, void *userdata, char **ret) {
+        char *printed = NULL;
         Unit *u = userdata;
         ExecContext *c;
         int r;
-        const char *username;
-        _cleanup_free_ char *tmp = NULL;
-        uid_t uid;
-        char *printed = NULL;
 
         assert(u);
 
         c = unit_get_exec_context(u);
+        if (!c)
+                return -ENOTSUP;
 
-        if (c && c->user)
-                username = c->user;
-        else
-                /* get USER env from env or our own uid */
-                username = tmp = getusername_malloc();
+        if (u->manager->running_as == SYSTEMD_SYSTEM) {
 
-        /* fish username from passwd */
-        r = get_user_creds(&username, &uid, NULL, NULL, NULL);
-        if (r < 0)
-                return r;
+                /* We cannot use NSS from PID 1, hence try to make the
+                 * best of it in that case, and fail if we can't help
+                 * it */
 
-        switch (specifier) {
-                case 'U':
-                        if (asprintf(&printed, "%d", uid) < 0)
-                                return -ENOMEM;
-                        break;
-                case 'u':
+                if (!c->user || streq(c->user, "root") || streq(c->user, "0"))
+                        printed = strdup(specifier == 'u' ? "root" : "0");
+                else {
+                        if (specifier == 'u')
+                                printed = strdup(c->user);
+                        else {
+                                uid_t uid;
+
+                                r = parse_uid(c->user, &uid);
+                                if (r < 0)
+                                        return -ENODATA;
+
+                                asprintf(&printed, "%lu", (unsigned long) uid);
+                        }
+                }
+
+        } else {
+                _cleanup_free_ char *tmp = NULL;
+                const char *username = NULL;
+                uid_t uid;
+
+                if (c->user)
+                        username = c->user;
+                else
+                        /* get USER env from env or our own uid */
+                        username = tmp = getusername_malloc();
+
+                /* fish username from passwd */
+                r = get_user_creds(&username, &uid, NULL, NULL, NULL);
+                if (r < 0)
+                        return r;
+
+                if (specifier == 'u')
                         printed = strdup(username);
-                        break;
+                else
+                        asprintf(&printed, "%lu", (unsigned long) uid);
         }
 
         if (!printed)
@@ -225,32 +244,44 @@ static int specifier_user_name(char specifier, void *data, void *userdata, char 
 static int specifier_user_home(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
         ExecContext *c;
-        int r;
-        const char *username, *home;
         char *n;
+        int r;
 
         assert(u);
 
         c = unit_get_exec_context(u);
+        if (!c)
+                return -ENOTSUP;
 
-        /* return HOME if set, otherwise from passwd */
-        if (!c || !c->user) {
-                char *h;
+        if (u->manager->running_as == SYSTEMD_SYSTEM) {
 
-                r = get_home_dir(&h);
-                if (r < 0)
-                        return r;
+                /* We cannot use NSS from PID 1, hence try to make the
+                 * best of it if we can, but fail if we can't */
 
-                *ret = h;
-                return 0;
+                if (!c->user || streq(c->user, "root") || streq(c->user, "0"))
+                        n = strdup("/root");
+                else
+                        return -ENOTSUP;
+
+        } else {
+
+                /* return HOME if set, otherwise from passwd */
+                if (!c || !c->user) {
+                        r = get_home_dir(&n);
+                        if (r < 0)
+                                return r;
+                } else {
+                        const char *username, *home;
+
+                        username = c->user;
+                        r = get_user_creds(&username, NULL, NULL, &home, NULL);
+                        if (r < 0)
+                                return r;
+
+                        n = strdup(home);
+                }
         }
 
-        username = c->user;
-        r = get_user_creds(&username, NULL, NULL, &home, NULL);
-        if (r < 0)
-               return r;
-
-        n = strdup(home);
         if (!n)
                 return -ENOMEM;
 
@@ -261,25 +292,44 @@ static int specifier_user_home(char specifier, void *data, void *userdata, char 
 static int specifier_user_shell(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
         ExecContext *c;
-        int r;
-        const char *username, *shell;
         char *n;
+        int r;
 
         assert(u);
 
         c = unit_get_exec_context(u);
+        if (!c)
+                return -ENOTSUP;
 
-        if (c && c->user)
-                username = c->user;
-        else
-                username = "root";
+        if (u->manager->running_as == SYSTEMD_SYSTEM) {
 
-        /* return /bin/sh for root, otherwise the value from passwd */
-        r = get_user_creds(&username, NULL, NULL, NULL, &shell);
-        if (r < 0)
-                return r;
+                /* We cannot use NSS from PID 1, hence try to make the
+                 * best of it if we can, but fail if we can't */
 
-        n = strdup(shell);
+                if (!c->user || streq(c->user, "root") || streq(c->user, "0"))
+                        n = strdup("/bin/sh");
+                else
+                        return -ENOTSUP;
+
+        } else {
+
+                /* return /bin/sh for root, otherwise the value from passwd */
+                if (!c->user) {
+                        r = get_shell(&n);
+                        if (r < 0)
+                                return r;
+                } else {
+                        const char *username, *shell;
+
+                        username = c->user;
+                        r = get_user_creds(&username, NULL, NULL, NULL, &shell);
+                        if (r < 0)
+                                return r;
+
+                        n = strdup(shell);
+                }
+        }
+
         if (!n)
                 return -ENOMEM;
 
@@ -321,7 +371,7 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
          *
          * %f the the instance if set, otherwise the id
          * %c cgroup path of unit
-         * %r where units in this slice are place in the cgroup tree
+         * %r where units in this slice are placed in the cgroup tree
          * %R the root of this systemd's instance tree
          * %t the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
          * %U the UID of the configured user or running user

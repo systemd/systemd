@@ -1265,55 +1265,52 @@
                       <row>
                         <entry><literal>%N</literal></entry>
                         <entry>Unescaped full unit name</entry>
-                        <entry></entry>
+                        <entry>Same as <literal>%n</literal>, but with escaping undone</entry>
                       </row>
                       <row>
                         <entry><literal>%p</literal></entry>
                         <entry>Prefix name</entry>
-                        <entry>For instantiated units this refers to the string before the @. For non-instantiated units this refers to to the name of the unit with the type suffix removed.</entry>
+                        <entry>For instantiated units this refers to the string before the <literal>@</literal> character of the unit name. For non-instantiated units this refers to the name of the unit with the type suffix removed.</entry>
                       </row>
                       <row>
                         <entry><literal>%P</literal></entry>
                         <entry>Unescaped prefix name</entry>
-                        <entry></entry>
+                        <entry>Same as <literal>%p</literal>, but with escaping undone</entry>
                       </row>
                       <row>
                         <entry><literal>%i</literal></entry>
                         <entry>Instance name</entry>
-                        <entry>For instantiated units: this is the string between the <literal>@</literal> character and the suffix.</entry>
+                        <entry>For instantiated units: this is the string between the <literal>@</literal> character and the suffix of the unit name.</entry>
                       </row>
                       <row>
                         <entry><literal>%I</literal></entry>
                         <entry>Unescaped instance name</entry>
-                        <entry></entry>
+                        <entry>Same as <literal>%i</literal>, but with escaping undone</entry>
                       </row>
                       <row>
                         <entry><literal>%f</literal></entry>
                         <entry>Unescaped filename</entry>
-                        <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the prefix name similarly prepended with <filename>/</filename>.</entry>
+                        <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the prefix name prepended with <filename>/</filename>.</entry>
                       </row>
                       <row>
                         <entry><literal>%c</literal></entry>
                         <entry>Control group path of the unit</entry>
-                        <entry></entry>
+                        <entry>This path does not include the <filename>/sys/fs/cgroup/systemd/</filename> prefix.</entry>
                       </row>
                       <row>
                         <entry><literal>%r</literal></entry>
-                        <entry>Root control group path where units are placed.</entry>
-                        <entry>For system instances, this usually resolves to <filename>/system</filename>, except in containers, where the path might be prefixed with the container's root control group.</entry>
+                        <entry>Control group path of the slice the unit is placed in</entry>
+                        <entry>This usually maps to the parent cgroup path of <literal>%c</literal>.</entry>
                       </row>
                       <row>
                         <entry><literal>%R</literal></entry>
-                        <entry>Parent directory of the control group path where units are placed.</entry>
-                        <entry>For system instances, this usually
-                        resolves to <filename>/</filename>, except in
-                        containers, where this resolves to the
-                        container's root directory.</entry>
+                        <entry>Root control group path where slices and units are placed below</entry>
+                        <entry>For system instances, this resolves to <filename>/</filename>, except in containers, where this maps to the container's root control group path.</entry>
                       </row>
                       <row>
                         <entry><literal>%t</literal></entry>
-                        <entry>Runtime socket dir</entry>
-                        <entry>This is either <filename>/run</filename> (for the system manager) or <literal>$XDG_RUNTIME_DIR</literal> (for user managers).</entry>
+                        <entry>Runtime directory</entry>
+                        <entry>This is either <filename>/run</filename> (for the system manager) or the path <literal>$XDG_RUNTIME_DIR</literal> resolves to (for user managers).</entry>
                       </row>
                       <row>
                         <entry><literal>%u</literal></entry>
@@ -1323,17 +1320,17 @@
                       <row>
                         <entry><literal>%U</literal></entry>
                         <entry>User UID</entry>
-                        <entry>This is the UID of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+                        <entry>This is the numeric UID of the configured user of the unit, or (if none is set) the user running the systemd user instance. Note that this specifier is not available for units run by the systemd system instance (as opposed to those run by a systemd user instance), unless the user has been configured as a numeric UID in the first place or the configured user is the root user.</entry>
                       </row>
                       <row>
                         <entry><literal>%h</literal></entry>
                         <entry>User home directory</entry>
-                        <entry>This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd instance.</entry>
+                        <entry>This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd user instance. Similar to <literal>%U</literal> this specifier is not available for units run by the systemd system instance, unless the configured user is the root user.</entry>
                       </row>
                       <row>
                         <entry><literal>%s</literal></entry>
                         <entry>User shell</entry>
-                        <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd instance.  If the user is <literal>root</literal> (UID equal to 0), the shell configured in account database is ignored and <filename>/bin/sh</filename> is always used.</entry>
+                        <entry>This is the shell of the configured user of the unit, or (if none is set) the user running the systemd user instance. Similar to <literal>%U</literal> this specifier is not available for units run by the systemd system instance, unless the configured user is the root user.</entry>
                       </row>
                       <row>
                         <entry><literal>%m</literal></entry>
@@ -1348,17 +1345,17 @@
                       <row>
                         <entry><literal>%H</literal></entry>
                         <entry>Host name</entry>
-                        <entry>The hostname of the running system.</entry>
+                        <entry>The hostname of the running system at the point in time the unit configuation is loaded.</entry>
                       </row>
                       <row>
                         <entry><literal>%v</literal></entry>
                         <entry>Kernel release</entry>
-                        <entry>Identical to <command>uname -r</command> output.</entry>
+                        <entry>Identical to <command>uname -r</command> output</entry>
                       </row>
                       <row>
                         <entry><literal>%%</literal></entry>
-                        <entry>Escaped %</entry>
-                        <entry>Single percent sign.</entry>
+                        <entry>Single percent sign</entry>
+                        <entry>Use <literal>%%</literal> in place of <literal>%</literal> to specify a single percent sign.</entry>
                       </row>
                     </tbody>
                   </tgroup>

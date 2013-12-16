@@ -5220,10 +5220,10 @@ int make_console_stdio(void) {
 }
 
 int get_home_dir(char **_h) {
-        char *h;
-        const char *e;
-        uid_t u;
         struct passwd *p;
+        const char *e;
+        char *h;
+        uid_t u;
 
         assert(_h);
 
@@ -5263,6 +5263,53 @@ int get_home_dir(char **_h) {
                 return -ENOMEM;
 
         *_h = h;
+        return 0;
+}
+
+int get_shell(char **_s) {
+        struct passwd *p;
+        const char *e;
+        char *s;
+        uid_t u;
+
+        assert(_s);
+
+        /* Take the user specified one */
+        e = getenv("SHELL");
+        if (e) {
+                s = strdup(e);
+                if (!s)
+                        return -ENOMEM;
+
+                *_s = s;
+                return 0;
+        }
+
+        /* Hardcode home directory for root to avoid NSS */
+        u = getuid();
+        if (u == 0) {
+                s = strdup("/bin/sh");
+                if (!s)
+                        return -ENOMEM;
+
+                *_s = s;
+                return 0;
+        }
+
+        /* Check the database... */
+        errno = 0;
+        p = getpwuid(u);
+        if (!p)
+                return errno > 0 ? -errno : -ESRCH;
+
+        if (!path_is_absolute(p->pw_shell))
+                return -EINVAL;
+
+        s = strdup(p->pw_shell);
+        if (!s)
+                return -ENOMEM;
+
+        *_s = s;
         return 0;
 }
 
