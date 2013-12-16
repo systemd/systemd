@@ -2737,9 +2737,9 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
 
 _pure_ static int is_temporary_fs(struct statfs *s) {
         assert(s);
-        return
-                F_TYPE_EQUAL(s->f_type, TMPFS_MAGIC) ||
-                F_TYPE_EQUAL(s->f_type, RAMFS_MAGIC);
+
+        return F_TYPE_EQUAL(s->f_type, TMPFS_MAGIC) ||
+               F_TYPE_EQUAL(s->f_type, RAMFS_MAGIC);
 }
 
 int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
@@ -5154,7 +5154,7 @@ bool is_valid_documentation_url(const char *url) {
 }
 
 bool in_initrd(void) {
-        static __thread int saved = -1;
+        static int saved = -1;
         struct statfs s;
 
         if (saved >= 0)
