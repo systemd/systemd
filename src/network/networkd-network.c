@@ -30,6 +30,9 @@ static int network_load_one(Manager *manager, const char *filename) {
         _cleanup_fclose_ FILE *file = NULL;
         int r;
 
+        assert(manager);
+        assert(filename);
+
         file = fopen(filename, "re");
         if (!file) {
                 if (errno == ENOENT)
