@@ -46,7 +46,7 @@ struct bus_container {
         uint32_t *array_size;
 
         /* gvariant: list of offsets to end of children if this is struct/dict entry/array */
-        size_t *offsets, n_offsets, n_offsets_allocated, offset_index;
+        size_t *offsets, n_offsets, offsets_allocated, offset_index;
         size_t item_size;
 };
 
@@ -115,6 +115,7 @@ struct sd_bus_message {
 
         struct bus_container root_container, *containers;
         unsigned n_containers;
+        size_t containers_allocated;
 
         struct iovec *iovec;
         struct iovec iovec_fixed[2];

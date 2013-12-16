@@ -113,7 +113,7 @@ static void message_reset_containers(sd_bus_message *m) {
         free(m->containers);
         m->containers = NULL;
 
-        m->n_containers = 0;
+        m->n_containers = m->containers_allocated = 0;
         m->root_container.index = 0;
 }
 
@@ -1109,7 +1109,7 @@ static int message_add_offset(sd_bus_message *m, size_t offset) {
         if (!c->need_offsets)
                 return 0;
 
-        if (!GREEDY_REALLOC(c->offsets, c->n_offsets_allocated, c->n_offsets + 1))
+        if (!GREEDY_REALLOC(c->offsets, c->offsets_allocated, c->n_offsets + 1))
                 return -ENOMEM;
 
         c->offsets[c->n_offsets++] = offset;
@@ -1843,13 +1843,10 @@ _public_ int sd_bus_message_open_container(
         assert_return(!m->poisoned, -ESTALE);
 
         /* Make sure we have space for one more container */
-        w = realloc(m->containers, sizeof(struct bus_container) * (m->n_containers + 1));
-        if (!w) {
+        if (!GREEDY_REALLOC(m->containers, m->containers_allocated, m->n_containers + 1)) {
                 m->poisoned = true;
                 return -ENOMEM;
         }
-
-        m->containers = w;
 
         c = message_get_container(m);
 
@@ -1881,14 +1878,14 @@ _public_ int sd_bus_message_open_container(
         }
 
         /* OK, let's fill it in */
-        w += m->n_containers++;
+        w = m->containers + m->n_containers++;
         w->enclosing = type;
         w->signature = signature;
         w->index = 0;
         w->array_size = array_size;
         w->before = before;
         w->begin = begin;
-        w->n_offsets = w->n_offsets_allocated = 0;
+        w->n_offsets = w->offsets_allocated = 0;
         w->offsets = NULL;
         w->need_offsets = need_offsets;
 
@@ -3854,10 +3851,8 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
         if (m->n_containers >= BUS_CONTAINER_DEPTH)
                 return -EBADMSG;
 
-        w = realloc(m->containers, sizeof(struct bus_container) * (m->n_containers + 1));
-        if (!w)
+        if (!GREEDY_REALLOC(m->containers, m->containers_allocated, m->n_containers + 1))
                 return -ENOMEM;
-        m->containers = w;
 
         if (message_end_of_signature(m))
                 return -ENXIO;
@@ -3892,7 +3887,7 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
         }
 
         /* OK, let's fill it in */
-        w += m->n_containers++;
+        w = m->containers + m->n_containers++;
         w->enclosing = type;
         w->signature = signature;
         w->index = 0;
