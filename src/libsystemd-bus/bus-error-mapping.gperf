@@ -1,0 +1,49 @@
+%{
+#include <errno.h>
+#include "bus-error.h"
+%}
+name_error_mapping;
+%null_strings
+%language=ANSI-C
+%define slot-name name
+%define hash-function-name bus_error_mapping_hash
+%define lookup-function-name bus_error_mapping_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+org.freedesktop.DBus.Error.Failed,                        EACCES
+org.freedesktop.DBus.Error.NoMemory,                      ENOMEM
+org.freedesktop.DBus.Error.ServiceUnknown,                EHOSTUNREACH
+org.freedesktop.DBus.Error.NameHasNoOwner,                ENXIO
+org.freedesktop.DBus.Error.NoReply,                       ETIMEDOUT
+org.freedesktop.DBus.Error.IOError,                       EIO
+org.freedesktop.DBus.Error.BadAddress,                    EADDRNOTAVAIL
+org.freedesktop.DBus.Error.NotSupported,                  ENOTSUP
+org.freedesktop.DBus.Error.LimitsExceeded,                ENOBUFS
+org.freedesktop.DBus.Error.AccessDenied,                  EACCES
+org.freedesktop.DBus.Error.AuthFailed,                    EACCES
+org.freedesktop.DBus.Error.NoServer,                      EHOSTDOWN
+org.freedesktop.DBus.Error.Timeout,                       ETIMEDOUT
+org.freedesktop.DBus.Error.NoNetwork,                     ENONET
+org.freedesktop.DBus.Error.AddressInUse,                  EADDRINUSE
+org.freedesktop.DBus.Error.Disconnected,                  ECONNRESET
+org.freedesktop.DBus.Error.InvalidArgs,                   EINVAL
+org.freedesktop.DBus.Error.FileNotFound,                  ENOENT
+org.freedesktop.DBus.Error.FileExists,                    EEXIST
+org.freedesktop.DBus.Error.UnknownMethod,                 EBADR
+org.freedesktop.DBus.Error.UnknownObject,                 EBADR
+org.freedesktop.DBus.Error.UnknownInterface,              EBADR
+org.freedesktop.DBus.Error.UnknownProperty,               EBADR
+org.freedesktop.DBus.Error.PropertyReadOnly,              EROFS
+org.freedesktop.DBus.Error.UnixProcessIdUnknown,          ESRCH
+org.freedesktop.DBus.Error.InvalidSignature,              EINVAL
+org.freedesktop.DBus.Error.InconsistentMessage,           EBADMSG
+#
+org.freedesktop.DBus.Error.TimedOut,                      ETIMEDOUT
+org.freedesktop.DBus.Error.MatchRuleInvalid,              EINVAL
+org.freedesktop.DBus.Error.InvalidFileContent,            EINVAL
+org.freedesktop.DBus.Error.MatchRuleNotFound,             ENOENT
+org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown, ESRCH
+org.freedesktop.DBus.Error.ObjectPathInUse,               EBUSY

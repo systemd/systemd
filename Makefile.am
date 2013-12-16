@@ -2024,6 +2024,9 @@ libsystemd_bus_la_SOURCES = \
 	src/libsystemd-bus/event-util.h \
 	src/libsystemd-bus/bus-protocol.h
 
+nodist_libsystemd_bus_la_SOURCES = \
+	src/libsystemd-bus/bus-error-mapping.c
+
 libsystemd_bus_la_LIBADD = \
 	libsystemd-id128-internal.la \
 	libsystemd-daemon-internal.la \
@@ -2042,6 +2045,7 @@ pkgconfiglib_DATA += \
 	src/libsystemd-bus/libsystemd-bus.pc
 
 EXTRA_DIST += \
+	src/libsystemd-bus/bus-error-mapping.gperf \
 	src/libsystemd-bus/libsystemd-bus.pc.in \
 	src/libsystemd-bus/DIFFERENCES \
 	src/libsystemd-bus/GVARIANT-SERIALIZATION
@@ -2051,6 +2055,9 @@ lib_LTLIBRARIES += \
 
 libsystemd_bus_internal_la_SOURCES = \
 	$(libsystemd_bus_la_SOURCES)
+
+nodist_libsystemd_bus_internal_la_SOURCES = \
+	$(nodist_libsystemd_bus_la_SOURCES)
 
 libsystemd_bus_internal_la_CFLAGS = \
 	$(libsystemd_bus_la_CFLAGS)

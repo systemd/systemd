@@ -38,6 +38,7 @@
 static int bus_error_name_to_errno(const char *name) {
         const char *p;
         int r;
+        const name_error_mapping *m;
 
         if (!name)
                 return EINVAL;
@@ -51,81 +52,9 @@ static int bus_error_name_to_errno(const char *name) {
                 return r;
         }
 
-        /* Better replace this with a gperf table */
-
-        if (streq(name, SD_BUS_ERROR_NO_MEMORY))
-                return ENOMEM;
-
-        if (streq(name, SD_BUS_ERROR_SERVICE_UNKNOWN))
-                return EHOSTUNREACH;
-
-        if (streq(name, SD_BUS_ERROR_NAME_HAS_NO_OWNER))
-                return ENXIO;
-
-        if (streq(name, SD_BUS_ERROR_NO_REPLY) ||
-            streq(name, SD_BUS_ERROR_TIMEOUT) ||
-            streq(name, "org.freedesktop.DBus.Error.TimedOut"))
-                return ETIMEDOUT;
-
-        if (streq(name, SD_BUS_ERROR_IO_ERROR))
-                return EIO;
-
-        if (streq(name, SD_BUS_ERROR_BAD_ADDRESS))
-                return EADDRNOTAVAIL;
-
-        if (streq(name, SD_BUS_ERROR_NOT_SUPPORTED))
-                return ENOTSUP;
-
-        if (streq(name, SD_BUS_ERROR_LIMITS_EXCEEDED))
-                return ENOBUFS;
-
-        if (streq(name, SD_BUS_ERROR_ACCESS_DENIED) ||
-            streq(name, SD_BUS_ERROR_AUTH_FAILED))
-                return EACCES;
-
-        if (streq(name, SD_BUS_ERROR_NO_SERVER))
-                return EHOSTDOWN;
-
-        if (streq(name, SD_BUS_ERROR_NO_NETWORK))
-                return ENONET;
-
-        if (streq(name, SD_BUS_ERROR_ADDRESS_IN_USE))
-                return EADDRINUSE;
-
-        if (streq(name, SD_BUS_ERROR_DISCONNECTED))
-                return ECONNRESET;
-
-        if (streq(name, SD_BUS_ERROR_INVALID_ARGS) ||
-            streq(name, SD_BUS_ERROR_INVALID_SIGNATURE) ||
-            streq(name, "org.freedesktop.DBus.Error.MatchRuleInvalid") ||
-            streq(name, "org.freedesktop.DBus.Error.InvalidFileContent"))
-                return EINVAL;
-
-        if (streq(name, SD_BUS_ERROR_FILE_NOT_FOUND) ||
-            streq(name, "org.freedesktop.DBus.Error.MatchRuleNotFound"))
-                return ENOENT;
-
-        if (streq(name, SD_BUS_ERROR_FILE_EXISTS))
-                return EEXIST;
-
-        if (streq(name, SD_BUS_ERROR_UNKNOWN_METHOD) ||
-            streq(name, SD_BUS_ERROR_UNKNOWN_OBJECT) ||
-            streq(name, SD_BUS_ERROR_UNKNOWN_INTERFACE) ||
-            streq(name, SD_BUS_ERROR_UNKNOWN_PROPERTY))
-                return EBADR;
-
-        if (streq(name, SD_BUS_ERROR_PROPERTY_READ_ONLY))
-                return EROFS;
-
-        if (streq(name, SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN) ||
-            streq(name, "org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown"))
-                return ESRCH;
-
-        if (streq(name, SD_BUS_ERROR_INCONSISTENT_MESSAGE))
-                return EBADMSG;
-
-        if (streq(name, "org.freedesktop.DBus.Error.ObjectPathInUse"))
-                return EBUSY;
+        m = bus_error_mapping_lookup(name, strlen(name));
+        if (m)
+                return m->code;
 
         return EIO;
 }
