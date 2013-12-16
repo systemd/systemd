@@ -4936,15 +4936,15 @@ int fd_inc_sndbuf(int fd, size_t n) {
         socklen_t l = sizeof(value);
 
         r = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, &l);
-        if (r >= 0 &&
-            l == sizeof(value) &&
-            (size_t) value >= n*2)
+        if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
                 return 0;
 
+        /* If we have the privileges we will ignore the kernel limit. */
+
         value = (int) n;
-        r = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value));
-        if (r < 0)
-                return -errno;
+        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &value, sizeof(value)) < 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0)
+                        return -errno;
 
         return 1;
 }
@@ -4954,16 +4954,15 @@ int fd_inc_rcvbuf(int fd, size_t n) {
         socklen_t l = sizeof(value);
 
         r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
-        if (r >= 0 &&
-            l == sizeof(value) &&
-            (size_t) value >= n*2)
+        if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
                 return 0;
 
-        value = (int) n;
-        r = setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value));
-        if (r < 0)
-                return -errno;
+        /* If we have the privileges we will ignore the kernel limit. */
 
+        value = (int) n;
+        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
+                        return -errno;
         return 1;
 }
 
