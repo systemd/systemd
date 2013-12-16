@@ -1010,7 +1010,10 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-        eq = memchr(data, '=', size);
+        if (!data)
+                eq = NULL;
+        else
+                eq = memchr(data, '=', size);
         if (eq && eq > data) {
                 uint64_t fp;
                 Object *fo;
