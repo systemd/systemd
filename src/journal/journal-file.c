@@ -2730,7 +2730,8 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         ts.realtime = le64toh(o->entry.realtime);
 
         n = journal_file_entry_n_items(o);
-        items = alloca(sizeof(EntryItem) * n);
+        /* alloca() can't take 0, hence let's allocate at least one */
+        items = alloca(sizeof(EntryItem) * MAX(1u, n));
 
         for (i = 0; i < n; i++) {
                 uint64_t l, h;
