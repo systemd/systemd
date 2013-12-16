@@ -97,10 +97,6 @@ static int start_interface(sd_rtnl *rtnl, int if_loopback, struct in_addr *ipv4_
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_append_in_addr(req, IFA_LOCAL, ipv4_address);
-        if (r < 0)
-                return r;
-
         r = sd_rtnl_call_async(rtnl, req, &pipe_handler, counter, 0, NULL);
         if (r < 0)
                 return r;
