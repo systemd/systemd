@@ -118,6 +118,7 @@ static void bus_reset_queues(sd_bus *b) {
         free(b->wqueue);
 
         b->rqueue = b->wqueue = NULL;
+        b->rqueue_allocated = b->wqueue_allocated = 0;
         b->rqueue_size = b->wqueue_size = 0;
 }
 
@@ -195,8 +196,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
 
         /* We guarantee that wqueue always has space for at least one
          * entry */
-        r->wqueue = new(sd_bus_message*, 1);
-        if (!r->wqueue) {
+        if (!GREEDY_REALLOC(r->wqueue, r->wqueue_allocated, 1)) {
                 free(r);
                 return -ENOMEM;
         }
@@ -397,7 +397,7 @@ int bus_start_running(sd_bus *bus) {
 }
 
 static int parse_address_key(const char **p, const char *key, char **value) {
-        size_t l, n = 0;
+        size_t l, n = 0, allocated = 0;
         const char *a;
         char *r = NULL;
 
@@ -421,7 +421,7 @@ static int parse_address_key(const char **p, const char *key, char **value) {
                 a = *p;
 
         while (*a != ';' && *a != ',' && *a != 0) {
-                char c, *t;
+                char c;
 
                 if (*a == '%') {
                         int x, y;
@@ -445,13 +445,9 @@ static int parse_address_key(const char **p, const char *key, char **value) {
                         a++;
                 }
 
-                t = realloc(r, n + 2);
-                if (!t) {
-                        free(r);
+                if (!GREEDY_REALLOC(r, allocated, n + 2))
                         return -ENOMEM;
-                }
 
-                r = t;
                 r[n++] = c;
         }
 
@@ -614,6 +610,7 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
         char *path = NULL;
         unsigned n_argv = 0, j;
         char **argv = NULL;
+        size_t allocated = 0;
         int r;
 
         assert(b);
@@ -647,17 +644,11 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
                         (*p) ++;
 
                         if (ul >= n_argv) {
-                                char **x;
-
-                                x = realloc(argv, sizeof(char*) * (ul + 2));
-                                if (!x) {
+                                if (!GREEDY_REALLOC0(argv, allocated, ul + 2)) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
 
-                                memset(x + n_argv, 0, sizeof(char*) * (ul - n_argv + 2));
-
-                                argv = x;
                                 n_argv = ul + 1;
                         }
 
@@ -1422,23 +1413,13 @@ static int bus_read_message(sd_bus *bus) {
 }
 
 int bus_rqueue_make_room(sd_bus *bus) {
-        sd_bus_message **q;
-        unsigned x;
+        assert(bus);
 
-        x = bus->rqueue_size + 1;
-
-        if (bus->rqueue_allocated >= x)
-                return 0;
-
-        if (x > BUS_RQUEUE_MAX)
+        if (bus->rqueue_size >= BUS_RQUEUE_MAX)
                 return -ENOBUFS;
 
-        q = realloc(bus->rqueue, x * sizeof(sd_bus_message*));
-        if (!q)
+        if (!GREEDY_REALLOC(bus->rqueue, bus->rqueue_allocated, bus->rqueue_size + 1))
                 return -ENOMEM;
-
-        bus->rqueue = q;
-        bus->rqueue_allocated = x;
 
         return 0;
 }
@@ -1521,19 +1502,15 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
                         bus->windex = idx;
                 }
         } else {
-                sd_bus_message **q;
-
                 /* Just append it to the queue. */
 
                 if (bus->wqueue_size >= BUS_WQUEUE_MAX)
                         return -ENOBUFS;
 
-                q = realloc(bus->wqueue, sizeof(sd_bus_message*) * (bus->wqueue_size + 1));
-                if (!q)
+                if (!GREEDY_REALLOC(bus->wqueue, bus->wqueue_allocated, bus->wqueue_size + 1))
                         return -ENOMEM;
 
-                bus->wqueue = q;
-                q[bus->wqueue_size ++] = sd_bus_message_ref(m);
+                bus->wqueue[bus->wqueue_size ++] = sd_bus_message_ref(m);
         }
 
         if (serial)

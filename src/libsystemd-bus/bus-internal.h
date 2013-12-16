@@ -168,11 +168,13 @@ struct sd_bus {
         size_t rbuffer_size;
 
         sd_bus_message **rqueue;
-        unsigned rqueue_size, rqueue_allocated;
+        unsigned rqueue_size;
+        size_t rqueue_allocated;
 
         sd_bus_message **wqueue;
         unsigned wqueue_size;
         size_t windex;
+        size_t wqueue_allocated;
 
         uint64_t serial;
 
