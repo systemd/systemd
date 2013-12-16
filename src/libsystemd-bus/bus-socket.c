@@ -38,6 +38,8 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 
+#define SNDBUF_SIZE (8*1024*1024)
+
 static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
 
         while (size > 0) {
@@ -614,9 +616,9 @@ int bus_socket_setup(sd_bus *b) {
         enable = !b->bus_client && (b->attach_flags & KDBUS_ATTACH_SECLABEL);
         setsockopt(b->input_fd, SOL_SOCKET, SO_PASSSEC, &enable, sizeof(enable));
 
-        /* Increase the buffers to a MB */
-        fd_inc_rcvbuf(b->input_fd, 1024*1024);
-        fd_inc_sndbuf(b->output_fd, 1024*1024);
+        /* Increase the buffers to 8 MB */
+        fd_inc_rcvbuf(b->input_fd, SNDBUF_SIZE);
+        fd_inc_sndbuf(b->output_fd, SNDBUF_SIZE);
 
         /* Get the peer for socketpair() sockets */
         l = sizeof(b->ucred);
