@@ -75,6 +75,8 @@
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
 
+#define SNDBUF_SIZE (8*1024*1024)
+
 static int shift_fds(int fds[], unsigned n_fds) {
         int start, restart_from;
 
@@ -220,6 +222,8 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 close_nointr_nofail(fd);
                 return -errno;
         }
+
+        fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         dprintf(fd,
                 "%s\n"
