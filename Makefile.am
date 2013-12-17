@@ -3728,7 +3728,20 @@ systemd_bus_driverd_LDADD = \
 
 rootlibexec_PROGRAMS += \
 	systemd-bus-driverd
+
+nodist_systemunit_DATA += \
+	units/systemd-bus-driverd.service
+
+dist_systemunit_DATA += \
+	units/org.freedesktop.DBus.busname
+
+BUSNAMES_TARGET_WANTS += \
+	org.freedesktop.DBus.busname
+
 endif
+
+EXTRA_DIST += \
+	units/systemd-bus-driverd.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOCALED
