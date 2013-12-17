@@ -398,7 +398,8 @@ int server_open_dev_kmsg(Server *s) {
 
         s->dev_kmsg_fd = open("/dev/kmsg", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (s->dev_kmsg_fd < 0) {
-                log_warning("Failed to open /dev/kmsg, ignoring: %m");
+                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "Failed to open /dev/kmsg, ignoring: %m");
                 return 0;
         }
 
