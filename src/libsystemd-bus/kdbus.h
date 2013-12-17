@@ -201,6 +201,7 @@ struct kdbus_policy {
  * @KDBUS_ITEM_PAYLOAD_MEMFD:	Data as sealed memfd
  * @KDBUS_ITEM_FDS:		Attached file descriptors
  * @KDBUS_ITEM_BLOOM:		For broadcasts, carries bloom filter
+ * @KDBUS_ITEM_BLOOM_SIZE:	Desired bloom size, used by KDBUS_CMD_BUS_MAKE
  * @KDBUS_ITEM_DST_NAME:	Destination's well-known name
  * @KDBUS_ITEM_PRIORITY:	Queue priority for message
  * @KDBUS_ITEM_MAKE_NAME:	Name of namespace, bus, endpoint
@@ -233,6 +234,7 @@ enum kdbus_item_type {
 	KDBUS_ITEM_PAYLOAD_MEMFD,
 	KDBUS_ITEM_FDS,
 	KDBUS_ITEM_BLOOM,
+	KDBUS_ITEM_BLOOM_SIZE,
 	KDBUS_ITEM_DST_NAME,
 	KDBUS_ITEM_PRIORITY,
 	KDBUS_ITEM_MAKE_NAME,
@@ -493,46 +495,15 @@ enum kdbus_make_flags {
 };
 
 /**
- * struct kdbus_cmd_bus_make - struct to make a bus
+ * struct kdbus_cmd_make - struct to make a bus, an endpoint or a namespace
  * @size:		The total size of the struct
- * @flags:		Properties for the bus to create
- * @bloom_size:		Size of the bloom filter for this bus
- * @items:		Items describing details such as the name of the bus
+ * @flags:		Properties for the bus/ep/ns to create
+ * @items:		Items describing details
  *
- * This structure is used with the KDBUS_CMD_BUS_MAKE ioctl.
+ * This structure is used with the KDBUS_CMD_BUS_MAKE, KDBUS_CMD_EP_MAKE and
+ * KDBUS_CMD_NS_MAKE ioctls.
  */
-struct kdbus_cmd_bus_make {
-	__u64 size;
-	__u64 flags;
-	__u64 bloom_size;
-	struct kdbus_item items[0];
-} __attribute__((aligned(8)));
-
-/**
- * struct kdbus_cmd_ep_make - struct to make an endpoint
- * @size:		The total size of the struct
- * @flags:		Unused for now
- * @items:		Items describing details such as the
- * 			name of the endpoint
- *
- * This structure is used with the KDBUS_CMD_EP_MAKE ioctl.
- */
-struct kdbus_cmd_ep_make {
-	__u64 size;
-	__u64 flags;
-	struct kdbus_item items[0];
-} __attribute__((aligned(8)));
-
-/**
- * struct kdbus_cmd_ns_make - struct to make a namespace
- * @size:		The total size of the struct
- * @flags:		Unused for now
- * @items:		Items describing details such as the
- * 			name of the namespace
- *
- * This structure is used with the KDBUS_CMD_NS_MAKE ioctl.
- */
-struct kdbus_cmd_ns_make {
+struct kdbus_cmd_make {
 	__u64 size;
 	__u64 flags;
 	struct kdbus_item items[0];
@@ -772,9 +743,9 @@ struct kdbus_cmd_match {
  * 				be changed as long as the file is shared.
  */
 enum kdbus_ioctl_type {
-	KDBUS_CMD_BUS_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x00, struct kdbus_cmd_bus_make),
-	KDBUS_CMD_NS_MAKE =		_IOR (KDBUS_IOC_MAGIC, 0x10, struct kdbus_cmd_ns_make),
-	KDBUS_CMD_EP_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x20, struct kdbus_cmd_ep_make),
+	KDBUS_CMD_BUS_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x00, struct kdbus_cmd_make),
+	KDBUS_CMD_NS_MAKE =		_IOR (KDBUS_IOC_MAGIC, 0x10, struct kdbus_cmd_make),
+	KDBUS_CMD_EP_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x20, struct kdbus_cmd_make),
 
 	KDBUS_CMD_HELLO =		_IOWR(KDBUS_IOC_MAGIC, 0x30, struct kdbus_cmd_hello),
 

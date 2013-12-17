@@ -1066,7 +1066,7 @@ int kdbus_translate_attach_flags(uint64_t mask, uint64_t *kdbus_mask) {
 }
 
 int bus_kernel_create_bus(const char *name, char **s) {
-        struct kdbus_cmd_bus_make *make;
+        struct kdbus_cmd_make *make;
         struct kdbus_item *n;
         int fd;
 
@@ -1077,19 +1077,27 @@ int bus_kernel_create_bus(const char *name, char **s) {
         if (fd < 0)
                 return -errno;
 
-        make = alloca0(ALIGN8(offsetof(struct kdbus_cmd_bus_make, items) +
+        make = alloca0(ALIGN8(offsetof(struct kdbus_cmd_make, items) +
+                              offsetof(struct kdbus_item, data64) + sizeof(uint64_t) +
                               offsetof(struct kdbus_item, str) +
                               DECIMAL_STR_MAX(uid_t) + 1 + strlen(name) + 1));
 
+        make->size = offsetof(struct kdbus_cmd_make, items);
+
         n = make->items;
+        n->size = offsetof(struct kdbus_item, data64) + sizeof(uint64_t);
+        n->type = KDBUS_ITEM_BLOOM_SIZE;
+        n->data64[0] = BLOOM_SIZE;
+        assert_cc(BLOOM_SIZE % 8 == 0);
+        make->size += ALIGN8(n->size);
+
+        n = KDBUS_ITEM_NEXT(n);
         sprintf(n->str, "%lu-%s", (unsigned long) getuid(), name);
         n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
         n->type = KDBUS_ITEM_MAKE_NAME;
+        make->size += ALIGN8(n->size);
 
-        make->size = ALIGN8(offsetof(struct kdbus_cmd_bus_make, items) + n->size);
         make->flags = KDBUS_MAKE_POLICY_OPEN;
-        make->bloom_size = BLOOM_SIZE;
-        assert_cc(BLOOM_SIZE % 8 == 0);
 
         if (ioctl(fd, KDBUS_CMD_BUS_MAKE, make) < 0) {
                 close_nointr_nofail(fd);
@@ -1169,7 +1177,7 @@ int bus_kernel_create_starter(const char *bus, const char *name) {
 }
 
 int bus_kernel_create_namespace(const char *name, char **s) {
-        struct kdbus_cmd_ns_make *make;
+        struct kdbus_cmd_make *make;
         struct kdbus_item *n;
         int fd;
 
@@ -1180,7 +1188,7 @@ int bus_kernel_create_namespace(const char *name, char **s) {
         if (fd < 0)
                 return -errno;
 
-        make = alloca0(ALIGN8(offsetof(struct kdbus_cmd_ns_make, items) +
+        make = alloca0(ALIGN8(offsetof(struct kdbus_cmd_make, items) +
                               offsetof(struct kdbus_item, str) +
                               strlen(name) + 1));
 
@@ -1189,7 +1197,7 @@ int bus_kernel_create_namespace(const char *name, char **s) {
         n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
         n->type = KDBUS_ITEM_MAKE_NAME;
 
-        make->size = ALIGN8(offsetof(struct kdbus_cmd_ns_make, items) + n->size);
+        make->size = ALIGN8(offsetof(struct kdbus_cmd_make, items) + n->size);
         make->flags = KDBUS_MAKE_POLICY_OPEN | KDBUS_MAKE_ACCESS_WORLD;
 
         if (ioctl(fd, KDBUS_CMD_NS_MAKE, make) < 0) {
