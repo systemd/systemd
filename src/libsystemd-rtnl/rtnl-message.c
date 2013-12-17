@@ -601,7 +601,7 @@ int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, c
                         return -ENOTSUP;
         }
 
-        r = add_rtattr(m, type, data, sizeof(data));
+        r = add_rtattr(m, type, data, ETH_ALEN);
         if (r < 0)
                 return r;
 
