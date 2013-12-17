@@ -2050,6 +2050,9 @@ EXTRA_DIST += \
 	src/libsystemd-bus/DIFFERENCES \
 	src/libsystemd-bus/GVARIANT-SERIALIZATION
 
+CLEANFILES += \
+	src/libsystemd-bus/bus-error-mapping.c
+
 lib_LTLIBRARIES += \
 	libsystemd-bus.la
 
