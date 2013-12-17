@@ -1089,7 +1089,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -1107,14 +1107,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return 0;
 
                 case 'p': {
-                        char **l;
-
-                        l = strv_append(arg_property, optarg);
-                        if (!l)
-                                return -ENOMEM;
-
-                        strv_free(arg_property);
-                        arg_property = l;
+                        r = strv_extend(&arg_property, optarg);
+                        if (r < 0)
+                                return log_oom();
 
                         /* If the user asked for a particular
                          * property, show it to him, even if it is
