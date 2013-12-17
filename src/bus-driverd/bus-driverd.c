@@ -81,8 +81,9 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'     },
-                { NULL,              0,                 NULL, 0       }
+                { "help",            no_argument,       NULL, 'h'         },
+                { "version",         no_argument,       NULL, ARG_VERSION },
+                {}
         };
 
         int c;
@@ -90,8 +91,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
-
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -107,10 +107,8 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unknown option");
                 }
-        }
 
         return 1;
 }
