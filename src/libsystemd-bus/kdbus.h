@@ -27,6 +27,23 @@
 #define KDBUS_DST_ID_BROADCAST		(~0ULL)
 
 /**
+ * struct kdbus_notify_id_change - name registry change message
+ * @id:			New or former owner of the name
+ * @flags:		flags field from KDBUS_HELLO_*
+ *
+ * Sent from kernel to userspace when the owner or activator of
+ * a well-known name changes.
+ *
+ * Attached to:
+ *   KDBUS_ITEM_ID_ADD
+ *   KDBUS_ITEM_ID_REMOVE
+ */
+struct kdbus_notify_id_change {
+	__u64 id;
+	__u64 flags;
+};
+
+/**
  * struct kdbus_notify_name_change - name registry change message
  * @old_id:		Former owner of a name
  * @new_id:		New owner of a name
@@ -43,28 +60,9 @@
  *   KDBUS_ITEM_NAME_CHANGE
  */
 struct kdbus_notify_name_change {
-	__u64 old_id;
-	__u64 new_id;
-	__u64 old_flags;
-	__u64 new_flags;
+	struct kdbus_notify_id_change old;
+	struct kdbus_notify_id_change new;
 	char name[0];
-};
-
-/**
- * struct kdbus_notify_id_change - name registry change message
- * @id:			New or former owner of the name
- * @flags:		flags field from KDBUS_HELLO_*
- *
- * Sent from kernel to userspace when the owner or activator of
- * a well-known name changes.
- *
- * Attached to:
- *   KDBUS_ITEM_ID_ADD
- *   KDBUS_ITEM_ID_REMOVE
- */
-struct kdbus_notify_id_change {
-	__u64 id;
-	__u64 flags;
 };
 
 /**
@@ -518,11 +516,11 @@ struct kdbus_cmd_make {
  * @KDBUS_NAME_ACTIVATOR:		Name is owned by a activator connection
  */
 enum kdbus_name_flags {
-	KDBUS_NAME_REPLACE_EXISTING		= 1 <<  0,
-	KDBUS_NAME_ALLOW_REPLACEMENT		= 1 <<  1,
-	KDBUS_NAME_QUEUE			= 1 <<  2,
-	KDBUS_NAME_IN_QUEUE			= 1 <<  3,
-	KDBUS_NAME_ACTIVATOR			= 1 <<  4,
+	KDBUS_NAME_REPLACE_EXISTING	= 1 <<  0,
+	KDBUS_NAME_ALLOW_REPLACEMENT	= 1 <<  1,
+	KDBUS_NAME_QUEUE		= 1 <<  2,
+	KDBUS_NAME_IN_QUEUE		= 1 <<  3,
+	KDBUS_NAME_ACTIVATOR		= 1 <<  4,
 };
 
 /**
@@ -564,7 +562,7 @@ enum kdbus_name_list_flags {
  * @offset:		The returned offset in the caller's pool buffer.
  *			The user must use KDBUS_CMD_FREE to free the
  *			allocated memory.
- * 
+ *
  * This structure is used with the KDBUS_CMD_NAME_LIST ioctl.
  */
 struct kdbus_cmd_name_list {
@@ -687,6 +685,11 @@ struct kdbus_cmd_match {
  * @KDBUS_CMD_HELLO:		By opening the bus device node a connection is
  * 				created. After a HELLO the opened connection
  * 				becomes an active peer on the bus.
+ * @KDBUS_CMD_BYEBYE:		Disconnect a connection. If the connection's
+ * 				message list is empty, the calls succeeds, and
+ * 				the handle is rendered unusable. Otherwise,
+ * 				-EAGAIN is returned without any further side-
+ * 				effects.
  * @KDBUS_CMD_MSG_SEND:		Send a message and pass data from userspace to
  * 				the kernel.
  * @KDBUS_CMD_MSG_RECV:		Receive a message from the kernel which is
@@ -748,6 +751,7 @@ enum kdbus_ioctl_type {
 	KDBUS_CMD_EP_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x20, struct kdbus_cmd_make),
 
 	KDBUS_CMD_HELLO =		_IOWR(KDBUS_IOC_MAGIC, 0x30, struct kdbus_cmd_hello),
+	KDBUS_CMD_BYEBYE =		_IO  (KDBUS_IOC_MAGIC, 0x31),
 
 	KDBUS_CMD_MSG_SEND =		_IOW (KDBUS_IOC_MAGIC, 0x40, struct kdbus_msg),
 	KDBUS_CMD_MSG_RECV =		_IOR (KDBUS_IOC_MAGIC, 0x41, __u64 *),

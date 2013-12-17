@@ -787,8 +787,8 @@ static int add_name_change_match(sd_bus *bus,
                         offsetof(struct kdbus_notify_name_change, name) +
                         l+1;
 
-                item->name_change.old_id = old_owner_id;
-                item->name_change.new_id = new_owner_id;
+                item->name_change.old.id = old_owner_id;
+                item->name_change.new.id = new_owner_id;
 
                 if (name)
                         strcpy(item->name_change.name, name);
