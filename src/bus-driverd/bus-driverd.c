@@ -185,7 +185,6 @@ static int driver_get_id(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_
 static int driver_get_name_owner(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
 
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        _cleanup_free_ char *owner = NULL;
         char *arg0;
         int r;
 
