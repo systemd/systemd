@@ -207,7 +207,6 @@ struct kdbus_policy {
  * @KDBUS_ITEM_POLICY_NAME:	Policy in struct kdbus_policy
  * @KDBUS_ITEM_POLICY_ACCESS:	Policy in struct kdbus_policy
  * @KDBUS_ITEM_NAME:		Well-know name with flags
- * @KDBUS_ITEM_ACTIVATOR_NAME:	Well-known name for the activator
  * @KDBUS_ITEM_TIMESTAMP:	Timestamp
  * @KDBUS_ITEM_CREDS:		Process credential
  * @KDBUS_ITEM_PID_COMM:	Process ID "comm" identifier
@@ -244,7 +243,6 @@ enum kdbus_item_type {
 
 	_KDBUS_ITEM_ATTACH_BASE	= 0x600,
 	KDBUS_ITEM_NAME		= _KDBUS_ITEM_ATTACH_BASE,
-	KDBUS_ITEM_ACTIVATOR_NAME,
 	KDBUS_ITEM_TIMESTAMP,
 	KDBUS_ITEM_CREDS,
 	KDBUS_ITEM_PID_COMM,

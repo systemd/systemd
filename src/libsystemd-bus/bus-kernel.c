@@ -1141,7 +1141,7 @@ int bus_kernel_create_starter(const char *bus, const char *name) {
         n = hello->items;
         strcpy(n->str, name);
         n->size = offsetof(struct kdbus_item, str) + strlen(n->str) + 1;
-        n->type = KDBUS_ITEM_ACTIVATOR_NAME;
+        n->type = KDBUS_ITEM_NAME;
 
         hello->size = ALIGN8(offsetof(struct kdbus_cmd_hello, items) + n->size);
         hello->conn_flags = KDBUS_HELLO_ACTIVATOR;
