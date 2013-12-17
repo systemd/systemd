@@ -152,6 +152,9 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         _cleanup_fclose_ FILE *file;
         int r;
 
+        assert(ctx);
+        assert(filename);
+
         file = fopen(filename, "re");
         if (!file) {
                 if (errno == ENOENT)
