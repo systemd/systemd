@@ -154,6 +154,8 @@ Features:
 
 * timedatctl, localectl: possibly make some commands work without the daemon, for chroot situations...
 
+* timedatectl: print a nicer message when enabling ntp fails because ntpd/chrony are not installed
+
 * cgtop: make cgtop useful in a container
 
 * test/:
