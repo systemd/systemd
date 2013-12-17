@@ -391,8 +391,18 @@ int link_configure(Link *link) {
         return 0;
 }
 
-int link_update_flags(Link *link, unsigned flags) {
+int link_update(Link *link, sd_rtnl_message *m) {
+        unsigned flags;
+        int r;
+
         assert(link);
+        assert(m);
+
+        r = sd_rtnl_message_link_get_flags(m, &flags);
+        if (r < 0) {
+                log_warning("Could not get link flags of '%s'", link->ifname);
+                return r;
+        }
 
         if (link->flags & IFF_UP && !(flags & IFF_UP))
                 log_info("Interface '%s' is down", link->ifname);

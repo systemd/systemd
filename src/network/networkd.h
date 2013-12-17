@@ -263,7 +263,7 @@ void link_free(Link *link);
 int link_add(Manager *manager, struct udev_device *device);
 int link_configure(Link *link);
 
-int link_update_flags(Link *link, unsigned flags);
+int link_update(Link *link, sd_rtnl_message *message);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 #define _cleanup_link_free_ _cleanup_(link_freep)

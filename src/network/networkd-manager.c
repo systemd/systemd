@@ -243,7 +243,6 @@ int manager_udev_listen(Manager *m) {
 static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, void *userdata) {
         Manager *m = userdata;
         Link *link;
-        unsigned flags;
         int r, ifindex;
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
@@ -254,11 +253,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         if (!link)
                 return 0;
 
-        r = sd_rtnl_message_link_get_flags(message, &flags);
-        if (r < 0)
-                return 0;
-
-        r = link_update_flags(link, flags);
+        r = link_update(link, message);
         if (r < 0)
                 return 0;
 
