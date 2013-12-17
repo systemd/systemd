@@ -200,7 +200,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, bool with_header) {
                         break;
 
                 case SD_BUS_TYPE_BOOLEAN:
-                        fprintf(f, "%sBOOLEAN %s%s%s;\n", prefix, ansi_highlight(), yes_no(basic.i), ansi_highlight_off());
+                        fprintf(f, "%sBOOLEAN %s%s%s;\n", prefix, ansi_highlight(), true_false(basic.i), ansi_highlight_off());
                         break;
 
                 case SD_BUS_TYPE_INT16:

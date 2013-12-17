@@ -92,6 +92,10 @@ static inline const char* yes_no(bool b) {
         return b ? "yes" : "no";
 }
 
+static inline const char* true_false(bool b) {
+        return b ? "true" : "false";
+}
+
 static inline const char* strempty(const char *s) {
         return s ? s : "";
 }
