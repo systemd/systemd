@@ -61,20 +61,44 @@ int bus_container_connect_socket(sd_bus *b) {
                 return -errno;
 
         if (child == 0) {
+                pid_t grandchild;
 
                 r = namespace_enter(pidnsfd, mntnsfd, rootfd);
                 if (r < 0)
                         _exit(255);
 
-                r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
-                if (r < 0) {
-                        if (errno == EINPROGRESS)
-                                _exit(1);
+                /* We just changed PID namespace, however it will only
+                 * take effect on the children we now fork. Hence,
+                 * let's fork another time, and connect from this
+                 * grandchild, so that SO_PEERCRED of our connection
+                 * comes from a process from within the container, and
+                 * not outside of it */
 
+                grandchild = fork();
+                if (grandchild < 0)
                         _exit(255);
+
+                if (grandchild == 0) {
+
+                        r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
+                        if (r < 0) {
+                                if (errno == EINPROGRESS)
+                                        _exit(1);
+
+                                _exit(255);
+                        }
+
+                        _exit(EXIT_SUCCESS);
                 }
 
-                _exit(EXIT_SUCCESS);
+                r = wait_for_terminate(grandchild, &si);
+                if (r < 0)
+                        _exit(255);
+
+                if (si.si_code != CLD_EXITED)
+                        _exit(255);
+
+                _exit(si.si_status);
         }
 
         r = wait_for_terminate(child, &si);
@@ -130,6 +154,8 @@ int bus_container_connect_kernel(sd_bus *b) {
                 return -errno;
 
         if (child == 0) {
+                pid_t grandchild;
+
                 close_nointr_nofail(pair[0]);
                 pair[0] = -1;
 
@@ -137,22 +163,45 @@ int bus_container_connect_kernel(sd_bus *b) {
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
-                fd = open(b->kernel, O_RDWR|O_NOCTTY|O_CLOEXEC);
-                if (fd < 0)
+                /* We just changed PID namespace, however it will only
+                 * take effect on the children we now fork. Hence,
+                 * let's fork another time, and connect from this
+                 * grandchild, so that kdbus only sees the credentials
+                 * of this process which comes from within the
+                 * container, and not outside of it */
+
+                grandchild = fork();
+                if (grandchild < 0)
                         _exit(EXIT_FAILURE);
 
-                cmsg = CMSG_FIRSTHDR(&mh);
-                cmsg->cmsg_level = SOL_SOCKET;
-                cmsg->cmsg_type = SCM_RIGHTS;
-                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-                memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
+                if (grandchild == 0) {
 
-                mh.msg_controllen = cmsg->cmsg_len;
+                        fd = open(b->kernel, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                        if (fd < 0)
+                                _exit(EXIT_FAILURE);
 
-                if (sendmsg(pair[1], &mh, MSG_NOSIGNAL) < 0)
+                        cmsg = CMSG_FIRSTHDR(&mh);
+                        cmsg->cmsg_level = SOL_SOCKET;
+                        cmsg->cmsg_type = SCM_RIGHTS;
+                        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+                        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
+
+                        mh.msg_controllen = cmsg->cmsg_len;
+
+                        if (sendmsg(pair[1], &mh, MSG_NOSIGNAL) < 0)
+                                _exit(EXIT_FAILURE);
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                r = wait_for_terminate(grandchild, &si);
+                if (r < 0)
                         _exit(EXIT_FAILURE);
 
-                _exit(EXIT_SUCCESS);
+                if (si.si_code != CLD_EXITED)
+                        _exit(EXIT_FAILURE);
+
+                _exit(si.si_status);
         }
 
         close_nointr_nofail(pair[1]);
