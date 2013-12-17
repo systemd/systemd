@@ -108,10 +108,6 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                 if (arg_no_unique && (*i)[0] == ':')
                         continue;
 
-                /* Skip the bus driver */
-                if (streq(*i, "org.freedesktop.DBus"))
-                        continue;
-
                 printf("%-*s", (int) max_i, *i);
 
                 r = sd_bus_get_owner(bus, *i, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_UNIQUE_NAME, &creds);
