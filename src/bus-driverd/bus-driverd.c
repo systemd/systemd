@@ -348,10 +348,19 @@ static int driver_request_name(sd_bus *bus, sd_bus_message *m, void *userdata, s
         cmd_name->id = id;
 
         r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_ACQUIRE, cmd_name);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                if (errno == EEXIST)
+                        return sd_bus_reply_method_return(m, "u", BUS_NAME_EXISTS);
+                else if (errno == EALREADY)
+                        return sd_bus_reply_method_return(m, "u", BUS_NAME_ALREADY_OWNER);
+                else
+                        return sd_bus_reply_method_return(m, "u", -errno);
+        }
 
-        return sd_bus_reply_method_return(m, "u", 0);
+        if (cmd_name->flags & KDBUS_NAME_IN_QUEUE)
+                return sd_bus_reply_method_return(m, "u", BUS_NAME_IN_QUEUE);
+
+        return sd_bus_reply_method_return(m, "u", BUS_NAME_PRIMARY_OWNER);
 }
 
 static int driver_start_service_by_name(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
