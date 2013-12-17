@@ -428,8 +428,13 @@ int server_open_dev_kmsg(Server *s) {
         return 0;
 
 fail:
-        close_nointr_nofail(s->dev_kmsg_fd);
-        s->dev_kmsg_fd = -1;
+        if (s->dev_kmsg_event_source)
+                s->dev_kmsg_event_source = sd_event_source_unref(s->dev_kmsg_event_source);
+
+        if (s->dev_kmsg_fd >= 0) {
+                close_nointr_nofail(s->dev_kmsg_fd);
+                s->dev_kmsg_fd = -1;
+        }
 
         return r;
 }
