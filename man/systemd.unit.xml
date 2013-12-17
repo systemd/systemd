@@ -1304,7 +1304,7 @@
                       </row>
                       <row>
                         <entry><literal>%R</literal></entry>
-                        <entry>Root control group path where slices and units are placed below</entry>
+                        <entry>Root control group path below which slices and units are placed</entry>
                         <entry>For system instances, this resolves to <filename>/</filename>, except in containers, where this maps to the container's root control group path.</entry>
                       </row>
                       <row>
