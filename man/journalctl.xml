@@ -84,7 +84,7 @@
                 alternatives, i.e. the resulting output will show
                 entries matching any of the specified matches for the
                 same field. Finally, if the character
-                <literal>+</literal> appears as separate word on the
+                <literal>+</literal> appears as a separate word on the
                 command line, all matches before and after are combined
                 in a disjunction (i.e. logical OR).</para>
 
@@ -112,14 +112,14 @@
                 <command>less</command> by default, and long lines are
                 "truncated" to screen width. The hidden part can be
                 viewed by using the left-arrow and right-arrow
-                keys. Paging can be disabled, see
-                <option>--no-pager</option> and section Environment
-                below.</para>
+                keys. Paging can be disabled; see the
+                <option>--no-pager</option> option and the "Environment"
+                section below.</para>
 
                 <para>When outputing to a tty, lines are colored
                 according to priority: lines of level ERROR and higher
-                are colored red, lines of level NOTICE and higher are
-                highlighted, and other lines are displayed normally.
+                are colored red; lines of level NOTICE and higher are
+                highlighted; and other lines are displayed normally.
                 </para>
         </refsect1>
 
@@ -160,7 +160,7 @@
                                 they do not fit in available columns.
                                 The default is to show full fields,
                                 allowing them to wrap or be truncated
-                                by the pager if one is used.</para>
+                                by the pager, if one is used.</para>
 
                                 <para>The old options
                                 <option>-l</option>/<option>--full</option>
@@ -232,7 +232,7 @@
                                 <term><option>-r</option></term>
                                 <term><option>--reverse</option></term>
 
-                                <listitem><para>Reverse output, so the newest
+                                <listitem><para>Reverse output so the newest
                                 entries are displayed first.</para></listitem>
                         </varlistentry>
 
@@ -352,7 +352,7 @@
                                                         but formats them in
                                                         multiple lines in order
                                                         to make them more
-                                                        readable for humans.</para>
+                                                        readable by humans.</para>
                                                 </listitem>
                                         </varlistentry>
 
@@ -376,7 +376,7 @@
                                                 </term>
                                                 <listitem>
                                                         <para>generates a very
-                                                        terse output only
+                                                        terse output, only
                                                         showing the actual
                                                         message of each journal
                                                         entry with no meta data,
@@ -424,8 +424,8 @@
                                 <term><option>--quiet</option></term>
 
                                 <listitem><para>Suppresses any warning
-                                message regarding inaccessible system
-                                journals when run as normal
+                                messages regarding inaccessible system
+                                journals when run as a normal
                                 user.</para></listitem>
                         </varlistentry>
 
@@ -457,11 +457,11 @@
                                 <replaceable>offset</replaceable> will look up
                                 boots starting from the end of the
                                 journal. Thus, <constant>1</constant> means the
-                                first boot found in the journal in the
+                                first boot found in the journal in
                                 chronological order, <constant>2</constant> the
                                 second and so on; while <constant>-0</constant>
                                 is the last boot, <constant>-1</constant> the
-                                boot before that, and so on. An empty
+                                boot before last, and so on. An empty
                                 <replaceable>offset</replaceable> is equivalent
                                 to specifying <constant>-0</constant>, except
                                 when the current boot is not the last boot
@@ -469,7 +469,7 @@
                                 specified to look at logs from a different
                                 machine).</para>
 
-                                <para>If the 32 character
+                                <para>If the 32-character
                                 <replaceable>ID</replaceable> is specified, it
                                 may optionally be followed by
                                 <replaceable>offset</replaceable> which
@@ -478,7 +478,7 @@
                                 values mean earlier boots and a positive values
                                 mean later boots. If
                                 <replaceable>offset</replaceable> is not
-                                specified, a value of zero is assumed and the
+                                specified, a value of zero is assumed, and the
                                 logs for the boot given by
                                 <replaceable>ID</replaceable> are shown.
                                 </para>
@@ -490,7 +490,7 @@
                                 <term><option>--list-boots</option></term>
 
                                 <listitem><para>Show a tabular list of
-                                boot numbers (relative to current
+                                boot numbers (relative to the current
                                 boot), their IDs, and the timestamps
                                 of the first and last message
                                 pertaining to the boot.
@@ -600,8 +600,8 @@
                                 <listitem><para>The cursor is shown after the last
                                 entry after two dashes:</para>
                                 <programlisting>-- cursor: s=0639...</programlisting>
-                                <para>The format of this the cursor is private
-                                and subject ot change.</para></listitem>
+                                <para>The format of the cursor is private
+                                and subject to change.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -651,7 +651,7 @@
 
                                 <listitem><para>Show messages from
                                 system services and the kernel (with
-                                <option>--system</option>).  Show
+                                <option>--system</option>). Show
                                 messages from service of current user
                                 (with <option>--user</option>).
                                 If neither is specified, show all
@@ -685,13 +685,13 @@
                         <varlistentry>
                                 <term><option>--file=<replaceable>GLOB</replaceable></option></term>
 
-                                <listitem><para>Takes a file glob as
+                                <listitem><para>Takes a file glob as an
                                 argument. If specified, journalctl will
                                 operate on the specified journal files
                                 matching <replaceable>GLOB</replaceable>
                                 instead of the default runtime and
                                 system journal paths. May be specified
-                                multiple times, in which case files will
+                                multiple times, in which case, files will
                                 be suitably interleaved.</para></listitem>
                         </varlistentry>
 
@@ -699,7 +699,7 @@
                                 <term><option>--root=<replaceable>ROOT</replaceable></option></term>
 
                                 <listitem><para>Takes a directory path
-                                as argument. If specified, journalctl
+                                as an argument. If specified, journalctl
                                 will operate on catalog file hierarchy
                                 underneath the specified directory
                                 instead of the root directory
@@ -713,8 +713,8 @@
                                 <term><option>--new-id128</option></term>
 
                                 <listitem><para>Instead of showing
-                                journal contents, generate a new 128
-                                bit ID suitable for identifying
+                                journal contents, generate a new 128-bit
+                                ID suitable for identifying
                                 messages. This is intended for usage
                                 by developers who need a new
                                 identifier for a new message they
@@ -748,8 +748,8 @@
                                 </option></term>
 
                                 <listitem><para>List the contents of
-                                the message catalog, as table of
-                                message IDs plus their short
+                                the message catalog as a table of
+                                message IDs, plus their short
                                 description strings.</para>
 
                                 <para>If any
@@ -767,9 +767,9 @@
                                 <listitem><para>Show the contents of
                                 the message catalog, with entries
                                 separated by a line consisting of two
-                                dashes and the id (the format is the
+                                dashes and the ID (the format is the
                                 same as <filename>.catalog</filename>
-                                files.</para>
+                                files).</para>
 
                                 <para>If any
                                 <replaceable>ID128</replaceable>s are
@@ -784,7 +784,7 @@
                                 <listitem><para>Update the message
                                 catalog index. This command needs to
                                 be executed each time new catalog
-                                files are installed, removed or
+                                files are installed, removed, or
                                 updated to rebuild the binary catalog
                                 index.</para></listitem>
                         </varlistentry>
@@ -809,9 +809,10 @@
                         <varlistentry>
                                 <term><option>--force</option></term>
 
-                                <listitem><para>When --setup-keys is passed and
-                                Forward Secure Sealing has already been set up,
-                                recreate FSS keys.</para></listitem>
+                                <listitem><para>When
+                                <option>--setup-keys</option> is passed and
+                                Forward Secure Sealing (FSS) has already been
+                                configured, recreate FSS keys.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -856,8 +857,8 @@
         <refsect1>
                 <title>Exit status</title>
 
-                <para>On success, 0 is returned, a non-zero failure
-                code otherwise.</para>
+                <para>On success, 0 is returned; otherwise, a non-zero
+                failure code is returned.</para>
         </refsect1>
 
         <refsect1>
