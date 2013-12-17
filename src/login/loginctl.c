@@ -572,26 +572,37 @@ finish:
         return 0;
 }
 
+static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
+        int r;
+
+        if (*new_line)
+                printf("\n");
+
+        *new_line = true;
+
+        r = bus_print_all_properties(bus, "org.freedesktop.login1", path, arg_property, arg_all);
+        if (r < 0)
+                log_error("Could not get properties: %s", strerror(-r));
+
+        return r;
+}
+
 static int show_session(sd_bus *bus, char **args, unsigned n) {
-        bool show_properties;
+        bool properties, new_line = false;
         unsigned i;
         int r;
 
         assert(bus);
         assert(args);
 
-        show_properties = !strstr(args[0], "status");
+        properties = !strstr(args[0], "status");
 
         pager_open_if_enabled();
 
-        if (show_properties && n <= 1) {
+        if (properties && n <= 1) {
                 /* If not argument is specified inspect the manager
                  * itself */
-                r = bus_print_all_properties(bus, "org.freedesktop.login1", "/org/freedesktop/login1", NULL, arg_all);
-                if (r < 0)
-                        log_error("Failed to query login manager.");
-
-                return r;
+                return show_properties(bus, "/org/freedesktop/login1", &new_line);
         }
 
         for (i = 1; i < n; i++) {
@@ -619,8 +630,8 @@ static int show_session(sd_bus *bus, char **args, unsigned n) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (show_properties)
-                        r = bus_print_all_properties(bus, "org.freedesktop.login1", path, NULL, arg_all);
+                if (properties)
+                        r = show_properties(bus, path, &new_line);
                 else
                         r = print_session_status_info(bus, path);
                 if (r < 0) {
@@ -633,25 +644,21 @@ static int show_session(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int show_user(sd_bus *bus, char **args, unsigned n) {
-        bool show_properties;
+        bool properties, new_line = false;
         unsigned i;
         int r;
 
         assert(bus);
         assert(args);
 
-        show_properties = !strstr(args[0], "status");
+        properties = !strstr(args[0], "status");
 
         pager_open_if_enabled();
 
-        if (show_properties && n <= 1) {
+        if (properties && n <= 1) {
                 /* If not argument is specified inspect the manager
                  * itself */
-                r = bus_print_all_properties(bus, "org.freedesktop.login1", "/org/freedesktop/login1", NULL, arg_all);
-                if (r < 0)
-                        log_error("Failed to query login manager.");
-
-                return r;
+                return show_properties(bus, "/org/freedesktop/login1", &new_line);
         }
 
         for (i = 1; i < n; i++) {
@@ -686,8 +693,8 @@ static int show_user(sd_bus *bus, char **args, unsigned n) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (show_properties)
-                        r = bus_print_all_properties(bus, "org.freedesktop.login1", path, NULL, arg_all);
+                if (properties)
+                        r = show_properties(bus, path, &new_line);
                 else
                         r = print_user_status_info(bus, path);
                 if (r < 0) {
@@ -700,25 +707,21 @@ static int show_user(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int show_seat(sd_bus *bus, char **args, unsigned n) {
-        bool show_properties;
+        bool properties, new_line = false;
         unsigned i;
         int r;
 
         assert(bus);
         assert(args);
 
-        show_properties = !strstr(args[0], "status");
+        properties = !strstr(args[0], "status");
 
         pager_open_if_enabled();
 
-        if (show_properties && n <= 1) {
+        if (properties && n <= 1) {
                 /* If not argument is specified inspect the manager
                  * itself */
-                r = bus_print_all_properties(bus, "org.freedesktop.login1", "/org/freedesktop/login1", NULL, arg_all);
-                if (r < 0)
-                        log_error("Failed to query login manager.");
-
-                return r;
+                return show_properties(bus, "/org/freedesktop/login1", &new_line);
         }
 
         for (i = 1; i < n; i++) {
@@ -746,8 +749,8 @@ static int show_seat(sd_bus *bus, char **args, unsigned n) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (show_properties)
-                        r = bus_print_all_properties(bus, "org.freedesktop.login1", path, NULL, arg_all);
+                if (properties)
+                        r = show_properties(bus, path, &new_line);
                 else
                         r = print_seat_status_info(bus, path);
                 if (r < 0) {
