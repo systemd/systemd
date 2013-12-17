@@ -3821,7 +3821,7 @@ static int cat(sd_bus *bus, char **args) {
                 }
         }
 
-        return r;
+        return r < 0 ? r : 0;
 }
 
 static int show(sd_bus *bus, char **args) {
