@@ -3797,7 +3797,10 @@ static int cat(sd_bus *bus, char **args) {
                 }
 
                 if (!isempty(fragment_path)) {
-                        fprintf(stdout, "# %s\n", fragment_path);
+                        fprintf(stdout, "%s# %s%s\n",
+                                ansi_highlight_blue(),
+                                fragment_path,
+                                ansi_highlight_off());
                         fflush(stdout);
 
                         r = sendfile_full(STDOUT_FILENO, fragment_path);
