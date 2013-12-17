@@ -333,8 +333,7 @@ static int driver_request_name(sd_bus *bus, sd_bus_message *m, void *userdata, s
 
         size = sizeof(*cmd_name) + strlen(name) + 1;
 
-        cmd_name = alloca(size);
-        memset(cmd_name, 0, size);
+        cmd_name = alloca0(size);
         strcpy(cmd_name->name, name);
         cmd_name->size = size;
         kdbus_translate_request_name_flags(flags, (uint64_t *) &cmd_name->conn_flags);
@@ -353,8 +352,8 @@ static int driver_request_name(sd_bus *bus, sd_bus_message *m, void *userdata, s
                         return sd_bus_reply_method_return(m, "u", BUS_NAME_EXISTS);
                 else if (errno == EALREADY)
                         return sd_bus_reply_method_return(m, "u", BUS_NAME_ALREADY_OWNER);
-                else
-                        return sd_bus_reply_method_return(m, "u", -errno);
+
+                return -errno;
         }
 
         if (cmd_name->flags & KDBUS_NAME_IN_QUEUE)
