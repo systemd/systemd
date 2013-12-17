@@ -897,6 +897,9 @@ static int client_receive_raw_message(sd_event_source *s, int fd,
                         client->receive_message =
                                 sd_event_source_unref(client->receive_message);
                 }
+
+                r = 0;
+
                 break;
 
         case DHCP_STATE_INIT:
@@ -910,7 +913,7 @@ static int client_receive_raw_message(sd_event_source *s, int fd,
         }
 
 error:
-        if (r < 0)
+        if (r < 0 || r == DHCP_EVENT_NO_LEASE)
                 return client_stop(client, r);
 
         return 0;
