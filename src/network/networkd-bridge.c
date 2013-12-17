@@ -139,8 +139,8 @@ static int bridge_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
 
         if (bridge->link)
                 bridge_enter_ready(bridge);
-
-        bridge->state = BRIDGE_STATE_CREATED;
+        else
+                bridge->state = BRIDGE_STATE_CREATED;
 
         return 1;
 }
