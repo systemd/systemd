@@ -51,10 +51,12 @@ static int add_epoll(int epoll_fd, int fd) {
 
         ev.data.fd = fd;
         r = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-        if (r < 0)
-                log_error("Failed to add event on epoll fd:%d for fd:%d: %m",
-                          epoll_fd, fd);
-        return -errno;
+        if (r < 0) {
+                log_error("Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
+                return -errno;
+        }
+
+        return 0;
 }
 
 static int make_socket_fd(const char* address, int flags) {
