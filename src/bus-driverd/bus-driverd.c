@@ -49,9 +49,7 @@
 #include "sd-id128.h"
 #include "async.h"
 #include "hashmap.h"
-
-#define DBUS_PATH       "/org/freedesktop/DBus"
-#define DBUS_INTERFACE  "org.freedesktop.DBus"
+#include "def.h"
 
 /*
  * TODO:
@@ -60,58 +58,6 @@
  * ListActivatableNames
  * StartServiceByName
  */
-
-static sd_bus *driver_bus;
-
-static int help(void) {
-
-        printf("%s [OPTIONS...] <bus-path>\n\n"
-               "Driver to provide a org.freedesktop.DBus interface on the given kdbus node.\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n",
-               program_invocation_short_name);
-
-        return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'         },
-                { "version",         no_argument,       NULL, ARG_VERSION },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        help();
-                        return 0;
-
-                case ARG_VERSION:
-                        puts(PACKAGE_STRING);
-                        puts(SYSTEMD_FEATURES);
-                        return 0;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached("Unknown option");
-                }
-
-        return 1;
-}
 
 static int driver_name_info_error(sd_bus *bus, sd_bus_message *m, const char *name, int error_code) {
 
@@ -426,19 +372,11 @@ static int driver_start_service_by_name(sd_bus *bus, sd_bus_message *m, void *us
         return sd_bus_send(bus, reply, NULL);
 }
 
-static int driver_update_env(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
-        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_NOT_SUPPORTED,
-                                          "UpdateActivationEnvironment is unsupported");
+static int driver_unsupported(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "%s() is not supported", sd_bus_message_get_member(m));
 }
 
-static int driver_reload_config(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
-        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_NOT_SUPPORTED,
-                                          "ReloadConfig is unsupported");
-}
-
-const sd_bus_vtable dbus_vtable[] = {
+static const sd_bus_vtable driver_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("AddMatch", "s", NULL, driver_add_match, 0),
         SD_BUS_METHOD("GetConnectionSELinuxSecurityContext", "s", "ay", driver_get_security_ctx, 0),
@@ -451,92 +389,88 @@ const sd_bus_vtable dbus_vtable[] = {
         SD_BUS_METHOD("ListNames", NULL, "as", driver_list_names, 0),
         SD_BUS_METHOD("ListQueuedOwners", "s", "as", driver_list_queued_owners, 0),
         SD_BUS_METHOD("NameHasOwner", "s", "b", driver_name_has_owner, 0),
-        SD_BUS_METHOD("ReloadConfig", NULL, NULL, driver_reload_config, 0),
+        SD_BUS_METHOD("ReloadConfig", NULL, NULL, driver_unsupported, 0),
         SD_BUS_METHOD("RemoveMatch", "s", NULL, driver_remove_match, 0),
         SD_BUS_METHOD("RequestName", "su", "u", driver_request_name, 0),
         SD_BUS_METHOD("StartServiceByName", "su", "u", driver_start_service_by_name, 0),
-        SD_BUS_METHOD("UpdateActivationEnvironment", "a{ss}", NULL, driver_update_env, 0),
+        SD_BUS_METHOD("UpdateActivationEnvironment", "a{ss}", NULL, driver_unsupported, 0),
         SD_BUS_SIGNAL("NameAcquired", "s", 0),
         SD_BUS_SIGNAL("NameLost", "s", 0),
         SD_BUS_SIGNAL("NameOwnerChanged", "sss", 0),
         SD_BUS_VTABLE_END
 };
 
-static int driver_main(const char *bus_name) {
-
-        _cleanup_event_source_unref_ sd_event_source *w_accept = NULL;
-        _cleanup_event_source_unref_ sd_event_source *w_root_service = NULL;
-        _cleanup_event_unref_ sd_event *e = NULL;
+static int connect_bus(sd_event *event, sd_bus **_bus) {
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
 
-        r = sd_event_new(&e);
-        if (r < 0) {
-                log_error("Failed to allocate event loop: %s", strerror(-r));
-                return r;
-        }
+        assert(event);
+        assert(_bus);
 
-        /* set up kernel bus connection */
-        r = sd_bus_new(&driver_bus);
+        r = sd_bus_default_system(&bus);
         if (r < 0) {
                 log_error("Failed to create bus: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_set_address(driver_bus, bus_name);
-        if (r < 0) {
-                log_error("Failed to create bus: %s", strerror(-r));
-                return r;
-        }
-
-        r = sd_bus_start(driver_bus);
-        if (r < 0) {
-                log_error("Failed to start kernel bus: %s", strerror(-r));
-                return r;
-        }
-
-        r = sd_bus_request_name(driver_bus, DBUS_INTERFACE, 0);
-        if (r < 0) {
-                log_error("Unable to request name '%s': %s\n", DBUS_INTERFACE, strerror(-r));
-                return r;
-        }
-
-        r = sd_bus_add_object_vtable(driver_bus, DBUS_PATH, DBUS_INTERFACE, dbus_vtable, NULL);
+        r = sd_bus_add_object_vtable(bus, "/org/freedesktop/DBus", "org.freedesktop.DBus", driver_vtable, NULL);
         if (r < 0) {
                 log_error("Failed to add manager object vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_attach_event(driver_bus, e, 0);
+        r = sd_bus_request_name(bus, "org.freedesktop.DBus", 0);
+        if (r < 0) {
+                log_error("Unable to request name: %s\n", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_attach_event(bus, event, 0);
         if (r < 0) {
                 log_error("Error %d while adding bus to even: %s", r, strerror(-r));
                 return r;
         }
 
-        log_debug("Entering main loop.");
+        *_bus = bus;
+        bus = NULL;
 
-        return sd_event_loop(e);
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
-        char *bus_name;
+        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
 
-        setlocale(LC_ALL, "");
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
-
-        if (argc <= optind) {
-                help();
-                return -EINVAL;
+        if (argc != 1) {
+                log_error("This program takes no arguments.");
+                r = -EINVAL;
+                goto finish;
         }
 
-        r = asprintf(&bus_name, "kernel:path=%s", argv[optind]);
-        if (r < 0)
-                return r;
+        r = sd_event_default(&event);
+        if (r < 0) {
+                log_error("Failed to allocate event loop: %s", strerror(-r));
+                goto finish;
+        }
 
-        return driver_main(bus_name);
+        sd_event_set_watchdog(event, true);
+
+        r = connect_bus(event, &bus);
+        if (r < 0)
+                goto finish;
+
+        r = bus_event_loop_with_idle(event, bus, "org.freedesktop.DBus", DEFAULT_EXIT_USEC);
+        if (r < 0) {
+                log_error("Failed to run event loop: %s", strerror(-r));
+                goto finish;
+        }
+
+finish:
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+
 }
