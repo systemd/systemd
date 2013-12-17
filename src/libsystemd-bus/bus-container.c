@@ -29,7 +29,7 @@
 #include "bus-container.h"
 
 int bus_container_connect_socket(sd_bus *b) {
-        _cleanup_close_ int nsfd = -1, rootfd = -1;
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
         pid_t leader, child;
         siginfo_t si;
         int r;
@@ -42,7 +42,7 @@ int bus_container_connect_socket(sd_bus *b) {
         if (r < 0)
                 return r;
 
-        r = namespace_open(leader, &nsfd, &rootfd);
+        r = namespace_open(leader, &pidnsfd, &mntnsfd, &rootfd);
         if (r < 0)
                 return r;
 
@@ -62,7 +62,7 @@ int bus_container_connect_socket(sd_bus *b) {
 
         if (child == 0) {
 
-                r = namespace_enter(nsfd, rootfd);
+                r = namespace_enter(pidnsfd, mntnsfd, rootfd);
                 if (r < 0)
                         _exit(255);
 
@@ -95,7 +95,7 @@ int bus_container_connect_socket(sd_bus *b) {
 
 int bus_container_connect_kernel(sd_bus *b) {
         _cleanup_close_pipe_ int pair[2] = { -1, -1 };
-        _cleanup_close_ int nsfd = -1, rootfd = -1;
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -118,7 +118,7 @@ int bus_container_connect_kernel(sd_bus *b) {
         if (r < 0)
                 return r;
 
-        r = namespace_open(leader, &nsfd, &rootfd);
+        r = namespace_open(leader, &pidnsfd, &mntnsfd, &rootfd);
         if (r < 0)
                 return r;
 
@@ -133,7 +133,7 @@ int bus_container_connect_kernel(sd_bus *b) {
                 close_nointr_nofail(pair[0]);
                 pair[0] = -1;
 
-                r = namespace_enter(nsfd, rootfd);
+                r = namespace_enter(pidnsfd, mntnsfd, rootfd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 

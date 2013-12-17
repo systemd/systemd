@@ -1117,7 +1117,7 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
 
 static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         _cleanup_close_pipe_ int pair[2] = { -1, -1 };
-        _cleanup_close_ int nsfd = -1, rootfd = -1;
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
         pid_t pid, child;
         siginfo_t si;
         char buf[37];
@@ -1134,7 +1134,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (r < 0)
                 return r;
 
-        r = namespace_open(pid, &nsfd, &rootfd);
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, &rootfd);
         if (r < 0)
                 return r;
 
@@ -1151,7 +1151,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
                 close_nointr_nofail(pair[0]);
                 pair[0] = -1;
 
-                r = namespace_enter(nsfd, rootfd);
+                r = namespace_enter(pidnsfd, mntnsfd, rootfd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 

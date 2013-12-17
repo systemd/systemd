@@ -399,7 +399,7 @@ static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
 
 static int openpt_in_namespace(pid_t pid, int flags) {
         _cleanup_close_pipe_ int pair[2] = { -1, -1 };
-        _cleanup_close_ int nsfd = -1, rootfd = -1;
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
@@ -413,7 +413,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
         pid_t child;
         siginfo_t si;
 
-        r = namespace_open(pid, &nsfd, &rootfd);
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, &rootfd);
         if (r < 0)
                 return r;
 
@@ -428,7 +428,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
                 close_nointr_nofail(pair[0]);
                 pair[0] = -1;
 
-                r = namespace_enter(nsfd, rootfd);
+                r = namespace_enter(pidnsfd, mntnsfd, rootfd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 

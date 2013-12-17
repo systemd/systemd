@@ -6029,18 +6029,24 @@ int container_get_leader(const char *machine, pid_t *pid) {
         return 0;
 }
 
-int namespace_open(pid_t pid, int *namespace_fd, int *root_fd) {
-        _cleanup_close_ int nsfd = -1;
-        const char *ns, *root;
+int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *root_fd) {
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1;
+        const char *pidns, *mntns, *root;
         int rfd;
 
         assert(pid >= 0);
-        assert(namespace_fd);
+        assert(pidns_fd);
+        assert(mntns_fd);
         assert(root_fd);
 
-        ns = procfs_file_alloca(pid, "ns/mnt");
-        nsfd = open(ns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (nsfd < 0)
+        mntns = procfs_file_alloca(pid, "ns/mnt");
+        mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (mntnsfd < 0)
+                return -errno;
+
+        pidns = procfs_file_alloca(pid, "ns/pid");
+        pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (pidnsfd < 0)
                 return -errno;
 
         root = procfs_file_alloca(pid, "root");
@@ -6048,18 +6054,24 @@ int namespace_open(pid_t pid, int *namespace_fd, int *root_fd) {
         if (rfd < 0)
                 return -errno;
 
-        *namespace_fd = nsfd;
+        *pidns_fd = pidnsfd;
+        *mntns_fd = mntnsfd;
         *root_fd = rfd;
-        nsfd = -1;
+        pidnsfd = -1;
+        mntnsfd = -1;
 
         return 0;
 }
 
-int namespace_enter(int namespace_fd, int root_fd) {
-        assert(namespace_fd >= 0);
+int namespace_enter(int pidns_fd, int mntns_fd, int root_fd) {
+        assert(pidns_fd >= 0);
+        assert(mntns_fd >= 0);
         assert(root_fd >= 0);
 
-        if (setns(namespace_fd, CLONE_NEWNS) < 0)
+        if (setns(pidns_fd, CLONE_NEWPID) < 0)
+                return -errno;
+
+        if (setns(mntns_fd, CLONE_NEWNS) < 0)
                 return -errno;
 
         if (fchdir(root_fd) < 0)

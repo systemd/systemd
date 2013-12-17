@@ -793,5 +793,5 @@ int proc_cmdline(char **ret);
 
 int container_get_leader(const char *machine, pid_t *pid);
 
-int namespace_open(pid_t pid, int *namespace_fd, int *root_fd);
-int namespace_enter(int namespace_fd, int root_fd);
+int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *root_fd);
+int namespace_enter(int pidns_fd, int mntns_fd, int root_fd);
