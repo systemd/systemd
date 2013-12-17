@@ -35,6 +35,7 @@
 #include "bus-type.h"
 #include "bus-signature.h"
 #include "bus-gvariant.h"
+#include "bus-util.h"
 
 static int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored);
 
@@ -5406,4 +5407,88 @@ _public_ sd_bus *sd_bus_message_get_bus(sd_bus_message *m) {
         assert_return(m, NULL);
 
         return m->bus;
+}
+
+int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
+        _cleanup_bus_message_unref_ sd_bus_message *n = NULL;
+        usec_t timeout;
+        int r;
+
+        assert(bus);
+        assert(m);
+        assert(*m);
+
+        switch ((*m)->header->type) {
+
+        case SD_BUS_MESSAGE_SIGNAL:
+                r = sd_bus_message_new_signal(bus, (*m)->path, (*m)->interface, (*m)->member, &n);
+                if (r < 0)
+                        return r;
+
+                break;
+
+        case SD_BUS_MESSAGE_METHOD_CALL:
+                r = sd_bus_message_new_method_call(bus, (*m)->destination, (*m)->path, (*m)->interface, (*m)->member, &n);
+                if (r < 0)
+                        return r;
+
+                break;
+
+        case SD_BUS_MESSAGE_METHOD_RETURN:
+        case SD_BUS_MESSAGE_METHOD_ERROR:
+
+                n = message_new(bus, (*m)->header->type);
+                if (!n)
+                        return -ENOMEM;
+
+                n->reply_serial = (*m)->reply_serial;
+                r = message_append_field_uint32(n, BUS_MESSAGE_HEADER_REPLY_SERIAL, n->reply_serial);
+                if (r < 0)
+                        return r;
+
+                if ((*m)->header->type == SD_BUS_MESSAGE_METHOD_ERROR && (*m)->error.name) {
+                        r = message_append_field_string(n, BUS_MESSAGE_HEADER_ERROR_NAME, SD_BUS_TYPE_STRING, (*m)->error.name, &n->error.message);
+                        if (r < 0)
+                                return r;
+
+                        n->error._need_free = -1;
+                }
+
+                break;
+
+        default:
+                return -EINVAL;
+        }
+
+        if ((*m)->destination && !n->destination) {
+                r = message_append_field_string(n, BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, (*m)->destination, &n->destination);
+                if (r < 0)
+                        return r;
+        }
+
+        if ((*m)->sender && !n->sender) {
+                r = message_append_field_string(n, BUS_MESSAGE_HEADER_SENDER, SD_BUS_TYPE_STRING, (*m)->sender, &n->sender);
+                if (r < 0)
+                        return r;
+        }
+
+        n->header->flags |= (*m)->header->flags & (BUS_MESSAGE_NO_REPLY_EXPECTED|BUS_MESSAGE_NO_AUTO_START);
+
+        r = sd_bus_message_copy(n, *m, true);
+        if (r < 0)
+                return r;
+
+        timeout = (*m)->timeout;
+        if (timeout == 0 && !((*m)->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED))
+                timeout = BUS_DEFAULT_TIMEOUT;
+
+        r = bus_message_seal(n, (*m)->header->serial, timeout);
+        if (r < 0)
+                return r;
+
+        sd_bus_message_unref(*m);
+        *m = n;
+        n = NULL;
+
+        return 0;
 }

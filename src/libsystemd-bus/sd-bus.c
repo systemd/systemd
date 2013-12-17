@@ -1319,14 +1319,6 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
         assert(b);
         assert(m);
 
-        if (b->message_version != 0 &&
-            m->header->version != b->message_version)
-                return -EPERM;
-
-        if (b->message_endian != 0 &&
-            m->header->endian != b->message_endian)
-                return -EPERM;
-
         if (m->sealed) {
                 /* If we copy the same message to multiple
                  * destinations, avoid using the same serial
@@ -1339,6 +1331,18 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
                 timeout = BUS_DEFAULT_TIMEOUT;
 
         return bus_message_seal(m, ++b->serial, timeout);
+}
+
+static int bus_remarshal_message(sd_bus *b, sd_bus_message **m) {
+        assert(b);
+
+        /* Do packet version and endianess already match? */
+        if ((b->message_version == 0 || b->message_version == (*m)->header->version) &&
+            (b->message_endian == 0 || b->message_endian == (*m)->header->endian))
+                return 0;
+
+        /* No? Then remarshal! */
+        return bus_message_remarshal(b, m);
 }
 
 int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
@@ -1452,7 +1456,8 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
         }
 }
 
-_public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
+_public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *serial) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = sd_bus_message_ref(_m);
         int r;
 
         assert_return(bus, -EINVAL);
@@ -1474,6 +1479,12 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
                 m->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
 
         r = bus_seal_message(bus, m, 0);
+        if (r < 0)
+                return r;
+
+        /* Remarshall if we have to. This will possible unref the
+         * message and place a replacement in m */
+        r = bus_remarshal_message(bus, &m);
         if (r < 0)
                 return r;
 
@@ -1567,12 +1578,13 @@ static int timeout_compare(const void *a, const void *b) {
 
 _public_ int sd_bus_call_async(
                 sd_bus *bus,
-                sd_bus_message *m,
+                sd_bus_message *_m,
                 sd_bus_message_handler_t callback,
                 void *userdata,
                 uint64_t usec,
                 uint64_t *serial) {
 
+        _cleanup_bus_message_unref_ sd_bus_message *m = sd_bus_message_ref(_m);
         struct reply_callback *c;
         int r;
 
@@ -1593,6 +1605,10 @@ _public_ int sd_bus_call_async(
                 return r;
 
         r = bus_seal_message(bus, m, usec);
+        if (r < 0)
+                return r;
+
+        r = bus_remarshal_message(bus, &m);
         if (r < 0)
                 return r;
 
@@ -1674,11 +1690,12 @@ int bus_ensure_running(sd_bus *bus) {
 
 _public_ int sd_bus_call(
                 sd_bus *bus,
-                sd_bus_message *m,
+                sd_bus_message *_m,
                 uint64_t usec,
                 sd_bus_error *error,
                 sd_bus_message **reply) {
 
+        _cleanup_bus_message_unref_ sd_bus_message *m = sd_bus_message_ref(_m);
         usec_t timeout;
         uint64_t serial;
         unsigned i;
@@ -1699,6 +1716,10 @@ _public_ int sd_bus_call(
         i = bus->rqueue_size;
 
         r = bus_seal_message(bus, m, usec);
+        if (r < 0)
+                return r;
+
+        r = bus_remarshal_message(bus, &m);
         if (r < 0)
                 return r;
 
