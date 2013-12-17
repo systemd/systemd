@@ -751,14 +751,6 @@ fi
 AM_CONDITIONAL(ENABLE_TIMEDATED, [test "$have_timedated" = "yes"])
 
 # ------------------------------------------------------------------------------
-have_bus_driverd=no
-AC_ARG_ENABLE(bus_driverd, AS_HELP_STRING([--disable-bus-driverd], [disable systemd bus-driver daemon]))
-if test "x$enable_bus_driverd" != "xno"; then
-        have_bus_driverd=yes
-fi
-AM_CONDITIONAL(ENABLE_BUS_DRIVERD, [test "$have_bus_driverd" = "yes"])
-
-# ------------------------------------------------------------------------------
 have_localed=no
 AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
 if test "x$enable_localed" != "xno"; then

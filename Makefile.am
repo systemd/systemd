@@ -1899,6 +1899,7 @@ bus-proxyd-uninstall-hook:
 INSTALL_EXEC_HOOKS += bus-proxyd-install-hook
 UNINSTALL_EXEC_HOOKS += bus-proxyd-uninstall-hook
 
+if ENABLE_KDBUS
 nodist_systemunit_DATA += \
 	units/systemd-bus-proxyd@.service
 
@@ -1910,6 +1911,7 @@ dist_userunit_DATA += \
 
 USER_UNIT_ALIASES += \
 	$(systemunitdir)/systemd-bus-proxyd@.service systemd-bus-proxyd@.service
+endif
 
 EXTRA_DIST += \
 	units/systemd-bus-proxyd@.service.in
@@ -3697,7 +3699,14 @@ dist_zshcompletion_DATA += \
 
 endif
 
-if ENABLE_BUS_DRIVERD
+polkitpolicy_in_files += \
+	src/hostname/org.freedesktop.hostname1.policy.in
+
+EXTRA_DIST += \
+	units/systemd-hostnamed.service.in
+
+# ------------------------------------------------------------------------------
+if ENABLE_KDBUS
 systemd_bus_driverd_SOURCES = \
 	src/bus-driverd/bus-driverd.c
 
@@ -3710,12 +3719,6 @@ systemd_bus_driverd_LDADD = \
 rootlibexec_PROGRAMS += \
 	systemd-bus-driverd
 endif
-
-polkitpolicy_in_files += \
-	src/hostname/org.freedesktop.hostname1.policy.in
-
-EXTRA_DIST += \
-	units/systemd-hostnamed.service.in
 
 # ------------------------------------------------------------------------------
 if ENABLE_LOCALED
