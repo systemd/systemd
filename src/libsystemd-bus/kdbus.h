@@ -724,6 +724,10 @@ struct kdbus_cmd_match {
  * 				placed in the receiver's pool.
  * @KDBUS_CMD_FREE:		Release the allocated memory in the receiver's
  * 				pool.
+ * @KDBUS_CMD_DROP:		Drop and free the next queued message and all
+ * 				its ressources without actually receiveing it.
+ * @KDBUS_CMD_SRC:		Return the sender's connection ID of the next
+ * 				queued message.
  * @KDBUS_CMD_NAME_ACQUIRE:	Request a well-known bus name to associate with
  * 				the connection. Well-known names are used to
  * 				address a peer on the bus.
@@ -772,13 +776,15 @@ struct kdbus_cmd_match {
 enum kdbus_ioctl_type {
 	KDBUS_CMD_BUS_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x00, struct kdbus_cmd_bus_make),
 	KDBUS_CMD_NS_MAKE =		_IOR (KDBUS_IOC_MAGIC, 0x10, struct kdbus_cmd_ns_make),
-
 	KDBUS_CMD_EP_MAKE =		_IOW (KDBUS_IOC_MAGIC, 0x20, struct kdbus_cmd_ep_make),
+
 	KDBUS_CMD_HELLO =		_IOWR(KDBUS_IOC_MAGIC, 0x30, struct kdbus_cmd_hello),
 
 	KDBUS_CMD_MSG_SEND =		_IOW (KDBUS_IOC_MAGIC, 0x40, struct kdbus_msg),
 	KDBUS_CMD_MSG_RECV =		_IOR (KDBUS_IOC_MAGIC, 0x41, __u64 *),
 	KDBUS_CMD_FREE =		_IOW (KDBUS_IOC_MAGIC, 0x42, __u64 *),
+	KDBUS_CMD_MSG_DROP =		_IO  (KDBUS_IOC_MAGIC, 0x43),
+	KDBUS_CMD_MSG_SRC =		_IOR (KDBUS_IOC_MAGIC, 0x44, __u64 *),
 
 	KDBUS_CMD_NAME_ACQUIRE =	_IOWR(KDBUS_IOC_MAGIC, 0x50, struct kdbus_cmd_name),
 	KDBUS_CMD_NAME_RELEASE =	_IOW (KDBUS_IOC_MAGIC, 0x51, struct kdbus_cmd_name),
@@ -845,7 +851,8 @@ enum kdbus_ioctl_type {
  * @ENOTUNIQ:		A specific data type was addressed to a broadcast
  * 			address, but only direct addresses support this kind of
  * 			data.
- * @ENXIO:		A unique address does not exist.
+ * @ENXIO:		A unique address does not exist, or an offset in the
+ * 			receiver's pool does not represent a queued message.
  * @EPERM:		The policy prevented an operation. The requested
  * 			resource is owned by another entity.
  * @ESHUTDOWN:		A namespace or endpoint is currently shutting down;
