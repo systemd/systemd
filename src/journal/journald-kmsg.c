@@ -408,22 +408,30 @@ int server_open_dev_kmsg(Server *s) {
 
                 /* This will fail with EPERM on older kernels where
                  * /dev/kmsg is not readable. */
-                if (r == -EPERM)
-                        return 0;
+                if (r == -EPERM) {
+                        r = 0;
+                        goto fail;
+                }
 
                 log_error("Failed to add /dev/kmsg fd to event loop: %s", strerror(-r));
-                return -errno;
+                goto fail;
         }
 
         r = sd_event_source_set_priority(s->dev_kmsg_event_source, SD_EVENT_PRIORITY_IMPORTANT+10);
         if (r < 0) {
                 log_error("Failed to adjust priority of kmsg event source: %s", strerror(-r));
-                return -errno;
+                goto fail;
         }
 
         s->dev_kmsg_readable = true;
 
         return 0;
+
+fail:
+        close_nointr_nofail(s->dev_kmsg_fd);
+        s->dev_kmsg_fd = -1;
+
+        return r;
 }
 
 int server_open_kernel_seqnum(Server *s) {
