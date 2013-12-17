@@ -346,7 +346,7 @@ static int prop_map_sessions_strv(sd_bus *bus, const char *member, sd_bus_messag
         return sd_bus_message_exit_container(m);
 }
 
-static int print_session_status_info(sd_bus *bus, const char *path) {
+static int print_session_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
                 { "Id",         "s", NULL, offsetof(SessionStatusInfo, id) },
@@ -375,8 +375,15 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Could not get properties: %s", strerror(-r));
                 return r;
+        }
+
+        if (*new_line)
+                printf("\n");
+
+        *new_line = true;
 
         printf("%s - ", strna(i.id));
 
@@ -457,7 +464,7 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         return 0;
 }
 
-static int print_user_status_info(sd_bus *bus, const char *path) {
+static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
                 { "Name",       "s",     NULL, offsetof(UserStatusInfo, name) },
@@ -476,8 +483,15 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Could not get properties: %s", strerror(-r));
                 goto finish;
+        }
+
+        if (*new_line)
+                printf("\n");
+
+        *new_line = true;
 
         if (i.name)
                 printf("%s (%u)\n", i.name, (unsigned) i.uid);
@@ -517,10 +531,10 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
 finish:
         strv_free(i.sessions);
 
-        return 0;
+        return r;
 }
 
-static int print_seat_status_info(sd_bus *bus, const char *path) {
+static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
                 { "Id",            "s",     NULL, offsetof(SeatStatusInfo, id) },
@@ -533,8 +547,15 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &i);
-        if (r < 0)
+        if (r < 0) {
+                log_error("Could not get properties: %s", strerror(-r));
                 goto finish;
+        }
+
+        if (*new_line)
+                printf("\n");
+
+        *new_line = true;
 
         printf("%s\n", strna(i.id));
 
@@ -569,7 +590,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
 finish:
         strv_free(i.sessions);
 
-        return 0;
+        return r;
 }
 
 static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
@@ -610,9 +631,6 @@ static int show_session(sd_bus *bus, char **args, unsigned n) {
                 _cleanup_bus_message_unref_ sd_bus_message * reply = NULL;
                 const char *path = NULL;
 
-                if (i != 1)
-                        printf("\n");
-
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.login1",
@@ -633,11 +651,10 @@ static int show_session(sd_bus *bus, char **args, unsigned n) {
                 if (properties)
                         r = show_properties(bus, path, &new_line);
                 else
-                        r = print_session_status_info(bus, path);
-                if (r < 0) {
-                        log_error("Failed to query session: %s", strerror(-r));
+                        r = print_session_status_info(bus, path, &new_line);
+
+                if (r < 0)
                         return r;
-                }
         }
 
         return 0;
@@ -667,9 +684,6 @@ static int show_user(sd_bus *bus, char **args, unsigned n) {
                 const char *path = NULL;
                 uid_t uid;
 
-                if (i != 1)
-                        printf("\n");
-
                 r = get_user_creds((const char**) (args+i), &uid, NULL, NULL, NULL);
                 if (r < 0) {
                         log_error("Failed to look up user %s: %s", args[i], strerror(-r));
@@ -696,11 +710,10 @@ static int show_user(sd_bus *bus, char **args, unsigned n) {
                 if (properties)
                         r = show_properties(bus, path, &new_line);
                 else
-                        r = print_user_status_info(bus, path);
-                if (r < 0) {
-                        log_error("Failed to query user: %s", strerror(-r));
+                        r = print_user_status_info(bus, path, &new_line);
+
+                if (r < 0)
                         return r;
-                }
         }
 
         return 0;
@@ -729,9 +742,6 @@ static int show_seat(sd_bus *bus, char **args, unsigned n) {
                 _cleanup_bus_message_unref_ sd_bus_message * reply = NULL;
                 const char *path = NULL;
 
-                if (i != 1)
-                        printf("\n");
-
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.login1",
@@ -752,11 +762,10 @@ static int show_seat(sd_bus *bus, char **args, unsigned n) {
                 if (properties)
                         r = show_properties(bus, path, &new_line);
                 else
-                        r = print_seat_status_info(bus, path);
-                if (r < 0) {
-                        log_error("Failed to query seat: %s", strerror(-r));
+                        r = print_seat_status_info(bus, path, &new_line);
+
+                if (r < 0)
                         return r;
-                }
         }
 
         return 0;
