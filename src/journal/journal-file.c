@@ -1628,8 +1628,6 @@ static int generic_array_bisect(
                                         else
                                                 left = y + 1;
                                 }
-
-                                last_index = (uint64_t) -1;
                         }
 
                         for (;;) {
