@@ -304,10 +304,8 @@ static int show(sd_bus *bus, char **args, unsigned n) {
                 /* If no argument is specified, inspect the manager
                  * itself */
                 r = show_properties(bus, "/org/freedesktop/machine1", &new_line);
-                if (r < 0) {
-                        log_error("Failed to query properties: %s", strerror(-r));
+                if (r < 0)
                         return r;
-                }
         }
 
         for (i = 1; i < n; i++) {
