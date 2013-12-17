@@ -247,7 +247,7 @@ static int driver_get_name_owner(sd_bus *bus, sd_bus_message *m, void *userdata,
         if (r < 0)
                 return r;
 
-        r = sd_bus_get_owner(bus, arg0, 0, &creds);
+        r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_UNIQUE_NAME, &creds);
         if (r < 0) {
                 if (r == -ENOENT)
                         return driver_name_info_error(bus, m, arg0, r);
