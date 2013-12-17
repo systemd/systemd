@@ -744,7 +744,7 @@
 
                         <varlistentry>
                                 <term><option>--list-catalog
-                                <optional><replaceable>ID128...</replaceable></optional>
+                                <optional><replaceable>128-bit-ID...</replaceable></optional>
                                 </option></term>
 
                                 <listitem><para>List the contents of
@@ -753,7 +753,7 @@
                                 description strings.</para>
 
                                 <para>If any
-                                <replaceable>ID128</replaceable>s are
+                                <replaceable>128-bit-ID</replaceable>s are
                                 specified, only those entries are shown.
                                 </para>
                                 </listitem>
@@ -761,7 +761,7 @@
 
                         <varlistentry>
                                 <term><option>--dump-catalog
-                                <optional><replaceable>ID128...</replaceable></optional>
+                                <optional><replaceable>128-bit-ID...</replaceable></optional>
                                 </option></term>
 
                                 <listitem><para>Show the contents of
@@ -772,7 +772,7 @@
                                 files).</para>
 
                                 <para>If any
-                                <replaceable>ID128</replaceable>s are
+                                <replaceable>128-bit-ID</replaceable>s are
                                 specified, only those entries are shown.
                                 </para>
                                 </listitem>
