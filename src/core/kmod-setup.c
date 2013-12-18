@@ -47,35 +47,51 @@ static void systemd_kmod_log(
 
 #pragma GCC diagnostic pop
 
+static bool kmod_check_cmdline(void) {
+        _cleanup_free_ char *line = NULL;
+
+        if (proc_cmdline(&line) < 0)
+                return false;
+
+        return strstr(line, "kdbus") == 0;
+}
+
 int kmod_setup(void) {
+        static const struct {
+                const char *module;
+                const char *path;
+                bool warn;
+                bool (*condition_fn)(void);
+        } kmod_table[] = {
+                /* auto-loading on use doesn't work before udev is up */
+                { "autofs4", "/sys/class/misc/autofs", true, NULL },
 
-        static const char kmod_table[] =
-                /* This one we need to load explicitly, since
-                 * auto-loading on use doesn't work before udev
-                 * created the ghost device nodes, and we need it
-                 * earlier than that. */
-                "autofs4\0" "/sys/class/misc/autofs\0"
+                /* early configure of ::1 on the loopback device */
+                { "ipv6",    "/sys/module/ipv6",       true, NULL },
 
-                /* This one we need to load explicitly, since
-                 * auto-loading of IPv6 is not done when we try to
-                 * configure ::1 on the loopback device. */
-                "ipv6\0"    "/sys/module/ipv6\0"
+                /* this should never be a module */
+                { "unix",    "/proc/net/unix",         true, NULL },
 
-                "unix\0"    "/proc/net/unix\0";
-
+                /* IPC is needed before we bring up any other services */
+                { "kdbus",   "/sys/bus/kdbus",         false, kmod_check_cmdline },
+        };
         struct kmod_ctx *ctx = NULL;
-        const char *name, *path;
+        unsigned int i;
         int r;
 
-        NULSTR_FOREACH_PAIR(name, path, kmod_table) {
+        for (i = 0; i < ELEMENTSOF(kmod_table); i++) {
                 struct kmod_module *mod;
 
-                if (access(path, F_OK) >= 0)
+                if (kmod_table[i].condition_fn && kmod_table[i].condition_fn())
                         continue;
 
-                log_debug("Your kernel apparently lacks built-in %s support. Might be a good idea to compile it in. "
-                          "We'll now try to work around this by loading the module...",
-                          name);
+                if (access(kmod_table[i].path, F_OK) >= 0)
+                        continue;
+
+                if (kmod_table[i].warn)
+                        log_debug("Your kernel apparently lacks built-in %s support. Might be "
+                                  "a good idea to compile it in. We'll now try to work around "
+                                  "this by loading the module...", kmod_table[i].module);
 
                 if (!ctx) {
                         ctx = kmod_new(NULL, NULL);
@@ -86,9 +102,9 @@ int kmod_setup(void) {
                         kmod_load_resources(ctx);
                 }
 
-                r = kmod_module_new_from_name(ctx, name, &mod);
+                r = kmod_module_new_from_name(ctx, kmod_table[i].module, &mod);
                 if (r < 0) {
-                        log_error("Failed to lookup module '%s'", name);
+                        log_error("Failed to lookup module '%s'", kmod_table[i].module);
                         continue;
                 }
 
