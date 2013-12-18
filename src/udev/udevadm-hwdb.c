@@ -526,35 +526,29 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 
 static void help(void) {
         printf("Usage: udevadm hwdb OPTIONS\n"
-               "  --update            update the hardware database\n"
-               "  --test=<modalias>   query database and print result\n"
-               "  --root=<path>       alternative root path in the filesystem\n"
-               "  --help\n\n");
+               "  -u,--update          update the hardware database\n"
+               "  -t,--test=MODALIAS   query database and print result\n"
+               "  -r,--root=PATH       alternative root path in the filesystem\n"
+               "  -h,--help\n\n");
 }
 
 static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         static const struct option options[] = {
-                { "update", no_argument, NULL, 'u' },
-                { "root", required_argument, NULL, 'r' },
-                { "test", required_argument, NULL, 't' },
-                { "help", no_argument, NULL, 'h' },
+                { "update", no_argument,       NULL, 'u' },
+                { "test",   required_argument, NULL, 't' },
+                { "root",   required_argument, NULL, 'r' },
+                { "help",   no_argument,       NULL, 'h' },
                 {}
         };
         const char *test = NULL;
         const char *root = "";
         bool update = false;
         struct trie *trie = NULL;
-        int err;
+        int err, c;
         int rc = EXIT_SUCCESS;
 
-        for (;;) {
-                int option;
-
-                option = getopt_long(argc, argv, "ut:r:h", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
+        while ((c = getopt_long(argc, argv, "ut:r:h", options, NULL)) >= 0)
+                switch(c) {
                 case 'u':
                         update = true;
                         break;
@@ -567,12 +561,15 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 case 'h':
                         help();
                         return EXIT_SUCCESS;
+                case '?':
+                        return EXIT_FAILURE;
+                default:
+                        assert_not_reached("Unknown option");
                 }
-        }
 
         if (!update && !test) {
-                help();
-                return EXIT_SUCCESS;
+                log_error("Either --update or --test must be used");
+                return EXIT_FAILURE;
         }
 
         if (update) {

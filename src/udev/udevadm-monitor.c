@@ -64,6 +64,16 @@ static void print_device(struct udev_device *device, const char *source, int pro
         }
 }
 
+static void help(void) {
+        printf("Usage: udevadm monitor [--property] [--kernel] [--udev] [--help]\n"
+               "  -p,--property                            print the event properties\n"
+               "  -k,--kernel                              print kernel uevents\n"
+               "  -u,--udev                                print udev events\n"
+               "  -s,--subsystem-match=SUBSYSTEM[/DEVTYPE] filter events by subsystem\n"
+               "  -t,--tag-match=TAG                       filter events by tag\n"
+               "  -h,--help\n\n");
+}
+
 static int adm_monitor(struct udev *udev, int argc, char *argv[])
 {
         struct sigaction act = {};
@@ -79,28 +89,24 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
         int fd_ep = -1;
         int fd_kernel = -1, fd_udev = -1;
         struct epoll_event ep_kernel, ep_udev;
-        int rc = 0;
+        int rc = 0, c;
 
         static const struct option options[] = {
-                { "property", no_argument, NULL, 'p' },
-                { "environment", no_argument, NULL, 'e' },
-                { "kernel", no_argument, NULL, 'k' },
-                { "udev", no_argument, NULL, 'u' },
+                { "property",        no_argument,       NULL, 'p' },
+                { "environment",     no_argument,       NULL, 'e' }, /* alias for -p */
+                { "kernel",          no_argument,       NULL, 'k' },
+                { "udev",            no_argument,       NULL, 'u' },
                 { "subsystem-match", required_argument, NULL, 's' },
-                { "tag-match", required_argument, NULL, 't' },
-                { "help", no_argument, NULL, 'h' },
+                { "tag-match",       required_argument, NULL, 't' },
+                { "help",            no_argument,       NULL, 'h' },
                 {}
         };
 
         udev_list_init(udev, &subsystem_match_list, true);
         udev_list_init(udev, &tag_match_list, true);
 
-        for (;;) {
-                option = getopt_long(argc, argv, "pekus:t:h", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
+        while((c = getopt_long(argc, argv, "pekus:t:h", options, NULL)) >= 0)
+                switch (c) {
                 case 'p':
                 case 'e':
                         prop = true;
@@ -129,19 +135,12 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[])
                         udev_list_entry_add(&tag_match_list, optarg, NULL);
                         break;
                 case 'h':
-                        printf("Usage: udevadm monitor [--property] [--kernel] [--udev] [--help]\n"
-                               "  --property                              print the event properties\n"
-                               "  --kernel                                print kernel uevents\n"
-                               "  --udev                                  print udev events\n"
-                               "  --subsystem-match=<subsystem[/devtype]> filter events by subsystem\n"
-                               "  --tag-match=<tag>                       filter events by tag\n"
-                               "  --help\n\n");
+                        help();
                         goto out;
                 default:
                         rc = 1;
                         goto out;
                 }
-        }
 
         if (!print_kernel && !print_udev) {
                 print_kernel = true;

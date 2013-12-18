@@ -73,22 +73,41 @@ static const char *keyval(const char *str, const char **val, char *buf, size_t s
         return buf;
 }
 
+static void help(void) {
+        printf("Usage: udevadm trigger OPTIONS\n"
+               "  -v,--verbose                       print the list of devices while running\n"
+               "  -n,--dry-run                       do not actually trigger the events\n"
+               "  -t,--type=                         type of events to trigger\n"
+               "          devices                       sys devices (default)\n"
+               "          subsystems                    sys subsystems and drivers\n"
+               "  -c,--action=<action>               event action value, default is \"change\"\n"
+               "  -s,--subsystem-match=<subsystem>   trigger devices from a matching subsystem\n"
+               "  -S,--subsystem-nomatch=<subsystem> exclude devices from a matching subsystem\n"
+               "  -a,--attr-match=<file[=<value>]>   trigger devices with a matching attribute\n"
+               "  -A,--attr-nomatch=<file[=<value>]> exclude devices with a matching attribute\n"
+               "  -p,--property-match=<key>=<value>  trigger devices with a matching property\n"
+               "  -g,--tag-match=<key>=<value>       trigger devices with a matching property\n"
+               "  -y,--sysname-match=<name>          trigger devices with a matching name\n"
+               "  -b,--parent-match=<name>           trigger devices with that parent device\n"
+               "  -h,--help\n\n");
+}
+
 static int adm_trigger(struct udev *udev, int argc, char *argv[])
 {
         static const struct option options[] = {
-                { "verbose", no_argument, NULL, 'v' },
-                { "dry-run", no_argument, NULL, 'n' },
-                { "type", required_argument, NULL, 't' },
-                { "action", required_argument, NULL, 'c' },
-                { "subsystem-match", required_argument, NULL, 's' },
+                { "verbose",           no_argument,       NULL, 'v' },
+                { "dry-run",           no_argument,       NULL, 'n' },
+                { "type",              required_argument, NULL, 't' },
+                { "action",            required_argument, NULL, 'c' },
+                { "subsystem-match",   required_argument, NULL, 's' },
                 { "subsystem-nomatch", required_argument, NULL, 'S' },
-                { "attr-match", required_argument, NULL, 'a' },
-                { "attr-nomatch", required_argument, NULL, 'A' },
-                { "property-match", required_argument, NULL, 'p' },
-                { "tag-match", required_argument, NULL, 'g' },
-                { "sysname-match", required_argument, NULL, 'y' },
-                { "parent-match", required_argument, NULL, 'b' },
-                { "help", no_argument, NULL, 'h' },
+                { "attr-match",        required_argument, NULL, 'a' },
+                { "attr-nomatch",      required_argument, NULL, 'A' },
+                { "property-match",    required_argument, NULL, 'p' },
+                { "tag-match",         required_argument, NULL, 'g' },
+                { "sysname-match",     required_argument, NULL, 'y' },
+                { "parent-match",      required_argument, NULL, 'b' },
+                { "help",              no_argument,       NULL, 'h' },
                 {}
         };
         enum {
@@ -98,6 +117,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
         const char *action = "change";
         struct udev_enumerate *udev_enumerate;
         int rc = 0;
+        int c;
 
         udev_enumerate = udev_enumerate_new(udev);
         if (udev_enumerate == NULL) {
@@ -105,23 +125,12 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                 goto exit;
         }
 
-        for (;;) {
-                int option;
+        while ((c = getopt_long(argc, argv, "vno:t:c:s:S:a:A:p:g:y:b:h", options, NULL)) >= 0) {
                 const char *key;
                 const char *val;
                 char buf[UTIL_PATH_SIZE];
 
-                option = getopt_long(argc, argv, "vng:o:t:hc:p:s:S:a:A:y:b:", options, NULL);
-                if (option == -1) {
-                        if (optind < argc) {
-                                fprintf(stderr, "Extraneous argument: '%s'\n", argv[optind]);
-                                rc = 1;
-                                goto exit;
-                        }
-                        break;
-                }
-
-                switch (option) {
+                switch (c) {
                 case 'v':
                         verbose = 1;
                         break;
@@ -194,27 +203,19 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                         break;
                 }
                 case 'h':
-                        printf("Usage: udevadm trigger OPTIONS\n"
-                               "  --verbose                       print the list of devices while running\n"
-                               "  --dry-run                       do not actually trigger the events\n"
-                               "  --type=                         type of events to trigger\n"
-                               "      devices                       sys devices (default)\n"
-                               "      subsystems                    sys subsystems and drivers\n"
-                               "  --action=<action>               event action value, default is \"change\"\n"
-                               "  --subsystem-match=<subsystem>   trigger devices from a matching subsystem\n"
-                               "  --subsystem-nomatch=<subsystem> exclude devices from a matching subsystem\n"
-                               "  --attr-match=<file[=<value>]>   trigger devices with a matching attribute\n"
-                               "  --attr-nomatch=<file[=<value>]> exclude devices with a matching attribute\n"
-                               "  --property-match=<key>=<value>  trigger devices with a matching property\n"
-                               "  --tag-match=<key>=<value>       trigger devices with a matching property\n"
-                               "  --sysname-match=<name>          trigger devices with a matching name\n"
-                               "  --parent-match=<name>           trigger devices with that parent device\n"
-                               "  --help\n\n");
+                        help();
                         goto exit;
-                default:
+                case '?':
                         rc = 1;
                         goto exit;
+                default:
+                        assert_not_reached("Unknown option");
                 }
+        }
+
+        if (optind < argc) {
+                fprintf(stderr, "Extraneous argument: '%s'\n", argv[optind]);
+                return 1;
         }
 
         switch (device_type) {

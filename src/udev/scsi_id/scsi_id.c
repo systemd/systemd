@@ -44,7 +44,7 @@ static const struct option options[] = {
         { "replace-whitespace", no_argument,       NULL, 'u' },
         { "sg-version",         required_argument, NULL, 's' },
         { "verbose",            no_argument,       NULL, 'v' },
-        { "version",            no_argument,       NULL, 'V' },
+        { "version",            no_argument,       NULL, 'V' }, /* don't advertise -V */
         { "export",             no_argument,       NULL, 'x' },
         { "help",               no_argument,       NULL, 'h' },
         {}
@@ -313,6 +313,22 @@ static int get_file_options(struct udev *udev,
         return retval;
 }
 
+static void help(void) {
+        printf("Usage: scsi_id [OPTION...] DEVICE\n"
+               "  -d,--device=                     device node for SG_IO commands\n"
+               "  -f,--config=                     location of config file\n"
+               "  -p,--page=0x80|0x83|pre-spc3-83  SCSI page (0x80, 0x83, pre-spc3-83)\n"
+               "  -s,--sg-version=3|4              use SGv3 or SGv4\n"
+               "  -b,--blacklisted                 threat device as blacklisted\n"
+               "  -g,--whitelisted                 threat device as whitelisted\n"
+               "  -u,--replace-whitespace          replace all whitespace by underscores\n"
+               "  -v,--verbose                     verbose logging\n"
+               "     --version                     print version\n"
+               "  -x,--export                      print values as environment keys\n"
+               "  -h,--help                        print this help text\n\n");
+
+}
+
 static int set_options(struct udev *udev,
                        int argc, char **argv,
                        char *maj_min_dev)
@@ -325,7 +341,7 @@ static int set_options(struct udev *udev,
          * file) we have to reset this back to 1.
          */
         optind = 1;
-        while ((option = getopt_long(argc, argv, "d:f:ghp:uvVx", options, NULL)) >= 0)
+        while ((option = getopt_long(argc, argv, "d:f:gp:uvVxh", options, NULL)) >= 0)
                 switch (option) {
                 case 'b':
                         all_good = false;
@@ -345,18 +361,7 @@ static int set_options(struct udev *udev,
                         break;
 
                 case 'h':
-                        printf("Usage: scsi_id [OPTION...] DEVICE\n"
-                               "  --device=                     device node for SG_IO commands\n"
-                               "  --config=                     location of config file\n"
-                               "  --page=0x80|0x83|pre-spc3-83  SCSI page (0x80, 0x83, pre-spc3-83)\n"
-                               "  --sg-version=3|4              use SGv3 or SGv4\n"
-                               "  --blacklisted                 threat device as blacklisted\n"
-                               "  --whitelisted                 threat device as whitelisted\n"
-                               "  --replace-whitespace          replace all whitespace by underscores\n"
-                               "  --verbose                     verbose logging\n"
-                               "  --version                     print version\n"
-                               "  --export                      print values as environment keys\n"
-                               "  --help                        print this help text\n\n");
+                        help();
                         exit(0);
 
                 case 'p':

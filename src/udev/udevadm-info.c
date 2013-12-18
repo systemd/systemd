@@ -302,43 +302,44 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
         const char *export_prefix = NULL;
         char name[UTIL_PATH_SIZE];
         struct udev_list_entry *list_entry;
-        int rc = 0;
+        int rc = 0, c;
 
         static const struct option options[] = {
-                { "name", required_argument, NULL, 'n' },
-                { "path", required_argument, NULL, 'p' },
-                { "query", required_argument, NULL, 'q' },
-                { "attribute-walk", no_argument, NULL, 'a' },
-                { "cleanup-db", no_argument, NULL, 'c' },
-                { "export-db", no_argument, NULL, 'e' },
-                { "root", no_argument, NULL, 'r' },
+                { "name",              required_argument, NULL, 'n' },
+                { "path",              required_argument, NULL, 'p' },
+                { "query",             required_argument, NULL, 'q' },
+                { "attribute-walk",    no_argument,       NULL, 'a' },
+                { "cleanup-db",        no_argument,       NULL, 'c' },
+                { "export-db",         no_argument,       NULL, 'e' },
+                { "root",              no_argument,       NULL, 'r' },
                 { "device-id-of-file", required_argument, NULL, 'd' },
-                { "export", no_argument, NULL, 'x' },
-                { "export-prefix", required_argument, NULL, 'P' },
-                { "version", no_argument, NULL, 'V' },
-                { "help", no_argument, NULL, 'h' },
+                { "export",            no_argument,       NULL, 'x' },
+                { "export-prefix",     required_argument, NULL, 'P' },
+                { "version",           no_argument,       NULL, 'V' },
+                { "help",              no_argument,       NULL, 'h' },
                 {}
         };
 
         static const char *usage =
-                "Usage: udevadm info OPTIONS\n"
-                "  --query=<type>             query device information:\n"
+                "Usage: udevadm info [OPTIONS] [DEVPATH|FILE]\n"
+                " -q,--query=TYPE             query device information:\n"
                 "      name                     name of device node\n"
                 "      symlink                  pointing to node\n"
                 "      path                     sys device path\n"
                 "      property                 the device properties\n"
                 "      all                      all values\n"
-                "  --path=<syspath>           sys device path used for query or attribute walk\n"
-                "  --name=<name>              node or symlink name used for query or attribute walk\n"
-                "  --root                     prepend dev directory to path names\n"
-                "  --attribute-walk           print all key matches while walking along the chain\n"
+                " -p,--path=SYSPATH           sys device path used for query or attribute walk\n"
+                " -n,--name=NAME              node or symlink name used for query or attribute walk\n"
+                " -r,--root                   prepend dev directory to path names\n"
+                " -a,--attribute-walk         print all key matches walking along the chain\n"
                 "                             of parent devices\n"
-                "  --device-id-of-file=<file> print major:minor of device containing this file\n"
-                "  --export                   export key/value pairs\n"
-                "  --export-prefix            export the key name with a prefix\n"
-                "  --export-db                export the content of the udev database\n"
-                "  --cleanup-db               cleanup the udev database\n"
-                "  --help\n";
+                " -d,--device-id-of-file=FILE print major:minor of device containing this file\n"
+                " -x,--export                 export key/value pairs\n"
+                " -P,--export-prefix          export the key name with a prefix\n"
+                " -e,--export-db              export the content of the udev database\n"
+                " -c,--cleanup-db             cleanup the udev database\n"
+                "    --version                print version of the program\n"
+                " -h,--help                   print this message\n";
 
         enum action_type {
                 ACTION_QUERY,
@@ -354,14 +355,8 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                 QUERY_ALL,
         } query = QUERY_ALL;
 
-        for (;;) {
-                int option;
-
-                option = getopt_long(argc, argv, "aced:n:p:q:rxP:RVh", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
+        while ((c = getopt_long(argc, argv, "aced:n:p:q:rxP:RVh", options, NULL)) >= 0)
+                switch (c) {
                 case 'n': {
                         if (device != NULL) {
                                 fprintf(stderr, "device already specified\n");
@@ -441,7 +436,6 @@ static int uinfo(struct udev *udev, int argc, char *argv[])
                         rc = 1;
                         goto exit;
                 }
-        }
 
         switch (action) {
         case ACTION_QUERY:

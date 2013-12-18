@@ -37,7 +37,7 @@
 static void help(struct udev *udev)
 {
         fprintf(stderr, "\n");
-        fprintf(stderr, "Usage: udevadm builtin [--help] <command> <syspath>\n");
+        fprintf(stderr, "Usage: udevadm builtin [--help] COMMAND SYSPATH\n");
         udev_builtin_list(udev);
         fprintf(stderr, "\n");
 }
@@ -53,21 +53,14 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
         char filename[UTIL_PATH_SIZE];
         struct udev_device *dev = NULL;
         enum udev_builtin_cmd cmd;
-        int rc = EXIT_SUCCESS;
+        int rc = EXIT_SUCCESS, c;
 
-        for (;;) {
-                int option;
-
-                option = getopt_long(argc, argv, "h", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+                switch (c) {
                 case 'h':
                         help(udev);
                         goto out;
                 }
-        }
 
         command = argv[optind++];
         if (command == NULL) {
@@ -79,7 +72,7 @@ static int adm_builtin(struct udev *udev, int argc, char *argv[])
 
         syspath = argv[optind++];
         if (syspath == NULL) {
-                fprintf(stderr, "syspath missing\n\n");
+                fprintf(stderr, "syspath missing\n");
                 rc = 3;
                 goto out;
         }

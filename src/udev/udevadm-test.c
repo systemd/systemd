@@ -43,7 +43,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
         struct udev_list_entry *entry;
         sigset_t mask, sigmask_orig;
         int err;
-        int rc = 0;
+        int rc = 0, c;
 
         static const struct option options[] = {
                 { "action", required_argument, NULL, 'a' },
@@ -54,14 +54,8 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
 
         log_debug("version %s\n", VERSION);
 
-        for (;;) {
-                int option;
-
-                option = getopt_long(argc, argv, "a:s:N:fh", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
+        while((c = getopt_long(argc, argv, "a:N:h", options, NULL)) >= 0)
+                switch (c) {
                 case 'a':
                         action = optarg;
                         break;
@@ -80,15 +74,18 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
                         break;
                 case 'h':
                         printf("Usage: udevadm test OPTIONS <syspath>\n"
-                               "  --action=<string>     set action string\n"
-                               "  --help\n\n");
+                               "  -a,--action=ACTION                  set action string\n"
+                               "  -N,--resolve-names=early|late|never when to resolve names\n"
+                               "  -h,--help                           print this help string\n"
+                               "\n");
                         exit(EXIT_SUCCESS);
-                default:
+                case '?':
                         exit(EXIT_FAILURE);
+                default:
+                        assert_not_reached("Unknown option");
                 }
-        }
-        syspath = argv[optind];
 
+        syspath = argv[optind];
         if (syspath == NULL) {
                 fprintf(stderr, "syspath parameter missing\n");
                 rc = 2;

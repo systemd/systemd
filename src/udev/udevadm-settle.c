@@ -37,15 +37,25 @@
 #include "udev.h"
 #include "util.h"
 
+static void help(void) {
+        printf("Usage: udevadm settle OPTIONS\n"
+               "  -t,--timeout=<seconds>     maximum time to wait for events\n"
+               "  -s,--seq-start=<seqnum>    first seqnum to wait for\n"
+               "  -e,--seq-end=<seqnum>      last seqnum to wait for\n"
+               "  -E,--exit-if-exists=<file> stop waiting if file exists\n"
+               "  -q,--quiet                 do not print list after timeout\n"
+               "  -h,--help\n\n");
+}
+
 static int adm_settle(struct udev *udev, int argc, char *argv[])
 {
         static const struct option options[] = {
-                { "seq-start", required_argument, NULL, 's' },
-                { "seq-end", required_argument, NULL, 'e' },
-                { "timeout", required_argument, NULL, 't' },
+                { "seq-start",      required_argument, NULL, 's' },
+                { "seq-end",        required_argument, NULL, 'e' },
+                { "timeout",        required_argument, NULL, 't' },
                 { "exit-if-exists", required_argument, NULL, 'E' },
-                { "quiet", no_argument, NULL, 'q' },
-                { "help", no_argument, NULL, 'h' },
+                { "quiet",          no_argument,       NULL, 'q' },
+                { "help",           no_argument,       NULL, 'h' },
                 {}
         };
         usec_t start_usec = now(CLOCK_MONOTONIC);
@@ -56,21 +66,10 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
         unsigned int timeout = 120;
         struct pollfd pfd[1] = { {.fd = -1}, };
         struct udev_queue *udev_queue = NULL;
-        int rc = EXIT_FAILURE;
+        int rc = EXIT_FAILURE, c;
 
-        for (;;) {
-                int option;
-
-                option = getopt_long(argc, argv, "s:e:t:E:qh", options, NULL);
-                if (option == -1) {
-                        if (optind < argc) {
-                                fprintf(stderr, "Extraneous argument: '%s'\n", argv[optind]);
-                                exit(EXIT_FAILURE);
-                        }
-                        break;
-                }
-
-                switch (option) {
+        while ((c = getopt_long(argc, argv, "s:e:t:E:qh", options, NULL)) >= 0)
+                switch (c) {
                 case 's':
                         start = strtoull(optarg, NULL, 0);
                         break;
@@ -87,25 +86,25 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
                                 exit(EXIT_FAILURE);
                         };
                         break;
-                };
-                case 'q':
-                        quiet = 1;
-                        break;
+                }
                 case 'E':
                         exists = optarg;
                         break;
+                case 'q':
+                        quiet = 1;
+                        break;
                 case 'h':
-                        printf("Usage: udevadm settle OPTIONS\n"
-                               "  --timeout=<seconds>     maximum time to wait for events\n"
-                               "  --seq-start=<seqnum>    first seqnum to wait for\n"
-                               "  --seq-end=<seqnum>      last seqnum to wait for\n"
-                               "  --exit-if-exists=<file> stop waiting if file exists\n"
-                               "  --quiet                 do not print list after timeout\n"
-                               "  --help\n\n");
+                        help();
                         exit(EXIT_SUCCESS);
-                default:
+                case '?':
                         exit(EXIT_FAILURE);
+                default:
+                        assert_not_reached("Unkown argument");
                 }
+
+        if (optind < argc) {
+                fprintf(stderr, "Extraneous argument: '%s'\n", argv[optind]);
+                exit(EXIT_FAILURE);
         }
 
         udev_queue = udev_queue_new(udev);
