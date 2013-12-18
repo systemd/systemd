@@ -135,6 +135,12 @@ static int manager_setup_notify(Manager *m) {
                 return -errno;
         }
 
+        /* Process signals a bit earlier than SIGCHLD, so that we can
+         * still identify to which service an exit message belongs */
+        r = sd_event_source_set_priority(m->notify_event_source, -7);
+        if (r < 0)
+                return r;
+
         sa.un.sun_path[0] = '@';
         m->notify_socket = strdup(sa.un.sun_path);
         if (!m->notify_socket)
@@ -367,7 +373,10 @@ static int manager_setup_signals(Manager *m) {
         if (r < 0)
                 return r;
 
-        /* Process signals a bit earlier than the rest of things */
+        /* Process signals a bit earlier than the rest of things, but
+         * later that notify_fd processing, so that the notify
+         * processing can still figure out to which process/service a
+         * message belongs, before we reap the process. */
         r = sd_event_source_set_priority(m->signal_event_source, -5);
         if (r < 0)
                 return r;
@@ -1331,7 +1340,6 @@ static int manager_dispatch_sigchld(Manager *m) {
         for (;;) {
                 siginfo_t si = {};
                 Unit *u;
-                int r;
 
                 /* First we call waitd() for a PID and do not reap the
                  * zombie. That way we can still access /proc/$PID for
@@ -1356,14 +1364,6 @@ static int manager_dispatch_sigchld(Manager *m) {
                         get_process_comm(si.si_pid, &name);
                         log_debug("Got SIGCHLD for process %lu (%s)", (unsigned long) si.si_pid, strna(name));
                 }
-
-                /* Let's flush any message the dying child might still
-                 * have queued for us. This ensures that the process
-                 * still exists in /proc so that we can figure out
-                 * which cgroup and hence unit it belongs to. */
-                r = manager_dispatch_notify_fd(m->notify_event_source, m->notify_fd, EPOLLIN, m);
-                if (r < 0)
-                        return r;
 
                 /* And now figure out the unit this belongs to */
                 u = hashmap_get(m->watch_pids, LONG_TO_PTR(si.si_pid));
