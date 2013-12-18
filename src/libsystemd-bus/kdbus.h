@@ -45,10 +45,8 @@ struct kdbus_notify_id_change {
 
 /**
  * struct kdbus_notify_name_change - name registry change message
- * @old_id:		Former owner of a name
- * @new_id:		New owner of a name
- * @old_flags:		flags from KDBUS_NAME_* the name entry used to have
- * @new_flags:		flags from KDBUS_NAME_* the name entry has now
+ * @old:		ID and flags of former owner of a name
+ * @new:		ID and flags of new owner of a name
  * @name:		Well-known name
  *
  * Sent from kernel to userspace when the owner or activator of
@@ -119,7 +117,8 @@ struct kdbus_timestamp {
  * struct kdbus_vec - I/O vector for kdbus payload items
  * @size:		The size of the vector
  * @address:		Memory address for memory addresses
- * @offset:		Offset in the in-message payload memory
+ * @offset:		Offset in the in-message payload memory,
+ * 			relative to the message head
  *
  * Attached to:
  *   KDBUS_ITEM_PAYLOAD_VEC
@@ -195,7 +194,7 @@ struct kdbus_policy {
 /**
  * enum kdbus_item_type - item types to chain data in a list
  * @KDBUS_ITEM_PAYLOAD_VEC:	Vector to data
- * @KDBUS_ITEM_PAYLOAD_OFF:	Data at returned offset in the pool
+ * @KDBUS_ITEM_PAYLOAD_OFF:	Data at returned offset to message head
  * @KDBUS_ITEM_PAYLOAD_MEMFD:	Data as sealed memfd
  * @KDBUS_ITEM_FDS:		Attached file descriptors
  * @KDBUS_ITEM_BLOOM:		For broadcasts, carries bloom filter

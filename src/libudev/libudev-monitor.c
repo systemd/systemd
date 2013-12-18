@@ -122,6 +122,14 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
         else
                 return NULL;
 
+        /*
+         * We do not support subscribing to uevents if no instance of udev
+         * is running. Uevents would otherwise broadcast the processing data
+         * of the host into containers, which is not acceptable. Containers
+         * will currently just not get any uevents.
+         */
+        
+
         udev_monitor = udev_monitor_new(udev);
         if (udev_monitor == NULL)
                 return NULL;
