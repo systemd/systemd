@@ -32,6 +32,7 @@
 #include <sys/un.h>
 
 #include "udev.h"
+#include "udev-util.h"
 #include "util.h"
 
 static int verbose;
@@ -115,15 +116,12 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                 TYPE_SUBSYSTEMS,
         } device_type = TYPE_DEVICES;
         const char *action = "change";
-        struct udev_enumerate *udev_enumerate;
-        int rc = 0;
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *udev_enumerate = NULL;
         int c;
 
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL) {
-                rc = 1;
-                goto exit;
-        }
+        if (udev_enumerate == NULL)
+                return 1;
 
         while ((c = getopt_long(argc, argv, "vno:t:c:s:S:a:A:p:g:y:b:h", options, NULL)) >= 0) {
                 const char *key;
@@ -138,24 +136,22 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                         dry_run = 1;
                         break;
                 case 't':
-                        if (streq(optarg, "devices")) {
+                        if (streq(optarg, "devices"))
                                 device_type = TYPE_DEVICES;
-                        } else if (streq(optarg, "subsystems")) {
+                        else if (streq(optarg, "subsystems"))
                                 device_type = TYPE_SUBSYSTEMS;
-                        } else {
+                        else {
                                 log_error("unknown type --type=%s\n", optarg);
-                                rc = 2;
-                                goto exit;
+                                return 2;
                         }
                         break;
                 case 'c':
                         if (!nulstr_contains("add\0" "remove\0" "change\0", optarg)) {
                                 log_error("unknown action '%s'\n", optarg);
-                                rc = 2;
-                                goto exit;
-                        } else {
+                                return 2;
+                        } else
                                 action = optarg;
-                        }
+
                         break;
                 case 's':
                         udev_enumerate_add_match_subsystem(udev_enumerate, optarg);
@@ -194,8 +190,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                         dev = udev_device_new_from_syspath(udev, path);
                         if (dev == NULL) {
                                 log_error("unable to open the device '%s'\n", optarg);
-                                rc = 2;
-                                goto exit;
+                                return 2;
                         }
                         udev_enumerate_add_match_parent(udev_enumerate, dev);
                         /* drop reference immediately, enumerate pins the device as long as needed */
@@ -204,10 +199,9 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
                 }
                 case 'h':
                         help();
-                        goto exit;
+                        return 0;
                 case '?':
-                        rc = 1;
-                        goto exit;
+                        return 1;
                 default:
                         assert_not_reached("Unknown option");
                 }
@@ -222,17 +216,14 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[])
         case TYPE_SUBSYSTEMS:
                 udev_enumerate_scan_subsystems(udev_enumerate);
                 exec_list(udev_enumerate, action);
-                goto exit;
+                return 0;
         case TYPE_DEVICES:
                 udev_enumerate_scan_devices(udev_enumerate);
                 exec_list(udev_enumerate, action);
-                goto exit;
+                return 0;
         default:
                 assert_not_reached("device_type");
         }
-exit:
-        udev_enumerate_unref(udev_enumerate);
-        return rc;
 }
 
 const struct udevadm_cmd udevadm_trigger = {

@@ -35,6 +35,7 @@
 #include <sys/types.h>
 
 #include "udev.h"
+#include "udev-util.h"
 #include "util.h"
 
 static void help(void) {
@@ -65,7 +66,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
         const char *exists = NULL;
         unsigned int timeout = 120;
         struct pollfd pfd[1] = { {.fd = -1}, };
-        struct udev_queue *udev_queue = NULL;
+        _cleanup_udev_queue_unref_ struct udev_queue *udev_queue = NULL;
         int rc = EXIT_FAILURE, c;
 
         while ((c = getopt_long(argc, argv, "s:e:t:E:qh", options, NULL)) >= 0)
@@ -229,7 +230,6 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
 out:
         if (pfd[0].fd >= 0)
                 close(pfd[0].fd);
-        udev_queue_unref(udev_queue);
         return rc;
 }
 

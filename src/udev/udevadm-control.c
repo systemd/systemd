@@ -26,6 +26,7 @@
 #include <sys/un.h>
 
 #include "udev.h"
+#include "udev-util.h"
 
 static void print_help(void)
 {
@@ -43,7 +44,7 @@ static void print_help(void)
 
 static int adm_control(struct udev *udev, int argc, char *argv[])
 {
-        struct udev_ctrl *uctrl = NULL;
+        _cleanup_udev_ctrl_unref_ struct udev_ctrl *uctrl = NULL;
         int timeout = 60;
         int rc = 1, c;
 
@@ -85,7 +86,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[])
                         i = util_log_priority(optarg);
                         if (i < 0) {
                                 fprintf(stderr, "invalid number '%s'\n", optarg);
-                                goto out;
+                                return rc;
                         }
                         if (udev_ctrl_send_set_log_level(uctrl, util_log_priority(optarg), timeout) < 0)
                                 rc = 2;
@@ -114,7 +115,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[])
                 case 'p':
                         if (strchr(optarg, '=') == NULL) {
                                 fprintf(stderr, "expect <KEY>=<value> instead of '%s'\n", optarg);
-                                goto out;
+                                return rc;
                         }
                         if (udev_ctrl_send_set_env(uctrl, optarg, timeout) < 0)
                                 rc = 2;
@@ -128,7 +129,7 @@ static int adm_control(struct udev *udev, int argc, char *argv[])
                         i = strtoul(optarg, &endp, 0);
                         if (endp[0] != '\0' || i < 1) {
                                 fprintf(stderr, "invalid number '%s'\n", optarg);
-                                goto out;
+                                return rc;
                         }
                         if (udev_ctrl_send_set_children_max(uctrl, i, timeout) < 0)
                                 rc = 2;
@@ -156,8 +157,6 @@ static int adm_control(struct udev *udev, int argc, char *argv[])
                 fprintf(stderr, "Extraneous argument: %s\n", argv[optind]);
         else if (optind == 1)
                 fprintf(stderr, "Option missing\n");
-out:
-        udev_ctrl_unref(uctrl);
         return rc;
 }
 

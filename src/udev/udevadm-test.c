@@ -30,6 +30,7 @@
 #include <sys/signalfd.h>
 
 #include "udev.h"
+#include "udev-util.h"
 
 static int adm_test(struct udev *udev, int argc, char *argv[])
 {
@@ -37,10 +38,10 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
         char filename[UTIL_PATH_SIZE];
         const char *action = "add";
         const char *syspath = NULL;
-        struct udev_event *event = NULL;
-        struct udev_device *dev = NULL;
-        struct udev_rules *rules = NULL;
         struct udev_list_entry *entry;
+        _cleanup_udev_rules_unref_ struct udev_rules *rules = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+        _cleanup_udev_event_unref_ struct udev_event *event = NULL;
         sigset_t mask, sigmask_orig;
         int err;
         int rc = 0, c;
@@ -154,9 +155,6 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
 out:
         if (event != NULL && event->fd_signal >= 0)
                 close(event->fd_signal);
-        udev_event_unref(event);
-        udev_device_unref(dev);
-        udev_rules_unref(rules);
         udev_builtin_exit(udev);
         return rc;
 }
