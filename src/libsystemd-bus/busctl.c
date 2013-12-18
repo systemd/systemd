@@ -53,9 +53,15 @@ static void pager_open_if_enabled(void) {
 
 static int list_bus_names(sd_bus *bus, char **argv) {
         _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
+        _cleanup_free_ char **merged = NULL;
+        _cleanup_hashmap_free_ Hashmap *names = NULL;
         char **i;
         int r;
         size_t max_i = 0;
+        unsigned n = 0;
+        void *v;
+        char *k;
+        Iterator iterator;
 
         assert(bus);
 
@@ -67,14 +73,36 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
         pager_open_if_enabled();
 
-        strv_sort(acquired);
-        strv_sort(activatable);
+        names = hashmap_new(string_hash_func, string_compare_func);
+        if (!names)
+                return log_oom();
 
-        STRV_FOREACH(i, acquired)
+        STRV_FOREACH(i, acquired) {
                 max_i = MAX(max_i, strlen(*i));
 
-        STRV_FOREACH(i, activatable)
+                r = hashmap_put(names, *i, INT_TO_PTR(1));
+                if (r < 0) {
+                        log_error("Failed to add to hashmap: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        STRV_FOREACH(i, activatable) {
                 max_i = MAX(max_i, strlen(*i));
+
+                r = hashmap_put(names, *i, INT_TO_PTR(2));
+                if (r < 0 && r != -EEXIST) {
+                        log_error("Failed to add to hashmap: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        merged = new(char*, hashmap_size(names) + 1);
+        HASHMAP_FOREACH_KEY(v, k, names, iterator)
+                merged[n++] = k;
+
+        merged[n] = NULL;
+        strv_sort(merged);
 
         printf("%-*s %*s %-*s %-*s %-*s",
                (int) max_i, "NAME", 10, "PID", 15, "PROCESS", 16, "USER", 20, "CONNECTION");
@@ -84,26 +112,22 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         else
                 putchar('\n');
 
-        STRV_FOREACH(i, activatable) {
-
-                /* Skip the bus driver */
-                if (streq(*i, "org.freedesktop.DBus"))
-                        continue;
-
-                if (strv_contains(acquired, *i))
-                        continue;
-
-                printf("%-*s", (int) max_i, *i);
-                printf("          - -               -                (activation)        ");
-                if (arg_no_machine)
-                        putchar('\n');
-                else
-                        puts(" -");
-        }
-
-        STRV_FOREACH(i, acquired) {
+        STRV_FOREACH(i, merged) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
                 sd_id128_t mid;
+
+                if (hashmap_get(names, *i) == INT_TO_PTR(2)) {
+                        /* Activatable */
+
+                        printf("%-*s", (int) max_i, *i);
+                        printf("          - -               -                (activation)        ");
+                        if (arg_no_machine)
+                                putchar('\n');
+                        else
+                                puts(" -");
+                        continue;
+
+                }
 
                 if (arg_no_unique && (*i)[0] == ':')
                         continue;
