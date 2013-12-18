@@ -303,14 +303,6 @@ static int device_process_new_device(Manager *m, struct udev_device *dev) {
 
         assert(m);
 
-#if 0
-        /* FIXME: this is always false for devices received from udev_monitor */
-
-        /* Don't pick up devices before udev finished initialization for them */
-        if (!udev_device_get_is_initialized(dev))
-                return 0;
-#endif
-
         sysfs = udev_device_get_syspath(dev);
         if (!sysfs)
                 return 0;
@@ -554,6 +546,10 @@ static int device_enumerate(Manager *m) {
         }
 
         r = udev_enumerate_add_match_tag(e, "systemd");
+        if (r < 0)
+                goto fail;
+
+        r = udev_enumerate_add_match_is_initialized(e);
         if (r < 0)
                 goto fail;
 

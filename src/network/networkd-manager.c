@@ -171,6 +171,10 @@ int manager_udev_enumerate_links(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = udev_enumerate_add_match_is_initialized(e);
+        if (r < 0)
+                return r;
+
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
                 return r;
@@ -183,9 +187,6 @@ int manager_udev_enumerate_links(Manager *m) {
                 d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
                 if (!d)
                         return -ENOMEM;
-
-                if (!udev_device_get_is_initialized(d))
-                        continue;
 
                 k = manager_process_link(m, d);
                 if (k < 0)

@@ -170,7 +170,10 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
                 r = udev_enumerate_add_match_tag(e, seat);
         else
                 r = udev_enumerate_add_match_tag(e, "seat");
+        if (r < 0)
+                return r;
 
+        r = udev_enumerate_add_match_is_initialized(e);
         if (r < 0)
                 return r;
 

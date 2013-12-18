@@ -210,6 +210,10 @@ int devnode_acl_all(struct udev *udev,
         if (r < 0)
                 return r;
 
+        r = udev_enumerate_add_match_is_initialized(e);
+        if (r < 0)
+                return r;
+
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
                 return r;
@@ -222,9 +226,6 @@ int devnode_acl_all(struct udev *udev,
                 d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                 if (!d)
                         return -ENOMEM;
-
-                if (!udev_device_get_is_initialized(d))
-                        continue;
 
                 sn = udev_device_get_property_value(d, "ID_SEAT");
                 if (isempty(sn))
