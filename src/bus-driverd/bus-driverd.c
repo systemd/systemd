@@ -303,7 +303,7 @@ static int driver_request_name(sd_bus *bus, sd_bus_message *m, void *userdata, s
         n = alloca0(size);
         n->size = size;
         memcpy(n->name, name, l+1);
-        kdbus_translate_request_name_flags(flags, (uint64_t *) &n->conn_flags);
+        kdbus_translate_request_name_flags(flags, (uint64_t *) &n->flags);
 
         /* This function is open-coded because we request the name 'on behalf'
          * of the requesting connection */
