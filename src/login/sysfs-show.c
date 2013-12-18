@@ -179,6 +179,8 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
         first = udev_enumerate_get_list_entry(e);
         if (first)
                 show_sysfs_one(udev, seat, &first, "/", prefix, n_columns);
+        else
+                printf("%s%s%s\n", prefix, draw_special_char(DRAW_TREE_RIGHT), "(none)");
 
         return r;
 }
