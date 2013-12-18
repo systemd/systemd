@@ -417,7 +417,7 @@ static int parse_proc_cmdline_word(const char *word) {
                  * will block with every log message for for 60 seconds,
                  * before they give up. */
                 log_set_max_level(LOG_DEBUG);
-                log_set_target(LOG_TARGET_KMSG);
+                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_KMSG);
         } else if (!in_initrd()) {
                 unsigned i;
 
