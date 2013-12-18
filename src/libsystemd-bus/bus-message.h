@@ -65,6 +65,7 @@ struct bus_body_part {
         void *data;
         size_t size;
         size_t mapped;
+        size_t allocated;
         int memfd;
         bool free_this:1;
         bool munmap_this:1;

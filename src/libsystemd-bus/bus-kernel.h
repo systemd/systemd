@@ -51,7 +51,8 @@
 struct memfd_cache {
         int fd;
         void *address;
-        size_t size;
+        size_t mapped;
+        size_t allocated;
 };
 
 int bus_kernel_connect(sd_bus *b);
@@ -65,8 +66,8 @@ int bus_kernel_create_namespace(const char *name, char **s);
 int bus_kernel_create_starter(const char *bus, const char *name);
 int bus_kernel_create_monitor(const char *bus);
 
-int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *size);
-void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t size);
+int bus_kernel_pop_memfd(sd_bus *bus, void **address, size_t *mapped, size_t *allocated);
+void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t mapped, size_t allocated);
 
 void bus_kernel_flush_memfd(sd_bus *bus);
 

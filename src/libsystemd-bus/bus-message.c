@@ -65,7 +65,7 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
                  * can't be sealed yet. */
 
                 if (!part->sealed)
-                        bus_kernel_push_memfd(m->bus, part->memfd, part->data, part->mapped);
+                        bus_kernel_push_memfd(m->bus, part->memfd, part->data, part->mapped, part->allocated);
                 else {
                         if (part->mapped > 0)
                                 assert_se(munmap(part->data, part->mapped) == 0);
@@ -1049,20 +1049,27 @@ static int part_make_space(
                 return -ENOMEM;
 
         if (!part->data && part->memfd < 0)
-                part->memfd = bus_kernel_pop_memfd(m->bus, &part->data, &part->mapped);
+                part->memfd = bus_kernel_pop_memfd(m->bus, &part->data, &part->mapped, &part->allocated);
 
         if (part->memfd >= 0) {
-                uint64_t u = sz;
 
-                r = ioctl(part->memfd, KDBUS_CMD_MEMFD_SIZE_SET, &u);
-                if (r < 0) {
-                        m->poisoned = true;
-                        return -errno;
+                if (part->allocated == 0 || sz > part->allocated) {
+                        uint64_t new_allocated;
+
+                        new_allocated = PAGE_ALIGN(sz > 0 ? 2 * sz : 1);
+                        r = ioctl(part->memfd, KDBUS_CMD_MEMFD_SIZE_SET, &new_allocated);
+                        if (r < 0) {
+                                m->poisoned = true;
+                                return -errno;
+                        }
+
+                        part->allocated = new_allocated;
                 }
 
                 if (!part->data || sz > part->mapped) {
-                        size_t psz = PAGE_ALIGN(sz > 0 ? sz : 1);
+                        size_t psz;
 
+                        psz = PAGE_ALIGN(sz > 0 ? sz : 1);
                         if (part->mapped <= 0)
                                 n = mmap(NULL, psz, PROT_READ|PROT_WRITE, MAP_SHARED, part->memfd, 0);
                         else
@@ -1079,14 +1086,20 @@ static int part_make_space(
 
                 part->munmap_this = true;
         } else {
-                n = realloc(part->data, MAX(sz, 1u));
-                if (!n) {
-                        m->poisoned = true;
-                        return -ENOMEM;
-                }
+                if (part->allocated == 0 || sz > part->allocated) {
+                        size_t new_allocated;
 
-                part->data = n;
-                part->free_this = true;
+                        new_allocated = sz > 0 ? 2 * sz : 64;
+                        n = realloc(part->data, new_allocated);
+                        if (!n) {
+                                m->poisoned = true;
+                                return -ENOMEM;
+                        }
+
+                        part->data = n;
+                        part->allocated = new_allocated;
+                        part->free_this = true;
+                }
         }
 
         if (q)
@@ -2757,8 +2770,19 @@ int bus_message_seal(sd_bus_message *m, uint64_t serial, usec_t timeout) {
         if (m->destination && m->bus && m->bus->use_memfd) {
                 MESSAGE_FOREACH_PART(part, i, m)
                         if (part->memfd >= 0 && !part->sealed && (part->size > MEMFD_MIN_SIZE || m->bus->use_memfd < 0)) {
+                                uint64_t sz;
+
+                                /* Try to seal it if that makes
+                                 * sense. First, unmap our own map to
+                                 * make sure we don't keep it busy. */
                                 bus_body_part_unmap(part);
 
+                                /* Then, sync up real memfd size */
+                                sz = part->size;
+                                if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SIZE_SET, &sz) < 0)
+                                        return -errno;
+
+                                /* Finally, try to seal */
                                 if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SEAL_SET, 1) >= 0)
                                         part->sealed = true;
                         }
