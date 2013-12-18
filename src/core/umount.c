@@ -202,9 +202,10 @@ finish:
 }
 
 static int loopback_list_get(MountPoint **head) {
-        _cleanup_udev_unref_ struct udev *udev;
         _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        int r;
 
         assert(head);
 
@@ -216,13 +217,21 @@ static int loopback_list_get(MountPoint **head) {
         if (!e)
                 return -ENOMEM;
 
-        if (udev_enumerate_add_match_subsystem(e, "block") < 0 ||
-            udev_enumerate_add_match_sysname(e, "loop*") < 0 ||
-            udev_enumerate_add_match_sysattr(e, "loop/backing_file", NULL) < 0)
-                return -EIO;
+        r = udev_enumerate_add_match_subsystem(e, "block");
+        if (r < 0)
+                return r;
 
-        if (udev_enumerate_scan_devices(e) < 0)
-                return -EIO;
+        r = udev_enumerate_add_match_sysname(e, "loop*");
+        if (r < 0)
+                return r;
+
+        r = udev_enumerate_add_match_sysattr(e, "loop/backing_file", NULL);
+        if (r < 0)
+                return r;
+
+        r = udev_enumerate_scan_devices(e);
+        if (r < 0)
+                return r;
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
@@ -257,9 +266,10 @@ static int loopback_list_get(MountPoint **head) {
 }
 
 static int dm_list_get(MountPoint **head) {
-        _cleanup_udev_unref_ struct udev *udev;
         _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        int r;
 
         assert(head);
 
@@ -271,15 +281,19 @@ static int dm_list_get(MountPoint **head) {
         if (!e)
                 return -ENOMEM;
 
-        if (udev_enumerate_add_match_subsystem(e, "block") < 0 ||
-            udev_enumerate_add_match_sysname(e, "dm-*") < 0)
-                return -EIO;
+        r = udev_enumerate_add_match_subsystem(e, "block");
+        if (r < 0)
+                return r;
 
-        if (udev_enumerate_scan_devices(e) < 0)
-                return -EIO;
+        r = udev_enumerate_add_match_sysname(e, "dm-*");
+        if (r < 0)
+                return r;
+
+        r = udev_enumerate_scan_devices(e);
+        if (r < 0)
+                return r;
 
         first = udev_enumerate_get_list_entry(e);
-
         udev_list_entry_foreach(item, first) {
                 MountPoint *m;
                 _cleanup_udev_device_unref_ struct udev_device *d;
