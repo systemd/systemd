@@ -83,6 +83,12 @@ enum {
         BUS_NAME_NOT_OWNER = 3,
 };
 
+/* StartServiceByName returns */
+enum {
+        BUS_START_REPLY_SUCCESS = 1,
+        BUS_START_REPLY_ALREADY_RUNNING = 2,
+};
+
 #define BUS_INTROSPECT_DOCTYPE                                       \
         "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n" \
         "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"

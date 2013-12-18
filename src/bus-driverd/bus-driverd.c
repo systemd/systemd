@@ -34,7 +34,6 @@
 #include "kdbus.h"
 #include "sd-bus.h"
 #include "bus-internal.h"
-
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "event-util.h"
@@ -50,37 +49,22 @@
 #include "async.h"
 #include "hashmap.h"
 #include "def.h"
+#include "unit-name.h"
 
 /*
  * TODO:
  *
  * AddMatch / RemoveMatch
- * ListActivatableNames
- * StartServiceByName
  */
-
-static int driver_name_info_error(sd_bus *bus, sd_bus_message *m, const char *name, int error_code) {
-
-        if (error_code == -ENXIO || error_code == -ENOENT)
-                return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_NAME_HAS_NO_OWNER,
-                                                  "Could not get owner of name '%s': no such name",
-                                                  name);
-
-        return sd_bus_reply_method_errno(m, error_code, NULL);
-}
 
 static int driver_add_match(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
 
-        char *arg0, *match;
+        char *arg0;
         int r;
 
         r = sd_bus_message_read(m, "s", &arg0);
         if (r < 0)
                 return r;
-
-        match = strdup(arg0);
-        if (!match)
-                return -ENOMEM;
 
         /* FIXME */
 
@@ -88,7 +72,6 @@ static int driver_add_match(sd_bus *bus, sd_bus_message *m, void *userdata, sd_b
 }
 
 static int driver_remove_match(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
         char *arg0;
         int r;
 
@@ -102,7 +85,6 @@ static int driver_remove_match(sd_bus *bus, sd_bus_message *m, void *userdata, s
 }
 
 static int driver_get_security_ctx(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         char *arg0;
@@ -112,13 +94,11 @@ static int driver_get_security_ctx(sd_bus *bus, sd_bus_message *m, void *userdat
         if (r < 0)
                 return r;
 
+        assert_return(service_name_is_valid(arg0), -EINVAL);
+
         r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_SELINUX_CONTEXT, &creds);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return driver_name_info_error(bus, m, arg0, r);
-                else
-                        return r;
-        }
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)
@@ -132,7 +112,6 @@ static int driver_get_security_ctx(sd_bus *bus, sd_bus_message *m, void *userdat
 }
 
 static int driver_get_pid(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         char *arg0;
         int r;
@@ -140,6 +119,8 @@ static int driver_get_pid(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
         r = sd_bus_message_read(m, "s", &arg0);
         if (r < 0)
                 return r;
+
+        assert_return(service_name_is_valid(arg0), -EINVAL);
 
         r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_PID, &creds);
         if (r < 0)
@@ -149,7 +130,6 @@ static int driver_get_pid(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
 }
 
 static int driver_get_user(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         char *arg0;
         int r;
@@ -158,19 +138,16 @@ static int driver_get_user(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
+        assert_return(service_name_is_valid(arg0), -EINVAL);
+
         r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_UID, &creds);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return driver_name_info_error(bus, m, arg0, r);
-                else
-                        return r;
-        }
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(m, "u", creds->uid);
 }
 
 static int driver_get_id(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
         sd_id128_t server_id;
         char buf[SD_ID128_STRING_MAX];
         int r;
@@ -183,7 +160,6 @@ static int driver_get_id(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_
 }
 
 static int driver_get_name_owner(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         char *arg0;
         int r;
@@ -192,25 +168,35 @@ static int driver_get_name_owner(sd_bus *bus, sd_bus_message *m, void *userdata,
         if (r < 0)
                 return r;
 
+        assert_return(service_name_is_valid(arg0), -EINVAL);
+
         r = sd_bus_get_owner(bus, arg0, SD_BUS_CREDS_UNIQUE_NAME, &creds);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return driver_name_info_error(bus, m, arg0, r);
-                else
-                        return r;
-        }
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(m, "s", creds->unique_name);
 }
 
 static int driver_hello(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
         return sd_bus_reply_method_return(m, "s", m->sender);
 }
 
-static int driver_list_names(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
+static int return_strv(sd_bus *bus, sd_bus_message *m, char **l) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        int r;
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_strv(reply, l);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(bus, reply, NULL);
+}
+
+static int driver_list_names(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **names = NULL;
         int r;
 
@@ -218,20 +204,10 @@ static int driver_list_names(sd_bus *bus, sd_bus_message *m, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_return(m, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append_strv(reply, names);
-        if (r < 0)
-                return r;
-
-        return sd_bus_send(bus, reply, NULL);
+        return return_strv(bus, m, names);
 }
 
 static int driver_list_activatable_names(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **names = NULL;
         int r;
 
@@ -239,20 +215,10 @@ static int driver_list_activatable_names(sd_bus *bus, sd_bus_message *m, void *u
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_return(m, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append_strv(reply, names);
-        if (r < 0)
-                return r;
-
-        return sd_bus_send(bus, reply, NULL);
+        return return_strv(bus, m, names);
 }
 
 static int driver_list_queued_owners(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         struct kdbus_cmd_name_list cmd = {};
         struct kdbus_name_list *name_list;
         struct kdbus_cmd_name *name;
@@ -264,6 +230,8 @@ static int driver_list_queued_owners(sd_bus *bus, sd_bus_message *m, void *userd
         if (r < 0)
                 return r;
 
+        assert_return(service_name_is_valid(arg0), -EINVAL);
+
         cmd.flags = KDBUS_NAME_LIST_QUEUED;
 
         r = ioctl(bus->input_fd, KDBUS_CMD_NAME_LIST, &cmd);
@@ -273,37 +241,32 @@ static int driver_list_queued_owners(sd_bus *bus, sd_bus_message *m, void *userd
         name_list = (struct kdbus_name_list *) ((uint8_t *) bus->kdbus_buffer + cmd.offset);
 
         KDBUS_ITEM_FOREACH(name, name_list, names) {
-                if (name->size > sizeof(*name) && !streq(name->name, arg0)) {
-                        char *n;
+                char *n;
 
-                        if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0)
-                                return -ENOMEM;
+                if (name->size <= sizeof(*name))
+                        continue;
 
-                        r = strv_push(&owners, n);
-                        if (r < 0) {
-                                free(n);
-                                return -ENOMEM;
-                        }
+                if (!streq(name->name, arg0))
+                        continue;
+
+                if (asprintf(&n, ":1.%llu", (unsigned long long) name->id) < 0)
+                        return -ENOMEM;
+
+                r = strv_push(&owners, n);
+                if (r < 0) {
+                        free(n);
+                        return -ENOMEM;
                 }
         }
 
-        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_FREE, &cmd.offset);
+        r = ioctl(bus->input_fd, KDBUS_CMD_FREE, &cmd.offset);
         if (r < 0)
                 return -errno;
 
-        r = sd_bus_message_new_method_return(m, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append_strv(reply, owners);
-        if (r < 0)
-                return r;
-
-        return sd_bus_send(bus, reply, NULL);
+        return return_strv(bus, m, owners);
 }
 
 static int driver_name_has_owner(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
         char *arg0;
         int r;
 
@@ -311,32 +274,36 @@ static int driver_name_has_owner(sd_bus *bus, sd_bus_message *m, void *userdata,
         if (r < 0)
                 return r;
 
+        assert_return(service_name_is_valid(arg0), -EINVAL);
+
         r = sd_bus_get_owner(bus, arg0, 0, NULL);
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        return sd_bus_reply_method_return(m, "b", r == 0);
+        return sd_bus_reply_method_return(m, "b", r >= 0);
 }
 
 static int driver_request_name(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
-        struct kdbus_cmd_name *cmd_name;
+        struct kdbus_cmd_name *n;
         uint32_t flags;
-        size_t size;
+        size_t size, l;
         uint64_t id;
-        char *name;
+        const char *name;
         int r;
 
         r = sd_bus_message_read(m, "su", &name, &flags);
         if (r < 0)
                 return r;
 
-        size = sizeof(*cmd_name) + strlen(name) + 1;
+        assert_return(service_name_is_valid(name), -EINVAL);
+        assert_return((flags & ~(BUS_NAME_ALLOW_REPLACEMENT|BUS_NAME_REPLACE_EXISTING|BUS_NAME_DO_NOT_QUEUE)) == 0, -EINVAL);
 
-        cmd_name = alloca0(size);
-        strcpy(cmd_name->name, name);
-        cmd_name->size = size;
-        kdbus_translate_request_name_flags(flags, (uint64_t *) &cmd_name->conn_flags);
+        l = strlen(name);
+        size = offsetof(struct kdbus_cmd_name, name) + l + 1;
+        n = alloca0(size);
+        n->size = size;
+        memcpy(n->name, name, l+1);
+        kdbus_translate_request_name_flags(flags, (uint64_t *) &n->conn_flags);
 
         /* This function is open-coded because we request the name 'on behalf'
          * of the requesting connection */
@@ -344,39 +311,119 @@ static int driver_request_name(sd_bus *bus, sd_bus_message *m, void *userdata, s
         if (r < 0)
                 return r;
 
-        cmd_name->id = id;
+        n->id = id;
 
-        r = ioctl(sd_bus_get_fd(bus), KDBUS_CMD_NAME_ACQUIRE, cmd_name);
+        r = ioctl(bus->input_fd, KDBUS_CMD_NAME_ACQUIRE, n);
         if (r < 0) {
                 if (errno == EEXIST)
                         return sd_bus_reply_method_return(m, "u", BUS_NAME_EXISTS);
-                else if (errno == EALREADY)
+                if (errno == EALREADY)
                         return sd_bus_reply_method_return(m, "u", BUS_NAME_ALREADY_OWNER);
 
                 return -errno;
         }
 
-        if (cmd_name->flags & KDBUS_NAME_IN_QUEUE)
+        if (n->flags & KDBUS_NAME_IN_QUEUE)
                 return sd_bus_reply_method_return(m, "u", BUS_NAME_IN_QUEUE);
 
         return sd_bus_reply_method_return(m, "u", BUS_NAME_PRIMARY_OWNER);
 }
 
-static int driver_start_service_by_name(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-        char *s;
+static int driver_release_name(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        struct kdbus_cmd_name *n;
+        const char *name;
+        size_t l, size;
+        uint64_t id;
         int r;
 
-        return sd_bus_reply_method_return(m, "u", 2);
-
-        r = sd_bus_message_read(m, "s", &s);
+        r = sd_bus_message_read(m, "s", &name);
         if (r < 0)
                 return r;
 
-        /* FIXME */
+        assert_return(service_name_is_valid(name), -EINVAL);
 
-        return sd_bus_send(bus, reply, NULL);
+        l = strlen(name);
+        size = offsetof(struct kdbus_cmd_name, name) + l + 1;
+        n = alloca0(size);
+        n->size = size;
+        memcpy(n->name, name, l+1);
+
+        /* This function is open-coded because we request the name 'on behalf'
+         * of the requesting connection */
+        r = bus_kernel_parse_unique_name(m->sender, &id);
+        if (r < 0)
+                return r;
+
+        n->id = id;
+
+        r = ioctl(bus->input_fd, KDBUS_CMD_NAME_RELEASE, n);
+        if (r < 0) {
+                if (errno == ESRCH)
+                        return sd_bus_reply_method_return(m, "u", BUS_NAME_NON_EXISTENT);
+                if (errno == EADDRINUSE)
+                        return sd_bus_reply_method_return(m, "u", BUS_NAME_NOT_OWNER);
+                return -errno;
+        }
+
+        return sd_bus_reply_method_return(m, "u", BUS_NAME_RELEASED);
+}
+
+static int driver_start_service_by_name(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **t = NULL;
+        _cleanup_free_ char *path = NULL;
+        uint32_t flags;
+        char *name, *u;
+        int r;
+
+        r = sd_bus_message_read(m, "su", &name, &flags);
+        if (r < 0)
+                return r;
+
+        assert_return(service_name_is_valid(name), -EINVAL);
+        assert_return(flags == 0, -ENOTSUP);
+
+        r = sd_bus_get_owner(bus, name, 0, NULL);
+        if (r >= 0)
+                return sd_bus_reply_method_return(m, "u", BUS_START_REPLY_ALREADY_RUNNING);
+        if (r != -ENOENT)
+                return r;
+
+        u = strappenda(name, ".busname");
+
+        path = unit_dbus_path_from_name(u);
+        if (!path)
+                return -ENOMEM;
+
+        r = sd_bus_get_property_strv(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Unit",
+                        "Triggers",
+                        error,
+                        &t);
+        if (r < 0)
+                return r;
+
+        if (!t[0] || t[1])
+                return -EIO;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit",
+                        error,
+                        &reply,
+                        "ss",
+                        t[0],
+                        "replace");
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(m, "u", BUS_START_REPLY_SUCCESS);
 }
 
 static int driver_unsupported(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -386,23 +433,24 @@ static int driver_unsupported(sd_bus *bus, sd_bus_message *m, void *userdata, sd
 static const sd_bus_vtable driver_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("AddMatch", "s", NULL, driver_add_match, 0),
-        SD_BUS_METHOD("GetConnectionSELinuxSecurityContext", "s", "ay", driver_get_security_ctx, 0),
-        SD_BUS_METHOD("GetConnectionUnixProcessID", "s", "u", driver_get_pid, 0),
-        SD_BUS_METHOD("GetConnectionUnixUser", "s", "u", driver_get_user, 0),
-        SD_BUS_METHOD("GetId", NULL, "s", driver_get_id, 0),
-        SD_BUS_METHOD("GetNameOwner", "s", "s", driver_get_name_owner, 0),
-        SD_BUS_METHOD("Hello", NULL, "s", driver_hello, 0),
-        SD_BUS_METHOD("ListActivatableNames", NULL, "as", driver_list_activatable_names, 0),
-        SD_BUS_METHOD("ListNames", NULL, "as", driver_list_names, 0),
-        SD_BUS_METHOD("ListQueuedOwners", "s", "as", driver_list_queued_owners, 0),
-        SD_BUS_METHOD("NameHasOwner", "s", "b", driver_name_has_owner, 0),
-        SD_BUS_METHOD("ReloadConfig", NULL, NULL, driver_unsupported, 0),
-        SD_BUS_METHOD("RemoveMatch", "s", NULL, driver_remove_match, 0),
-        SD_BUS_METHOD("RequestName", "su", "u", driver_request_name, 0),
-        SD_BUS_METHOD("StartServiceByName", "su", "u", driver_start_service_by_name, 0),
-        SD_BUS_METHOD("UpdateActivationEnvironment", "a{ss}", NULL, driver_unsupported, 0),
-        SD_BUS_SIGNAL("NameAcquired", "s", 0),
-        SD_BUS_SIGNAL("NameLost", "s", 0),
+        SD_BUS_METHOD("GetConnectionSELinuxSecurityContext", "s", "ay", driver_get_security_ctx, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetConnectionUnixProcessID", "s", "u", driver_get_pid, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetConnectionUnixUser", "s", "u", driver_get_user, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetId", NULL, "s", driver_get_id, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetNameOwner", "s", "s", driver_get_name_owner, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Hello", NULL, "s", driver_hello, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListActivatableNames", NULL, "as", driver_list_activatable_names, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListNames", NULL, "as", driver_list_names, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ListQueuedOwners", "s", "as", driver_list_queued_owners, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("NameHasOwner", "s", "b", driver_name_has_owner, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ReleaseName", "s", "u", driver_release_name, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ReloadConfig", NULL, NULL, driver_unsupported, SD_BUS_VTABLE_DEPRECATED),
+        SD_BUS_METHOD("RemoveMatch", "s", NULL, driver_remove_match, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RequestName", "su", "u", driver_request_name, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("StartServiceByName", "su", "u", driver_start_service_by_name, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("UpdateActivationEnvironment", "a{ss}", NULL, driver_unsupported, SD_BUS_VTABLE_DEPRECATED),
+        SD_BUS_SIGNAL("NameAcquired", "s", SD_BUS_VTABLE_DEPRECATED),
+        SD_BUS_SIGNAL("NameLost", "s", SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_SIGNAL("NameOwnerChanged", "sss", 0),
         SD_BUS_VTABLE_END
 };
@@ -418,6 +466,11 @@ static int connect_bus(sd_event *event, sd_bus **_bus) {
         if (r < 0) {
                 log_error("Failed to create bus: %s", strerror(-r));
                 return r;
+        }
+
+        if (!bus->is_kernel) {
+                log_error("Not running on kdbus");
+                return -EPERM;
         }
 
         r = sd_bus_add_object_vtable(bus, "/org/freedesktop/DBus", "org.freedesktop.DBus", driver_vtable, NULL);
