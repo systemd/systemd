@@ -343,8 +343,8 @@ static int process_pty_loop(int master, sigset_t *mask, pid_t kill_pid, int sign
 int process_pty(int master, sigset_t *mask, pid_t kill_pid, int signo) {
         struct termios saved_stdin_attr, raw_stdin_attr;
         struct termios saved_stdout_attr, raw_stdout_attr;
-        bool saved_stdin = false;
-        bool saved_stdout = false;
+        struct termios master_attr;
+        bool saved_stdin = false, saved_stdout = false;
         struct winsize ws;
         int r;
 
@@ -367,6 +367,11 @@ int process_pty(int master, sigset_t *mask, pid_t kill_pid, int signo) {
                 raw_stdout_attr.c_iflag = saved_stdout_attr.c_iflag;
                 raw_stdout_attr.c_lflag = saved_stdout_attr.c_lflag;
                 tcsetattr(STDOUT_FILENO, TCSANOW, &raw_stdout_attr);
+        }
+
+        if (tcgetattr(master, &master_attr) >= 0) {
+                cfmakeraw(&master_attr);
+                tcsetattr(master, TCSANOW, &master_attr);
         }
 
         r = process_pty_loop(master, mask, kill_pid, signo);
