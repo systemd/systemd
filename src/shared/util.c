@@ -6088,3 +6088,13 @@ int namespace_enter(int pidns_fd, int mntns_fd, int root_fd) {
 
         return 0;
 }
+
+bool pid_valid(pid_t pid) {
+        if (pid <= 0)
+                return false;
+
+        if (kill(pid, 0) >= 0)
+                return true;
+
+        return errno != ESRCH;
+}

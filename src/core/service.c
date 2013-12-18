@@ -1488,7 +1488,8 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state,
                     SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RELOAD,
-                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
+                    SERVICE_STOP_POST,
                     SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_AUTO_RESTART))
                 s->timer_event_source = sd_event_source_unref(s->timer_event_source);
@@ -1496,7 +1497,9 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state,
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING, SERVICE_RELOAD,
-                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL)) {
+                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
+                    SERVICE_STOP_POST,
+                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
                 service_unwatch_main_pid(s);
                 s->main_command = NULL;
         }
@@ -1504,7 +1507,8 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state,
                     SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RELOAD,
-                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                    SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
+                    SERVICE_STOP_POST,
                     SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
                 service_unwatch_control_pid(s);
                 s->control_command = NULL;
@@ -1561,22 +1565,16 @@ static int service_coldplug(Unit *u) {
 
         if (s->deserialized_state != s->state) {
 
-                if (s->deserialized_state == SERVICE_START_PRE ||
-                    s->deserialized_state == SERVICE_START ||
-                    s->deserialized_state == SERVICE_START_POST ||
-                    s->deserialized_state == SERVICE_RELOAD ||
-                    s->deserialized_state == SERVICE_STOP ||
-                    s->deserialized_state == SERVICE_STOP_SIGTERM ||
-                    s->deserialized_state == SERVICE_STOP_SIGKILL ||
-                    s->deserialized_state == SERVICE_STOP_POST ||
-                    s->deserialized_state == SERVICE_FINAL_SIGTERM ||
-                    s->deserialized_state == SERVICE_FINAL_SIGKILL) {
+                if (IN_SET(s->deserialized_state,
+                           SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
+                           SERVICE_RELOAD,
+                           SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
+                           SERVICE_STOP_POST,
+                           SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
 
                         usec_t k;
 
-                        k = s->deserialized_state == SERVICE_START_PRE || s->deserialized_state == SERVICE_START ||
-                                s->deserialized_state == SERVICE_START_POST || s->deserialized_state == SERVICE_RELOAD ?
-                                s->timeout_start_usec : s->timeout_stop_usec;
+                        k = IN_SET(s->deserialized_state, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST, SERVICE_RELOAD) ? s->timeout_start_usec : s->timeout_stop_usec;
 
                         /* For the start/stop timeouts 0 means off */
                         if (k > 0) {
@@ -1594,38 +1592,30 @@ static int service_coldplug(Unit *u) {
                                 return r;
                 }
 
-                if ((s->deserialized_state == SERVICE_START &&
-                     (s->type == SERVICE_FORKING ||
-                      s->type == SERVICE_DBUS ||
-                      s->type == SERVICE_ONESHOT ||
-                      s->type == SERVICE_NOTIFY)) ||
-                    s->deserialized_state == SERVICE_START_POST ||
-                    s->deserialized_state == SERVICE_RUNNING ||
-                    s->deserialized_state == SERVICE_RELOAD ||
-                    s->deserialized_state == SERVICE_STOP ||
-                    s->deserialized_state == SERVICE_STOP_SIGTERM ||
-                    s->deserialized_state == SERVICE_STOP_SIGKILL)
-                        if (s->main_pid > 0) {
-                                r = unit_watch_pid(UNIT(s), s->main_pid);
-                                if (r < 0)
-                                        return r;
-                        }
+                if (pid_valid(s->main_pid) &&
+                    ((s->deserialized_state == SERVICE_START && IN_SET(s->type, SERVICE_FORKING, SERVICE_DBUS, SERVICE_ONESHOT, SERVICE_NOTIFY)) ||
+                     IN_SET(s->deserialized_state,
+                            SERVICE_START, SERVICE_START_POST,
+                            SERVICE_RUNNING, SERVICE_RELOAD,
+                            SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
+                            SERVICE_STOP_POST,
+                            SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
+                        r = unit_watch_pid(UNIT(s), s->main_pid);
+                        if (r < 0)
+                                return r;
+                }
 
-                if (s->deserialized_state == SERVICE_START_PRE ||
-                    s->deserialized_state == SERVICE_START ||
-                    s->deserialized_state == SERVICE_START_POST ||
-                    s->deserialized_state == SERVICE_RELOAD ||
-                    s->deserialized_state == SERVICE_STOP ||
-                    s->deserialized_state == SERVICE_STOP_SIGTERM ||
-                    s->deserialized_state == SERVICE_STOP_SIGKILL ||
-                    s->deserialized_state == SERVICE_STOP_POST ||
-                    s->deserialized_state == SERVICE_FINAL_SIGTERM ||
-                    s->deserialized_state == SERVICE_FINAL_SIGKILL)
-                        if (s->control_pid > 0) {
-                                r = unit_watch_pid(UNIT(s), s->control_pid);
-                                if (r < 0)
-                                        return r;
-                        }
+                if (pid_valid(s->control_pid) &&
+                    IN_SET(s->deserialized_state,
+                           SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
+                           SERVICE_RELOAD,
+                           SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
+                           SERVICE_STOP_POST,
+                           SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
+                        r = unit_watch_pid(UNIT(s), s->control_pid);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                         service_start_watchdog(s);
@@ -3022,6 +3012,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 /* If there is still a control process, wait for that first */
                                 break;
 
+                        case SERVICE_STOP_POST:
+                        case SERVICE_FINAL_SIGTERM:
+                        case SERVICE_FINAL_SIGKILL:
+
+                                if (!control_pid_good(s))
+                                        service_enter_dead(s, f, true);
+                                break;
+
                         default:
                                 assert_not_reached("Uh, main process died at wrong time.");
                         }
@@ -3163,7 +3161,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         case SERVICE_STOP_POST:
                         case SERVICE_FINAL_SIGTERM:
                         case SERVICE_FINAL_SIGKILL:
-                                service_enter_dead(s, f, true);
+                                if (main_pid_good(s) <= 0)
+                                        service_enter_dead(s, f, true);
                                 break;
 
                         default:
@@ -3327,6 +3326,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 
                 break;
 
+        case SERVICE_STOP_POST:
         case SERVICE_FINAL_SIGTERM:
         case SERVICE_FINAL_SIGKILL:
                 if (main_pid_good(s) <= 0 && !control_pid_good(s))
