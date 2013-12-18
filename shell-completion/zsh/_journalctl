@@ -65,14 +65,14 @@ _arguments -s \
     {-m,--merge}'[Show entries from all available journals]' \
     {-b+,--boot=}'[Show data only from the specified boot or offset]:boot id or offset:_journal_boots' \
     '--list-boots[List boots ordered by time]' \
-    {-k,--dmesg}'[Show only kernel messages, Implies -b]' \
+    {-k,--dmesg}'[Show only kernel messages from the current boot]' \
     {-u+,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
     '--user-unit=[Show data only from the specified user session unit]:units:_journal_fields USER_UNIT' \
     {-p+,--priority=}'[Show only messages within the specified priority range]:priority:_journal_fields PRIORITY' \
-    {-c+,--cursor=}'[Start showing entries from specified cursor]:cursors:_journal_fields __CURSORS' \
-    '--after-cursor=[Start showing entries from the location in the journal after the cursor]:cursors:_journal_fields __CURSORS' \
-    '--since=[Start showing entries newer or of the specified date]:YYYY-MM-DD HH\:MM\:SS' \
-    '--until=[Stop showing entries older or of the specified date]:YYYY-MM-DD HH\:MM\:SS' \
+    {-c+,--cursor=}'[Start showing entries from the specified cursor]:cursors:_journal_fields __CURSORS' \
+    '--after-cursor=[Start showing entries from after the specified cursor]:cursors:_journal_fields __CURSORS' \
+    '--since=[Start showing entries on or newer than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
+    '--until=[Stop showing entries on or older than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
     {-F,--field=}'[List all values a certain field takes]:Fields:_list_fields' \
     '--system[Show system and kernel messages]' \
     '--user[Show messages from user services]' \
@@ -85,8 +85,8 @@ _arguments -s \
     '--list-catalog[List messages in catalog]' \
     '--dump-catalog[Dump messages in catalog]' \
     '--update-catalog[Update binary catalog database]' \
-    '--setup-keys[Generate new FSS key pair]' \
-    '--force[Force recreation of FSS keys]' \
+    '--setup-keys[Generate a new FSS key pair]' \
+    '--force[Force recreation of the FSS keys]' \
     '--interval=[Time interval for changing the FSS sealing key]:time interval' \
     '--verify[Verify journal file consistency]' \
     '--verify-key=[Specify FSS verification key]:FSS key' \
