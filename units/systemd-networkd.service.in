@@ -11,6 +11,7 @@ Documentation=man:systemd-networkd.service(8)
 DefaultDependencies=no
 Before=network.target
 Wants=network.target
+ConditionCapability=CAP_NET_ADMIN
 
 [Service]
 Type=notify
