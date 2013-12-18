@@ -115,7 +115,7 @@ static bool udev_has_devtmpfs(struct udev *udev) {
         int r;
 
         h = alloca(MAX_HANDLE_SZ);
-
+        h->handle_bytes = MAX_HANDLE_SZ;
         r = name_to_handle_at(AT_FDCWD, "/dev", h, &mount_id, 0);
         if (r < 0)
                 return false;
@@ -172,26 +172,28 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
 
         if (name == NULL)
                 group = UDEV_MONITOR_NONE;
-        else if (streq(name, "udev"))
-                group = UDEV_MONITOR_UDEV;
-        else if (streq(name, "kernel"))
+        else if (streq(name, "udev")) {
+                /*
+                 * We do not support subscribing to uevents if no instance of
+                 * udev is running. Uevents would otherwise broadcast the
+                 * processing data of the host into containers, which is not
+                 * desired.
+                 *
+                 * Containers will currently not get any udev uevents, until
+                 * a supporting infrastructure is available.
+                 *
+                 * We do not set a netlink multicast group here, so the socket
+                 * will not receive any messages.
+                 */
+                if (!udev_has_service(udev) && !udev_has_devtmpfs(udev)) {
+                        udev_dbg(udev, "the udev service seems not to be active, disable the monitor\n");
+                        group = UDEV_MONITOR_NONE;
+                } else
+                        group = UDEV_MONITOR_UDEV;
+        } else if (streq(name, "kernel"))
                 group = UDEV_MONITOR_KERNEL;
         else
                 return NULL;
-
-        /*
-         * We do not support subscribing to uevents if no instance of udev
-         * is running. Uevents would otherwise broadcast the processing data
-         * of the host into containers, which is not acceptable. Containers
-         * will currently just not get any uevents.
-         *
-         * We clear the netlink multicast group here, so the socket will
-         * not receive any messages.
-         */
-        if (!udev_has_service(udev) && !udev_has_devtmpfs(udev)) {
-                udev_dbg(udev, "udev seems not to be active, disable the monitor\n");
-                group = 0;
-        }
 
         udev_monitor = udev_monitor_new(udev);
         if (udev_monitor == NULL)
