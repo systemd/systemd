@@ -1061,7 +1061,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client)
         int r;
 
         assert_return(client, -EINVAL);
-        assert_return(client->index >= 0, -EINVAL);
+        assert_return(client->index > 0, -EINVAL);
         assert_return(client->state == DHCP_STATE_INIT ||
                       client->state == DHCP_STATE_INIT_REBOOT, -EBUSY);
 

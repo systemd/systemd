@@ -34,6 +34,9 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
 {
         int s;
 
+        assert(index > 0);
+        assert(link);
+
         s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK,
                    htons(ETH_P_IP));
         if (s < 0)
@@ -77,6 +80,10 @@ int dhcp_network_bind_udp_socket(int index, be32_t client_address)
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
                                  const void *packet, size_t len)
 {
+        assert(link);
+        assert(packet);
+        assert(len);
+
         if (sendto(s, packet, len, 0, &link->sa, sizeof(link->ll)) < 0)
                 return -errno;
 
