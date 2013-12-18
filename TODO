@@ -1,10 +1,4 @@
 Bugfixes:
-* sort-out libudev's is_initialized logic for:
-  - enumerate devices:
-    - is_initialized is true if a database exists
-  - in-container devices:
-    - is_initialized is always false, because there is no database
-
 * enabling an instance unit creates a pointless link, and
   the unit will be started with getty@getty.service:
     $ systemctl enable getty@.service

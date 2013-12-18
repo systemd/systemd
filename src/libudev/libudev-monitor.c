@@ -35,6 +35,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 #include "socket-util.h"
+#include "missing.h"
 
 /**
  * SECTION:libudev-monitor
@@ -105,6 +106,62 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
         return udev_monitor;
 }
 
+/* we consider udev running when /dev is on devtmpfs */
+static bool udev_has_devtmpfs(struct udev *udev) {
+        struct file_handle *h;
+        int mount_id;
+        _cleanup_fclose_ FILE *f = NULL;
+        char line[LINE_MAX], *e;
+        int r;
+
+        h = alloca(MAX_HANDLE_SZ);
+
+        r = name_to_handle_at(AT_FDCWD, "/dev", h, &mount_id, 0);
+        if (r < 0)
+                return false;
+
+
+        f = fopen("/proc/self/mountinfo", "re");
+        if (!f)
+                return false;
+
+        FOREACH_LINE(line, f, return false) {
+                _cleanup_free_ char *opts = NULL;
+                int mid;
+
+                if (sscanf(line, "%i", &mid) != 1)
+                        continue;
+
+                if (mid != mount_id)
+                        continue;
+
+                e = strstr(line, " - ");
+                if (!e)
+                        continue;
+
+                /* accept any name that starts with the currently expected type */
+                if (startswith(e + 3, "devtmpfs"))
+                        return true;
+        }
+
+        return false;
+}
+
+/* we consider udev running when we have running udev service */
+static bool udev_has_service(struct udev *udev) {
+        struct udev_queue *queue;
+        bool active;
+
+        queue = udev_queue_new(udev);
+        if (!queue)
+                return false;
+
+        active = udev_queue_get_udev_is_active(queue);
+        udev_queue_unref(queue);
+
+        return active;
+}
+
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd)
 {
         struct udev_monitor *udev_monitor;
@@ -127,8 +184,14 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
          * is running. Uevents would otherwise broadcast the processing data
          * of the host into containers, which is not acceptable. Containers
          * will currently just not get any uevents.
+         *
+         * We clear the netlink multicast group here, so the socket will
+         * not receive any messages.
          */
-        
+        if (!udev_has_service(udev) && !udev_has_devtmpfs(udev)) {
+                udev_dbg(udev, "udev seems not to be active, disable the monitor\n");
+                group = 0;
+        }
 
         udev_monitor = udev_monitor_new(udev);
         if (udev_monitor == NULL)
