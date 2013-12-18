@@ -800,10 +800,14 @@
                                 sealing key is stored in the journal
                                 data directory and shall remain on the
                                 host. The verification key should be
-                                stored externally. Also see the
+                                stored externally. Refer to the
                                 <option>Seal=</option> option in
                                 <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                for details.</para></listitem>
+                                for information on Forward Secure
+                                Sealing and for a link to a refereed
+                                scholarly paper detailing the
+                                cryptographic theory it is based on.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
