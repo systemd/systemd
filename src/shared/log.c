@@ -272,8 +272,6 @@ int log_open(void) {
         log_close_journal();
         log_close_syslog();
 
-        /* Get the real /dev/console if we are PID=1, hence reopen */
-        log_close_console();
         return log_open_console();
 }
 

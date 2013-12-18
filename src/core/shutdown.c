@@ -155,6 +155,7 @@ int main(int argc, char *argv[]) {
 
         log_parse_environment();
         log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
+        log_close_console(); /* force reopen of /dev/console */
         log_open();
 
         umask(0022);
