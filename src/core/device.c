@@ -303,6 +303,10 @@ static int device_process_new_device(Manager *m, struct udev_device *dev) {
 
         assert(m);
 
+        /* Don't pick up devices before udev finished initialization for them */
+        if (!udev_device_get_is_initialized(dev))
+                return 0;
+
         sysfs = udev_device_get_syspath(dev);
         if (!sysfs)
                 return 0;

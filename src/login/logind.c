@@ -182,7 +182,7 @@ void manager_free(Manager *m) {
 
 static int manager_enumerate_devices(Manager *m) {
         struct udev_list_entry *item = NULL, *first = NULL;
-        struct udev_enumerate *e;
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         int r;
 
         assert(m);
@@ -191,47 +191,40 @@ static int manager_enumerate_devices(Manager *m) {
          * necessary */
 
         e = udev_enumerate_new(m->udev);
-        if (!e) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!e)
+                return -ENOMEM;
 
         r = udev_enumerate_add_match_tag(e, "master-of-seat");
         if (r < 0)
-                goto finish;
+                return r;
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
-                goto finish;
+                return r;
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                struct udev_device *d;
+                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
                 int k;
 
                 d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
-                if (!d) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!d)
+                        return -ENOMEM;
+
+                if (!udev_device_get_is_initialized(d))
+                        continue;
 
                 k = manager_process_seat_device(m, d);
-                udev_device_unref(d);
-
                 if (k < 0)
                         r = k;
         }
-
-finish:
-        if (e)
-                udev_enumerate_unref(e);
 
         return r;
 }
 
 static int manager_enumerate_buttons(Manager *m) {
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
-        struct udev_enumerate *e;
         int r;
 
         assert(m);
@@ -245,44 +238,37 @@ static int manager_enumerate_buttons(Manager *m) {
                 return 0;
 
         e = udev_enumerate_new(m->udev);
-        if (!e) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!e)
+                return -ENOMEM;
 
         r = udev_enumerate_add_match_subsystem(e, "input");
         if (r < 0)
-                goto finish;
+                return r;
 
         r = udev_enumerate_add_match_tag(e, "power-switch");
         if (r < 0)
-                goto finish;
+                return r;
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
-                goto finish;
+                return r;
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                struct udev_device *d;
+                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
                 int k;
 
                 d = udev_device_new_from_syspath(m->udev, udev_list_entry_get_name(item));
-                if (!d) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!d)
+                        return -ENOMEM;
+
+                if (!udev_device_get_is_initialized(d))
+                        continue;
 
                 k = manager_process_button_device(m, d);
-                udev_device_unref(d);
-
                 if (k < 0)
                         r = k;
         }
-
-finish:
-        if (e)
-                udev_enumerate_unref(e);
 
         return r;
 }

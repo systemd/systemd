@@ -29,6 +29,7 @@
 #include "acl-util.h"
 #include "set.h"
 #include "logind-acl.h"
+#include "udev-util.h"
 
 static int flush_acl(acl_t acl) {
         acl_entry_t i;
@@ -178,13 +179,13 @@ int devnode_acl_all(struct udev *udev,
                     bool del, uid_t old_uid,
                     bool add, uid_t new_uid) {
 
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
-        struct udev_enumerate *e;
-        Set *nodes;
-        Iterator i;
-        char *n;
+        _cleanup_set_free_free_ Set *nodes = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
+        Iterator i;
+        char *n;
         int r;
 
         assert(udev);
@@ -194,10 +195,8 @@ int devnode_acl_all(struct udev *udev,
                 return -ENOMEM;
 
         e = udev_enumerate_new(udev);
-        if (!e) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!e)
+                return -ENOMEM;
 
         if (isempty(seat))
                 seat = "seat0";
@@ -209,85 +208,79 @@ int devnode_acl_all(struct udev *udev,
          * second tag manually in our loop is a good solution. */
         r = udev_enumerate_add_match_tag(e, "uaccess");
         if (r < 0)
-                goto finish;
+                return r;
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
-                goto finish;
+                return r;
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                struct udev_device *d;
+                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
                 const char *node, *sn;
 
                 d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
-                if (!d) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!d)
+                        return -ENOMEM;
+
+                if (!udev_device_get_is_initialized(d))
+                        continue;
 
                 sn = udev_device_get_property_value(d, "ID_SEAT");
                 if (isempty(sn))
                         sn = "seat0";
 
-                if (!streq(seat, sn)) {
-                        udev_device_unref(d);
+                if (!streq(seat, sn))
                         continue;
-                }
 
                 node = udev_device_get_devnode(d);
-                if (!node) {
-                        /* In case people mistag devices with nodes, we need to ignore this */
-                        udev_device_unref(d);
+                /* In case people mistag devices with nodes, we need to ignore this */
+                if (!node)
                         continue;
-                }
 
                 n = strdup(node);
-                udev_device_unref(d);
                 if (!n)
-                        goto finish;
+                        return -ENOMEM;
 
                 log_debug("Found udev node %s for seat %s", n, seat);
-                r = set_put(nodes, n);
+                r = set_consume(nodes, n);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         /* udev exports "dead" device nodes to allow module on-demand loading,
          * these devices are not known to the kernel at this moment */
         dir = opendir("/run/udev/static_node-tags/uaccess");
         if (dir) {
-                FOREACH_DIRENT(dent, dir, r = -errno; goto finish) {
+                FOREACH_DIRENT(dent, dir, return -errno) {
                         _cleanup_free_ char *unescaped_devname = NULL;
 
                         unescaped_devname = cunescape(dent->d_name);
-                        if (unescaped_devname == NULL) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!unescaped_devname)
+                                return -ENOMEM;
 
                         n = strappend("/dev/", unescaped_devname);
-                        if (!n) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!n)
+                                return -ENOMEM;
 
                         log_debug("Found static node %s for seat %s", n, seat);
-                        r = set_put(nodes, n);
-                        if (r < 0 && r != -EEXIST)
-                                goto finish;
-                        else
-                                r = 0;
+                        r = set_consume(nodes, n);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
                 }
         }
 
+        r = 0;
         SET_FOREACH(n, nodes, i) {
+                int k;
+
                 log_debug("Fixing up ACLs at %s for seat %s", n, seat);
-                r = devnode_acl(n, flush, del, old_uid, add, new_uid);
+                k = devnode_acl(n, flush, del, old_uid, add, new_uid);
+                if (k < 0)
+                        r = k;
         }
 
-finish:
-        udev_enumerate_unref(e);
-        set_free_free(nodes);
         return r;
 }
