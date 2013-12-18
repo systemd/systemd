@@ -335,8 +335,25 @@ static int write_to_console(
                 IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_OFF);
         IOVEC_SET_STRING(iovec[n++], "\n");
 
-        if (writev(console_fd, iovec, n) < 0)
-                return -errno;
+        if (writev(console_fd, iovec, n) < 0) {
+
+                if (errno == EIO && getpid() == 1) {
+
+                        /* If somebody tried to kick us from our
+                         * console tty (via vhangup() or suchlike),
+                         * try to reconnect */
+
+                        log_close_console();
+                        log_open_console();
+
+                        if (console_fd < 0)
+                                return 0;
+
+                        if (writev(console_fd, iovec, n) < 0)
+                                return -errno;
+                } else
+                        return -errno;
+        }
 
         return 1;
 }
