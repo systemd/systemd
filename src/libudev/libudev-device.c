@@ -538,6 +538,8 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
                 udev_dbg(udev_device->udev, "no db file to read %s: %m\n", dbfile);
                 return -errno;
         }
+
+        /* devices with a database entry are initialized */
         udev_device->is_initialized = true;
 
         while (fgets(line, sizeof(line), f)) {

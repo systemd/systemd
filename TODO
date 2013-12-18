@@ -2,8 +2,6 @@ Bugfixes:
 * sort-out libudev's is_initialized logic for:
   - enumerate devices:
     - is_initialized is true if a database exists
-  - monitor devices:
-    - is_initialized is always false; was not supposed to be used here
   - in-container devices:
     - is_initialized is always false, because there is no database
 

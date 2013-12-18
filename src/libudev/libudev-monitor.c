@@ -324,9 +324,6 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
         int err = 0;
         const int on = 1;
 
-        if (udev_monitor->snl.nl.nl_family == 0)
-                return -EINVAL;
-
         udev_monitor_filter_update(udev_monitor);
 
         if (!udev_monitor->bound) {
@@ -524,7 +521,6 @@ _public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *ud
         char buf[8192];
         ssize_t buflen;
         ssize_t bufpos;
-        struct udev_monitor_netlink_header *nlh;
 
 retry:
         if (udev_monitor == NULL)
@@ -536,11 +532,8 @@ retry:
         smsg.msg_iovlen = 1;
         smsg.msg_control = cred_msg;
         smsg.msg_controllen = sizeof(cred_msg);
-
-        if (udev_monitor->snl.nl.nl_family != 0) {
-                smsg.msg_name = &snl;
-                smsg.msg_namelen = sizeof(snl);
-        }
+        smsg.msg_name = &snl;
+        smsg.msg_namelen = sizeof(snl);
 
         buflen = recvmsg(udev_monitor->sock, &smsg, 0);
         if (buflen < 0) {
@@ -554,20 +547,18 @@ retry:
                 return NULL;
         }
 
-        if (udev_monitor->snl.nl.nl_family != 0) {
-                if (snl.nl.nl_groups == 0) {
-                        /* unicast message, check if we trust the sender */
-                        if (udev_monitor->snl_trusted_sender.nl.nl_pid == 0 ||
-                            snl.nl.nl_pid != udev_monitor->snl_trusted_sender.nl.nl_pid) {
-                                udev_dbg(udev_monitor->udev, "unicast netlink message ignored\n");
-                                return NULL;
-                        }
-                } else if (snl.nl.nl_groups == UDEV_MONITOR_KERNEL) {
-                        if (snl.nl.nl_pid > 0) {
-                                udev_dbg(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n",
-                                     snl.nl.nl_pid);
-                                return NULL;
-                        }
+        if (snl.nl.nl_groups == 0) {
+                /* unicast message, check if we trust the sender */
+                if (udev_monitor->snl_trusted_sender.nl.nl_pid == 0 ||
+                    snl.nl.nl_pid != udev_monitor->snl_trusted_sender.nl.nl_pid) {
+                        udev_dbg(udev_monitor->udev, "unicast netlink message ignored\n");
+                        return NULL;
+                }
+        } else if (snl.nl.nl_groups == UDEV_MONITOR_KERNEL) {
+                if (snl.nl.nl_pid > 0) {
+                        udev_dbg(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n",
+                             snl.nl.nl_pid);
+                        return NULL;
                 }
         }
 
@@ -583,35 +574,47 @@ retry:
                 return NULL;
         }
 
+        udev_device = udev_device_new(udev_monitor->udev);
+        if (udev_device == NULL)
+                return NULL;
+
         if (memcmp(buf, "libudev", 8) == 0) {
+                struct udev_monitor_netlink_header *nlh;
+
                 /* udev message needs proper version magic */
                 nlh = (struct udev_monitor_netlink_header *) buf;
                 if (nlh->magic != htonl(UDEV_MONITOR_MAGIC)) {
                         udev_err(udev_monitor->udev, "unrecognized message signature (%x != %x)\n",
-                            nlh->magic, htonl(UDEV_MONITOR_MAGIC));
+                                 nlh->magic, htonl(UDEV_MONITOR_MAGIC));
+                        udev_device_unref(udev_device);
                         return NULL;
                 }
-                if (nlh->properties_off+32 > (size_t)buflen)
+                if (nlh->properties_off+32 > (size_t)buflen) {
+                        udev_device_unref(udev_device);
                         return NULL;
+                }
+
                 bufpos = nlh->properties_off;
+
+                /* devices received from udev are always initialized */
+                udev_device_set_is_initialized(udev_device);
         } else {
                 /* kernel message with header */
                 bufpos = strlen(buf) + 1;
                 if ((size_t)bufpos < sizeof("a@/d") || bufpos >= buflen) {
                         udev_dbg(udev_monitor->udev, "invalid message length\n");
+                        udev_device_unref(udev_device);
                         return NULL;
                 }
 
                 /* check message header */
                 if (strstr(buf, "@/") == NULL) {
                         udev_dbg(udev_monitor->udev, "unrecognized message header\n");
+                        udev_device_unref(udev_device);
                         return NULL;
                 }
         }
 
-        udev_device = udev_device_new(udev_monitor->udev);
-        if (udev_device == NULL)
-                return NULL;
         udev_device_set_info_loaded(udev_device);
 
         while (bufpos < buflen) {
@@ -663,9 +666,6 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
         struct udev_monitor_netlink_header nlh;
         struct udev_list_entry *list_entry;
         uint64_t tag_bloom_bits;
-
-        if (udev_monitor->snl.nl.nl_family == 0)
-                return -EINVAL;
 
         blen = udev_device_get_properties_monitor_buf(udev_device, &buf);
         if (blen < 32)
