@@ -447,7 +447,7 @@ int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t
                         return -ENOTSUP;
         }
 
-        r = add_rtattr(m, type, &data, sizeof(&data));
+        r = add_rtattr(m, type, &data, sizeof(uint32_t));
         if (r < 0)
                 return r;
 
@@ -508,7 +508,7 @@ int sd_rtnl_message_append_in_addr(sd_rtnl_message *m, unsigned short type, cons
                         return -ENOTSUP;
         }
 
-        r = add_rtattr(m, type, data, sizeof(data));
+        r = add_rtattr(m, type, data, sizeof(struct in_addr));
         if (r < 0)
                 return r;
 
@@ -568,7 +568,7 @@ int sd_rtnl_message_append_in6_addr(sd_rtnl_message *m, unsigned short type, con
                         return -ENOTSUP;
         }
 
-        r = add_rtattr(m, type, data, sizeof(data));
+        r = add_rtattr(m, type, data, sizeof(struct in6_addr));
         if (r < 0)
                 return r;
 
