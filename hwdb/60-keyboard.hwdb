@@ -46,52 +46,7 @@
 # Acer
 ##########################################
 
-# Acer platform kernel driver
-keyboard:name:Acer WMI hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnAcer*:pvr*
- KEYBOARD_KEY_82=f21
-
-# Aspire 5720
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*5720*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnZG8*:pvr*
- KEYBOARD_KEY_84=bluetooth                              # sent when bluetooth module missing, and key pressed
- KEYBOARD_KEY_92=media                                  # Acer arcade
- KEYBOARD_KEY_d4=bluetooth                              # Bluetooth on
- KEYBOARD_KEY_d9=bluetooth                              # Bluetooth off
- KEYBOARD_KEY_f4=prog3                                  # e-key
-
-# Aspire 5920g
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*5920G:*
- KEYBOARD_KEY_8a=media
- KEYBOARD_KEY_92=media
- KEYBOARD_KEY_a6=setup
- KEYBOARD_KEY_b2=www
- KEYBOARD_KEY_d9=bluetooth                              # (toggle) on-to-off
-
-# Aspire 6920
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*6920:*
- KEYBOARD_KEY_d9=bluetooth                              # (toggle) on-to-off
- KEYBOARD_KEY_92=media
- KEYBOARD_KEY_9e=back
- KEYBOARD_KEY_83=rewind
- KEYBOARD_KEY_89=fastforward
-
-# Aspire 8930
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*8930:*
- KEYBOARD_KEY_ca=prog3                                  # key 'HOLD' on CineDash Media Console
- KEYBOARD_KEY_83=rewind
- KEYBOARD_KEY_89=fastforward
- KEYBOARD_KEY_92=media                                  # key 'ARCADE' on CineDash Media Console
- KEYBOARD_KEY_9e=back
-
-# Travelmate C300
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
- KEYBOARD_KEY_67=f24                                    # FIXME: rotate screen
- KEYBOARD_KEY_68=up
- KEYBOARD_KEY_69=down
- KEYBOARD_KEY_6b=fn
- KEYBOARD_KEY_6c=screenlock                             # FIXME: lock tablet device/buttons
-
-#
+# common keys
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pn*
 keyboard:dmi:bvn*:bvr*:bd*:svnGateway*:pnA0A1*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:pvr*
@@ -99,6 +54,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:pvr*
  KEYBOARD_KEY_a6=setup                                  # Fn+F2 Acer eSettings
  KEYBOARD_KEY_a7=battery                                # Fn+F3 Power Management
  KEYBOARD_KEY_a9=switchvideomode                        # Fn+F5
+ KEYBOARD_KEY_b2=www
  KEYBOARD_KEY_b3=euro
  KEYBOARD_KEY_b4=dollar
  KEYBOARD_KEY_ce=brightnessup                           # Fn+Right
@@ -118,33 +74,48 @@ keyboard:dmi:bvn*:bvr*:bd*:svneMachines:pneMachines*E725:pvr*
  KEYBOARD_KEY_f8=fn
  KEYBOARD_KEY_f9=prog1                                  # Launch NTI shadow
 
-#
+# Acer platform kernel driver
+keyboard:name:Acer WMI hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnAcer*:pvr*
+ KEYBOARD_KEY_82=f21					# Touchpad toggle
+
+# Aspire models
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*:pvr*
+ KEYBOARD_KEY_84=bluetooth                              # sent when bluetooth module missing, and key pressed
+ KEYBOARD_KEY_d9=bluetooth                              # Bluetooth off
+ KEYBOARD_KEY_92=media                                  # Acer arcade
+
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*5720*:pvr*
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnZG8*:pvr*
+ KEYBOARD_KEY_f4=prog3                                  # e-key
+
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*5920G:*
+ KEYBOARD_KEY_8a=media
+ KEYBOARD_KEY_a6=setup
+
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*6920:*
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*8930:*
+ KEYBOARD_KEY_ca=prog3                                  # key 'HOLD' on CineDash Media Console
+ KEYBOARD_KEY_83=rewind
+ KEYBOARD_KEY_89=fastforward
+ KEYBOARD_KEY_9e=back
+
+# Travelmate C300
+keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
+ KEYBOARD_KEY_67=f24                                    # FIXME: rotate screen
+ KEYBOARD_KEY_68=up
+ KEYBOARD_KEY_69=down
+ KEYBOARD_KEY_6b=fn
+ KEYBOARD_KEY_6c=screenlock                             # FIXME: lock tablet device/buttons
+
+# on some models this isn't brightnessup
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pn*5210*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pn*5220*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pn*5610*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pn*5620*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pn*5720*:pvr*
- KEYBOARD_KEY_ee=screenlock
-
-#
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*6292*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*8471*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*4720*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*7720*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*1810T*:pvr*
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAO751h:*
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAO531h:*
- KEYBOARD_KEY_d9=bluetooth
-
-#
-keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*4720*:pvr*
- KEYBOARD_KEY_b2=www
- KEYBOARD_KEY_ee=screenlock
-
-#
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*6593:*
 keyboard:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*1640:*
- KEYBOARD_KEY_b2=www
  KEYBOARD_KEY_ee=screenlock
 
 ###########################################################
