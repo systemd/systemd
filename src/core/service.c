@@ -3342,6 +3342,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         Service *s = SERVICE(u);
         const char *e;
+        bool notify_dbus = false;
 
         assert(u);
 
@@ -3359,8 +3360,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 return;
         }
 
-        log_debug_unit(u->id,
-                       "%s: Got message", u->id);
+        log_debug_unit(u->id, "%s: Got message", u->id);
 
         /* Interpret MAINPID= */
         if ((e = strv_find_prefix(tags, "MAINPID=")) &&
@@ -3370,24 +3370,20 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
              s->state == SERVICE_RELOAD)) {
 
                 if (parse_pid(e + 8, &pid) < 0)
-                        log_warning_unit(u->id,
-                                         "Failed to parse notification message %s", e);
+                        log_warning_unit(u->id, "Failed to parse notification message %s", e);
                 else {
-                        log_debug_unit(u->id,
-                                       "%s: got %s", u->id, e);
+                        log_debug_unit(u->id, "%s: got %s", u->id, e);
                         service_set_main_pid(s, pid);
                         unit_watch_pid(UNIT(s), pid);
+                        notify_dbus = true;
                 }
         }
 
         /* Interpret READY= */
-        if (s->type == SERVICE_NOTIFY &&
-            s->state == SERVICE_START &&
-            strv_find(tags, "READY=1")) {
-                log_debug_unit(u->id,
-                               "%s: got READY=1", u->id);
-
+        if (s->type == SERVICE_NOTIFY && s->state == SERVICE_START && strv_find(tags, "READY=1")) {
+                log_debug_unit(u->id, "%s: got READY=1", u->id);
                 service_enter_start_post(s);
+                notify_dbus = true;
         }
 
         /* Interpret STATUS= */
@@ -3396,39 +3392,39 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
                 char *t;
 
                 if (e[7]) {
-
                         if (!utf8_is_valid(e+7)) {
-                                log_warning_unit(u->id,
-                                                 "Status message in notification is not UTF-8 clean.");
+                                log_warning_unit(u->id, "Status message in notification is not UTF-8 clean.");
                                 return;
                         }
+
+                        log_debug_unit(u->id, "%s: got %s", u->id, e);
 
                         t = strdup(e+7);
                         if (!t) {
-                                log_error_unit(u->id,
-                                               "Failed to allocate string.");
+                                log_oom();
                                 return;
                         }
 
-                        log_debug_unit(u->id,
-                                       "%s: got %s", u->id, e);
+                } else
+                        t = NULL;
 
+                if (!streq_ptr(s->status_text, t)) {
                         free(s->status_text);
                         s->status_text = t;
-                } else {
-                        free(s->status_text);
-                        s->status_text = NULL;
-                }
-
+                        notify_dbus = true;
+                } else
+                        free(t);
         }
 
+        /* Interpet WATCHDOG= */
         if (strv_find(tags, "WATCHDOG=1")) {
                 log_debug_unit(u->id, "%s: got WATCHDOG=1", u->id);
                 service_reset_watchdog(s);
         }
 
         /* Notify clients about changed status or main pid */
-        unit_add_to_dbus_queue(u);
+        if (notify_dbus)
+                unit_add_to_dbus_queue(u);
 }
 
 #ifdef HAVE_SYSV_COMPAT
