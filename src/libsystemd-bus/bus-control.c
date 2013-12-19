@@ -851,7 +851,7 @@ static int add_name_change_match(sd_bus *bus,
 
                 item = m->items;
                 item->size = offsetof(struct kdbus_item, id_change) + sizeof(struct kdbus_notify_id_change);
-                item->id_change.id = name_id;
+                /* item->id_change.id = name_id; */
 
                 /* If the old name is unset or empty, then this can
                  * match against added ids */
@@ -877,9 +877,9 @@ static int add_name_change_match(sd_bus *bus,
         return 0;
 }
 
-static int bus_add_match_internal_kernel(
+int bus_add_match_internal_kernel(
                 sd_bus *bus,
-                const char *match,
+                uint64_t id,
                 struct bus_match_component *components,
                 unsigned n_components,
                 uint64_t cookie) {
@@ -898,7 +898,6 @@ static int bus_add_match_internal_kernel(
         int r;
 
         assert(bus);
-        assert(match);
 
         zero(bloom);
 
@@ -1018,6 +1017,7 @@ static int bus_add_match_internal_kernel(
         m->size = sz;
         m->cookie = cookie;
         m->src_id = src_id;
+        m->id = id;
 
         item = m->items;
 
@@ -1084,25 +1084,25 @@ int bus_add_match_internal(
         assert(match);
 
         if (bus->is_kernel)
-                return bus_add_match_internal_kernel(bus, match, components, n_components, cookie);
+                return bus_add_match_internal_kernel(bus, 0, components, n_components, cookie);
         else
                 return bus_add_match_internal_dbus1(bus, match);
 }
 
-static int bus_remove_match_internal_kernel(
+int bus_remove_match_internal_kernel(
                 sd_bus *bus,
-                const char *match,
+                uint64_t id,
                 uint64_t cookie) {
 
         struct kdbus_cmd_match m;
         int r;
 
         assert(bus);
-        assert(match);
 
         zero(m);
         m.size = offsetof(struct kdbus_cmd_match, items);
         m.cookie = cookie;
+        m.id = id;
 
         r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_REMOVE, &m);
         if (r < 0)
@@ -1139,7 +1139,7 @@ int bus_remove_match_internal(
         assert(match);
 
         if (bus->is_kernel)
-                return bus_remove_match_internal_kernel(bus, match, cookie);
+                return bus_remove_match_internal_kernel(bus, 0, cookie);
         else
                 return bus_remove_match_internal_dbus1(bus, match);
 }

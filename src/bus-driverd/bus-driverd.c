@@ -50,38 +50,318 @@
 #include "hashmap.h"
 #include "def.h"
 #include "unit-name.h"
+#include "bus-control.h"
 
-/*
- * TODO:
- *
- * AddMatch / RemoveMatch
- */
+#define CLIENTS_MAX 1024
+#define MATCHES_MAX 1024
 
-static int driver_add_match(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+typedef struct Match Match;
+typedef struct Client Client;
+typedef struct Context Context;
 
-        char *arg0;
-        int r;
+struct Match {
+        Client *client;
+        char *match;
+        uint64_t cookie;
+        LIST_FIELDS(Match, matches);
+};
 
-        r = sd_bus_message_read(m, "s", &arg0);
-        if (r < 0)
-                return r;
+struct Client {
+        Context *context;
+        uint64_t id;
+        uint64_t next_cookie;
+        Hashmap *matches;
+        unsigned n_matches;
+        char *watch;
+};
 
-        /* FIXME */
+struct Context {
+        sd_bus *bus;
+        sd_event *event;
+        Hashmap *clients;
+};
 
-        return sd_bus_reply_method_return(m, NULL);
+static void match_free(Match *m) {
+
+        if (!m)
+                return;
+
+        if (m->client) {
+                Match *first;
+
+                first = hashmap_get(m->client->matches, m->match);
+                LIST_REMOVE(matches, first, m);
+                if (first)
+                        assert_se(hashmap_replace(m->client->matches, m->match, first) >= 0);
+                else
+                        hashmap_remove(m->client->matches, m->match);
+
+                m->client->n_matches--;
+        }
+
+        free(m->match);
+        free(m);
 }
 
-static int driver_remove_match(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        char *arg0;
+static int match_new(Client *c, struct bus_match_component *components, unsigned n_components, Match **_m) {
+        Match *m, *first;
         int r;
 
-        r = sd_bus_message_read(m, "s", &arg0);
+        assert(c);
+        assert(_m);
+
+        r = hashmap_ensure_allocated(&c->matches, string_hash_func, string_compare_func);
         if (r < 0)
                 return r;
 
-        /* FIXME */
+        m = new0(Match, 1);
+        if (!m)
+                return -ENOMEM;
 
-        return sd_bus_reply_method_return(m, NULL);
+        m->match = bus_match_to_string(components, n_components);
+        if (!m->match) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        m->cookie = ++c->next_cookie;
+
+        first = hashmap_get(c->matches, m->match);
+        LIST_PREPEND(matches, first, m);
+        r = hashmap_replace(c->matches, m->match, first);
+        if (r < 0) {
+                LIST_REMOVE(matches, first, m);
+                goto fail;
+        }
+
+        m->client = c;
+        c->n_matches++;
+
+        *_m = m;
+        m = NULL;
+
+        return 0;
+
+fail:
+        match_free(m);
+        return r;
+}
+
+static int on_name_owner_changed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error);
+
+static void client_free(Client *c) {
+        Match *m;
+
+        if (!c)
+                return;
+
+        if (c->context) {
+                if (c->watch)
+                        sd_bus_remove_match(c->context->bus, c->watch, on_name_owner_changed, c);
+
+                assert_se(hashmap_remove(c->context->clients, &c->id) == c);
+        }
+
+        while ((m = hashmap_first(c->matches)))
+                match_free(m);
+
+        hashmap_free(c->matches);
+        free(c->watch);
+
+        free(c);
+}
+
+static int on_name_owner_changed(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Client *c = userdata;
+
+        assert(bus);
+        assert(m);
+
+        client_free(c);
+        return 0;
+}
+
+static int client_acquire(Context *context, uint64_t id, Client **_c) {
+        char *watch = NULL;
+        Client *c;
+        int r;
+
+        assert(context);
+        assert(_c);
+
+        c = hashmap_get(context->clients, &id);
+        if (c) {
+                *_c = c;
+                return 0;
+        }
+
+        if (hashmap_size(context->clients) >= CLIENTS_MAX)
+                return -ENOBUFS;
+
+        r = hashmap_ensure_allocated(&context->clients, uint64_hash_func, uint64_compare_func);
+        if (r < 0)
+                return r;
+
+        c = new0(Client, 1);
+        if (!c)
+                return -ENOMEM;
+
+        c->id = id;
+
+        r = hashmap_put(context->clients, &c->id, c);
+        if (r < 0)
+                goto fail;
+
+        c->context = context;
+
+        if (asprintf(&watch,
+                     "type='signal',"
+                     "sender='org.freedesktop.DBus',"
+                     "path='/org/freedesktop/DBus',"
+                     "interface='org.freedesktop.DBus',"
+                     "member='NameOwnerChanged',"
+                     "arg0=':1.%llu'", (unsigned long long) id) < 0) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        r = sd_bus_add_match(context->bus, watch, on_name_owner_changed, c);
+        if (r < 0) {
+                free(watch);
+                goto fail;
+        }
+
+        c->watch = watch;
+
+        *_c = c;
+        return 0;
+
+fail:
+        client_free(c);
+        return r;
+}
+
+static int driver_add_match(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+
+        struct bus_match_component *components = NULL;
+        Context *context = userdata;
+        unsigned n_components = 0;
+        Match *m = NULL;
+        Client *c = NULL;
+        char *arg0;
+        uint64_t id;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(context);
+
+        r = sd_bus_message_read(message, "s", &arg0);
+        if (r < 0)
+                return r;
+
+        r = bus_kernel_parse_unique_name(message->sender, &id);
+        if (r < 0)
+                return r;
+
+        r = client_acquire(context, id, &c);
+        if (r == -ENOBUFS)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Reached limit of %u clients", CLIENTS_MAX);
+        if (r < 0)
+                return r;
+
+        if (c->n_matches >= MATCHES_MAX) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Reached limit of %u matches per client", MATCHES_MAX);
+                goto fail;
+        }
+
+        r = bus_match_parse(arg0, &components, &n_components);
+        if (r < 0) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_MATCH_RULE_INVALID, "Match rule \"%s\" is not valid", arg0);
+                goto fail;
+        }
+
+        r = match_new(c, components, n_components, &m);
+        if (r < 0)
+                goto fail;
+
+        r = bus_add_match_internal_kernel(bus, id, components, n_components, m->cookie);
+        if (r < 0)
+                goto fail;
+
+        bus_match_parse_free(components, n_components);
+
+        return sd_bus_reply_method_return(message, NULL);
+
+fail:
+        bus_match_parse_free(components, n_components);
+
+        match_free(m);
+
+        if (c->n_matches <= 0)
+                client_free(c);
+
+        return r;
+}
+
+static int driver_remove_match(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+
+        struct bus_match_component *components = NULL;
+        _cleanup_free_ char *normalized = NULL;
+        Context *context = userdata;
+        unsigned n_components = 0;
+        Client *c = NULL;
+        Match *m = NULL;
+        char *arg0;
+        uint64_t id;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(context);
+
+        r = sd_bus_message_read(message, "s", &arg0);
+        if (r < 0)
+                return r;
+
+        r = bus_kernel_parse_unique_name(message->sender, &id);
+        if (r < 0)
+                return r;
+
+        c = hashmap_get(context->clients, &id);
+        if (!c)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_MATCH_RULE_NOT_FOUND, "You have not registered any matches.");
+
+        r = bus_match_parse(arg0, &components, &n_components);
+        if (r < 0) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_MATCH_RULE_INVALID, "Match rule \"%s\" is not valid", arg0);
+                goto finish;
+        }
+
+        normalized = bus_match_to_string(components, n_components);
+        if (!normalized) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        m = hashmap_get(c->matches, normalized);
+        if (!m) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_MATCH_RULE_NOT_FOUND, "Match rule \"%s\" not found.");
+                goto finish;
+        }
+
+        bus_remove_match_internal_kernel(bus, id, m->cookie);
+        match_free(m);
+
+        r = sd_bus_reply_method_return(message, NULL);
+
+finish:
+        bus_match_parse_free(components, n_components);
+
+        if (c->n_matches <= 0)
+                client_free(c);
+
+        return r;
 }
 
 static int driver_get_security_ctx(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -455,51 +735,46 @@ static const sd_bus_vtable driver_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static int connect_bus(sd_event *event, sd_bus **_bus) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+static int connect_bus(Context *c) {
         int r;
 
-        assert(event);
-        assert(_bus);
+        assert(c);
 
-        r = sd_bus_default_system(&bus);
+        r = sd_bus_default_system(&c->bus);
         if (r < 0) {
                 log_error("Failed to create bus: %s", strerror(-r));
                 return r;
         }
 
-        if (!bus->is_kernel) {
+        if (!c->bus->is_kernel) {
                 log_error("Not running on kdbus");
                 return -EPERM;
         }
 
-        r = sd_bus_add_object_vtable(bus, "/org/freedesktop/DBus", "org.freedesktop.DBus", driver_vtable, NULL);
+        r = sd_bus_add_object_vtable(c->bus, "/org/freedesktop/DBus", "org.freedesktop.DBus", driver_vtable, c);
         if (r < 0) {
                 log_error("Failed to add manager object vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_request_name(bus, "org.freedesktop.DBus", 0);
+        r = sd_bus_request_name(c->bus, "org.freedesktop.DBus", 0);
         if (r < 0) {
                 log_error("Unable to request name: %s\n", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_attach_event(bus, event, 0);
+        r = sd_bus_attach_event(c->bus, c->event, 0);
         if (r < 0) {
-                log_error("Error %d while adding bus to even: %s", r, strerror(-r));
+                log_error("Error while adding bus to event loop: %s", strerror(-r));
                 return r;
         }
-
-        *_bus = bus;
-        bus = NULL;
 
         return 0;
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        Context context = {};
+        Client *c;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -512,25 +787,31 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_event_default(&event);
+        r = sd_event_default(&context.event);
         if (r < 0) {
                 log_error("Failed to allocate event loop: %s", strerror(-r));
                 goto finish;
         }
 
-        sd_event_set_watchdog(event, true);
+        sd_event_set_watchdog(context.event, true);
 
-        r = connect_bus(event, &bus);
+        r = connect_bus(&context);
         if (r < 0)
                 goto finish;
 
-        r = bus_event_loop_with_idle(event, bus, "org.freedesktop.DBus", DEFAULT_EXIT_USEC);
+        r = bus_event_loop_with_idle(context.event, context.bus, "org.freedesktop.DBus", DEFAULT_EXIT_USEC);
         if (r < 0) {
                 log_error("Failed to run event loop: %s", strerror(-r));
                 goto finish;
         }
 
 finish:
+        while ((c = hashmap_first(context.clients)))
+                client_free(c);
+
+        sd_bus_unref(context.bus);
+        sd_event_unref(context.event);
+
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
 }
