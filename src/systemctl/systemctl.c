@@ -3746,6 +3746,7 @@ static int cat(sd_bus *bus, char **args) {
         _cleanup_free_ char *unit = NULL, *n = NULL;
         int r = 0;
         char **name;
+        bool first = true;
 
         assert(bus);
         assert(args);
@@ -3796,11 +3797,16 @@ static int cat(sd_bus *bus, char **args) {
                         continue;
                 }
 
+                if (first)
+                        first = false;
+                else
+                        puts("");
+
                 if (!isempty(fragment_path)) {
-                        fprintf(stdout, "%s# %s%s\n",
-                                ansi_highlight_blue(),
-                                fragment_path,
-                                ansi_highlight_off());
+                        printf("%s# %s%s\n",
+                               ansi_highlight_blue(),
+                               fragment_path,
+                               ansi_highlight_off());
                         fflush(stdout);
 
                         r = sendfile_full(STDOUT_FILENO, fragment_path);
@@ -3811,9 +3817,9 @@ static int cat(sd_bus *bus, char **args) {
                 }
 
                 STRV_FOREACH(path, dropin_paths) {
-                        fprintf(stdout,   "%s# %s\n",
-                                isempty(fragment_path) && path == dropin_paths ? "" : "\n",
-                                *path);
+                        printf("%s# %s\n",
+                               isempty(fragment_path) && path == dropin_paths ? "" : "\n",
+                               *path);
                         fflush(stdout);
 
                         r = sendfile_full(STDOUT_FILENO, *path);
