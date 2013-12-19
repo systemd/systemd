@@ -1442,10 +1442,16 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
 
-                r = readdir_r(d, &buf.de, &de);
-                if (r != 0 || !de)
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
+                        r = -errno;
+                        log_debug("Failed to read directory %s: %s",
+                                  m->path, strerror(errno));
+                        return r;
+                }
+                if (!de)
                         break;
 
                 if (dirent_is_file_with_suffix(de, ".journal") ||
@@ -1526,11 +1532,17 @@ static int add_root_directory(sd_journal *j, const char *p) {
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 sd_id128_t id;
 
-                r = readdir_r(d, &buf.de, &de);
-                if (r != 0 || !de)
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
+                        r = -errno;
+                        log_debug("Failed to read directory %s: %s",
+                                  m->path, strerror(errno));
+                        return r;
+                }
+                if (!de)
                         break;
 
                 if (dirent_is_file_with_suffix(de, ".journal") ||
