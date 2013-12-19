@@ -775,12 +775,12 @@ static int add_name_change_match(sd_bus *bus,
                  * name, then add KDBUS_MATCH_NAME_{ADD,REMOVE,CHANGE}
                  * matches for it */
 
-                l = name ? strlen(name) : 0;
+                l = name ? strlen(name) + 1 : 0;
 
                 sz = ALIGN8(offsetof(struct kdbus_cmd_match, items) +
                             offsetof(struct kdbus_item, name_change) +
                             offsetof(struct kdbus_notify_name_change, name) +
-                            l+1);
+                            l);
 
                 m = alloca0(sz);
                 m->size = sz;
@@ -791,7 +791,7 @@ static int add_name_change_match(sd_bus *bus,
                 item->size =
                         offsetof(struct kdbus_item, name_change) +
                         offsetof(struct kdbus_notify_name_change, name) +
-                        l+1;
+                        l;
 
                 item->name_change.old.id = old_owner_id;
                 item->name_change.new.id = new_owner_id;
