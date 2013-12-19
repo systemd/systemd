@@ -543,15 +543,15 @@ static int recursive_relabel_children(Item *i, const char *path) {
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 bool is_dir;
                 int r;
                 _cleanup_free_ char *entry_path = NULL;
 
-                r = readdir_r(d, &buf.de, &de);
-                if (r != 0) {
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
                         if (ret == 0)
-                                ret = -r;
+                                ret = -errno;
                         break;
                 }
 
