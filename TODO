@@ -48,7 +48,6 @@ Features:
   - ensure scope units may be started only a single time
 
 * code cleanup
-  - get rid of readdir_r/dirent_storage stuff, it's unnecessary on Linux
   - we probably should replace the left-over uses of strv_append() and replace them by strv_push() or strv_extend()
 
 * switch to SipHash for hashmaps/sets?

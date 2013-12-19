@@ -44,12 +44,6 @@
 #include "macro.h"
 #include "time-util.h"
 
-union dirent_storage {
-        struct dirent de;
-        uint8_t storage[offsetof(struct dirent, d_name) +
-                        ((NAME_MAX + 1 + sizeof(long)) & ~(sizeof(long) - 1))];
-};
-
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
 #define NEWLINE "\n\r"
