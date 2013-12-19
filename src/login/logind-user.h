@@ -61,7 +61,6 @@ struct User {
 
         bool in_gc_queue:1;
         bool started:1;
-        bool closing:1;
 
         LIST_HEAD(Session, sessions);
         LIST_FIELDS(User, gc_queue);

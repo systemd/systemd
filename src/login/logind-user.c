@@ -637,9 +637,6 @@ UserState user_get_state(User *u) {
 
         assert(u);
 
-        if (u->closing)
-                return USER_CLOSING;
-
         if (u->slice_job || u->service_job)
                 return USER_OPENING;
 
