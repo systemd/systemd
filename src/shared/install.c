@@ -212,11 +212,10 @@ static int remove_marked_symlinks_fd(
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
-                int k;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0) {
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
                         r = -errno;
                         break;
                 }
@@ -373,12 +372,11 @@ static int find_symlinks_fd(
         }
 
         for (;;) {
-                int k;
                 struct dirent *de;
-                union dirent_storage buf;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0)
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0)
                         return -errno;
 
                 if (!de)
@@ -1938,12 +1936,12 @@ int unit_file_get_list(
 
                 for (;;) {
                         struct dirent *de;
-                        union dirent_storage buffer;
                         _cleanup_unitfilelist_free_ UnitFileList *f = NULL;
 
-                        r = readdir_r(d, &buffer.de, &de);
-                        if (r != 0)
-                                return -r;
+                        errno = 0;
+                        de = readdir(d);
+                        if (!de && errno != 0)
+                                return -errno;
 
                         if (!de)
                                 break;
