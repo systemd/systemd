@@ -116,11 +116,13 @@ static int write_rules(const char* dstpath, const char* srcdir) {
 
 #endif
 
-int smack_setup(void) {
+int smack_setup(bool *loaded_policy) {
 
 #ifdef HAVE_SMACK
 
         int r;
+
+        assert(loaded_policy);
 
         r = write_rules("/sys/fs/smackfs/load2", SMACK_CONFIG);
         switch(r) {
@@ -162,6 +164,8 @@ int smack_setup(void) {
                             strerror(abs(r)));
                 return 0;
         }
+
+        *loaded_policy = true;
 
 #endif
 

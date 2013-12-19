@@ -1310,7 +1310,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         if (ima_setup() < 0)
                                 goto finish;
-                        if (smack_setup() < 0)
+                        if (smack_setup(&loaded_policy) < 0)
                                 goto finish;
                         dual_timestamp_get(&security_finish_timestamp);
                 }

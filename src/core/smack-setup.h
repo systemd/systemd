@@ -23,4 +23,4 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int smack_setup(void);
+int smack_setup(bool *loaded_policy);
