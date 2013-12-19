@@ -63,12 +63,13 @@ static int iterate_dir(
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 _cleanup_free_ char *f = NULL;
                 int k;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0) {
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
+                        k = errno;
                         log_error("Failed to read directory %s: %s", path, strerror(k));
                         return -k;
                 }
